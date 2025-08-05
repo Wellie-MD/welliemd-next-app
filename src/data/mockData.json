@@ -1,0 +1,161 @@
+{
+  "dashboard": {
+    "kpis": [
+      { "title": "Total Patients", "value": "3,781", "change": "+11.01%", "trend": "up" },
+      { "title": "Total Growth", "value": "30.1%", "change": "+6.08%", "trend": "up" },
+      { "title": "Total Revenue", "value": "$695", "change": "+15.03%", "trend": "up" },
+      { "title": "Total Profit", "value": "$69", "change": "+4.03%", "trend": "up" },
+      { "title": "Total Expense", "value": "$497", "change": "+8.03%", "trend": "up" },
+      { "title": "Total Sales", "value": "899$", "change": "-", "trend": "neutral" },
+      { "title": "Total Orders", "value": "1,245", "change": "+7.2%", "trend": "up" },
+      { "title": "Total Online Sessions", "value": "8,947", "change": "+12.5%", "trend": "up" },
+      { "title": "Conversion Rate", "value": "4.2%", "change": "+2.1%", "trend": "up" },
+      { "title": "Full Refunds", "value": "23", "change": "-15.3%", "trend": "down" },
+      { "title": "Partial Refunds", "value": "8", "change": "-8.7%", "trend": "down" }
+    ],
+    "messages": [
+      { "id": 1, "name": "Kashan Ahmed Khan", "time": "Today 10:08am", "avatar": "/avatars/kashan.jpg" },
+      { "id": 2, "name": "Fatima Zahidi", "time": "Today 7:08am", "avatar": "/avatars/fatima.jpg" },
+      { "id": 3, "name": "Javeria Khan", "time": "Yesterday 4:18pm", "avatar": "/avatars/javeria.jpg" }
+    ],
+    "liveSummary": {
+      "activeCarts": 24,
+      "checkingOut": 7,
+      "purchased": 156
+    },
+    "salesChartData": [
+      { "month": "Jan", "2025": 60, "2024": 120, "2022": 200 },
+      { "month": "Feb", "2025": 80, "2024": 130, "2022": 160 },
+      { "month": "Mar", "2025": 60, "2024": 140, "2022": 190 },
+      { "month": "Apr", "2025": 70, "2024": 150, "2022": 210 },
+      { "month": "May", "2025": 80, "2024": 140, "2022": 230 },
+      { "month": "Jun", "2025": 30, "2024": 45, "2022": 100 },
+      { "month": "Jul", "2025": 20, "2024": 35, "2022": 90 },
+      { "month": "Aug", "2025": 30, "2024": 80, "2022": 100 },
+      { "month": "Sep", "2025": 60, "2024": 170, "2022": 210 },
+      { "month": "Oct", "2025": 70, "2024": 185, "2022": 230 },
+      { "month": "Nov", "2025": 40, "2024": 100, "2022": 200 },
+      { "month": "Dec", "2025": 30, "2024": 110, "2022": 190 }
+    ],
+    "revenueChartData": [
+      { "month": "Jan", "2022": 90, "2021": 80, "2020": 30 },
+      { "month": "Feb", "2022": 25, "2021": 75, "2020": 95 },
+      { "month": "Mar", "2022": 90, "2021": 85, "2020": 80 },
+      { "month": "Apr", "2022": 95, "2021": 40, "2020": 65 },
+      { "month": "May", "2022": 45, "2021": 20, "2020": 50 },
+      { "month": "Jun", "2022": 50, "2021": 50, "2020": 20 },
+      { "month": "Jul", "2022": 85, "2021": 80, "2020": 40 },
+      { "month": "Aug", "2022": 60, "2021": 30, "2020": 30 },
+      { "month": "Sep", "2022": 85, "2021": 40, "2020": 25 },
+      { "month": "Oct", "2022": 85, "2021": 85, "2020": 85 },
+      { "month": "Nov", "2022": 90, "2021": 90, "2020": 75 },
+      { "month": "Dec", "2022": 20, "2021": 50, "2020": 95 }
+    ],
+    "newPatientChartData": [
+      { "day": "Sun", "lastWeek": 45, "currentWeek": 85 },
+      { "day": "Mon", "lastWeek": 10, "currentWeek": 25 },
+      { "day": "Tue", "lastWeek": 55, "currentWeek": 85 },
+      { "day": "Wed", "lastWeek": 25, "currentWeek": 15 },
+      { "day": "Thu", "lastWeek": 50, "currentWeek": 20 },
+      { "day": "Fri", "lastWeek": 85, "currentWeek": 95 },
+      { "day": "Sat", "lastWeek": 25, "currentWeek": 95 }
+    ],
+    "orderHistory": [
+      { "date": "18/7/2025", "deliveryDate": "18/7/2025", "orderNumber": "HYLTHY-79", "name": "Rizwan Khan", "product": "Tirzepatide - TIRZEPATIDE", "pharmacy": "RX Compound Store", "amount": "$238" },
+      { "date": "18/7/2025", "deliveryDate": "18/7/2025", "orderNumber": "HYLTHY-79", "name": "Ramsha Aejaz", "product": "Tirzepatide - TIRZEPATIDE", "pharmacy": "RX Compound Store", "amount": "$238" },
+      { "date": "18/7/2025", "deliveryDate": "18/7/2025", "orderNumber": "HYLTHY-79", "name": "Hira Javed", "product": "Tirzepatide - TIRZEPATIDE", "pharmacy": "RX Compound Store", "amount": "$238" },
+      { "date": "18/7/2025", "deliveryDate": "18/7/2025", "orderNumber": "HYLTHY-79", "name": "Shahid Aslam", "product": "Tirzepatide - TIRZEPATIDE", "pharmacy": "RX Compound Store", "amount": "$238" },
+      { "date": "18/7/2025", "deliveryDate": "18/7/2025", "orderNumber": "HYLTHY-79", "name": "Safwan Ahmed", "product": "Tirzepatide - TIRZEPATIDE", "pharmacy": "RX Compound Store", "amount": "$238" },
+      { "date": "18/7/2025", "deliveryDate": "18/7/2025", "orderNumber": "HYLTHY-79", "name": "Tariq Aziz", "product": "Tirzepatide - TIRZEPATIDE", "pharmacy": "RX Compound Store", "amount": "$238" },
+      { "date": "18/7/2025", "deliveryDate": "18/7/2025", "orderNumber": "HYLTHY-79", "name": "Sufiyan Ahmed", "product": "Tirzepatide - TIRZEPATIDE", "pharmacy": "RX Compound Store", "amount": "$238" },
+      { "date": "18/7/2025", "deliveryDate": "18/7/2025", "orderNumber": "HYLTHY-79", "name": "Danish Taimoor", "product": "Tirzepatide - TIRZEPATIDE", "pharmacy": "RX Compound Store", "amount": "$238" }
+    ],
+    "payments": [
+      { "date": "18/7/2025", "patientId": "KINMEDS-1344", "patientName": "Rizwan Khan", "orderNumber": "HYLTHY-79", "totalAmount": "$238", "discount": "$8", "amountPaid": "$200" },
+      { "date": "18/7/2025", "patientId": "KINMEDS-1344", "patientName": "Ramsha Aejaz", "orderNumber": "HYLTHY-79", "totalAmount": "$238", "discount": "$8", "amountPaid": "$200" },
+      { "date": "18/7/2025", "patientId": "KINMEDS-1344", "patientName": "Hira Javed", "orderNumber": "HYLTHY-79", "totalAmount": "$238", "discount": "$8", "amountPaid": "$200" },
+      { "date": "18/7/2025", "patientId": "KINMEDS-1344", "patientName": "Shahid Aslam", "orderNumber": "HYLTHY-79", "totalAmount": "$238", "discount": "$8", "amountPaid": "$200" },
+      { "date": "18/7/2025", "patientId": "KINMEDS-1344", "patientName": "Safwan Ahmed", "orderNumber": "HYLTHY-79", "totalAmount": "$238", "discount": "$8", "amountPaid": "$200" },
+      { "date": "18/7/2025", "patientId": "KINMEDS-1344", "patientName": "Tariq Aziz", "orderNumber": "HYLTHY-79", "totalAmount": "$238", "discount": "$8", "amountPaid": "$200" },
+      { "date": "18/7/2025", "patientId": "KINMEDS-1344", "patientName": "Sufiyan Ahmed", "orderNumber": "HYLTHY-79", "totalAmount": "$238", "discount": "$8", "amountPaid": "$200" },
+      { "date": "18/7/2025", "patientId": "KINMEDS-1344", "patientName": "Danish Taimoor", "orderNumber": "HYLTHY-79", "totalAmount": "$238", "discount": "$8", "amountPaid": "$200" }
+    ]
+  },
+  "patients": [
+    {
+      "id": 1,
+      "name": "Rizwan Khan",
+      "startDate": "18/7/2025",
+      "mrn": "KINMEDS-1344",
+      "subscription": "Test",
+      "productName": "Tirzepatide - TIRZEPATIDE",
+      "email": "test@gmail.com",
+      "phone": "+123456789",
+      "orders": 1,
+      "location": "Test",
+      "patientStatus": "Test",
+      "visitStatus": "Test",
+      "lastOrder": "Test"
+    },
+    {
+      "id": 2,
+      "name": "Ramsha Aejaz",
+      "startDate": "18/7/2025",
+      "mrn": "KINMEDS-1344",
+      "subscription": "Test",
+      "productName": "Tirzepatide - TIRZEPATIDE",
+      "email": "test@gmail.com",
+      "phone": "+123456789",
+      "orders": 2,
+      "location": "Test",
+      "patientStatus": "test",
+      "visitStatus": "Test",
+      "lastOrder": "Test"
+    }
+  ],
+  "treatments": {
+    "goals": [
+      { "id": 1, "title": "Rizwan Khan", "duration": "Test", "createdAt": "18/7/2025", "totalWeightLoss": "Test" },
+      { "id": 2, "title": "Ramsha Aejaz", "duration": "Test", "createdAt": "18/7/2025", "totalWeightLoss": "test" },
+      { "id": 3, "title": "Hira Javed", "duration": "Test", "createdAt": "18/7/2025", "totalWeightLoss": "Test" }
+    ]
+  },
+  "products": {
+    "summary": {
+      "activeProducts": 75,
+      "activeProductBundles": 0,
+      "totalOrders": 6
+    },
+    "items": [
+      { "id": 9952, "name": "Test", "genericName": "Test", "pharmacy": "Test", "type": "Test", "productType": "Test", "status": "test", "createdAt": "28-5-2025" },
+      { "id": 9953, "name": "Test", "genericName": "Test", "pharmacy": "test", "type": "Test", "productType": "Test", "status": "test", "createdAt": "28-5-2025" }
+    ]
+  },
+  "affiliates": [
+    { "id": 1391, "name": "Test", "createdAt": "28-5-2025", "users": 0, "conversions": 0, "value": "50%", "commission": "-", "commissionPercent": "-", "status": "Active" }
+  ],
+  "questionnaires": [
+    {
+      "id": 1391,
+      "name": "Test",
+      "createdDate": "28-5-2025",
+      "questions": 0,
+      "products": 0,
+      "checkoutPages": "50%",
+      "domain": "https://www.test.org",
+      "slug": "test",
+      "review": "Unpublished",
+      "status": "Approved"
+    }
+  ],
+  "analytics": {
+    "visitors": {
+      "total": 0,
+      "unique": 0,
+      "totalPageviews": 0,
+      "viewsPerVisit": 0,
+      "bounceRate": 0,
+      "visitDuration": 0
+    }
+  }
+}
