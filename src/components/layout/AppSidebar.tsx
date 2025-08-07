@@ -49,10 +49,13 @@ const menuItems = [
     title: "Orders",
     icon: ShoppingBag,
     children: [
-      { title: "Orders", url: "/orders" }
+      { title: "Orders", url: "/orders" },
+      { title: "Payments", url: "/orders/payments" },
+      { title: "Disputes", url: "/orders/disputes" },
+      { title: "Resolution Queue", url: "/orders/resolution-queue" }
     ]
   },
-  { title: "Prescription", url: "/prescription", icon: ScrollText },
+  { title: "Prescription", url: "/prescriptions", icon: ScrollText },
   { title: "Messages", url: "/messages", icon: MessageSquare },
   {
     title: "Products",
@@ -111,7 +114,7 @@ export function AppSidebar() {
 
   const isActive = (path: string) => currentPath === path
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
-    isActive ? "bg-blue-100 text-blue-600 font-medium" : "hover:bg-gray-50 text-gray-600"
+    isActive ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted/50"
   
   const collapsed = state === "collapsed"
 
@@ -120,7 +123,7 @@ export function AppSidebar() {
       className={collapsed ? "w-14" : "w-60"}
       collapsible="icon"
     >
-      <SidebarContent className="bg-white border-r border-gray-200">
+      <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -132,7 +135,7 @@ export function AppSidebar() {
                       onOpenChange={() => toggleSection(item.title)}
                     >
                       <CollapsibleTrigger asChild>
-                        <SidebarMenuButton className="hover:bg-gray-50 text-gray-600">
+                        <SidebarMenuButton className="hover:bg-muted/50">
                           <item.icon className="mr-2 h-4 w-4" />
                           {!collapsed && (
                             <>

@@ -14,24 +14,24 @@ export function StatCard({ title, value, change, trend = "neutral", className }:
   const TrendIcon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus
   
   return (
-    <Card className={cn("", className)}>
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <p className="text-2xl font-bold">{value}</p>
+    <Card className={cn("border rounded-lg overflow-hidden", className)}>
+      <CardContent className="p-4">
+        <div className="space-y-1">
+          <p className="text-sm font-bolder text-gray-500">{title}</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xl font-semibold text-gray-900">{value}</p>
+            {change && (
+              <div className={cn(
+                "flex items-center gap-1 text-sm font-medium",
+                trend === "up" && "text-emerald-500",
+                trend === "down" && "text-red-500",
+                trend === "neutral" && "text-gray-500"
+              )}>
+                <TrendIcon className="h-4 w-4" />
+                {change}
+              </div>
+            )}
           </div>
-          {change && (
-            <div className={cn(
-              "flex items-center gap-1 text-sm font-medium",
-              trend === "up" && "text-success",
-              trend === "down" && "text-destructive",
-              trend === "neutral" && "text-muted-foreground"
-            )}>
-              <TrendIcon className="h-4 w-4" />
-              {change}
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>

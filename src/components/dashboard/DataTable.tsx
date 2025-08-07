@@ -30,12 +30,12 @@ export function DataTable({ title, data, columns }: DataTableProps) {
         <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">View All</Button>
       </CardHeader>
       <CardContent className="w-full">
-        <div className="overflow-x-auto w-full scrollbar-hide">
+        <div className="max-w-full overflow-x-visible w-full">
           <Table className="w-full">
             <TableHeader>
               <TableRow className="border-gray-200">
                 {columns.map((column) => (
-                  <TableHead key={column.key} className="font-medium text-sm text-gray-600 bg-gray-50 whitespace-nowrap">
+                  <TableHead key={column.key} className="font-medium text-xs text-gray-600 bg-gray-50 text-nowrap px-2">
                     {column.label}
                   </TableHead>
                 ))}
@@ -45,7 +45,7 @@ export function DataTable({ title, data, columns }: DataTableProps) {
               {data.map((row, index) => (
                 <TableRow key={index} className="border-gray-100">
                   {columns.map((column) => (
-                    <TableCell key={column.key} className="text-sm text-gray-800 whitespace-nowrap">
+                    <TableCell key={column.key} className="text-xs text-gray-800 text-nowrap px-2">
                       {column.key === "orderNumber" ? (
                         <span className="text-blue-600 underline cursor-pointer">{row[column.key]}</span>
                       ) : (

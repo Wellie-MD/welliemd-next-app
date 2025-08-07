@@ -22,15 +22,15 @@ export function RevenueChart({ data }: RevenueChartProps) {
             <AreaChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
               <defs>
                 <linearGradient id="color2020" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#8979FF" stopOpacity={0.8}/>
+                  <stop offset="5%" stopColor="#8979FF" stopOpacity={0.4}/>
                   <stop offset="95%" stopColor="#8979FF" stopOpacity={0.1}/>
                 </linearGradient>
                 <linearGradient id="color2021" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#FF928A" stopOpacity={0.8}/>
+                  <stop offset="5%" stopColor="#FF928A" stopOpacity={0.4}/>
                   <stop offset="95%" stopColor="#FF928A" stopOpacity={0.1}/>
                 </linearGradient>
                 <linearGradient id="color2022" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3CC3DF" stopOpacity={0.8}/>
+                  <stop offset="5%" stopColor="#3CC3DF" stopOpacity={0.4}/>
                   <stop offset="95%" stopColor="#3CC3DF" stopOpacity={0.1}/>
                 </linearGradient>
               </defs>
@@ -50,29 +50,29 @@ export function RevenueChart({ data }: RevenueChartProps) {
                 tickFormatter={(value) => `${value}M`}
               />
               <Legend />
-              <Area 
-                type="monotone" 
-                dataKey="2020" 
-                stackId="1"
-                stroke="#8979FF" 
+              <Area
+                type="monotone"
+                dataKey="2020"
+                stroke="#8979FF"
+                strokeWidth={2}
                 fill="url(#color2020)"
-                strokeWidth={1}
+                fillOpacity={1}
               />
-              <Area 
-                type="monotone" 
-                dataKey="2021" 
-                stackId="1"
-                stroke="#FF928A" 
+              <Area
+                type="monotone"
+                dataKey="2021"
+                stroke="#FF928A"
+                strokeWidth={2}
                 fill="url(#color2021)"
-                strokeWidth={1}
+                fillOpacity={1}
               />
-              <Area 
-                type="monotone" 
-                dataKey="2022" 
-                stackId="1"
-                stroke="#3CC3DF" 
+              <Area
+                type="monotone"
+                dataKey="2022"
+                stroke="#3CC3DF"
+                strokeWidth={2}
                 fill="url(#color2022)"
-                strokeWidth={1}
+                fillOpacity={1}
               />
             </AreaChart>
           </ResponsiveContainer>

@@ -16,6 +16,26 @@ import { DashboardData } from "@/types/dashboard"
 export default function Dashboard() {
   const { dashboard } = mockData as { dashboard: DashboardData }
 
+  const handleViewMore = (section: string) => {
+    console.log(`View more clicked for ${section}`)
+    // Here you would typically navigate to the detailed view
+  }
+
+  const handleKPIClick = (metric: string) => {
+    console.log(`KPI clicked: ${metric}`)
+    // Here you would typically show a detailed modal or navigate to details
+  }
+
+  const handleMessageClick = (messageId: string) => {
+    console.log(`Message clicked: ${messageId}`)
+    // Here you would typically open the message in a modal or navigate to message details
+  }
+
+  const handleOrderClick = (orderId: string) => {
+    console.log(`Order clicked: ${orderId}`)
+    // Here you would typically navigate to order details
+  }
+
   const orderHistoryColumns = [
     { key: "date", label: "Date" },
     { key: "deliveryDate", label: "Delivery Date" },
@@ -37,34 +57,43 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="p-6 space-y-6 w-full overflow-hidden">
-      <div className="flex items-center justify-between">
+    <div className="p-4 space-y-4 w-full min-w-0 overflow-x-hidden">
+      <div className="flex items-center justify-between min-w-0">
         <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
       </div>
 
       {/* KPI Cards - Horizontally Scrollable */}
-      <div className="overflow-x-auto scrollbar-hide">
-        <div className="flex gap-4 pb-4 min-w-max">
+      <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide">
+        <div className="flex gap-4 min-w-max">
           {dashboard.kpis.map((kpi, index) => (
-            <MetricCard key={index} metric={kpi} />
+            <div key={index} onClick={() => handleKPIClick(kpi.label)} className="cursor-pointer">
+              <MetricCard metric={kpi} />
+            </div>
           ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 w-full">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 w-full min-w-0">
         {/* Total Sales Chart */}
-        <div className="w-full">
+        <div className="w-full min-w-0">
           <SalesChart data={dashboard.salesChartData} />
         </div>
 
         {/* Live Summary */}
-        <div className="w-full">
+        <div className="w-full min-w-0">
           <Card className="rounded-2xl shadow-md bg-white">
-            <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl">
+            <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl p-4">
               <CardTitle className="text-gray-800">Live Summary</CardTitle>
-              <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">View More</Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-blue-600 hover:text-blue-700"
+                onClick={() => handleViewMore('liveSummary')}
+              >
+                View More
+              </Button>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4">
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center space-y-2">
                   <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
@@ -93,31 +122,35 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 w-full">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 w-full min-w-0">
         {/* Net Revenue Chart */}
-        <div className="w-full">
+        <div className="w-full min-w-0">
           <RevenueChart data={dashboard.revenueChartData} />
         </div>
 
         {/* Messages and New Patient */}
-        <div className="space-y-4 w-full">
+        <div className="space-y-4 w-full min-w-0">
           {/* Messages */}
           <Card className="rounded-2xl shadow-md bg-white">
-            <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl">
+            <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl p-4">
               <CardTitle className="text-gray-800">Messages</CardTitle>
               <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">View All</Button>
             </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="all">
-                <TabsList className="grid w-full grid-cols-4 bg-gray-100">
+            <CardContent className="p-4">
+              <Tabs defaultValue="all" className="w-full">
+                <TabsList className="grid w-full grid-cols-4 bg-gray-100 mb-4">
                   <TabsTrigger value="all" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">All</TabsTrigger>
                   <TabsTrigger value="patients" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">Patients</TabsTrigger>
                   <TabsTrigger value="doctors" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">Doctors</TabsTrigger>
                   <TabsTrigger value="support" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">Support</TabsTrigger>
                 </TabsList>
-                <TabsContent value="all" className="space-y-4 mt-4">
+                <TabsContent value="all" className="space-y-3">
                   {dashboard.messages.map((message) => (
-                    <div key={message.id} className="flex items-center justify-between">
+                    <div 
+                      key={message.id} 
+                      className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded-lg"
+                      onClick={() => handleMessageClick(message.id)}
+                    >
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
                           <AvatarImage src={message.avatar} />
@@ -146,17 +179,21 @@ export default function Dashboard() {
       </div>
 
       {/* Bottom Tables */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 w-full">
-        <DataTable 
-          title="Order History" 
-          data={dashboard.orderHistory} 
-          columns={orderHistoryColumns} 
-        />
-        <DataTable 
-          title="Payment" 
-          data={dashboard.payments} 
-          columns={paymentColumns} 
-        />
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 w-full min-w-0">
+        <div className="w-full min-w-0">
+          <DataTable 
+            title="Order History" 
+            data={dashboard.orderHistory} 
+            columns={orderHistoryColumns} 
+          />
+        </div>
+        <div className="w-full min-w-0">
+          <DataTable 
+            title="Payment" 
+            data={dashboard.payments} 
+            columns={paymentColumns} 
+          />
+        </div>
       </div>
     </div>
   )
