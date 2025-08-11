@@ -23,6 +23,10 @@ import Orders from "./pages/Orders";
 import Prescriptions from "./pages/Prescriptions";
 import NotFound from "./pages/NotFound";
 import Payments from "./pages/Payments";
+import SignIn from "./pages/auth/SignIn";
+import SignUp from "./pages/auth/SignUp";
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -32,38 +36,49 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <SidebarProvider>
-          <div className="min-h-screen flex w-full min-w-0 overflow-x-hidden">
-            <AppSidebar />
-            <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
-              <Header />
-              <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
-                <Routes>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/patients" element={<Patients />} />
-                  <Route path="/treatments" element={<Treatments />} />
-                  <Route path="/treatments/configurations" element={<TreatmentConfigurations />} />
-                  <Route path="/orders" element={<Orders />} />
-                  <Route path="/orders/payments" element={<Payments />} />
-                  <Route path="/orders/disputes" element={<Disputes />} />
-                  <Route path="/orders/resolution-queue" element={<ResolutionQueue />} />
-                  <Route path="/prescriptions" element={<Prescriptions />} />
-                  <Route path="/products" element={<Products />} />
-                  <Route path="/products/billing-plans" element={<BillingPlans />} />
-                  <Route path="/products/routing" element={<ProductsRouting />} />
-                  <Route path="/messages" element={<Messages />} />
-                  <Route path="/analytics/live" element={<Analytics />} />
-                  <Route path="/affiliates" element={<Affiliates />} />
-                  <Route path="/questionnaires" element={<Questionnaires />} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </main>
-            </div>
-          </div>
-        </SidebarProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+        <Routes>
+          {/* Auth routes - without sidebar */}
+          <Route path="/" element={<SignIn />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          
+          {/* Dashboard routes - with sidebar */}
+          <Route path="/dashboard/*" element={
+            <SidebarProvider>
+              <div className="min-h-screen flex w-full min-w-0 overflow-x-hidden">
+                <AppSidebar />
+                <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
+                  <Header />
+                  <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
+                    <Routes>
+                      <Route path="/" element={<Dashboard />} />
+                      <Route path="/patients" element={<Patients />} />
+                      <Route path="/treatments" element={<Treatments />} />
+                      <Route path="/treatments/configurations" element={<TreatmentConfigurations />} />
+                      <Route path="/orders" element={<Orders />} />
+                      <Route path="/orders/payments" element={<Payments />} />
+                      <Route path="/orders/disputes" element={<Disputes />} />
+                      <Route path="/orders/resolution-queue" element={<ResolutionQueue />} />
+                      <Route path="/prescriptions" element={<Prescriptions />} />
+                      <Route path="/products" element={<Products />} />
+                      <Route path="/products/billing-plans" element={<BillingPlans />} />
+                      <Route path="/products/routing" element={<ProductsRouting />} />
+                      <Route path="/messages" element={<Messages />} />
+                      <Route path="/analytics/live" element={<Analytics />} />
+                      <Route path="/affiliates" element={<Affiliates />} />
+                      <Route path="/questionnaires" element={<Questionnaires />} />
+                    </Routes>
+                  </main>
+                </div>
+              </div>
+            </SidebarProvider>
+          } />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
 
 export default App;

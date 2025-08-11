@@ -4,6 +4,24 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Plus } from "lucide-react"
 import mockData from "@/data/mockData.json"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { DateRange } from "react-day-picker"
+import { Calendar } from "@/components/ui/calendar"
+import { format } from "date-fns"
+import { CalendarIcon } from "lucide-react"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 
 const patientColumns = [
   { key: "name", label: "Name" },
@@ -31,6 +49,13 @@ const statusFilters = ["All", "Active", "Pending", "Abandon", "Canceled"]
 export default function Patients() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeFilter, setActiveFilter] = useState("All")
+  const [date, setDate] = useState<DateRange | undefined>()
+  const [isOpen, setIsOpen] = useState(false)
+  const [newPatient, setNewPatient] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+  })
 
   const filteredPatients = mockData.patients.filter(patient => 
     patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -41,10 +66,62 @@ export default function Patients() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Patients</h1>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add New
-        </Button>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add New
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Patient</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="firstName">First Name</Label>
+                <Input 
+                  id="firstName"
+                  value={newPatient.firstName}
+                  onChange={(e) => setNewPatient({...newPatient, firstName: e.target.value})}
+                />
+              </div>
+              <div>
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input 
+                  id="lastName"
+                  value={newPatient.lastName}
+                  onChange={(e) => setNewPatient({...newPatient, lastName: e.target.value})}
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input 
+                  id="email"
+                  type="email"
+                  value={newPatient.email}
+                  onChange={(e) => setNewPatient({...newPatient, email: e.target.value})}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => {
+                  setIsOpen(false)
+                  setNewPatient({ firstName: "", lastName: "", email: "" })
+                }}>
+                  Cancel
+                </Button>
+                <Button onClick={() => {
+                  // Here you would typically save the patient data
+                  console.log("Saving patient:", newPatient)
+                  setIsOpen(false)
+                  setNewPatient({ firstName: "", lastName: "", email: "" })
+                }}>
+                  Save
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Status Filter Pills */}
@@ -73,6 +150,37 @@ export default function Patients() {
         <Button variant="outline" size="sm">
           Patient Status
         </Button>
+      </div>
+
+      <div className="flex items-center gap-4 mb-4">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-[300px] justify-start text-left font-normal">
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {date?.from ? (
+                date.to ? (
+                  <>
+                    {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
+                  </>
+                ) : (
+                  format(date.from, "LLL dd, y")
+                )
+              ) : (
+                <span>Pick a date range</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              initialFocus
+              mode="range"
+              defaultMonth={date?.from}
+              selected={date}
+              onSelect={setDate}
+              numberOfMonths={2}
+            />
+          </PopoverContent>
+        </Popover>
       </div>
 
       <DataTable

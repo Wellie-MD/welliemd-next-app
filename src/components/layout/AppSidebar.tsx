@@ -35,66 +35,66 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 const menuItems = [
-  { title: "Dashboard", url: "/", icon: BarChart3 },
-  { title: "Patients", url: "/patients", icon: Users },
+  { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
+  { title: "Patients", url: "/dashboard/patients", icon: Users },
   {
     title: "Treatments",
     icon: Stethoscope,
     children: [
-      { title: "Treatments", url: "/treatments" },
-      { title: "Configurations", url: "/treatments/configurations" }
+      { title: "Treatments", url: "/dashboard/treatments" },
+      { title: "Configurations", url: "/dashboard/treatments/configurations" }
     ]
   },
   {
     title: "Orders",
     icon: ShoppingBag,
     children: [
-      { title: "Orders", url: "/orders" },
-      { title: "Payments", url: "/orders/payments" },
-      { title: "Disputes", url: "/orders/disputes" },
-      { title: "Resolution Queue", url: "/orders/resolution-queue" }
+      { title: "Orders", url: "/dashboard/orders" },
+      { title: "Payments", url: "/dashboard/orders/payments" },
+      { title: "Disputes", url: "/dashboard/orders/disputes" },
+      { title: "Resolution Queue", url: "/dashboard/orders/resolution-queue" }
     ]
   },
-  { title: "Prescription", url: "/prescriptions", icon: ScrollText },
-  { title: "Messages", url: "/messages", icon: MessageSquare },
+  { title: "Prescription", url: "/dashboard/prescriptions", icon: ScrollText },
+  { title: "Messages", url: "/dashboard/messages", icon: MessageSquare },
   {
     title: "Products",
     icon: Package,
     children: [
-      { title: "Products", url: "/products" },
-      { title: "Billing Plans", url: "/products/billing-plans" },
-      { title: "Routing", url: "/products/routing" }
+      { title: "Products", url: "/dashboard/products" },
+      { title: "Billing Plans", url: "/dashboard/products/billing-plans" },
+      { title: "Routing", url: "/dashboard/products/routing" }
     ]
   },
   {
     title: "Analytics",
     icon: TrendingUp,
     children: [
-      { title: "Live View", url: "/analytics/live" },
-      { title: "Reports", url: "/analytics/reports" },
-      { title: "Cohorts", url: "/analytics/cohorts" }
+      { title: "Live View", url: "/dashboard/analytics/live" },
+      { title: "Reports", url: "/dashboard/analytics/reports" },
+      { title: "Cohorts", url: "/dashboard/analytics/cohorts" }
     ]
   },
-  { title: "Coupon Codes", url: "/coupon-codes", icon: Gift },
-  { title: "Affiliates", url: "/affiliates", icon: CreditCard },
+  { title: "Coupon Codes", url: "/dashboard/coupon-codes", icon: Gift },
+  { title: "Affiliates", url: "/dashboard/affiliates", icon: CreditCard },
   {
     title: "Questionnaires",
     icon: FileText,
     children: [
-      { title: "Questionnaires", url: "/questionnaires" }
+      { title: "Questionnaires", url: "/dashboard/questionnaires" }
     ]
   },
-  { title: "Billing", url: "/billing", icon: CreditCard },
+  { title: "Billing", url: "/dashboard/billing", icon: CreditCard },
   {
     title: "Builder",
     icon: Wrench,
     children: [
-      { title: "Builder", url: "/builder" }
+      { title: "Builder", url: "/dashboard/builder" }
     ]
   },
-  { title: "Settings", url: "/settings", icon: Settings },
-  { title: "Feedback", url: "/feedback", icon: MessageCircle },
-  { title: "Roadmap", url: "/roadmap", icon: MapPin }
+  { title: "Settings", url: "/dashboard/settings", icon: Settings },
+  { title: "Feedback", url: "/dashboard/feedback", icon: MessageCircle },
+  { title: "Roadmap", url: "/dashboard/roadmap", icon: MapPin }
 ]
 
 export function AppSidebar() {
@@ -112,7 +112,12 @@ export function AppSidebar() {
     )
   }
 
-  const isActive = (path: string) => currentPath === path
+  const isActive = (path: string) => {
+    // For the dashboard link, only match exact /dashboard
+    if (path === "/dashboard") return currentPath === "/dashboard"
+    // For other links, check if the current path starts with the link path
+    return currentPath.startsWith(path)
+  }
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
     isActive ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted/50"
   
