@@ -8,25 +8,35 @@ import { AuthLayout } from "@/components/auth/AuthLayout";
 import { Logo } from "@/components/auth/Logo";
 import { SocialButtons } from "@/components/auth/SocialButtons";
 import { Eye, EyeOff } from "lucide-react";
+import { useAuthStore } from "@/store/useAuthStore"; // ✅ Import store
 
 const SignIn = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  
+  const { loginUser, isLoading, error } = useAuthStore(); // ✅ Store actions/state
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Navigate to dashboard on successful sign in
-    navigate("/dashboard");
+    try {
+      await loginUser(email, password);
+      // Only navigate if we have a token and no error
+      const token = localStorage.getItem('access_token');
+      if (token && !error) {
+        navigate("/dashboard");
+      }
+    } catch (err) {
+      console.error('Login failed:', err);
+    }
   };
 
   return (
     <AuthLayout>
       <div className="space-y-6">
         <Logo />
-        
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Sign in</h1>
           <p className="text-muted-foreground">
@@ -68,11 +78,7 @@ const SignIn = () => {
                 className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                 onClick={() => setShowPassword(!showPassword)}
               >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
+                {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
               </Button>
             </div>
           </div>
@@ -96,9 +102,11 @@ const SignIn = () => {
             </Link>
           </div>
 
-          <Button type="submit" className="w-full h-12 text-base">
-            Sign in
+          <Button type="submit" className="w-full h-12 text-base" disabled={isLoading}>
+            {isLoading ? "Signing in..." : "Sign in"}
           </Button>
+
+          {error && <p className="text-red-500 text-sm">{error}</p>}
         </form>
 
         <div className="relative">

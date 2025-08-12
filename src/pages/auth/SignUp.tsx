@@ -7,6 +7,7 @@ import { AuthLayout } from "@/components/auth/AuthLayout";
 import { Logo } from "@/components/auth/Logo";
 import { SocialButtons } from "@/components/auth/SocialButtons";
 import { Eye, EyeOff } from "lucide-react";
+import { useAuthStore } from "@/store/useAuthStore"; // ✅ Import store
 
 const SignUp = () => {
   const [name, setName] = useState("");
@@ -15,19 +16,24 @@ const SignUp = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const { register, isLoading, error } = useAuthStore(); // ✅ Store actions/state
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Navigate to dashboard on successful sign up
-    navigate("/dashboard");
+    if (password !== confirmPassword) {
+      alert("Passwords do not match");
+      return;
+    }
+    await register({ name, email, password });
+    if (!error) navigate("/"); // redirect to sign-in after register
   };
 
   return (
     <AuthLayout>
       <div className="space-y-6">
         <Logo />
-        
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Sign up</h1>
           <p className="text-muted-foreground">
@@ -81,11 +87,7 @@ const SignUp = () => {
                 className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                 onClick={() => setShowPassword(!showPassword)}
               >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
+                {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
               </Button>
             </div>
           </div>
@@ -108,18 +110,16 @@ const SignUp = () => {
                 className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               >
-                {showConfirmPassword ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
+                {showConfirmPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
               </Button>
             </div>
           </div>
 
-          <Button type="submit" className="w-full h-12 text-base">
-            Sign up
+          <Button type="submit" className="w-full h-12 text-base" disabled={isLoading}>
+            {isLoading ? "Signing up..." : "Sign up"}
           </Button>
+
+          {error && <p className="text-red-500 text-sm">{error}</p>}
         </form>
 
         <div className="relative">
