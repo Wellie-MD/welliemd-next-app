@@ -12,7 +12,7 @@ export function Header() {
           <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
             <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-pink-500 rounded"></div>
           </div>
-          <span className="font-semibold text-purple-600">Kickstart Social.co</span>
+          <span className="font-semibold text-purple-600">Welliemd</span>
         </div>
         <SidebarTrigger className="text-gray-600 hover:bg-white/50 rounded-md p-1" />
       </div>

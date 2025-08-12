@@ -5,8 +5,7 @@ export const Logo = () => {
         <div className="w-4 h-4 bg-white rounded-sm"></div>
       </div>
       <div>
-        <span className="text-xl font-bold text-foreground">Kickstart</span>
-        <span className="text-xl font-bold text-muted-foreground ml-1">Social.co</span>
+        <span className="text-xl font-bold text-foreground">Welliemd</span>
       </div>
     </div>
   );

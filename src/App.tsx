@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { Header } from "@/components/layout/Header";
 import Dashboard from "./pages/Dashboard";
@@ -27,6 +27,7 @@ import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -37,8 +38,11 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          {/* Root redirect */}
+          <Route path="/" element={<ProtectedRoute><Navigate to="/dashboard" replace /></ProtectedRoute>} />
+          
           {/* Auth routes - without sidebar */}
-          <Route path="/" element={<SignIn />} />
+          <Route path="/auth/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
@@ -52,22 +56,22 @@ const App = () => (
                   <Header />
                   <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
                     <Routes>
-                      <Route path="/" element={<Dashboard />} />
-                      <Route path="/patients" element={<Patients />} />
-                      <Route path="/treatments" element={<Treatments />} />
-                      <Route path="/treatments/configurations" element={<TreatmentConfigurations />} />
-                      <Route path="/orders" element={<Orders />} />
-                      <Route path="/orders/payments" element={<Payments />} />
-                      <Route path="/orders/disputes" element={<Disputes />} />
-                      <Route path="/orders/resolution-queue" element={<ResolutionQueue />} />
-                      <Route path="/prescriptions" element={<Prescriptions />} />
-                      <Route path="/products" element={<Products />} />
-                      <Route path="/products/billing-plans" element={<BillingPlans />} />
-                      <Route path="/products/routing" element={<ProductsRouting />} />
-                      <Route path="/messages" element={<Messages />} />
-                      <Route path="/analytics/live" element={<Analytics />} />
-                      <Route path="/affiliates" element={<Affiliates />} />
-                      <Route path="/questionnaires" element={<Questionnaires />} />
+                      <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                      <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
+                      <Route path="/treatments" element={<ProtectedRoute><Treatments /></ProtectedRoute>} />
+                      <Route path="/treatments/configurations" element={<ProtectedRoute><TreatmentConfigurations /></ProtectedRoute>} />
+                      <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+                      <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
+                      <Route path="/orders/disputes" element={<ProtectedRoute><Disputes /></ProtectedRoute>} />
+                      <Route path="/orders/resolution-queue" element={<ProtectedRoute><ResolutionQueue /></ProtectedRoute>} />
+                      <Route path="/prescriptions" element={<ProtectedRoute><Prescriptions /></ProtectedRoute>} />
+                      <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
+                      <Route path="/products/billing-plans" element={<ProtectedRoute><BillingPlans /></ProtectedRoute>} />
+                      <Route path="/products/routing" element={<ProtectedRoute><ProductsRouting /></ProtectedRoute>} />
+                      <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+                      <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+                      <Route path="/affiliates" element={<ProtectedRoute><Affiliates /></ProtectedRoute>} />
+                      <Route path="/questionnaires" element={<ProtectedRoute><Questionnaires /></ProtectedRoute>} />
                     </Routes>
                   </main>
                 </div>

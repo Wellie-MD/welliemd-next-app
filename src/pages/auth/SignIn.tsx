@@ -8,7 +8,8 @@ import { AuthLayout } from "@/components/auth/AuthLayout";
 import { Logo } from "@/components/auth/Logo";
 import { SocialButtons } from "@/components/auth/SocialButtons";
 import { Eye, EyeOff } from "lucide-react";
-import { useAuthStore } from "@/store/useAuthStore"; // ✅ Import store
+import { useAuthStore } from "@/store/useAuthStore";
+import { authService } from "@/services/authService";
 
 const SignIn = () => {
   const [email, setEmail] = useState("");
@@ -16,20 +17,20 @@ const SignIn = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   
-  const { loginUser, isLoading, error } = useAuthStore(); // ✅ Store actions/state
+  const isLoading = useAuthStore((state) => state.isLoading);
   const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    
     try {
-      await loginUser(email, password);
-      // Only navigate if we have a token and no error
-      const token = localStorage.getItem('access_token');
-      if (token && !error) {
-        navigate("/dashboard");
-      }
+      await authService.login({ email, password });
+      navigate("/");  // Navigate to dashboard on successful login
     } catch (err) {
       console.error('Login failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to sign in. Please check your credentials.');
     }
   };
 
