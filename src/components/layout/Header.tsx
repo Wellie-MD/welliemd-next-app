@@ -1,10 +1,29 @@
-import { Search, Bell, Menu } from "lucide-react"
+import { Search, Bell, User, Store, LogOut } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { SidebarTrigger } from "@/components/ui/sidebar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useAuthStore } from "@/store/useAuthStore"
+import { authService } from "@/services/authService"
+import { useNavigate } from "react-router-dom"
+import { SidebarTrigger } from "../ui/sidebar"
 
 export function Header() {
+  const user = useAuthStore((state) => state.user)
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    await authService.logout()
+    navigate('/auth/signin')
+  }
+
   return (
     <header className="h-16 bg-blue-100 border-b border-gray-200 flex items-center justify-between px-4">
       <div className="flex items-center gap-4">
@@ -37,13 +56,36 @@ export function Header() {
           <Bell className="h-4 w-4" />
         </Button>
         
-        <div className="flex items-center gap-2 text-gray-800">
-          <span className="text-sm">Admin</span>
-          <Avatar className="h-8 w-8">
-            <AvatarImage src="/avatars/admin.jpg" />
-            <AvatarFallback className="bg-blue-100 text-blue-600">AD</AvatarFallback>
-          </Avatar>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="flex items-center gap-2 focus-visible:ring-0">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={user?.avatarUrl || ""} alt={user?.name} />
+                <AvatarFallback>
+                  {user?.name?.charAt(0).toUpperCase() || "U"}
+                </AvatarFallback>
+              </Avatar>
+              <span className="hidden sm:inline-block font-medium">{user?.name || "User"}</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>
+              <User className="mr-2 h-4 w-4" />
+              <span>Manage account</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <Store className="mr-2 h-4 w-4" />
+              <span>Stores</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Logout</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   )
