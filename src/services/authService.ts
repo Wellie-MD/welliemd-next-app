@@ -154,4 +154,27 @@ export const authService = {
       useAuthStore.getState().setLoading(false);
     }
   },
+
+  /**
+   * Requests a password reset for the given email address.
+   * @param email - The email address of the user requesting the reset
+   */
+  requestPasswordReset: async (email: string): Promise<void> => {
+    await api.post('/auth/password-reset/request/', { email });
+  },
+
+  /**
+   * Confirms a password reset using the token and uid from the email link.
+   * @param uid - The user ID from the reset link
+   * @param token - The reset token from the reset link
+   * @param newPassword - The new password to set
+   */
+  confirmPasswordReset: async (uid: string, token: string, newPassword: string): Promise<void> => {
+    await api.post('/auth/password-reset/confirm/', {
+      uid,
+      token,
+      new_password: newPassword,
+      confirm_password: newPassword
+    });
+  },
 };

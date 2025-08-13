@@ -9,20 +9,35 @@ import { useAuthStore } from "@/store/useAuthStore";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
-  const [error, setError] = useState(""); // Add local error state
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
-  const { requestReset, isLoading } = useAuthStore(); // Remove 'error' from destructuring if it's not used for local display
+  const { requestPasswordReset } = useAuthStore();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(""); // Clear previous errors
+    setError("");
+    setSuccess(false);
+    setIsLoading(true);
     
     try {
-      await requestReset(email);
-      // After successful email verification, navigate to reset password
-      navigate("/reset-password", { state: { email } });
+      await requestPasswordReset(email);
+      setSuccess(true);
+      setError("");
+      // Stay on the same page but show success message
+      // The actual password reset will happen via email link
+      setTimeout(() => {
+        navigate("/", { 
+          replace: true,
+          state: { message: "Password reset link has been sent to your email address." }
+        });
+      }, 2000); // Show success message for 2 seconds before redirecting
     } catch (err: any) {
-      setError(err.response?.data?.message || "Email not found or verification failed."); // Display error on page
+      console.error('Password reset request error:', err);
+      setError(err.response?.data?.message || "Failed to send reset email. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -54,12 +69,18 @@ const ForgotPassword = () => {
             />
           </div>
 
-          {error && ( // Display local error message
+          {error && (
             <p className="text-sm text-red-500">{error}</p>
+          )}
+          
+          {success && (
+            <p className="text-sm text-green-500">
+              Password reset link has been sent to your email address. Please check your inbox.
+            </p>
           )}
 
           <Button type="submit" className="w-full h-12 text-base" disabled={isLoading}>
-            {isLoading ? "Verifying..." : "Continue"}
+            {isLoading ? "Sending Reset Link..." : "Send Reset Link"}
           </Button>
         </form>
       </div>

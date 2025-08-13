@@ -17,13 +17,13 @@ interface Column {
   label: string
 }
 
-interface DataTableProps {
+interface PaymentTableProps {
   title: string
   data: any[]
   columns: Column[]
 }
 
-export function DataTable({ title, data, columns }: DataTableProps) {
+export function PaymentTable({ title, data, columns }: PaymentTableProps) {
   const navigate = useNavigate()
 
   return (
@@ -34,7 +34,7 @@ export function DataTable({ title, data, columns }: DataTableProps) {
           variant="ghost"
           size="sm"
           className="text-blue-600 hover:text-blue-700"
-          onClick={() => navigate("/dashboard/orders")}
+          onClick={() => navigate("/dashboard/orders/payments")}
         >
           View All
         </Button>

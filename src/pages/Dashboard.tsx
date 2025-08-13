@@ -11,9 +11,13 @@ import { SalesChart } from "@/components/dashboard/SalesChart"
 import { RevenueChart } from "@/components/dashboard/RevenueChart"
 import { NewPatientChart } from "@/components/dashboard/NewPatientChart"
 import { DataTable } from "@/components/dashboard/DataTable"
+import { PaymentTable } from "@/components/dashboard/PaymentTable"
 import { DashboardData } from "@/types/dashboard"
+import { useNavigate } from "react-router-dom"
 
 export default function Dashboard() {
+  const navigate = useNavigate()
+
   const { dashboard } = mockData as { dashboard: DashboardData }
 
   const handleViewMore = (section: string) => {
@@ -134,7 +138,14 @@ export default function Dashboard() {
           <Card className="rounded-2xl shadow-md bg-white">
             <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl p-4">
               <CardTitle className="text-gray-800">Messages</CardTitle>
-              <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">View All</Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-blue-600 hover:text-blue-700"
+                onClick={() => navigate("/dashboard/messages")}
+              >
+                View All
+              </Button>
             </CardHeader>
             <CardContent className="p-4">
               <Tabs defaultValue="all" className="w-full">
@@ -188,7 +199,7 @@ export default function Dashboard() {
           />
         </div>
         <div className="w-full min-w-0">
-          <DataTable 
+          <PaymentTable 
             title="Payment" 
             data={dashboard.payments} 
             columns={paymentColumns} 

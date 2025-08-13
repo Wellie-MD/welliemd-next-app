@@ -1,6 +1,7 @@
 // src/store/useAuthStore.ts
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { authService } from "@/services/authService";
 
 interface User {
   id: string;
@@ -18,8 +19,10 @@ interface AuthState {
   logout: () => void;
   setUser: (user: User) => void;
   setAccessToken: (token: string) => void;
-  setRefreshToken: (token: string) => void; // Add new action
+  setRefreshToken: (token: string) => void;
   setLoading: (loading: boolean) => void;
+  requestPasswordReset: (email: string) => Promise<void>;
+  confirmPasswordReset: (uid: string, token: string, newPassword: string) => Promise<void>;
 }
 
 export const useAuthStore = create(
@@ -49,8 +52,17 @@ export const useAuthStore = create(
 
       setUser: (user) => set({ user, isAuthenticated: !!user }),
       setAccessToken: (token) => set({ accessToken: token }),
-      setRefreshToken: (token) => set({ refreshToken: token }), // Implement new action
+      setRefreshToken: (token) => set({ refreshToken: token }),
       setLoading: (loading) => set({ isLoading: loading }),
+
+      // Password reset functions
+      requestPasswordReset: async (email: string) => {
+        await authService.requestPasswordReset(email);
+      },
+      
+      confirmPasswordReset: async (uid: string, token: string, newPassword: string) => {
+        await authService.confirmPasswordReset(uid, token, newPassword);
+      },
     }),
     {
       name: "auth-storage", // Key in localStorage

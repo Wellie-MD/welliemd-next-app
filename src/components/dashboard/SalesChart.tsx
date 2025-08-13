@@ -14,7 +14,6 @@ export function SalesChart({ data }: SalesChartProps) {
     <Card className="rounded-2xl shadow-md bg-white w-full">
       <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl">
         <CardTitle className="text-gray-800">Total Sales Each Year</CardTitle>
-        <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">View More</Button>
       </CardHeader>
       <CardContent className="w-full">
         <div className="h-80 w-full">

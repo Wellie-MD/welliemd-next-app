@@ -17,19 +17,26 @@ const ResetPassword = () => {
   const [error, setError] = useState(""); // Add local error state
   
   const navigate = useNavigate();
-  const location = useLocation(); // Use useLocation to get state
-  const { confirmReset, isLoading } = useAuthStore(); // Remove 'error' from destructuring if not used for local display
+  const location = useLocation();
+  const { confirmPasswordReset, isLoading } = useAuthStore();
   const { toast } = useToast();
 
-  // Get email from state passed during navigation
-  const email = location.state?.email;
+  // Get uid and token from URL query parameters
+  const params = new URLSearchParams(location.search);
+  const uid = params.get('uid');
+  const token = params.get('token');
 
-  // If no email in state, redirect back to forgot password
+  // If uid or token is missing, redirect back to login
   useEffect(() => {
-    if (!email) {
-      navigate("/forgot-password");
+    if (!uid || !token) {
+      toast({
+        title: "Invalid Reset Link",
+        description: "The password reset link is invalid or has expired. Please request a new one.",
+        variant: "destructive"
+      });
+      navigate("/");
     }
-  }, [email, navigate]);
+  }, [uid, token, navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,26 +47,40 @@ const ResetPassword = () => {
       return;
     }
 
-    // No token validation needed as we are not using email-based token
-    if (!email) {
-      setError("Email is missing. Please go back to Forgot Password page.");
+    if (!uid || !token) {
+      setError("Invalid reset link. Please request a new one.");
       return;
     }
 
     try {
-      // Pass email and new password to reset
-      await confirmReset(email, password);
-      // On successful password reset, redirect to login
+      await confirmPasswordReset(uid, token, password);
+      // On successful password reset, redirect to login with success message
       navigate("/", { 
         replace: true,
-        state: { message: "Password reset successful. Please login with your new password." }
+        state: { message: "Password has been reset successfully. Please login with your new password." }
       });
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to reset password");
+      // Handle specific error cases from the API
+      const errorData = err.response?.data;
+      if (errorData) {
+        if (errorData.uid) {
+          setError("Invalid reset link or user does not exist.");
+        } else if (errorData.token) {
+          setError("Reset link has expired. Please request a new one.");
+        } else if (errorData.new_password) {
+          setError(Array.isArray(errorData.new_password) 
+            ? errorData.new_password.join(" ") 
+            : "Invalid password. Please try a different one.");
+        } else {
+          setError("Failed to reset password. Please try again.");
+        }
+      } else {
+        setError("An error occurred. Please try again.");
+      }
     }
   };
 
-  if (!email) return null; // Don't render if email is missing and redirecting
+  if (!uid || !token) return null; // Don't render if uid or token is missing and redirecting
 
   return (
     <AuthLayout>

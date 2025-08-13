@@ -3,7 +3,7 @@ import { useAuthStore } from "../store/useAuthStore";
 import { authService } from "../services/authService";
 
 // Access Vite environment variables using import.meta.env
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1/";
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
 if (!apiBaseUrl) {
   throw new Error("Missing API Base URL configuration");
