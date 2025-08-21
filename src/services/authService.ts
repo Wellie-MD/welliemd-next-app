@@ -7,12 +7,24 @@ interface LoginCredentials {
   password: string;
 }
 
+interface RegisterCredentials {
+  name: string;
+  email: string;
+  password: string;
+}
+
 // Define the shape of the user object
 interface User {
   id: string;
   email: string;
   name: string;
   // Add other user properties as needed
+}
+
+interface RegisterResponse {
+  access: string;
+  refresh: string;
+  user: User;
 }
 
 // Define the login response from the backend
@@ -31,7 +43,7 @@ interface RefreshResponse {
  * This promise is used to prevent multiple token refresh requests from being sent simultaneously.
  * When a token refresh is in progress, subsequent requests will wait for this promise to resolve.
  */
-let refreshPromise: Promise<void> | null = null;
+let refreshPromise: Promise<string | null> | null = null;
 
 /**
  * The authService provides methods for interacting with the backend authentication endpoints.
@@ -50,6 +62,66 @@ export const authService = {
     useAuthStore.getState().login(accessToken, refreshToken, user);
     
     return user;
+  },
+
+  /**
+   * Registers a new user with the provided credentials
+   * @param credentials - The user's registration details
+   */
+  register: async (credentials: RegisterCredentials): Promise<User> => {
+    // Client-side validation - these errors will be thrown directly and caught by useAuthStore
+    if (!credentials.name?.trim()) {
+      throw new Error('Name is required');
+    }
+    if (!credentials.email?.trim()) {
+      throw new Error('Email is required');
+    }
+    if (!credentials.password) {
+      throw new Error('Password is required');
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(credentials.email)) {
+      throw new Error('Please enter a valid email address');
+    }
+
+    try {
+      const { data } = await api.post<RegisterResponse>('/auth/register/', {
+        name: credentials.name.trim(),
+        email: credentials.email.trim().toLowerCase(),
+        password: credentials.password,
+      });
+      
+      // Set state in Zustand store after successful registration
+      useAuthStore.getState().login(data.access, data.refresh, data.user);
+      
+      return data.user;
+    } catch (error: any) {
+      console.error('Registration error:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: error.config?.url,
+        method: error.config?.method
+      });
+
+      // Handle Axios errors with a response from the backend
+      if (error.response?.data) {
+        const data = error.response.data;
+        if (data.email && Array.isArray(data.email) && data.email.length > 0) {
+          throw new Error(data.email[0]);
+        } else if (data.detail) {
+          throw new Error(data.detail);
+        } else if (data.message) {
+          throw new Error(data.message);
+        } else if (typeof data === 'string') {
+          throw new Error(data);
+        } else {
+          throw new Error(JSON.stringify(data));
+        }
+      } else {
+        // Re-throw original error for client-side validation or network errors
+        throw error;
+      }
+    }
   },
 
   /**

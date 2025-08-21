@@ -20,6 +20,9 @@ const SignUp = () => {
   const { register, isLoading, error } = useAuthStore(); // ✅ Store actions/state
   const navigate = useNavigate();
 
+  // Add console.log to debug error state
+  console.log("Auth Store Error:", error);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
@@ -27,7 +30,10 @@ const SignUp = () => {
       return;
     }
     await register({ name, email, password });
-    if (!error) navigate("/"); // redirect to sign-in after register
+    // Check isAuthenticated from the store after registration attempt
+    if (useAuthStore.getState().isAuthenticated) {
+      navigate("/"); // redirect to sign-in after successful register and login
+    }
   };
 
   return (
@@ -55,9 +61,6 @@ const SignUp = () => {
               onChange={(e) => setName(e.target.value)}
               required
             />
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="email">E-mail</Label>
             <Input
               id="email"
