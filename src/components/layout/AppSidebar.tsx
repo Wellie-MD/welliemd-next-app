@@ -50,7 +50,6 @@ const menuItems = [
     icon: ShoppingBag,
     children: [
       { title: "Orders", url: "/dashboard/orders" },
-      { title: "Payments", url: "/dashboard/orders/payments" },
       { title: "Disputes", url: "/dashboard/orders/disputes" },
       { title: "Resolution Queue", url: "/dashboard/orders/resolution-queue" }
     ]
@@ -75,7 +74,14 @@ const menuItems = [
       { title: "Cohorts", url: "/dashboard/analytics/cohorts" }
     ]
   },
-  { title: "Coupon Codes", url: "/dashboard/coupon-codes", icon: Gift },
+  {
+    title: "Coupon Codes",
+    icon: Gift,
+    children: [
+      { title: "Codes", url: "/dashboard/coupon-codes" },
+      { title: "Insights", url: "/dashboard/coupon-codes/insights" }
+    ]
+  },
   { title: "Affiliates", url: "/dashboard/affiliates", icon: CreditCard },
   {
     title: "Questionnaires",
@@ -85,13 +91,6 @@ const menuItems = [
     ]
   },
   { title: "Billing", url: "/dashboard/billing", icon: CreditCard },
-  {
-    title: "Builder",
-    icon: Wrench,
-    children: [
-      { title: "Builder", url: "/dashboard/builder" }
-    ]
-  },
   { title: "Settings", url: "/dashboard/settings", icon: Settings },
   { title: "Feedback", url: "/dashboard/feedback", icon: MessageCircle },
   { title: "Roadmap", url: "/dashboard/roadmap", icon: MapPin }
@@ -112,12 +111,7 @@ export function AppSidebar() {
     )
   }
 
-  const isActive = (path: string) => {
-    // For the dashboard link, only match exact /dashboard
-    if (path === "/dashboard") return currentPath === "/dashboard"
-    // For other links, check if the current path starts with the link path
-    return currentPath.startsWith(path)
-  }
+  const isActive = (path: string) => currentPath === path
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
     isActive ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted/50"
   

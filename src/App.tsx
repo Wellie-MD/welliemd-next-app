@@ -27,6 +27,8 @@ import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
+import AnalyticsCohorts from "./pages/AnalyticsCohorts";
+import AnalyticsReports from "./pages/AnalyticsReports";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -70,6 +72,8 @@ const App = () => (
                       <Route path="/products/routing" element={<ProtectedRoute><ProductsRouting /></ProtectedRoute>} />
                       <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
                       <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+                      <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} />
+                      <Route path="/analytics/reports" element={<ProtectedRoute><AnalyticsReports /></ProtectedRoute>} />
                       <Route path="/affiliates" element={<ProtectedRoute><Affiliates /></ProtectedRoute>} />
                       <Route path="/questionnaires" element={<ProtectedRoute><Questionnaires /></ProtectedRoute>} />
                     </Routes>
