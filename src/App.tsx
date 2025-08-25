@@ -30,12 +30,9 @@ import ResetPassword from "./pages/auth/ResetPassword";
 import AnalyticsCohorts from "./pages/AnalyticsCohorts";
 import AnalyticsReports from "./pages/AnalyticsReports";
 import CouponCodes from "./pages/CouponCodes";
-<<<<<<< Updated upstream
-=======
 import CouponInsights from "./pages/CouponInsights";
 import Billing from "./pages/Billing";
 import { SettingsLayout } from "./components/layout/SettingsLayout";
->>>>>>> Stashed changes
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -82,6 +79,8 @@ const App = () => (
                       <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} />
                       <Route path="/analytics/reports" element={<ProtectedRoute><AnalyticsReports /></ProtectedRoute>} />
                       <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
+                      <Route path="/coupon-insights" element={<ProtectedRoute><CouponInsights /></ProtectedRoute>} />
+                      <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
                       <Route path="/affiliates" element={<ProtectedRoute><Affiliates /></ProtectedRoute>} />
                       <Route path="/questionnaires" element={<ProtectedRoute><Questionnaires /></ProtectedRoute>} />
                     </Routes>
@@ -90,7 +89,7 @@ const App = () => (
               </div>
             </SidebarProvider>
           } />
-          {/* <Route path="/dashboard/settings/*" element={
+          <Route path="/dashboard/settings/*" element={
             <SidebarProvider>
               <div className="min-h-screen flex w-full">
                 <div className="flex-1 flex flex-col">
@@ -101,7 +100,7 @@ const App = () => (
                 </div>
               </div>
             </SidebarProvider>
-          } /> */}
+          } />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
