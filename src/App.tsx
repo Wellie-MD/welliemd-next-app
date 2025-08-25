@@ -30,6 +30,12 @@ import ResetPassword from "./pages/auth/ResetPassword";
 import AnalyticsCohorts from "./pages/AnalyticsCohorts";
 import AnalyticsReports from "./pages/AnalyticsReports";
 import CouponCodes from "./pages/CouponCodes";
+<<<<<<< Updated upstream
+=======
+import CouponInsights from "./pages/CouponInsights";
+import Billing from "./pages/Billing";
+import { SettingsLayout } from "./components/layout/SettingsLayout";
+>>>>>>> Stashed changes
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -84,6 +90,18 @@ const App = () => (
               </div>
             </SidebarProvider>
           } />
+          {/* <Route path="/dashboard/settings/*" element={
+            <SidebarProvider>
+              <div className="min-h-screen flex w-full">
+                <div className="flex-1 flex flex-col">
+                  <Header />
+                  <div className="flex flex-1">
+                    <SettingsLayout />
+                  </div>
+                </div>
+              </div>
+            </SidebarProvider>
+          } /> */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
