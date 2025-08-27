@@ -2,6 +2,8 @@ import { Outlet, Routes, Route } from "react-router-dom"
 import { SettingsSidebar } from "./SettingsSidebar"
 import StoreDetails from "@/pages/settings/StoreDetails"
 import Integrations from "@/pages/settings/Integrations"
+import UsersPermissions from "@/pages/settings/UsersPermissions"
+import Metafields from "@/pages/settings/Metafields"
 
 export function SettingsLayout() {
   return (
@@ -19,6 +21,8 @@ export function SettingsLayout() {
             <Routes>
               <Route path="store-details" element={<StoreDetails />} />
               <Route path="integrations" element={<Integrations />} />
+              <Route path="users-permissions" element={<UsersPermissions />} />
+              <Route path="metafields" element={<Metafields />} />
               <Route path="" element={<StoreDetails />} />
             </Routes>
           </div>

@@ -79,7 +79,7 @@ const menuItems = [
     icon: Gift,
     children: [
       { title: "Codes", url: "/dashboard/coupon-codes" },
-      { title: "Insights", url: "/dashboard/coupon-codes/insights" }
+      { title: "Insights", url: "/dashboard/coupon-insights" }
     ]
   },
   { title: "Affiliates", url: "/dashboard/affiliates", icon: CreditCard },

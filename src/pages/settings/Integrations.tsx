@@ -1,16 +1,8 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Settings, BarChart3, Tag, MessageCircle, HelpCircle, TrendingUp, Coins } from "lucide-react"
+import { BarChart3, Tag } from "lucide-react"
 
 const integrations = [
-  {
-    id: "shipstation",
-    name: "ShipStation",
-    description: "Manage your orders. only works for manual orders",
-    icon: Settings,
-    buttonText: "Edit Configs",
-    iconColor: "text-green-600"
-  },
   {
     id: "google-analytics",
     name: "Google Analytics",
@@ -25,43 +17,7 @@ const integrations = [
     description: "Streamline tag management. Ideal for seamless tracking and analysis.",
     icon: Tag,
     buttonText: "Edit Configs",
-    iconColor: "text-blue-500"
-  },
-  {
-    id: "intercom",
-    name: "Intercom",
-    description: "Enhance customer interactions. Ideal for automated messaging.",
-    icon: MessageCircle,
-    buttonText: "Install",
-    buttonVariant: "outline" as const,
-    iconColor: "text-blue-600"
-  },
-  {
-    id: "zendesk",
-    name: "Zendesk",
-    description: "Zendesk is a powerful customer service platform designed to enhance interactions between businesses",
-    icon: HelpCircle,
-    buttonText: "Install",
-    buttonVariant: "outline" as const,
-    iconColor: "text-gray-800"
-  },
-  {
-    id: "growsurf",
-    name: "Growsurf",
-    description: "Boost user engagement. Perfect for referral marketing automation.",
-    icon: TrendingUp,
-    buttonText: "Install",
-    buttonVariant: "outline" as const,
-    iconColor: "text-blue-400"
-  },
-  {
-    id: "grin",
-    name: "Grin",
-    description: "Affiliate Marketing Platform",
-    icon: Coins,
-    buttonText: "Install",
-    buttonVariant: "outline" as const,
-    iconColor: "text-gray-600"
+    iconColor: "text-green-500"
   }
 ]
 
@@ -72,15 +28,15 @@ export default function Integrations() {
         <h1 className="text-2xl font-semibold text-foreground">Integrations</h1>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-[900px]">
         {integrations.map((integration) => (
-          <Card key={integration.id} className="hover:shadow-md transition-shadow">
+          <Card key={integration.id} className="shadow-sm">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center">
-                  <integration.icon className={`h-4 w-4 ${integration.iconColor}`} />
+                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                  <integration.icon className={`h-5 w-5 ${integration.iconColor}`} />
                 </div>
-                <CardTitle className="text-base font-medium">{integration.name}</CardTitle>
+                <CardTitle className="text-lg font-semibold">{integration.name}</CardTitle>
               </div>
               <CardDescription className="text-sm text-muted-foreground">
                 {integration.description}
@@ -88,17 +44,12 @@ export default function Integrations() {
             </CardHeader>
             <CardContent className="pt-0">
               <Button 
-                variant={integration.buttonVariant || "default"} 
+                variant="outline"
                 size="sm" 
-                className="w-full"
+                className="w-full text-primary font-medium"
               >
                 {integration.buttonText}
-                {integration.buttonText === "Edit Configs" && (
-                  <span className="ml-1">›</span>
-                )}
-                {integration.buttonText === "Install" && (
-                  <span className="ml-1">›</span>
-                )}
+                <span className="ml-1">›</span>
               </Button>
             </CardContent>
           </Card>
