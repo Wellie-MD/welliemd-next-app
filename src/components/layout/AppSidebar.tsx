@@ -37,7 +37,7 @@ import { title } from "process"
 
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
-  { title: "Patients", url: "/dashboard/patients", icon: Users },
+  { title: "Clients", url: "/dashboard/clients", icon: Users },
   {
     title: "Treatments",
     icon: Stethoscope,

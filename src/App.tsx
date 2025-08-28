@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { Header } from "@/components/layout/Header";
 import Dashboard from "./pages/Dashboard";
-import Patients from "./pages/Patients";
+import Clients from "./pages/Clients";
 import Treatments from "./pages/Treatments";
 import Products from "./pages/Products";
 import BillingPlans from "./pages/BillingPlans";
@@ -63,7 +63,7 @@ const App = () => (
                   <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
                     <Routes>
                       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-                      <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
+                      <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
                       <Route path="/treatments" element={<ProtectedRoute><Treatments /></ProtectedRoute>} />
                       <Route path="/treatments/configurations" element={<ProtectedRoute><TreatmentConfigurations /></ProtectedRoute>} />
                       <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
