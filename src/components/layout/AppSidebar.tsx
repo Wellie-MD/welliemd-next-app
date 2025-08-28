@@ -33,6 +33,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { title } from "process"
 
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
@@ -50,6 +51,7 @@ const menuItems = [
     icon: ShoppingBag,
     children: [
       { title: "Orders", url: "/dashboard/orders" },
+      { title: "Payments", url: "/dashboard/orders/payments" },
       { title: "Disputes", url: "/dashboard/orders/disputes" },
       { title: "Resolution Queue", url: "/dashboard/orders/resolution-queue" }
     ]

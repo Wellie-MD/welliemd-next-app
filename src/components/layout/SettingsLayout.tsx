@@ -4,7 +4,9 @@ import StoreDetails from "@/pages/settings/StoreDetails"
 import Integrations from "@/pages/settings/Integrations"
 import UsersPermissions from "@/pages/settings/UsersPermissions"
 import Metafields from "@/pages/settings/Metafields"
+import Domains from "@/pages/settings/Domains"
 import Files from "@/pages/settings/Files"
+import Policies from "@/pages/settings/Policies"
 
 export function SettingsLayout() {
   return (
@@ -24,7 +26,9 @@ export function SettingsLayout() {
               <Route path="integrations" element={<Integrations />} />
               <Route path="users-permissions" element={<UsersPermissions />} />
               <Route path="files" element={<Files />} />
+              <Route path="policies" element={<Policies />} />
               <Route path="metafields" element={<Metafields />} />
+              <Route path="domains" element={<Domains />} />
               <Route path="" element={<StoreDetails />} />
             </Routes>
           </div>
