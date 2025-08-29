@@ -25,15 +25,15 @@ export function Header() {
   }
 
   return (
-    <header className="h-16 bg-blue-100 border-b border-gray-200 flex items-center justify-between px-4">
+<header className="h-16 bg-[#12517A] text-white flex items-center justify-between px-4">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
             <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-pink-500 rounded"></div>
           </div>
-          <span className="font-semibold text-purple-600">Welliemd</span>
+          <span className="font-semibold text-white-600">Welliemd</span>
         </div>
-        <SidebarTrigger className="text-gray-600 hover:bg-white/50 rounded-md p-1" />
+        <SidebarTrigger className="text-white-600 hover:bg-white/50 rounded-md p-1" />
       </div>
 
       <div className="flex-1 max-w-md mx-4">
@@ -52,7 +52,7 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-3">
-        <Button size="icon" variant="ghost" className="text-gray-600 hover:bg-white/50">
+        <Button size="icon" variant="ghost" className="text-white-600 hover:bg-white/50">
           <Bell className="h-4 w-4" />
         </Button>
         

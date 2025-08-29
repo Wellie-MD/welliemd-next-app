@@ -3,8 +3,8 @@ import { useAuthStore } from "../store/useAuthStore";
 import { authService } from "../services/authService";
 
 // Access Vite environment variables using import.meta.env
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-// const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://ecs-alb-1782924472.eu-north-1.elb.amazonaws.com/";
+// const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://welliemdapi.welliemd.com/api/v1/";
 
 if (!apiBaseUrl) {
   throw new Error("Missing API Base URL configuration");
