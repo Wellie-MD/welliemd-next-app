@@ -67,15 +67,15 @@ const menuItems = [
       { title: "Routing", url: "/dashboard/products/routing" }
     ]
   },
-  {
-    title: "Analytics",
-    icon: TrendingUp,
-    children: [
-      { title: "Live View", url: "/dashboard/analytics/live" },
-      { title: "Reports", url: "/dashboard/analytics/reports" },
-      { title: "Cohorts", url: "/dashboard/analytics/cohorts" }
-    ]
-  },
+  // {
+  //   title: "Analytics",
+  //   icon: TrendingUp,
+  //   children: [
+  //     { title: "Live View", url: "/dashboard/analytics/live" },
+  //     { title: "Reports", url: "/dashboard/analytics/reports" },
+  //     { title: "Cohorts", url: "/dashboard/analytics/cohorts" }
+  //   ]
+  // },
   {
     title: "Coupon Codes",
     icon: Gift,
@@ -84,7 +84,7 @@ const menuItems = [
       { title: "Insights", url: "/dashboard/coupon-insights" }
     ]
   },
-  { title: "Affiliates", url: "/dashboard/affiliates", icon: CreditCard },
+  // { title: "Affiliates", url: "/dashboard/affiliates", icon: CreditCard },
   {
     title: "Questionnaires",
     icon: FileText,
@@ -115,7 +115,10 @@ export function AppSidebar() {
 
   const isActive = (path: string) => currentPath === path
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
-    isActive ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted/50"
+    isActive
+      ? "bg-[#E6F1F6] text-[#12517A] font-semibold"  // Active state
+      : "text-black hover:text-[#12517A] hover:bg-muted/50" // Hover state
+
   
   const collapsed = state === "collapsed"
 
