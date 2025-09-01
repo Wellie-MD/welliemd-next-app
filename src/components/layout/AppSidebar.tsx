@@ -115,10 +115,14 @@ export function AppSidebar() {
 
   const isActive = (path: string) => currentPath === path
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
+<<<<<<< HEAD
     isActive
       ? "bg-[#E6F1F6] text-[#12517A] font-semibold"  // Active state
       : "text-black hover:text-[#12517A] hover:bg-muted/50" // Hover state
 
+=======
+    isActive ? "bg-primary/10 text-foreground font-medium" : "hover:bg-muted/50 text-foreground"
+>>>>>>> feat/setting-storeDetails
   
   const collapsed = state === "collapsed"
 

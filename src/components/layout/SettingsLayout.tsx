@@ -7,6 +7,7 @@ import Metafields from "@/pages/settings/Metafields"
 import Domains from "@/pages/settings/Domains"
 import Files from "@/pages/settings/Files"
 import Policies from "@/pages/settings/Policies"
+import Payments from "@/pages/settings/Payments"
 
 export function SettingsLayout() {
   return (
@@ -25,6 +26,7 @@ export function SettingsLayout() {
               <Route path="store-details" element={<StoreDetails />} />
               <Route path="integrations" element={<Integrations />} />
               <Route path="users-permissions" element={<UsersPermissions />} />
+              <Route path="payments" element={<Payments />} />
               <Route path="files" element={<Files />} />
               <Route path="policies" element={<Policies />} />
               <Route path="metafields" element={<Metafields />} />
