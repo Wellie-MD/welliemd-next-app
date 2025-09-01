@@ -2,6 +2,7 @@ import { Outlet, Routes, Route } from "react-router-dom"
 import { SettingsSidebar } from "./SettingsSidebar"
 import StoreDetails from "@/pages/settings/StoreDetails"
 import Integrations from "@/pages/settings/Integrations"
+import FulfillmentInventory from "@/pages/settings/FulfillmentInventory"
 import UsersPermissions from "@/pages/settings/UsersPermissions"
 import Metafields from "@/pages/settings/Metafields"
 import Domains from "@/pages/settings/Domains"
@@ -25,6 +26,7 @@ export function SettingsLayout() {
             <Routes>
               <Route path="store-details" element={<StoreDetails />} />
               <Route path="integrations" element={<Integrations />} />
+              <Route path="fulfillment-inventory" element={<FulfillmentInventory />} />
               <Route path="users-permissions" element={<UsersPermissions />} />
               <Route path="payments" element={<Payments />} />
               <Route path="files" element={<Files />} />
