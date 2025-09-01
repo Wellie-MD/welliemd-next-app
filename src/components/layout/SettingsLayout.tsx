@@ -9,6 +9,7 @@ import Domains from "@/pages/settings/Domains"
 import Files from "@/pages/settings/Files"
 import Policies from "@/pages/settings/Policies"
 import Payments from "@/pages/settings/Payments"
+import Notifications from "@/pages/settings/Notifications"
 
 export function SettingsLayout() {
   return (
@@ -29,6 +30,7 @@ export function SettingsLayout() {
               <Route path="fulfillment-inventory" element={<FulfillmentInventory />} />
               <Route path="users-permissions" element={<UsersPermissions />} />
               <Route path="payments" element={<Payments />} />
+              <Route path="notifications" element={<Notifications />} />
               <Route path="files" element={<Files />} />
               <Route path="policies" element={<Policies />} />
               <Route path="metafields" element={<Metafields />} />

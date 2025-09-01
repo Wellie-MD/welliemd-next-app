@@ -1,6 +1,14 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
 
 const fulfillmentStatuses = [
   {
@@ -51,21 +59,30 @@ export default function FulfillmentInventory() {
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Fulfillment & Inventory</h1>
       </div>
-        <CardHeader>
-          <CardTitle className="text-lg font-medium">Fulfillment</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            How will you be fulfilling your orders?
-          </p>
-        </CardHeader>
-      {/* Fulfillment Section */}
+      <div>
+        <h2 className="text-lg font-medium">Fulfillment</h2>
+        <p className="text-sm text-muted-foreground">
+          How will you be fulfilling your orders?
+        </p>
+      </div>
+
       <Card>
-        
-        <CardContent className="space-y-6">
+        <CardContent className="p-0">
           <div className="border rounded-lg p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-primary">Pharmacy</h3>
-              <span className="text-sm text-muted-foreground">Bask Pharmacy Fulfillment</span>
+            <div className="flex items-center gap-4">
+              <label htmlFor="pharmacy-select" className="font-medium text-primary min-w-[80px]">Pharmacy</label>
+              <Select defaultValue="bask">
+                <SelectTrigger id="pharmacy-select" className="flex-grow">
+                  <SelectValue placeholder="Select Pharmacy" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bask">Bask Pharmacy Fulfillment</SelectItem>
+                  <SelectItem value="manual">Manual Fulfillment</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+
+            <Separator className="my-6" />
             
             <div className="grid grid-cols-3 gap-6 text-sm">
               <div className="text-center">
@@ -82,7 +99,9 @@ export default function FulfillmentInventory() {
               </div>
             </div>
 
-            <div className="mt-6 space-y-3">
+            <Separator className="my-6" />
+
+            <div className="space-y-3">
               <div className="grid grid-cols-2 text-sm">
                 <div className="text-muted-foreground font-medium">REQUEST</div>
                 <div className="text-muted-foreground font-medium">DEFINITION</div>
