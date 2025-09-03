@@ -43,20 +43,6 @@ export function SettingsSidebar() {
   return (
     <div className="w-64 bg-background border-r border-border">
       <div className="p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
-            <span className="text-xs font-bold text-primary-foreground">P</span>
-          </div>
-          <div>
-            <h2 className="font-semibold text-foreground">Pause RX</h2>
-            <div className="text-xs text-muted-foreground space-y-0.5">
-              <div>Front: pause-rx.mybasktHealth.com</div>
-              <div>Patient: pause-rx.mybasktHealth.com/patient</div>
-              <div>Admin: pause-rx.mybasktHealth.com/admin</div>
-            </div>
-          </div>
-        </div>
-        
         <nav className="space-y-1">
           {settingsMenuItems.map((item) => (
             <NavLink

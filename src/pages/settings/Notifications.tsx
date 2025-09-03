@@ -223,14 +223,15 @@ export default function Notifications() {
     <div className="max-w-6xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-foreground">Notifications</h1>
-      </div>
-
-      <Card>
-        <CardHeader>
+       <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Patient Notifications</span>
           </CardTitle>
-        </CardHeader>
+        </CardHeader> 
+      </div>
+    
+      <Card>
+        
         <CardContent className="p-0">
           {/* Orders Section */}
           <SectionHeader title="Orders" keys={patientNotificationOrderKeys} />

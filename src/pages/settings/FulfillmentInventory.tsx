@@ -71,12 +71,12 @@ export default function FulfillmentInventory() {
           <div className="border rounded-lg p-4">
             <div className="flex items-center gap-4">
               <label htmlFor="pharmacy-select" className="font-medium text-primary min-w-[80px]">Pharmacy</label>
-              <Select defaultValue="bask">
+              <Select defaultValue="Welliemd">
                 <SelectTrigger id="pharmacy-select" className="flex-grow">
                   <SelectValue placeholder="Select Pharmacy" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="bask">Bask Pharmacy Fulfillment</SelectItem>
+                  <SelectItem value="Welliemd">Welliemd Pharmacy Fulfillment</SelectItem>
                   <SelectItem value="manual">Manual Fulfillment</SelectItem>
                 </SelectContent>
               </Select>
