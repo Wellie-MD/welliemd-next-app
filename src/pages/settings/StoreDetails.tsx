@@ -35,7 +35,7 @@ export default function StoreDetails() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg font-medium text-primary">Basic Information</CardTitle>
-          <Button variant="outline" size="sm">Add</Button>
+          <Button variant="outline" size="sm">Edit</Button>
         </CardHeader>
         <CardContent className="space-y-6">
           <div>

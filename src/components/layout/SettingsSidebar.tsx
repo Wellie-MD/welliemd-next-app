@@ -49,8 +49,10 @@ export function SettingsSidebar() {
               key={item.title}
               to={item.url}
               className={cn(
-                "flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors hover:bg-accent hover:text-accent-foreground",
-                isActive(item.url) ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"
+                "flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors",
+                isActive(item.url)
+                  ? "bg-[#E6F1F6] text-[#12517A] font-medium"
+                  : "text-muted-foreground hover:bg-[#E6F1F6] hover:text-[#12517A]"
               )}
             >
               <item.icon className="h-4 w-4" />

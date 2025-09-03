@@ -33,7 +33,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { title } from "process"
 
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
@@ -113,12 +112,6 @@ export function AppSidebar() {
     )
   }
 
-  const isActive = (path: string) => currentPath === path
-  const getNavCls = ({ isActive }: { isActive: boolean }) =>
-    isActive
-      ? "bg-[#E6F1F6] text-[#12517A] font-semibold"  // Active state
-      : "text-black hover:text-[#12517A] hover:bg-muted/50" // Hover state
-
   
   const collapsed = state === "collapsed"
 
@@ -131,51 +124,82 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  {item.children ? (
-                    <Collapsible
-                      open={openSections.includes(item.title)}
-                      onOpenChange={() => toggleSection(item.title)}
-                    >
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton className="hover:bg-muted/50">
+              {menuItems.map((item) => {
+                const isParentActive = item.children?.some(child => currentPath.startsWith(child.url));
+                const isOpen = openSections.includes(item.title) || isParentActive;
+
+                let parentButtonClasses = "flex items-center w-full px-3 py-2 text-sm rounded-md transition-colors";
+                if (isOpen) {
+                  parentButtonClasses += " bg-[#E6F1F6] text-[#12517A] font-semibold";
+                } else {
+                  parentButtonClasses += " text-muted-foreground hover:text-[#12517A] hover:bg-[#E6F1F6]";
+                }
+
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    {item.children ? (
+                      <Collapsible
+                        open={isOpen}
+                        onOpenChange={() => toggleSection(item.title)}
+                      >
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton className={parentButtonClasses}>
+                            <item.icon className="mr-2 h-4 w-4" />
+                            {!collapsed && (
+                              <>
+                                <span className={isOpen ? "text-[#12517A]" : "text-muted-foreground"}>{item.title}</span>
+                                {isOpen ? 
+                                  <ChevronDown className={"ml-auto h-4 w-4 " + (isOpen ? "text-[#12517A]" : "text-muted-foreground")} /> : 
+                                  <ChevronRight className={"ml-auto h-4 w-4 " + (isOpen ? "text-[#12517A]" : "text-muted-foreground")} />
+                                }
+                              </>
+                            )}
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        {!collapsed && (
+                          <CollapsibleContent>
+                            <div className="ml-6 mt-1 space-y-1">
+                              {item.children.map((child) => {
+                                let childNavLinkClasses = "flex items-center w-full px-3 py-2 text-sm rounded-md transition-colors";
+                                if (currentPath === child.url) {
+                                  childNavLinkClasses += " bg-[#E6F1F6] text-[#12517A] font-semibold";
+                                } else {
+                                  childNavLinkClasses += " text-muted-foreground hover:text-[#12517A] hover:bg-[#E6F1F6]";
+                                }
+                                return (
+                                  <SidebarMenuButton key={child.title} asChild>
+                                    <NavLink
+                                      to={child.url}
+                                      className={childNavLinkClasses}
+                                    >
+                                      <span className="text-sm">{child.title}</span>
+                                    </NavLink>
+                                  </SidebarMenuButton>
+                                );
+                              })}
+                            </div>
+                          </CollapsibleContent>
+                        )}
+                      </Collapsible>
+                    ) : (
+                      <SidebarMenuButton asChild>
+                        <NavLink
+                          to={item.url}
+                          end
+                          className={`flex items-center w-full px-3 py-2 text-sm rounded-md transition-colors ${
+                            currentPath === item.url
+                              ? "bg-[#E6F1F6] text-[#12517A] font-semibold"
+                              : "text-muted-foreground hover:text-[#12517A] hover:bg-[#E6F1F6]"
+                          }`}
+                        >
                           <item.icon className="mr-2 h-4 w-4" />
-                          {!collapsed && (
-                            <>
-                              <span>{item.title}</span>
-                              {openSections.includes(item.title) ? 
-                                <ChevronDown className="ml-auto h-4 w-4" /> : 
-                                <ChevronRight className="ml-auto h-4 w-4" />
-                              }
-                            </>
-                          )}
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      {!collapsed && (
-                        <CollapsibleContent>
-                          <div className="ml-6 mt-1 space-y-1">
-                            {item.children.map((child) => (
-                              <SidebarMenuButton key={child.title} asChild>
-                                <NavLink to={child.url} className={getNavCls}>
-                                  <span className="text-sm">{child.title}</span>
-                                </NavLink>
-                              </SidebarMenuButton>
-                            ))}
-                          </div>
-                        </CollapsibleContent>
-                      )}
-                    </Collapsible>
-                  ) : (
-                    <SidebarMenuButton asChild>
-                      <NavLink to={item.url} end className={getNavCls}>
-                        <item.icon className="mr-2 h-4 w-4" />
-                        {!collapsed && <span>{item.title}</span>}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  )}
-                </SidebarMenuItem>
-              ))}
+                          {!collapsed && <span>{item.title}</span>}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    )}
+                  </SidebarMenuItem>
+                )
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
