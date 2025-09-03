@@ -24,7 +24,7 @@ interface Prescription {
   refillRequestDate?: string;
 }
 
-export function Prescriptions() {
+export default function Prescriptions() {
   const [prescriptions] = useState<Prescription[]>([
     {
       id: 1,

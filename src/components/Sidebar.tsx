@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Home, 
@@ -9,194 +9,104 @@ import {
   Pill,
   TestTube,
   HelpCircle,
-  Users,
-  BarChart3,
-  Shield,
   Settings,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "./ui/utils";
-import { useAuth, usePermissions } from "@/features/auth";
-import { UserRole, PERMISSIONS } from "@/features/auth/types/auth.types";
 
 interface NavigationItem {
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; size?: number | string }>;
   label: string;
   path: string;
-  requiredPermissions?: string[];
-  allowedRoles?: UserRole[];
 }
 
-const getNavigationItems = (userRole?: UserRole): NavigationItem[] => {
-  const baseItems: NavigationItem[] = [
-    { 
-      icon: Home, 
-      label: "Dashboard", 
-      path: "/dashboard",
-    },
-    { 
-      icon: User, 
-      label: "Profile", 
-      path: "/dashboard/profile",
-    },
-  ];
+const navigationItems: NavigationItem[] = [
+  { icon: Home, label: "Dashboard", path: "/dashboard" },
+  { icon: User, label: "Profile", path: "/dashboard/profile" },
+  { icon: Calendar, label: "Appointments", path: "/dashboard/appointments" },
+  { icon: FileText, label: "Medical Records", path: "/dashboard/medical-records" },
+  { icon: Pill, label: "Prescriptions", path: "/dashboard/prescriptions" },
+  { icon: TestTube, label: "Treatments", path: "/dashboard/treatments" },
+  { icon: MessageSquare, label: "Messages", path: "/dashboard/messages" },
+  { icon: Settings, label: "Settings", path: "/dashboard/settings" },
+  { icon: HelpCircle, label: "Help", path: "/dashboard/help" },
+];
 
-  const patientItems: NavigationItem[] = [
-    { 
-      icon: Calendar, 
-      label: "Appointments", 
-      path: "/dashboard/appointments",
-      requiredPermissions: [PERMISSIONS.PATIENT_VIEW_APPOINTMENTS],
-      allowedRoles: [UserRole.PATIENT, UserRole.PROVIDER, UserRole.ADMIN],
-    },
-    { 
-      icon: FileText, 
-      label: "Medical Records", 
-      path: "/dashboard/medical-records",
-      requiredPermissions: [PERMISSIONS.PATIENT_VIEW_MEDICAL_RECORDS],
-      allowedRoles: [UserRole.PATIENT, UserRole.PROVIDER, UserRole.ADMIN],
-    },
-    { 
-      icon: Pill, 
-      label: "Prescriptions", 
-      path: "/dashboard/prescriptions",
-      requiredPermissions: [PERMISSIONS.PATIENT_VIEW_PRESCRIPTIONS],
-      allowedRoles: [UserRole.PATIENT, UserRole.PROVIDER, UserRole.ADMIN],
-    },
-    { 
-      icon: TestTube, 
-      label: "Treatments", 
-      path: "/dashboard/treatments",
-      requiredPermissions: [PERMISSIONS.PATIENT_VIEW_MEDICAL_RECORDS],
-      allowedRoles: [UserRole.PATIENT, UserRole.PROVIDER, UserRole.ADMIN],
-    },
-    { 
-      icon: MessageSquare, 
-      label: "Messages", 
-      path: "/dashboard/messages",
-      requiredPermissions: [PERMISSIONS.PATIENT_SEND_MESSAGES],
-      allowedRoles: [UserRole.PATIENT, UserRole.PROVIDER, UserRole.ADMIN],
-    },
-  ];
-
-  const providerItems: NavigationItem[] = [
-    { 
-      icon: Users, 
-      label: "Patients", 
-      path: "/dashboard/patients",
-      requiredPermissions: [PERMISSIONS.PROVIDER_VIEW_PATIENTS],
-      allowedRoles: [UserRole.PROVIDER, UserRole.ADMIN],
-    },
-    { 
-      icon: BarChart3, 
-      label: "Analytics", 
-      path: "/dashboard/analytics",
-      requiredPermissions: [PERMISSIONS.PROVIDER_VIEW_ANALYTICS],
-      allowedRoles: [UserRole.PROVIDER, UserRole.ADMIN],
-    },
-  ];
-
-  const adminItems: NavigationItem[] = [
-    { 
-      icon: Shield, 
-      label: "Admin Panel", 
-      path: "/dashboard/admin",
-      requiredPermissions: [PERMISSIONS.ADMIN_MANAGE_USERS],
-      allowedRoles: [UserRole.ADMIN],
-    },
-  ];
-
-  const bottomItems: NavigationItem[] = [
-    { 
-      icon: Settings, 
-      label: "Settings", 
-      path: "/dashboard/settings",
-    },
-    { 
-      icon: HelpCircle, 
-      label: "Help", 
-      path: "/dashboard/help",
-    },
-  ];
-
-  let allItems = [...baseItems];
-
-  // Add role-specific items
-  if (userRole === UserRole.PATIENT || userRole === UserRole.PROVIDER || userRole === UserRole.ADMIN) {
-    allItems = [...allItems, ...patientItems];
-  }
-  
-  if (userRole === UserRole.PROVIDER || userRole === UserRole.ADMIN) {
-    allItems = [...allItems, ...providerItems];
-  }
-  
-  if (userRole === UserRole.ADMIN) {
-    allItems = [...allItems, ...adminItems];
-  }
-
-  return [...allItems, ...bottomItems];
-};
-
-export function Sidebar() {
+export default function Sidebar() {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
-  const { user } = useAuth();
-  const { hasPermission, hasAnyPermission } = usePermissions();
-
-  const navigationItems = getNavigationItems(user?.role);
-
-  const isItemVisible = (item: NavigationItem): boolean => {
-    // If no permissions required, show item
-    if (!item.requiredPermissions && !item.allowedRoles) {
-      return true;
-    }
-
-    // Check role-based access
-    if (item.allowedRoles && user?.role && !item.allowedRoles.includes(user.role)) {
-      return false;
-    }
-
-    // Check permission-based access
-    if (item.requiredPermissions && !hasAnyPermission(item.requiredPermissions as any[])) {
-      return false;
-    }
-
-    return true;
-  };
 
   const NavItem = ({ item }: { item: NavigationItem }) => {
     const Icon = item.icon;
-    const isActive = location.pathname === item.path || 
-      (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
     
-    if (!isItemVisible(item)) {
-      return null;
-    }
+    const isActive = item.path === '/dashboard' 
+      ? location.pathname === '/dashboard'
+      : location.pathname.startsWith(item.path);
 
     return (
-      <li>
+      <li className="relative group">
         <NavLink
           to={item.path}
-          className={({ isActive: linkIsActive }) =>
+          className={() =>
             cn(
-              "flex items-center w-full justify-start text-gray-600 hover:text-gray-900 hover:bg-gray-50 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-              (isActive || linkIsActive) && "text-blue-600 bg-blue-50"
+              "flex items-center w-full text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md text-sm font-medium transition-colors duration-200",
+              isCollapsed ? "justify-center px-3 py-3" : "justify-start px-3 py-2",
+              isActive && "text-blue-600 bg-blue-50"
             )
           }
         >
-          <Icon className="h-4 w-4 mr-3" />
-          <span>{item.label}</span>
+          <Icon 
+            size={isCollapsed ? 24 : 18}
+            className={cn("flex-none", !isCollapsed && "mr-3")}
+            style={{
+              minWidth: isCollapsed ? '24px' : '18px',
+              minHeight: isCollapsed ? '24px' : '18px',
+              width: isCollapsed ? '24px' : '18px',
+              height: isCollapsed ? '24px' : '18px'
+          }}
+        />
+          {!isCollapsed && <span className="truncate">{item.label}</span>}
         </NavLink>
+
+        {isCollapsed && (
+          <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none whitespace-nowrap z-50">
+            {item.label}
+            <div className="absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1 w-0 h-0 border-r-4 border-r-gray-900 border-t-2 border-b-2 border-t-transparent border-b-transparent"></div>
+          </div>
+        )}
       </li>
     );
   };
 
-  // Split items into main navigation and bottom items
-  const mainItems = navigationItems.slice(0, -2); // All except settings and help
-  const bottomItems = navigationItems.slice(-2); // Settings and help
+  const mainItems = navigationItems.slice(0, -2);
+  const bottomItems = navigationItems.slice(-2);
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 min-h-screen flex flex-col">
-      <div className="p-4">
-        <p className="text-sm text-gray-500 uppercase tracking-wide">MENU</p>
+    <div 
+      className={cn(
+        "bg-white border-r border-gray-200 min-h-screen flex flex-col transition-all duration-300 ease-in-out",
+        isCollapsed ? "w-16" : "w-64"
+      )}
+    >
+      <div className={cn("p-4 flex items-center", isCollapsed ? "justify-center" : "justify-between")}>
+        {!isCollapsed && (
+          <p className="text-sm text-gray-500 uppercase tracking-wide">MENU</p>
+        )}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className={cn(
+            "p-1.5 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors duration-200",
+            isCollapsed && "w-full flex justify-center"
+          )}
+          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {isCollapsed ? (
+            <ChevronRight size={20} />
+          ) : (
+            <ChevronLeft size={20} />
+          )}
+        </button>
       </div>
       
       <nav className="flex-1 px-4">

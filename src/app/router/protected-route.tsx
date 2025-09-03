@@ -1,5 +1,4 @@
 import { Navigate, useLocation } from 'react-router-dom';
-
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { ROUTES } from '@/config/routes';
 import { debugLog } from '@/config/env';
@@ -10,17 +9,14 @@ interface ProtectedRouteProps {
   redirectTo?: string;
 }
 
-/**
- * ProtectedRoute component that checks authentication status
- * Redirects to login page if user is not authenticated
- */
 export function ProtectedRoute({ 
   children, 
   fallback,
   redirectTo = ROUTES.LOGIN 
 }: ProtectedRouteProps) {
-  const location = useLocation();
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const location = useLocation();  
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isLoading = useAuthStore((state) => state.isLoading);
 
   debugLog('ProtectedRoute check:', { 
     isAuthenticated, 
@@ -28,7 +24,6 @@ export function ProtectedRoute({
     path: location.pathname 
   });
 
-  // Show loading state while checking authentication
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -40,7 +35,6 @@ export function ProtectedRoute({
     );
   }
 
-  // Redirect to login if not authenticated
   if (!isAuthenticated) {
     debugLog('User not authenticated, redirecting to:', redirectTo);
     
@@ -56,12 +50,9 @@ export function ProtectedRoute({
     );
   }
 
-  // Show fallback if provided and user is authenticated
   if (fallback && isAuthenticated) {
     return <>{fallback}</>;
   }
 
-  // Render children if authenticated
   return <>{children}</>;
 }
-

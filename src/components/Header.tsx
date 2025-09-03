@@ -1,12 +1,29 @@
-import React from "react";
-import { Bell, MessageSquare, Search } from "lucide-react";
-import { Button } from "./ui/button";
+import { useEffect, useRef } from "react";
+import { Search } from "lucide-react";
 import { Input } from "./ui/input";
 import { UserProfileDropdown } from "./common/user-profile-dropdown";
+import { NotificationsDropdown } from "./common/notifications-dropdown";
+import { MessagesDropdown } from "./common/messages-dropdown";
 import { useAuth } from "@/features/auth";
+import { useDropdown } from "@/contexts/DropdownContext";
 
-export function Header() {
+export default function Header() {
   const { isAuthenticated } = useAuth();
+  const { closeAll } = useDropdown();
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (headerRef.current && !headerRef.current.contains(event.target as Node)) {
+        closeAll();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [closeAll]);
 
   return (
     <header style={{ backgroundColor: '#98C6DE' }} className="px-6 py-4 border-b border-white/20">
@@ -27,23 +44,10 @@ export function Header() {
           </div>
         </div>
         
-        <div className="flex items-center space-x-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white hover:bg-white/10"
-          >
-            <MessageSquare className="h-5 w-5" />
-          </Button>
+        <div ref={headerRef} className="flex items-center space-x-2">
+          <MessagesDropdown className="text-white hover:bg-white/10" />
           
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white hover:bg-white/10 relative"
-          >
-            <Bell className="h-5 w-5" />
-            <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full text-xs"></span>
-          </Button>
+          <NotificationsDropdown className="text-white hover:bg-white/10" />
           
           {isAuthenticated && (
             <UserProfileDropdown className="text-white hover:bg-white/10" />

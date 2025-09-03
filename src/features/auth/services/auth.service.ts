@@ -113,21 +113,11 @@ export class AuthService {
    */
   async getProfile(): Promise<User> {
     debugLog('AuthService.getProfile');
-
-    const response = await apiClient.get(API_ENDPOINTS.AUTH.ME);
-
-    // API returns paginated response
-    const paginatedResponse = PaginatedUserResponseSchema.parse(response.data);
+  
+    const response = await apiClient.get<User>(API_ENDPOINTS.AUTH.ME);
+  
+    const user = UserSchema.parse(response.data);
     
-    if (paginatedResponse.results.length === 0) {
-      throw new Error('User profile not found');
-    }
-
-    const user = paginatedResponse.results[0];
-    if (!user) {
-      throw new Error('User profile not found');
-    }
-
     return user;
   }
 

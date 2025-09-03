@@ -27,7 +27,7 @@ interface Conversation {
   avatar?: string;
 }
 
-export function Messages() {
+export default function Messages() {
   const [selectedConversation, setSelectedConversation] = useState<number>(1);
   const [newMessage, setNewMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // Environment variables schema with validation
 const envSchema = z.object({
-  VITE_API_BASE_URL: z.string().url(),
+  VITE_API_BASE_URL: z.string().min(1),
   VITE_API_TIMEOUT: z.coerce.number().positive().default(10000),
   VITE_AUTH_TOKEN_KEY: z.string().default('welliemd_auth_token'),
   VITE_REFRESH_TOKEN_KEY: z.string().default('welliemd_refresh_token'),

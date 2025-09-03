@@ -17,7 +17,7 @@ interface Appointment {
   notes?: string;
 }
 
-export function Appointments() {
+export default function Appointments() {
   const [appointments] = useState<Appointment[]>([
     {
       id: 1,

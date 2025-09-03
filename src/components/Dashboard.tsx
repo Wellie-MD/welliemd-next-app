@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Alert, AlertDescription } from "./ui/alert";
 
-export function Dashboard() {
+export default function Dashboard() {
   return (
     <div className="p-6 space-y-6">
       <div>

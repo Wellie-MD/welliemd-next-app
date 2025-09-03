@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/auth.store';
 import { debugLog } from '@/config/env';
@@ -20,43 +20,35 @@ export const useAuth = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const {
-    user,
-    tokens,
-    permissions,
-    features,
-    isAuthenticated,
-    isLoading,
-    error,
-    login: loginAction,
-    register: registerAction,
-    logout: logoutAction,
-    refreshProfile,
-    updateProfile,
-    changePassword,
-    forgotPassword,
-    resetPassword,
-    verifyEmail,
-    resendVerification,
-    initializeAuth,
-    clearError,
-    hasPermission,
-    hasAnyPermission,
-    hasAllPermissions,
-    isFeatureEnabled,
-  } = useAuthStore();
+  const user = useAuthStore((state) => state.user);
+  const tokens = useAuthStore((state) => state.tokens);
+  const permissions = useAuthStore((state) => state.permissions);
+  const features = useAuthStore((state) => state.features);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isLoading = useAuthStore((state) => state.isLoading);
+  const error = useAuthStore((state) => state.error);
+  
+  const loginAction = useAuthStore((state) => state.login);
+  const registerAction = useAuthStore((state) => state.register);
+  const logoutAction = useAuthStore((state) => state.logout);
+  const refreshProfile = useAuthStore((state) => state.refreshProfile);
+  const updateProfile = useAuthStore((state) => state.updateProfile);
+  const changePassword = useAuthStore((state) => state.changePassword);
+  const forgotPassword = useAuthStore((state) => state.forgotPassword);
+  const resetPassword = useAuthStore((state) => state.resetPassword);
+  const verifyEmail = useAuthStore((state) => state.verifyEmail);
+  const resendVerification = useAuthStore((state) => state.resendVerification);
+  const initializeAuth = useAuthStore((state) => state.initializeAuth);
+  const clearError = useAuthStore((state) => state.clearError);
+  const hasPermission = useAuthStore((state) => state.hasPermission);
+  const hasAnyPermission = useAuthStore((state) => state.hasAnyPermission);
+  const hasAllPermissions = useAuthStore((state) => state.hasAllPermissions);
+  const isFeatureEnabled = useAuthStore((state) => state.isFeatureEnabled);
 
-  // Initialize auth on mount
-  useEffect(() => {
-    initializeAuth();
-  }, [initializeAuth]);
-
-  // Enhanced login with navigation
   const login = useCallback(async (credentials: LoginRequest) => {
     try {
       await loginAction(credentials);
       
-      // Navigate to intended destination or dashboard
       const from = location.state?.from?.pathname || '/dashboard';
       navigate(from, { replace: true });
       
@@ -67,12 +59,10 @@ export const useAuth = () => {
     }
   }, [loginAction, navigate, location.state]);
 
-  // Enhanced register with navigation
   const register = useCallback(async (userData: RegisterRequest) => {
     try {
       await registerAction(userData);
       
-      // Navigate to dashboard after successful registration
       navigate('/dashboard', { replace: true });
       
       debugLog('Registration successful, navigating to dashboard');
@@ -82,23 +72,19 @@ export const useAuth = () => {
     }
   }, [registerAction, navigate]);
 
-  // Enhanced logout with navigation
   const logout = useCallback(async () => {
     try {
       await logoutAction();
       
-      // Navigate to login page
       navigate('/auth/signin', { replace: true });
       
       debugLog('Logout successful, navigating to signin');
     } catch (error) {
       debugLog('Logout error:', error);
-      // Still navigate even if logout fails
       navigate('/auth/signin', { replace: true });
     }
   }, [logoutAction, navigate]);
 
-  // Helper to check if user can access a route
   const canAccessRoute = useCallback((requiredPermissions?: Permission[]) => {
     if (!isAuthenticated) {
       return false;
@@ -111,7 +97,6 @@ export const useAuth = () => {
     return hasAnyPermission(requiredPermissions);
   }, [isAuthenticated, hasAnyPermission]);
 
-  // Helper to get user display name
   const getDisplayName = useCallback(() => {
     if (!user) return '';
     
@@ -122,7 +107,6 @@ export const useAuth = () => {
     return user.email;
   }, [user]);
 
-  // Helper to get user initials for avatar
   const getInitials = useCallback(() => {
     if (!user) return '';
     
@@ -174,7 +158,10 @@ export const useAuth = () => {
  * Useful for conditional rendering based on user permissions
  */
 export const usePermissions = () => {
-  const { permissions, hasPermission, hasAnyPermission, hasAllPermissions } = useAuthStore();
+  const permissions = useAuthStore((state) => state.permissions);
+  const hasPermission = useAuthStore((state) => state.hasPermission);
+  const hasAnyPermission = useAuthStore((state) => state.hasAnyPermission);
+  const hasAllPermissions = useAuthStore((state) => state.hasAllPermissions);
 
   return {
     permissions,
@@ -189,7 +176,8 @@ export const usePermissions = () => {
  * Allows conditional rendering based on enabled features
  */
 export const useFeatureFlags = () => {
-  const { features, isFeatureEnabled } = useAuthStore();
+  const features = useAuthStore((state) => state.features);
+  const isFeatureEnabled = useAuthStore((state) => state.isFeatureEnabled);
 
   return {
     features,
@@ -202,14 +190,12 @@ export const useFeatureFlags = () => {
  * Provides user data and profile management functions
  */
 export const useProfile = () => {
-  const {
-    user,
-    isLoading,
-    error,
-    refreshProfile,
-    updateProfile,
-    changePassword,
-  } = useAuthStore();
+  const user = useAuthStore((state) => state.user);
+  const isLoading = useAuthStore((state) => state.isLoading);
+  const error = useAuthStore((state) => state.error);
+  const refreshProfile = useAuthStore((state) => state.refreshProfile);
+  const updateProfile = useAuthStore((state) => state.updateProfile);
+  const changePassword = useAuthStore((state) => state.changePassword);
 
   const getDisplayName = useCallback(() => {
     if (!user) return '';

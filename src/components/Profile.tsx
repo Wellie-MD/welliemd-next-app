@@ -4,9 +4,8 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Separator } from "./ui/separator";
 
-export function Profile() {
+export default function Profile() {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-8">
       <div>

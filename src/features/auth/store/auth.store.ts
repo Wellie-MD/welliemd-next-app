@@ -49,6 +49,9 @@ interface AuthState {
   isFeatureEnabled: (feature: string) => boolean;
 }
 
+let isInitializing = false;
+let isRefreshing = false;
+
 // Create auth store with middleware
 export const useAuthStore = create<AuthState>()(
   devtools(
@@ -387,6 +390,11 @@ export const useAuthStore = create<AuthState>()(
           },
 
           initializeAuth: async () => {
+            if (isInitializing) {
+              debugLog('Auth initialization already in progress');
+              return;
+            }
+          
             debugLog('AuthStore.initializeAuth');
             
             // Check if we have stored tokens
@@ -394,19 +402,27 @@ export const useAuthStore = create<AuthState>()(
               debugLog('No stored tokens found');
               return;
             }
-
+          
+            isInitializing = true;
+          
             set((state) => {
               state.isLoading = true;
               state.error = null;
             });
-
+          
             try {
-              // Verify token is still valid
+              // Your existing initialization logic...
               const isTokenValid = await authService.verifyToken();
               
               if (!isTokenValid) {
                 debugLog('Stored token is invalid, trying to refresh');
                 
+                if (isRefreshing) {
+                  debugLog('Token refresh already in progress');
+                  return;
+                }
+          
+                isRefreshing = true;
                 try {
                   await authService.refreshToken();
                 } catch (refreshError) {
@@ -422,9 +438,11 @@ export const useAuthStore = create<AuthState>()(
                     state.error = null;
                   });
                   return;
+                } finally {
+                  isRefreshing = false;
                 }
               }
-
+          
               // Get current user profile
               const user = await authService.getProfile();
               
@@ -442,12 +460,11 @@ export const useAuthStore = create<AuthState>()(
                 state.isLoading = false;
                 state.error = null;
               });
-
+          
               debugLog('Auth initialized successfully:', { userId: user.id });
             } catch (error) {
               debugLog('Auth initialization failed:', error);
               
-              // Clear invalid auth state
               authService.clearAuthData();
               set((state) => {
                 state.user = null;
@@ -458,6 +475,8 @@ export const useAuthStore = create<AuthState>()(
                 state.isLoading = false;
                 state.error = null;
               });
+            } finally {
+              isInitializing = false;
             }
           },
 
@@ -521,19 +540,19 @@ export const authSelectors = {
 };
 
 // Subscribe to auth changes for side effects
-useAuthStore.subscribe(
-  (state) => state.isAuthenticated,
-  (isAuthenticated, previousIsAuthenticated) => {
-    if (isAuthenticated !== previousIsAuthenticated) {
-      debugLog('Auth status changed:', { isAuthenticated, previousIsAuthenticated });
+// useAuthStore.subscribe(
+//   (state) => state.isAuthenticated,
+//   (isAuthenticated, previousIsAuthenticated) => {
+//     if (isAuthenticated !== previousIsAuthenticated) {
+//       debugLog('Auth status changed:', { isAuthenticated, previousIsAuthenticated });
       
-      // Emit custom events for other parts of the app
-      if (isAuthenticated) {
-        window.dispatchEvent(new CustomEvent('auth:login'));
-      } else {
-        window.dispatchEvent(new CustomEvent('auth:logout'));
-      }
-    }
-  }
-);
+//       // Emit custom events for other parts of the app
+//       if (isAuthenticated) {
+//         window.dispatchEvent(new CustomEvent('auth:login'));
+//       } else {
+//         window.dispatchEvent(new CustomEvent('auth:logout'));
+//       }
+//     }
+//   }
+// );
 
