@@ -143,7 +143,11 @@ export class AuthService {
   async changePassword(passwordData: ChangePasswordRequest): Promise<void> {
     debugLog('AuthService.changePassword');
 
-    await apiClient.post('/auth/change-password', passwordData);
+    await apiClient.post(API_ENDPOINTS.AUTH.CHANGE_PASSWORD, {
+      current_password: passwordData.currentPassword,
+      new_password: passwordData.newPassword,
+      confirm_password: passwordData.confirmPassword,
+    });
   }
 
   /**
