@@ -9,8 +9,22 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ChevronLeft, ChevronRight, RotateCcw, Download, Calendar, Filter, X } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
+  Download,
+  Calendar,
+  Filter,
+  X,
+} from "lucide-react"
 
 interface Column {
   key: string
@@ -27,7 +41,6 @@ interface DataTableProps {
   showFilters?: boolean
   showExport?: boolean
   showDatePicker?: boolean
-  onSearch?: (value: string) => void
   onFilter?: (filters: any) => void
   onExport?: () => void
   onRefresh?: () => void
@@ -41,18 +54,35 @@ export function DataTable({
   showFilters = true,
   showExport = true,
   showDatePicker = true,
-  onSearch,
   onFilter,
   onExport,
   onRefresh,
 }: DataTableProps) {
-  // ---- client-side pagination ----
+  // ---- pagination state ----
   const [pageSize, setPageSize] = useState<number>(10)
   const [page, setPage] = useState<number>(1)
+
+  // ---- search state ----
+  const [localSearch, setLocalSearch] = useState<string>("")
+
+  // ---- filtering ----
+  const filteredData = useMemo(() => {
+    if (!localSearch) return data ?? []
+    const lower = localSearch.toLowerCase()
+    return (data ?? []).filter((row) =>
+      columns.some((col) => {
+        const val = row[col.key]
+        return val?.toString().toLowerCase().includes(lower)
+      })
+    )
+  }, [data, localSearch, columns])
+
+  // ---- pagination ----
   const totalPages = useMemo(
-    () => Math.max(1, Math.ceil((data?.length ?? 0) / pageSize)),
-    [data?.length, pageSize]
+    () => Math.max(1, Math.ceil((filteredData.length ?? 0) / pageSize)),
+    [filteredData.length, pageSize]
   )
+
   useEffect(() => {
     if (page > totalPages) setPage(totalPages)
     if (page < 1) setPage(1)
@@ -61,22 +91,20 @@ export function DataTable({
   const visibleData = useMemo(() => {
     const start = (page - 1) * pageSize
     const end = start + pageSize
-    return (data ?? []).slice(start, end)
-  }, [data, page, pageSize])
+    return filteredData.slice(start, end)
+  }, [filteredData, page, pageSize])
 
+  // ---- handlers ----
   const goPrev = () => setPage((p) => Math.max(1, p - 1))
   const goNext = () => setPage((p) => Math.min(totalPages, p + 1))
 
-  // ---- toolbar search ----
-  const [localSearch, setLocalSearch] = useState<string>("")
   const handleInputChange = (v: string) => {
     setLocalSearch(v)
-    onSearch?.(v)
     setPage(1)
   }
+
   const handleClearInput = () => {
     setLocalSearch("")
-    onSearch?.("")
     setPage(1)
   }
 
@@ -85,13 +113,13 @@ export function DataTable({
       {!hideToolbar && (
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4 flex-1">
-            {/* Wider search box + built-in clear (X) button */}
+            {/* 🔎 search box with clear button */}
             <div className="relative w-full max-w-xl">
               <Input
                 value={localSearch}
                 onChange={(e) => handleInputChange(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="pr-9" /* leave room for the X */
+                className="pr-9"
               />
               {localSearch && (
                 <button
@@ -116,7 +144,7 @@ export function DataTable({
               <Button
                 variant="outline"
                 className="gap-2"
-                onClick={() => onFilter?.({})}  // old "Reset Filters" behavior
+                onClick={() => onFilter?.({})}
               >
                 <Filter className="h-4 w-4" />
                 Reset Filters
@@ -156,14 +184,19 @@ export function DataTable({
                 <TableRow key={index}>
                   {columns.map((column) => (
                     <TableCell key={column.key}>
-                      {column.render ? column.render(row[column.key], row) : row[column.key]}
+                      {column.render
+                        ? column.render(row[column.key], row)
+                        : row[column.key]}
                     </TableCell>
                   ))}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
                   No results.
                 </TableCell>
               </TableRow>
@@ -176,7 +209,13 @@ export function DataTable({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Rows per page:</span>
-          <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(parseInt(v, 10)); setPage(1) }}>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(v) => {
+              setPageSize(parseInt(v, 10))
+              setPage(1)
+            }}
+          >
             <SelectTrigger className="w-16">
               <SelectValue />
             </SelectTrigger>
@@ -193,10 +232,20 @@ export function DataTable({
             Page {page} of {totalPages}
           </span>
           <div className="flex items-center gap-1">
-            <Button variant="outline" size="icon" onClick={goPrev} disabled={page <= 1}>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={goPrev}
+              disabled={page <= 1}
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={goNext} disabled={page >= totalPages}>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={goNext}
+              disabled={page >= totalPages}
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
