@@ -16,8 +16,8 @@ export const APP_CONFIG = {
 
 // API configuration
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:8000/api/v1',
-  DEFAULT_TIMEOUT: 10000, // 10 seconds
+  BASE_URL: import.meta.env.VITE_API_BASE_URL,
+  DEFAULT_TIMEOUT: parseInt(import.meta.env.VITE_API_TIMEOUT) || 30000,
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 1000, // 1 second
   REQUEST_ID_HEADER: 'X-Request-ID',
