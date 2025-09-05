@@ -17,7 +17,6 @@ import {
 } from "@/features/auth/utils/validation";
 import { getErrorMessage } from "@/features/auth/utils/errors";
 
-
 const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
