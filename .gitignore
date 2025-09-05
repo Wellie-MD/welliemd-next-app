@@ -23,3 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Environment files
+.env.local
+.env.*.local
+
+# Keep .env, .env.development, .env.production tracked
+# since they don't contain sensitive data
