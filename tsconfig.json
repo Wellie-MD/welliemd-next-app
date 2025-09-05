@@ -34,13 +34,7 @@
       "@/app/*": ["./src/app/*"]
     }
   },
-  "include": [
-    "src",
-    "**/*.ts",
-    "**/*.tsx",
-    "vite.config.ts",
-    "vitest.config.ts"
-  ],
+  "include": ["src/**/*", "vite.config.ts"],
   "exclude": [
     "node_modules",
     "dist",
