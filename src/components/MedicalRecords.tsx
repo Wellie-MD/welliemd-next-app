@@ -17,7 +17,7 @@ interface MedicalRecord {
   category: 'lab-results' | 'imaging' | 'reports' | 'prescriptions' | 'other';
 }
 
-export function MedicalRecords() {
+export default function MedicalRecords() {
   const [searchTerm, setSearchTerm] = useState("");
   const [records] = useState<MedicalRecord[]>([
     {

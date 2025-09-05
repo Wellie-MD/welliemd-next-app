@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run full test suite before push
+npm run test:ci
+
+# Run build to ensure it passes
+npm run build
+
+# Optional: Run additional checks
+npm run lint
+npm run typecheck

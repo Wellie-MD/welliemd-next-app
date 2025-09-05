@@ -1,3 +1,5 @@
+import React, { useState } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Home, 
   Calendar, 
@@ -6,61 +8,111 @@ import {
   FileText, 
   Pill,
   TestTube,
-  HelpCircle
+  HelpCircle,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
-import { Button } from "./ui/button";
 import { cn } from "./ui/utils";
 
-const navigationItems = [
-  { icon: Home, label: "Dashboard", id: "dashboard" },
-  { icon: Pill, label: "Treatments", id: "treatments" },
-  { icon: Pill, label: "Prescriptions", id: "prescriptions" },
-  { icon: MessageSquare, label: "Messenger", id: "messages" },
-  { icon: User, label: "Account", id: "profile" },
-  { icon: TestTube, label: "Labs", id: "lab-results" },
-];
-
-const bottomItems = [
-  { icon: HelpCircle, label: "Help", id: "help" },
-];
-
-interface SidebarProps {
-  activeSection: string;
-  onSectionChange: (section: string) => void;
+interface NavigationItem {
+  icon: React.ComponentType<{ className?: string; size?: number | string }>;
+  label: string;
+  path: string;
 }
 
-export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
-  const NavItem = ({ item }: { item: typeof navigationItems[0] }) => {
+const navigationItems: NavigationItem[] = [
+  { icon: Home, label: "Dashboard", path: "/dashboard" },
+  { icon: User, label: "Profile", path: "/dashboard/profile" },
+  { icon: Calendar, label: "Appointments", path: "/dashboard/appointments" },
+  { icon: FileText, label: "Medical Records", path: "/dashboard/medical-records" },
+  { icon: Pill, label: "Prescriptions", path: "/dashboard/prescriptions" },
+  { icon: TestTube, label: "Treatments", path: "/dashboard/treatments" },
+  { icon: MessageSquare, label: "Messages", path: "/dashboard/messages" },
+  { icon: Settings, label: "Settings", path: "/dashboard/settings" },
+  { icon: HelpCircle, label: "Help", path: "/dashboard/help" },
+];
+
+export default function Sidebar() {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const location = useLocation();
+
+  const NavItem = ({ item }: { item: NavigationItem }) => {
     const Icon = item.icon;
-    const isActive = activeSection === item.id;
     
+    const isActive = item.path === '/dashboard' 
+      ? location.pathname === '/dashboard'
+      : location.pathname.startsWith(item.path);
+
     return (
-      <li>
-        <Button
-          variant="ghost"
-          className={cn(
-            "w-full justify-start text-gray-600 hover:text-gray-900 hover:bg-gray-50",
-            isActive && "text-blue-600 bg-blue-50"
-          )}
-          onClick={() => onSectionChange(item.id)}
+      <li className="relative group">
+        <NavLink
+          to={item.path}
+          className={() =>
+            cn(
+              "flex items-center w-full text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md text-sm font-medium transition-colors duration-200",
+              isCollapsed ? "justify-center px-3 py-3" : "justify-start px-3 py-2",
+              isActive && "text-blue-600 bg-blue-50"
+            )
+          }
         >
-          <Icon className="h-4 w-4 mr-3" />
-          <span>{item.label}</span>
-        </Button>
+          <Icon 
+            size={isCollapsed ? 24 : 18}
+            className={cn("flex-none", !isCollapsed && "mr-3")}
+            style={{
+              minWidth: isCollapsed ? '24px' : '18px',
+              minHeight: isCollapsed ? '24px' : '18px',
+              width: isCollapsed ? '24px' : '18px',
+              height: isCollapsed ? '24px' : '18px'
+          }}
+        />
+          {!isCollapsed && <span className="truncate">{item.label}</span>}
+        </NavLink>
+
+        {isCollapsed && (
+          <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none whitespace-nowrap z-50">
+            {item.label}
+            <div className="absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1 w-0 h-0 border-r-4 border-r-gray-900 border-t-2 border-b-2 border-t-transparent border-b-transparent"></div>
+          </div>
+        )}
       </li>
     );
   };
 
+  const mainItems = navigationItems.slice(0, -2);
+  const bottomItems = navigationItems.slice(-2);
+
   return (
-    <div className="w-64 bg-white border-r border-gray-200 min-h-screen flex flex-col">
-      <div className="p-4">
-        <p className="text-sm text-gray-500 uppercase tracking-wide">MENU</p>
+    <div 
+      className={cn(
+        "bg-white border-r border-gray-200 min-h-screen flex flex-col transition-all duration-300 ease-in-out",
+        isCollapsed ? "w-16" : "w-64"
+      )}
+    >
+      <div className={cn("p-4 flex items-center", isCollapsed ? "justify-center" : "justify-between")}>
+        {!isCollapsed && (
+          <p className="text-sm text-gray-500 uppercase tracking-wide">MENU</p>
+        )}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className={cn(
+            "p-1.5 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors duration-200",
+            isCollapsed && "w-full flex justify-center"
+          )}
+          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {isCollapsed ? (
+            <ChevronRight size={20} />
+          ) : (
+            <ChevronLeft size={20} />
+          )}
+        </button>
       </div>
       
       <nav className="flex-1 px-4">
         <ul className="space-y-1">
-          {navigationItems.map((item) => (
-            <NavItem key={item.id} item={item} />
+          {mainItems.map((item) => (
+            <NavItem key={item.path} item={item} />
           ))}
         </ul>
       </nav>
@@ -68,7 +120,7 @@ export function Sidebar({ activeSection, onSectionChange }: SidebarProps) {
       <div className="p-4 border-t border-gray-200">
         <ul className="space-y-1">
           {bottomItems.map((item) => (
-            <NavItem key={item.id} item={item} />
+            <NavItem key={item.path} item={item} />
           ))}
         </ul>
       </div>

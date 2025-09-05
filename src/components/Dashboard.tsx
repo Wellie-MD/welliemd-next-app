@@ -1,9 +1,16 @@
-import { Calendar, AlertCircle, X, MessageSquare, TestTube } from "lucide-react";
+import { Calendar, AlertCircle, X, MessageSquare, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Alert, AlertDescription } from "./ui/alert";
+import { useNavigate } from "react-router-dom";
 
-export function Dashboard() {
+export default function Dashboard() {
+  const navigate = useNavigate();
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -41,7 +48,11 @@ export function Dashboard() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg font-medium text-gray-900">Treatments</CardTitle>
-              <Button variant="link" className="text-blue-600 p-0">
+              <Button 
+                variant="link" 
+                className="text-blue-600 p-0 hover:text-blue-700"
+                onClick={() => handleNavigation('/dashboard/treatments')}
+              >
                 View all
               </Button>
             </div>
@@ -58,7 +69,10 @@ export function Dashboard() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="cursor-pointer hover:shadow-md transition-shadow">
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => handleNavigation('/dashboard/appointments')}
+        >
           <CardContent className="p-6 text-center">
             <Calendar className="h-8 w-8 text-blue-600 mx-auto mb-3" />
             <h3 className="font-medium text-gray-900 mb-1">Schedule Appointment</h3>
@@ -66,7 +80,10 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="cursor-pointer hover:shadow-md transition-shadow">
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => handleNavigation('/dashboard/messages')}
+        >
           <CardContent className="p-6 text-center">
             <MessageSquare className="h-8 w-8 text-blue-600 mx-auto mb-3" />
             <h3 className="font-medium text-gray-900 mb-1">Send Message</h3>
@@ -74,11 +91,14 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="cursor-pointer hover:shadow-md transition-shadow">
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => handleNavigation('/dashboard/medical-records')}
+        >
           <CardContent className="p-6 text-center">
-            <TestTube className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-            <h3 className="font-medium text-gray-900 mb-1">View Lab Results</h3>
-            <p className="text-sm text-gray-600">Check your latest tests</p>
+            <FileText className="h-8 w-8 text-blue-600 mx-auto mb-3" />
+            <h3 className="font-medium text-gray-900 mb-1">Medical Records</h3>
+            <p className="text-sm text-gray-600">Check your medical records</p>
           </CardContent>
         </Card>
       </div>

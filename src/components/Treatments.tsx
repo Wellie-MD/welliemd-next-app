@@ -16,7 +16,7 @@ interface Treatment {
   instructions: string;
 }
 
-export function Treatments() {
+export default function Treatments() {
   const treatments: Treatment[] = [
     {
       id: 1,
