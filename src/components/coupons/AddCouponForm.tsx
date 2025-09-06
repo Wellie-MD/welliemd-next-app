@@ -98,7 +98,8 @@ export default function AddCouponForm({
     axiosInstance
       .get("/products/")
       .then((res) => setProducts(res.data?.results || []))
-      .catch(() => setProducts([]))
+      .catch(() => setProducts([])
+    )
   }, [])
 
   const productOptions = useMemo(
@@ -166,7 +167,7 @@ export default function AddCouponForm({
                   <input
                     {...register("code", { required: true })}
                     placeholder="e.g. SUMMER25"
-                    className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-green-600/30"
+                    className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
                     disabled={mode === "edit"} // usually immutable
                   />
                   <p className="text-xs text-muted-foreground mt-1">Unique coupon code customers will enter.</p>
@@ -177,7 +178,7 @@ export default function AddCouponForm({
                   <label className="block text-sm font-medium mb-1">Type *</label>
                   <select
                     {...register("type", { required: true })}
-                    className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-green-600/30 bg-white"
+                    className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 bg-white"
                   >
                     <option value="fixed">Fixed Amount</option>
                     <option value="percent">Percent</option>
@@ -198,7 +199,7 @@ export default function AddCouponForm({
                       step="0.01"
                       placeholder={type === "percent" ? "10" : "12.00"}
                       {...register("value", { required: true })}
-                      className="border px-3 py-2 rounded-l w-full focus:outline-none focus:ring-2 focus:ring-green-600/30"
+                      className="border px-3 py-2 rounded-l w-full focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
                     />
                     <span className="border border-l-0 rounded-r px-3 py-2 text-sm bg-gray-50 shrink-0">
                       {type === "percent" ? "%" : "$"}
@@ -230,6 +231,16 @@ export default function AddCouponForm({
                           placeholder="Select products (leave empty to apply to all)"
                           value={selected}
                           onChange={(sel) => field.onChange(sel.map((s) => s.value))}
+                          styles={{
+                            control: (provided, state) => ({
+                              ...provided,
+                              borderColor: state.isFocused ? '#0ea5e9' : provided.borderColor,
+                              boxShadow: state.isFocused ? '0 0 0 3px rgba(14, 165, 233, 0.1)' : provided.boxShadow,
+                              '&:hover': {
+                                borderColor: state.isFocused ? '#0ea5e9' : provided.borderColor,
+                              }
+                            })
+                          }}
                         />
                       )
                     }}
@@ -245,7 +256,12 @@ export default function AddCouponForm({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
                 {/* Active */}
                 <div className="flex items-center gap-2 md:col-span-1">
-                  <input type="checkbox" {...register("is_active")} id="is_active" className="h-4 w-4" />
+                  <input 
+                    type="checkbox" 
+                    {...register("is_active")} 
+                    id="is_active" 
+                    className="h-4 w-4 text-sky-600 focus:ring-sky-500 border-gray-300 rounded" 
+                  />
                   <label htmlFor="is_active" className="text-sm font-medium select-none">
                     Is Active
                   </label>
@@ -258,7 +274,7 @@ export default function AddCouponForm({
                     type="number"
                     {...register("max_usage")}
                     placeholder="e.g. 100"
-                    className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-green-600/30"
+                    className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
                   />
                   <p className="text-xs text-muted-foreground mt-1">Total number of times this coupon can be used.</p>
                 </div>
@@ -270,7 +286,7 @@ export default function AddCouponForm({
                     type="number"
                     {...register("max_usage_per_user")}
                     placeholder="e.g. 1"
-                    className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-green-600/30"
+                    className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
                   />
                   <p className="text-xs text-muted-foreground mt-1">Limit usage for each customer.</p>
                 </div>
@@ -283,7 +299,7 @@ export default function AddCouponForm({
                     step="0.01"
                     {...register("min_spend")}
                     placeholder="e.g. 50.00"
-                    className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-green-600/30"
+                    className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
                   />
                   <p className="text-xs text-muted-foreground mt-1">Order subtotal must be at least this amount.</p>
                 </div>
@@ -299,7 +315,7 @@ export default function AddCouponForm({
                   <input
                     type="datetime-local"
                     {...register("expires_at")}
-                    className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-green-600/30"
+                    className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
                   />
                   <p className="text-xs text-muted-foreground mt-1">Leave empty if the coupon should not expire.</p>
                 </div>
@@ -314,7 +330,7 @@ export default function AddCouponForm({
             type="submit"
             form="coupon-form"
             disabled={loading}
-            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-md transition"
+            className="bg-sky-500 hover:bg-sky-600 text-white px-6 py-2 rounded-md transition"
           >
             {loading ? (mode === "edit" ? "Saving..." : "Creating...") : mode === "edit" ? "Save changes" : "Create Coupon"}
           </button>

@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CreditCard } from "lucide-react"
 import { useState } from "react"
 import {
   Dialog,
@@ -15,27 +14,38 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+// Import payment method icons
+import visaIcon from "@/assets/icons/payment-methods/visa.svg"
+import mastercardIcon from "@/assets/icons/payment-methods/mastercard.svg"
+import amexIcon from "@/assets/icons/payment-methods/american-express.svg"
+import discoverIcon from "@/assets/icons/payment-methods/discover.svg"
+import dinersIcon from "@/assets/icons/payment-methods/diners-club.svg"
+import applePayIcon from "@/assets/icons/payment-methods/apple-pay.svg"
+import googlePayIcon from "@/assets/icons/payment-methods/google-pay.svg"
+import metaPayIcon from "@/assets/icons/payment-methods/meta-pay.svg"
 
 const paymentMethods = [
-  { id: "visa", name: "Visa" },
-  { id: "mastercard", name: "Mastercard" },
-  { id: "amex", name: "American Express" },
-  { id: "discover", name: "Discover" },
-  { id: "diners", name: "Diners Club" },
-  { id: "apple", name: "Apple Pay" },
-  { id: "google", name: "Google Pay" },
-  { id: "meta", name: "Meta Pay" }
+  { id: "visa", name: "Visa", icon: visaIcon },
+  { id: "mastercard", name: "Mastercard", icon: mastercardIcon },
+  { id: "amex", name: "American Express", icon: amexIcon },
+  { id: "discover", name: "Discover", icon: discoverIcon },
+  { id: "diners", name: "Diners Club", icon: dinersIcon },
+  { id: "apple", name: "Apple Pay", icon: applePayIcon },
+  { id: "google", name: "Google Pay", icon: googlePayIcon },
+  { id: "meta", name: "Meta Pay", icon: metaPayIcon }
 ]
 
 const paymentIcons = [
-  { name: "Visa", color: "text-blue-600" },
-  { name: "Mastercard", color: "text-red-500" },
-  { name: "American Express", color: "text-blue-500" },
-  { name: "Discover", color: "text-orange-500" },
-  { name: "Diners Club", color: "text-gray-600" },
-  { name: "Shop Pay", color: "text-purple-600" },
-  { name: "Apple Pay", color: "text-gray-800" },
-  { name: "+2", color: "text-gray-500" }
+  { name: "Visa", icon: visaIcon },
+  { name: "Mastercard", icon: mastercardIcon },
+  { name: "American Express", icon: amexIcon },
+  { name: "Discover", icon: discoverIcon },
+  { name: "Diners Club", icon: dinersIcon },
+  { name: "Apple Pay", icon: applePayIcon },
+  { name: "Google Pay", icon: googlePayIcon },
+  { name: "Meta Pay", icon: metaPayIcon }
 ]
 
 const subscriptionStatuses = [
@@ -93,10 +103,12 @@ const subscriptionStatuses = [
 
 export default function Payments() {
   const [open, setOpen] = useState(false)
-  const [selectedMethods, setSelectedMethods] = useState<string[]>([])
+  const [selectedMethods, setSelectedMethods] = useState<string[]>(["visa", "mastercard", "amex", "apple", "google"])
   const [formData, setFormData] = useState({
-    payoutDescriptor: "BASK",
+    payoutDescriptor: "WELLIEMD",
     payoutSchedule: "business",
+    weeklyDay: "monday",
+    monthlyDay: "1st",
     statementDescriptor: "Pause RX",
     shortenedDescriptor: "PauseRX",
     testMode: false
@@ -110,8 +122,14 @@ export default function Payments() {
     )
   }
 
+  const handleSave = () => {
+    // Handle save logic here
+    console.log("Saving payment settings:", { selectedMethods, formData })
+    setOpen(false)
+  }
+
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto space-y-8 p-6">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Payments</h1>
       </div>
@@ -125,121 +143,201 @@ export default function Payments() {
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">Manage</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-xl">
+            <DialogContent className="max-w-3xl">
               <DialogHeader>
                 <DialogTitle>Manage Payment Methods</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-6 py-4">
-                <div className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   Account ID: acct_1RRbCXBFD0x3svup
-                </div>
-
-                <div className="space-y-4">
-                  {paymentMethods.map((method) => (
-                    <div key={method.id} className="flex items-center gap-3">
-                      <Checkbox
-                        id={method.id}
-                        checked={selectedMethods.includes(method.id)}
-                        onCheckedChange={() => togglePaymentMethod(method.id)}
-                      />
-                      <label htmlFor={method.id} className="text-sm">
-                        {method.name}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-
+                </p>
+              </DialogHeader>
+              
+              <div className="space-y-6">
+                {/* Payment Methods Selection */}
                 <div>
-                  <h3 className="font-medium mb-4">Payout Details</h3>
+                  <h3 className="font-medium mb-3">Payment Methods</h3>
+                  <div className="space-y-3">
+                    {paymentMethods.map((method) => (
+                      <div key={method.id} className="flex items-center gap-3">
+                        <Checkbox
+                          id={method.id}
+                          checked={selectedMethods.includes(method.id)}
+                          onCheckedChange={() => togglePaymentMethod(method.id)}
+                        />
+                        <img 
+                          src={method.icon} 
+                          alt={method.name}
+                          className="w-5 h-5 object-contain"
+                        />
+                        <label htmlFor={method.id} className="text-sm cursor-pointer">
+                          {method.name}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Payout Details */}
+                <div>
+                  <h3 className="font-medium mb-2">Payout Details</h3>
                   <p className="text-sm text-muted-foreground mb-4">
                     Your earnings are deposited into this bank account. Choose the frequency of your payouts and edit the way they're described on your bank statements.
                   </p>
                   
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Payout Statement Descriptor</Label>
+                    <div>
+                      <Label className="text-sm">Payout Statement Descriptor</Label>
                       <Input
                         value={formData.payoutDescriptor}
                         onChange={(e) => setFormData(prev => ({ ...prev, payoutDescriptor: e.target.value }))}
+                        className="mt-1 focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
                       />
-                      <p className="text-xs text-muted-foreground">The way payouts are described on your bank statements.</p>
+                      <p className="text-xs text-muted-foreground mt-1">The way payouts are described on your bank statements.</p>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label>Payout Schedule</Label>
-                      <RadioGroup
-                        value={formData.payoutSchedule}
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, payoutSchedule: value }))}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="business" id="business" />
-                          <Label htmlFor="business">Every Business Day</Label>
+                    <div>
+                      <Label className="text-sm">Payout Schedule</Label>
+                      <div className="mt-2 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="radio" 
+                            id="business" 
+                            name="payoutSchedule"
+                            value="business"
+                            checked={formData.payoutSchedule === "business"}
+                            onChange={(e) => setFormData(prev => ({ ...prev, payoutSchedule: e.target.value }))}
+                            className="w-4 h-4"
+                          />
+                          <Label htmlFor="business" className="text-sm">Every Business Day</Label>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="week" id="week" />
-                          <Label htmlFor="week">Every Week</Label>
+                        
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="radio" 
+                            id="week" 
+                            name="payoutSchedule"
+                            value="week"
+                            checked={formData.payoutSchedule === "week"}
+                            onChange={(e) => setFormData(prev => ({ ...prev, payoutSchedule: e.target.value }))}
+                            className="w-4 h-4"
+                          />
+                          <Label htmlFor="week" className="text-sm mr-2">Every Week</Label>
+                          <Select 
+                            value={formData.weeklyDay} 
+                            onValueChange={(value) => setFormData(prev => ({ ...prev, weeklyDay: value }))}
+                          >
+                            <SelectTrigger className="w-32 h-8">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="monday">on Monday</SelectItem>
+                              <SelectItem value="tuesday">on Tuesday</SelectItem>
+                              <SelectItem value="wednesday">on Wednesday</SelectItem>
+                              <SelectItem value="thursday">on Thursday</SelectItem>
+                              <SelectItem value="friday">on Friday</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="month" id="month" />
-                          <Label htmlFor="month">Every Month</Label>
+
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="radio" 
+                            id="month" 
+                            name="payoutSchedule"
+                            value="month"
+                            checked={formData.payoutSchedule === "month"}
+                            onChange={(e) => setFormData(prev => ({ ...prev, payoutSchedule: e.target.value }))}
+                            className="w-4 h-4"
+                          />
+                          <Label htmlFor="month" className="text-sm mr-2">Every Month</Label>
+                          <Select 
+                            value={formData.monthlyDay} 
+                            onValueChange={(value) => setFormData(prev => ({ ...prev, monthlyDay: value }))}
+                          >
+                            <SelectTrigger className="w-24 h-8">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1st">on 1st</SelectItem>
+                              <SelectItem value="15th">on 15th</SelectItem>
+                              <SelectItem value="30th">on 30th</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
-                      </RadioGroup>
+                      </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label>Statement Descriptor</Label>
+                    <div>
+                      <Label className="text-sm">Statement Descriptor</Label>
                       <Input
                         value={formData.statementDescriptor}
                         onChange={(e) => setFormData(prev => ({ ...prev, statementDescriptor: e.target.value }))}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Shortened Descriptor</Label>
-                      <Input
-                        value={formData.shortenedDescriptor}
-                        onChange={(e) => setFormData(prev => ({ ...prev, shortenedDescriptor: e.target.value }))}
+                        className="mt-1 focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
                       />
                     </div>
 
                     <div>
-                      <h3 className="font-medium mb-2">Test Mode</h3>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Test Bask Payments setup and configuration to simulate successful and failed transactions. Learn more about <a href="#" className="text-blue-500">test mode</a>
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <Label>Turn Test Mode on:</Label>
-                        <Switch
-                          checked={formData.testMode}
-                          onCheckedChange={(checked) => setFormData(prev => ({ ...prev, testMode: checked }))}
-                        />
-                      </div>
+                      <Label className="text-sm">Shortened Descriptor</Label>
+                      <Input
+                        value={formData.shortenedDescriptor}
+                        onChange={(e) => setFormData(prev => ({ ...prev, shortenedDescriptor: e.target.value }))}
+                        className="mt-1 focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
+                      />
                     </div>
                   </div>
                 </div>
 
+                {/* Test Mode */}
+                <div className="space-y-3 p-4 bg-blue-50 rounded-lg">
+                  <h3 className="font-medium">Test Mode</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Test Bask Payments setup and configuration to simulate successful and failed transactions.{" "}
+                    <a href="#" className="text-sky-600 hover:text-sky-700">Learn more about test mode</a>
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={formData.testMode}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, testMode: checked }))}
+                    />
+                    <Label>Turn Test Mode on</Label>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
                 <div className="flex justify-end">
-                  <Button onClick={() => setOpen(false)}>Save</Button>
+                  <Button onClick={handleSave} className="bg-sky-500 hover:bg-sky-600">
+                    Save
+                  </Button>
                 </div>
               </div>
             </DialogContent>
           </Dialog>
         </CardHeader>
+        
         <CardContent className="space-y-6">
           <div>
             <p className="text-sm text-muted-foreground mb-2">Account ID</p>
             <p className="text-sm font-mono">acct_1QRbOqx8FD0x3snxP</p>
-            <Button variant="link" className="h-auto p-0 text-xs text-primary">
+            <Button variant="link" className="h-auto p-0 text-xs text-sky-600 hover:text-sky-700">
               Manage
             </Button>
           </div>
 
+          {/* Payment Method Icons */}
           <div className="flex flex-wrap gap-2 items-center">
-            {paymentIcons.map((icon, index) => (
-              <div key={index} className="flex items-center justify-center w-8 h-6 bg-white border rounded text-xs">
-                <CreditCard className={`w-4 h-4 ${icon.color}`} />
+            {paymentIcons.slice(0, 6).map((payment, index) => (
+              <div key={index} className="flex items-center justify-center w-12 h-8 bg-white border rounded shadow-sm">
+                <img 
+                  src={payment.icon} 
+                  alt={payment.name}
+                  className="w-8 h-6 object-contain"
+                />
               </div>
             ))}
+            {paymentIcons.length > 6 && (
+              <div className="flex items-center justify-center w-12 h-8 bg-gray-50 border rounded text-xs text-gray-600">
+                +{paymentIcons.length - 6}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-6 text-sm">
@@ -274,13 +372,13 @@ export default function Payments() {
           </div>
 
           {subscriptionStatuses.map((item, index) => (
-            <div key={index} className="grid grid-cols-2 text-sm py-2 border-b border-border/50 last:border-0">
+            <div key={index} className="grid grid-cols-2 text-sm py-3 border-b border-border/50 last:border-0">
               <div>
                 <Badge variant="secondary" className={`${item.color} border-0 text-xs`}>
                   {item.status}
                 </Badge>
               </div>
-              <div className="text-muted-foreground text-xs leading-relaxed">
+              <div className="text-muted-foreground text-sm leading-relaxed">
                 {item.definition}
               </div>
             </div>
