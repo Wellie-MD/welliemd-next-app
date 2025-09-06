@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -14,14 +14,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { DateRange } from "react-day-picker"
-import { Calendar } from "@/components/ui/calendar"
-import { format } from "date-fns"
-import { CalendarIcon } from "lucide-react"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { isWithinInterval, parseISO } from "date-fns"
+import { exportToCSV } from "@/utils/exportUtils"
 
 const patientColumns = [
   { key: "name", label: "Name" },
@@ -45,22 +39,130 @@ const patientColumns = [
 ]
 
 const statusFilters = ["All", "Active", "Pending", "Abandon", "Canceled"]
+const additionalFilters = ["Refills", "Visit Status", "Patient Status"]
+
+// Helper function to parse date in DD/MM/YYYY format
+const parseDate = (dateString: string) => {
+  const [day, month, year] = dateString.split('/')
+  return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+}
 
 export default function Patients() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeFilter, setActiveFilter] = useState("All")
+  const [activeAdditionalFilters, setActiveAdditionalFilters] = useState<string[]>([])
   const [date, setDate] = useState<DateRange | undefined>()
   const [isOpen, setIsOpen] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0) // For triggering refresh
   const [newPatient, setNewPatient] = useState({
     firstName: "",
     lastName: "",
     email: "",
   })
 
-  const filteredPatients = mockData.patients.filter(patient => 
-    patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    patient.email.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // Comprehensive filtering logic
+  const filteredPatients = useMemo(() => {
+    return mockData.patients.filter(patient => {
+      // Search filter
+      const matchesSearch = !searchTerm || 
+        patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        patient.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        patient.phone.includes(searchTerm) ||
+        patient.mrn.toLowerCase().includes(searchTerm.toLowerCase())
+
+      // Status filter
+      const matchesStatus = activeFilter === "All" || patient.patientStatus === activeFilter
+
+      // Date range filter
+      let matchesDateRange = true
+      if (date?.from || date?.to) {
+        const patientStartDate = parseDate(patient.startDate)
+        
+        if (date.from && date.to) {
+          matchesDateRange = isWithinInterval(patientStartDate, {
+            start: date.from,
+            end: date.to
+          })
+        } else if (date.from) {
+          matchesDateRange = patientStartDate >= date.from
+        } else if (date.to) {
+          matchesDateRange = patientStartDate <= date.to
+        }
+      }
+
+      // Additional filters logic (you can customize this based on your needs)
+      let matchesAdditionalFilters = true
+      if (activeAdditionalFilters.length > 0) {
+        // Example: if "Visit Status" is selected, you might want to filter by specific visit statuses
+        // This is a placeholder - implement according to your business logic
+        if (activeAdditionalFilters.includes("Visit Status")) {
+          // You can add specific logic here
+        }
+        if (activeAdditionalFilters.includes("Patient Status")) {
+          // You can add specific logic here  
+        }
+        if (activeAdditionalFilters.includes("Refills")) {
+          // Filter patients with more than 1 order as an example
+          matchesAdditionalFilters = patient.orders > 1
+        }
+      }
+
+      return matchesSearch && matchesStatus && matchesDateRange && matchesAdditionalFilters
+    })
+  }, [mockData.patients, searchTerm, activeFilter, date, activeAdditionalFilters, refreshKey])
+
+  // Create filter configuration for DataTable
+  const filters = [
+    // Status filters
+    ...statusFilters.map(status => ({
+      key: `status-${status}`,
+      label: status,
+      type: 'button' as const,
+      value: activeFilter === status ? status : undefined,
+      onClick: () => setActiveFilter(status)
+    })),
+    // Additional filters
+    ...additionalFilters.map(filter => ({
+      key: `additional-${filter}`,
+      label: filter,
+      type: 'button' as const,
+      value: activeAdditionalFilters.includes(filter) ? filter : undefined,
+      onClick: () => {
+        setActiveAdditionalFilters(prev => 
+          prev.includes(filter) 
+            ? prev.filter(f => f !== filter)
+            : [...prev, filter]
+        )
+      }
+    }))
+  ]
+
+  const handleResetFilters = useCallback(() => {
+    setActiveFilter("All")
+    setActiveAdditionalFilters([])
+    setDate(undefined)
+    setSearchTerm("")
+  }, [])
+
+  const handleRefresh = useCallback(() => {
+    // Increment refresh key to trigger re-render and data refresh
+    setRefreshKey(prev => prev + 1)
+    
+    // In a real app, you would also:
+    // - Fetch fresh data from your API
+    // - Show loading state
+    // - Handle errors
+    
+    // For now, we'll simulate a refresh by forcing a re-computation
+    console.log("Refreshing patient data...")
+    
+    // Optional: Show some feedback to user
+    // You could add a toast notification here
+  }, [])
+
+  const handleExport = useCallback(() => {
+    exportToCSV(filteredPatients, patientColumns, 'patients_export')
+  }, [filteredPatients])
 
   return (
     <div className="p-6 space-y-6">
@@ -124,70 +226,20 @@ export default function Patients() {
         </Dialog>
       </div>
 
-      {/* Status Filter Pills */}
-      <div className="flex items-center gap-2">
-        {statusFilters.map((status) => (
-          <Button
-            key={status}
-            variant={activeFilter === status ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveFilter(status)}
-            className={activeFilter === status ? "bg-primary text-primary-foreground" : ""}
-          >
-            {status}
-          </Button>
-        ))}
-      </div>
-
-      {/* Additional Filter Buttons */}
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm">
-          Refills
-        </Button>
-        <Button variant="outline" size="sm">
-          Visit Status
-        </Button>
-        <Button variant="outline" size="sm">
-          Patient Status
-        </Button>
-      </div>
-
-      <div className="flex items-center gap-4 mb-4">
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="w-[300px] justify-start text-left font-normal">
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {date?.from ? (
-                date.to ? (
-                  <>
-                    {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
-                  </>
-                ) : (
-                  format(date.from, "LLL dd, y")
-                )
-              ) : (
-                <span>Pick a date range</span>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              initialFocus
-              mode="range"
-              defaultMonth={date?.from}
-              selected={date}
-              onSelect={setDate}
-              numberOfMonths={2}
-            />
-          </PopoverContent>
-        </Popover>
-      </div>
-
       <DataTable
         data={filteredPatients}
         columns={patientColumns}
         searchPlaceholder="Search by patient, Ex: name or email phone number, MRN#"
+        showDatePicker={true}
+        showExport={true}
+        showResetFilters={true}
+        filters={filters}
+        dateRange={date}
+        onDateRangeChange={setDate}
         onSearch={setSearchTerm}
+        onResetFilters={handleResetFilters}
+        onExport={handleExport}
+        onRefresh={handleRefresh}
       />
     </div>
   )

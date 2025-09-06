@@ -1,9 +1,12 @@
+import { useState, useMemo, useCallback } from "react"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
-import { useState } from "react"
-import { TableFilters } from "@/components/shared/TableFilters"
+import { DateRange } from "react-day-picker"
+import { isWithinInterval } from "date-fns"
 import mockData from "@/data/mockData.json"
+import { exportToCSV } from "@/utils/exportUtils"
+
 
 const treatmentColumns = [
   { key: "name", label: "Name" },
@@ -25,33 +28,117 @@ const treatmentColumns = [
 ]
 
 const statusFilters = ["All", "Active", "Pending", "Abandon", "Canceled"]
+const additionalFilters = ["Refills", "Visit Status", "Patient Status"]
+
+// Helper function to parse date in DD/MM/YYYY format (same as Patients page)
+const parseDate = (dateString: string) => {
+  const [day, month, year] = dateString.split('/')
+  return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+}
 
 export default function Treatments() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedDate, setSelectedDate] = useState<Date>()
-  const [selectedStatus, setSelectedStatus] = useState("All")
+  const [searchTerm, setSearchTerm] = useState("")
+  const [activeFilter, setActiveFilter] = useState("All")
+  const [activeAdditionalFilters, setActiveAdditionalFilters] = useState<string[]>([])
+  const [date, setDate] = useState<DateRange | undefined>()
+  const [refreshKey, setRefreshKey] = useState(0) // For triggering refresh
+
+  // Comprehensive filtering logic
+  const filteredTreatments = useMemo(() => {
+    return mockData.treatments.treatments.filter(treatment => {
+      // Search filter
+      const matchesSearch = !searchTerm || 
+        treatment.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        treatment.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        treatment.phoneNumber.includes(searchTerm) ||
+        treatment.mrn.toLowerCase().includes(searchTerm.toLowerCase())
+
+      // Status filter - using treatStatus field
+      const matchesStatus = activeFilter === "All" || treatment.treatStatus === activeFilter
+
+      // Date range filter
+      let matchesDateRange = true
+      if (date?.from || date?.to) {
+        const treatmentStartDate = parseDate(treatment.startDate)
+        
+        if (date.from && date.to) {
+          matchesDateRange = isWithinInterval(treatmentStartDate, {
+            start: date.from,
+            end: date.to
+          })
+        } else if (date.from) {
+          matchesDateRange = treatmentStartDate >= date.from
+        } else if (date.to) {
+          matchesDateRange = treatmentStartDate <= date.to
+        }
+      }
+
+      // Additional filters logic
+      let matchesAdditionalFilters = true
+      if (activeAdditionalFilters.length > 0) {
+        if (activeAdditionalFilters.includes("Visit Status")) {
+          // Add specific logic here based on your business requirements
+        }
+        if (activeAdditionalFilters.includes("Patient Status")) {
+          // Add specific logic here based on your business requirements  
+        }
+        if (activeAdditionalFilters.includes("Refills")) {
+          // Filter treatments with more than 1 order as an example
+          matchesAdditionalFilters = treatment.orders > 1
+        }
+      }
+
+      return matchesSearch && matchesStatus && matchesDateRange && matchesAdditionalFilters
+    })
+  }, [mockData.treatments.treatments, searchTerm, activeFilter, date, activeAdditionalFilters, refreshKey])
+
+  // Create filter configuration for DataTable
+  const filters = [
+    // Status filters
+    ...statusFilters.map(status => ({
+      key: `status-${status}`,
+      label: status,
+      type: 'button' as const,
+      value: activeFilter === status ? status : undefined,
+      onClick: () => setActiveFilter(status)
+    })),
+    // Additional filters
+    ...additionalFilters.map(filter => ({
+      key: `additional-${filter}`,
+      label: filter,
+      type: 'button' as const,
+      value: activeAdditionalFilters.includes(filter) ? filter : undefined,
+      onClick: () => {
+        setActiveAdditionalFilters(prev => 
+          prev.includes(filter) 
+            ? prev.filter(f => f !== filter)
+            : [...prev, filter]
+        )
+      }
+    }))
+  ]
+
+  const handleResetFilters = useCallback(() => {
+    setActiveFilter("All")
+    setActiveAdditionalFilters([])
+    setDate(undefined)
+    setSearchTerm("")
+  }, [])
+
+  const handleRefresh = useCallback(() => {
+    // Increment refresh key to trigger re-render and data refresh
+    setRefreshKey(prev => prev + 1)
+    console.log("Refreshing treatment data...")
+  }, [])
+
+  const handleExport = useCallback(() => {
+    exportToCSV(filteredTreatments, treatmentColumns, 'treatments_export')
+  }, [filteredTreatments])
 
   const handleAddNew = () => {
     console.log("Add new treatment clicked")
     // Implement add new treatment logic
   }
-
-  const handleExport = () => {
-    console.log("Export clicked")
-    // Implement export logic
-  }
-
-  const handleReset = () => {
-    setSearchQuery("")
-    setSelectedDate(undefined)
-    setSelectedStatus("All")
-  }
-
-  const additionalFilters = [
-    { label: "Refills", onClick: () => console.log("Refills clicked") },
-    { label: "Visit Status", onClick: () => console.log("Visit Status clicked") },
-    { label: "Patient Status", onClick: () => console.log("Patient Status clicked") }
-  ]
 
   return (
     <div className="p-4 space-y-4">
@@ -64,28 +151,27 @@ export default function Treatments() {
             <span>Treatments</span>
           </div>
         </div>
+        <Button onClick={handleAddNew} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Add New
+        </Button>
       </div>
 
-      <TableFilters
+      <DataTable
+        data={filteredTreatments}
+        columns={treatmentColumns}
         searchPlaceholder="Search by Patient ID, name, email, phone number, MRN#"
-        statusFilters={statusFilters}
-        onSearch={setSearchQuery}
-        onStatusChange={setSelectedStatus}
-        onDateChange={setSelectedDate}
-        onReset={handleReset}
+        showDatePicker={true}
+        showExport={true}
+        showResetFilters={true}
+        filters={filters}
+        dateRange={date}
+        onDateRangeChange={setDate}
+        onSearch={setSearchTerm}
+        onResetFilters={handleResetFilters}
         onExport={handleExport}
-        additionalFilters={additionalFilters}
+        onRefresh={handleRefresh}
       />
-
-      <div className="rounded-lg border overflow-hidden">
-        <div className="overflow-x-auto">
-          <DataTable
-            data={mockData.treatments.treatments}
-            columns={treatmentColumns}
-            searchPlaceholder="Search treatments..."
-          />
-        </div>
-      </div>
     </div>
-  );
+  )
 }

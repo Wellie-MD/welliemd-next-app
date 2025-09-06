@@ -1,3 +1,4 @@
+import { useState, useMemo, useCallback } from "react"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
@@ -18,7 +19,9 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useState } from "react"
+import { DateRange } from "react-day-picker"
+import { isWithinInterval } from "date-fns"
+import { exportToCSV } from "@/utils/exportUtils"
 
 const routingColumns = [
   { key: "id", label: "ID" },
@@ -26,15 +29,105 @@ const routingColumns = [
   { key: "createdAt", label: "Created At" }
 ]
 
+// Fixed filters to match exact data values shown in your table
+const regionFilters = ["All", "North Region", "South Region", "East Coast", "West Coast", "Central"]
+const routeTypeFilters = ["All", "Distribution", "Shipping", "Warehouse", "Delivery", "Supply"]
+
+// Helper function to parse date in DD/MM/YYYY format
+const parseDate = (dateString: string) => {
+  if (!dateString) return new Date()
+  const [day, month, year] = dateString.split('/')
+  return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+}
+
 export default function ProductsRouting() {
   const [open, setOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [activeRegionFilter, setActiveRegionFilter] = useState("All")
+  const [activeRouteTypeFilter, setActiveRouteTypeFilter] = useState("All")
+  const [date, setDate] = useState<DateRange | undefined>()
+  const [refreshKey, setRefreshKey] = useState(0)
   const [formData, setFormData] = useState({
     name: "",
     groupId: "",
   })
 
+  // FIXED: Comprehensive filtering logic based on actual routing data
+  const filteredRouting = useMemo(() => {
+    return mockData.routing.filter(route => {
+      // Search filter - search by name or ID
+      const matchesSearch = !searchTerm || 
+        route.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        route.id.toLowerCase().includes(searchTerm.toLowerCase())
+
+      // FIXED: Region filter - match exact substrings with spaces preserved
+      const matchesRegion = activeRegionFilter === "All" || 
+        route.name.includes(activeRegionFilter)
+
+      // FIXED: Route Type filter - match exact substrings with proper casing
+      const matchesRouteType = activeRouteTypeFilter === "All" || 
+        route.name.includes(activeRouteTypeFilter)
+
+      // Date range filter based on createdAt
+      let matchesDateRange = true
+      if (date?.from || date?.to) {
+        const routeDate = parseDate(route.createdAt)
+        
+        if (date.from && date.to) {
+          matchesDateRange = isWithinInterval(routeDate, {
+            start: date.from,
+            end: date.to
+          })
+        } else if (date.from) {
+          matchesDateRange = routeDate >= date.from
+        } else if (date.to) {
+          matchesDateRange = routeDate <= date.to
+        }
+      }
+
+      return matchesSearch && matchesRegion && matchesRouteType && matchesDateRange
+    })
+  }, [mockData.routing, searchTerm, activeRegionFilter, activeRouteTypeFilter, date, refreshKey])
+
+  // Create filter configuration based on routing data patterns
+  const filters = [
+    // Region filters
+    ...regionFilters.map(region => ({
+      key: `region-${region}`,
+      label: region,
+      type: 'button' as const,
+      value: activeRegionFilter === region ? region : undefined,
+      onClick: () => setActiveRegionFilter(region)
+    })),
+    // Route Type filters
+    ...routeTypeFilters.slice(1).map(type => ({ // Skip "All" to avoid duplicate
+      key: `route-type-${type}`,
+      label: type,
+      type: 'button' as const,
+      value: activeRouteTypeFilter === type ? type : undefined,
+      onClick: () => setActiveRouteTypeFilter(type)
+    }))
+  ]
+
+  const handleResetFilters = useCallback(() => {
+    setActiveRegionFilter("All")
+    setActiveRouteTypeFilter("All")
+    setDate(undefined)
+    setSearchTerm("")
+  }, [])
+
+  const handleRefresh = useCallback(() => {
+    setRefreshKey(prev => prev + 1)
+    console.log("Refreshing routing data...")
+  }, [])
+
+  const handleExport = useCallback(() => {
+    exportToCSV(filteredRouting, routingColumns, 'products_routing_export')
+  }, [filteredRouting])
+
   const handleCreate = () => {
     // Handle routing creation here
+    console.log("Creating new routing:", formData)
     setOpen(false)
     setFormData({ name: "", groupId: "" })
   }
@@ -121,11 +214,19 @@ export default function ProductsRouting() {
       </div>
 
       <DataTable
-        data={mockData.routing}
+        data={filteredRouting}
         columns={routingColumns}
         searchPlaceholder="Search by name"
-        showDatePicker={false}
-        showExport={false}
+        showDatePicker={true}
+        showExport={true}
+        showResetFilters={true}
+        filters={filters}
+        dateRange={date}
+        onDateRangeChange={setDate}
+        onSearch={setSearchTerm}
+        onResetFilters={handleResetFilters}
+        onExport={handleExport}
+        onRefresh={handleRefresh}
       />
     </div>
   )

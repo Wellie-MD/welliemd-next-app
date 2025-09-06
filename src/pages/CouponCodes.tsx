@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 import { DataTable } from "@/components/ui/data-table"
+import { DateRange } from "react-day-picker"
+import { isWithinInterval } from "date-fns"
 import AddCouponForm from "@/components/coupons/AddCouponForm"
 import axiosInstance from "@/api/axiosInstance"
+import { exportToCSV } from "@/utils/exportUtils"
 
 type Coupon = {
   id: string
@@ -22,6 +25,11 @@ type Coupon = {
 
 type Product = { id: string; name: string }
 
+// Meaningful filters based on coupon data
+const statusFilters = ["All", "Active", "Inactive"]
+const typeFilters = ["All", "Fixed Amount", "Percent"]
+const usageFilters = ["All", "Used", "Unused", "Expired"]
+
 function formatMoney(n?: number | string | null) {
   if (n === null || n === undefined || n === "") return "-"
   const num = typeof n === "string" ? parseFloat(n) : n
@@ -39,6 +47,13 @@ function formatDate(d?: string | null) {
   }
 }
 
+// Helper function to parse date in DD/MM/YYYY format
+const parseDate = (dateString: string) => {
+  if (!dateString) return new Date()
+  const [day, month, year] = dateString.split('/')
+  return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+}
+
 const getRow = <T,>(...args: any[]): T => (args.length >= 2 ? args[1] : args[0])
 
 export default function CouponCodes() {
@@ -46,7 +61,12 @@ export default function CouponCodes() {
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null)
   const [coupons, setCoupons] = useState<Coupon[]>([])
   const [products, setProducts] = useState<Product[]>([])
-  const [search, setSearch] = useState("")
+  const [searchTerm, setSearchTerm] = useState("")
+  const [activeStatusFilter, setActiveStatusFilter] = useState("All")
+  const [activeTypeFilter, setActiveTypeFilter] = useState("All")
+  const [activeUsageFilter, setActiveUsageFilter] = useState("All")
+  const [date, setDate] = useState<DateRange | undefined>()
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const productMap = useMemo(
     () => Object.fromEntries(products.map((p) => [p.id, p.name])),
@@ -76,22 +96,111 @@ export default function CouponCodes() {
     fetchProducts()
   }, [])
 
+  // Comprehensive filtering logic
   const filteredCoupons = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return coupons
-    return coupons.filter((c) => {
-      const hay = [
-        c.code,
-        c.type,
-        String(c.value),
-        c.id,
-        ...(c.applicable_products || []).map((pid) => productMap[pid] || pid),
-      ]
-        .join(" ")
-        .toLowerCase()
-      return hay.includes(q)
+    return coupons.filter(coupon => {
+      // Search filter
+      const matchesSearch = !searchTerm || 
+        coupon.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        coupon.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        coupon.id.toLowerCase().includes(searchTerm.toLowerCase())
+
+      // Status filter
+      const matchesStatus = activeStatusFilter === "All" || 
+        (activeStatusFilter === "Active" && coupon.is_active) ||
+        (activeStatusFilter === "Inactive" && !coupon.is_active)
+
+      // Type filter
+      const matchesType = activeTypeFilter === "All" || 
+        (activeTypeFilter === "Fixed Amount" && coupon.type === "fixed") ||
+        (activeTypeFilter === "Percent" && coupon.type === "percent")
+
+      // Usage filter
+      let matchesUsage = true
+      if (activeUsageFilter !== "All") {
+        const now = new Date()
+        const expired = coupon.expires_at && new Date(coupon.expires_at) < now
+        
+        switch (activeUsageFilter) {
+          case "Used":
+            matchesUsage = coupon.total_used > 0
+            break
+          case "Unused":
+            matchesUsage = coupon.total_used === 0
+            break
+          case "Expired":
+            matchesUsage = expired || false
+            break
+        }
+      }
+
+      // Date range filter based on created_at
+      let matchesDateRange = true
+      if (date?.from || date?.to) {
+        if (coupon.created_at) {
+          const couponDate = new Date(coupon.created_at)
+          
+          if (date.from && date.to) {
+            matchesDateRange = isWithinInterval(couponDate, {
+              start: date.from,
+              end: date.to
+            })
+          } else if (date.from) {
+            matchesDateRange = couponDate >= date.from
+          } else if (date.to) {
+            matchesDateRange = couponDate <= date.to
+          }
+        }
+      }
+
+      return matchesSearch && matchesStatus && matchesType && matchesUsage && matchesDateRange
     })
-  }, [search, coupons, productMap])
+  }, [coupons, searchTerm, activeStatusFilter, activeTypeFilter, activeUsageFilter, date, refreshKey])
+
+  // Create filter configuration
+  const filters = [
+    // Status filters
+    ...statusFilters.map(status => ({
+      key: `status-${status}`,
+      label: status,
+      type: 'button' as const,
+      value: activeStatusFilter === status ? status : undefined,
+      onClick: () => setActiveStatusFilter(status)
+    })),
+    // Type filters
+    ...typeFilters.slice(1).map(type => ({ // Skip "All" to avoid duplicate
+      key: `type-${type}`,
+      label: type,
+      type: 'button' as const,
+      value: activeTypeFilter === type ? type : undefined,
+      onClick: () => setActiveTypeFilter(type)
+    })),
+    // Usage filters
+    ...usageFilters.slice(1).map(usage => ({ // Skip "All" to avoid duplicate
+      key: `usage-${usage}`,
+      label: usage,
+      type: 'button' as const,
+      value: activeUsageFilter === usage ? usage : undefined,
+      onClick: () => setActiveUsageFilter(usage)
+    }))
+  ]
+
+  const handleResetFilters = useCallback(() => {
+    setActiveStatusFilter("All")
+    setActiveTypeFilter("All")
+    setActiveUsageFilter("All")
+    setDate(undefined)
+    setSearchTerm("")
+  }, [])
+
+  const handleRefresh = useCallback(() => {
+    setRefreshKey(prev => prev + 1)
+    fetchCoupons()
+  }, [])
+
+  const handleExport = useCallback(() => {
+    exportToCSV(filteredCoupons, columns, 'coupon_codes_export')
+  }, [filteredCoupons])
 
   const onDelete = async (row: Coupon) => {
     if (!row) return
@@ -169,10 +278,10 @@ export default function CouponCodes() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Coupons Codes</h1>
+        <h1 className="text-2xl font-bold">Coupon Codes</h1>
         <Button className="gap-2" onClick={() => setShowCreate(true)}>
           <Plus className="h-4 w-4" />
-          Add new
+          Add New
         </Button>
       </div>
 
@@ -207,15 +316,20 @@ export default function CouponCodes() {
         </div>
       )}
 
-      {/* Use DataTable toolbar for search/clear/refresh; pagination is handled inside DataTable */}
       <DataTable
         data={filteredCoupons}
         columns={columns}
         searchPlaceholder="Search by coupon name, code, or ID"
-        showDatePicker={false}
-        showExport={false}
-        onSearch={setSearch}       // typing -> updates 'search' -> filters locally
-        onRefresh={fetchCoupons}   // refresh button -> GET /coupons/
+        showDatePicker={true}
+        showExport={true}
+        showResetFilters={true}
+        filters={filters}
+        dateRange={date}
+        onDateRangeChange={setDate}
+        onSearch={setSearchTerm}
+        onResetFilters={handleResetFilters}
+        onExport={handleExport}
+        onRefresh={handleRefresh}
       />
     </div>
   )

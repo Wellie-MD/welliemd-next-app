@@ -16,15 +16,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Calendar } from "@/components/ui/calendar"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   ChevronLeft,
   ChevronRight,
   RotateCcw,
   Download,
-  Calendar,
-  Filter,
+  CalendarIcon,
   X,
 } from "lucide-react"
+import { DateRange } from "react-day-picker"
+import { format } from "date-fns"
 
 interface Column {
   key: string
@@ -33,16 +40,30 @@ interface Column {
   render?: (value: any, row: any) => React.ReactNode
 }
 
+interface FilterConfig {
+  key: string
+  label: string
+  type: 'button' | 'select'
+  options?: string[]
+  value?: string
+  onClick?: () => void
+}
+
 interface DataTableProps {
   data: any[]
   columns: Column[]
   hideToolbar?: boolean
   searchPlaceholder?: string
-  showFilters?: boolean
-  showExport?: boolean
   showDatePicker?: boolean
+  showExport?: boolean
+  showResetFilters?: boolean
+  filters?: FilterConfig[]
+  dateRange?: DateRange | undefined
+  onDateRangeChange?: (range: DateRange | undefined) => void
+  onSearch?: (searchTerm: string) => void
   onFilter?: (filters: any) => void
   onExport?: () => void
+  onResetFilters?: () => void
   onRefresh?: () => void
 }
 
@@ -51,31 +72,27 @@ export function DataTable({
   columns,
   hideToolbar = false,
   searchPlaceholder = "Search...",
-  showFilters = true,
+  showDatePicker = false,
   showExport = true,
-  showDatePicker = true,
+  showResetFilters = true,
+  filters = [],
+  dateRange,
+  onDateRangeChange,
+  onSearch,
   onFilter,
   onExport,
+  onResetFilters,
   onRefresh,
 }: DataTableProps) {
   // ---- pagination state ----
   const [pageSize, setPageSize] = useState<number>(10)
   const [page, setPage] = useState<number>(1)
 
-  // ---- search state ----
+  // ---- local search state ----
   const [localSearch, setLocalSearch] = useState<string>("")
 
-  // ---- filtering ----
-  const filteredData = useMemo(() => {
-    if (!localSearch) return data ?? []
-    const lower = localSearch.toLowerCase()
-    return (data ?? []).filter((row) =>
-      columns.some((col) => {
-        const val = row[col.key]
-        return val?.toString().toLowerCase().includes(lower)
-      })
-    )
-  }, [data, localSearch, columns])
+  // ---- filtering (using the filtered data passed from parent) ----
+  const filteredData = data ?? []
 
   // ---- pagination ----
   const totalPages = useMemo(
@@ -100,21 +117,59 @@ export function DataTable({
 
   const handleInputChange = (v: string) => {
     setLocalSearch(v)
+    onSearch?.(v)
     setPage(1)
   }
 
   const handleClearInput = () => {
     setLocalSearch("")
+    onSearch?.("")
     setPage(1)
+  }
+
+  // Use the onExport prop instead of defining our own export logic
+  const handleExport = () => {
+    if (onExport) {
+      onExport()
+    }
   }
 
   return (
     <div className="space-y-4">
       {!hideToolbar && (
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 flex-1">
-            {/* 🔎 search box with clear button */}
-            <div className="relative w-full max-w-xl">
+        <>
+          {/* All filters in a single line */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {filters.map((filter) => (
+              <Button
+                key={filter.key}
+                variant={filter.value ? "default" : "outline"}
+                size="sm"
+                onClick={filter.onClick}
+                className={filter.value ? "bg-primary text-primary-foreground" : ""}
+              >
+                {filter.label}
+              </Button>
+            ))}
+
+            {/* Reset Filters Button */}
+            {showResetFilters && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onResetFilters}
+                className="gap-1"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Reset Filters
+              </Button>
+            )}
+          </div>
+
+          {/* Search Box, Date Picker, Export and Refresh in same line */}
+          <div className="flex items-center gap-4">
+            {/* Search Box */}
+            <div className="relative flex-1 max-w-xl">
               <Input
                 value={localSearch}
                 onChange={(e) => handleInputChange(e.target.value)}
@@ -133,37 +188,64 @@ export function DataTable({
               )}
             </div>
 
-            {showDatePicker && (
-              <Button variant="outline" className="gap-2">
-                <Calendar className="h-4 w-4" />
-                Select date range
-              </Button>
-            )}
+            {/* Right side buttons container */}
+            <div className="flex items-center gap-2 ml-auto">
+              {/* Date Picker */}
+              {showDatePicker && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-[280px] justify-start text-left font-normal">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateRange?.from ? (
+                        dateRange.to ? (
+                          <>
+                            {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
+                          </>
+                        ) : (
+                          format(dateRange.from, "LLL dd, y")
+                        )
+                      ) : (
+                        <span>Pick a date range</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={dateRange?.from}
+                      selected={dateRange}
+                      onSelect={onDateRangeChange}
+                      numberOfMonths={2}
+                    />
+                  </PopoverContent>
+                </Popover>
+              )}
 
-            {showFilters && (
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => onFilter?.({})}
+              {/* Export Button */}
+              {showExport && (
+                <Button
+                  variant="outline"
+                  onClick={handleExport}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export
+                </Button>
+              )}
+
+              {/* Refresh Button */}
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={onRefresh}
+                title="Refresh data"
               >
-                <Filter className="h-4 w-4" />
-                Reset Filters
+                <RotateCcw className="h-4 w-4" />
               </Button>
-            )}
+            </div>
           </div>
-
-          <div className="flex items-center gap-2">
-            {showExport && (
-              <Button variant="outline" className="gap-2" onClick={onExport}>
-                <Download className="h-4 w-4" />
-                Export
-              </Button>
-            )}
-            <Button variant="outline" size="icon" onClick={onRefresh}>
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+        </>
       )}
 
       {/* Table */}
