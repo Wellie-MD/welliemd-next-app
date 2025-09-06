@@ -48,7 +48,7 @@ export default function Billing() {
           <div>
             <h2 className="text-lg font-semibold">Subscriptions</h2>
             <p className="text-sm text-muted-foreground">
-              An overview of items that you're billed for regularly, like your Bask subscription and 3rd parties with recurring charges.
+              An overview of items that you're billed for regularly, like your Welliemd Subscription and 3rd parties with recurring charges.
             </p>
           </div>
         </div>
@@ -64,7 +64,7 @@ export default function Billing() {
                 <span className="text-white text-xs font-bold">BK</span>
               </div>
               <div>
-                <p className="font-medium">Bask Subscription</p>
+                <p className="font-medium">Welliemd Subscription</p>
                 <p className="text-sm text-muted-foreground">Your next invoice is on August 26th, 2025</p>
               </div>
             </div>
@@ -82,7 +82,7 @@ export default function Billing() {
           <div>
             <h2 className="text-lg font-semibold">Bills</h2>
             <p className="text-sm text-muted-foreground">
-              Your monthly bill is on a 30-day cycle. It includes your Bask subscription, 3rd party charges, and transaction fees.
+              Your monthly bill is on a 30-day cycle. It includes your Welliemd Subscription, 3rd party charges, and transaction fees.
             </p>
           </div>
         </div>

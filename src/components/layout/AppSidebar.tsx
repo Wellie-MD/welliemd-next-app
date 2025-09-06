@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { NavLink, useLocation } from "react-router-dom"
 import {
   BarChart3,
@@ -29,83 +29,117 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { title } from "process"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
-const menuItems = [
-  { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
-  { title: "Clients", url: "/dashboard/clients", icon: Users },
+const menuSections = [
   {
-    title: "Treatments",
-    icon: Stethoscope,
-    children: [
-      { title: "Treatments", url: "/dashboard/treatments" },
-      { title: "Configurations", url: "/dashboard/treatments/configurations" }
+    label: "MANAGEMENT",
+    items: [
+      { title: "Home", url: "/dashboard", icon: BarChart3 },
+      { title: "Clients", url: "/dashboard/clients", icon: Users },
+      {
+        title: "Treatments",
+        icon: Stethoscope,
+        children: [
+          { title: "Treatments", url: "/dashboard/treatments" },
+          { title: "Configurations", url: "/dashboard/treatments/configurations" }
+        ]
+      },
+      {
+        title: "Orders",
+        icon: ShoppingBag,
+        children: [
+          { title: "Orders", url: "/dashboard/orders" },
+          { title: "Payments", url: "/dashboard/orders/payments" },
+          { title: "Disputes", url: "/dashboard/orders/disputes" },
+          { title: "Resolution Queue", url: "/dashboard/orders/resolution-queue" }
+        ]
+      },
+      { title: "Messenger", url: "/dashboard/messages", icon: MessageSquare },
+      { 
+        title: "Analytics", 
+        icon: TrendingUp,
+        children: [
+          { title: "Live View", url: "/dashboard/analytics/live" },
+          { title: "Reports", url: "/dashboard/analytics/reports" },
+          { title: "Cohorts", url: "/dashboard/analytics/cohorts" }
+        ]
+      },
+      { title: "Prescriptions", url: "/dashboard/prescriptions", icon: ScrollText }
     ]
   },
   {
-    title: "Orders",
-    icon: ShoppingBag,
-    children: [
-      { title: "Orders", url: "/dashboard/orders" },
-      { title: "Payments", url: "/dashboard/orders/payments" },
-      { title: "Disputes", url: "/dashboard/orders/disputes" },
-      { title: "Resolution Queue", url: "/dashboard/orders/resolution-queue" }
+    label: "TOOLS & SERVICES",
+    items: [
+      { title: "Questionnaires", url: "/dashboard/questionnaires", icon: FileText },
+      {
+        title: "Products",
+        icon: Package,
+        children: [
+          { title: "Products", url: "/dashboard/products" },
+          { title: "Billing Plans", url: "/dashboard/products/billing-plans" },
+          { title: "Routing", url: "/dashboard/products/routing" }
+        ]
+      },
     ]
   },
-  { title: "Prescription", url: "/dashboard/prescriptions", icon: ScrollText },
-  { title: "Messages", url: "/dashboard/messages", icon: MessageSquare },
   {
-    title: "Products",
-    icon: Package,
-    children: [
-      { title: "Products", url: "/dashboard/products" },
-      { title: "Billing Plans", url: "/dashboard/products/billing-plans" },
-      { title: "Routing", url: "/dashboard/products/routing" }
+    label: "SALES & CHANNELS", 
+    items: [
+      {
+        title: "Finances",
+        icon: CreditCard,
+        children: [
+          { title: "Billing", url: "/dashboard/billing" },
+        ]
+      },
+      {
+        title: "Discounts",
+        icon: Gift,
+        children: [
+          { title: "Coupon Codes", url: "/dashboard/coupon-codes" },
+          { title: "Insights", url: "/dashboard/coupon-insights" }
+        ]
+      },
+      { title: "Affiliates", url: "/dashboard/affiliates", icon: Users },
     ]
-  },
-  // {
-  //   title: "Analytics",
-  //   icon: TrendingUp,
-  //   children: [
-  //     { title: "Live View", url: "/dashboard/analytics/live" },
-  //     { title: "Reports", url: "/dashboard/analytics/reports" },
-  //     { title: "Cohorts", url: "/dashboard/analytics/cohorts" }
-  //   ]
-  // },
-  {
-    title: "Coupon Codes",
-    icon: Gift,
-    children: [
-      { title: "Codes", url: "/dashboard/coupon-codes" },
-      { title: "Insights", url: "/dashboard/coupon-insights" }
-    ]
-  },
-  // { title: "Affiliates", url: "/dashboard/affiliates", icon: CreditCard },
-  {
-    title: "Questionnaires",
-    icon: FileText,
-    children: [
-      { title: "Questionnaires", url: "/dashboard/questionnaires" }
-    ]
-  },
-  { title: "Billing", url: "/dashboard/billing", icon: CreditCard },
-  { title: "Settings", url: "/dashboard/settings", icon: Settings },
-  { title: "Feedback", url: "/dashboard/feedback", icon: MessageCircle },
-  { title: "Roadmap", url: "/dashboard/roadmap", icon: MapPin }
+  }
 ]
 
 export function AppSidebar() {
   const { state } = useSidebar()
   const location = useLocation()
   const currentPath = location.pathname
-
   const [openSections, setOpenSections] = useState<string[]>([])
 
+  const collapsed = state === "collapsed"
+
+  // Auto-open sections when a child is active
+  useEffect(() => {
+    const activeParents: string[] = []
+    
+    menuSections.forEach(section => {
+      section.items.forEach(item => {
+        if (item.children?.some(child => currentPath.startsWith(child.url))) {
+          activeParents.push(item.title)
+        }
+      })
+    })
+    
+    setOpenSections(prev => [...new Set([...prev, ...activeParents])])
+  }, [currentPath])
+
   const toggleSection = (title: string) => {
+    if (collapsed) return // Don't allow toggling when collapsed
+    
     setOpenSections(prev => 
       prev.includes(title) 
         ? prev.filter(item => item !== title)
@@ -113,71 +147,157 @@ export function AppSidebar() {
     )
   }
 
-  const isActive = (path: string) => currentPath === path
-const getNavCls = ({ isActive }: { isActive: boolean }) =>
-  isActive
-    ? "bg-[#E6F1F6] text-[#12517A] font-semibold"  // Active state
-    : "text-black hover:text-[#12517A] hover:bg-muted/50" // Hover state
+  const isItemActive = (item: any) => {
+    if (item.children) {
+      return item.children.some((child: any) => currentPath.startsWith(child.url))
+    }
+    return currentPath === item.url
+  }
 
-  const collapsed = state === "collapsed"
+  // Wrapper for menu items with tooltip when collapsed
+  const MenuItemWrapper = ({ children, title, hasSubmenu = false }: { children: React.ReactNode, title: string, hasSubmenu?: boolean }) => {
+    if (collapsed) {
+      return (
+        <TooltipProvider>
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              {children}
+            </TooltipTrigger>
+            <TooltipContent side="right" className="font-medium">
+              {title}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )
+    }
+    return <>{children}</>
+  }
 
   return (
-    <Sidebar
-      className={collapsed ? "w-14" : "w-60"}
+    <Sidebar 
       collapsible="icon"
+      className="border-r"
     >
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  {item.children ? (
-                    <Collapsible
-                      open={openSections.includes(item.title)}
-                      onOpenChange={() => toggleSection(item.title)}
-                    >
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton className="hover:bg-muted/50">
-                          <item.icon className="mr-2 h-4 w-4" />
-                          {!collapsed && (
-                            <>
-                              <span>{item.title}</span>
-                              {openSections.includes(item.title) ? 
-                                <ChevronDown className="ml-auto h-4 w-4" /> : 
-                                <ChevronRight className="ml-auto h-4 w-4" />
-                              }
-                            </>
-                          )}
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      {!collapsed && (
-                        <CollapsibleContent>
-                          <div className="ml-6 mt-1 space-y-1">
-                            {item.children.map((child) => (
-                              <SidebarMenuButton key={child.title} asChild>
-                                <NavLink to={child.url} className={getNavCls}>
-                                  <span className="text-sm">{child.title}</span>
-                                </NavLink>
+      <SidebarContent className="overflow-hidden">
+        {menuSections.map((section, sectionIndex) => (
+          <SidebarGroup key={section.label}>
+            {!collapsed && (
+              <SidebarGroupLabel className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                {section.label}
+              </SidebarGroupLabel>
+            )}
+            
+            {/* Add section divider when collapsed */}
+            {collapsed && sectionIndex > 0 && (
+              <div className="w-full h-px bg-gray-200 my-2 mx-2"></div>
+            )}
+            
+            <SidebarGroupContent>
+              <SidebarMenu className="space-y-1">
+                {section.items.map((item) => {
+                  const isActive = isItemActive(item)
+                  const isOpen = !collapsed && (openSections.includes(item.title) || isActive)
+
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      {item.children ? (
+                        <MenuItemWrapper title={item.title} hasSubmenu>
+                          <Collapsible
+                            open={isOpen}
+                            onOpenChange={() => toggleSection(item.title)}
+                          >
+                            <CollapsibleTrigger asChild>
+                              <SidebarMenuButton
+                                className={`
+                                  group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
+                                  ${collapsed ? "p-2 justify-center" : "px-3 py-2.5 justify-between"}
+                                  ${isActive 
+                                    ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm" 
+                                    : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
+                                  }
+                                `}
+                              >
+                                <div className="flex items-center min-w-0">
+                                  <item.icon className={`h-5 w-5 flex-shrink-0 ${
+                                    isActive ? "text-[#12517A]" : "text-gray-500 group-hover:text-[#12517A]"
+                                  }`} />
+                                  {!collapsed && (
+                                    <span className="ml-3 font-medium truncate">
+                                      {item.title}
+                                    </span>
+                                  )}
+                                </div>
+                                {!collapsed && (
+                                  <ChevronDown className={`
+                                    h-4 w-4 transition-all duration-200 ease-in-out flex-shrink-0
+                                    ${isOpen ? "transform rotate-0" : "transform -rotate-90"}
+                                    ${isActive ? "text-[#12517A]" : "text-gray-400 group-hover:text-[#12517A]"}
+                                  `} />
+                                )}
                               </SidebarMenuButton>
-                            ))}
-                          </div>
-                        </CollapsibleContent>
+                            </CollapsibleTrigger>
+                            {!collapsed && (
+                              <CollapsibleContent className="transition-all duration-300 ease-in-out">
+                                <div className="ml-6 mt-2 space-y-1 border-l border-gray-200 pl-4">
+                                  {item.children.map((child) => (
+                                    <SidebarMenuButton key={child.title} asChild>
+                                      <NavLink
+                                        to={child.url}
+                                        className={`
+                                          flex items-center w-full px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
+                                          ${currentPath === child.url
+                                            ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm border-l-2 border-[#12517A] -ml-[1px]"
+                                            : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
+                                          }
+                                        `}
+                                      >
+                                        <span className="text-sm">
+                                          {child.title}
+                                        </span>
+                                      </NavLink>
+                                    </SidebarMenuButton>
+                                  ))}
+                                </div>
+                              </CollapsibleContent>
+                            )}
+                          </Collapsible>
+                        </MenuItemWrapper>
+                      ) : (
+                        <MenuItemWrapper title={item.title}>
+                          <SidebarMenuButton asChild>
+                            <NavLink
+                              to={item.url}
+                              end
+                              className={`
+                                group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
+                                ${collapsed ? "p-2 justify-center" : "px-3 py-2.5"}
+                                ${currentPath === item.url
+                                  ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm"
+                                  : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
+                                }
+                              `}
+                            >
+                              <item.icon className={`h-5 w-5 flex-shrink-0 ${
+                                currentPath === item.url 
+                                  ? "text-[#12517A]" 
+                                  : "text-gray-500 group-hover:text-[#12517A]"
+                              }`} />
+                              {!collapsed && (
+                                <span className="ml-3 font-medium truncate">
+                                  {item.title}
+                                </span>
+                              )}
+                            </NavLink>
+                          </SidebarMenuButton>
+                        </MenuItemWrapper>
                       )}
-                    </Collapsible>
-                  ) : (
-                    <SidebarMenuButton asChild>
-                      <NavLink to={item.url} end className={getNavCls}>
-                        <item.icon className="mr-2 h-4 w-4" />
-                        {!collapsed && <span>{item.title}</span>}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  )}
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                    </SidebarMenuItem>
+                  )
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
     </Sidebar>
   )

@@ -2,11 +2,18 @@ import { Outlet, Routes, Route } from "react-router-dom"
 import { SettingsSidebar } from "./SettingsSidebar"
 import StoreDetails from "@/pages/settings/StoreDetails"
 import Integrations from "@/pages/settings/Integrations"
+import FulfillmentInventory from "@/pages/settings/FulfillmentInventory"
 import UsersPermissions from "@/pages/settings/UsersPermissions"
 import Metafields from "@/pages/settings/Metafields"
 import Domains from "@/pages/settings/Domains"
 import Files from "@/pages/settings/Files"
 import Policies from "@/pages/settings/Policies"
+import Payments from "@/pages/settings/Payments"
+import Notifications from "@/pages/settings/Notifications"
+import WebhooksApis from "@/pages/settings/WebhooksApis"
+import PrescribingDoctors from "@/pages/settings/PrescribingDoctors"
+import Brand from "@/pages/settings/Brand"
+import AnalyticsSeo from "@/pages/settings/AnalyticsSeo"
 
 export function SettingsLayout() {
   return (
@@ -24,11 +31,18 @@ export function SettingsLayout() {
             <Routes>
               <Route path="store-details" element={<StoreDetails />} />
               <Route path="integrations" element={<Integrations />} />
+              <Route path="fulfillment-inventory" element={<FulfillmentInventory />} />
+              <Route path="prescribing-doctors" element={<PrescribingDoctors />} />
               <Route path="users-permissions" element={<UsersPermissions />} />
+              <Route path="payments" element={<Payments />} />
+              <Route path="notifications" element={<Notifications />} />
+              <Route path="webhooks-apis" element={<WebhooksApis />} />
               <Route path="files" element={<Files />} />
               <Route path="policies" element={<Policies />} />
               <Route path="metafields" element={<Metafields />} />
               <Route path="domains" element={<Domains />} />
+              <Route path="brand" element={<Brand />} />
+              <Route path="analytics-seo" element={<AnalyticsSeo />} />
               <Route path="" element={<StoreDetails />} />
             </Routes>
           </div>

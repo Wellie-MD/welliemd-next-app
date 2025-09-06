@@ -1,7 +1,7 @@
+// src/pages/dashboard/Products.tsx
 import { useEffect, useMemo, useState } from "react"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Pencil, Trash2 } from "lucide-react"
+import { Pencil, Trash2 } from "lucide-react"
 import { DataTable } from "@/components/ui/data-table"
 import axiosInstance from "@/api/axiosInstance"
 import AddProductForm from "@/components/products/AddProductForm"
@@ -59,7 +59,6 @@ const getRow = <T,>(...args: any[]): T => (args.length >= 2 ? args[1] : args[0])
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState("")
-  const [showCreate, setShowCreate] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
 
   const fetchProducts = async () => {
@@ -169,7 +168,7 @@ export default function Products() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
+      {/* Header (Add New removed) */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Products</h1>
@@ -178,13 +177,6 @@ export default function Products() {
             <span>›</span>
             <span>Products</span>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button className="gap-2" onClick={() => setShowCreate(true)}>
-            <Plus className="h-4 w-4" />
-            Add New
-          </Button>
-          {/* Browse products button hidden */}
         </div>
       </div>
 
@@ -197,22 +189,7 @@ export default function Products() {
         />
       </div>
 
-      {/* Create */}
-      {showCreate && (
-        <div className="border p-4 rounded-md bg-white shadow">
-          <AddProductForm
-            mode="create"
-            open={showCreate}
-            onOpenChange={setShowCreate}
-            onSuccess={() => {
-              setShowCreate(false)
-              fetchProducts()
-            }}
-          />
-        </div>
-      )}
-
-      {/* Edit */}
+      {/* Edit modal */}
       {editing && (
         <div className="border p-4 rounded-md bg-white shadow">
           <AddProductForm
@@ -230,13 +207,13 @@ export default function Products() {
         </div>
       )}
 
-      {/* Table (built-in toolbar) */}
+      {/* Table */}
       <DataTable
         data={filtered}
         columns={columns}
         searchPlaceholder="Search by name, product ID, pharmacy, manufacturer or generic form"
         showDatePicker={false}
-        showExport={false}       // <- hide Export
+        showExport={false}
         onSearch={setSearch}
         onRefresh={fetchProducts}
       />

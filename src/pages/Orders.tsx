@@ -1,8 +1,12 @@
+import { useState, useMemo, useCallback } from "react"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CalendarDays, RotateCcw, TrendingUp, Download, RefreshCw, Grid3X3 } from "lucide-react"
+import { DateRange } from "react-day-picker"
+import { isWithinInterval } from "date-fns"
 import mockData from "@/data/mockData.json"
+import { exportToCSV } from "@/utils/exportUtils"
 
 const orderColumns = [
   { key: "name", label: "Name" },
@@ -21,18 +25,154 @@ const orderColumns = [
   { key: "orderTotal", label: "Order Total" }
 ]
 
-const filterButtons = [
-  "Sort",
-  "Payment status",
-  "Visit Status", 
-  "Order Status",
-  "Product",
-  "Pharmacies",
-  "Pharmacy Status",
+// Meaningful filters based on the orders data structure
+const paymentStatusFilters = ["All", "Paid", "Pending", "Failed", "Refunded"]
+const orderStatusFilters = ["All", "Processing", "Shipped", "Delivered", "Cancelled"]
+const visitStatusFilters = ["All", "Scheduled", "Completed", "Missed", "Rescheduled"]
+
+// Additional filter buttons (keeping the original ones from your design)
+const additionalFilters = [
+  "Sort", 
+  "Product", 
+  "Pharmacies", 
+  "Pharmacy Status", 
   "Extra Filters"
 ]
 
+// Helper function to parse date in DD/MM/YYYY format
+const parseDate = (dateString: string) => {
+  if (!dateString) return new Date()
+  const [day, month, year] = dateString.split('/')
+  return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+}
+
 export default function Orders() {
+  const [searchTerm, setSearchTerm] = useState("")
+  const [activePaymentStatusFilter, setActivePaymentStatusFilter] = useState("All")
+  const [activeOrderStatusFilter, setActiveOrderStatusFilter] = useState("All")
+  const [activeVisitStatusFilter, setActiveVisitStatusFilter] = useState("All")
+  const [activeAdditionalFilters, setActiveAdditionalFilters] = useState<string[]>([])
+  const [date, setDate] = useState<DateRange | undefined>()
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  // Comprehensive filtering logic based on actual order data
+  const filteredOrders = useMemo(() => {
+    return mockData.orders.filter(order => {
+      // Search filter - search across multiple fields
+      const matchesSearch = !searchTerm || 
+        order.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.phone.includes(searchTerm) ||
+        order.mrn.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.pharmacy.toLowerCase().includes(searchTerm.toLowerCase())
+
+      // Payment Status filter
+      const matchesPaymentStatus = activePaymentStatusFilter === "All" || order.paymentStatus === activePaymentStatusFilter
+
+      // Order Status filter
+      const matchesOrderStatus = activeOrderStatusFilter === "All" || order.orderStatus === activeOrderStatusFilter
+
+      // Visit Status filter
+      const matchesVisitStatus = activeVisitStatusFilter === "All" || order.visitStatus === activeVisitStatusFilter
+
+      // Date range filter based on orderDate
+      let matchesDateRange = true
+      if (date?.from || date?.to) {
+        const orderDate = parseDate(order.orderDate)
+        
+        if (date.from && date.to) {
+          matchesDateRange = isWithinInterval(orderDate, {
+            start: date.from,
+            end: date.to
+          })
+        } else if (date.from) {
+          matchesDateRange = orderDate >= date.from
+        } else if (date.to) {
+          matchesDateRange = orderDate <= date.to
+        }
+      }
+
+      // Additional filters logic
+      let matchesAdditionalFilters = true
+      if (activeAdditionalFilters.length > 0) {
+        // Add your custom logic here based on the additional filters
+        // For now, we'll just show all results when additional filters are active
+      }
+
+      return matchesSearch && matchesPaymentStatus && matchesOrderStatus && matchesVisitStatus && matchesDateRange && matchesAdditionalFilters
+    })
+  }, [mockData.orders, searchTerm, activePaymentStatusFilter, activeOrderStatusFilter, activeVisitStatusFilter, date, activeAdditionalFilters, refreshKey])
+
+  // Create filter configuration - combining all filter types
+  const filters = [
+    // Payment Status filters
+    ...paymentStatusFilters.map(status => ({
+      key: `payment-${status}`,
+      label: status === "All" ? "Payment status" : status,
+      type: 'button' as const,
+      value: activePaymentStatusFilter === status ? status : undefined,
+      onClick: () => setActivePaymentStatusFilter(status)
+    })),
+    // Order Status filters  
+    ...orderStatusFilters.slice(1).map(status => ({ // Skip "All" to avoid duplicate
+      key: `order-${status}`,
+      label: status,
+      type: 'button' as const,
+      value: activeOrderStatusFilter === status ? status : undefined,
+      onClick: () => setActiveOrderStatusFilter(status)
+    })),
+    // Visit Status filters
+    ...visitStatusFilters.slice(1).map(status => ({ // Skip "All" to avoid duplicate
+      key: `visit-${status}`,
+      label: status,
+      type: 'button' as const,
+      value: activeVisitStatusFilter === status ? status : undefined,
+      onClick: () => setActiveVisitStatusFilter(status)
+    })),
+    // Additional filter buttons
+    ...additionalFilters.map(filter => ({
+      key: `additional-${filter}`,
+      label: filter,
+      type: 'button' as const,
+      value: activeAdditionalFilters.includes(filter) ? filter : undefined,
+      onClick: () => {
+        setActiveAdditionalFilters(prev => 
+          prev.includes(filter) 
+            ? prev.filter(f => f !== filter)
+            : [...prev, filter]
+        )
+      }
+    }))
+  ]
+
+  const handleResetFilters = useCallback(() => {
+    setActivePaymentStatusFilter("All")
+    setActiveOrderStatusFilter("All") 
+    setActiveVisitStatusFilter("All")
+    setActiveAdditionalFilters([])
+    setDate(undefined)
+    setSearchTerm("")
+  }, [])
+
+  const handleRefresh = useCallback(() => {
+    setRefreshKey(prev => prev + 1)
+    console.log("Refreshing orders data...")
+  }, [])
+
+  const handleExport = useCallback(() => {
+    exportToCSV(filteredOrders, orderColumns, 'orders_export')
+  }, [filteredOrders])
+
+  const handleUpgrade = () => {
+    console.log("Upgrade clicked")
+    // Implement upgrade logic
+  }
+
+  const handleGridView = () => {
+    console.log("Grid view clicked") 
+    // Implement grid view toggle logic
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -44,57 +184,32 @@ export default function Orders() {
             <span>Orders</span>
           </div>
         </div>
-      </div>
-
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex-1 max-w-md">
-          <input
-            type="text"
-            placeholder="Search by Order#, affiliate order #, MRN#, patient name, phone number, or..."
-            className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm"
-          />
-        </div>
-        
+        {/* Right side buttons that were originally in the top row */}
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2">
-            <CalendarDays className="h-4 w-4" />
-            Pick a date
-          </Button>
-          <Button variant="outline" size="sm" className="gap-2">
-            <RotateCcw className="h-4 w-4" />
-            Reset Filters
-          </Button>
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2" onClick={handleUpgrade}>
             <TrendingUp className="h-4 w-4" />
             Upgrade
           </Button>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Download className="h-4 w-4" />
-            Export
-          </Button>
-          <Button variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleGridView}>
             <Grid3X3 className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap">
-        {filterButtons.map((filter) => (
-          <Button key={filter} variant="outline" size="sm">
-            {filter}
-          </Button>
-        ))}
-      </div>
-
       <DataTable
-        data={mockData.orders}
+        data={filteredOrders}
         columns={orderColumns}
-        searchPlaceholder="Search orders..."
-        showDatePicker={false}
-        showExport={false}
+        searchPlaceholder="Search by Order#, affiliate order #, MRN#, patient name, phone number"
+        showDatePicker={true}
+        showExport={true}
+        showResetFilters={true}
+        filters={filters}
+        dateRange={date}
+        onDateRangeChange={setDate}
+        onSearch={setSearchTerm}
+        onResetFilters={handleResetFilters}
+        onExport={handleExport}
+        onRefresh={handleRefresh}
       />
     </div>
   )
