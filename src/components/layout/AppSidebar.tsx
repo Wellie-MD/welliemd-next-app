@@ -88,14 +88,6 @@ const menuSections = [
           { title: "Billing Plans", url: "/dashboard/products/billing-plans" },
           { title: "Routing", url: "/dashboard/products/routing" }
         ]
-      },
-      {
-        title: "Builders",
-        icon: Wrench,
-        children: [
-          { title: "Page Builder", url: "/dashboard/builders/page" },
-          { title: "Email Builder", url: "/dashboard/builders/email" }
-        ]
       }
     ]
   },
@@ -119,6 +111,14 @@ const menuSections = [
         ]
       },
       { title: "Affiliates", url: "/dashboard/affiliates", icon: Users }
+    ]
+  },
+  {
+    label: "SUPPORT & CONFIG",
+    items: [
+      { title: "Settings", url: "/dashboard/settings", icon: Settings },
+      { title: "Feedback", url: "/dashboard/feedback", icon: MessageCircle },
+      { title: "Roadmap", url: "/dashboard/roadmap", icon: MapPin }
     ]
   }
 ]
@@ -187,9 +187,9 @@ export function AppSidebar() {
       collapsible="icon"
       className="border-r"
     >
-      <SidebarContent className="overflow-hidden">
+      <SidebarContent className="overflow-y-auto overflow-x-hidden scrollbar-hide pb-4">
         {menuSections.map((section, sectionIndex) => (
-          <SidebarGroup key={section.label}>
+          <SidebarGroup key={section.label} className={collapsed ? "mb-2" : "mb-6"}>
             {!collapsed && (
               <SidebarGroupLabel className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                 {section.label}
