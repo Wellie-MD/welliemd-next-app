@@ -37,7 +37,8 @@ export const ROUTES = {
   PROVIDER_APPOINTMENTS: '/provider/appointments',
   PROVIDER_SCHEDULE: '/provider/schedule',
   PROVIDER_ANALYTICS: '/provider/analytics',
-  
+
+  BLOG: '/dashboard/blog',
   // Admin routes (if user has admin role)
   ADMIN: '/admin',
   ADMIN_USERS: '/admin/users',
@@ -186,6 +187,16 @@ export const ROUTE_CONFIGS: Record<string, RouteConfig> = {
     showInNavigation: true,
     icon: 'CalendarCheck',
     order: 11,
+  },
+
+  [ROUTES.BLOG]: {
+    path: ROUTES.BLOG,
+    title: 'Health Resources',
+    description: 'Health tips and educational content',
+    requiresAuth: true,
+    showInNavigation: true,
+    icon: 'BookOpen',
+    order: 7,
   },
   
   [ROUTES.PROVIDER_SCHEDULE]: {
