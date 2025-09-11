@@ -1,10 +1,8 @@
 import axios from "axios";
 import { useAuthStore } from "../store/useAuthStore";
-import { authService } from "../services/authService";
 
-// Access Vite environment variables using import.meta.env
-// const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://welliemdapi.welliemd.com/api/v1/";
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+let isHydrating = false;
 
 if (!apiBaseUrl) {
   throw new Error("Missing API Base URL configuration");
@@ -15,10 +13,14 @@ const axiosInstance = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true, // IMPORTANT: This allows cookies to be sent and received
+  withCredentials: true,
 });
 
-// Request interceptor to add the access token to every request
+export const setHydratingState = (state: boolean) => {
+  isHydrating = state;
+};
+
+// Request interceptor to add access token to headers
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = useAuthStore.getState().accessToken;
@@ -30,26 +32,83 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor to handle 401 errors (token expired)
+// Response interceptor to handle 401 errors and refresh tokens
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // Skip token refresh during hydration to prevent conflicts
+    if (isHydrating) {
+      return Promise.reject(error);
+    }
+
     const originalRequest = error.config;
-    // Check for 401 error and ensure it's not a retry request
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true; // Mark as a retry
+    const authStore = useAuthStore.getState();
+    
+    // Skip token refresh for auth-related endpoints
+    const isAuthEndpoint = originalRequest?.url?.includes('/auth/');
+    const isTokenRefresh = originalRequest?.url?.includes('/auth/token/refresh/');
+    const isMeEndpoint = originalRequest?.url?.includes('/auth/me/');
+    
+    // If this is a 401 from the refresh token endpoint, log the user out
+    if (error.response?.status === 401 && isTokenRefresh) {
+      console.error('Refresh token failed, logging out');
+      const { authService } = await import('../services/authService');
+      await authService.logout();
+      window.location.href = '/auth/signin';
+      return Promise.reject(error);
+    }
+    
+    // Handle 401 errors for non-auth endpoints when we have an active session
+    if (error.response?.status === 401 && !isAuthEndpoint && authStore.isAuthenticated) {
+      // If this is a retry that failed, log out
+      if (originalRequest._retry) {
+        console.error('Failed to refresh token after retry, logging out');
+        const { authService } = await import('../services/authService');
+        await authService.logout();
+        window.location.href = '/auth/signin';
+        return Promise.reject(error);
+      }
+      
+      // Mark this request to prevent infinite retry loops
+      originalRequest._retry = true;
+      
       try {
+        console.log('Attempting to refresh access token...');
+        const { authService } = await import('../services/authService');
         const newAccessToken = await authService.refreshAccessToken();
+        
         if (newAccessToken) {
-          axios.defaults.headers.common["Authorization"] = "Bearer " + newAccessToken;
-          originalRequest.headers["Authorization"] = "Bearer " + newAccessToken;
-          return axiosInstance(originalRequest); // Retry the original request with the new token
+          // Update the authorization header for the original request
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+          
+          // Update the default authorization header for future requests
+          axiosInstance.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
+          
+          // For /me endpoint, we need to handle it specially
+          if (isMeEndpoint) {
+            try {
+              const user = await authService.getMe();
+              if (user) {
+                return { data: user };
+              }
+            } catch (meError) {
+              console.error('Failed to fetch user after token refresh:', meError);
+              throw meError;
+            }
+          }
+          
+          // For other endpoints, retry the original request with the new token
+          return axiosInstance(originalRequest);
         }
       } catch (refreshError) {
-        // Refresh failed, logout is handled in authService.refreshAccessToken
+        console.error('Token refresh failed:', refreshError);
+        const { authService } = await import('../services/authService');
+        await authService.logout();
+        window.location.href = '/auth/signin';
         return Promise.reject(refreshError);
       }
     }
+    
     return Promise.reject(error);
   }
 );

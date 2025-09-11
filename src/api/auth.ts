@@ -11,7 +11,7 @@ interface LoginResponse {
   user: User;
 }
 
-// Login with credentials
+// Login with credentials (refresh token automatically set as cookie)
 export const login = async (email: string, password: string): Promise<LoginResponse> => {
   const { data } = await api.post<LoginResponse>("/auth/login/", {
     email,
@@ -20,7 +20,7 @@ export const login = async (email: string, password: string): Promise<LoginRespo
   return data;
 };
 
-// Logout (will clear the refresh token cookie)
+// Logout (will clear the refresh token cookie on server)
 export const logout = async (): Promise<void> => {
   await api.post("/auth/logout/");
 };
@@ -31,9 +31,9 @@ export const getMe = async (): Promise<User> => {
   return data;
 };
 
-// Refresh access token using the HttpOnly cookie
+// Refresh access token (uses HTTP-only cookie automatically)
 export const refreshToken = async (): Promise<{ access: string }> => {
-  const { data } = await api.post<{ access: string }>("/auth/refresh/");
+  const { data } = await api.post<{ access: string }>("/auth/token/refresh/");
   return data;
 };
 
@@ -44,16 +44,18 @@ export const requestPasswordReset = async (email: string): Promise<void> => {
 
 // Confirm password reset
 export const confirmPasswordReset = async (
+  uid: string,
   token: string,
   newPassword: string
 ): Promise<void> => {
   await api.post("/auth/password-reset/confirm/", {
+    uid,
     token,
     new_password: newPassword,
   });
 };
 
-// Register new user
+// Register new user (refresh token automatically set as cookie)
 export const registerUser = async (formData: {
   email: string;
   password: string;

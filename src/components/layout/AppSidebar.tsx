@@ -109,7 +109,7 @@ const menuSections = [
           { title: "Insights", url: "/dashboard/coupon-insights" }
         ]
       },
-      { title: "Affiliates", url: "/dashboard/affiliates", icon: Users },
+      { title: "Affiliates", url: "/dashboard/affiliates", icon: Users }
     ]
   }
 ]
@@ -178,9 +178,9 @@ export function AppSidebar() {
       collapsible="icon"
       className="border-r"
     >
-      <SidebarContent className="overflow-hidden">
+      <SidebarContent className="overflow-y-auto overflow-x-hidden scrollbar-hide pb-4">
         {menuSections.map((section, sectionIndex) => (
-          <SidebarGroup key={section.label}>
+          <SidebarGroup key={section.label} className={collapsed ? "mb-2" : "mb-6"}>
             {!collapsed && (
               <SidebarGroupLabel className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                 {section.label}
