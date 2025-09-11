@@ -1,5 +1,6 @@
-import { apiClient, tokenManager } from '@/shared/api/client';
-import { ApiSuccessResponse } from '@/shared/api/types';
+import { apiClient } from '@/shared/api/client';
+import { tokenManager } from './token-manager';
+import { ApiSuccessResponse, RequestConfig } from '@/shared/api/types';
 import { debugLog } from '@/config/env';
 import { API_ENDPOINTS } from '@/config/constants';
 
@@ -16,8 +17,14 @@ import {
   UserSchema,
   TokenRefreshResponse,
   TokenRefreshResponseSchema,
-  PaginatedUserResponseSchema,
 } from '../types/auth.types';
+
+// Extend AxiosRequestConfig with our custom properties
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    skipAuth?: boolean;
+  }
+}
 
 /**
  * Authentication service handling all auth-related API calls
@@ -41,19 +48,26 @@ export class AuthService {
   async login(credentials: LoginRequest): Promise<LoginResponse> {
     debugLog('AuthService.login:', { email: credentials.email });
 
-    const response = await apiClient.post(
+    const config: RequestConfig = {
+      withCredentials: true, // Important for cookies
+      skipAuth: true, // Skip auth for login request
+    };
+
+    const response = await apiClient.post<LoginResponse>(
       API_ENDPOINTS.AUTH.LOGIN,
       {
         email: credentials.email,
         password: credentials.password,
-      }
+      },
+      config
     );
 
-    // Validate response with Zod - API returns tokens directly
+    // The refresh token is in an HTTP-only cookie
+    // The access token is in the response body
     const validatedData = LoginResponseSchema.parse(response.data);
-
-    // Store tokens using the actual API field names
-    tokenManager.setTokens(validatedData.access, validatedData.refresh);
+    
+    // Store the access token in memory
+    tokenManager.setAccessToken(validatedData.access);
 
     return validatedData;
   }
@@ -64,23 +78,29 @@ export class AuthService {
   async register(userData: RegisterRequest): Promise<LoginResponse> {
     debugLog('AuthService.register:', { email: userData.email });
 
-    // Note: The API spec doesn't show a register endpoint, 
-    // so we'll assume it follows similar pattern to login
-    const response = await apiClient.post(
-      '/auth/register/', // Assuming this endpoint exists
+    const config: RequestConfig = {
+      withCredentials: true, // For cookies
+      skipAuth: true, // Skip auth for register request
+    };
+
+    const response = await apiClient.post<LoginResponse>(
+      API_ENDPOINTS.AUTH.REGISTER,
       {
         email: userData.email,
         password: userData.password,
         first_name: userData.firstName,
         last_name: userData.lastName,
         phone: userData.phoneNumber,
-      }
+      },
+      config
     );
 
+    // The refresh token is in an HTTP-only cookie
+    // The access token is in the response body
     const validatedData = LoginResponseSchema.parse(response.data);
-
-    // Store tokens after successful registration
-    tokenManager.setTokens(validatedData.access, validatedData.refresh);
+    
+    // Store the access token in memory
+    tokenManager.setAccessToken(validatedData.access);
 
     return validatedData;
   }
@@ -90,20 +110,25 @@ export class AuthService {
    */
   async logout(): Promise<void> {
     debugLog('AuthService.logout');
-
+    
+    const config: RequestConfig = {
+      withCredentials: true,
+      skipAuth: false, // We need the access token for this request
+    };
+    
     try {
-      // Call logout endpoint to invalidate refresh token on server
-      const refreshToken = tokenManager.getRefreshToken();
-      if (refreshToken) {
-        await apiClient.post(API_ENDPOINTS.AUTH.LOGOUT, {
-          refresh: refreshToken,
-        });
-      }
+      // Call the logout endpoint to invalidate the refresh token
+      // The refresh token will be cleared from the cookie by the server
+      await apiClient.post(
+        API_ENDPOINTS.AUTH.LOGOUT, 
+        {}, 
+        config
+      );
     } catch (error) {
-      // Even if server logout fails, we should clear local tokens
-      debugLog('Server logout failed, clearing tokens anyway:', error);
+      debugLog('Error during logout:', error);
+      // Continue with clearing local state even if the server request fails
     } finally {
-      // Always clear local tokens
+      // Clear the access token from memory
       tokenManager.clearTokens();
     }
   }
@@ -111,14 +136,19 @@ export class AuthService {
   /**
    * Get current user profile
    */
-  async getProfile(): Promise<User> {
-    debugLog('AuthService.getProfile');
-  
-    const response = await apiClient.get<User>(API_ENDPOINTS.AUTH.ME);
-  
-    const user = UserSchema.parse(response.data);
-    
-    return user;
+  async getCurrentUser(): Promise<User> {
+    debugLog('AuthService.getCurrentUser');
+
+    const response = await apiClient.get(
+      API_ENDPOINTS.AUTH.ME,
+      { 
+        withCredentials: true, // Include cookies for auth
+        headers: {
+          'Authorization': `Bearer ${tokenManager.getAccessToken()}`
+        }
+      }
+    );
+    return UserSchema.parse(response.data);
   }
 
   /**
@@ -129,7 +159,12 @@ export class AuthService {
 
     const response = await apiClient.patch<ApiSuccessResponse<User>>(
       '/auth/profile',
-      profileData
+      profileData,
+      {
+        headers: {
+          'Authorization': `Bearer ${tokenManager.getAccessToken()}`
+        }
+      }
     );
 
     const validatedData = UserSchema.parse(response.data.data);
@@ -178,22 +213,21 @@ export class AuthService {
    */
   async refreshToken(): Promise<TokenRefreshResponse> {
     debugLog('AuthService.refreshToken');
-
-    const refreshToken = tokenManager.getRefreshToken();
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
+    
+    try {
+      // Use the token manager to handle the refresh
+      const accessToken = await tokenManager.refreshAccessToken();
+      
+      // Return the token in the expected format
+      const response: TokenRefreshResponse = {
+        access: accessToken,
+      };
+      
+      return TokenRefreshResponseSchema.parse(response);
+    } catch (error) {
+      debugLog('Failed to refresh token:', error);
+      throw error;
     }
-
-    const response = await apiClient.post(API_ENDPOINTS.AUTH.TOKEN_REFRESH, {
-      refresh: refreshToken,
-    });
-
-    const validatedData = TokenRefreshResponseSchema.parse(response.data);
-
-    // Update stored tokens
-    tokenManager.setTokens(validatedData.access, validatedData.refresh);
-
-    return validatedData;
   }
 
   /**
@@ -240,10 +274,9 @@ export class AuthService {
    * Check if user is authenticated (has valid tokens)
    */
   isAuthenticated(): boolean {
+    // We only need to check for access token since refresh token is in HTTP-only cookie
     const accessToken = tokenManager.getAccessToken();
-    const refreshToken = tokenManager.getRefreshToken();
-    
-    return !!(accessToken && refreshToken);
+    return !!accessToken;
   }
 
   /**
@@ -256,9 +289,8 @@ export class AuthService {
   /**
    * Get stored refresh token
    */
-  getRefreshToken(): string | null {
-    return tokenManager.getRefreshToken();
-  }
+  // Note: We don't need to expose getRefreshToken anymore
+  // as it's now handled via HTTP-only cookies
 
   /**
    * Clear all stored authentication data

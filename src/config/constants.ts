@@ -29,9 +29,11 @@ export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: '/auth/login/',
     LOGOUT: '/auth/logout/',
+    REGISTER: '/auth/register/',
     ME: '/auth/me/',
     TOKEN: '/auth/token/',
     TOKEN_REFRESH: '/auth/token/refresh/',
+    REFRESH: '/auth/token/refresh/', // Alias for backward compatibility
     TOKEN_VERIFY: '/auth/token/verify/',
     PASSWORD_RESET_REQUEST: '/auth/password-reset/request/',
     PASSWORD_RESET_CONFIRM: '/auth/password-reset/confirm/',

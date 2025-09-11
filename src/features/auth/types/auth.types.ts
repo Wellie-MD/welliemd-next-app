@@ -36,8 +36,8 @@ export const UserSchema = z.object({
 // Auth tokens schema
 export const AuthTokensSchema = z.object({
   accessToken: z.string(),
-  refreshToken: z.string(),
-  expiresIn: z.number(),
+  // refreshToken is now handled via HTTP-only cookie
+  expiresIn: z.number().optional(),
   tokenType: z.literal('Bearer').default('Bearer'),
 });
 
@@ -49,9 +49,10 @@ export const LoginRequestSchema = z.object({
 });
 
 // Login response schema (matches API response)
+// Refresh token is handled via HTTP-only cookie
+// Access token is stored in memory only
 export const LoginResponseSchema = z.object({
   access: z.string(),
-  refresh: z.string(),
   user: UserSchema,
 });
 
@@ -150,7 +151,7 @@ export const TokenRefreshRequestSchema = z.object({
 
 export const TokenRefreshResponseSchema = z.object({
   access: z.string(),
-  refresh: z.string(),
+  // refresh token is handled via HTTP-only cookie
 });
 
 export const TokenVerifyRequestSchema = z.object({
@@ -158,8 +159,8 @@ export const TokenVerifyRequestSchema = z.object({
 });
 
 export const LogoutRequestSchema = z.object({
-  refresh: z.string().min(1, 'Refresh token is required'),
-});
+  // No need to send refresh token in request body as it's in HTTP-only cookie
+}).passthrough();
 
 export const PaginatedUserResponseSchema = z.object({
   count: z.number(),

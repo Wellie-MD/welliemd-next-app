@@ -112,6 +112,7 @@ export interface RequestConfig {
   retryDelay?: number;
   skipAuth?: boolean;
   skipErrorHandling?: boolean;
+  withCredentials?: boolean;
 }
 
 export interface ResponseData<T = unknown> {

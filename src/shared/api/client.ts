@@ -1,119 +1,29 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
+import axios, { AxiosInstance, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 import { env, debugLog } from '@/config/env';
-import { ApiErrorCode, ApiResponse, HttpStatus, RequestConfig } from './types';
+import { ApiErrorCode, ApiResponse, HttpStatus } from './types';
 
-// Token management
-class TokenManager {
-  private accessToken: string | null = null;
-  private refreshToken: string | null = null;
-  private refreshPromise: Promise<string> | null = null;
+// Import the token manager we created
+import { tokenManager } from '@/features/auth/services/token-manager';
 
-  constructor() {
-    this.loadTokensFromStorage();
-  }
-
-  private loadTokensFromStorage(): void {
-    try {
-      this.accessToken = localStorage.getItem(env.VITE_AUTH_TOKEN_KEY);
-      this.refreshToken = localStorage.getItem(env.VITE_REFRESH_TOKEN_KEY);
-    } catch (error) {
-      debugLog('Failed to load tokens from storage:', error);
-    }
-  }
-
-  getAccessToken(): string | null {
-    return this.accessToken;
-  }
-
-  getRefreshToken(): string | null {
-    return this.refreshToken;
-  }
-
-  setTokens(accessToken: string, refreshToken: string): void {
-    this.accessToken = accessToken;
-    this.refreshToken = refreshToken;
-    
-    try {
-      localStorage.setItem(env.VITE_AUTH_TOKEN_KEY, accessToken);
-      localStorage.setItem(env.VITE_REFRESH_TOKEN_KEY, refreshToken);
-    } catch (error) {
-      debugLog('Failed to save tokens to storage:', error);
-    }
-  }
-
-  clearTokens(): void {
-    this.accessToken = null;
-    this.refreshToken = null;
-    this.refreshPromise = null;
-    
-    try {
-      localStorage.removeItem(env.VITE_AUTH_TOKEN_KEY);
-      localStorage.removeItem(env.VITE_REFRESH_TOKEN_KEY);
-    } catch (error) {
-      debugLog('Failed to clear tokens from storage:', error);
-    }
-  }
-
-  isTokenExpiringSoon(token: string): boolean {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const expirationTime = payload.exp * 1000;
-      const currentTime = Date.now();
-      const timeUntilExpiry = expirationTime - currentTime;
-      
-      return timeUntilExpiry < env.VITE_TOKEN_REFRESH_THRESHOLD;
-    } catch {
-      return true; // If we can't decode the token, assume it's expiring
-    }
-  }
-
-  async refreshAccessToken(): Promise<string> {
-    if (this.refreshPromise) {
-      return this.refreshPromise;
-    }
-
-    if (!this.refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
-    this.refreshPromise = this.performTokenRefresh();
-    
-    try {
-      const newToken = await this.refreshPromise;
-      return newToken;
-    } finally {
-      this.refreshPromise = null;
-    }
-  }
-
-  private async performTokenRefresh(): Promise<string> {
-    try {
-      const response = await axios.post(`${env.VITE_API_BASE_URL}/auth/refresh`, {
-        refreshToken: this.refreshToken,
-      });
-
-      const { accessToken, refreshToken } = response.data.data;
-      this.setTokens(accessToken, refreshToken);
-      
-      return accessToken;
-    } catch (error) {
-      this.clearTokens();
-      throw new Error('Token refresh failed');
-    }
+// Extend the AxiosRequestConfig to include our custom properties
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    _retry?: boolean;
+    skipAuth?: boolean;
   }
 }
 
 // Request queue for handling concurrent requests during token refresh
 class RequestQueue {
   private queue: Array<{
-    config: AxiosRequestConfig;
+    config: InternalAxiosRequestConfig;
     resolve: (value: AxiosResponse) => void;
     reject: (error: unknown) => void;
   }> = [];
   private isRefreshing = false;
 
-  async add(config: AxiosRequestConfig): Promise<AxiosResponse> {
+  async add(config: InternalAxiosRequestConfig): Promise<AxiosResponse> {
     return new Promise((resolve, reject) => {
       this.queue.push({ config, resolve, reject });
       this.processQueue();
@@ -153,9 +63,17 @@ class RequestQueue {
   }
 }
 
-// Global instances
-const tokenManager = new TokenManager();
+// Global instance
 const requestQueue = new RequestQueue();
+
+// Helper function to ensure URLs have trailing slashes
+const normalizeUrl = (url: string = ''): string => {
+  if (!url) return url;
+  // Skip URLs that already have query params or fragments
+  if (url.includes('?') || url.includes('#')) return url;
+  // Add trailing slash if missing
+  return url.endsWith('/') ? url : `${url}/`;
+};
 
 // Create axios instance
 const createApiClient = (): AxiosInstance => {
@@ -171,33 +89,25 @@ const createApiClient = (): AxiosInstance => {
 
   // Request interceptor
   client.interceptors.request.use(
-    async (config) => {
-      const customConfig = config as RequestConfig;
-      
+    async (config: InternalAxiosRequestConfig) => {
+      // Ensure URL has a trailing slash for Django compatibility
+      if (config.url) {
+        config.url = normalizeUrl(config.url);
+      }
       // Skip auth for certain endpoints
-      if (customConfig.skipAuth) {
+      if (config.skipAuth) {
         return config;
       }
 
-      // Add access token
+      // Add access token if available
       const accessToken = tokenManager.getAccessToken();
       if (accessToken) {
-        // Check if token is expiring soon and refresh if needed
-        if (tokenManager.isTokenExpiringSoon(accessToken)) {
-          try {
-            const newToken = await tokenManager.refreshAccessToken();
-            config.headers.Authorization = `Bearer ${newToken}`;
-          } catch (error) {
-            debugLog('Token refresh failed in request interceptor:', error);
-            // Continue with existing token
-            config.headers.Authorization = `Bearer ${accessToken}`;
-          }
-        } else {
-          config.headers.Authorization = `Bearer ${accessToken}`;
-        }
+        config.headers = config.headers || {};
+        config.headers.Authorization = `Bearer ${accessToken}`;
       }
 
       // Add request ID for tracing
+      config.headers = config.headers || {};
       config.headers['X-Request-ID'] = crypto.randomUUID();
       
       debugLog('API Request:', {
@@ -216,48 +126,37 @@ const createApiClient = (): AxiosInstance => {
 
   // Response interceptor
   client.interceptors.response.use(
-    (response) => {
-      debugLog('API Response:', {
-        status: response.status,
-        url: response.config.url,
-        data: response.data,
-      });
-      
-      return response;
-    },
+    (response: AxiosResponse) => response,
     async (error: AxiosError) => {
-      const originalRequest = error.config as RequestConfig & { _retry?: boolean };
+      const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
       
-      debugLog('API Error:', {
-        status: error.response?.status,
-        url: error.config?.url,
-        message: error.message,
-      });
-
-      // Handle 401 Unauthorized - token refresh
-      if (
-        error.response?.status === HttpStatus.UNAUTHORIZED &&
-        !originalRequest._retry &&
-        !originalRequest.skipAuth &&
-        tokenManager.getRefreshToken()
-      ) {
+      // If the error is 401 and we haven't already tried to refresh the token
+      if (error.response?.status === 401 && !originalRequest._retry) {
         originalRequest._retry = true;
         
         try {
-          // Use request queue to handle concurrent requests
-          return await requestQueue.add(originalRequest);
+          // Try to refresh the token using the HTTP-only cookie
+          const response = await client.post('/auth/token/refresh', {}, { skipAuth: true } as any);
+          const { access } = response.data as { access: string };
+          
+          // Update the access token in memory
+          tokenManager.setAccessToken(access);
+          
+          // Update the authorization header with the new token
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers.Authorization = `Bearer ${access}`;
+          
+          // Retry the original request with the new token
+          return client(originalRequest);
         } catch (refreshError) {
-          debugLog('Token refresh failed, clearing tokens:', refreshError);
+          // If refresh fails, clear tokens and redirect to login
           tokenManager.clearTokens();
-          // Redirect to login or emit auth error event
-          window.dispatchEvent(new CustomEvent('auth:logout'));
-          return Promise.reject(refreshError);
+          window.location.href = '/auth/signin';
+          return Promise.reject(transformAxiosError(refreshError as AxiosError));
         }
       }
-
-      // Transform axios error to our API error format
-      const apiError = transformAxiosError(error);
-      return Promise.reject(apiError);
+      
+      return Promise.reject(transformAxiosError(error));
     }
   );
 
@@ -318,11 +217,9 @@ function transformAxiosError(error: AxiosError): ApiResponse {
   };
 }
 
-// Export API client instance
-export const apiClient = createApiClient();
 
-// Export token manager for auth service
-export { tokenManager };
+// Export the API client instance
+export const apiClient = createApiClient();
 
 // Retry utility with exponential backoff
 export async function withRetry<T>(
