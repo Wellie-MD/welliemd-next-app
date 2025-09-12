@@ -58,6 +58,7 @@ export class AuthService {
       {
         email: credentials.email,
         password: credentials.password,
+        portal: credentials.portal || 'patient', // Default to 'patient' if not provided
       },
       config
     );
