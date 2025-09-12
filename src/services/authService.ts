@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/useAuthStore';
 interface LoginCredentials {
   email: string;
   password: string;
+  portal?: string;
 }
 
 interface RegisterCredentials {
@@ -37,7 +38,12 @@ let refreshPromise: Promise<string | null> | null = null;
 
 export const authService = {
   login: async (credentials: LoginCredentials): Promise<User> => {
-    const { data } = await api.post<LoginResponse>('/auth/login/', credentials);
+    // Include portal in the request payload
+    const { data } = await api.post<LoginResponse>('/auth/login/', {
+      email: credentials.email,
+      password: credentials.password,
+      portal: 'client'
+    });
     const { access: accessToken, user } = data;
     
     useAuthStore.getState().login(accessToken, user);
