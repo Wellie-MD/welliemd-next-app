@@ -1,17 +1,13 @@
 import axios from 'axios';
 import api from '../api/axiosInstance';
 import { useAuthStore } from '../store/useAuthStore';
+import { apiHandler } from '@/utils/api-handler';
+import { CLIENT_ROUTES, API_ROUTES } from '@/constants/routes';
 
 interface LoginCredentials {
   email: string;
   password: string;
   portal?: string;
-}
-
-interface RegisterCredentials {
-  name: string;
-  email: string;
-  password: string;
 }
 
 interface User {
@@ -25,11 +21,6 @@ interface LoginResponse {
   user: User;
 }
 
-interface RegisterResponse {
-  access: string;
-  user: User;
-}
-
 interface RefreshResponse {
   access: string;
 }
@@ -38,77 +29,54 @@ let refreshPromise: Promise<string | null> | null = null;
 
 export const authService = {
   login: async (credentials: LoginCredentials): Promise<User> => {
-    // Include portal in the request payload
-    const { data } = await api.post<LoginResponse>('/auth/login/', {
-      email: credentials.email,
-      password: credentials.password,
-      portal: 'client'
-    });
-    const { access: accessToken, user } = data;
+    const authStore = useAuthStore.getState();
+    authStore.setLoading(true);
     
-    useAuthStore.getState().login(accessToken, user);
-    return user;
-  },
-
-  register: async (credentials: RegisterCredentials): Promise<User> => {
-    if (!credentials.name?.trim()) {
-      throw new Error('Name is required');
-    }
-    if (!credentials.email?.trim()) {
-      throw new Error('Email is required');
-    }
-    if (!credentials.password) {
-      throw new Error('Password is required');
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(credentials.email)) {
-      throw new Error('Please enter a valid email address');
-    }
-
     try {
-      const { data } = await api.post<RegisterResponse>('/auth/register/', {
-        name: credentials.name.trim(),
-        email: credentials.email.trim().toLowerCase(),
+      const response = await api.post(API_ROUTES.LOGIN, {
+        email: credentials.email,
         password: credentials.password,
+        portal: 'client'
       });
-      
-      useAuthStore.getState().login(data.access, data.user);
-      return data.user;
-    } catch (error: any) {
-      console.error('Registration error:', error.response?.data);
 
-      if (error.response?.data) {
-        const data = error.response.data;
-        if (data.email && Array.isArray(data.email) && data.email.length > 0) {
-          throw new Error(data.email[0]);
-        } else if (data.detail) {
-          throw new Error(data.detail);
-        } else if (data.message) {
-          throw new Error(data.message);
-        }
+      const data = apiHandler.handleSuccess<LoginResponse>(response.data);
+      
+      if (data) {
+        const { access: accessToken, user } = data;
+        authStore.login(accessToken, user);
+        return user;
       }
+      
+      throw new Error('Login failed - no data received');
+    } catch (error) {
+      apiHandler.handleError(error);
       throw error;
+    } finally {
+      authStore.setLoading(false);
     }
   },
 
   logout: async (): Promise<void> => {
+    const authStore = useAuthStore.getState();
+    authStore.setLoading(true);
+    
     try {
-      await api.post('/auth/logout/');
+      const response = await api.post(API_ROUTES.LOGOUT);
+      apiHandler.handleSuccess(response.data);
     } catch (error) {
       console.error('Logout failed, clearing client-side state anyway.', error);
     } finally {
-      useAuthStore.getState().logout();
+      authStore.logout();
     }
   },
 
   refreshAccessToken: async (): Promise<string | null> => {
-    // Prevent multiple simultaneous refresh requests
     if (refreshPromise) {
       return refreshPromise;
     }
 
     refreshPromise = (async () => {
       try {
-        // Create a new axios instance without interceptors to avoid infinite loops
         const refreshAxios = axios.create({
           baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
           withCredentials: true,
@@ -117,32 +85,31 @@ export const authService = {
           },
         });
         
-        const { data } = await refreshAxios.post<RefreshResponse>('/auth/token/refresh/');
-        const newAccessToken = data.access;
-
-        if (!newAccessToken) {
-          throw new Error('No access token received in refresh response');
-        }
-
-        // Update the auth store with the new token
-        const authStore = useAuthStore.getState();
-        authStore.setAccessToken(newAccessToken);
+        const response = await refreshAxios.post(API_ROUTES.TOKEN_REFRESH);
+        const data = apiHandler.handleSuccess<RefreshResponse>(response.data, false);
         
-        // Update user data to ensure consistency
-        if (authStore.user) {
-          try {
-            const userData = await authService.getMe();
-            if (userData) {
-              authStore.setUser(userData);
+        if (data?.access) {
+          const authStore = useAuthStore.getState();
+          authStore.setAccessToken(data.access);
+          
+          // Update user data if needed
+          if (authStore.user) {
+            try {
+              const userData = await authService.getMe();
+              if (userData) {
+                authStore.setUser(userData);
+              }
+            } catch (error) {
+              console.warn('Failed to refresh user data after token refresh:', error);
             }
-          } catch (error) {
-            console.warn('Failed to refresh user data after token refresh:', error);
           }
+          
+          return data.access;
         }
         
-        return newAccessToken;
+        throw new Error('No access token received');
       } catch (error: any) {
-        console.error('Token refresh failed:', error.response?.data || error.message);
+        console.error('Token refresh failed:', error);
         useAuthStore.getState().logout();
         throw error;
       } finally {
@@ -155,9 +122,15 @@ export const authService = {
 
   getMe: async (throwOnError = false): Promise<User | null> => {
     try {
-      const { data } = await api.get<User>('/auth/me/');
-      useAuthStore.getState().setUser(data);
-      return data;
+      const response = await api.get(API_ROUTES.USER_ME);
+      const data = apiHandler.handleSuccess<User>(response.data, false); // No toast for profile fetch
+      
+      if (data) {
+        useAuthStore.getState().setUser(data);
+        return data;
+      }
+      
+      return null;
     } catch (error: any) {
       if (error.response?.status === 401) {
         useAuthStore.getState().logout();
@@ -170,7 +143,6 @@ export const authService = {
     }
   },
 
-  // Restore authentication state on app initialization
   hydrateAuth: async (): Promise<void> => {
     const { setHydratingState } = await import('../api/axiosInstance');
     setHydratingState(true);
@@ -179,11 +151,9 @@ export const authService = {
     authStore.setLoading(true);
     
     try {
-      // Try to refresh token on page load
       const newAccessToken = await authService.refreshAccessToken();
       
       if (newAccessToken) {
-        // Create a direct axios call to avoid interceptor conflicts during hydration
         const directAxios = axios.create({
           baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
           withCredentials: true,
@@ -193,9 +163,13 @@ export const authService = {
           },
         });
         
-        const { data } = await directAxios.get<User>('/auth/me/');
-        authStore.login(newAccessToken, data);
-        return;
+        const response = await directAxios.get(API_ROUTES.USER_ME);
+        const userData = apiHandler.handleSuccess<User>(response.data, false);
+        
+        if (userData) {
+          authStore.login(newAccessToken, userData);
+          return;
+        }
       }
     } catch (error: any) {
       console.log('Session restoration failed:', error.message);
@@ -204,19 +178,40 @@ export const authService = {
       authStore.setLoading(false);
     }
     
-    // If refresh failed, ensure clean logout
     authStore.logout();
   },
 
   requestPasswordReset: async (email: string): Promise<void> => {
-    await api.post('/auth/password-reset/request/', { email });
+    const authStore = useAuthStore.getState();
+    authStore.setLoading(true);
+    
+    try {
+      const response = await api.post(API_ROUTES.PASSWORD_RESET_REQUEST, { email });
+      apiHandler.handleSuccess(response.data);
+    } catch (error) {
+      apiHandler.handleError(error);
+      throw error;
+    } finally {
+      authStore.setLoading(false);
+    }
   },
 
   confirmPasswordReset: async (uid: string, token: string, newPassword: string): Promise<void> => {
-    await api.post('/auth/password-reset/confirm/', {
-      uid,
-      token,
-      new_password: newPassword,
-    });
+    const authStore = useAuthStore.getState();
+    authStore.setLoading(true);
+    
+    try {
+      const response = await api.post(API_ROUTES.PASSWORD_RESET_CONFIRM, {
+        uid,
+        token,
+        new_password: newPassword,
+      });
+      apiHandler.handleSuccess(response.data);
+    } catch (error) {
+      apiHandler.handleError(error);
+      throw error;
+    } finally {
+      authStore.setLoading(false);
+    }
   },
 };

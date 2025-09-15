@@ -6,23 +6,23 @@ interface AuthLayoutProps {
 
 export const AuthLayout = ({ children }: AuthLayoutProps) => {
   return (
-    <div className="min-h-screen flex flex-row items-stretch">
+    <div className="h-screen w-full flex overflow-hidden">
       {/* Left side - Form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-white">
+      <div className="flex-1 flex items-center justify-center p-4 bg-white">
         <div className="w-full max-w-md">
-          {children}
+          <div className="space-y-6">
+            {children}
+          </div>
         </div>
       </div>
       
       {/* Right side - Illustration */}
-      <div className="flex-1 flex items-center justify-center p-0 bg-transparent">
-        <div className="w-full h-full flex items-center justify-center">
-          <img 
-            src={authIllustration} 
-            alt="Healthcare illustration" 
-            className="max-w-full max-h-full object-contain"
-          />
-        </div>
+      <div className="hidden md:flex flex-1 items-center justify-center bg-gray-50">
+        <img 
+          src={authIllustration} 
+          alt="Healthcare illustration" 
+          className="w-full h-full object-cover"
+        />
       </div>
     </div>
   );
