@@ -1,4 +1,5 @@
 import { useState, useEffect, Fragment, type ReactNode } from "react"
+import "./AppSidebar.css"
 import { NavLink, useLocation } from "react-router-dom"
 import {
   BarChart3,
@@ -44,6 +45,12 @@ const menuSections = [
     label: "MANAGEMENT",
     items: [
       { title: "Home", url: "/dashboard", icon: BarChart3 },
+      { 
+        title: "Messages", 
+        url: "/dashboard/messages", 
+        icon: MessageSquare,
+        hasNotification: true 
+      },
       { title: "Patients", url: "/dashboard/patients", icon: Users },
       {
         title: "Treatments",
@@ -63,7 +70,7 @@ const menuSections = [
           { title: "Resolution Queue", url: "/dashboard/orders/resolution-queue" },
         ],
       },
-      { title: "Messages", url: "/dashboard/messages", icon: MessageSquare },
+      // { title: "Messages", url: "/dashboard/messages", icon: MessageSquare },
       {
         title: "Analytics",
         icon: TrendingUp,
@@ -303,8 +310,9 @@ export function AppSidebar() {
                                     }`}
                                   />
                                   {!collapsed && (
-                                    <span className="ml-3 font-medium truncate">
+                                    <span className="ml-3 font-medium truncate flex items-center gap-2">
                                       {item.title}
+                                      {item.title === 'Messages' && <span className="online-dot"></span>}
                                     </span>
                                   )}
                                 </NavLink>
