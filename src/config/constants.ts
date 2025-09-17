@@ -50,6 +50,10 @@ export const API_ENDPOINTS = {
       UPDATE_PROFILE: '/medical/patients/update_profile/',
     },
   },
+  MESSAGES: {
+    SEND: "/messages/send/",
+    LIST: "/messages/",
+  },
 } as const;
 
 // Authentication constants
