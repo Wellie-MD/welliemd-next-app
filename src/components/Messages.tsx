@@ -105,6 +105,36 @@ export default function Messages() {
     return () => clearInterval(interval);
   }, [selectedConv]);
 
+  useEffect(() => {
+    if (!selectedConv) return;
+
+    const interval = setInterval(async () => {
+      try {
+        let msgs: Message[] = [];
+        if (selectedConv.type === "doctor") {
+          msgs = await MessageService.getDoctorMessages(selectedConv.masterId);
+        } else {
+          msgs = await MessageService.getSupportMessages(selectedConv.masterId);
+        }
+
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === selectedConv.id ? { ...c, messages: msgs } : c
+          )
+        );
+
+        // 🔥 keep selectedConv in sync with latest messages
+        setSelectedConv((prev) =>
+          prev ? { ...prev, messages: msgs } : prev
+        );
+      } catch (err) {
+        console.error("Polling failed:", err);
+      }
+    }, 5000); // refresh every 5s
+
+    return () => clearInterval(interval);
+  }, [selectedConv]);  
+
   // ----------------------------
   // Send message
   // ----------------------------
