@@ -80,97 +80,73 @@ export default function Messages() {
   // ----------------------------
   // Polling for new messages
   // ----------------------------
-useEffect(() => {
-  if (!selectedConv) return;
+  useEffect(() => {
+    if (!selectedConv) return;
 
-  const interval = setInterval(async () => {
-    try {
-      let msgs: Message[] = [];
-      if (selectedConv.type === "doctor") {
-        msgs = await MessageService.getDoctorMessages(selectedConv.masterId);
-      } else {
-        msgs = await MessageService.getSupportMessages(selectedConv.masterId);
+    const interval = setInterval(async () => {
+      try {
+        let msgs: Message[] = [];
+        if (selectedConv.type === "doctor") {
+          msgs = await MessageService.getDoctorMessages(selectedConv.masterId);
+        } else {
+          msgs = await MessageService.getSupportMessages(selectedConv.masterId);
+        }
+
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === selectedConv.id ? { ...c, messages: msgs } : c
+          )
+        );
+      } catch (err) {
+        console.error("Polling failed:", err);
       }
+    }, 5000); // refresh every 5 seconds
 
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === selectedConv.id
-            ? {
-                ...c,
-                // ✅ merge: keep existing + add only new ones
-                messages: [
-                  ...c.messages,
-                  ...msgs.filter(
-                    (m) => !c.messages.some((cm) => cm.id === m.id)
-                  ),
-                ],
-              }
-            : c
-        )
-      );
-
-      setSelectedConv((prev) =>
-        prev
-          ? {
-              ...prev,
-              messages: [
-                ...prev.messages,
-                ...msgs.filter(
-                  (m) => !prev.messages.some((pm) => pm.id === m.id)
-                ),
-              ],
-            }
-          : prev
-      );
-    } catch (err) {
-      console.error("Polling failed:", err);
-    }
-  }, 5000);
-
-  return () => clearInterval(interval);
-}, [selectedConv]);
-
+    return () => clearInterval(interval);
+  }, [selectedConv]);
 
   // ----------------------------
   // Send message
   // ----------------------------
-const handleSendMessage = async () => {
-  if (!newMessage.trim() || !selectedConv) return;
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedConv) return;
 
-  const payload = {
-    master_id: selectedConv.masterId,
-    to: selectedConv.type,
-    content: newMessage.trim(),
-  };
-
-  try {
-    const res = await MessageService.sendMessage(payload);
-
-    const newMsg: Message = {
-      id: res.id || Date.now(),
-      content: newMessage,
-      timestamp: new Date().toISOString(),
-      isFromDoctor: false,
-      read: true,
+    const payload = {
+      master_id: selectedConv.masterId,
+      to: selectedConv.type,
+      content: newMessage.trim(),
     };
 
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.id === selectedConv.id
-          ? { ...c, messages: [...c.messages, newMsg] }
-          : c
-      )
-    );
-    setSelectedConv((prev) =>
-      prev ? { ...prev, messages: [...prev.messages, newMsg] } : prev
-    );
+    try {
+      const res = await MessageService.sendMessage(payload);
 
-    setNewMessage("");
-  } catch (err) {
-    console.error("Failed to send message:", err);
-    alert("Failed to send message. Please try again.");
-  }
-};
+      // ✅ Optimistic update
+      const newMsg: Message = {
+        id: res.id || Date.now(),
+        content: newMessage,
+        timestamp: new Date().toISOString(),
+        isFromDoctor: false,
+        read: true,
+      };
+
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === selectedConv.id
+            ? { ...c, messages: [...c.messages, newMsg] }
+            : c
+        )
+      );
+      setSelectedConv((prev) =>
+        prev ? { ...prev, messages: [...prev.messages, newMsg] } : prev
+      );
+
+      setNewMessage("");
+    } catch (err) {
+      console.error("Failed to send message:", err);
+      alert("Failed to send message. Please try again.");
+    }
+  };
+
 
   // ----------------------------
   // Filter conversations
