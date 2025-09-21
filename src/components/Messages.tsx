@@ -16,6 +16,8 @@ interface Message {
   timestamp: string;
   isFromDoctor: boolean;
   read: boolean;
+  senderName?: string;   // for dropdown display
+  masterId?: string;     // to know which conversation to open
 }
 
 interface Conversation {

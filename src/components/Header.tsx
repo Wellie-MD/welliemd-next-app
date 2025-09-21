@@ -3,9 +3,9 @@ import { Search } from "lucide-react";
 import { Input } from "./ui/input";
 import { UserProfileDropdown } from "./common/user-profile-dropdown";
 import { NotificationsDropdown } from "./common/notifications-dropdown";
-import { MessagesDropdown } from "./common/messages-dropdown";
 import { useAuth } from "@/features/auth";
 import { useDropdown } from "@/contexts/DropdownContext";
+import { MessagesDropdown } from "@/components/common/messages-dropdown";
 
 export default function Header() {
   const { isAuthenticated } = useAuth();
