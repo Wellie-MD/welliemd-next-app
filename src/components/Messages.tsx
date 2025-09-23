@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Send, Search, Plus, Paperclip, Phone, Video } from "lucide-react";
 import { Card, CardContent, CardHeader } from "./ui/card";
@@ -29,11 +29,18 @@ interface Conversation {
   messages: Message[];
 }
 
+type UnreadMap = Record<string, number>; // conv.id -> unread count
+
 export default function Messages() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+
+  // left-list decorations
+  const [unreadMap, setUnreadMap] = useState<UnreadMap>({});
+  const [justArrivedConvId, setJustArrivedConvId] = useState<string | null>(null);
+  const justArrivedTimer = useRef<number | null>(null);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -46,6 +53,22 @@ export default function Messages() {
       qChatType: (params.get("chatType") as "doctor" | "support" | null) ?? null,
     };
   }, [location.search]);
+
+  // helpers
+  const computeUnreadMap = (convs: Conversation[]): UnreadMap =>
+    convs.reduce((acc, c) => {
+      acc[c.id] = c.messages.reduce((n, m) => (m.read ? n : n + 1), 0);
+      return acc;
+    }, {} as UnreadMap);
+
+  const flashJustArrived = (convId: string) => {
+    setJustArrivedConvId(convId);
+    if (justArrivedTimer.current) window.clearTimeout(justArrivedTimer.current);
+    justArrivedTimer.current = window.setTimeout(() => {
+      setJustArrivedConvId((cur) => (cur === convId ? null : cur));
+      justArrivedTimer.current = null;
+    }, 4500); // show "New" ping ~4.5s
+  };
 
   // --------------------------------
   // Load visits + messages (once)
@@ -83,12 +106,16 @@ export default function Messages() {
         }
 
         setConversations(convs);
+        setUnreadMap(computeUnreadMap(convs));
       } catch (err) {
         console.error("Failed to load conversations:", err);
       }
     };
 
     loadData();
+    return () => {
+      if (justArrivedTimer.current) window.clearTimeout(justArrivedTimer.current);
+    };
   }, []);
 
   // -------------------------------------------------------------
@@ -123,15 +150,15 @@ export default function Messages() {
       (async () => {
         try {
           const unread = toSelect.messages.filter((m) => !m.read);
-          for (const m of unread) {
-            await MessageService.markAsRead(m.id);
+          if (unread.length) {
+            await Promise.all(unread.map((m) => MessageService.markAsRead(m.id)));
+            setConversations((prev) =>
+              prev.map((c) =>
+                c.id === toSelect.id ? { ...c, messages: c.messages.map((m) => ({ ...m, read: true })) } : c
+              )
+            );
+            setUnreadMap((prev) => ({ ...prev, [toSelect.id]: 0 }));
           }
-          // Optimistic update
-          setConversations((prev) =>
-            prev.map((c) =>
-              c.id === toSelect.id ? { ...c, messages: c.messages.map((m) => ({ ...m, read: true })) } : c
-            )
-          );
         } catch (err) {
           console.error("Failed to mark messages as read:", err);
         }
@@ -147,63 +174,90 @@ export default function Messages() {
 
     const interval = setInterval(async () => {
       try {
-        let msgs: Message[] = [];
+        // fetch latest for selected conv
+        let updatedSelectedMsgs: Message[] = [];
         if (selectedConv.type === "doctor") {
-          msgs = await MessageService.getDoctorMessages(selectedConv.masterId);
+          updatedSelectedMsgs = await MessageService.getDoctorMessages(selectedConv.masterId);
         } else {
-          msgs = await MessageService.getSupportMessages(selectedConv.masterId);
+          updatedSelectedMsgs = await MessageService.getSupportMessages(selectedConv.masterId);
         }
 
-        // Update lists with fresh messages
-        setConversations((prev) =>
-          prev.map((c) => (c.id === selectedConv.id ? { ...c, messages: msgs } : c))
+        // auto-mark any unread in the selected conv
+        const unreadInSelected = updatedSelectedMsgs.filter((m) => !m.read);
+        if (unreadInSelected.length) {
+          await Promise.all(unreadInSelected.map((m) => MessageService.markAsRead(m.id)));
+          updatedSelectedMsgs = updatedSelectedMsgs.map((m) => ({ ...m, read: true }));
+        }
+
+        // refresh every other conv too, but lighter: only when needed we’ll decorate
+        const nextConvs = conversations.map((c) => {
+          if (c.id === selectedConv.id) {
+            return { ...c, messages: updatedSelectedMsgs };
+          }
+          return c;
+        });
+
+        // For non-selected convs, check if a NEW message arrived since last poll:
+        // (compare last ids/length)
+        await Promise.all(
+          nextConvs
+            .filter((c) => c.id !== selectedConv.id)
+            .map(async (c) => {
+              const msgs =
+                c.type === "doctor"
+                  ? await MessageService.getDoctorMessages(c.masterId)
+                  : await MessageService.getSupportMessages(c.masterId);
+
+              // detect a new inbound message (the last message object not present previously)
+              const prevLastId = c.messages.length ? c.messages[c.messages.length - 1].id : null;
+              const newLastId = msgs.length ? msgs[msgs.length - 1].id : null;
+
+              // update conv in the array
+              const idx = nextConvs.findIndex((x) => x.id === c.id);
+              if (idx >= 0) nextConvs[idx] = { ...c, messages: msgs };
+
+              // if changed and it is unread, flash "New"
+              if (newLastId && newLastId !== prevLastId) {
+                const last = msgs[msgs.length - 1];
+                if (!last.read) {
+                  flashJustArrived(c.id);
+                }
+              }
+            })
         );
-        setSelectedConv((prev) => (prev ? { ...prev, messages: msgs } : prev));
 
-        // 🔥 AUTO-MARK UNREAD WHILE VIEWING THIS CHAT
-        const unread = msgs.filter((m) => !m.read);
-        if (unread.length > 0) {
-          await Promise.all(unread.map((m) => MessageService.markAsRead(m.id)));
-          // Optimistic state update
-          setConversations((prev) =>
-            prev.map((c) =>
-              c.id === selectedConv.id
-                ? { ...c, messages: c.messages.map((m) => ({ ...m, read: true })) }
-                : c
-            )
-          );
-          setSelectedConv((prev) =>
-            prev ? { ...prev, messages: prev.messages.map((m) => ({ ...m, read: true })) } : prev
-          );
-        }
+        setConversations(nextConvs);
+        setSelectedConv((prev) => (prev ? { ...prev, messages: updatedSelectedMsgs } : prev));
+        setUnreadMap(computeUnreadMap(nextConvs));
       } catch (err) {
         console.error("Polling failed:", err);
       }
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [selectedConv]);
+  }, [selectedConv, conversations]);
 
   // ----------------------------
   // Sidebar click handler
   // ----------------------------
   const handleSelectConversation = async (conv: Conversation) => {
-    // Update URL so nav is consistent
     navigate(`/dashboard/messages?masterId=${conv.masterId}&chatType=${conv.type}`);
     setSelectedConv(conv);
 
     try {
-      for (const msg of conv.messages) {
-        if (!msg.read) {
-          await MessageService.markAsRead(msg.id);
-        }
+      const unread = conv.messages.filter((m) => !m.read);
+      if (unread.length) {
+        await Promise.all(unread.map((m) => MessageService.markAsRead(m.id)));
+        // Optimistic update
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === conv.id ? { ...c, messages: c.messages.map((m) => ({ ...m, read: true })) } : c
+          )
+        );
+        setUnreadMap((prev) => ({ ...prev, [conv.id]: 0 }));
       }
-      // Optimistic update
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === conv.id ? { ...c, messages: c.messages.map((m) => ({ ...m, read: true })) } : c
-        )
-      );
+      // clear "new" ping for this conv now that it's opened
+      if (justArrivedConvId === conv.id) setJustArrivedConvId(null);
     } catch (err) {
       console.error("Failed to mark messages as read:", err);
     }
@@ -236,6 +290,7 @@ export default function Messages() {
         prev.map((c) => (c.id === selectedConv.id ? { ...c, messages: [...c.messages, newMsg] } : c))
       );
       setSelectedConv((prev) => (prev ? { ...prev, messages: [...prev.messages, newMsg] } : prev));
+      setUnreadMap((prev) => ({ ...prev, [selectedConv.id]: 0 }));
 
       setNewMessage("");
     } catch (err) {
@@ -279,26 +334,52 @@ export default function Messages() {
             </div>
           </CardHeader>
           <CardContent className="p-0 flex-1 overflow-y-auto">
-            {filteredConversations.map((conv) => (
-              <div
-                key={conv.id}
-                className={`p-4 cursor-pointer hover:bg-gray-50 border-l-4 ${
-                  selectedConv?.id === conv.id ? "bg-blue-50 border-blue-500" : "border-transparent"
-                }`}
-                onClick={() => handleSelectConversation(conv)}
-              >
-                <div className="flex items-start space-x-3">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage />
-                    <AvatarFallback>{conv.type === "doctor" ? "DR" : "CS"}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900 truncate">{conv.label}</p>
+            {filteredConversations.map((conv) => {
+              const unread = unreadMap[conv.id] || 0;
+              const isSelected = selectedConv?.id === conv.id;
+              const showPing = justArrivedConvId === conv.id && !isSelected;
+
+              return (
+                <div
+                  key={conv.id}
+                  className={`p-4 cursor-pointer hover:bg-gray-50 border-l-4 flex items-start ${
+                    isSelected ? "bg-blue-50 border-blue-500" : "border-transparent"
+                  }`}
+                  onClick={() => handleSelectConversation(conv)}
+                >
+                  <div className="relative mr-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage />
+                      <AvatarFallback>{conv.type === "doctor" ? "DR" : "CS"}</AvatarFallback>
+                    </Avatar>
+                    {showPing && (
+                      <span className="absolute -right-1 -top-1 h-3 w-3">
+                        <span className="absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75 animate-ping" />
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500" />
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p
+                        className={`truncate ${
+                          unread > 0 ? "font-semibold text-gray-900" : "text-gray-900"
+                        }`}
+                      >
+                        {conv.label}
+                      </p>
+                      {unread > 0 && (
+                        <span className="ml-2 shrink-0 rounded-full bg-blue-600 text-white text-xs px-2 py-0.5">
+                          {unread}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-400">{conv.messages.length} messages</p>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
 
