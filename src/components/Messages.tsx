@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom"; // 👈 added
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Send, Search, Plus, Paperclip, Phone, Video } from "lucide-react";
 import { Card, CardContent, CardHeader } from "./ui/card";
 import { Button } from "./ui/button";
@@ -38,20 +38,18 @@ export default function Messages() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // ----------------------------
-  // Helpers for query params
-  // ----------------------------
-  const getQueryParams = () => {
+  // Parse query params
+  const { qMasterId, qChatType } = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return {
-      masterId: params.get("masterId"),
-      chatType: params.get("chatType") as "doctor" | "support" | null,
+      qMasterId: params.get("masterId"),
+      qChatType: (params.get("chatType") as "doctor" | "support" | null) ?? null,
     };
-  };
+  }, [location.search]);
 
-  // ----------------------------
-  // Load visits + messages
-  // ----------------------------
+  // --------------------------------
+  // Load visits + messages (once)
+  // --------------------------------
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -85,28 +83,61 @@ export default function Messages() {
         }
 
         setConversations(convs);
-
-        // 👇 auto-select based on query param
-        const { masterId, chatType } = getQueryParams();
-        if (masterId && chatType) {
-          const found = convs.find(
-            (c) => c.masterId === masterId && c.type === chatType
-          );
-          if (found) {
-            setSelectedConv(found);
-            return;
-          }
-        }
-
-        // fallback: first conversation
-        if (convs.length > 0) setSelectedConv(convs[0]);
       } catch (err) {
         console.error("Failed to load conversations:", err);
       }
     };
 
     loadData();
-  }, [location.search]);
+  }, []);
+
+  // -------------------------------------------------------------
+  // Select conversation whenever conversations or URL params change
+  // -------------------------------------------------------------
+  useEffect(() => {
+    if (conversations.length === 0) return;
+
+    // 1) Try strict match: masterId + chatType
+    let found =
+      qMasterId && qChatType
+        ? conversations.find((c) => c.masterId === qMasterId && c.type === qChatType)
+        : null;
+
+    // 2) Fallback: match by masterId only (if chatType missing or mismatch)
+    if (!found && qMasterId) {
+      found = conversations.find((c) => c.masterId === qMasterId) || null;
+    }
+
+    // 3) Fallback: keep current selection or default to first
+    const toSelect = found || selectedConv || conversations[0];
+
+    if (!selectedConv || selectedConv.id !== toSelect.id) {
+      // Ensure URL reflects selected conversation
+      const url = `/dashboard/messages?masterId=${toSelect.masterId}&chatType=${toSelect.type}`;
+      if (location.search !== `?masterId=${toSelect.masterId}&chatType=${toSelect.type}`) {
+        navigate(url, { replace: true });
+      }
+      setSelectedConv(toSelect);
+
+      // Mark unread as read (best-effort)
+      (async () => {
+        try {
+          const unread = toSelect.messages.filter((m) => !m.read);
+          for (const m of unread) {
+            await MessageService.markAsRead(m.id);
+          }
+          // Optimistic update
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === toSelect.id ? { ...c, messages: c.messages.map((m) => ({ ...m, read: true })) } : c
+            )
+          );
+        } catch (err) {
+          console.error("Failed to mark messages as read:", err);
+        }
+      })();
+    }
+  }, [conversations, qMasterId, qChatType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ----------------------------
   // Polling for new messages
@@ -124,14 +155,9 @@ export default function Messages() {
         }
 
         setConversations((prev) =>
-          prev.map((c) =>
-            c.id === selectedConv.id ? { ...c, messages: msgs } : c
-          )
+          prev.map((c) => (c.id === selectedConv.id ? { ...c, messages: msgs } : c))
         );
-
-        setSelectedConv((prev) =>
-          prev ? { ...prev, messages: msgs } : prev
-        );
+        setSelectedConv((prev) => (prev ? { ...prev, messages: msgs } : prev));
       } catch (err) {
         console.error("Polling failed:", err);
       }
@@ -141,12 +167,11 @@ export default function Messages() {
   }, [selectedConv]);
 
   // ----------------------------
-  // Select conversation + mark as read
+  // Sidebar click handler
   // ----------------------------
   const handleSelectConversation = async (conv: Conversation) => {
-    // update URL so navigation is consistent
+    // Update URL so nav is consistent
     navigate(`/dashboard/messages?masterId=${conv.masterId}&chatType=${conv.type}`);
-
     setSelectedConv(conv);
 
     try {
@@ -155,21 +180,15 @@ export default function Messages() {
           await MessageService.markAsRead(msg.id);
         }
       }
+      // Optimistic update
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === conv.id ? { ...c, messages: c.messages.map((m) => ({ ...m, read: true })) } : c
+        )
+      );
     } catch (err) {
       console.error("Failed to mark messages as read:", err);
     }
-
-    // Optimistic update
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.id === conv.id
-          ? {
-              ...c,
-              messages: c.messages.map((m) => ({ ...m, read: true })),
-            }
-          : c
-      )
-    );
   };
 
   // ----------------------------
@@ -196,15 +215,9 @@ export default function Messages() {
       };
 
       setConversations((prev) =>
-        prev.map((c) =>
-          c.id === selectedConv.id
-            ? { ...c, messages: [...c.messages, newMsg] }
-            : c
-        )
+        prev.map((c) => (c.id === selectedConv.id ? { ...c, messages: [...c.messages, newMsg] } : c))
       );
-      setSelectedConv((prev) =>
-        prev ? { ...prev, messages: [...prev.messages, newMsg] } : prev
-      );
+      setSelectedConv((prev) => (prev ? { ...prev, messages: [...prev.messages, newMsg] } : prev));
 
       setNewMessage("");
     } catch (err) {
@@ -225,9 +238,7 @@ export default function Messages() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Messages</h1>
-          <p className="text-gray-600">
-            Communicate with your doctor or support team
-          </p>
+          <p className="text-gray-600">Communicate with your doctor or support team</p>
         </div>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
@@ -254,26 +265,18 @@ export default function Messages() {
               <div
                 key={conv.id}
                 className={`p-4 cursor-pointer hover:bg-gray-50 border-l-4 ${
-                  selectedConv?.id === conv.id
-                    ? "bg-blue-50 border-blue-500"
-                    : "border-transparent"
+                  selectedConv?.id === conv.id ? "bg-blue-50 border-blue-500" : "border-transparent"
                 }`}
                 onClick={() => handleSelectConversation(conv)}
               >
                 <div className="flex items-start space-x-3">
                   <Avatar className="h-10 w-10">
                     <AvatarImage />
-                    <AvatarFallback>
-                      {conv.type === "doctor" ? "DR" : "CS"}
-                    </AvatarFallback>
+                    <AvatarFallback>{conv.type === "doctor" ? "DR" : "CS"}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
-                    <p className="font-medium text-gray-900 truncate">
-                      {conv.label}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {conv.messages.length} messages
-                    </p>
+                    <p className="font-medium text-gray-900 truncate">{conv.label}</p>
+                    <p className="text-xs text-gray-400">{conv.messages.length} messages</p>
                   </div>
                 </div>
               </div>
@@ -290,17 +293,11 @@ export default function Messages() {
                   <div className="flex items-center space-x-3">
                     <Avatar className="h-10 w-10">
                       <AvatarImage />
-                      <AvatarFallback>
-                        {selectedConv.type === "doctor" ? "DR" : "CS"}
-                      </AvatarFallback>
+                      <AvatarFallback>{selectedConv.type === "doctor" ? "DR" : "CS"}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <h3 className="font-medium text-gray-900">
-                        {selectedConv.label}
-                      </h3>
-                      <p className="text-sm text-gray-600 capitalize">
-                        {selectedConv.type}
-                      </p>
+                      <h3 className="font-medium text-gray-900">{selectedConv.label}</h3>
+                      <p className="text-sm text-gray-600 capitalize">{selectedConv.type}</p>
                     </div>
                   </div>
                   {selectedConv.type === "doctor" && (
@@ -320,27 +317,14 @@ export default function Messages() {
               {/* Messages */}
               <CardContent className="flex-1 overflow-y-auto p-6 space-y-4">
                 {selectedConv.messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${
-                      msg.isFromDoctor ? "justify-start" : "justify-end"
-                    }`}
-                  >
+                  <div key={msg.id} className={`flex ${msg.isFromDoctor ? "justify-start" : "justify-end"}`}>
                     <div
                       className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                        msg.isFromDoctor
-                          ? "bg-gray-100 text-gray-900"
-                          : "bg-blue-600 text-white"
+                        msg.isFromDoctor ? "bg-gray-100 text-gray-900" : "bg-blue-600 text-white"
                       }`}
                     >
                       <p className="text-sm">{msg.content}</p>
-                      <p
-                        className={`text-xs mt-1 ${
-                          msg.isFromDoctor
-                            ? "text-gray-500"
-                            : "text-blue-100"
-                        }`}
-                      >
+                      <p className={`text-xs mt-1 ${msg.isFromDoctor ? "text-gray-500" : "text-blue-100"}`}>
                         {new Date(msg.timestamp).toLocaleString()}
                       </p>
                     </div>
