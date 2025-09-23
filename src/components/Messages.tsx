@@ -112,6 +112,35 @@ export default function Messages() {
   }, [selectedConv]);
 
   // ----------------------------
+  // Select conversation + mark messages as read
+  // ----------------------------
+  const handleSelectConversation = async (conv: Conversation) => {
+    setSelectedConv(conv);
+
+    try {
+      for (const msg of conv.messages) {
+        if (!msg.read) {
+          await MessageService.markAsRead(msg.id);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to mark messages as read:", err);
+    }
+
+    // Optimistic update so unread clears immediately
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === conv.id
+          ? {
+              ...c,
+              messages: c.messages.map((m) => ({ ...m, read: true })),
+            }
+          : c
+      )
+    );
+  };
+
+  // ----------------------------
   // Send message
   // ----------------------------
   const handleSendMessage = async () => {
@@ -197,7 +226,7 @@ export default function Messages() {
                     ? "bg-blue-50 border-blue-500"
                     : "border-transparent"
                 }`}
-                onClick={() => setSelectedConv(conv)}
+                onClick={() => handleSelectConversation(conv)} // ✅ updated
               >
                 <div className="flex items-start space-x-3">
                   <Avatar className="h-10 w-10">

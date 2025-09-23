@@ -16,6 +16,11 @@ export const MessageService = {
     return res.data;
   },
 
+  async markAsRead(messageId: string | number) {
+  const res = await apiClient.post(`/messages/${messageId}/read/`);
+  return res.data;
+  },
+
   async sendMessage(payload: {
     master_id: string;
     to: "doctor" | "support";
