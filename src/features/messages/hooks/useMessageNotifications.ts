@@ -1,39 +1,60 @@
+// src/features/messages/hooks/useMessageNotifications.ts
 import { useEffect, useState } from "react";
 import { MessageService } from "@/features/messages/services/message.service";
 import { VisitService, Visit } from "@/features/visits/services/visit.service";
 
+export interface MessageNotification {
+  id: number | string;
+  content: string;
+  timestamp: string;
+  read: boolean;
+  senderName: string;
+  masterId: string;
+  chatType: "doctor" | "support";   // 👈 crucial
+}
+
 export function useMessageNotifications() {
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<MessageNotification[]>([]);
 
   useEffect(() => {
     const load = async () => {
       try {
         const visits: Visit[] = await VisitService.getPatientVisits();
-        const notifs: any[] = [];
+        const notifs: MessageNotification[] = [];
 
         for (const visit of visits) {
-          if (!visit.master_id) continue;
+          const masterId = visit.master_id;
+          if (!masterId) continue;
 
           const [doctorMsgs, supportMsgs] = await Promise.all([
-            MessageService.getDoctorMessages(visit.master_id),
-            MessageService.getSupportMessages(visit.master_id),
+            MessageService.getDoctorMessages(masterId),
+            MessageService.getSupportMessages(masterId),
           ]);
 
-          const latestDoctor = doctorMsgs[doctorMsgs.length - 1];
-          const latestSupport = supportMsgs[supportMsgs.length - 1];
+          const latestDoctor = doctorMsgs?.[doctorMsgs.length - 1];
+          const latestSupport = supportMsgs?.[supportMsgs.length - 1];
 
           if (latestDoctor && !latestDoctor.read) {
             notifs.push({
-              ...latestDoctor,
+              id: latestDoctor.id,
+              content: latestDoctor.content,
+              timestamp: latestDoctor.timestamp,
+              read: latestDoctor.read,
               senderName: `${visit.visit_type} – Doctor`,
-              masterId: visit.master_id,
+              masterId,
+              chatType: "doctor",              // 👈 add chatType
             });
           }
+
           if (latestSupport && !latestSupport.read) {
             notifs.push({
-              ...latestSupport,
+              id: latestSupport.id,
+              content: latestSupport.content,
+              timestamp: latestSupport.timestamp,
+              read: latestSupport.read,
               senderName: `${visit.visit_type} – Support`,
-              masterId: visit.master_id,
+              masterId,
+              chatType: "support",             // 👈 add chatType
             });
           }
         }
@@ -45,7 +66,7 @@ export function useMessageNotifications() {
     };
 
     load();
-    const interval = setInterval(load, 5000); // poll every 5s
+    const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
   }, []);
 

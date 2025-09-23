@@ -2,7 +2,9 @@ import { MessageSquare, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useDropdown } from "@/contexts/DropdownContext";
-import { useMessageNotifications } from "@/features/messages/hooks/useMessageNotifications";
+import {
+  useMessageNotifications,
+} from "@/features/messages/hooks/useMessageNotifications"; // returns items with chatType
 import { formatDistanceToNow } from "date-fns";
 
 export const MessagesDropdown = ({ className }: { className?: string }) => {
@@ -12,8 +14,12 @@ export const MessagesDropdown = ({ className }: { className?: string }) => {
 
   const unreadCount = notifications.length;
 
-  const handleMessageClick = (masterId?: string) => {
-    if (masterId) {
+  const handleMessageClick = (masterId?: string, chatType?: "doctor" | "support") => {
+    if (masterId && chatType) {
+      // 👇 Deep link directly to the right thread
+      navigate(`/dashboard/messages?masterId=${masterId}&chatType=${chatType}`);
+    } else if (masterId) {
+      // Fallback (should rarely happen)
       navigate(`/dashboard/messages?masterId=${masterId}`);
     } else {
       navigate("/dashboard/messages");
@@ -48,7 +54,7 @@ export const MessagesDropdown = ({ className }: { className?: string }) => {
           {notifications.map((message) => (
             <button
               key={message.id}
-              onClick={() => handleMessageClick(message.masterId)}
+              onClick={() => handleMessageClick(message.masterId, message.chatType)} // 👈 pass both
               className="flex items-start w-full px-4 py-3 text-left hover:bg-gray-50"
             >
               <div className="flex-shrink-0">
@@ -59,9 +65,7 @@ export const MessagesDropdown = ({ className }: { className?: string }) => {
               <div className="ml-3 flex-1 min-w-0">
                 <p
                   className={`text-sm ${
-                    message.read
-                      ? "text-gray-600"
-                      : "text-gray-900 font-medium"
+                    message.read ? "text-gray-600" : "text-gray-900 font-medium"
                   }`}
                 >
                   {message.senderName}
@@ -83,7 +87,9 @@ export const MessagesDropdown = ({ className }: { className?: string }) => {
 
           <div className="border-t border-gray-100 mt-2 pt-2">
             <button
-              onClick={() => handleMessageClick()}
+              onClick={() => {
+                handleMessageClick(); // goes to /dashboard/messages
+              }}
               className="flex items-center justify-center w-full px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
             >
               View all messages
