@@ -10,7 +10,8 @@ interface Notification {
   time: string;
   type: "appointment" | "message" | "reminder";
   isRead: boolean;
-  masterId?: string; // 👈 add for message navigation
+  masterId?: string;
+  chatType?: "doctor" | "support"; // ← important
 }
 
 const mockNotifications: Notification[] = [
@@ -48,17 +49,16 @@ export const NotificationsDropdown = ({ className }: { className?: string }) => 
     }
   };
 
-  const handleNotificationClick = (notification: Notification) => {
-    if (notification.type === "message" && notification.masterId) {
-      navigate(`/dashboard/messages?masterId=${notification.masterId}&chatType=support`);
-    } else if (notification.type === "appointment") {
+  const handleNotificationClick = (n: Notification) => {
+    if (n.type === "message" && n.masterId && n.chatType) {
+      navigate(`/dashboard/messages?masterId=${n.masterId}&chatType=${n.chatType}`);
+    } else if (n.type === "appointment") {
       navigate("/dashboard/appointments");
-    } else if (notification.type === "reminder") {
+    } else if (n.type === "reminder") {
       navigate("/dashboard/reminders");
     } else {
       navigate("/dashboard/notifications");
     }
-
     toggleDropdown(null);
   };
 
