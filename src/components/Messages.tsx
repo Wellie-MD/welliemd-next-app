@@ -16,8 +16,8 @@ interface Message {
   timestamp: string;
   isFromDoctor: boolean;
   read: boolean;
-  senderName?: string;   // for dropdown display
-  masterId?: string;     // to know which conversation to open
+  senderName?: string;
+  masterId?: string;
 }
 
 interface Conversation {
@@ -99,43 +99,17 @@ export default function Messages() {
             c.id === selectedConv.id ? { ...c, messages: msgs } : c
           )
         );
-      } catch (err) {
-        console.error("Polling failed:", err);
-      }
-    }, 5000); // refresh every 5 seconds
 
-    return () => clearInterval(interval);
-  }, [selectedConv]);
-
-  useEffect(() => {
-    if (!selectedConv) return;
-
-    const interval = setInterval(async () => {
-      try {
-        let msgs: Message[] = [];
-        if (selectedConv.type === "doctor") {
-          msgs = await MessageService.getDoctorMessages(selectedConv.masterId);
-        } else {
-          msgs = await MessageService.getSupportMessages(selectedConv.masterId);
-        }
-
-        setConversations((prev) =>
-          prev.map((c) =>
-            c.id === selectedConv.id ? { ...c, messages: msgs } : c
-          )
-        );
-
-        // 🔥 keep selectedConv in sync with latest messages
         setSelectedConv((prev) =>
           prev ? { ...prev, messages: msgs } : prev
         );
       } catch (err) {
         console.error("Polling failed:", err);
       }
-    }, 5000); // refresh every 5s
+    }, 5000);
 
     return () => clearInterval(interval);
-  }, [selectedConv]);  
+  }, [selectedConv]);
 
   // ----------------------------
   // Send message
@@ -152,7 +126,6 @@ export default function Messages() {
     try {
       const res = await MessageService.sendMessage(payload);
 
-      // ✅ Optimistic update
       const newMsg: Message = {
         id: res.id || Date.now(),
         content: newMessage,
@@ -179,7 +152,6 @@ export default function Messages() {
     }
   };
 
-
   // ----------------------------
   // Filter conversations
   // ----------------------------
@@ -188,7 +160,7 @@ export default function Messages() {
   );
 
   return (
-    <div className="p-6">
+    <div className="h-screen flex flex-col p-6 overflow-hidden">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Messages</h1>
@@ -202,9 +174,9 @@ export default function Messages() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px]">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 overflow-hidden">
         {/* Sidebar */}
-        <Card className="lg:col-span-1">
+        <Card className="lg:col-span-1 flex flex-col overflow-hidden">
           <CardHeader className="pb-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -216,7 +188,7 @@ export default function Messages() {
               />
             </div>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 flex-1 overflow-y-auto">
             {filteredConversations.map((conv) => (
               <div
                 key={conv.id}
@@ -249,7 +221,7 @@ export default function Messages() {
         </Card>
 
         {/* Chat Window */}
-        <Card className="lg:col-span-2 flex flex-col">
+        <Card className="lg:col-span-2 flex flex-col overflow-hidden">
           {selectedConv && (
             <>
               <CardHeader className="pb-4">
