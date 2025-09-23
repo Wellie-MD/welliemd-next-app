@@ -103,7 +103,7 @@ export default function Messages() {
         ? conversations.find((c) => c.masterId === qMasterId && c.type === qChatType)
         : null;
 
-    // 2) Fallback: match by masterId only (if chatType missing or mismatch)
+    // 2) Fallback: match by masterId only
     if (!found && qMasterId) {
       found = conversations.find((c) => c.masterId === qMasterId) || null;
     }
@@ -119,7 +119,7 @@ export default function Messages() {
       }
       setSelectedConv(toSelect);
 
-      // Mark unread as read (best-effort)
+      // Mark unread as read (best-effort) on initial select
       (async () => {
         try {
           const unread = toSelect.messages.filter((m) => !m.read);
@@ -154,14 +154,32 @@ export default function Messages() {
           msgs = await MessageService.getSupportMessages(selectedConv.masterId);
         }
 
+        // Update lists with fresh messages
         setConversations((prev) =>
           prev.map((c) => (c.id === selectedConv.id ? { ...c, messages: msgs } : c))
         );
         setSelectedConv((prev) => (prev ? { ...prev, messages: msgs } : prev));
+
+        // 🔥 AUTO-MARK UNREAD WHILE VIEWING THIS CHAT
+        const unread = msgs.filter((m) => !m.read);
+        if (unread.length > 0) {
+          await Promise.all(unread.map((m) => MessageService.markAsRead(m.id)));
+          // Optimistic state update
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === selectedConv.id
+                ? { ...c, messages: c.messages.map((m) => ({ ...m, read: true })) }
+                : c
+            )
+          );
+          setSelectedConv((prev) =>
+            prev ? { ...prev, messages: prev.messages.map((m) => ({ ...m, read: true })) } : prev
+          );
+        }
       } catch (err) {
         console.error("Polling failed:", err);
       }
-    }, 1000);
+    }, 2000);
 
     return () => clearInterval(interval);
   }, [selectedConv]);
