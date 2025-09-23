@@ -161,7 +161,7 @@ export default function Messages() {
       } catch (err) {
         console.error("Polling failed:", err);
       }
-    }, 2000);
+    }, 1000);
 
     return () => clearInterval(interval);
   }, [selectedConv]);
