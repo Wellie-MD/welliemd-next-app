@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom"; // 👈 added
 import { Send, Search, Plus, Paperclip, Phone, Video } from "lucide-react";
 import { Card, CardContent, CardHeader } from "./ui/card";
 import { Button } from "./ui/button";
@@ -33,6 +34,20 @@ export default function Messages() {
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // ----------------------------
+  // Helpers for query params
+  // ----------------------------
+  const getQueryParams = () => {
+    const params = new URLSearchParams(location.search);
+    return {
+      masterId: params.get("masterId"),
+      chatType: params.get("chatType") as "doctor" | "support" | null,
+    };
+  };
 
   // ----------------------------
   // Load visits + messages
@@ -70,6 +85,20 @@ export default function Messages() {
         }
 
         setConversations(convs);
+
+        // 👇 auto-select based on query param
+        const { masterId, chatType } = getQueryParams();
+        if (masterId && chatType) {
+          const found = convs.find(
+            (c) => c.masterId === masterId && c.type === chatType
+          );
+          if (found) {
+            setSelectedConv(found);
+            return;
+          }
+        }
+
+        // fallback: first conversation
         if (convs.length > 0) setSelectedConv(convs[0]);
       } catch (err) {
         console.error("Failed to load conversations:", err);
@@ -77,7 +106,7 @@ export default function Messages() {
     };
 
     loadData();
-  }, []);
+  }, [location.search]);
 
   // ----------------------------
   // Polling for new messages
@@ -112,9 +141,12 @@ export default function Messages() {
   }, [selectedConv]);
 
   // ----------------------------
-  // Select conversation + mark messages as read
+  // Select conversation + mark as read
   // ----------------------------
   const handleSelectConversation = async (conv: Conversation) => {
+    // update URL so navigation is consistent
+    navigate(`/dashboard/messages?masterId=${conv.masterId}&chatType=${conv.type}`);
+
     setSelectedConv(conv);
 
     try {
@@ -127,7 +159,7 @@ export default function Messages() {
       console.error("Failed to mark messages as read:", err);
     }
 
-    // Optimistic update so unread clears immediately
+    // Optimistic update
     setConversations((prev) =>
       prev.map((c) =>
         c.id === conv.id
@@ -226,7 +258,7 @@ export default function Messages() {
                     ? "bg-blue-50 border-blue-500"
                     : "border-transparent"
                 }`}
-                onClick={() => handleSelectConversation(conv)} // ✅ updated
+                onClick={() => handleSelectConversation(conv)}
               >
                 <div className="flex items-start space-x-3">
                   <Avatar className="h-10 w-10">

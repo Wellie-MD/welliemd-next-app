@@ -50,7 +50,7 @@ export const NotificationsDropdown = ({ className }: { className?: string }) => 
 
   const handleNotificationClick = (notification: Notification) => {
     if (notification.type === "message" && notification.masterId) {
-      navigate(`/dashboard/messages?masterId=${notification.masterId}`);
+      navigate(`/dashboard/messages?masterId=${notification.masterId}&chatType=support`);
     } else if (notification.type === "appointment") {
       navigate("/dashboard/appointments");
     } else if (notification.type === "reminder") {
