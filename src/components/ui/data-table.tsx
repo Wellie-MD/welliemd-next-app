@@ -29,6 +29,8 @@ import {
   Download,
   CalendarIcon,
   X,
+  Edit,
+  Trash2,
 } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { format } from "date-fns"
@@ -49,9 +51,19 @@ interface FilterConfig {
   onClick?: () => void
 }
 
+interface ActionConfig {
+  key: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  onClick: (row: any) => void
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link'
+  className?: string
+}
+
 interface DataTableProps {
   data: any[]
   columns: Column[]
+  actions?: ActionConfig[]
   hideToolbar?: boolean
   searchPlaceholder?: string
   showDatePicker?: boolean
@@ -65,11 +77,13 @@ interface DataTableProps {
   onExport?: () => void
   onResetFilters?: () => void
   onRefresh?: () => void
+  isLoading?: boolean
 }
 
 export function DataTable({
   data,
   columns,
+  actions = [],
   hideToolbar = false,
   searchPlaceholder = "Search...",
   showDatePicker = false,
@@ -83,6 +97,7 @@ export function DataTable({
   onExport,
   onResetFilters,
   onRefresh,
+  isLoading = false,
 }: DataTableProps) {
   // ---- pagination state ----
   const [pageSize, setPageSize] = useState<number>(10)
@@ -133,6 +148,12 @@ export function DataTable({
       onExport()
     }
   }
+
+  // Determine if we need to show the Actions column
+  const showActions = actions.length > 0
+  const effectiveColumns = showActions 
+    ? [...columns, { key: 'actions', label: 'Actions' }] 
+    : columns
 
   return (
     <div className="space-y-4">
@@ -253,7 +274,7 @@ export function DataTable({
         <Table>
           <TableHeader>
             <TableRow>
-              {columns.map((column) => (
+              {effectiveColumns.map((column) => (
                 <TableHead key={column.key} className="font-medium">
                   {column.label}
                 </TableHead>
@@ -261,7 +282,18 @@ export function DataTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {visibleData.length > 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={effectiveColumns.length}
+                  className="h-24 text-center"
+                >
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : visibleData.length > 0 ? (
               visibleData.map((row, index) => (
                 <TableRow key={index}>
                   {columns.map((column) => (
@@ -271,12 +303,34 @@ export function DataTable({
                         : row[column.key]}
                     </TableCell>
                   ))}
+                  {/* Actions column */}
+                  {showActions && (
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {actions.map((action) => {
+                          const IconComponent = action.icon
+                          return (
+                            <Button
+                              key={action.key}
+                              variant={action.variant || 'ghost'}
+                              size="sm"
+                              onClick={() => action.onClick(row)}
+                              className={action.className}
+                              title={action.label}
+                            >
+                              <IconComponent className="h-4 w-4" />
+                            </Button>
+                          )
+                        })}
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={columns.length}
+                  colSpan={effectiveColumns.length}
                   className="h-24 text-center"
                 >
                   No results.
