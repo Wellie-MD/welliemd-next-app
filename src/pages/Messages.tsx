@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -8,12 +8,30 @@ import { groupMessages, Conversation } from "@/utils/groupMessages";
 import { messageService } from "@/services/messageService";
 
 export default function Messages() {
-  const { messages, loading, error } = useMessages();
+  const { messages, loading, error } = useMessages(5000); // ✅ Poll every 5s
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
 
   const conversations = groupMessages(messages);
+
+  // ✅ Keep activeConversation updated when new messages arrive
+  useEffect(() => {
+    if (activeConversation) {
+      const updated = conversations.find((c) => c.id === activeConversation.id);
+      if (updated) {
+        setActiveConversation(updated);
+      }
+    }
+  }, [messages]);
+
+  // ✅ Auto-scroll to bottom when activeConversation changes
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [activeConversation?.messages]);
 
   async function handleSend() {
     if (!activeConversation || !newMessage.trim()) return;
@@ -25,7 +43,7 @@ export default function Messages() {
         master_id: activeConversation.masterId,
         content: newMessage,
         to: "support", // doctor or support
-        from_client: true,           // 👈 NEW
+        from_client: true,
       });
 
       // Optimistically add message to UI
@@ -35,12 +53,12 @@ export default function Messages() {
         content: newMessage,
         created_at: new Date().toISOString(),
         read: true,
-        sender_name: "Support",                // 👈 change here
-        senderType: "support" as const,        // 👈 change here
-        side: "right" as const,                // 👈 change here
+        sender_name: "Support",
+        senderType: "support" as const,
+        side: "right" as const,
         patientName: activeConversation.patientName,
+        message_type: "support_to_patient" as const,
       };
-
 
       setActiveConversation({
         ...activeConversation,
@@ -75,7 +93,6 @@ export default function Messages() {
               const displayName = c.patientName
                 ? `${c.patientName} (${c.patientEmail || ""})`
                 : c.patientEmail || "Patient";
-
 
               return (
                 <div
@@ -144,11 +161,22 @@ export default function Messages() {
                   } else if (m.senderType === "doctor") {
                     displayName = "Doctor";
                   } else if (m.senderType === "support") {
-                    displayName = "Client Support";   // 👈 override email
+                    displayName = "Client Support";
                   } else {
                     displayName = m.sender_name;
                   }
 
+                  // 🎨 Assign colors
+                  let bubbleColor = "";
+                  if (m.senderType === "patient") {
+                    bubbleColor = "bg-gray-100 text-gray-800";
+                  } else if (m.senderType === "doctor") {
+                    bubbleColor = "bg-blue-100 text-blue-800";
+                  } else if (m.senderType === "support") {
+                    bubbleColor = "bg-purple-100 text-purple-800";
+                  } else {
+                    bubbleColor = "bg-gray-200 text-gray-800";
+                  }
 
                   return (
                     <div
@@ -156,13 +184,7 @@ export default function Messages() {
                       className={`flex ${m.side === "left" ? "justify-start" : "justify-end"}`}
                     >
                       <div
-                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                          m.senderType === "doctor"
-                            ? "bg-blue-100 text-blue-800"
-                            : m.senderType === "support"
-                            ? "bg-purple-100 text-purple-800"
-                            : "bg-gray-200 text-gray-800"
-                        }`}
+                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}
                       >
                         <div className="text-sm">{m.content}</div>
                         <div className="text-xs opacity-70 mt-1">
@@ -173,37 +195,41 @@ export default function Messages() {
                     </div>
                   );
                 })}
+                {/* anchor for auto-scroll */}
+                <div ref={messagesEndRef} />
               </div>
-
               {/* Message Input */}
               <div className="p-4 border-t">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <Input
                     placeholder="Type your message here..."
-                    className="flex-1"
+                    className="flex-1 text-base px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-400"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleSend();
                     }}
                   />
-                  <Button variant="ghost" size="sm">
+
+                  {/* Hidden buttons */}
+                  <Button variant="ghost" size="sm" className="hidden">
                     <Smile className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className="hidden">
                     <Paperclip className="h-4 w-4" />
                   </Button>
+
                   <Button
-                    size="sm"
-                    className="gap-2"
                     onClick={handleSend}
                     disabled={sending}
+                    className="px-6 py-3 text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-indigo-700 transition-all flex items-center gap-2"
                   >
-                    <Send className="h-4 w-4" />
+                    <Send className="h-5 w-5" />
                     Send
                   </Button>
                 </div>
               </div>
+
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-muted-foreground">
