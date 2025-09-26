@@ -11,7 +11,7 @@ export function useMessages() {
       try {
         setLoading(true);
         const res = await messageService.getAllMessages();
-        setMessages(res.results);
+        setMessages(res);   // ✅ now res is already an array
       } catch (err: any) {
         setError(err.message || "Failed to load messages");
       } finally {
@@ -23,3 +23,4 @@ export function useMessages() {
 
   return { messages, loading, error };
 }
+
