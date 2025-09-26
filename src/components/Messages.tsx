@@ -313,7 +313,7 @@ export default function Messages() {
           <h1 className="text-2xl font-semibold text-gray-900">Messages</h1>
           <p className="text-gray-600">Communicate with your doctor or support team</p>
         </div>
-        <Button>
+        <Button className="hidden">
           <Plus className="h-4 w-4 mr-2" />
           New Message
         </Button>
@@ -432,25 +432,34 @@ export default function Messages() {
               </CardContent>
 
               {/* Input */}
-              <div className="p-6 border-t">
-                <div className="flex items-end space-x-2">
-                  <Textarea
+              <div className="p-4 border-t bg-white">
+                <div className="flex items-center justify-center gap-3">
+                  <Input
                     placeholder="Type your message..."
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    rows={3}
-                    className="flex-1 resize-none"
+                    className="flex-1 max-w-3xl rounded-full border px-4 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
                   />
-                  <div className="flex flex-col space-y-2">
-                    <Button variant="outline" size="sm">
-                      <Paperclip className="h-4 w-4" />
-                    </Button>
-                    <Button onClick={handleSendMessage} size="sm">
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <Button
+                    onClick={handleSendMessage}
+                    className="px-7 py-2 text-sm font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-full shadow-md hover:shadow-lg hover:from-blue-600 hover:to-indigo-700 transition-all flex items-center gap-2"
+                  >
+                    <Send className="h-4 w-4" />
+                    Send
+                  </Button>
                 </div>
               </div>
+
+
+
+
+
             </>
           )}
         </Card>
