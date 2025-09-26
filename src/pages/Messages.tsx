@@ -76,7 +76,7 @@ export default function Messages() {
                 ? `${c.patientName} (${c.patientEmail || ""})`
                 : c.patientEmail || "Patient";
 
-                
+
               return (
                 <div
                   key={c.id}
@@ -132,8 +132,16 @@ export default function Messages() {
               {/* Messages */}
               <div className="flex-1 p-4 overflow-y-auto space-y-4">
                 {activeConversation.messages.map((m) => {
-                  const displayName =
-                    m.senderType === "patient" ? "Patient" : m.sender_name;
+                  let displayName;
+                  if (m.senderType === "patient") {
+                    displayName = "Patient";
+                  } else if (m.senderType === "doctor") {
+                    displayName = "Doctor";
+                  } else if (m.senderType === "support") {
+                    displayName = "Client Support";   // 👈 override email
+                  } else {
+                    displayName = m.sender_name;
+                  }
 
                   return (
                     <div
