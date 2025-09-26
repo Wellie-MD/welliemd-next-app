@@ -10,6 +10,8 @@ export interface Message {
   senderType: "patient" | "doctor" | "support";
   side: "left" | "right";
   patientName: string;
+  message_type: "doctor_to_patient" | "support_to_patient" | "patient_to_doctor" | "patient_to_support";  // 👈 add
+
 }
 
 interface PaginatedResponse<T> {

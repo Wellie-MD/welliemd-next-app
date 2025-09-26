@@ -134,7 +134,13 @@ export default function Messages() {
                 {activeConversation.messages.map((m) => {
                   let displayName;
                   if (m.senderType === "patient") {
-                    displayName = "Patient";
+                    if (m.message_type === "patient_to_doctor") {
+                      displayName = "Patient → Doctor";
+                    } else if (m.message_type === "patient_to_support") {
+                      displayName = "Patient → Support";
+                    } else {
+                      displayName = "Patient";
+                    }
                   } else if (m.senderType === "doctor") {
                     displayName = "Doctor";
                   } else if (m.senderType === "support") {
@@ -142,6 +148,7 @@ export default function Messages() {
                   } else {
                     displayName = m.sender_name;
                   }
+
 
                   return (
                     <div
