@@ -20,9 +20,9 @@ interface PaginatedResponse<T> {
 }
 
 export const messageService = {
-  async getAllMessages(): Promise<PaginatedResponse<Message>> {
-    const { data } = await api.get<PaginatedResponse<Message>>("/messages/all/");
-    return data;
+  async getAllMessages(): Promise<Message[]> {
+    const { data } = await api.get<Message[]>("/messages/all/");
+    return data;   // now it's a plain array
   },
 
   async sendMessage(payload: {
