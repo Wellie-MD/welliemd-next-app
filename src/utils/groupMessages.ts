@@ -1,10 +1,22 @@
+// src/utils/groupMessages.ts
+import type { Message } from "@/services/messageService";
+
+export interface Conversation {
+  id: string;
+  masterId: string;
+  patientName: string;
+  patientEmail: string;
+  lastMessage: string;
+  lastTime: string;
+  messages: Message[];
+}
+
 export function groupMessages(messages: Message[]): Conversation[] {
   const map = new Map<string, Conversation>();
 
   messages.forEach((msg) => {
-    const key = msg.master_id;   // 👈 group only by master_id
+    const key = msg.master_id;
 
-    // fallback patient name
     const safePatientName =
       msg.patientName && msg.patientName.trim() !== ""
         ? msg.patientName
@@ -12,8 +24,7 @@ export function groupMessages(messages: Message[]): Conversation[] {
         ? msg.sender_name.split("@")[0]
         : "";
 
-    const safePatientEmail =
-      msg.senderType === "patient" ? msg.sender_name : "";
+    const safePatientEmail = msg.senderType === "patient" ? msg.sender_name : "";
 
     if (!map.has(key)) {
       map.set(key, {

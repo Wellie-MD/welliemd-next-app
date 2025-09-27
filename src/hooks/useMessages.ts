@@ -1,5 +1,6 @@
+// src/hooks/useMessages.ts
 import { useEffect, useState } from "react";
-import { messageService, Message } from "../services/messageService";
+import { messageService, type Message } from "@/services/messageService";
 
 function arraysEqual(a: Message[], b: Message[]) {
   if (a.length !== b.length) return false;
@@ -9,18 +10,15 @@ function arraysEqual(a: Message[], b: Message[]) {
   return true;
 }
 
-export function useMessages(pollInterval: number = 5000) {
+export function useMessages(apiEndpoint?: string, pollInterval: number = 5000) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(true);   // 👈 only for first load
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   async function fetchMessages(isInitial = false) {
     try {
       if (isInitial) setLoading(true);
-
-      const res = await messageService.getAllMessages();
-
-      // ✅ only update if different to avoid unnecessary re-render
+      const res = await messageService.getAllMessages(apiEndpoint);
       setMessages((prev) => (arraysEqual(prev, res) ? prev : res));
     } catch (err: any) {
       setError(err.message || "Failed to load messages");
@@ -30,16 +28,10 @@ export function useMessages(pollInterval: number = 5000) {
   }
 
   useEffect(() => {
-    // first load
     fetchMessages(true);
-
-    // polling (no loading spinner)
-    const interval = setInterval(() => {
-      fetchMessages(false);
-    }, pollInterval);
-
+    const interval = setInterval(() => fetchMessages(false), pollInterval);
     return () => clearInterval(interval);
-  }, [pollInterval]);
+  }, [apiEndpoint, pollInterval]);
 
   return { messages, loading, error, reload: () => fetchMessages(true) };
 }
