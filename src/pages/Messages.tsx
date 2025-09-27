@@ -56,7 +56,7 @@ export default function Messages() {
         master_id: activeConversation.masterId,
         content: newMessage,
         to: "support",             // or "doctor" if you add a toggle
-        from_client: true,         // same semantics as client portal
+        from_super_admin: true,         // same semantics as client portal
         apiEndpoint: selectedClient?.api_endpoint, // key line for Admin
       });
 
@@ -200,12 +200,20 @@ export default function Messages() {
                     displayName = "Doctor";
                   } else if (m.senderType === "support") {
                     displayName = "Client Support";
+                  } else if (m.senderType === "super_support") {
+                    displayName = "Super Admin Support";
+                  } else {
+                    displayName = m.sender_name;
                   }
 
                   let bubbleColor = "";
                   if (m.senderType === "patient") bubbleColor = "bg-gray-100 text-gray-800";
                   else if (m.senderType === "doctor") bubbleColor = "bg-blue-100 text-blue-800";
                   else if (m.senderType === "support") bubbleColor = "bg-purple-100 text-purple-800";
+                  else if (m.senderType === "super_support") {
+                    displayName = "Super Admin Support";
+                    bubbleColor = "bg-red-100 text-red-800";   // distinct color
+                  }
                   else bubbleColor = "bg-gray-200 text-gray-800";
 
                   return (
