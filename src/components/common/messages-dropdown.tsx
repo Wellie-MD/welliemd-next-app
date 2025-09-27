@@ -14,18 +14,17 @@ export const MessagesDropdown = ({ className }: { className?: string }) => {
 
   const unreadCount = notifications.length;
 
-  const handleMessageClick = (masterId?: string, chatType?: "doctor" | "support") => {
+  const handleMessageClick = (masterId?: string, chatType?: "doctor" | "support" | "super_support") => {
     if (masterId && chatType) {
-      // 👇 Deep link directly to the right thread
       navigate(`/dashboard/messages?masterId=${masterId}&chatType=${chatType}`);
     } else if (masterId) {
-      // Fallback (should rarely happen)
       navigate(`/dashboard/messages?masterId=${masterId}`);
     } else {
       navigate("/dashboard/messages");
     }
     toggleDropdown(null);
   };
+
 
   return (
     <div className="relative">

@@ -10,7 +10,7 @@ export interface MessageNotification {
   read: boolean;
   senderName: string;
   masterId: string;
-  chatType: "doctor" | "support";   // 👈 crucial
+  chatType: "doctor" | "support" | "super_support";   // 👈 add super_support
 }
 
 export function useMessageNotifications() {
@@ -47,16 +47,18 @@ export function useMessageNotifications() {
           }
 
           if (latestSupport && !latestSupport.read) {
+            const isSuper = latestSupport.message_type === "super_support_to_patient";
             notifs.push({
               id: latestSupport.id,
               content: latestSupport.content,
               timestamp: latestSupport.timestamp,
               read: latestSupport.read,
-              senderName: `${visit.visit_type} – Support`,
+              senderName: `${visit.visit_type} – ${isSuper ? "Super Admin Support" : "Support"}`, // ✅
               masterId,
-              chatType: "support",             // 👈 add chatType
+              chatType: isSuper ? "super_support" : "support", // ✅
             });
           }
+
         }
 
         setNotifications(notifs);
