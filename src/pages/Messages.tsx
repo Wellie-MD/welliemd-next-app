@@ -162,6 +162,8 @@ export default function Messages() {
                     displayName = "Doctor";
                   } else if (m.senderType === "support") {
                     displayName = "Client Support";
+                  } else if (m.senderType === "super_support") {
+                    displayName = "Super Admin Support";
                   } else {
                     displayName = m.sender_name;
                   }
@@ -174,7 +176,12 @@ export default function Messages() {
                     bubbleColor = "bg-blue-100 text-blue-800";
                   } else if (m.senderType === "support") {
                     bubbleColor = "bg-purple-100 text-purple-800";
-                  } else {
+                  }
+                  else if (m.senderType === "super_support") {
+                    displayName = "Super Admin Support";
+                    bubbleColor = "bg-red-100 text-red-800";   // distinct color
+                  }
+                  else {
                     bubbleColor = "bg-gray-200 text-gray-800";
                   }
 
