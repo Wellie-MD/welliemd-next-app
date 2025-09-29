@@ -466,6 +466,7 @@ export default function Messages() {
 
 
 
+
               {/* Input */}
               <div className="p-4 border-t bg-white">
                 <div className="flex items-center justify-center gap-3">
