@@ -151,16 +151,12 @@ export default function Messages() {
                 {activeConversation.messages.map((m) => {
                   let displayName;
                   if (m.senderType === "patient") {
-                    const patientLabel = activeConversation.patientName
-                      ? `${activeConversation.patientName} (${activeConversation.patientEmail})`
-                      : activeConversation.patientEmail || "Patient";
-
                     if (m.message_type === "patient_to_doctor") {
-                      displayName = `${patientLabel} → Doctor`;
+                      displayName = "Patient → Doctor";
                     } else if (m.message_type === "patient_to_support") {
-                      displayName = `${patientLabel} → Support`;
+                      displayName = "Patient → Support";
                     } else {
-                      displayName = patientLabel;
+                      displayName = "Patient";
                     }
                   } else if (m.senderType === "doctor") {
                     displayName = "Doctor";
