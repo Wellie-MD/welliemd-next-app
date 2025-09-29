@@ -33,6 +33,20 @@ interface Conversation {
 
 type UnreadMap = Record<string, number>; // conv.id -> unread count
 
+function getDisplayName(msg: Message): string {
+  if (msg.chatType === "doctor") {
+    return msg.isFromDoctor ? "Doctor" : "Patient → Doctor";
+  }
+  if (msg.chatType === "super_support") {
+    return "Super Admin Support";
+  }
+  if (msg.chatType === "support") {
+    return msg.isFromDoctor ? "Client Support" : "Patient → Support";
+  }
+  return msg.senderName || "Unknown";
+}
+
+
 export default function Messages() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
@@ -456,7 +470,7 @@ export default function Messages() {
                       <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}>
                         <p className="text-sm">{msg.content}</p>
                         <p className={`text-xs mt-1 ${timeColor}`}>
-                          {new Date(msg.timestamp).toLocaleString()}
+                          {getDisplayName(msg)} • {new Date(msg.timestamp).toLocaleString()}
                         </p>
                       </div>
                     </div>
