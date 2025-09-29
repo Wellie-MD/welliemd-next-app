@@ -66,7 +66,6 @@ export default function Messages() {
       });
 
       setNewMessage("");
-      // ensure the inner pane stays pinned after sending
       requestAnimationFrame(() => {
         if (messagesContainerRef.current) {
           messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
@@ -83,7 +82,6 @@ export default function Messages() {
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">Messages</h1>
 
-      {/* FIXES: min-h-0 keeps inner flex children from forcing page scroll */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px] min-h-0">
         {/* LEFT: Conversations List (own scroll) */}
         <div className="lg:col-span-1 bg-card rounded-lg border overflow-hidden">
@@ -97,9 +95,11 @@ export default function Messages() {
             {error && <div className="text-red-500">{error}</div>}
 
             {conversations.map((c) => {
-              const displayName = c.patientName
-                ? `${c.patientName} (${c.patientEmail || ""})`
-                : c.patientEmail || "Patient";
+              const name = (c.patientName || "").trim();
+              const email = (c.patientEmail || "").trim();
+              const displayName = name ? (email ? `${name} - ${email}` : name) : email || "Patient";
+              const avatarFallback =
+                (name || email || "P").trim().charAt(0).toUpperCase();
 
               return (
                 <div
@@ -110,7 +110,7 @@ export default function Messages() {
                   onClick={() => setActiveConversation(c)}
                 >
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback>{displayName.charAt(0)}</AvatarFallback>
+                    <AvatarFallback>{avatarFallback}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-sm">{displayName}</div>
@@ -128,16 +128,17 @@ export default function Messages() {
         </div>
 
         {/* RIGHT: Chat Area (header + scrollable messages + sticky input) */}
-        {/* overflow-hidden prevents the column from growing and pushing the page */}
         <div className="lg:col-span-2 bg-card rounded-lg border flex flex-col overflow-hidden">
           {activeConversation ? (
             <>
-              {/* sticky header inside the column */}
+              {/* header */}
               <div className="p-4 border-b flex items-center justify-between shrink-0">
                 <div>
                   <div className="font-semibold">
                     {activeConversation.patientName
-                      ? `${activeConversation.patientName} (${activeConversation.patientEmail})`
+                      ? activeConversation.patientEmail
+                        ? `${activeConversation.patientName} - ${activeConversation.patientEmail}`
+                        : activeConversation.patientName
                       : activeConversation.patientEmail || "Patient"}
                   </div>
                   <div className="text-sm text-muted-foreground">
@@ -154,7 +155,7 @@ export default function Messages() {
                 </div>
               </div>
 
-              {/* scrollable messages area */}
+              {/* messages */}
               <div
                 ref={messagesContainerRef}
                 className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0"
@@ -193,7 +194,7 @@ export default function Messages() {
                 })}
               </div>
 
-              {/* input stays visible (shrink-0) */}
+              {/* input */}
               <div className="p-4 border-t shrink-0">
                 <div className="flex items-center gap-3">
                   <Input
