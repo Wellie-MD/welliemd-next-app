@@ -8,28 +8,27 @@ import { groupMessages, Conversation } from "@/utils/groupMessages";
 import { messageService } from "@/services/messageService";
 
 export default function Messages() {
-  const { messages, loading, error } = useMessages(5000); // ✅ Poll every 5s
+  const { messages, loading, error } = useMessages(5000); // poll every 5s
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
 
   const conversations = groupMessages(messages);
 
-  // ✅ Keep activeConversation updated when new messages arrive
+  // keep activeConversation updated when new messages arrive
   useEffect(() => {
     if (activeConversation) {
       const updated = conversations.find((c) => c.id === activeConversation.id);
-      if (updated) {
-        setActiveConversation(updated);
-      }
+      if (updated) setActiveConversation(updated);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
-  // ✅ Auto-scroll to bottom when activeConversation changes
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  // only the messages container should scroll
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   }, [activeConversation?.messages]);
 
@@ -42,11 +41,10 @@ export default function Messages() {
       await messageService.sendMessage({
         master_id: activeConversation.masterId,
         content: newMessage,
-        to: "support", // doctor or support
+        to: "support",
         from_client: true,
       });
 
-      // Optimistically add message to UI
       const newMsg = {
         id: Date.now(),
         master_id: activeConversation.masterId,
@@ -68,6 +66,12 @@ export default function Messages() {
       });
 
       setNewMessage("");
+      // ensure the inner pane stays pinned after sending
+      requestAnimationFrame(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      });
     } catch (err) {
       console.error("Failed to send message", err);
     } finally {
@@ -79,13 +83,16 @@ export default function Messages() {
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">Messages</h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px]">
-        {/* Conversations List */}
-        <div className="lg:col-span-1 bg-card rounded-lg border">
+      {/* FIXES: min-h-0 keeps inner flex children from forcing page scroll */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px] min-h-0">
+        {/* LEFT: Conversations List (own scroll) */}
+        <div className="lg:col-span-1 bg-card rounded-lg border overflow-hidden">
           <div className="p-4 border-b flex items-center justify-between">
             <h2 className="text-lg font-semibold">All Messages</h2>
           </div>
-          <div className="p-4 space-y-2 overflow-y-auto max-h-[600px]">
+
+          {/* own scroll area */}
+          <div className="p-4 space-y-2 overflow-y-auto h-full max-h-[calc(700px-64px)]">
             {loading && <div>Loading...</div>}
             {error && <div className="text-red-500">{error}</div>}
 
@@ -120,12 +127,13 @@ export default function Messages() {
           </div>
         </div>
 
-        {/* Chat Area */}
-        <div className="lg:col-span-2 bg-card rounded-lg border flex flex-col">
+        {/* RIGHT: Chat Area (header + scrollable messages + sticky input) */}
+        {/* overflow-hidden prevents the column from growing and pushing the page */}
+        <div className="lg:col-span-2 bg-card rounded-lg border flex flex-col overflow-hidden">
           {activeConversation ? (
             <>
-              {/* Chat Header */}
-              <div className="p-4 border-b flex items-center justify-between">
+              {/* sticky header inside the column */}
+              <div className="p-4 border-b flex items-center justify-between shrink-0">
                 <div>
                   <div className="font-semibold">
                     {activeConversation.patientName
@@ -146,67 +154,47 @@ export default function Messages() {
                 </div>
               </div>
 
-              {/* Messages */}
-              <div className="flex-1 p-4 overflow-y-auto space-y-4">
+              {/* scrollable messages area */}
+              <div
+                ref={messagesContainerRef}
+                className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0"
+              >
                 {activeConversation.messages.map((m) => {
                   let displayName;
                   if (m.senderType === "patient") {
-                    if (m.message_type === "patient_to_doctor") {
-                      displayName = "Patient → Doctor";
-                    } else if (m.message_type === "patient_to_support") {
-                      displayName = "Patient → Support";
-                    } else {
-                      displayName = "Patient";
-                    }
-                  } else if (m.senderType === "doctor") {
-                    displayName = "Doctor";
-                  } else if (m.senderType === "support") {
-                    displayName = "Client Support";
-                  } else if (m.senderType === "super_support") {
-                    displayName = "Super Admin Support";
-                  } else {
-                    displayName = m.sender_name;
-                  }
+                    if (m.message_type === "patient_to_doctor") displayName = "Patient → Doctor";
+                    else if (m.message_type === "patient_to_support") displayName = "Patient → Support";
+                    else displayName = "Patient";
+                  } else if (m.senderType === "doctor") displayName = "Doctor";
+                  else if (m.senderType === "support") displayName = "Client Support";
+                  else if (m.senderType === "super_support") displayName = "Super Admin Support";
+                  else displayName = m.sender_name;
 
-                  // 🎨 Assign colors
                   let bubbleColor = "";
-                  if (m.senderType === "patient") {
-                    bubbleColor = "bg-gray-100 text-gray-800";
-                  } else if (m.senderType === "doctor") {
-                    bubbleColor = "bg-blue-100 text-blue-800";
-                  } else if (m.senderType === "support") {
-                    bubbleColor = "bg-purple-100 text-purple-800";
-                  }
-                  else if (m.senderType === "super_support") {
-                    displayName = "Super Admin Support";
-                    bubbleColor = "bg-red-100 text-red-800";   // distinct color
-                  }
-                  else {
-                    bubbleColor = "bg-gray-200 text-gray-800";
-                  }
+                  if (m.senderType === "patient") bubbleColor = "bg-gray-100 text-gray-800";
+                  else if (m.senderType === "doctor") bubbleColor = "bg-blue-100 text-blue-800";
+                  else if (m.senderType === "support") bubbleColor = "bg-purple-100 text-purple-800";
+                  else if (m.senderType === "super_support") bubbleColor = "bg-red-100 text-red-800";
+                  else bubbleColor = "bg-gray-200 text-gray-800";
 
                   return (
                     <div
                       key={m.id}
                       className={`flex ${m.side === "left" ? "justify-start" : "justify-end"}`}
                     >
-                      <div
-                        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}
-                      >
+                      <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}>
                         <div className="text-sm">{m.content}</div>
                         <div className="text-xs opacity-70 mt-1">
-                          {displayName} •{" "}
-                          {new Date(m.created_at).toLocaleTimeString()}
+                          {displayName} • {new Date(m.created_at).toLocaleTimeString()}
                         </div>
                       </div>
                     </div>
                   );
                 })}
-                {/* anchor for auto-scroll */}
-                <div ref={messagesEndRef} />
               </div>
-              {/* Message Input */}
-              <div className="p-4 border-t">
+
+              {/* input stays visible (shrink-0) */}
+              <div className="p-4 border-t shrink-0">
                 <div className="flex items-center gap-3">
                   <Input
                     placeholder="Type your message here..."
@@ -217,15 +205,12 @@ export default function Messages() {
                       if (e.key === "Enter") handleSend();
                     }}
                   />
-
-                  {/* Hidden buttons */}
                   <Button variant="ghost" size="sm" className="hidden">
                     <Smile className="h-4 w-4" />
                   </Button>
                   <Button variant="ghost" size="sm" className="hidden">
                     <Paperclip className="h-4 w-4" />
                   </Button>
-
                   <Button
                     onClick={handleSend}
                     disabled={sending}
@@ -236,7 +221,6 @@ export default function Messages() {
                   </Button>
                 </div>
               </div>
-
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-muted-foreground">
