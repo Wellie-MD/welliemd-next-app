@@ -27,6 +27,16 @@ export const messageService = {
     return data;   // now it's a plain array
   },
 
+  async markRead(master_id: string) {
+    return fetch(`/api/messages/read?master_id=${encodeURIComponent(master_id)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    }).then((r) => {
+      if (!r.ok) throw new Error("Failed to mark read");
+      return r.json().catch(() => ({}));
+    });
+  },
+    
   async sendMessage(payload: {
     master_id: string;
     content: string;
