@@ -415,21 +415,38 @@ export default function Messages() {
 
               {/* Messages */}
               <CardContent className="flex-1 overflow-y-auto p-6 space-y-4">
-                {selectedConv.messages.map((msg) => (
-                  <div key={msg.id} className={`flex ${msg.isFromDoctor ? "justify-start" : "justify-end"}`}>
-                    <div
-                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                        msg.isFromDoctor ? "bg-gray-100 text-gray-900" : "bg-blue-600 text-white"
-                      }`}
-                    >
-                      <p className="text-sm">{msg.content}</p>
-                      <p className={`text-xs mt-1 ${msg.isFromDoctor ? "text-gray-500" : "text-blue-100"}`}>
-                        {new Date(msg.timestamp).toLocaleString()}
-                      </p>
+                {selectedConv.messages.map((msg) => {
+                  let alignment = "justify-start";
+                  let bubbleColor = "bg-gray-100 text-gray-900";
+                  let timeColor = "text-gray-500";
+
+                  if (msg.message_type === "super_support_to_patient") {
+                    alignment = "justify-start"; // left side
+                    bubbleColor = "bg-red-100 text-red-800"; // distinct red tone
+                    timeColor = "text-red-600";
+                  } else if (msg.isFromDoctor) {
+                    alignment = "justify-start"; // left side
+                    bubbleColor = "bg-gray-100 text-gray-900"; // doctor messages
+                    timeColor = "text-gray-500";
+                  } else {
+                    alignment = "justify-end"; // right side (patient)
+                    bubbleColor = "bg-blue-600 text-white";
+                    timeColor = "text-blue-100";
+                  }
+
+                  return (
+                    <div key={msg.id} className={`flex ${alignment}`}>
+                      <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}>
+                        <p className="text-sm">{msg.content}</p>
+                        <p className={`text-xs mt-1 ${timeColor}`}>
+                          {new Date(msg.timestamp).toLocaleString()}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
+
 
               {/* Input */}
               <div className="p-4 border-t bg-white">
