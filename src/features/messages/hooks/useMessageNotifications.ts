@@ -10,7 +10,7 @@ export interface MessageNotification {
   read: boolean;
   senderName: string;
   masterId: string;
-  chatType: "doctor" | "support" | "super_support";   // 👈 add super_support
+  chatType: "doctor" | "support" | "super_support"; 
 }
 
 export function useMessageNotifications() {
@@ -42,7 +42,7 @@ export function useMessageNotifications() {
               read: latestDoctor.read,
               senderName: `${visit.visit_type} – Doctor`,
               masterId,
-              chatType: "doctor",              // 👈 add chatType
+              chatType: "doctor", 
             });
           }
 
@@ -53,9 +53,9 @@ export function useMessageNotifications() {
               content: latestSupport.content,
               timestamp: latestSupport.timestamp,
               read: latestSupport.read,
-              senderName: `${visit.visit_type} – ${isSuper ? "Super Admin Support" : "Support"}`, // ✅
+              senderName: `${visit.visit_type} – ${isSuper ? "Super Admin Support" : "Support"}`, 
               masterId,
-              chatType: isSuper ? "super_support" : "support", // ✅
+              chatType: isSuper ? "super_support" : "support",
             });
           }
 
