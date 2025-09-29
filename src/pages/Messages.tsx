@@ -11,13 +11,11 @@ import { messageService } from "@/services/messageService";
 import { useClients, type Client } from "@/hooks/useClients";
 
 export default function Messages() {
-  // ── 1) Load clients (Admin Portal)
+  // 1) Admin: load clients
   const { clients, loading: loadingClients, error: clientsError } = useClients();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
-  // ── 2) Load messages from either:
-  //     - selected client's API (Admin), or
-  //     - local API (Client portal) when no client selected
+  // 2) Load messages (admin hits selected client's API)
   const { messages, loading, error } = useMessages(selectedClient?.api_endpoint, 5000);
 
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
@@ -32,18 +30,19 @@ export default function Messages() {
       const updated = conversations.find((c) => c.id === activeConversation.id);
       if (updated) setActiveConversation(updated);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
-  // Reset when switching client
+  // Reset on client change
   useEffect(() => {
     setActiveConversation(null);
   }, [selectedClient?.id]);
 
-  // Auto-scroll
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  // === SCROLL FIX: only the right messages pane scrolls ===
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   }, [activeConversation?.messages]);
 
@@ -55,9 +54,9 @@ export default function Messages() {
       await messageService.sendMessage({
         master_id: activeConversation.masterId,
         content: newMessage,
-        to: "support",             // or "doctor" if you add a toggle
-        from_super_admin: true,         // same semantics as client portal
-        apiEndpoint: selectedClient?.api_endpoint, // key line for Admin
+        to: "support",               // or "doctor"
+        from_super_admin: true,      // admin portal flag
+        apiEndpoint: selectedClient?.api_endpoint,
       });
 
       // Optimistic UI
@@ -81,6 +80,13 @@ export default function Messages() {
         lastTime: newMsg.created_at,
       });
       setNewMessage("");
+
+      // keep pinned after render
+      requestAnimationFrame(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      });
     } catch (err) {
       console.error("Failed to send message", err);
     } finally {
@@ -92,11 +98,12 @@ export default function Messages() {
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">Messages</h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px]">
-        {/* Left: Clients + Conversations */}
-        <div className="lg:col-span-1 bg-card rounded-lg border flex flex-col">
-          {/* Client selector (Admin) */}
-          <div className="p-4 border-b space-y-3">
+      {/* Important: min-h-0 prevents children from forcing page scroll */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px] min-h-0">
+        {/* LEFT: Clients + Conversations (own scroll) */}
+        <div className="lg:col-span-1 bg-card rounded-lg border flex flex-col overflow-hidden">
+          {/* Client selector */}
+          <div className="p-4 border-b space-y-3 shrink-0">
             <h2 className="text-lg font-semibold">All Messages</h2>
 
             <div>
@@ -121,8 +128,8 @@ export default function Messages() {
             </div>
           </div>
 
-          {/* Conversations */}
-          <div className="p-4 space-y-2 overflow-y-auto max-h-[600px]">
+          {/* Conversations list scrolls independently */}
+          <div className="p-4 space-y-2 overflow-y-auto flex-1 min-h-0">
             {loading && <div>Loading messages…</div>}
             {error && <div className="text-red-500">{error}</div>}
 
@@ -144,9 +151,7 @@ export default function Messages() {
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-sm">{displayName}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {c.lastMessage}
-                    </div>
+                    <div className="text-xs text-muted-foreground truncate">{c.lastMessage}</div>
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {new Date(c.lastTime).toLocaleTimeString()}
@@ -157,12 +162,12 @@ export default function Messages() {
           </div>
         </div>
 
-        {/* Right: Chat */}
-        <div className="lg:col-span-2 bg-card rounded-lg border flex flex-col">
+        {/* RIGHT: Chat column (header + scrollable messages + sticky input) */}
+        <div className="lg:col-span-2 bg-card rounded-lg border flex flex-col overflow-hidden">
           {activeConversation ? (
             <>
-              {/* Header */}
-              <div className="p-4 border-b flex items-center justify-between">
+              {/* Header stays visible */}
+              <div className="p-4 border-b flex items-center justify-between shrink-0">
                 <div>
                   <div className="font-semibold">
                     {activeConversation.patientName
@@ -185,8 +190,11 @@ export default function Messages() {
                 </div>
               </div>
 
-              {/* Messages */}
-              <div className="flex-1 p-4 overflow-y-auto space-y-4">
+              {/* Messages: ONLY this area scrolls */}
+              <div
+                ref={messagesContainerRef}
+                className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0"
+              >
                 {activeConversation.messages.map((m) => {
                   let displayName = m.sender_name || "";
                   if (m.senderType === "patient") {
@@ -196,24 +204,15 @@ export default function Messages() {
                         : m.message_type === "patient_to_support"
                         ? "Patient → Support"
                         : "Patient";
-                  } else if (m.senderType === "doctor") {
-                    displayName = "Doctor";
-                  } else if (m.senderType === "support") {
-                    displayName = "Client Support";
-                  } else if (m.senderType === "super_support") {
-                    displayName = "Super Admin Support";
-                  } else {
-                    displayName = m.sender_name;
-                  }
+                  } else if (m.senderType === "doctor") displayName = "Doctor";
+                  else if (m.senderType === "support") displayName = "Client Support";
+                  else if (m.senderType === "super_support") displayName = "Super Admin Support";
 
                   let bubbleColor = "";
                   if (m.senderType === "patient") bubbleColor = "bg-gray-100 text-gray-800";
                   else if (m.senderType === "doctor") bubbleColor = "bg-blue-100 text-blue-800";
                   else if (m.senderType === "support") bubbleColor = "bg-purple-100 text-purple-800";
-                  else if (m.senderType === "super_support") {
-                    displayName = "Super Admin Support";
-                    bubbleColor = "bg-red-100 text-red-800";   // distinct color
-                  }
+                  else if (m.senderType === "super_support") bubbleColor = "bg-red-100 text-red-800";
                   else bubbleColor = "bg-gray-200 text-gray-800";
 
                   return (
@@ -227,11 +226,10 @@ export default function Messages() {
                     </div>
                   );
                 })}
-                <div ref={messagesEndRef} />
               </div>
 
-              {/* Composer */}
-              <div className="p-4 border-t">
+              {/* Composer stays visible */}
+              <div className="p-4 border-t shrink-0">
                 <div className="flex items-center gap-3">
                   <Input
                     placeholder="Type your message here…"
