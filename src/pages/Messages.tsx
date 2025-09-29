@@ -24,6 +24,13 @@ export default function Messages() {
 
   const conversations = groupMessages(messages);
 
+  // ---- NEW: Auto-pick first client once clients load
+  useEffect(() => {
+    if (!loadingClients && !selectedClient && clients.length > 0) {
+      setSelectedClient(clients[0]);
+    }
+  }, [loadingClients, clients, selectedClient]);
+
   // Keep activeConversation in sync on new data
   useEffect(() => {
     if (activeConversation) {
@@ -37,6 +44,13 @@ export default function Messages() {
   useEffect(() => {
     setActiveConversation(null);
   }, [selectedClient?.id]);
+
+  // ---- NEW: Auto-open first conversation when messages arrive
+  useEffect(() => {
+    if (!activeConversation && conversations.length > 0) {
+      setActiveConversation(conversations[0]);
+    }
+  }, [conversations, activeConversation]);
 
   // === SCROLL FIX: only the right messages pane scrolls ===
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
