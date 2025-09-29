@@ -127,6 +127,7 @@ const App = () => {
           </SidebarProvider>
         } />
         
+        
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
