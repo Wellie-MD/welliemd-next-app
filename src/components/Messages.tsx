@@ -19,6 +19,8 @@ interface Message {
   read: boolean;
   senderName?: string;
   masterId?: string;
+  chatType?: "doctor" | "support" | "super_support";
+
 }
 
 interface Conversation {
@@ -416,22 +418,37 @@ export default function Messages() {
               {/* Messages */}
               <CardContent className="flex-1 overflow-y-auto p-6 space-y-4">
                 {selectedConv.messages.map((msg) => {
+                  // Defaults
                   let alignment = "justify-start";
                   let bubbleColor = "bg-gray-100 text-gray-900";
                   let timeColor = "text-gray-500";
 
-                  if (msg.message_type === "super_support_to_patient") {
-                    alignment = "justify-start"; // left side
-                    bubbleColor = "bg-red-100 text-red-800"; // distinct red tone
-                    timeColor = "text-red-600";
-                  } else if (msg.isFromDoctor) {
-                    alignment = "justify-start"; // left side
-                    bubbleColor = "bg-gray-100 text-gray-900"; // doctor messages
-                    timeColor = "text-gray-500";
+                  if (selectedConv.type === "doctor") {
+                    // Doctor thread
+                    if (msg.isFromDoctor) {
+                      alignment = "justify-start";                    // incoming
+                      bubbleColor = "bg-gray-100 text-gray-900";
+                      timeColor = "text-gray-500";
+                    } else {
+                      alignment = "justify-end";                      // patient
+                      bubbleColor = "bg-blue-600 text-white";
+                      timeColor = "text-blue-100";
+                    }
                   } else {
-                    alignment = "justify-end"; // right side (patient)
-                    bubbleColor = "bg-blue-600 text-white";
-                    timeColor = "text-blue-100";
+                    // Support thread: distinguish super-admin vs client support vs patient
+                    if (msg.chatType === "super_support") {
+                      alignment = "justify-start";                    // incoming
+                      bubbleColor = "bg-red-100 text-red-800";        // ✅ super admin color
+                      timeColor = "text-red-600";
+                    } else if (msg.isFromDoctor) {
+                      alignment = "justify-start";                    // incoming (client support)
+                      bubbleColor = "bg-purple-100 text-purple-800";  // client support color
+                      timeColor = "text-purple-600";
+                    } else {
+                      alignment = "justify-end";                      // patient
+                      bubbleColor = "bg-blue-600 text-white";
+                      timeColor = "text-blue-100";
+                    }
                   }
 
                   return (
@@ -446,6 +463,7 @@ export default function Messages() {
                   );
                 })}
               </CardContent>
+
 
 
               {/* Input */}
