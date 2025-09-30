@@ -1,5 +1,5 @@
-import { useState, useEffect, Fragment, type ReactNode } from "react"
-import { NavLink, useLocation } from "react-router-dom"
+import { useState, useEffect, Fragment, type ReactNode } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   BarChart3,
   Users,
@@ -12,12 +12,10 @@ import {
   Gift,
   FileText,
   CreditCard,
-  Wrench,
   Settings,
   MessageCircle,
   MapPin,
   ChevronDown,
-  ChevronRight,
 } from "lucide-react";
 
 import {
@@ -38,6 +36,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+
+type Props = { unseenCount?: number };
 
 const menuSections = [
   {
@@ -123,18 +123,16 @@ const menuSections = [
   },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ unseenCount = 0 }: Props) {
   const { state } = useSidebar();
   const location = useLocation();
   const currentPath = location.pathname;
   const [openSections, setOpenSections] = useState<string[]>([]);
-
   const collapsed = state === "collapsed";
 
   // Auto-open sections when a child is active
   useEffect(() => {
     const activeParents: string[] = [];
-
     menuSections.forEach((section) => {
       section.items.forEach((item) => {
         if (item.children?.some((child) => currentPath.startsWith(child.url))) {
@@ -142,17 +140,13 @@ export function AppSidebar() {
         }
       });
     });
-
     setOpenSections((prev) => [...new Set([...prev, ...activeParents])]);
   }, [currentPath]);
 
   const toggleSection = (title: string) => {
-    if (collapsed) return; // Don't allow toggling when collapsed
-
+    if (collapsed) return;
     setOpenSections((prev) =>
-      prev.includes(title)
-        ? prev.filter((item) => item !== title)
-        : [...prev, title]
+      prev.includes(title) ? prev.filter((item) => item !== title) : [...prev, title]
     );
   };
 
@@ -163,15 +157,13 @@ export function AppSidebar() {
     return currentPath === item.url;
   };
 
-  // Wrapper for menu items with tooltip when collapsed
+  // Wrapper with tooltip when collapsed
   const MenuItemWrapper = ({
     children,
     title,
-    hasSubmenu = false,
   }: {
     children: ReactNode;
     title: string;
-    hasSubmenu?: boolean;
   }) => {
     if (collapsed) {
       return (
@@ -202,9 +194,8 @@ export function AppSidebar() {
                 </div>
               )}
 
-              {/* Add section divider when collapsed */}
               {collapsed && sectionIndex > 0 && (
-                <div key={`divider-${sectionIndex}`} className="w-full h-px bg-gray-200 mx-2 my-1"></div>
+                <div className="w-full h-px bg-gray-200 mx-2 my-1"></div>
               )}
 
               <SidebarGroup className={!collapsed ? "px-1" : "px-0 flex items-center"}>
@@ -217,7 +208,7 @@ export function AppSidebar() {
                       return (
                         <SidebarMenuItem key={item.title}>
                           {item.children ? (
-                            <MenuItemWrapper title={item.title} hasSubmenu>
+                            <MenuItemWrapper title={item.title}>
                               <Collapsible
                                 open={isOpen}
                                 onOpenChange={() => toggleSection(item.title)}
@@ -225,13 +216,13 @@ export function AppSidebar() {
                                 <CollapsibleTrigger asChild>
                                   <SidebarMenuButton
                                     className={`
-                                  group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
-                                  ${collapsed ? "p-2 justify-center w-10 h-10 mx-auto" : "px-3 py-2.5 justify-between"}
-                                  ${isActive 
-                                    ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm" 
-                                    : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
-                                  }
-                                `}
+                                      group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
+                                      ${collapsed ? "p-2 justify-center w-10 h-10 mx-auto" : "px-3 py-2.5 justify-between"}
+                                      ${isActive
+                                        ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm"
+                                        : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
+                                      }
+                                    `}
                                   >
                                     <div className="flex items-center min-w-0">
                                       <item.icon
@@ -249,13 +240,14 @@ export function AppSidebar() {
                                       <ChevronDown
                                         className={`
                                           h-4 w-4 transition-all duration-200 ease-in-out flex-shrink-0
-                                          ${isOpen ? "transform rotate-0" : "transform -rotate-90"}
+                                          ${isOpen ? "rotate-0" : "-rotate-90"}
                                           ${isActive ? "text-[#12517A]" : "text-gray-400 group-hover:text-[#12517A]"}
                                         `}
                                       />
                                     )}
                                   </SidebarMenuButton>
                                 </CollapsibleTrigger>
+
                                 {!collapsed && (
                                   <CollapsibleContent className="transition-all duration-300 ease-in-out">
                                     <div className="ml-6 mt-2 space-y-1 border-l border-gray-200 pl-4">
@@ -286,26 +278,40 @@ export function AppSidebar() {
                                 <NavLink
                                   to={item.url}
                                   end
-                                    className={`
+                                  className={`
                                     group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
-                                    ${collapsed ? "p-2 justify-center w-10 h-10 mx-auto" : "px-3 py-2.5"}
+                                    ${collapsed ? "p-2 justify-center w-10 h-10 mx-auto relative" : "px-3 py-2.5"}
                                     ${currentPath === item.url
                                       ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm"
                                       : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
                                     }
                                   `}
                                 >
-                                  <item.icon
-                                    className={`h-5 w-5 flex-shrink-0 ${
-                                      currentPath === item.url
-                                        ? "text-[#12517A]"
-                                        : "text-gray-500 group-hover:text-[#12517A]"
-                                    }`}
-                                  />
+                                  {/* icon wrapper lets us overlay a dot when collapsed */}
+                                  <div className={`relative ${collapsed ? "" : "mr-3"}`}>
+                                    <item.icon
+                                      className={`h-5 w-5 flex-shrink-0 ${
+                                        currentPath === item.url
+                                          ? "text-[#12517A]"
+                                          : "text-gray-500 group-hover:text-[#12517A]"
+                                      }`}
+                                    />
+                                    {/* tiny dot when collapsed */}
+                                    {item.title === "Messages" && unseenCount > 0 && collapsed && (
+                                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white" />
+                                    )}
+                                  </div>
+
                                   {!collapsed && (
-                                    <span className="ml-3 font-medium truncate">
-                                      {item.title}
-                                    </span>
+                                    <>
+                                      <span className="font-medium truncate">{item.title}</span>
+                                      {/* red count pill when expanded */}
+                                      {item.title === "Messages" && unseenCount > 0 && (
+                                        <span className="ml-auto inline-flex items-center justify-center min-w-[1.25rem] px-1.5 h-5 text-[10px] rounded-full bg-red-500 text-white">
+                                          {unseenCount > 99 ? "99+" : unseenCount}
+                                        </span>
+                                      )}
+                                    </>
                                   )}
                                 </NavLink>
                               </SidebarMenuButton>
