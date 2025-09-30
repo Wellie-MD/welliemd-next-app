@@ -1,5 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { Header } from "@/components/layout/Header";
@@ -41,41 +41,111 @@ import Billing from "./pages/Billing";
 
 const LS_KEY = "msg_last_seen";
 
+/* ---------- helpers ---------- */
+function readSeen(): Record<string, string | number | undefined> {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch { return {}; }
+}
+function writeSeen(seen: Record<string, string | number | undefined>) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(seen)); } catch {}
+}
+const latestKey = (c: any) => {
+  const last = c.messages[c.messages.length - 1];
+  return (last?.id as number | string | undefined) ?? last?.created_at ?? c.lastTime;
+};
+
+// chime
+async function playChime() {
+  try {
+    const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+    const ctx = new AudioCtx();
+    const g = ctx.createGain(); g.connect(ctx.destination);
+    const now = ctx.currentTime;
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.35, now + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+    const a = ctx.createOscillator(); const b = ctx.createOscillator();
+    a.type = "triangle"; b.type = "square";
+    a.frequency.setValueAtTime(880, now); b.frequency.setValueAtTime(1318.51, now);
+    a.connect(g); b.connect(g); a.start(now); b.start(now + 0.06);
+    a.stop(now + 0.5); b.stop(now + 0.5);
+  } catch {}
+}
+function showBrowserNotification(title: string, body: string) {
+  try {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "granted") new Notification(title, { body });
+    else if (Notification.permission !== "denied") {
+      Notification.requestPermission().then((perm) => {
+        if (perm === "granted") new Notification(title, { body });
+      });
+    }
+  } catch {}
+}
+
+/* ---------- global chime listener ---------- */
+function MessageChime({ conversations }: { conversations: any[] }) {
+  const { pathname } = useLocation();
+  const lastNotifiedRef = useRef<Record<string, string | number | undefined>>({});
+
+  // seed on first mount (prevent chime for history)
+  useEffect(() => {
+    const seen = readSeen();
+    const seed: Record<string, string | number | undefined> = {};
+    conversations.forEach((c) => (seed[c.id] = seen[c.id] ?? latestKey(c)));
+    lastNotifiedRef.current = seed;
+  }, []); // eslint-disable-line
+
+  useEffect(() => {
+    // avoid double ring on Messages page (that page already handles intra-chat sounds)
+    const onMessagesPage = pathname.startsWith("/dashboard/messages");
+    if (onMessagesPage) return;
+
+    const seen = readSeen();
+    conversations.forEach((c) => {
+      const k = latestKey(c);
+      const unseen = seen[c.id] !== undefined && seen[c.id] !== k;
+      const notNotified = lastNotifiedRef.current[c.id] !== k;
+      if (unseen && notNotified) {
+        playChime();
+        showBrowserNotification("New message", `${(c.patientName || c.patientEmail || "Patient")} • ${c.lastMessage}`);
+        lastNotifiedRef.current[c.id] = k;
+      }
+    });
+  }, [conversations, pathname]);
+
+  return null;
+}
+
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const { isAuthenticated } = useAuthStore();
 
-  // === Unread badge for Messages (sidebar) ===
-  const { messages } = useMessages(10000); // lightweight poll
+  // lightweight poll for sidebar badge + global chime
+  const { messages } = useMessages(10000);
   const conversations = useMemo(() => groupMessages(messages), [messages]);
 
-  function readSeen(): Record<string, string | number | undefined> {
-    try {
-      return JSON.parse(localStorage.getItem(LS_KEY) || "{}");
-    } catch {
-      return {};
-    }
-  }
+  // tick when Messages.tsx updates localStorage (instant sidebar update)
+  const [lsTick, setLsTick] = useState(0);
+  useEffect(() => {
+    const onSeen = () => setLsTick((t) => t + 1);
+    window.addEventListener("msg:last-seen-updated", onSeen);
+    return () => window.removeEventListener("msg:last-seen-updated", onSeen);
+  }, []);
 
   const unseenCount = useMemo(() => {
     const seen = readSeen();
     let count = 0;
     conversations.forEach((c) => {
-      const last = c.messages[c.messages.length - 1];
-      const key =
-        (last?.id as number | string | undefined) ?? last?.created_at ?? c.lastTime;
+      const key = latestKey(c);
       if (seen[c.id] === undefined) {
-        // seed so existing history doesn't show as new
-        seen[c.id] = key;
+        seen[c.id] = key; // seed so history isn't "new"
       } else if (seen[c.id] !== key) {
         count += 1;
       }
     });
-    try {
-      localStorage.setItem(LS_KEY, JSON.stringify(seen));
-    } catch {}
+    writeSeen(seen);
     return count;
-  }, [conversations]);
+  }, [conversations, lsTick]);
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -103,14 +173,7 @@ const App = () => {
   return (
     <BrowserRouter>
       <Routes>
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <Navigate to="/dashboard" replace />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/" element={<ProtectedRoute><Navigate to="/dashboard" replace /></ProtectedRoute>} />
 
         {/* Auth routes */}
         <Route path="/auth/signin" element={<SignIn />} />
@@ -124,180 +187,37 @@ const App = () => {
           element={
             <SidebarProvider>
               <div className="min-h-screen flex w-full min-w-0 overflow-x-hidden">
-                {/* pass the unseen count here */}
+                {/* sidebar with badge */}
                 <AppSidebar unseenCount={unseenCount} />
+
                 <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
+                  {/* global chime (outside Messages page) */}
+                  <MessageChime conversations={conversations} />
+
                   <Header />
                   <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
                     <Routes>
-                      <Route
-                        path="/"
-                        element={
-                          <ProtectedRoute>
-                            <Dashboard />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/patients"
-                        element={
-                          <ProtectedRoute>
-                            <Patients />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/treatments"
-                        element={
-                          <ProtectedRoute>
-                            <Treatments />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/treatments/configurations"
-                        element={
-                          <ProtectedRoute>
-                            <TreatmentConfigurations />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/orders"
-                        element={
-                          <ProtectedRoute>
-                            <Orders />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/orders/payments"
-                        element={
-                          <ProtectedRoute>
-                            <Payments />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/orders/disputes"
-                        element={
-                          <ProtectedRoute>
-                            <Disputes />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/orders/resolution-queue"
-                        element={
-                          <ProtectedRoute>
-                            <ResolutionQueue />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/prescriptions"
-                        element={
-                          <ProtectedRoute>
-                            <Prescriptions />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/products"
-                        element={
-                          <ProtectedRoute>
-                            <Products />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/products/billing-plans"
-                        element={
-                          <ProtectedRoute>
-                            <BillingPlans />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/products/routing"
-                        element={
-                          <ProtectedRoute>
-                            <ProductsRouting />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/messages"
-                        element={
-                          <ProtectedRoute>
-                            <Messages />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/analytics/live"
-                        element={
-                          <ProtectedRoute>
-                            <Analytics />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/analytics/cohorts"
-                        element={
-                          <ProtectedRoute>
-                            <AnalyticsCohorts />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/analytics/reports"
-                        element={
-                          <ProtectedRoute>
-                            <AnalyticsReports />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/coupon-codes"
-                        element={
-                          <ProtectedRoute>
-                            <CouponCodes />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/coupon-insights"
-                        element={
-                          <ProtectedRoute>
-                            <CouponInsights />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/billing"
-                        element={
-                          <ProtectedRoute>
-                            <Billing />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/affiliates"
-                        element={
-                          <ProtectedRoute>
-                            <Affiliates />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/questionnaires"
-                        element={
-                          <ProtectedRoute>
-                            <Questionnaires />
-                          </ProtectedRoute>
-                        }
-                      />
+                      <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                      <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
+                      <Route path="/treatments" element={<ProtectedRoute><Treatments /></ProtectedRoute>} />
+                      <Route path="/treatments/configurations" element={<ProtectedRoute><TreatmentConfigurations /></ProtectedRoute>} />
+                      <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+                      <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
+                      <Route path="/orders/disputes" element={<ProtectedRoute><Disputes /></ProtectedRoute>} />
+                      <Route path="/orders/resolution-queue" element={<ProtectedRoute><ResolutionQueue /></ProtectedRoute>} />
+                      <Route path="/prescriptions" element={<ProtectedRoute><Prescriptions /></ProtectedRoute>} />
+                      <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
+                      <Route path="/products/billing-plans" element={<ProtectedRoute><BillingPlans /></ProtectedRoute>} />
+                      <Route path="/products/routing" element={<ProtectedRoute><ProductsRouting /></ProtectedRoute>} />
+                      <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+                      <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+                      <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} />
+                      <Route path="/analytics/reports" element={<ProtectedRoute><AnalyticsReports /></ProtectedRoute>} />
+                      <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
+                      <Route path="/coupon-insights" element={<ProtectedRoute><CouponInsights /></ProtectedRoute>} />
+                      <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
+                      <Route path="/affiliates" element={<ProtectedRoute><Affiliates /></ProtectedRoute>} />
+                      <Route path="/questionnaires" element={<ProtectedRoute><Questionnaires /></ProtectedRoute>} />
                     </Routes>
                   </main>
                 </div>

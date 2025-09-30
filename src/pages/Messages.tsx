@@ -11,10 +11,12 @@ type LastSeenMap = Record<string, string | number | undefined>;
 
 const LS_KEY = "msg_last_seen";
 
-// storage helpers
+// storage helpers (dispatch an event so App can react immediately)
 function writeLastSeenToStorage(next: LastSeenMap) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(next));
+    // notify app (same tab) that "seen" changed
+    window.dispatchEvent(new Event("msg:last-seen-updated"));
   } catch {}
 }
 function readLastSeenFromStorage(): LastSeenMap {
@@ -31,67 +33,56 @@ export default function Messages() {
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
 
-  // Build conversations from raw messages
   const conversations = useMemo(() => groupMessages(messages), [messages]);
 
-  // --- unread state synced to localStorage ---
+  // unread state synced to localStorage
   const [lastSeen, setLastSeen] = useState<LastSeenMap>(() => readLastSeenFromStorage());
   const initialLoadDoneRef = useRef(false);
 
-  // For playing a sound **per new message** on unopened chats
+  // sound throttling (per chat latest message)
   const lastNotifiedKeyRef = useRef<Record<string, string | number | undefined>>({});
 
   const didAutoSelectRef = useRef(false);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // keep/restore original title for badge count
+  // remember original title
   const originalTitleRef = useRef(document.title);
   useEffect(() => {
     originalTitleRef.current = document.title;
   }, []);
 
-  // helpers
   const latestKey = (c: Conversation) => {
     const last = c.messages[c.messages.length - 1];
     return (last?.id as number | string | undefined) ?? last?.created_at ?? c.lastTime;
   };
 
-  // louder 2-note chime
+  // chime
   const playChime = async () => {
     try {
       const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
       const ctx = new AudioCtx();
-
       const g = ctx.createGain();
       g.connect(ctx.destination);
-
       const now = ctx.currentTime;
       g.gain.setValueAtTime(0.0001, now);
       g.gain.exponentialRampToValueAtTime(0.35, now + 0.015);
       g.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
-
-      const osc1 = ctx.createOscillator();
-      const osc2 = ctx.createOscillator();
-      osc1.type = "triangle";
-      osc2.type = "square";
-      osc1.frequency.setValueAtTime(880, now);
-      osc2.frequency.setValueAtTime(1318.51, now);
-
-      osc1.connect(g);
-      osc2.connect(g);
-      osc1.start(now);
-      osc2.start(now + 0.06);
-      osc1.stop(now + 0.5);
-      osc2.stop(now + 0.5);
+      const a = ctx.createOscillator();
+      const b = ctx.createOscillator();
+      a.type = "triangle"; b.type = "square";
+      a.frequency.setValueAtTime(880, now);
+      b.frequency.setValueAtTime(1318.51, now);
+      a.connect(g); b.connect(g);
+      a.start(now); b.start(now + 0.06);
+      a.stop(now + 0.5); b.stop(now + 0.5);
     } catch {}
   };
 
   const showBrowserNotification = (title: string, body: string) => {
     try {
       if (!("Notification" in window)) return;
-      if (Notification.permission === "granted") {
-        new Notification(title, { body });
-      } else if (Notification.permission !== "denied") {
+      if (Notification.permission === "granted") new Notification(title, { body });
+      else if (Notification.permission !== "denied") {
         Notification.requestPermission().then((perm) => {
           if (perm === "granted") new Notification(title, { body });
         });
@@ -99,7 +90,7 @@ export default function Messages() {
     } catch {}
   };
 
-  // ===== init lastSeen (and lastNotified) after first load to avoid old history beeps/badges =====
+  // seed lastSeen + lastNotified on first load
   useEffect(() => {
     if (!initialLoadDoneRef.current && !loading) {
       const next: LastSeenMap = {};
@@ -115,7 +106,7 @@ export default function Messages() {
     }
   }, [loading, conversations]);
 
-  // keep activeConversation synced when new messages land
+  // keep active conversation synced when messages update
   useEffect(() => {
     if (!activeConversation) return;
     const updated = conversations.find((c) => c.id === activeConversation.id);
@@ -123,7 +114,7 @@ export default function Messages() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
-  // mark active chat read & advance lastSeen + lastNotified (so no beeps for it)
+  // mark active read & advance seen/notify
   useEffect(() => {
     if (!activeConversation) return;
     const k = latestKey(activeConversation);
@@ -143,7 +134,7 @@ export default function Messages() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConversation?.messages, activeConversation?.id]);
 
-  // compute hasNew map
+  // compute which chats have new messages (not the active one)
   const hasNewMap: Record<string, boolean> = useMemo(() => {
     const map: Record<string, boolean> = {};
     if (!initialLoadDoneRef.current) return map;
@@ -160,14 +151,14 @@ export default function Messages() {
     [hasNewMap]
   );
 
-  // Play sound for EVERY new message while chat is unopened
+  // beep for EVERY new message on unopened chats
   useEffect(() => {
     if (!initialLoadDoneRef.current) return;
     conversations.forEach((c) => {
-      if (activeConversation?.id === c.id) return; // active chat: no beep
+      if (activeConversation?.id === c.id) return;
       const k = latestKey(c);
-      const shouldPrompt = hasNewMap[c.id] && lastNotifiedKeyRef.current[c.id] !== k;
-      if (shouldPrompt) {
+      const shouldNotify = hasNewMap[c.id] && lastNotifiedKeyRef.current[c.id] !== k;
+      if (shouldNotify) {
         playChime();
         showBrowserNotification("New message", `${(c.patientName || c.patientEmail || "Patient")} • ${c.lastMessage}`);
         lastNotifiedKeyRef.current[c.id] = k;
@@ -175,17 +166,16 @@ export default function Messages() {
     });
   }, [conversations, hasNewMap, activeConversation?.id]);
 
-  // document.title badge
+  // title badge
   useEffect(() => {
     const base = originalTitleRef.current || "Telehealth";
-    if (unseenCount > 0) {
-      document.title = `(${unseenCount}) New message${unseenCount > 1 ? "s" : ""} • ${base}`;
-    } else {
-      document.title = base;
-    }
+    document.title =
+      unseenCount > 0
+        ? `(${unseenCount}) New message${unseenCount > 1 ? "s" : ""} • ${base}`
+        : base;
   }, [unseenCount]);
 
-  // auto-open first conversation once
+  // auto-open first chat once
   useEffect(() => {
     if (didAutoSelectRef.current) return;
     if (loading) return;
@@ -195,7 +185,7 @@ export default function Messages() {
     }
   }, [loading, conversations, activeConversation]);
 
-  // fallback if active disappears
+  // keep view valid if active disappears
   useEffect(() => {
     if (activeConversation && !conversations.find((c) => c.id === activeConversation.id)) {
       if (conversations.length > 0) setActiveConversation(conversations[0]);
@@ -203,27 +193,23 @@ export default function Messages() {
     }
   }, [conversations, activeConversation]);
 
-  // scroll messages to bottom on updates
+  // scroll chat to bottom
   useEffect(() => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   }, [activeConversation?.messages]);
 
-  // send
   async function handleSend() {
     if (!activeConversation || !newMessage.trim()) return;
-
     try {
       setSending(true);
-
       await messageService.sendMessage({
         master_id: activeConversation.masterId,
         content: newMessage,
         to: "support",
         from_client: true,
       });
-
       const newMsg = {
         id: Date.now(),
         master_id: activeConversation.masterId,
@@ -236,7 +222,6 @@ export default function Messages() {
         patientName: activeConversation.patientName,
         message_type: "support_to_patient" as const,
       };
-
       const updated = {
         ...activeConversation,
         messages: [...activeConversation.messages, newMsg],
@@ -305,7 +290,6 @@ export default function Messages() {
               const isActive = activeConversation?.id === c.id;
               const showNew = !!hasNewMap[c.id];
 
-              // base row
               let rowClass =
                 "flex items-center gap-3 p-2 rounded-lg cursor-pointer transition border hover:bg-muted border-transparent";
               if (isActive) {
@@ -313,18 +297,12 @@ export default function Messages() {
               }
 
               return (
-                <div
-                  key={c.id}
-                  className={rowClass}
-                  onClick={() => openConversation(c)}
-                >
-                  {/* left accent only for active */}
+                <div key={c.id} className={rowClass} onClick={() => openConversation(c)}>
                   {isActive ? (
                     <div className="w-1.5 self-stretch rounded-full bg-indigo-500" />
                   ) : (
                     <div className="w-1.5 self-stretch rounded-full bg-transparent" />
                   )}
-
                   <Avatar className="h-8 w-8">
                     <AvatarFallback>{avatarFallback}</AvatarFallback>
                   </Avatar>
@@ -334,11 +312,8 @@ export default function Messages() {
                       <div className={`truncate text-sm ${isActive ? "font-semibold" : "font-medium"}`}>
                         {displayName}
                       </div>
-                      {/* unread: just a small pill; no border/bg so it won't compete with active */}
                       {!isActive && showNew && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-600 text-white">
-                          New
-                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-600 text-white">New</span>
                       )}
                     </div>
                     <div className="text-xs text-muted-foreground truncate">{c.lastMessage}</div>
@@ -380,10 +355,7 @@ export default function Messages() {
                 </div>
               </div>
 
-              <div
-                ref={messagesContainerRef}
-                className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0"
-              >
+              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
                 {activeConversation.messages.map((m) => {
                   let displayName: string;
                   if (m.senderType === "patient") {
@@ -422,9 +394,7 @@ export default function Messages() {
                     className="flex-1 text-base px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-400"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleSend();
-                    }}
+                    onKeyDown={(e) => e.key === "Enter" && handleSend()}
                   />
                   <Button variant="ghost" size="sm" className="hidden">
                     <Smile className="h-4 w-4" />
