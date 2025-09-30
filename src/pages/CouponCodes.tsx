@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { Plus, Pencil, Trash2 } from "lucide-react"
+import { Plus, Pencil, Trash2,Link2 } from "lucide-react"
 import { DataTable } from "@/components/ui/data-table"
 import { DateRange } from "react-day-picker"
 import { isWithinInterval } from "date-fns"
@@ -8,11 +8,14 @@ import AddCouponForm from "@/components/coupons/AddCouponForm"
 import axiosInstance from "@/api/axiosInstance"
 import { exportToCSV } from "@/utils/exportUtils"
 
+import CouponLinksModal from "@/components/coupons/CouponLinksModal"
+
 type Coupon = {
   id: string
   code: string
   type: "fixed" | "percent"
   value: string | number
+  promo_link?: string // e.g. "?promo=FANESSAG&promo-source=coupon"
   is_active: boolean
   max_usage?: number | null
   max_usage_per_user?: number | null
@@ -67,6 +70,7 @@ export default function CouponCodes() {
   const [activeUsageFilter, setActiveUsageFilter] = useState("All")
   const [date, setDate] = useState<DateRange | undefined>()
   const [refreshKey, setRefreshKey] = useState(0)
+  const [linkCoupon, setLinkCoupon] = useState<Coupon | null>(null)
 
   const productMap = useMemo(
     () => Object.fromEntries(products.map((p) => [p.id, p.name])),
@@ -263,6 +267,9 @@ export default function CouponCodes() {
         const row = getRow<Coupon>(...args)
         return (
           <div className="flex items-center justify-end gap-3">
+            <button type="button" className="hover:opacity-80" title="Links"onClick={() => setLinkCoupon(row)}>
+              <Link2 className="h-4 w-4" />
+            </button>
             <button type="button" className="hover:opacity-80" title="Edit" onClick={() => setEditingCoupon(row)}>
               <Pencil className="h-4 w-4" />
             </button>
@@ -330,6 +337,12 @@ export default function CouponCodes() {
         onResetFilters={handleResetFilters}
         onExport={handleExport}
         onRefresh={handleRefresh}
+      />
+
+      <CouponLinksModal
+        open={!!linkCoupon}
+        onOpenChange={(v) => !v && setLinkCoupon(null)}
+        coupon={linkCoupon}
       />
     </div>
   )
