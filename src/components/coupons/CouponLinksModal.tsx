@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { useClients } from "@/hooks/useClients"
+import { useClients } from "@/hooks/useClients";
 
 type Coupon = {
   id: string
@@ -28,9 +28,8 @@ const QUESTIONNAIRES = [
 
 export default function CouponLinksModal({ open, onOpenChange, coupon }: Props) {
   // 🔹 fetch questionnaire domain from client
-  const { clients } = useClients()
-  const client = clients[0] // you may want to use the logged-in user’s client instead
-  const questionnaireDomain = client?.questionnaire_url || "https://my.welliemd.com"
+  const { currentClient } = useClients();
+  const questionnaireDomain = currentClient?.questionnaire_url || "https://my.welliemd.com";
 
   // 🔹 promo query string
   const qs = useMemo(() => {

@@ -26,9 +26,8 @@ const QUESTIONNAIRES = [
 export default function AffiliateLinksModal({ open, onOpenChange, affiliate }: Props) {
   if (!affiliate) return null;
 
-  const { clients } = useClients();
-  const client = clients[0];
-  const questionnaireDomain = client?.questionnaire_url || "https://my.welliemd.com";
+  const { currentClient } = useClients();
+  const questionnaireDomain = currentClient?.questionnaire_url || "https://my.welliemd.com";
 
   // 🔹 Track copied state
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
