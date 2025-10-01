@@ -29,7 +29,7 @@ const QUESTIONNAIRES = [
 export default function CouponLinksModal({ open, onOpenChange, coupon }: Props) {
   // 🔹 fetch questionnaire domain from client
   const { currentClient } = useClients();
-  const questionnaireDomain = currentClient?.questionnaire_url || "https://my.welliemd.com";
+  const questionnaireDomain = currentClient?.questionnaire_url;
 
   // 🔹 promo query string
   const qs = useMemo(() => {
