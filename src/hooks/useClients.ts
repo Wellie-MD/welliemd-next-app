@@ -44,17 +44,23 @@ export function useClients(search: string = "") {
         name: c.name,
         api_endpoint: ensureTrailingSlash(c.api_endpoint),
         admin_panel_domain: c.admin_panel_domain,
-        questionnaire_url: c.questionnaire_url || "",
+        questionnaire_url: c.questionnaire_url, // ✅ keep as-is (don't force "")
         user: c.user,
       }));
 
       setClients(normalized);
 
-      // 🔹 Match current client based on window.location.origin
-      const origin = window.location.origin;
-      const matched = normalized.find(
-        (c) => c.admin_panel_domain?.replace(/\/+$/, "") === origin.replace(/\/+$/, "")
-      );
+      // 🔎 Debugging
+      const origin = window.location.origin.replace(/\/+$/, "");
+      console.log("🔎 Current origin:", origin);
+
+      const matched = normalized.find((c) => {
+        const candidate = c.admin_panel_domain?.replace(/\/+$/, "");
+        console.log("👉 Checking client:", c.name, "| Admin domain:", candidate);
+        return candidate === origin;
+      });
+
+      console.log("✅ Matched client:", matched);
       setCurrentClient(matched || null);
     } catch (e: any) {
       setError(e?.message || "Failed to load clients");

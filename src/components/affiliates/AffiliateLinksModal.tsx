@@ -24,23 +24,23 @@ const QUESTIONNAIRES = [
 ];
 
 export default function AffiliateLinksModal({ open, onOpenChange, affiliate }: Props) {
-  if (!affiliate) return null;
-
   const { currentClient } = useClients();
-  const questionnaireDomain = currentClient?.questionnaire_url;
+  const questionnaireDomain =
+    currentClient?.questionnaire_url?.replace(/\/+$/, "") || "https://my.welliemd.com";
 
-  // 🔹 Track copied state
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
   const copy = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedLink(text);
-      setTimeout(() => setCopiedLink(null), 2000); // reset after 2 sec
-    } catch {
-      console.error("Failed to copy link");
+      setTimeout(() => setCopiedLink(null), 2000);
+    } catch (err) {
+      console.error("❌ Failed to copy link:", err);
     }
   };
+
+  if (!affiliate) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
