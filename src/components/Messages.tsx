@@ -1,10 +1,10 @@
+// src/pages/Messages.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Send, Search, Plus, Paperclip, Phone, Video } from "lucide-react";
+import { Send, Search, Plus, Phone, Video } from "lucide-react";
 import { Card, CardContent, CardHeader } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Textarea } from "./ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Separator } from "./ui/separator";
 
@@ -20,18 +20,17 @@ interface Message {
   senderName?: string;
   masterId?: string;
   chatType?: "doctor" | "support" | "super_support";
-
 }
 
 interface Conversation {
   id: string;
   masterId: string;
-  label: string; // e.g. "ED – Doctor"
+  label: string;
   type: "doctor" | "support";
   messages: Message[];
 }
 
-type UnreadMap = Record<string, number>; // conv.id -> unread count
+type UnreadMap = Record<string, number>;
 
 function getDisplayName(msg: Message): string {
   if (msg.chatType === "doctor") {
@@ -43,9 +42,8 @@ function getDisplayName(msg: Message): string {
   if (msg.chatType === "support") {
     return msg.isFromDoctor ? "Client Support" : "Patient → Support";
   }
-  return msg.senderName || "Unknown";
+  return msg.senderName || "Sending... ";
 }
-
 
 export default function Messages() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -53,7 +51,6 @@ export default function Messages() {
   const [newMessage, setNewMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
-  // left-list decorations
   const [unreadMap, setUnreadMap] = useState<UnreadMap>({});
   const [justArrivedConvId, setJustArrivedConvId] = useState<string | null>(null);
   const justArrivedTimer = useRef<number | null>(null);
@@ -61,7 +58,6 @@ export default function Messages() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Parse query params
   const { qMasterId, qChatType } = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return {
@@ -70,7 +66,6 @@ export default function Messages() {
     };
   }, [location.search]);
 
-  // helpers
   const computeUnreadMap = (convs: Conversation[]): UnreadMap =>
     convs.reduce((acc, c) => {
       acc[c.id] = c.messages.reduce((n, m) => (m.read ? n : n + 1), 0);
@@ -83,12 +78,10 @@ export default function Messages() {
     justArrivedTimer.current = window.setTimeout(() => {
       setJustArrivedConvId((cur) => (cur === convId ? null : cur));
       justArrivedTimer.current = null;
-    }, 4500); // show "New" ping ~4.5s
+    }, 4500);
   };
 
-  // --------------------------------
-  // Load visits + messages (once)
-  // --------------------------------
+  // Initial load
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -134,63 +127,66 @@ export default function Messages() {
     };
   }, []);
 
-  // -------------------------------------------------------------
-  // Select conversation whenever conversations or URL params change
-  // -------------------------------------------------------------
+  // Selection handler (fixed flicker issue)
   useEffect(() => {
     if (conversations.length === 0) return;
 
-    // 1) Try strict match: masterId + chatType
     let found =
       qMasterId && qChatType
         ? conversations.find((c) => c.masterId === qMasterId && c.type === qChatType)
         : null;
 
-    // 2) Fallback: match by masterId only
     if (!found && qMasterId) {
       found = conversations.find((c) => c.masterId === qMasterId) || null;
     }
 
-    // 3) Fallback: keep current selection or default to first
     const toSelect = found || selectedConv || conversations[0];
 
     if (!selectedConv || selectedConv.id !== toSelect.id) {
-      // Ensure URL reflects selected conversation
+      // Clear messages to avoid showing stale ones
+      setSelectedConv({ ...toSelect, messages: [] });
+
+      // Update URL
       const url = `/dashboard/messages?masterId=${toSelect.masterId}&chatType=${toSelect.type}`;
       if (location.search !== `?masterId=${toSelect.masterId}&chatType=${toSelect.type}`) {
         navigate(url, { replace: true });
       }
-      setSelectedConv(toSelect);
 
-      // Mark unread as read (best-effort) on initial select
+      // Load fresh messages
       (async () => {
         try {
-          const unread = toSelect.messages.filter((m) => !m.read);
+          let freshMsgs: Message[] = [];
+          if (toSelect.type === "doctor") {
+            freshMsgs = await MessageService.getDoctorMessages(toSelect.masterId);
+          } else {
+            freshMsgs = await MessageService.getSupportMessages(toSelect.masterId);
+          }
+
+          // Mark unread as read
+          const unread = freshMsgs.filter((m) => !m.read);
           if (unread.length) {
             await Promise.all(unread.map((m) => MessageService.markAsRead(m.id)));
-            setConversations((prev) =>
-              prev.map((c) =>
-                c.id === toSelect.id ? { ...c, messages: c.messages.map((m) => ({ ...m, read: true })) } : c
-              )
-            );
-            setUnreadMap((prev) => ({ ...prev, [toSelect.id]: 0 }));
+            freshMsgs = freshMsgs.map((m) => ({ ...m, read: true }));
           }
+
+          setConversations((prev) =>
+            prev.map((c) => (c.id === toSelect.id ? { ...c, messages: freshMsgs } : c))
+          );
+          setSelectedConv({ ...toSelect, messages: freshMsgs });
+          setUnreadMap((prev) => ({ ...prev, [toSelect.id]: 0 }));
         } catch (err) {
-          console.error("Failed to mark messages as read:", err);
+          console.error("Failed to load messages:", err);
         }
       })();
     }
-  }, [conversations, qMasterId, qChatType]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [conversations, qMasterId, qChatType]);
 
-  // ----------------------------
-  // Polling for new messages
-  // ----------------------------
+  // Polling
   useEffect(() => {
     if (!selectedConv) return;
 
     const interval = setInterval(async () => {
       try {
-        // fetch latest for selected conv
         let updatedSelectedMsgs: Message[] = [];
         if (selectedConv.type === "doctor") {
           updatedSelectedMsgs = await MessageService.getDoctorMessages(selectedConv.masterId);
@@ -198,23 +194,16 @@ export default function Messages() {
           updatedSelectedMsgs = await MessageService.getSupportMessages(selectedConv.masterId);
         }
 
-        // auto-mark any unread in the selected conv
         const unreadInSelected = updatedSelectedMsgs.filter((m) => !m.read);
         if (unreadInSelected.length) {
           await Promise.all(unreadInSelected.map((m) => MessageService.markAsRead(m.id)));
           updatedSelectedMsgs = updatedSelectedMsgs.map((m) => ({ ...m, read: true }));
         }
 
-        // refresh every other conv too, but lighter: only when needed we’ll decorate
-        const nextConvs = conversations.map((c) => {
-          if (c.id === selectedConv.id) {
-            return { ...c, messages: updatedSelectedMsgs };
-          }
-          return c;
-        });
+        const nextConvs = conversations.map((c) =>
+          c.id === selectedConv.id ? { ...c, messages: updatedSelectedMsgs } : c
+        );
 
-        // For non-selected convs, check if a NEW message arrived since last poll:
-        // (compare last ids/length)
         await Promise.all(
           nextConvs
             .filter((c) => c.id !== selectedConv.id)
@@ -224,15 +213,12 @@ export default function Messages() {
                   ? await MessageService.getDoctorMessages(c.masterId)
                   : await MessageService.getSupportMessages(c.masterId);
 
-              // detect a new inbound message (the last message object not present previously)
               const prevLastId = c.messages.length ? c.messages[c.messages.length - 1].id : null;
               const newLastId = msgs.length ? msgs[msgs.length - 1].id : null;
 
-              // update conv in the array
               const idx = nextConvs.findIndex((x) => x.id === c.id);
               if (idx >= 0) nextConvs[idx] = { ...c, messages: msgs };
 
-              // if changed and it is unread, flash "New"
               if (newLastId && newLastId !== prevLastId) {
                 const last = msgs[msgs.length - 1];
                 if (!last.read) {
@@ -253,35 +239,35 @@ export default function Messages() {
     return () => clearInterval(interval);
   }, [selectedConv, conversations]);
 
-  // ----------------------------
-  // Sidebar click handler
-  // ----------------------------
   const handleSelectConversation = async (conv: Conversation) => {
     navigate(`/dashboard/messages?masterId=${conv.masterId}&chatType=${conv.type}`);
-    setSelectedConv(conv);
+    setSelectedConv({ ...conv, messages: [] });
 
     try {
-      const unread = conv.messages.filter((m) => !m.read);
+      let freshMsgs: Message[] = [];
+      if (conv.type === "doctor") {
+        freshMsgs = await MessageService.getDoctorMessages(conv.masterId);
+      } else {
+        freshMsgs = await MessageService.getSupportMessages(conv.masterId);
+      }
+
+      const unread = freshMsgs.filter((m) => !m.read);
       if (unread.length) {
         await Promise.all(unread.map((m) => MessageService.markAsRead(m.id)));
-        // Optimistic update
-        setConversations((prev) =>
-          prev.map((c) =>
-            c.id === conv.id ? { ...c, messages: c.messages.map((m) => ({ ...m, read: true })) } : c
-          )
-        );
-        setUnreadMap((prev) => ({ ...prev, [conv.id]: 0 }));
+        freshMsgs = freshMsgs.map((m) => ({ ...m, read: true }));
       }
-      // clear "new" ping for this conv now that it's opened
+
+      setConversations((prev) =>
+        prev.map((c) => (c.id === conv.id ? { ...c, messages: freshMsgs } : c))
+      );
+      setSelectedConv({ ...conv, messages: freshMsgs });
+      setUnreadMap((prev) => ({ ...prev, [conv.id]: 0 }));
       if (justArrivedConvId === conv.id) setJustArrivedConvId(null);
     } catch (err) {
       console.error("Failed to mark messages as read:", err);
     }
   };
 
-  // ----------------------------
-  // Send message
-  // ----------------------------
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConv) return;
 
@@ -315,9 +301,6 @@ export default function Messages() {
     }
   };
 
-  // ----------------------------
-  // Filter conversations
-  // ----------------------------
   const filteredConversations = conversations.filter((c) =>
     c.label.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -432,34 +415,31 @@ export default function Messages() {
               {/* Messages */}
               <CardContent className="flex-1 overflow-y-auto p-6 space-y-4">
                 {selectedConv.messages.map((msg) => {
-                  // Defaults
                   let alignment = "justify-start";
                   let bubbleColor = "bg-gray-100 text-gray-900";
                   let timeColor = "text-gray-500";
 
                   if (selectedConv.type === "doctor") {
-                    // Doctor thread
                     if (msg.isFromDoctor) {
-                      alignment = "justify-start";                    // incoming
+                      alignment = "justify-start";
                       bubbleColor = "bg-gray-100 text-gray-900";
                       timeColor = "text-gray-500";
                     } else {
-                      alignment = "justify-end";                      // patient
+                      alignment = "justify-end";
                       bubbleColor = "bg-blue-600 text-white";
                       timeColor = "text-blue-100";
                     }
                   } else {
-                    // Support thread: distinguish super-admin vs client support vs patient
                     if (msg.chatType === "super_support") {
-                      alignment = "justify-start";                    // incoming
-                      bubbleColor = "bg-red-100 text-red-800";        // ✅ super admin color
+                      alignment = "justify-start";
+                      bubbleColor = "bg-red-100 text-red-800";
                       timeColor = "text-red-600";
                     } else if (msg.isFromDoctor) {
-                      alignment = "justify-start";                    // incoming (client support)
-                      bubbleColor = "bg-purple-100 text-purple-800";  // client support color
+                      alignment = "justify-start";
+                      bubbleColor = "bg-purple-100 text-purple-800";
                       timeColor = "text-purple-600";
                     } else {
-                      alignment = "justify-end";                      // patient
+                      alignment = "justify-end";
                       bubbleColor = "bg-blue-600 text-white";
                       timeColor = "text-blue-100";
                     }

@@ -43,7 +43,7 @@ export const MessagesDropdown = ({ className }: { className?: string }) => {
       </Button>
 
       {isOpen("messages") && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-md shadow-lg border border-gray-200 py-2 z-50 max-h-96 overflow-y-auto">
+        <div className="absolute right-0 top-full mt-2 w-96 bg-white rounded-md shadow-lg border border-gray-200 py-2 z-50 max-h-96 overflow-y-auto">
           <div className="px-4 py-2 border-b border-gray-100">
             <h3 className="text-sm font-semibold text-gray-900">
               Messages {unreadCount > 0 && `(${unreadCount} unread)`}
@@ -53,7 +53,7 @@ export const MessagesDropdown = ({ className }: { className?: string }) => {
           {notifications.map((message) => (
             <button
               key={message.id}
-              onClick={() => handleMessageClick(message.masterId, message.chatType)} // 👈 pass both
+              onClick={() => handleMessageClick(message.masterId, message.chatType)}
               className="flex items-start w-full px-4 py-3 text-left hover:bg-gray-50"
             >
               <div className="flex-shrink-0">
@@ -86,16 +86,15 @@ export const MessagesDropdown = ({ className }: { className?: string }) => {
 
           <div className="border-t border-gray-100 mt-2 pt-2">
             <button
-              onClick={() => {
-                handleMessageClick(); // goes to /dashboard/messages
-              }}
-              className="flex items-center justify-center w-full px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
+              onClick={() => handleMessageClick()}
+              className="flex items-center justify-center w-full px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 whitespace-nowrap"
             >
               View all messages
             </button>
           </div>
         </div>
       )}
+
     </div>
   );
 };
