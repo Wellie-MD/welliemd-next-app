@@ -28,6 +28,8 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
       website: pharmacy?.website ?? "",
       ncpdp_id: pharmacy?.ncpdp_id ?? "",
       is_active: pharmacy?.is_active ?? true,
+      beluga_pharmacy_id: pharmacy?.beluga_pharmacy_id ?? "",
+
 
       api_vendor: pharmacy?.api_vendor ?? "",
       api_url: pharmacy?.api_url ?? "",
@@ -173,6 +175,19 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
                 <div>
                   <label className="block text-sm font-medium mb-1">NCPDP ID</label>
                   <input {...register("ncpdp_id")} className="border px-3 py-2 rounded w-full" />
+                </div>
+
+
+                <div>
+                <label className="block text-sm font-medium mb-1">Beluga Pharmacy ID</label>
+                <input
+                    {...register("beluga_pharmacy_id")}
+                    placeholder="e.g. 110373"
+                    className="border px-3 py-2 rounded w-full"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                    Optional. Only used if you want to link to an existing Beluga pharmacy.
+                </p>
                 </div>
 
                 <div>
