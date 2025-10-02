@@ -1,4 +1,4 @@
-// src/pages/Messages.tsx
+// src/pages/Messages.tsx (Admin Portal with date separators)
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,32 @@ import { useMessages } from "@/hooks/useMessages";
 import { groupMessages, type Conversation } from "@/utils/groupMessages";
 import { messageService } from "@/services/messageService";
 import { useClients, type Client } from "@/hooks/useClients";
+
+import {
+  isToday,
+  isYesterday,
+  isThisWeek,
+  format,
+  formatISO,
+} from "date-fns";
+
+// ---- helpers for grouping ----
+function getMessageGroupLabel(dateStr: string) {
+  const date = new Date(dateStr);
+  if (isToday(date)) return "Today";
+  if (isYesterday(date)) return "Yesterday";
+  if (isThisWeek(date)) return format(date, "EEEE"); // Monday, Tuesday…
+  return format(date, "MMM d, yyyy");
+}
+function groupMessagesByDate<T extends { created_at: string }>(messages: T[]) {
+  const groups: Record<string, T[]> = {};
+  messages.forEach((msg) => {
+    const dateKey = formatISO(new Date(msg.created_at), { representation: "date" });
+    if (!groups[dateKey]) groups[dateKey] = [];
+    groups[dateKey].push(msg);
+  });
+  return groups;
+}
 
 export default function Messages() {
   // 1) Admin: load clients
@@ -24,7 +50,7 @@ export default function Messages() {
 
   const conversations = groupMessages(messages);
 
-  // ---- NEW: Auto-pick first client once clients load
+  // Auto-pick first client once clients load
   useEffect(() => {
     if (!loadingClients && !selectedClient && clients.length > 0) {
       setSelectedClient(clients[0]);
@@ -37,22 +63,19 @@ export default function Messages() {
       const updated = conversations.find((c) => c.id === activeConversation.id);
       if (updated) setActiveConversation(updated);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
-  // Reset on client change
+  // When client changes, open first conversation of that client
   useEffect(() => {
-    setActiveConversation(null);
-  }, [selectedClient?.id]);
-
-  // ---- NEW: Auto-open first conversation when messages arrive
-  useEffect(() => {
-    if (!activeConversation && conversations.length > 0) {
-      setActiveConversation(conversations[0]);
+    if (conversations.length > 0) {
+      setActiveConversation(conversations[0]); // auto-pick first chat
+    } else {
+      setActiveConversation(null);
     }
-  }, [conversations, activeConversation]);
+  }, [selectedClient?.id, conversations]);
 
-  // === SCROLL FIX: only the right messages pane scrolls ===
+
+  // SCROLL FIX: only the right messages pane scrolls
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (messagesContainerRef.current) {
@@ -68,8 +91,8 @@ export default function Messages() {
       await messageService.sendMessage({
         master_id: activeConversation.masterId,
         content: newMessage,
-        to: "support",               // or "doctor"
-        from_super_admin: true,      // admin portal flag
+        to: "support", // or "doctor"
+        from_super_admin: true,
         apiEndpoint: selectedClient?.api_endpoint,
       });
 
@@ -95,10 +118,10 @@ export default function Messages() {
       });
       setNewMessage("");
 
-      // keep pinned after render
       requestAnimationFrame(() => {
         if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+          messagesContainerRef.current.scrollTop =
+            messagesContainerRef.current.scrollHeight;
         }
       });
     } catch (err) {
@@ -112,14 +135,12 @@ export default function Messages() {
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">Messages</h1>
 
-      {/* Important: min-h-0 prevents children from forcing page scroll */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px] min-h-0">
-        {/* LEFT: Clients + Conversations (own scroll) */}
+        {/* LEFT: Clients + Conversations */}
         <div className="lg:col-span-1 bg-card rounded-lg border flex flex-col overflow-hidden">
           {/* Client selector */}
           <div className="p-4 border-b space-y-3 shrink-0">
             <h2 className="text-lg font-semibold">All Messages</h2>
-
             <div>
               <label className="text-sm text-muted-foreground">Client</label>
               <select
@@ -142,11 +163,10 @@ export default function Messages() {
             </div>
           </div>
 
-          {/* Conversations list scrolls independently */}
+          {/* Conversations list */}
           <div className="p-4 space-y-2 overflow-y-auto flex-1 min-h-0">
             {loading && <div>Loading messages…</div>}
             {error && <div className="text-red-500">{error}</div>}
-
             {conversations.map((c) => {
               const displayName = c.patientName
                 ? `${c.patientName}${c.patientEmail ? ` (${c.patientEmail})` : ""}`
@@ -161,14 +181,21 @@ export default function Messages() {
                   onClick={() => setActiveConversation(c)}
                 >
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback>{(displayName || "?").charAt(0).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback>
+                      {(displayName || "?").charAt(0).toUpperCase()}
+                    </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-sm">{displayName}</div>
-                    <div className="text-xs text-muted-foreground truncate">{c.lastMessage}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {c.lastMessage}
+                    </div>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {new Date(c.lastTime).toLocaleTimeString()}
+                    {new Date(c.lastTime).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </div>
                 </div>
               );
@@ -176,17 +203,19 @@ export default function Messages() {
           </div>
         </div>
 
-        {/* RIGHT: Chat column (header + scrollable messages + sticky input) */}
+        {/* RIGHT: Chat */}
         <div className="lg:col-span-2 bg-card rounded-lg border flex flex-col overflow-hidden">
           {activeConversation ? (
             <>
-              {/* Header stays visible */}
+              {/* Header */}
               <div className="p-4 border-b flex items-center justify-between shrink-0">
                 <div>
                   <div className="font-semibold">
                     {activeConversation.patientName
                       ? `${activeConversation.patientName}${
-                          activeConversation.patientEmail ? ` (${activeConversation.patientEmail})` : ""
+                          activeConversation.patientEmail
+                            ? ` (${activeConversation.patientEmail})`
+                            : ""
                         }`
                       : activeConversation.patientEmail || "Patient"}
                   </div>
@@ -204,45 +233,82 @@ export default function Messages() {
                 </div>
               </div>
 
-              {/* Messages: ONLY this area scrolls */}
+              {/* ---- DATE-GROUPED MESSAGES ---- */}
               <div
                 ref={messagesContainerRef}
-                className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0"
+                className="flex-1 overflow-y-auto p-4 space-y-6 min-h-0"
               >
-                {activeConversation.messages.map((m) => {
-                  let displayName = m.sender_name || "";
-                  if (m.senderType === "patient") {
-                    displayName =
-                      m.message_type === "patient_to_doctor"
-                        ? "Patient → Doctor"
-                        : m.message_type === "patient_to_support"
-                        ? "Patient → Support"
-                        : "Patient";
-                  } else if (m.senderType === "doctor") displayName = "Doctor";
-                  else if (m.senderType === "support") displayName = "Client Support";
-                  else if (m.senderType === "super_support") displayName = "Super Admin Support";
+                {(() => {
+                  const grouped = groupMessagesByDate(activeConversation.messages);
+                  const sortedDates = Object.keys(grouped).sort(
+                    (a, b) => new Date(a).getTime() - new Date(b).getTime()
+                  );
 
-                  let bubbleColor = "";
-                  if (m.senderType === "patient") bubbleColor = "bg-gray-100 text-gray-800";
-                  else if (m.senderType === "doctor") bubbleColor = "bg-blue-100 text-blue-800";
-                  else if (m.senderType === "support") bubbleColor = "bg-purple-100 text-purple-800";
-                  else if (m.senderType === "super_support") bubbleColor = "bg-red-100 text-red-800";
-                  else bubbleColor = "bg-gray-200 text-gray-800";
+                  return sortedDates.map((dateKey) => (
+                    <div key={dateKey}>
+                      {/* Date separator */}
+                      <div className="flex justify-center my-4">
+                        <span className="bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full">
+                          {getMessageGroupLabel(dateKey)}
+                        </span>
+                      </div>
 
-                  return (
-                    <div key={m.id} className={`flex ${m.side === "left" ? "justify-start" : "justify-end"}`}>
-                      <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}>
-                        <div className="text-sm">{m.content}</div>
-                        <div className="text-xs opacity-70 mt-1">
-                          {displayName} • {new Date(m.created_at).toLocaleTimeString()}
-                        </div>
+                      {/* Messages for this day */}
+                      <div className="space-y-4">
+                        {grouped[dateKey].map((m) => {
+                          let displayName = m.sender_name || "";
+                          if (m.senderType === "patient") {
+                            displayName =
+                              m.message_type === "patient_to_doctor"
+                                ? "Patient → Doctor"
+                                : m.message_type === "patient_to_support"
+                                ? "Patient → Support"
+                                : "Patient";
+                          } else if (m.senderType === "doctor") displayName = "Doctor";
+                          else if (m.senderType === "support") displayName = "Client Support";
+                          else if (m.senderType === "super_support")
+                            displayName = "Super Admin Support";
+
+                          let bubbleColor = "";
+                          if (m.senderType === "patient")
+                            bubbleColor = "bg-gray-100 text-gray-800";
+                          else if (m.senderType === "doctor")
+                            bubbleColor = "bg-blue-100 text-blue-800";
+                          else if (m.senderType === "support")
+                            bubbleColor = "bg-purple-100 text-purple-800";
+                          else if (m.senderType === "super_support")
+                            bubbleColor = "bg-red-100 text-red-800";
+                          else bubbleColor = "bg-gray-200 text-gray-800";
+
+                          return (
+                            <div
+                              key={m.id}
+                              className={`flex ${
+                                m.side === "left" ? "justify-start" : "justify-end"
+                              }`}
+                            >
+                              <div
+                                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}
+                              >
+                                <div className="text-sm">{m.content}</div>
+                                <div className="text-xs opacity-70 mt-1">
+                                  {displayName} •{" "}
+                                  {new Date(m.created_at).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                  );
-                })}
+                  ));
+                })()}
               </div>
 
-              {/* Composer stays visible */}
+              {/* Composer */}
               <div className="p-4 border-t shrink-0">
                 <div className="flex items-center gap-3">
                   <Input
@@ -268,7 +334,9 @@ export default function Messages() {
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-muted-foreground">
-              {selectedClient ? "Select a conversation" : "Select a client to load messages"}
+              {selectedClient
+                ? "Select a conversation"
+                : "Select a client to load messages"}
             </div>
           )}
         </div>
