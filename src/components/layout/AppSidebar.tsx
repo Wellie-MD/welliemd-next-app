@@ -15,7 +15,7 @@ import {
   Wrench,
   Settings,
   MessageCircle,
-  MapPin,
+  MapPin,        // <- used for Pharmacies
   ChevronDown,
   ChevronRight
 } from "lucide-react"
@@ -80,6 +80,10 @@ const menuSections = [
     label: "TOOLS & SERVICES",
     items: [
       { title: "Questionnaires", url: "/dashboard/questionnaires", icon: FileText },
+
+      // ✅ NEW: Pharmacies top-level item
+      { title: "Pharmacies", url: "/dashboard/pharmacies", icon: MapPin },
+
       {
         title: "Products",
         icon: Package,
@@ -138,8 +142,7 @@ export function AppSidebar() {
   }, [currentPath])
 
   const toggleSection = (title: string) => {
-    if (collapsed) return // Don't allow toggling when collapsed
-    
+    if (collapsed) return
     setOpenSections(prev => 
       prev.includes(title) 
         ? prev.filter(item => item !== title)
@@ -154,7 +157,6 @@ export function AppSidebar() {
     return currentPath === item.url
   }
 
-  // Wrapper for menu items with tooltip when collapsed
   const MenuItemWrapper = ({ children, title, hasSubmenu = false }: { children: React.ReactNode, title: string, hasSubmenu?: boolean }) => {
     if (collapsed) {
       return (
@@ -174,10 +176,7 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar 
-      collapsible="icon"
-      className="border-r"
-    >
+    <Sidebar collapsible="icon" className="border-r">
       <SidebarContent className="overflow-y-auto overflow-x-hidden scrollbar-hide pb-4">
         {menuSections.map((section, sectionIndex) => (
           <SidebarGroup key={section.label} className={collapsed ? "mb-2" : "mb-6"}>
@@ -186,12 +185,9 @@ export function AppSidebar() {
                 {section.label}
               </SidebarGroupLabel>
             )}
-            
-            {/* Add section divider when collapsed */}
             {collapsed && sectionIndex > 0 && (
               <div className="w-full h-px bg-gray-200 my-2 mx-2"></div>
             )}
-            
             <SidebarGroupContent>
               <SidebarMenu className="space-y-1">
                 {section.items.map((item) => {
@@ -202,10 +198,7 @@ export function AppSidebar() {
                     <SidebarMenuItem key={item.title}>
                       {item.children ? (
                         <MenuItemWrapper title={item.title} hasSubmenu>
-                          <Collapsible
-                            open={isOpen}
-                            onOpenChange={() => toggleSection(item.title)}
-                          >
+                          <Collapsible open={isOpen} onOpenChange={() => toggleSection(item.title)}>
                             <CollapsibleTrigger asChild>
                               <SidebarMenuButton
                                 className={`
@@ -221,18 +214,20 @@ export function AppSidebar() {
                                   <item.icon className={`h-5 w-5 flex-shrink-0 ${
                                     isActive ? "text-[#12517A]" : "text-gray-500 group-hover:text-[#12517A]"
                                   }`} />
-                                  {!collapsed && (
-                                    <span className="ml-3 font-medium truncate">
-                                      {item.title}
-                                    </span>
-                                  )}
+                                {!collapsed && (
+                                  <span className="ml-3 font-medium truncate">
+                                    {item.title}
+                                  </span>
+                                )}
                                 </div>
                                 {!collapsed && (
-                                  <ChevronDown className={`
-                                    h-4 w-4 transition-all duration-200 ease-in-out flex-shrink-0
-                                    ${isOpen ? "transform rotate-0" : "transform -rotate-90"}
-                                    ${isActive ? "text-[#12517A]" : "text-gray-400 group-hover:text-[#12517A]"}
-                                  `} />
+                                  <ChevronDown
+                                    className={`
+                                      h-4 w-4 transition-all duration-200 ease-in-out flex-shrink-0
+                                      ${isOpen ? "transform rotate-0" : "transform -rotate-90"}
+                                      ${isActive ? "text-[#12517A]" : "text-gray-400 group-hover:text-[#12517A]"}
+                                    `}
+                                  />
                                 )}
                               </SidebarMenuButton>
                             </CollapsibleTrigger>
@@ -251,9 +246,7 @@ export function AppSidebar() {
                                           }
                                         `}
                                       >
-                                        <span className="text-sm">
-                                          {child.title}
-                                        </span>
+                                        <span className="text-sm">{child.title}</span>
                                       </NavLink>
                                     </SidebarMenuButton>
                                   ))}
@@ -277,11 +270,13 @@ export function AppSidebar() {
                                 }
                               `}
                             >
-                              <item.icon className={`h-5 w-5 flex-shrink-0 ${
-                                currentPath === item.url 
-                                  ? "text-[#12517A]" 
-                                  : "text-gray-500 group-hover:text-[#12517A]"
-                              }`} />
+                              <item.icon
+                                className={`h-5 w-5 flex-shrink-0 ${
+                                  currentPath === item.url
+                                    ? "text-[#12517A]"
+                                    : "text-gray-500 group-hover:text-[#12517A]"
+                                }`}
+                              />
                               {!collapsed && (
                                 <span className="ml-3 font-medium truncate">
                                   {item.title}

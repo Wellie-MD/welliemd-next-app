@@ -22,6 +22,7 @@ import ResolutionQueue from "./pages/ResolutionQueue";
 import Analytics from "./pages/Analytics";
 import Affiliates from "./pages/Affiliates";
 import Questionnaires from "./pages/Questionnaires";
+import Pharmacies from "./pages/Pharmacies";
 import TreatmentConfigurations from "./pages/TreatmentConfigurations";
 import Orders from "./pages/Orders";
 import Prescriptions from "./pages/Prescriptions";
@@ -107,6 +108,7 @@ const App = () => {
                     <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
                     <Route path="/affiliates" element={<ProtectedRoute><Affiliates /></ProtectedRoute>} />
                     <Route path="/questionnaires" element={<ProtectedRoute><Questionnaires /></ProtectedRoute>} />
+                    <Route path="/pharmacies" element={<ProtectedRoute><Pharmacies /></ProtectedRoute>} />
                   </Routes>
                 </main>
               </div>
