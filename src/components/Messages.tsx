@@ -11,6 +11,14 @@ import { Separator } from "./ui/separator";
 import { MessageService } from "@/features/messages/services/message.service";
 import { VisitService, Visit } from "@/features/visits/services/visit.service";
 
+import {
+  isToday,
+  isYesterday,
+  isThisWeek,
+  format,
+  formatISO,
+} from "date-fns";
+
 interface Message {
   id: number | string;
   content: string;
@@ -32,6 +40,7 @@ interface Conversation {
 
 type UnreadMap = Record<string, number>;
 
+// --------------------- Helpers -----------------------
 function getDisplayName(msg: Message): string {
   if (msg.chatType === "doctor") {
     return msg.isFromDoctor ? "Doctor" : "Patient → Doctor";
@@ -42,8 +51,28 @@ function getDisplayName(msg: Message): string {
   if (msg.chatType === "support") {
     return msg.isFromDoctor ? "Client Support" : "Patient → Support";
   }
-  return msg.senderName || "Sending... ";
+  return msg.senderName || "Sending...";
 }
+
+function getMessageGroupLabel(dateStr: string) {
+  const date = new Date(dateStr);
+  if (isToday(date)) return "Today";
+  if (isYesterday(date)) return "Yesterday";
+  if (isThisWeek(date)) return format(date, "EEEE"); // Monday, Tuesday
+  return format(date, "MMM d, yyyy");
+}
+
+function groupMessagesByDate<T extends { timestamp: string }>(messages: T[]) {
+  const groups: Record<string, T[]> = {};
+  messages.forEach((msg) => {
+    const dateKey = formatISO(new Date(msg.timestamp), { representation: "date" });
+    if (!groups[dateKey]) groups[dateKey] = [];
+    groups[dateKey].push(msg);
+  });
+  return groups;
+}
+
+// ------------------------------------------------------
 
 export default function Messages() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -127,7 +156,7 @@ export default function Messages() {
     };
   }, []);
 
-  // Selection handler (fixed flicker issue)
+  // Selection handler
   useEffect(() => {
     if (conversations.length === 0) return;
 
@@ -143,16 +172,13 @@ export default function Messages() {
     const toSelect = found || selectedConv || conversations[0];
 
     if (!selectedConv || selectedConv.id !== toSelect.id) {
-      // Clear messages to avoid showing stale ones
       setSelectedConv({ ...toSelect, messages: [] });
 
-      // Update URL
       const url = `/dashboard/messages?masterId=${toSelect.masterId}&chatType=${toSelect.type}`;
       if (location.search !== `?masterId=${toSelect.masterId}&chatType=${toSelect.type}`) {
         navigate(url, { replace: true });
       }
 
-      // Load fresh messages
       (async () => {
         try {
           let freshMsgs: Message[] = [];
@@ -162,7 +188,6 @@ export default function Messages() {
             freshMsgs = await MessageService.getSupportMessages(toSelect.masterId);
           }
 
-          // Mark unread as read
           const unread = freshMsgs.filter((m) => !m.read);
           if (unread.length) {
             await Promise.all(unread.map((m) => MessageService.markAsRead(m.id)));
@@ -204,30 +229,6 @@ export default function Messages() {
           c.id === selectedConv.id ? { ...c, messages: updatedSelectedMsgs } : c
         );
 
-        await Promise.all(
-          nextConvs
-            .filter((c) => c.id !== selectedConv.id)
-            .map(async (c) => {
-              const msgs =
-                c.type === "doctor"
-                  ? await MessageService.getDoctorMessages(c.masterId)
-                  : await MessageService.getSupportMessages(c.masterId);
-
-              const prevLastId = c.messages.length ? c.messages[c.messages.length - 1].id : null;
-              const newLastId = msgs.length ? msgs[msgs.length - 1].id : null;
-
-              const idx = nextConvs.findIndex((x) => x.id === c.id);
-              if (idx >= 0) nextConvs[idx] = { ...c, messages: msgs };
-
-              if (newLastId && newLastId !== prevLastId) {
-                const last = msgs[msgs.length - 1];
-                if (!last.read) {
-                  flashJustArrived(c.id);
-                }
-              }
-            })
-        );
-
         setConversations(nextConvs);
         setSelectedConv((prev) => (prev ? { ...prev, messages: updatedSelectedMsgs } : prev));
         setUnreadMap(computeUnreadMap(nextConvs));
@@ -262,7 +263,6 @@ export default function Messages() {
       );
       setSelectedConv({ ...conv, messages: freshMsgs });
       setUnreadMap((prev) => ({ ...prev, [conv.id]: 0 }));
-      if (justArrivedConvId === conv.id) setJustArrivedConvId(null);
     } catch (err) {
       console.error("Failed to mark messages as read:", err);
     }
@@ -336,7 +336,6 @@ export default function Messages() {
             {filteredConversations.map((conv) => {
               const unread = unreadMap[conv.id] || 0;
               const isSelected = selectedConv?.id === conv.id;
-              const showPing = justArrivedConvId === conv.id && !isSelected;
 
               return (
                 <div
@@ -351,21 +350,10 @@ export default function Messages() {
                       <AvatarImage />
                       <AvatarFallback>{conv.type === "doctor" ? "DR" : "CS"}</AvatarFallback>
                     </Avatar>
-                    {showPing && (
-                      <span className="absolute -right-1 -top-1 h-3 w-3">
-                        <span className="absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75 animate-ping" />
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500" />
-                      </span>
-                    )}
                   </div>
-
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p
-                        className={`truncate ${
-                          unread > 0 ? "font-semibold text-gray-900" : "text-gray-900"
-                        }`}
-                      >
+                      <p className={`truncate ${unread > 0 ? "font-semibold" : ""}`}>
                         {conv.label}
                       </p>
                       {unread > 0 && (
@@ -413,53 +401,73 @@ export default function Messages() {
               </CardHeader>
 
               {/* Messages */}
-              <CardContent className="flex-1 overflow-y-auto p-6 space-y-4">
-                {selectedConv.messages.map((msg) => {
-                  let alignment = "justify-start";
-                  let bubbleColor = "bg-gray-100 text-gray-900";
-                  let timeColor = "text-gray-500";
+              <CardContent className="flex-1 overflow-y-auto p-6 space-y-6">
+                {(() => {
+                  const grouped = groupMessagesByDate(selectedConv.messages);
+                  const sortedDates = Object.keys(grouped).sort(
+                    (a, b) => new Date(a).getTime() - new Date(b).getTime()
+                  );
 
-                  if (selectedConv.type === "doctor") {
-                    if (msg.isFromDoctor) {
-                      alignment = "justify-start";
-                      bubbleColor = "bg-gray-100 text-gray-900";
-                      timeColor = "text-gray-500";
-                    } else {
-                      alignment = "justify-end";
-                      bubbleColor = "bg-blue-600 text-white";
-                      timeColor = "text-blue-100";
-                    }
-                  } else {
-                    if (msg.chatType === "super_support") {
-                      alignment = "justify-start";
-                      bubbleColor = "bg-red-100 text-red-800";
-                      timeColor = "text-red-600";
-                    } else if (msg.isFromDoctor) {
-                      alignment = "justify-start";
-                      bubbleColor = "bg-purple-100 text-purple-800";
-                      timeColor = "text-purple-600";
-                    } else {
-                      alignment = "justify-end";
-                      bubbleColor = "bg-blue-600 text-white";
-                      timeColor = "text-blue-100";
-                    }
-                  }
+                  return sortedDates.map((dateKey) => (
+                    <div key={dateKey}>
+                      <div className="flex justify-center my-4">
+                        <span className="bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full">
+                          {getMessageGroupLabel(dateKey)}
+                        </span>
+                      </div>
 
-                  return (
-                    <div key={msg.id} className={`flex ${alignment}`}>
-                      <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}>
-                        <p className="text-sm">{msg.content}</p>
-                        <p className={`text-xs mt-1 ${timeColor}`}>
-                          {getDisplayName(msg)} • {new Date(msg.timestamp).toLocaleString()}
-                        </p>
+                      <div className="space-y-4">
+                        {grouped[dateKey].map((msg) => {
+                          let alignment = "justify-start";
+                          let bubbleColor = "bg-gray-100 text-gray-900";
+                          let timeColor = "text-gray-500";
+
+                          if (selectedConv.type === "doctor") {
+                            if (msg.isFromDoctor) {
+                              alignment = "justify-start";
+                              bubbleColor = "bg-gray-100 text-gray-900";
+                              timeColor = "text-gray-500";
+                            } else {
+                              alignment = "justify-end";
+                              bubbleColor = "bg-blue-600 text-white";
+                              timeColor = "text-blue-100";
+                            }
+                          } else {
+                            if (msg.chatType === "super_support") {
+                              alignment = "justify-start";
+                              bubbleColor = "bg-red-100 text-red-800";
+                              timeColor = "text-red-600";
+                            } else if (msg.isFromDoctor) {
+                              alignment = "justify-start";
+                              bubbleColor = "bg-purple-100 text-purple-800";
+                              timeColor = "text-purple-600";
+                            } else {
+                              alignment = "justify-end";
+                              bubbleColor = "bg-blue-600 text-white";
+                              timeColor = "text-blue-100";
+                            }
+                          }
+
+                          return (
+                            <div key={msg.id} className={`flex ${alignment}`}>
+                              <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}>
+                                <p className="text-sm">{msg.content}</p>
+                                <p className={`text-xs mt-1 ${timeColor}`}>
+                                  {getDisplayName(msg)} •{" "}
+                                  {new Date(msg.timestamp).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                  );
-                })}
+                  ));
+                })()}
               </CardContent>
-
-
-
 
               {/* Input */}
               <div className="p-4 border-t bg-white">
@@ -485,11 +493,6 @@ export default function Messages() {
                   </Button>
                 </div>
               </div>
-
-
-
-
-
             </>
           )}
         </Card>
