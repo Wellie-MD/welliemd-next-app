@@ -65,15 +65,17 @@ export default function Messages() {
     }
   }, [messages]);
 
-  // When client changes, open first conversation of that client
+  // Reset on client change
   useEffect(() => {
-    if (conversations.length > 0) {
-      setActiveConversation(conversations[0]); // auto-pick first chat
-    } else {
-      setActiveConversation(null);
-    }
-  }, [selectedClient?.id, conversations]);
+    setActiveConversation(null);
+  }, [selectedClient?.id]);
 
+  // Auto-open first conversation when messages arrive
+  useEffect(() => {
+    if (!activeConversation && conversations.length > 0) {
+      setActiveConversation(conversations[0]);
+    }
+  }, [conversations, activeConversation]);
 
   // SCROLL FIX: only the right messages pane scrolls
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
