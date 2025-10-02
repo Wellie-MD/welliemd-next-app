@@ -1,4 +1,4 @@
-// src/pages/Messages.tsx (Admin Portal with date separators)
+// src/pages/Messages.tsx (Admin Portal with date separators & auto-select first chat)
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +29,9 @@ function getMessageGroupLabel(dateStr: string) {
 function groupMessagesByDate<T extends { created_at: string }>(messages: T[]) {
   const groups: Record<string, T[]> = {};
   messages.forEach((msg) => {
-    const dateKey = formatISO(new Date(msg.created_at), { representation: "date" });
+    const dateKey = formatISO(new Date(msg.created_at), {
+      representation: "date",
+    });
     if (!groups[dateKey]) groups[dateKey] = [];
     groups[dateKey].push(msg);
   });
@@ -42,9 +44,13 @@ export default function Messages() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
   // 2) Load messages (admin hits selected client's API)
-  const { messages, loading, error } = useMessages(selectedClient?.api_endpoint, 5000);
+  const { messages, loading, error } = useMessages(
+    selectedClient?.api_endpoint,
+    5000
+  );
 
-  const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
+  const [activeConversation, setActiveConversation] =
+    useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -57,31 +63,21 @@ export default function Messages() {
     }
   }, [loadingClients, clients, selectedClient]);
 
-  // Keep activeConversation in sync on new data
+  // ✅ FIX: Auto-open first conversation whenever client changes or new conversations load
   useEffect(() => {
-    if (activeConversation) {
-      const updated = conversations.find((c) => c.id === activeConversation.id);
-      if (updated) setActiveConversation(updated);
+    if (selectedClient && conversations.length > 0) {
+      setActiveConversation(conversations[0]); // pick first chat of this client
+    } else {
+      setActiveConversation(null);
     }
-  }, [messages]);
-
-  // Reset on client change
-  useEffect(() => {
-    setActiveConversation(null);
-  }, [selectedClient?.id]);
-
-  // Auto-open first conversation when messages arrive
-  useEffect(() => {
-    if (!activeConversation && conversations.length > 0) {
-      setActiveConversation(conversations[0]);
-    }
-  }, [conversations, activeConversation]);
+  }, [selectedClient?.id, conversations]);
 
   // SCROLL FIX: only the right messages pane scrolls
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      messagesContainerRef.current.scrollTop =
+        messagesContainerRef.current.scrollHeight;
     }
   }, [activeConversation?.messages]);
 
@@ -149,7 +145,8 @@ export default function Messages() {
                 className="mt-1 w-full p-2 border rounded"
                 value={selectedClient?.id || ""}
                 onChange={(e) => {
-                  const c = clients.find((x) => x.id === e.target.value) || null;
+                  const c =
+                    clients.find((x) => x.id === e.target.value) || null;
                   setSelectedClient(c);
                 }}
               >
@@ -160,8 +157,12 @@ export default function Messages() {
                   </option>
                 ))}
               </select>
-              {loadingClients && <div className="text-xs mt-2">Loading clients…</div>}
-              {clientsError && <div className="text-xs text-red-500 mt-2">{clientsError}</div>}
+              {loadingClients && (
+                <div className="text-xs mt-2">Loading clients…</div>
+              )}
+              {clientsError && (
+                <div className="text-xs text-red-500 mt-2">{clientsError}</div>
+              )}
             </div>
           </div>
 
@@ -171,7 +172,9 @@ export default function Messages() {
             {error && <div className="text-red-500">{error}</div>}
             {conversations.map((c) => {
               const displayName = c.patientName
-                ? `${c.patientName}${c.patientEmail ? ` (${c.patientEmail})` : ""}`
+                ? `${c.patientName}${
+                    c.patientEmail ? ` (${c.patientEmail})` : ""
+                  }`
                 : c.patientEmail || "Patient";
 
               return (
@@ -241,7 +244,9 @@ export default function Messages() {
                 className="flex-1 overflow-y-auto p-4 space-y-6 min-h-0"
               >
                 {(() => {
-                  const grouped = groupMessagesByDate(activeConversation.messages);
+                  const grouped = groupMessagesByDate(
+                    activeConversation.messages
+                  );
                   const sortedDates = Object.keys(grouped).sort(
                     (a, b) => new Date(a).getTime() - new Date(b).getTime()
                   );
@@ -266,8 +271,10 @@ export default function Messages() {
                                 : m.message_type === "patient_to_support"
                                 ? "Patient → Support"
                                 : "Patient";
-                          } else if (m.senderType === "doctor") displayName = "Doctor";
-                          else if (m.senderType === "support") displayName = "Client Support";
+                          } else if (m.senderType === "doctor")
+                            displayName = "Doctor";
+                          else if (m.senderType === "support")
+                            displayName = "Client Support";
                           else if (m.senderType === "super_support")
                             displayName = "Super Admin Support";
 
@@ -286,7 +293,9 @@ export default function Messages() {
                             <div
                               key={m.id}
                               className={`flex ${
-                                m.side === "left" ? "justify-start" : "justify-end"
+                                m.side === "left"
+                                  ? "justify-start"
+                                  : "justify-end"
                               }`}
                             >
                               <div
@@ -295,10 +304,13 @@ export default function Messages() {
                                 <div className="text-sm">{m.content}</div>
                                 <div className="text-xs opacity-70 mt-1">
                                   {displayName} •{" "}
-                                  {new Date(m.created_at).toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
+                                  {new Date(m.created_at).toLocaleTimeString(
+                                    [],
+                                    {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    }
+                                  )}
                                 </div>
                               </div>
                             </div>
