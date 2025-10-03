@@ -418,7 +418,7 @@ export default function Messages() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0 overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px] overflow-hidden">
         {/* Sidebar */}
         <Card className="lg:col-span-1 flex flex-col overflow-hidden">
           <CardHeader className="pb-4">
