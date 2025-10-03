@@ -136,28 +136,29 @@ export default function Messages() {
 
     try {
       setSending(true);
-      // after sending our own message we want to remain at the bottom
+      // we want to stay at the bottom after sending
       shouldStickRef.current = true;
 
       await messageService.sendMessage({
         master_id: activeConversation.masterId,
         content: newMessage,
-        to: "support", // or "doctor"
-        from_super_admin: true as any, // keep for BE compatibility if needed
+        to: "support",                 // keep this; BE uses from_super_admin to tag it
+        from_super_admin: true as any, // already telling BE this is super admin
         apiEndpoint: selectedClient?.api_endpoint,
       });
 
-      // Optimistic UI
+      // ✅ Optimistic UI should mirror BE shape
       const newMsg = {
         id: Date.now(),
         master_id: activeConversation.masterId,
         content: newMessage,
         created_at: new Date().toISOString(),
         read: true,
-        sender_name: "Support",
-        senderType: "support" as const,
+        sender_name: "Super Admin Support",    // 👈 updated
+        senderType: "super_support" as const,  // 👈 updated
         side: "right" as const,
         patientName: activeConversation.patientName,
+        // keep this unless your BE actually returns a distinct value for super admin
         message_type: "support_to_patient" as const,
       };
 
@@ -180,6 +181,7 @@ export default function Messages() {
       setSending(false);
     }
   }
+
 
   return (
     <div className="p-6">
