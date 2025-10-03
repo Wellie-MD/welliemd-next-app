@@ -273,7 +273,7 @@ export default function Messages() {
                                 ? "Patient → Support"
                                 : "Patient";
                           } else if ((m as any).senderType === "doctor") displayName = "Doctor";
-                          else if ((m as any).senderType === "support") displayName = "Client Support";
+                          else if ((m as any).senderType === "support") displayName = "Sending ...";
                           else if ((m as any).senderType === "super_support")
                             displayName = "Super Admin Support";
 
