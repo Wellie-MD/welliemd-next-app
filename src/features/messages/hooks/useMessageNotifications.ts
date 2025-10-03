@@ -1,75 +1,119 @@
 // src/features/messages/hooks/useMessageNotifications.ts
 import { useEffect, useState } from "react";
-import { MessageService } from "@/features/messages/services/message.service";
+import { MessageService, RawMessage } from "@/features/messages/services/message.service";
 import { VisitService, Visit } from "@/features/visits/services/visit.service";
 
 export interface MessageNotification {
   id: number | string;
   content: string;
   timestamp: string;
-  read: boolean;
+  read: boolean; // ← mirrored from readByPatient for convenience
   senderName: string;
   masterId: string;
-  chatType: "doctor" | "support" | "super_support"; 
+  chatType: "doctor" | "support" | "super_support";
+}
+
+function isInboundFor(type: "doctor" | "support", msg: RawMessage) {
+  if (type === "doctor") return msg.isFromDoctor === true && (msg.chatType === "doctor" || !msg.chatType);
+  // support thread: includes super_support inbound too
+  return msg.isFromDoctor === true && (msg.chatType === "support" || msg.chatType === "super_support");
+}
+
+function byNewest(a: RawMessage, b: RawMessage) {
+  return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
 }
 
 export function useMessageNotifications() {
   const [notifications, setNotifications] = useState<MessageNotification[]>([]);
 
   useEffect(() => {
+    let alive = true;
+
     const load = async () => {
       try {
         const visits: Visit[] = await VisitService.getPatientVisits();
         const notifs: MessageNotification[] = [];
 
-        for (const visit of visits) {
-          const masterId = visit.master_id;
+        for (const v of visits) {
+          const masterId = v.master_id;
           if (!masterId) continue;
 
-          const [doctorMsgs, supportMsgs] = await Promise.all([
+          const [docRaw, supRaw] = await Promise.all([
             MessageService.getDoctorMessages(masterId),
             MessageService.getSupportMessages(masterId),
           ]);
 
-          const latestDoctor = doctorMsgs?.[doctorMsgs.length - 1];
-          const latestSupport = supportMsgs?.[supportMsgs.length - 1];
+          const docMsgs = (docRaw ?? []).slice().sort(byNewest);
+          const supMsgs = (supRaw ?? []).slice().sort(byNewest);
 
-          if (latestDoctor && !latestDoctor.read) {
+          // doctor inbound, unread by patient
+          const latestDocInboundUnread = docMsgs.find(
+            (m) => isInboundFor("doctor", m) && (m.readByPatient ?? m.read) === false
+          );
+          if (latestDocInboundUnread) {
             notifs.push({
-              id: latestDoctor.id,
-              content: latestDoctor.content,
-              timestamp: latestDoctor.timestamp,
-              read: latestDoctor.read,
-              senderName: `${visit.visit_type} – Doctor`,
+              id: latestDocInboundUnread.id,
+              content: latestDocInboundUnread.content,
+              timestamp: latestDocInboundUnread.timestamp,
+              read: false,
+              senderName: `${v.visit_type} – Doctor`,
               masterId,
-              chatType: "doctor", 
+              chatType: "doctor",
             });
           }
 
-          if (latestSupport && !latestSupport.read) {
-            const isSuper = latestSupport.message_type === "super_support_to_patient";
+          // super support inbound unread takes precedence; else support inbound unread
+          const latestSuperUnread = supMsgs.find(
+            (m) => m.chatType === "super_support" && m.isFromDoctor === true && (m.readByPatient ?? m.read) === false
+          );
+          if (latestSuperUnread) {
             notifs.push({
-              id: latestSupport.id,
-              content: latestSupport.content,
-              timestamp: latestSupport.timestamp,
-              read: latestSupport.read,
-              senderName: `${visit.visit_type} – ${isSuper ? "Super Admin Support" : "Support"}`, 
+              id: latestSuperUnread.id,
+              content: latestSuperUnread.content,
+              timestamp: latestSuperUnread.timestamp,
+              read: false,
+              senderName: `${v.visit_type} – Super Admin Support`,
               masterId,
-              chatType: isSuper ? "super_support" : "support",
+              chatType: "super_support",
             });
+          } else {
+            const latestSupportInboundUnread = supMsgs.find(
+              (m) => isInboundFor("support", m) && (m.readByPatient ?? m.read) === false
+            );
+            if (latestSupportInboundUnread) {
+              notifs.push({
+                id: latestSupportInboundUnread.id,
+                content: latestSupportInboundUnread.content,
+                timestamp: latestSupportInboundUnread.timestamp,
+                read: false,
+                senderName: `${v.visit_type} – Support`,
+                masterId,
+                chatType: "support",
+              });
+            }
           }
-
         }
 
-        setNotifications(notifs);
+        // sort final list by time desc + de-dupe
+        const map = new Map<string | number, MessageNotification>();
+        for (const n of notifs) map.set(n.id, n);
+        const finalList = Array.from(map.values()).sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+
+        if (alive) setNotifications(finalList);
       } catch (err) {
         console.error("Failed to fetch notifications:", err);
+        if (alive) setNotifications([]);
       }
     };
 
     load();
-    const interval = setInterval(load, 5000);
-    return () => clearInterval(interval);
+    const i = setInterval(load, 2000);
+    return () => {
+      alive = false;
+      clearInterval(i);
+    };
   }, []);
 
   return notifications;

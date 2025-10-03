@@ -8,7 +8,7 @@ import { Input } from "./ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Separator } from "./ui/separator";
 
-import { MessageService } from "@/features/messages/services/message.service";
+import { MessageService, RawMessage } from "@/features/messages/services/message.service";
 import { VisitService, Visit } from "@/features/visits/services/visit.service";
 
 import {
@@ -19,16 +19,7 @@ import {
   formatISO,
 } from "date-fns";
 
-interface Message {
-  id: number | string;
-  content: string;
-  timestamp: string;
-  isFromDoctor: boolean;
-  read: boolean;
-  senderName?: string;
-  masterId?: string;
-  chatType?: "doctor" | "support" | "super_support";
-}
+interface Message extends RawMessage {}
 
 interface Conversation {
   id: string;
@@ -45,12 +36,8 @@ function getDisplayName(msg: Message): string {
   if (msg.chatType === "doctor") {
     return msg.isFromDoctor ? "Doctor" : "Patient → Doctor";
   }
-  if (msg.chatType === "super_support") {
-    return "Super Admin Support";
-  }
-  if (msg.chatType === "support") {
-    return msg.isFromDoctor ? "Client Support" : "Patient → Support";
-  }
+  if (msg.chatType === "super_support") return "Super Admin Support";
+  if (msg.chatType === "support") return msg.isFromDoctor ? "Client Support" : "Patient → Support";
   return msg.senderName || "Sending...";
 }
 
@@ -58,7 +45,7 @@ function getMessageGroupLabel(dateStr: string) {
   const date = new Date(dateStr);
   if (isToday(date)) return "Today";
   if (isYesterday(date)) return "Yesterday";
-  if (isThisWeek(date)) return format(date, "EEEE"); // Monday, Tuesday
+  if (isThisWeek(date)) return format(date, "EEEE");
   return format(date, "MMM d, yyyy");
 }
 
@@ -70,6 +57,21 @@ function groupMessagesByDate<T extends { timestamp: string }>(messages: T[]) {
     groups[dateKey].push(msg);
   });
   return groups;
+}
+
+function isInboundForConv(convType: Conversation["type"], msg: Message) {
+  if (convType === "doctor") {
+    return msg.isFromDoctor === true && (msg.chatType === "doctor" || !msg.chatType);
+  }
+  return msg.isFromDoctor === true && (msg.chatType === "support" || msg.chatType === "super_support");
+}
+
+function byTimeAsc(a: Message, b: Message) {
+  return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+}
+
+function byTimeDesc(a: Message, b: Message) {
+  return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
 }
 
 // ------------------------------------------------------
@@ -102,7 +104,12 @@ export default function Messages() {
 
   const computeUnreadMap = (convs: Conversation[]): UnreadMap =>
     convs.reduce((acc, c) => {
-      acc[c.id] = c.messages.reduce((n, m) => (m.read ? n : n + 1), 0);
+      const count = c.messages.filter(
+        (m) =>
+          isInboundForConv(c.type, m) &&
+          ((m.readByPatient ?? m.read) === false)
+      ).length;
+      acc[c.id] = count;
       return acc;
     }, {} as UnreadMap);
 
@@ -157,12 +164,15 @@ export default function Messages() {
             MessageService.getSupportMessages(masterId),
           ]);
 
+          const doctorSorted = [...doctorMsgs].sort(byTimeDesc);
+          const supportSorted = [...supportMsgs].sort(byTimeDesc);
+
           convs.push({
             id: `${masterId}-doctor`,
             masterId,
             label: `${visit.visit_type} – Doctor`,
             type: "doctor",
-            messages: doctorMsgs,
+            messages: doctorSorted,
           });
 
           convs.push({
@@ -170,7 +180,7 @@ export default function Messages() {
             masterId,
             label: `${visit.visit_type} – Support`,
             type: "support",
-            messages: supportMsgs,
+            messages: supportSorted,
           });
         }
 
@@ -214,23 +224,31 @@ export default function Messages() {
 
       (async () => {
         try {
-          let freshMsgs: Message[] = [];
-          if (toSelect.type === "doctor") {
-            freshMsgs = await MessageService.getDoctorMessages(toSelect.masterId);
-          } else {
-            freshMsgs = await MessageService.getSupportMessages(toSelect.masterId);
-          }
+          let freshMsgs: Message[] =
+            toSelect.type === "doctor"
+              ? await MessageService.getDoctorMessages(toSelect.masterId)
+              : await MessageService.getSupportMessages(toSelect.masterId);
 
-          const unread = freshMsgs.filter((m) => !m.read);
-          if (unread.length) {
-            await Promise.all(unread.map((m) => MessageService.markAsRead(m.id)));
-            freshMsgs = freshMsgs.map((m) => ({ ...m, read: true }));
+          const sorted = [...freshMsgs].sort(byTimeDesc);
+
+          // mark inbound unread as read-by-patient
+          const toMark = sorted.filter(
+            (m) => isInboundForConv(toSelect.type, m) && ((m.readByPatient ?? m.read) === false)
+          );
+          if (toMark.length) {
+            await Promise.all(toMark.map((m) => MessageService.markAsReadByPatient(m.id)));
+            // reflect locally
+            sorted = sorted.map((m) =>
+              toMark.some((x) => x.id === m.id)
+                ? { ...m, readByPatient: true, read: true }
+                : m
+            );
           }
 
           setConversations((prev) =>
-            prev.map((c) => (c.id === toSelect.id ? { ...c, messages: freshMsgs } : c))
+            prev.map((c) => (c.id === toSelect.id ? { ...c, messages: sorted } : c))
           );
-          setSelectedConv({ ...toSelect, messages: freshMsgs });
+          setSelectedConv({ ...toSelect, messages: sorted });
           setUnreadMap((prev) => ({ ...prev, [toSelect.id]: 0 }));
           previousMessageCountRef.current = freshMsgs.length;
           
@@ -267,25 +285,32 @@ export default function Messages() {
 
     const interval = setInterval(async () => {
       try {
-        let updatedSelectedMsgs: Message[] = [];
-        if (selectedConv.type === "doctor") {
-          updatedSelectedMsgs = await MessageService.getDoctorMessages(selectedConv.masterId);
-        } else {
-          updatedSelectedMsgs = await MessageService.getSupportMessages(selectedConv.masterId);
-        }
+        let updatedSelectedMsgs: Message[] =
+          selectedConv.type === "doctor"
+            ? await MessageService.getDoctorMessages(selectedConv.masterId)
+            : await MessageService.getSupportMessages(selectedConv.masterId);
 
-        const unreadInSelected = updatedSelectedMsgs.filter((m) => !m.read);
-        if (unreadInSelected.length) {
-          await Promise.all(unreadInSelected.map((m) => MessageService.markAsRead(m.id)));
-          updatedSelectedMsgs = updatedSelectedMsgs.map((m) => ({ ...m, read: true }));
+        let sorted = [...updatedSelectedMsgs].sort(byTimeDesc);
+
+        // If user is viewing, mark inbound unread as read-by-patient
+        const inboundUnread = sorted.filter(
+          (m) => isInboundForConv(selectedConv.type, m) && ((m.readByPatient ?? m.read) === false)
+        );
+        if (inboundUnread.length) {
+          await Promise.all(inboundUnread.map((m) => MessageService.markAsReadByPatient(m.id)));
+          sorted = sorted.map((m) =>
+            inboundUnread.some((x) => x.id === m.id)
+              ? { ...m, readByPatient: true, read: true }
+              : m
+          );
         }
 
         const nextConvs = conversations.map((c) =>
-          c.id === selectedConv.id ? { ...c, messages: updatedSelectedMsgs } : c
+          c.id === selectedConv.id ? { ...c, messages: sorted } : c
         );
 
         setConversations(nextConvs);
-        setSelectedConv((prev) => (prev ? { ...prev, messages: updatedSelectedMsgs } : prev));
+        setSelectedConv((prev) => (prev ? { ...prev, messages: sorted } : prev));
         setUnreadMap(computeUnreadMap(nextConvs));
       } catch (err) {
         console.error("Polling failed:", err);
@@ -302,30 +327,36 @@ export default function Messages() {
     previousMessageCountRef.current = 0;
 
     try {
-      let freshMsgs: Message[] = [];
-      if (conv.type === "doctor") {
-        freshMsgs = await MessageService.getDoctorMessages(conv.masterId);
-      } else {
-        freshMsgs = await MessageService.getSupportMessages(conv.masterId);
-      }
+      let freshMsgs: Message[] =
+        conv.type === "doctor"
+          ? await MessageService.getDoctorMessages(conv.masterId)
+          : await MessageService.getSupportMessages(conv.masterId);
 
-      const unread = freshMsgs.filter((m) => !m.read);
-      if (unread.length) {
-        await Promise.all(unread.map((m) => MessageService.markAsRead(m.id)));
-        freshMsgs = freshMsgs.map((m) => ({ ...m, read: true }));
+      let sorted = [...freshMsgs].sort(byTimeDesc);
+
+      const toMark = sorted.filter(
+        (m) => isInboundForConv(conv.type, m) && ((m.readByPatient ?? m.read) === false)
+      );
+      if (toMark.length) {
+        await Promise.all(toMark.map((m) => MessageService.markAsReadByPatient(m.id)));
+        sorted = sorted.map((m) =>
+          toMark.some((x) => x.id === m.id)
+            ? { ...m, readByPatient: true, read: true }
+            : m
+        );
       }
 
       setConversations((prev) =>
-        prev.map((c) => (c.id === conv.id ? { ...c, messages: freshMsgs } : c))
+        prev.map((c) => (c.id === conv.id ? { ...c, messages: sorted } : c))
       );
-      setSelectedConv({ ...conv, messages: freshMsgs });
+      setSelectedConv({ ...conv, messages: sorted });
       setUnreadMap((prev) => ({ ...prev, [conv.id]: 0 }));
       previousMessageCountRef.current = freshMsgs.length;
       
       // Force scroll when switching conversation
       setTimeout(() => scrollToBottom(true), 100);
     } catch (err) {
-      console.error("Failed to mark messages as read:", err);
+      console.error("Failed to mark messages as read-by-patient:", err);
     }
   };
 
@@ -346,13 +377,17 @@ export default function Messages() {
         content: newMessage,
         timestamp: new Date().toISOString(),
         isFromDoctor: false,
-        read: true,
+        read: true,             // legacy mirror (ok)
+        readByPatient: true,    // patient authored -> seen by patient
+        masterId: selectedConv.masterId,
+        chatType: selectedConv.type === "doctor" ? "doctor" : "support",
       };
 
+      const nextMsgs = [newMsg, ...selectedConv.messages]; // keep newest-first internally
       setConversations((prev) =>
-        prev.map((c) => (c.id === selectedConv.id ? { ...c, messages: [...c.messages, newMsg] } : c))
+        prev.map((c) => (c.id === selectedConv.id ? { ...c, messages: nextMsgs } : c))
       );
-      setSelectedConv((prev) => (prev ? { ...prev, messages: [...prev.messages, newMsg] } : prev));
+      setSelectedConv((prev) => (prev ? { ...prev, messages: nextMsgs } : prev));
       setUnreadMap((prev) => ({ ...prev, [selectedConv.id]: 0 }));
 
       setNewMessage("");
@@ -472,7 +507,8 @@ export default function Messages() {
                 onScroll={handleScroll}
               >
                 {(() => {
-                  const grouped = groupMessagesByDate(selectedConv.messages);
+                  const chronological = [...selectedConv.messages].sort(byTimeAsc);
+                  const grouped = groupMessagesByDate(chronological);
                   const sortedDates = Object.keys(grouped).sort(
                     (a, b) => new Date(a).getTime() - new Date(b).getTime()
                   );
