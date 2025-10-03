@@ -79,10 +79,15 @@ export default function Messages() {
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [isNearBottom, setIsNearBottom] = useState(true);
 
   const [unreadMap, setUnreadMap] = useState<UnreadMap>({});
   const [justArrivedConvId, setJustArrivedConvId] = useState<string | null>(null);
   const justArrivedTimer = useRef<number | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const previousMessageCountRef = useRef(0);
+  const isUserScrollingRef = useRef(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -108,6 +113,32 @@ export default function Messages() {
       setJustArrivedConvId((cur) => (cur === convId ? null : cur));
       justArrivedTimer.current = null;
     }, 4500);
+  };
+
+  // Smart scroll: like WhatsApp behavior
+  const scrollToBottom = (force = false) => {
+    if (force || isNearBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  // Check if user is near bottom (within 150px threshold like WhatsApp)
+  const checkIfNearBottom = () => {
+    if (!scrollContainerRef.current) return false;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    const threshold = 150; // pixels from bottom
+    return scrollHeight - scrollTop - clientHeight < threshold;
+  };
+
+  // Handle scroll event with debounce
+  const handleScroll = () => {
+    isUserScrollingRef.current = true;
+    setIsNearBottom(checkIfNearBottom());
+    
+    // Reset user scrolling flag after they stop
+    setTimeout(() => {
+      isUserScrollingRef.current = false;
+    }, 150);
   };
 
   // Initial load
@@ -156,7 +187,7 @@ export default function Messages() {
     };
   }, []);
 
-  // Selection handler
+  // Selection handler - Always scroll to bottom when switching conversations
   useEffect(() => {
     if (conversations.length === 0) return;
 
@@ -173,6 +204,8 @@ export default function Messages() {
 
     if (!selectedConv || selectedConv.id !== toSelect.id) {
       setSelectedConv({ ...toSelect, messages: [] });
+      setIsNearBottom(true); // Reset to bottom when switching
+      previousMessageCountRef.current = 0;
 
       const url = `/dashboard/messages?masterId=${toSelect.masterId}&chatType=${toSelect.type}`;
       if (location.search !== `?masterId=${toSelect.masterId}&chatType=${toSelect.type}`) {
@@ -199,12 +232,34 @@ export default function Messages() {
           );
           setSelectedConv({ ...toSelect, messages: freshMsgs });
           setUnreadMap((prev) => ({ ...prev, [toSelect.id]: 0 }));
+          previousMessageCountRef.current = freshMsgs.length;
+          
+          // Force scroll to bottom when conversation loads
+          setTimeout(() => scrollToBottom(true), 100);
         } catch (err) {
           console.error("Failed to load messages:", err);
         }
       })();
     }
   }, [conversations, qMasterId, qChatType]);
+
+  // Smart scroll when messages update
+  useEffect(() => {
+    if (!selectedConv || selectedConv.messages.length === 0) return;
+
+    const currentCount = selectedConv.messages.length;
+    const previousCount = previousMessageCountRef.current;
+
+    // New messages arrived
+    if (currentCount > previousCount && previousCount > 0) {
+      // Only auto-scroll if user is near bottom (not reading old messages)
+      if (isNearBottom && !isUserScrollingRef.current) {
+        setTimeout(() => scrollToBottom(false), 50);
+      }
+    }
+
+    previousMessageCountRef.current = currentCount;
+  }, [selectedConv?.messages, isNearBottom]);
 
   // Polling
   useEffect(() => {
@@ -243,6 +298,8 @@ export default function Messages() {
   const handleSelectConversation = async (conv: Conversation) => {
     navigate(`/dashboard/messages?masterId=${conv.masterId}&chatType=${conv.type}`);
     setSelectedConv({ ...conv, messages: [] });
+    setIsNearBottom(true);
+    previousMessageCountRef.current = 0;
 
     try {
       let freshMsgs: Message[] = [];
@@ -263,6 +320,10 @@ export default function Messages() {
       );
       setSelectedConv({ ...conv, messages: freshMsgs });
       setUnreadMap((prev) => ({ ...prev, [conv.id]: 0 }));
+      previousMessageCountRef.current = freshMsgs.length;
+      
+      // Force scroll when switching conversation
+      setTimeout(() => scrollToBottom(true), 100);
     } catch (err) {
       console.error("Failed to mark messages as read:", err);
     }
@@ -295,6 +356,10 @@ export default function Messages() {
       setUnreadMap((prev) => ({ ...prev, [selectedConv.id]: 0 }));
 
       setNewMessage("");
+      
+      // Always scroll to bottom when YOU send a message
+      setIsNearBottom(true);
+      setTimeout(() => scrollToBottom(true), 50);
     } catch (err) {
       console.error("Failed to send message:", err);
       alert("Failed to send message. Please try again.");
@@ -306,8 +371,8 @@ export default function Messages() {
   );
 
   return (
-    <div className="h-screen flex flex-col p-6 overflow-hidden">
-      <div className="flex items-center justify-between mb-6">
+    <div className="h-screen flex flex-col p-6">
+      <div className="flex items-center justify-between mb-6 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Messages</h1>
           <p className="text-gray-600">Communicate with your doctor or support team</p>
@@ -318,7 +383,7 @@ export default function Messages() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px] min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0 overflow-hidden">
         {/* Sidebar */}
         <Card className="lg:col-span-1 flex flex-col overflow-hidden">
           <CardHeader className="pb-4">
@@ -371,10 +436,10 @@ export default function Messages() {
         </Card>
 
         {/* Chat Window */}
-        <Card className="lg:col-span-2 flex flex-col overflow-hidden">
+        <Card className="lg:col-span-2 flex flex-col min-h-0 overflow-hidden">
           {selectedConv && (
             <>
-              <CardHeader className="pb-4">
+              <CardHeader className="pb-4 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <Avatar className="h-10 w-10">
@@ -401,7 +466,11 @@ export default function Messages() {
               </CardHeader>
 
               {/* Messages */}
-              <CardContent className="flex-1 overflow-y-auto p-6 space-y-6">
+              <CardContent 
+                ref={scrollContainerRef}
+                className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0"
+                onScroll={handleScroll}
+              >
                 {(() => {
                   const grouped = groupMessagesByDate(selectedConv.messages);
                   const sortedDates = Object.keys(grouped).sort(
@@ -467,10 +536,11 @@ export default function Messages() {
                     </div>
                   ));
                 })()}
+                <div ref={messagesEndRef} />
               </CardContent>
 
               {/* Input */}
-              <div className="p-4 border-t bg-white">
+              <div className="p-4 border-t bg-white flex-shrink-0">
                 <div className="flex items-center justify-center gap-3">
                   <Input
                     placeholder="Type your message..."
