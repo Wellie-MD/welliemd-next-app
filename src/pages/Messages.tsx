@@ -1,3 +1,4 @@
+// src/pages/Messages.tsx (Admin Portal with date separators + smart autoscroll)
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,7 +63,7 @@ export default function Messages() {
       const updated = conversations.find((c) => c.id === activeConversation.id);
       if (updated) setActiveConversation(updated);
     }
-  }, [messages]);
+  }, [messages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 🔁 Reset conversation when client changes
   useEffect(() => {
@@ -76,19 +77,68 @@ export default function Messages() {
     }
   }, [loading, conversations, activeConversation]);
 
-  // SCROLL: only the right messages pane scrolls
+  // ===== Smart autoscroll =====
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const shouldStickRef = useRef(true);
+  const SCROLL_THRESHOLD = 48; // px from bottom counts as "near bottom"
+
+  // Recompute stickiness on user scroll
   useEffect(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    const el = messagesContainerRef.current;
+    if (!el) return;
+
+    const onScroll = () => {
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      shouldStickRef.current = distanceFromBottom <= SCROLL_THRESHOLD;
+    };
+
+    el.addEventListener("scroll", onScroll, { passive: true });
+    // initialize once so we start with correct stickiness
+    onScroll();
+
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+    };
+    // Re-attach when the conversation panel is remounted (container ref changes on key)
+  }, [activeConversation?.id, selectedClient?.id]);
+
+  // Scroll to bottom helper (next paint)
+  function stickToBottomSoon() {
+    shouldStickRef.current = true;
+    requestAnimationFrame(() => {
+      const el = messagesContainerRef.current;
+      if (!el) return;
+      el.scrollTop = el.scrollHeight;
+    });
+  }
+
+  // When messages for the active conversation change, only auto-scroll if we should stick
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (!el || !activeConversation) return;
+
+    if (shouldStickRef.current) {
+      el.scrollTop = el.scrollHeight;
     }
   }, [activeConversation?.messages]);
+
+  // When switching clients or conversations, we want to stick to bottom at open
+  useEffect(() => {
+    shouldStickRef.current = true;
+  }, [selectedClient?.id]);
+  useEffect(() => {
+    shouldStickRef.current = true;
+    stickToBottomSoon();
+  }, [activeConversation?.id]);
 
   async function handleSend() {
     if (!activeConversation || !newMessage.trim()) return;
 
     try {
       setSending(true);
+      // after sending our own message we want to remain at the bottom
+      shouldStickRef.current = true;
+
       await messageService.sendMessage({
         master_id: activeConversation.masterId,
         content: newMessage,
@@ -111,20 +161,19 @@ export default function Messages() {
         message_type: "support_to_patient" as const,
       };
 
-      setActiveConversation({
-        ...activeConversation,
-        messages: [...activeConversation.messages, newMsg],
-        lastMessage: newMsg.content,
-        lastTime: newMsg.created_at,
-      });
-      setNewMessage("");
+      setActiveConversation((prev) =>
+        prev
+          ? {
+              ...prev,
+              messages: [...prev.messages, newMsg],
+              lastMessage: newMsg.content,
+              lastTime: newMsg.created_at,
+            }
+          : prev
+      );
 
-      requestAnimationFrame(() => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop =
-            messagesContainerRef.current.scrollHeight;
-        }
-      });
+      setNewMessage("");
+      stickToBottomSoon();
     } catch (err) {
       console.error("Failed to send message", err);
     } finally {
@@ -263,45 +312,43 @@ export default function Messages() {
 
                       {/* Messages for this day */}
                       <div className="space-y-4">
-                        {grouped[dateKey].map((m) => {
+                        {grouped[dateKey].map((m: any) => {
                           let displayName = m.sender_name || "";
-                          if ((m as any).senderType === "patient") {
+                          if (m.senderType === "patient") {
                             displayName =
-                              (m as any).message_type === "patient_to_doctor"
+                              m.message_type === "patient_to_doctor"
                                 ? "Patient → Doctor"
-                                : (m as any).message_type === "patient_to_support"
+                                : m.message_type === "patient_to_support"
                                 ? "Patient → Support"
                                 : "Patient";
-                          } else if ((m as any).senderType === "doctor") displayName = "Doctor";
-                          else if ((m as any).senderType === "support") displayName = "Client Support";
-                          else if ((m as any).senderType === "super_support")
+                          } else if (m.senderType === "doctor") displayName = "Doctor";
+                          else if (m.senderType === "support") displayName = "Client Support";
+                          else if (m.senderType === "super_support")
                             displayName = "Super Admin Support";
 
                           let bubbleColor = "";
-                          if ((m as any).senderType === "patient")
+                          if (m.senderType === "patient")
                             bubbleColor = "bg-gray-100 text-gray-800";
-                          else if ((m as any).senderType === "doctor")
+                          else if (m.senderType === "doctor")
                             bubbleColor = "bg-blue-100 text-blue-800";
-                          else if ((m as any).senderType === "support")
+                          else if (m.senderType === "support")
                             bubbleColor = "bg-purple-100 text-purple-800";
-                          else if ((m as any).senderType === "super_support")
+                          else if (m.senderType === "super_support")
                             bubbleColor = "bg-red-100 text-red-800";
                           else bubbleColor = "bg-gray-200 text-gray-800";
 
                           return (
                             <div
-                              key={(m as any).id}
-                              className={`flex ${
-                                (m as any).side === "left" ? "justify-start" : "justify-end"
-                              }`}
+                              key={m.id}
+                              className={`flex ${m.side === "left" ? "justify-start" : "justify-end"}`}
                             >
                               <div
                                 className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}
                               >
-                                <div className="text-sm">{(m as any).content}</div>
+                                <div className="text-sm">{m.content}</div>
                                 <div className="text-xs opacity-70 mt-1">
                                   {displayName} •{" "}
-                                  {new Date((m as any).created_at).toLocaleTimeString([], {
+                                  {new Date(m.created_at).toLocaleTimeString([], {
                                     hour: "2-digit",
                                     minute: "2-digit",
                                   })}
@@ -343,7 +390,9 @@ export default function Messages() {
           ) : (
             <div className="flex-1 flex items-center justify-center text-muted-foreground">
               {selectedClient
-                ? (loading ? `Loading ${selectedClient.name}…` : "Select a conversation")
+                ? loading
+                  ? `Loading ${selectedClient.name}…`
+                  : "Select a conversation"
                 : "Select a client to load messages"}
             </div>
           )}

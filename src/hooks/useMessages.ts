@@ -1,5 +1,19 @@
-import { useEffect, useState } from "react";
+// src/hooks/useMessages.ts
+import { useEffect, useRef, useState } from "react";
 import { messageService, type Message } from "@/services/messageService";
+
+function shallowEqualMessages(a: Message[], b: Message[]) {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  // compare a few stable fields to detect real changes
+  for (let i = 0; i < a.length; i++) {
+    const A = a[i], B = b[i];
+    if (A.id !== B.id || A.created_at !== B.created_at || A.content !== B.content) {
+      return false;
+    }
+  }
+  return true;
+}
 
 export function useMessages(apiEndpoint?: string, pollInterval: number = 5000) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -13,8 +27,8 @@ export function useMessages(apiEndpoint?: string, pollInterval: number = 5000) {
       try {
         const res = await messageService.getAllMessages(apiEndpoint);
         if (cancelled) return;
-        setMessages(res);
         setError(null);
+        setMessages((prev) => (shallowEqualMessages(prev, res) ? prev : res));
       } catch (err: any) {
         if (cancelled) return;
         setError(err?.message || "Failed to load messages");
@@ -23,15 +37,12 @@ export function useMessages(apiEndpoint?: string, pollInterval: number = 5000) {
       }
     }
 
-    // 🔑 IMPORTANT: clear prior messages immediately when endpoint changes
+    // Reset state on endpoint change
     setMessages([]);
     setError(null);
     setLoading(true);
 
-    // initial fetch
     fetchMessages(true);
-
-    // polling
     const interval = setInterval(() => fetchMessages(false), pollInterval);
 
     return () => {
@@ -40,13 +51,13 @@ export function useMessages(apiEndpoint?: string, pollInterval: number = 5000) {
     };
   }, [apiEndpoint, pollInterval]);
 
-  // manual reload if needed
   const reload = () => {
-    // force a fresh cycle by toggling loading + fetching once
     setLoading(true);
     messageService
       .getAllMessages(apiEndpoint)
-      .then((res) => setMessages(res))
+      .then((res) =>
+        setMessages((prev) => (shallowEqualMessages(prev, res) ? prev : res))
+      )
       .catch((err: any) => setError(err?.message || "Failed to load messages"))
       .finally(() => setLoading(false));
   };
