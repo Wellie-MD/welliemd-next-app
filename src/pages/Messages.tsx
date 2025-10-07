@@ -37,6 +37,7 @@ function groupMessagesByDate<T extends { created_at: string }>(messages: T[]) {
   return groups;
 }
 
+// ---- storage helpers ----
 function writeLastSeenToStorage(next: LastSeenMap) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(next));
@@ -52,12 +53,26 @@ function readLastSeenFromStorage(): LastSeenMap {
 }
 
 export default function Messages() {
-  const { messages, loading, error } = useMessages(5000); // poll every 5s
+  // 🆕 bring belugaMessages as an extra feed (no change to your existing messages)
+  const { messages, belugaMessages, loading, error } = useMessages(5000); // poll every 5s
+
+  // 🆕 lightweight tabs; default "patient"
+  const [tab, setTab] = useState<"patient" | "support">("patient");
+
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
 
   const conversations = useMemo(() => groupMessages(messages), [messages]);
+
+  // 🆕 prepare beluga conversations (used only for the Support tab on right)
+  const belugaConversations = useMemo(() => groupMessages(
+    belugaMessages.filter(
+      m =>
+        m.message_type === "client_to_beluga_support" ||
+        m.message_type === "beluga_support_to_client"
+    )
+  ), [belugaMessages]);
 
   // unread state synced to localStorage
   const [lastSeen, setLastSeen] = useState<LastSeenMap>(() => readLastSeenFromStorage());
@@ -139,6 +154,12 @@ export default function Messages() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
+  // when switching tabs, keep the same master selected; if it doesn't exist in beluga yet, it's fine (empty view)
+  useEffect(() => {
+    if (!activeConversation) return;
+    // no-op; the right pane will pick the beluga thread by masterId or show empty
+  }, [tab]);
+
   // mark active read & advance seen/notify
   useEffect(() => {
     if (!activeConversation) return;
@@ -177,6 +198,7 @@ export default function Messages() {
     [hasNewMap]
   );
 
+  // beep for EVERY new message on unopened chats
   useEffect(() => {
     if (!initialLoadDoneRef.current) return;
     conversations.forEach((c) => {
@@ -233,22 +255,22 @@ export default function Messages() {
       await messageService.sendMessage({
         master_id: activeConversation.masterId,
         content: newMessage,
-        to: "support",
+        to: tab === "support" ? "beluga_support" : "support", // 🆕 beluga when Support tab
         from_client: true,
       });
 
-      // Optimistic UI append
+      // Optimistic UI append (match tab type)
       const newMsg: Message = {
         id: Date.now(),
         master_id: activeConversation.masterId,
         content: newMessage,
         created_at: new Date().toISOString(),
         read: true,
-        sender_name: "Support",
-        senderType: "support",
+        sender_name: tab === "support" ? "Client" : "Support",
+        senderType: tab === "support" ? "beluga_support" : "support",
         side: "right",
         patientName: activeConversation.patientName,
-        message_type: "support_to_patient",
+        message_type: tab === "support" ? "client_to_beluga_support" : "support_to_patient",
       };
 
       const updated = {
@@ -296,15 +318,50 @@ export default function Messages() {
     })();
   }
 
+  // 🆕 helper: messages shown in the right pane depend on the active tab
+  function getRightPaneMessages(): Message[] {
+    if (!activeConversation) return [];
+    if (tab === "patient") return activeConversation.messages;
+    const belugaConv = belugaConversations.find(
+      (bc) => bc.masterId === activeConversation.masterId
+    );
+    return belugaConv ? belugaConv.messages : [];
+  }
+
+  const rightMessages = getRightPaneMessages();
+
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Messages</h1>
+      {/* Header + Simple Tabs (no external UI deps) */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">Messages</h1>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px] min-h-0">
-        {/* LEFT: list */}
+        {/* LEFT: list (unchanged — uses your original conversations) */}
         <div className="lg:col-span-1 bg-card rounded-lg border overflow-hidden">
           <div className="p-4 border-b flex items-center justify-between">
-            <h2 className="text-lg font-semibold">All Messages</h2>
+            <h2 className="text-lg font-semibold">
+              {tab === "patient" ? "Patient Chats" : "Beluga Support Chats"}
+            </h2>
+            <div className="inline-flex rounded-lg border overflow-hidden">
+              <button
+                className={`px-4 py-1.5 text-sm font-medium ${
+                  tab === "patient" ? "bg-indigo-600 text-white" : "bg-white text-gray-700"
+                }`}
+                onClick={() => setTab("patient")}
+              >
+                Patient
+              </button>
+              <button
+                className={`px-4 py-1.5 text-sm font-medium ${
+                  tab === "support" ? "bg-indigo-600 text-white" : "bg-white text-gray-700"
+                } border-l`}
+                onClick={() => setTab("support")}
+              >
+                Support
+              </button>
+            </div>
           </div>
 
           <div className="p-4 space-y-2 overflow-y-auto h-full max-h-[calc(700px-64px)]">
@@ -360,7 +417,7 @@ export default function Messages() {
           </div>
         </div>
 
-        {/* RIGHT: chat */}
+        {/* RIGHT: chat (switches data source based on tab) */}
         <div className="lg:col-span-2 bg-card rounded-lg border flex flex-col overflow-hidden">
           {activeConversation ? (
             <>
@@ -374,7 +431,7 @@ export default function Messages() {
                       : activeConversation.patientEmail || "Patient"}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    Support / Doctor Messages
+                    {tab === "support" ? "Client ↔ Beluga Support" : "Support / Doctor Messages"}
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -387,12 +444,21 @@ export default function Messages() {
                 </div>
               </div>
 
+              {/* ---- DATE-GROUPED MESSAGES (uses rightMessages) ---- */}
               <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-6 min-h-0">
                 {(() => {
-                  const grouped = groupMessagesByDate(activeConversation.messages);
+                  const grouped = groupMessagesByDate(rightMessages);
                   const sortedDates = Object.keys(grouped).sort(
                     (a, b) => new Date(a).getTime() - new Date(b).getTime()
                   );
+
+                  if (sortedDates.length === 0) {
+                    return (
+                      <div className="text-center text-sm text-muted-foreground mt-8">
+                        No messages yet.
+                      </div>
+                    );
+                  }
 
                   return sortedDates.map((dateKey) => {
                     // Sort messages within a day by created_at ascending
@@ -421,6 +487,7 @@ export default function Messages() {
                             } else if (m.senderType === "doctor") displayName = "Doctor";
                             else if (m.senderType === "support") displayName = "Client Support";
                             else if (m.senderType === "super_support") displayName = "Super Admin Support";
+                            else if (m.senderType === "beluga_support") displayName = "Beluga Support";
                             else displayName = m.sender_name;
 
                             let bubbleColor = "";
@@ -428,6 +495,7 @@ export default function Messages() {
                             else if (m.senderType === "doctor") bubbleColor = "bg-blue-100 text-blue-800";
                             else if (m.senderType === "support") bubbleColor = "bg-purple-100 text-purple-800";
                             else if (m.senderType === "super_support") bubbleColor = "bg-red-100 text-red-800";
+                            else if (m.senderType === "beluga_support") bubbleColor = "bg-green-100 text-green-800";
                             else bubbleColor = "bg-gray-200 text-gray-800";
 
                             return (

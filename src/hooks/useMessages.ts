@@ -10,7 +10,8 @@ function arraysEqual(a: Message[], b: Message[]) {
 }
 
 export function useMessages(pollInterval: number = 5000) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);          // existing (patient/all) messages
+  const [belugaMessages, setBelugaMessages] = useState<Message[]>([]); // 🆕 beluga-only
   const [loading, setLoading] = useState(true);   
   const [error, setError] = useState<string | null>(null);
 
@@ -18,9 +19,14 @@ export function useMessages(pollInterval: number = 5000) {
     try {
       if (isInitial) setLoading(true);
 
-      const res = await messageService.getAllMessages();
+      // 🆕 fetch both in parallel; keep your original "messages" behavior
+      const [resAll, resBeluga] = await Promise.all([
+        messageService.getAllMessages(),
+        messageService.getBelugaMessages(),
+      ]);
 
-      setMessages((prev) => (arraysEqual(prev, res) ? prev : res));
+      setMessages((prev) => (arraysEqual(prev, resAll) ? prev : resAll));
+      setBelugaMessages((prev) => (arraysEqual(prev, resBeluga) ? prev : resBeluga));
     } catch (err: any) {
       setError(err.message || "Failed to load messages");
     } finally {
@@ -40,5 +46,6 @@ export function useMessages(pollInterval: number = 5000) {
     return () => clearInterval(interval);
   }, [pollInterval]);
 
-  return { messages, loading, error, reload: () => fetchMessages(true) };
+  // 🆕 expose belugaMessages in addition to your existing return
+  return { messages, belugaMessages, loading, error, reload: () => fetchMessages(true) };
 }
