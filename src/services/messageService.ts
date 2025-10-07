@@ -7,7 +7,7 @@ export interface Message {
   created_at: string;
   read: boolean;
   sender_name: string;
-  senderType: "patient" | "doctor" | "support" | "beluga_support" | "super_support";
+  senderType: "patient" | "doctor" | "support" | "beluga_support" | "super_support"; // widened
   side: "left" | "right";
   patientName: string;
   message_type:
@@ -15,9 +15,9 @@ export interface Message {
     | "support_to_patient"
     | "patient_to_doctor"
     | "patient_to_support"
-    | "client_to_beluga_support"
-    | "beluga_support_to_client"
-    | "super_support_to_patient"; // (kept optional for safety)
+    | "client_to_beluga_support"       // added
+    | "beluga_support_to_client"       // added
+    | "super_support_to_patient";      // (already exists on BE, safe to include)
 }
 
 interface PaginatedResponse<T> {
@@ -33,10 +33,12 @@ export const messageService = {
     return data;   // plain array
   },
 
-  // 🆕 Beluga-only messages (client ↔ Beluga)
-  async getBelugaMessages(): Promise<Message[]> {
-    const { data } = await api.get<Message[]>("/messages/client-beluga/");
-    return data;   // plain array
+  // 🆕 fetch a single beluga thread by master_id (prevents 400)
+  async getBelugaThread(master_id: string): Promise<Message[]> {
+    const { data } = await api.get<Message[]>(
+      `/messages/client-beluga/?master_id=${encodeURIComponent(master_id)}`
+    );
+    return data;
   },
 
   async markRead(master_id: string) {
@@ -52,7 +54,7 @@ export const messageService = {
   async sendMessage(payload: {
     master_id: string;
     content: string;
-    to: "doctor" | "support" | "beluga_support"; // 🆕 allow beluga_support
+    to: "doctor" | "support" | "beluga_support";   // 🆕 allow beluga_support
     from_client?: boolean;
   }): Promise<{ sent: boolean; id: number }> {
     const { data } = await api.post("/messages/send/", payload);

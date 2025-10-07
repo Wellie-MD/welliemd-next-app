@@ -24,8 +24,8 @@ function getMessageGroupLabel(dateStr: string) {
   const date = new Date(dateStr);
   if (isToday(date)) return "Today";
   if (isYesterday(date)) return "Yesterday";
-  if (isThisWeek(date)) return format(date, "EEEE"); // Monday, Tuesday...
-  return format(date, "MMM d, yyyy"); // Sep 12, 2025
+  if (isThisWeek(date)) return format(date, "EEEE");
+  return format(date, "MMM d, yyyy");
 }
 function groupMessagesByDate<T extends { created_at: string }>(messages: T[]) {
   const groups: Record<string, T[]> = {};
@@ -53,10 +53,10 @@ function readLastSeenFromStorage(): LastSeenMap {
 }
 
 export default function Messages() {
-  // 🆕 bring belugaMessages as an extra feed (no change to your existing messages)
-  const { messages, belugaMessages, loading, error } = useMessages(5000); // poll every 5s
+  // keep your original hook contract
+  const { messages, loading, error } = useMessages(5000);
 
-  // 🆕 lightweight tabs; default "patient"
+  // simple tabs
   const [tab, setTab] = useState<"patient" | "support">("patient");
 
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
@@ -65,14 +65,27 @@ export default function Messages() {
 
   const conversations = useMemo(() => groupMessages(messages), [messages]);
 
-  // 🆕 prepare beluga conversations (used only for the Support tab on right)
-  const belugaConversations = useMemo(() => groupMessages(
-    belugaMessages.filter(
-      m =>
-        m.message_type === "client_to_beluga_support" ||
-        m.message_type === "beluga_support_to_client"
-    )
-  ), [belugaMessages]);
+  // 🆕 beluga thread cache: master_id -> messages
+  const [belugaCache, setBelugaCache] = useState<Record<string, Message[]>>({});
+
+  // when in Support tab and we have a selected patient, load its beluga thread (fixes 400)
+  useEffect(() => {
+    const loadBeluga = async () => {
+      if (tab !== "support") return;
+      const masterId = activeConversation?.masterId;
+      if (!masterId) return;
+      if (belugaCache[masterId]) return; // already cached
+
+      try {
+        const msgs = await messageService.getBelugaThread(masterId);
+        setBelugaCache((prev) => ({ ...prev, [masterId]: msgs }));
+      } catch (e) {
+        // silently ignore; your left pane already shows the error via `error` if needed
+        // or you can console.error(e)
+      }
+    };
+    loadBeluga();
+  }, [tab, activeConversation?.masterId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // unread state synced to localStorage
   const [lastSeen, setLastSeen] = useState<LastSeenMap>(() => readLastSeenFromStorage());
@@ -91,9 +104,9 @@ export default function Messages() {
   }, []);
 
   const latestKey = (c: Conversation) => {
-    const last = c.messages[c.messages.length - 1];
-    return (last?.id as number | string | undefined) ?? last?.created_at ?? c.lastTime;
-    // fallback ensures something to store for seen/notify
+    const last = c.messages[c.length - 1];
+    const lastMsg = c.messages[c.messages.length - 1];
+    return (lastMsg?.id as number | string | undefined) ?? lastMsg?.created_at ?? c.lastTime;
   };
 
   // chime
@@ -154,12 +167,6 @@ export default function Messages() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
-  // when switching tabs, keep the same master selected; if it doesn't exist in beluga yet, it's fine (empty view)
-  useEffect(() => {
-    if (!activeConversation) return;
-    // no-op; the right pane will pick the beluga thread by masterId or show empty
-  }, [tab]);
-
   // mark active read & advance seen/notify
   useEffect(() => {
     if (!activeConversation) return;
@@ -198,7 +205,7 @@ export default function Messages() {
     [hasNewMap]
   );
 
-  // beep for EVERY new message on unopened chats
+  // beep for new messages on unopened chats
   useEffect(() => {
     if (!initialLoadDoneRef.current) return;
     conversations.forEach((c) => {
@@ -255,11 +262,10 @@ export default function Messages() {
       await messageService.sendMessage({
         master_id: activeConversation.masterId,
         content: newMessage,
-        to: tab === "support" ? "beluga_support" : "support", // 🆕 beluga when Support tab
+        to: tab === "support" ? "beluga_support" : "support",
         from_client: true,
       });
 
-      // Optimistic UI append (match tab type)
       const newMsg: Message = {
         id: Date.now(),
         master_id: activeConversation.masterId,
@@ -273,20 +279,31 @@ export default function Messages() {
         message_type: tab === "support" ? "client_to_beluga_support" : "support_to_patient",
       };
 
-      const updated = {
-        ...activeConversation,
-        messages: [...activeConversation.messages, newMsg],
-        lastMessage: newMsg.content,
-        lastTime: newMsg.created_at,
-      };
-      setActiveConversation(updated);
-
-      setLastSeen((prev) => {
-        const merged = { ...prev, [updated.id]: newMsg.id ?? newMsg.created_at };
-        writeLastSeenToStorage(merged);
-        return merged;
-      });
-      lastNotifiedKeyRef.current[updated.id] = newMsg.id ?? newMsg.created_at;
+      if (tab === "support") {
+        // update cache for this master
+        setBelugaCache((prev) => {
+          const list = prev[activeConversation.masterId] || [];
+          return {
+            ...prev,
+            [activeConversation.masterId]: [...list, newMsg],
+          };
+        });
+      } else {
+        // update visible conversation (patient tab)
+        const updated = {
+          ...activeConversation,
+          messages: [...activeConversation.messages, newMsg],
+          lastMessage: newMsg.content,
+          lastTime: newMsg.created_at,
+        };
+        setActiveConversation(updated);
+        setLastSeen((prev) => {
+          const merged = { ...prev, [updated.id]: newMsg.id ?? newMsg.created_at };
+          writeLastSeenToStorage(merged);
+          return merged;
+        });
+        lastNotifiedKeyRef.current[updated.id] = newMsg.id ?? newMsg.created_at;
+      }
 
       setNewMessage("");
       requestAnimationFrame(() => {
@@ -318,27 +335,23 @@ export default function Messages() {
     })();
   }
 
-  // 🆕 helper: messages shown in the right pane depend on the active tab
+  // messages for right pane depend on tab
   function getRightPaneMessages(): Message[] {
     if (!activeConversation) return [];
     if (tab === "patient") return activeConversation.messages;
-    const belugaConv = belugaConversations.find(
-      (bc) => bc.masterId === activeConversation.masterId
-    );
-    return belugaConv ? belugaConv.messages : [];
+    const list = belugaCache[activeConversation.masterId];
+    return list ?? [];
   }
-
   const rightMessages = getRightPaneMessages();
 
   return (
     <div className="p-6">
-      {/* Header + Simple Tabs (no external UI deps) */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Messages</h1>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px] min-h-0">
-        {/* LEFT: list (unchanged — uses your original conversations) */}
+        {/* LEFT: list */}
         <div className="lg:col-span-1 bg-card rounded-lg border overflow-hidden">
           <div className="p-4 border-b flex items-center justify-between">
             <h2 className="text-lg font-semibold">
@@ -364,7 +377,7 @@ export default function Messages() {
             </div>
           </div>
 
-          <div className="p-4 space-y-2 overflow-y-auto h-full max-h-[calc(700px-64px)]">
+          <div className="p-4 space-y-2 overflow-y-auto h-full max-h=[calc(700px-64px)]">
             {loading && <div>Loading...</div>}
             {error && <div className="text-red-500">{error}</div>}
 
@@ -417,7 +430,7 @@ export default function Messages() {
           </div>
         </div>
 
-        {/* RIGHT: chat (switches data source based on tab) */}
+        {/* RIGHT: chat */}
         <div className="lg:col-span-2 bg-card rounded-lg border flex flex-col overflow-hidden">
           {activeConversation ? (
             <>
@@ -444,7 +457,7 @@ export default function Messages() {
                 </div>
               </div>
 
-              {/* ---- DATE-GROUPED MESSAGES (uses rightMessages) ---- */}
+              {/* ---- DATE-GROUPED MESSAGES ---- */}
               <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-6 min-h-0">
                 {(() => {
                   const grouped = groupMessagesByDate(rightMessages);
@@ -461,7 +474,6 @@ export default function Messages() {
                   }
 
                   return sortedDates.map((dateKey) => {
-                    // Sort messages within a day by created_at ascending
                     const dayMsgs = [...grouped[dateKey]].sort(
                       (a, b) =>
                         new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
