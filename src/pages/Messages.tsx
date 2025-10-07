@@ -37,7 +37,6 @@ function groupMessagesByDate<T extends { created_at: string }>(messages: T[]) {
   return groups;
 }
 
-// ---- storage helpers ----
 function writeLastSeenToStorage(next: LastSeenMap) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(next));
@@ -178,7 +177,6 @@ export default function Messages() {
     [hasNewMap]
   );
 
-  // beep for EVERY new message on unopened chats
   useEffect(() => {
     if (!initialLoadDoneRef.current) return;
     conversations.forEach((c) => {
@@ -389,7 +387,6 @@ export default function Messages() {
                 </div>
               </div>
 
-              {/* ---- DATE-GROUPED MESSAGES ---- */}
               <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-6 min-h-0">
                 {(() => {
                   const grouped = groupMessagesByDate(activeConversation.messages);

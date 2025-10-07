@@ -11,7 +11,7 @@ function arraysEqual(a: Message[], b: Message[]) {
 
 export function useMessages(pollInterval: number = 5000) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(true);   // 👈 only for first load
+  const [loading, setLoading] = useState(true);   
   const [error, setError] = useState<string | null>(null);
 
   async function fetchMessages(isInitial = false) {
@@ -20,7 +20,6 @@ export function useMessages(pollInterval: number = 5000) {
 
       const res = await messageService.getAllMessages();
 
-      // ✅ only update if different to avoid unnecessary re-render
       setMessages((prev) => (arraysEqual(prev, res) ? prev : res));
     } catch (err: any) {
       setError(err.message || "Failed to load messages");
