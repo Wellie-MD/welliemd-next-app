@@ -69,23 +69,51 @@ export default function Messages() {
   const [belugaCache, setBelugaCache] = useState<Record<string, Message[]>>({});
 
   // when in Support tab and we have a selected patient, load its beluga thread (fixes 400)
+// 🆕 poll Beluga thread when Support tab is active
   useEffect(() => {
-    const loadBeluga = async () => {
-      if (tab !== "support") return;
-      const masterId = activeConversation?.masterId;
-      if (!masterId) return;
-      if (belugaCache[masterId]) return; // already cached
+    const masterId = activeConversation?.masterId;
+    if (tab !== "support" || !masterId) return;
 
+    const belugaArraysEqual = (a: Message[], b: Message[]) => {
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) {
+        if (
+          a[i].id !== b[i].id ||
+          a[i].content !== b[i].content ||
+          a[i].created_at !== b[i].created_at
+        ) {
+          return false;
+        }
+      }
+      return true;
+    };
+
+    let cancelled = false;
+
+    const fetchBeluga = async () => {
       try {
         const msgs = await messageService.getBelugaThread(masterId);
-        setBelugaCache((prev) => ({ ...prev, [masterId]: msgs }));
-      } catch (e) {
-        // silently ignore; your left pane already shows the error via `error` if needed
-        // or you can console.error(e)
+        if (cancelled) return;
+
+        setBelugaCache((prev) => {
+          const existing = prev[masterId] || [];
+          if (belugaArraysEqual(existing, msgs)) return prev; // no change
+          return { ...prev, [masterId]: msgs };
+        });
+      } catch {
+        // ignore polling errors
       }
     };
-    loadBeluga();
-  }, [tab, activeConversation?.masterId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // initial + poll every 5s
+    fetchBeluga();
+    const interval = setInterval(fetchBeluga, 5000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [tab, activeConversation?.masterId]);
 
   // unread state synced to localStorage
   const [lastSeen, setLastSeen] = useState<LastSeenMap>(() => readLastSeenFromStorage());
