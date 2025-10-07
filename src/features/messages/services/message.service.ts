@@ -1,52 +1,67 @@
 // src/features/messages/services/message.service.ts
 import { apiClient } from "@/shared/api/client";
 
-export type ChatRecipient = "doctor" | "support";
+export type ChatRecipient = "doctor" | "support"; // patient UI only
 
 export interface RawMessage {
   id: number | string;
   content: string;
-  timestamp: string;           // ISO (created_at)
-  read?: boolean;              // legacy mirror
-  readByPatient?: boolean;     // preferred
-  masterId: string;            // master_id
+  timestamp: string;           // ISO
+  read?: boolean;
+  readByPatient?: boolean;
+  masterId: string;
   senderName?: string;
 
-  // From BE (/messages/all/)
-  senderType?: "patient" | "doctor" | "support" | "super_support" | "unknown";
-  side?: "left" | "right";     // relative to patient (left = patient)
+  // From BE
+  senderType?: "patient" | "doctor" | "support" | "super_support" | "beluga_support" | "unknown";
+  side?: "left" | "right";
   message_type?: string;
 
-  // convenience for styling
+  // Convenience
   chatType?: "doctor" | "support" | "super_support";
+
+  // NEW: media fields (FE renders attachments with these)
+  is_media?: boolean;
+  media_url?: string;
+  mime_type?: string;
+  file_name?: string;
 }
 
 export const MessageService = {
-  /** NEW: unified list for a given master_id */
+  /** Unified list for a given master_id (doctor + support; beluga is excluded by BE) */
   async getAllMessages(masterId: string): Promise<RawMessage[]> {
     const res = await apiClient.get(`/messages/all/`, { params: { master_id: masterId } });
-
-    return (res.data as any[]).map((m) => ({
-      id: m.id,
-      content: m.content,
-      timestamp: m.created_at ?? m.timestamp,
-      read: m.read,
-      readByPatient: m.readByPatient,
-      masterId: m.master_id ?? m.masterId,
-      senderName: m.sender_name ?? m.senderName,
-      senderType: m.senderType,
-      side: m.side,
-      message_type: m.message_type,
-      chatType:
-        m.message_type === "doctor_to_patient" || m.message_type === "patient_to_doctor"
+    return (res.data as any[]).map((m) => {
+      const msgType = m.message_type as string;
+      const chatType: RawMessage["chatType"] =
+        msgType === "doctor_to_patient" || msgType === "patient_to_doctor"
           ? "doctor"
-          : m.message_type === "super_support_to_patient"
+          : msgType === "super_support_to_patient"
           ? "super_support"
-          : "support",
-    }));
+          : "support";
+
+      return {
+        id: m.id,
+        content: m.content,
+        timestamp: m.created_at ?? m.timestamp,
+        read: m.read,
+        readByPatient: m.readByPatient ?? m.read_by_patient,
+        masterId: m.master_id ?? m.masterId,
+        senderName: m.sender_name ?? m.senderName,
+        senderType: m.senderType,
+        side: m.side,
+        message_type: msgType,
+        chatType,
+
+        // media
+        is_media: !!m.is_media,
+        media_url: m.media_url || undefined,
+        mime_type: m.media_mime_type || undefined,
+        file_name: m.media_file_name || undefined,
+      };
+    });
   },
 
-  /** Keep if other parts still call them */
   async getDoctorMessages(masterId: string): Promise<RawMessage[]> {
     const res = await apiClient.get(`/messages/doctor/`, { params: { master_id: masterId } });
     return res.data as RawMessage[];
@@ -62,14 +77,27 @@ export const MessageService = {
     return res.data;
   },
 
+  /** POST /messages/send/ (patient UI: no from_client flag) */
   async sendMessage(payload: {
     master_id: string;
     to: ChatRecipient; // "doctor" | "support"
-    content: string;
+    content?: string;  // optional when is_media is true
     is_media?: boolean;
     media_url?: string;
+    media_mime_type?: string;
+    media_file_name?: string;
   }): Promise<{ sent: boolean; id: number }> {
     const res = await apiClient.post(`/messages/send/`, payload);
+    return res.data;
+  },
+
+  /** POST /storage/upload/ (multipart) -> {url, fileName, mimeType, path} */
+  async uploadAttachment(file: File): Promise<{ url: string; fileName: string; mimeType: string; path: string }> {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await apiClient.post(`/storage/upload/`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return res.data;
   },
 };

@@ -2,7 +2,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Send, Search, AtSign, X, Phone, Video, ChevronDown } from "lucide-react";
+import {
+  Send,
+  Search,
+  AtSign,
+  X,
+  Phone,
+  Video,
+  ChevronDown,
+  Paperclip,
+} from "lucide-react";
 
 import { Card, CardContent, CardHeader } from "./ui/card";
 import { Button } from "./ui/button";
@@ -65,7 +74,8 @@ function routeLabel(m: RawMessage) {
   if (m.senderType === "patient") {
     if (m.chatType === "doctor") return "You → Doctor";
     if (m.chatType === "super_support") return "You → Super Admin Support";
-    return "You → Support";
+    if (m.chatType === "support") return "You → Support";
+    return "You";
   }
   if (m.senderType === "doctor") return "Doctor → You";
   if (m.senderType === "super_support") return "Super Admin Support → You";
@@ -73,14 +83,20 @@ function routeLabel(m: RawMessage) {
   return "You";
 }
 
+const isImage = (mime?: string) => (mime ?? "").startsWith("image/");
+
 export default function Messages() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selected, setSelected] = useState<Conversation | null>(null);
 
   const [composeText, setComposeText] = useState("");
-  // default is support
-  const [composeTo, setComposeTo] = useState<ChatRecipient>("support");
+  const [composeTo, setComposeTo] = useState<ChatRecipient>("support"); // default support
   const [search, setSearch] = useState("");
+
+  // attachments (multi-select)
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // smart scroll
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -187,7 +203,6 @@ export default function Messages() {
     }
   };
 
-
   // ----- Chip menu (clicking on the @ chip) -----
   const [showChipMenu, setShowChipMenu] = useState(false);
   const chipRef = useRef<HTMLDivElement | null>(null);
@@ -209,37 +224,136 @@ export default function Messages() {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
-  const send = async () => {
-    if (!selected) return;
-    const body = composeText.trim();
-    if (!body) return;
+  // ----- Attachments -----
+  const openFilePicker = () => fileInputRef.current?.click();
 
-    const res = await MessageService.sendMessage({
-      master_id: selected.masterId,
-      to: composeTo,
-      content: body,
+  const onChooseFile: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    // Optional: further filter by size/mime if needed
+    setAttachedFiles((prev) => {
+      const next = [...prev];
+      files.forEach((f) => {
+        const key = `${f.name}_${f.size}_${f.lastModified}`;
+        const exists = next.some((x) => `${x.name}_${x.size}_${x.lastModified}` === key);
+        if (!exists) next.push(f);
+      });
+      return next;
     });
 
-    // optimistic append (newest-first)
-    const newMsg: RawMessage = {
-      id: res?.id ?? Date.now(),
-      content: body,
-      timestamp: new Date().toISOString(),
-      read: true,
-      readByPatient: true,
-      masterId: selected.masterId,
-      senderType: "patient",
-      side: "left",
-      chatType: composeTo,
-    };
+    // reset so same file can be picked again
+    e.currentTarget.value = "";
+  };
 
-    const next = [newMsg, ...(selected.messages || [])];
-    setSelected((prev) => (prev ? { ...prev, messages: next } : prev));
-    setConversations((prev) =>
-      prev.map((c) => (c.id === selected.id ? { ...c, messages: next } : c))
-    );
-    setComposeText("");
-    setTimeout(() => scrollToBottom(true), 40);
+  const removeFile = (idx: number) =>
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== idx));
+
+  // ----- Send -----
+  const send = async () => {
+    if (!selected) return;
+
+    const body = composeText.trim();
+    const hasFiles = attachedFiles.length > 0;
+    if (!body && !hasFiles) return;
+
+    setUploading(true);
+    try {
+      // 1) upload all files (parallel)
+      const uploads = await Promise.all(
+        attachedFiles.map((f) => MessageService.uploadAttachment(f))
+      ); // -> [{url, fileName, mimeType}, ...]
+
+      const makeOptimistic = (opts: {
+        content: string;
+        is_media?: boolean;
+        media_url?: string;
+        mime_type?: string;
+        file_name?: string;
+        chatTo: ChatRecipient;
+      }): RawMessage => ({
+        id: Date.now() + Math.random(),
+        content: opts.content,
+        timestamp: new Date().toISOString(),
+        read: true,
+        readByPatient: true,
+        masterId: selected.masterId,
+        senderType: "patient",
+        side: "left",
+        chatType: opts.chatTo,
+        is_media: !!opts.is_media,
+        media_url: opts.media_url,
+        mime_type: opts.mime_type,
+        file_name: opts.file_name,
+      });
+
+      const optimistic: RawMessage[] = [];
+
+      // 2) if text exists, send it; if a file also exists, attach the first file to this message
+      if (body) {
+        const first = uploads[0];
+        await MessageService.sendMessage({
+          master_id: selected.masterId,
+          to: composeTo,
+          content: body,
+          is_media: !!first,
+          media_url: first?.url,
+          media_mime_type: first?.mimeType,
+          media_file_name: first?.fileName,
+        });
+
+        optimistic.push(
+          makeOptimistic({
+            content: body,
+            is_media: !!first,
+            media_url: first?.url,
+            mime_type: first?.mimeType,
+            file_name: first?.fileName,
+            chatTo: composeTo,
+          })
+        );
+
+        // remove the first from the list (already used)
+        if (first) uploads.shift();
+      }
+
+      // 3) send any remaining files as separate messages (no text)
+      for (const up of uploads) {
+        await MessageService.sendMessage({
+          master_id: selected.masterId,
+          to: composeTo,
+          content: up.fileName || "Attachment",
+          is_media: true,
+          media_url: up.url,
+          media_mime_type: up.mimeType,
+          media_file_name: up.fileName,
+        });
+
+        optimistic.push(
+          makeOptimistic({
+            content: up.fileName || "Attachment",
+            is_media: true,
+            media_url: up.url,
+            mime_type: up.mimeType,
+            file_name: up.fileName,
+            chatTo: composeTo,
+          })
+        );
+      }
+
+      // 4) update UI (newest-first in state)
+      const next = [...optimistic, ...(selected.messages || [])];
+      setSelected((prev) => (prev ? { ...prev, messages: next } : prev));
+      setConversations((prev) =>
+        prev.map((c) => (c.id === selected.id ? { ...c, messages: next } : c))
+      );
+
+      setComposeText("");
+      setAttachedFiles([]);
+      setTimeout(() => scrollToBottom(true), 40);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const filtered = useMemo(
@@ -373,7 +487,40 @@ export default function Messages() {
                           return (
                             <div key={m.id} className={`flex ${alignment}`}>
                               <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubble}`}>
-                                <p className="text-sm whitespace-pre-wrap break-words">{m.content}</p>
+                                {/* body or attachment */}
+                                {m.is_media && m.media_url ? (
+                                  isImage(m.mime_type) ? (
+                                    <a
+                                      href={m.media_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="block"
+                                      title={m.file_name || "Open image"}
+                                    >
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={m.media_url}
+                                        alt={m.file_name || "attachment"}
+                                        className="rounded-md max-h-60 object-contain mb-2"
+                                      />
+                                    </a>
+                                  ) : (
+                                    <a
+                                      href={m.media_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center text-xs underline break-all"
+                                      title={m.file_name || "Open file"}
+                                    >
+                                      {m.file_name || m.content || "Attachment"}
+                                    </a>
+                                  )
+                                ) : (
+                                  <p className="text-sm whitespace-pre-wrap break-words">
+                                    {m.content}
+                                  </p>
+                                )}
+
                                 <p className={`text-xs mt-1 ${sub}`}>
                                   {routeLabel(m)} •{" "}
                                   {new Date(m.timestamp).toLocaleTimeString([], {
@@ -418,7 +565,7 @@ export default function Messages() {
                             : 0,
                           top: chipRef.current
                             ? `${chipRef.current.getBoundingClientRect().top - 90}px`
-                            : 0, // 👈 adjust upward distance
+                            : 0,
                         }}
                       >
                         <button
@@ -447,6 +594,7 @@ export default function Messages() {
                     )}
                   </div>
 
+                  {/* Message text */}
                   <div className="relative flex-1">
                     <Input
                       placeholder="Type your message…"
@@ -460,15 +608,57 @@ export default function Messages() {
                         }
                       }}
                     />
-
-
                   </div>
 
-                  <Button onClick={send} className="px-6">
-                    <Send className="h-4 w-4 mr-2" />
-                    Send
-                  </Button>
+                  {/* Attach + Send */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      accept={"image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"}
+                      multiple
+                      onChange={onChooseFile}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={openFilePicker}
+                      disabled={uploading}
+                      title="Attach images or documents"
+                      className="rounded-full"
+                    >
+                      <Paperclip className="h-4 w-4" />
+                    </Button>
+
+                    <Button onClick={send} className="px-6" disabled={uploading}>
+                      <Send className="h-4 w-4 mr-2" />
+                      {uploading ? "Sending…" : "Send"}
+                    </Button>
+                  </div>
                 </div>
+
+                {/* Selected files preview (chips) */}
+                {attachedFiles.length > 0 && (
+                  <div className="max-w-3xl mx-auto mt-2 flex flex-wrap gap-2">
+                    {attachedFiles.map((f, idx) => (
+                      <span
+                        key={`${f.name}_${f.size}_${f.lastModified}`}
+                        className="inline-flex items-center gap-2 text-xs px-2 py-1 border rounded-full bg-gray-50"
+                      >
+                        {f.type?.startsWith("image/") ? "Image:" : "File:"} {f.name}
+                        <button
+                          onClick={() => removeFile(idx)}
+                          className="ml-1 hover:text-red-600"
+                          title="Remove"
+                          type="button"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </>
           )}
