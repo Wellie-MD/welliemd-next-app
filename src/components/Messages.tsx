@@ -187,20 +187,6 @@ export default function Messages() {
     }
   };
 
-  // ----- @ mention picker (typing) -----
-  const [showMentionMenu, setShowMentionMenu] = useState(false);
-
-  useEffect(() => {
-    const trimmed = composeText.replace(/\s+$/g, "");
-    setShowMentionMenu(trimmed.endsWith("@"));
-  }, [composeText]);
-
-  const chooseRecipient = (to: ChatRecipient) => {
-    setComposeTo(to);
-    setComposeText((t) => t.replace(/@\s*$/, "").trimStart());
-    setShowMentionMenu(false);
-    setShowChipMenu(false);
-  };
 
   // ----- Chip menu (clicking on the @ chip) -----
   const [showChipMenu, setShowChipMenu] = useState(false);
@@ -414,41 +400,48 @@ export default function Messages() {
                     <button
                       type="button"
                       onClick={() => setShowChipMenu((v) => !v)}
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs text-gray-700 bg-white hover:bg-gray-50"
-                      title="Click to choose recipient"
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs text-gray-700 bg-white hover:bg-gray-50 relative z-30"
+                      title="Recipient"
                     >
                       <AtSign className="h-3.5 w-3.5" />
                       <span className="capitalize">{composeTo}</span>
                       <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
                     </button>
 
-                    {/* chip menu above the chip */}
                     {showChipMenu && (
                       <div
                         ref={chipMenuRef}
-                        className="absolute left-0 bottom-full mb-2 bg-white border rounded-md shadow-md w-40 overflow-hidden z-20"
+                        className="fixed bg-white border rounded-md shadow-md w-40 overflow-hidden z-[9999]"
+                        style={{
+                          left: chipRef.current
+                            ? `${chipRef.current.getBoundingClientRect().left}px`
+                            : 0,
+                          top: chipRef.current
+                            ? `${chipRef.current.getBoundingClientRect().top - 90}px`
+                            : 0, // 👈 adjust upward distance
+                        }}
                       >
                         <button
-                          className={`w-full text-left px-3 py-2 hover:bg-gray-50 ${composeTo === "doctor" ? "bg-gray-50" : ""}`}
-                          onClick={() => chooseRecipient("doctor")}
+                          className={`w-full text-left px-3 py-2 hover:bg-gray-50 ${
+                            composeTo === "doctor" ? "bg-gray-50 font-medium" : ""
+                          }`}
+                          onClick={() => {
+                            setComposeTo("doctor");
+                            setShowChipMenu(false);
+                          }}
                         >
                           @ Doctor
                         </button>
                         <button
-                          className={`w-full text-left px-3 py-2 hover:bg-gray-50 ${composeTo === "support" ? "bg-gray-50" : ""}`}
-                          onClick={() => chooseRecipient("support")}
-                        >
-                          @ Support
-                        </button>
-                        <div className="border-t" />
-                        <button
-                          className="w-full text-left px-3 py-2 text-gray-600 hover:bg-gray-50"
+                          className={`w-full text-left px-3 py-2 hover:bg-gray-50 ${
+                            composeTo === "support" ? "bg-gray-50 font-medium" : ""
+                          }`}
                           onClick={() => {
-                            setComposeTo("support"); // reset default
+                            setComposeTo("support");
                             setShowChipMenu(false);
                           }}
                         >
-                          Reset to Support
+                          @ Support
                         </button>
                       </div>
                     )}
@@ -456,7 +449,7 @@ export default function Messages() {
 
                   <div className="relative flex-1">
                     <Input
-                      placeholder="Type your message… (type @ to choose Doctor/Support — default: Support)"
+                      placeholder="Type your message…"
                       value={composeText}
                       onChange={(e) => setComposeText(e.target.value)}
                       className="rounded-full border px-4 py-2 text-sm"
@@ -468,23 +461,7 @@ export default function Messages() {
                       }}
                     />
 
-                    {/* @-typing menu ABOVE the input */}
-                    {showMentionMenu && (
-                      <div className="absolute left-2 bottom-full mb-2 bg-white border rounded-md shadow-md w-56 overflow-hidden z-10">
-                        <button
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50"
-                          onClick={() => chooseRecipient("doctor")}
-                        >
-                          @ Doctor
-                        </button>
-                        <button
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50"
-                          onClick={() => chooseRecipient("support")}
-                        >
-                          @ Support
-                        </button>
-                      </div>
-                    )}
+
                   </div>
 
                   <Button onClick={send} className="px-6">
