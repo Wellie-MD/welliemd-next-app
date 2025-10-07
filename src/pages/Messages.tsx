@@ -104,8 +104,7 @@ export default function Messages() {
   }, []);
 
   const latestKey = (c: Conversation) => {
-    const last = c.messages[c.length - 1];
-    const lastMsg = c.messages[c.messages.length - 1];
+    const lastMsg = c.messages[c.messages.length - 1];  // ✅ removed the stray c.length access
     return (lastMsg?.id as number | string | undefined) ?? lastMsg?.created_at ?? c.lastTime;
   };
 
@@ -266,6 +265,7 @@ export default function Messages() {
         from_client: true,
       });
 
+      // inside handleSend(), create optimistic message:
       const newMsg: Message = {
         id: Date.now(),
         master_id: activeConversation.masterId,
@@ -273,11 +273,14 @@ export default function Messages() {
         created_at: new Date().toISOString(),
         read: true,
         sender_name: tab === "support" ? "Client" : "Support",
-        senderType: tab === "support" ? "beluga_support" : "support",
+        senderType: tab === "support" ? "client" : "support",   // ✅ was "beluga_support"
         side: "right",
         patientName: activeConversation.patientName,
-        message_type: tab === "support" ? "client_to_beluga_support" : "support_to_patient",
+        message_type: tab === "support"
+          ? "client_to_beluga_support"
+          : "support_to_patient",
       };
+
 
       if (tab === "support") {
         // update cache for this master
@@ -496,6 +499,8 @@ export default function Messages() {
                               if (m.message_type === "patient_to_doctor") displayName = "Patient → Doctor";
                               else if (m.message_type === "patient_to_support") displayName = "Patient → Support";
                               else displayName = "Patient";
+                            } else if (m.senderType === "client") {                 // ✅ NEW
+                              displayName = "Client";
                             } else if (m.senderType === "doctor") displayName = "Doctor";
                             else if (m.senderType === "support") displayName = "Client Support";
                             else if (m.senderType === "super_support") displayName = "Super Admin Support";
@@ -504,6 +509,7 @@ export default function Messages() {
 
                             let bubbleColor = "";
                             if (m.senderType === "patient") bubbleColor = "bg-gray-100 text-gray-800";
+                            else if (m.senderType === "client") bubbleColor = "bg-gray-100 text-gray-800";         // ✅ NEW (match patient styling)
                             else if (m.senderType === "doctor") bubbleColor = "bg-blue-100 text-blue-800";
                             else if (m.senderType === "support") bubbleColor = "bg-purple-100 text-purple-800";
                             else if (m.senderType === "super_support") bubbleColor = "bg-red-100 text-red-800";
