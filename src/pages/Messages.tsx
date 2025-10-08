@@ -40,6 +40,26 @@ function groupMessagesByDate<T extends { created_at: string }>(messages: T[]) {
   return groups;
 }
 
+/* === ADD: lightweight URL/file detectors (used when BE sends only a URL in content) === */
+const URL_RE =
+  /https?:\/\/[^\s)]+/i;
+const IMG_EXT_RE = /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/i;
+const DOC_EXT_RE = /\.(pdf|docx?|xlsx?|csv|txt|rtf)(\?.*)?$/i;
+function isImageMime(mime?: string) { return !!mime && mime.startsWith("image/"); }
+function extractFirstUrl(text?: string): string | null {
+  if (!text) return null;
+  const m = text.match(URL_RE);
+  return m ? m[0] : null;
+}
+function fileNameFromUrl(u: string) {
+  try {
+    const url = new URL(u);
+    return decodeURIComponent(url.pathname.split("/").pop() || u);
+  } catch {
+    return u;
+  }
+}
+
 export default function Messages() {
   // 1) Admin: load clients
   const { clients, loading: loadingClients, error: clientsError } = useClients();
@@ -383,114 +403,157 @@ export default function Messages() {
                     (a, b) => new Date(a).getTime() - new Date(b).getTime()
                   );
 
-                return sortedDates.map((dateKey) => (
-                  <div key={dateKey}>
-                    {/* Date separator */}
-                    <div className="flex justify-center my-4">
-                      <span className="bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full">
-                        {getMessageGroupLabel(dateKey)}
-                      </span>
-                    </div>
+                  return sortedDates.map((dateKey) => (
+                    <div key={dateKey}>
+                      {/* Date separator */}
+                      <div className="flex justify-center my-4">
+                        <span className="bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full">
+                          {getMessageGroupLabel(dateKey)}
+                        </span>
+                      </div>
 
-                    {/* Messages for this day */}
-                    <div className="space-y-4">
-                      {grouped[dateKey].map((m: any) => {
-                        let displayName = m.sender_name || "";
-                        if (m.senderType === "patient") {
-                          displayName =
-                            m.message_type === "patient_to_doctor"
-                              ? "Patient → Doctor"
-                              : m.message_type === "patient_to_support"
-                              ? "Patient → Support"
-                              : "Patient";
-                        } else if (m.senderType === "doctor") displayName = "Doctor";
-                        else if (m.senderType === "support") displayName = "Client Support";
-                        else if (m.senderType === "super_support")
-                          displayName = "Super Admin Support";
+                      {/* Messages for this day */}
+                      <div className="space-y-4">
+                        {grouped[dateKey].map((m: any) => {
+                          let displayName = m.sender_name || "";
+                          if (m.senderType === "patient") {
+                            displayName =
+                              m.message_type === "patient_to_doctor"
+                                ? "Patient → Doctor"
+                                : m.message_type === "patient_to_support"
+                                ? "Patient → Support"
+                                : "Patient";
+                          } else if (m.senderType === "doctor") displayName = "Doctor";
+                          else if (m.senderType === "support") displayName = "Client Support";
+                          else if (m.senderType === "super_support")
+                            displayName = "Super Admin Support";
 
-                        let bubbleColor = "";
-                        if (m.senderType === "patient")
-                          bubbleColor = "bg-gray-100 text-gray-800";
-                        else if (m.senderType === "doctor")
-                          bubbleColor = "bg-blue-100 text-blue-800";
-                        else if (m.senderType === "support")
-                          bubbleColor = "bg-purple-100 text-purple-800";
-                        else if (m.senderType === "super_support")
-                          bubbleColor = "bg-red-100 text-red-800";
-                        else bubbleColor = "bg-gray-200 text-gray-800";
+                          let bubbleColor = "";
+                          if (m.senderType === "patient")
+                            bubbleColor = "bg-gray-100 text-gray-800";
+                          else if (m.senderType === "doctor")
+                            bubbleColor = "bg-blue-100 text-blue-800";
+                          else if (m.senderType === "support")
+                            bubbleColor = "bg-purple-100 text-purple-800";
+                          else if (m.senderType === "super_support")
+                            bubbleColor = "bg-red-100 text-red-800";
+                          else bubbleColor = "bg-gray-200 text-gray-800";
 
-                        const attachments: any[] = Array.isArray(m.attachments) ? m.attachments : [];
+                          // attachments array (preferred)
+                          const attachments: any[] = Array.isArray(m.attachments) ? m.attachments : [];
 
-                        return (
-                          <div
-                            key={m.id}
-                            className={`flex ${m.side === "left" ? "justify-start" : "justify-end"}`}
-                          >
+                          // === ADD: derive preview from content-only messages (URL pasted as text)
+                          const contentUrl = extractFirstUrl(m.content || "");
+                          const isImgUrl = !!contentUrl && IMG_EXT_RE.test(contentUrl);
+                          const isDocUrl = !!contentUrl && DOC_EXT_RE.test(contentUrl);
+
+                          return (
                             <div
-                              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}
+                              key={m.id}
+                              className={`flex ${m.side === "left" ? "justify-start" : "justify-end"}`}
                             >
-                              <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>
-
-                              {/* attachments */}
-                              {attachments.length > 0 && (
-                                <div className="mt-2 space-y-2">
-                                  {/* Images grid */}
-                                  <div className="grid grid-cols-2 gap-2">
-                                    {attachments
-                                      .filter((a) => isImage(a?.mime_type))
-                                      .map((a, idx) => (
-                                        <a
-                                          key={`${a.url}-${idx}`}
-                                          href={a.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="block rounded-md overflow-hidden border"
-                                          title={a.file_name || "image"}
-                                        >
-                                          <img
-                                            src={a.url}
-                                            alt={a.file_name || "image"}
-                                            className="w-full h-32 object-cover"
-                                            loading="lazy"
-                                          />
-                                        </a>
-                                      ))}
+                              <div
+                                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}
+                              >
+                                {/* original text */}
+                                {m.content && (
+                                  <div className="text-sm whitespace-pre-wrap break-words">
+                                    {m.content}
                                   </div>
+                                )}
 
-                                  {/* Other files */}
-                                  <div className="space-y-1">
-                                    {attachments
-                                      .filter((a) => !isImage(a?.mime_type))
-                                      .map((a, idx) => (
-                                        <a
-                                          key={`${a.url}-file-${idx}`}
-                                          href={a.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="block text-xs underline break-all"
-                                          title={a.file_name || "file"}
-                                        >
-                                          {a.file_name || a.url}
-                                        </a>
-                                      ))}
+                                {/* attachments from BE */}
+                                {attachments.length > 0 && (
+                                  <div className="mt-2 space-y-2">
+                                    {/* Images grid */}
+                                    <div className="grid grid-cols-2 gap-2">
+                                      {attachments
+                                        .filter((a) => isImageMime(a?.mime_type))
+                                        .map((a, idx) => (
+                                          <a
+                                            key={`${a.url}-${idx}`}
+                                            href={a.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="block rounded-md overflow-hidden border"
+                                            title={a.file_name || "image"}
+                                          >
+                                            <img
+                                              src={a.url}
+                                              alt={a.file_name || "image"}
+                                              className="w-full h-32 object-cover"
+                                              loading="lazy"
+                                            />
+                                          </a>
+                                        ))}
+                                    </div>
+
+                                    {/* Non-image files */}
+                                    <div className="space-y-1">
+                                      {attachments
+                                        .filter((a) => !isImageMime(a?.mime_type))
+                                        .map((a, idx) => (
+                                          <a
+                                            key={`${a.url}-file-${idx}`}
+                                            href={a.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center text-xs underline break-all"
+                                            title={a.file_name || "file"}
+                                          >
+                                            {a.file_name || fileNameFromUrl(a.url)}
+                                          </a>
+                                        ))}
+                                    </div>
                                   </div>
+                                )}
+
+                                {/* === ADD: content-only URL previews (client-portal style) === */}
+                                {!attachments.length && contentUrl && (
+                                  <div className="mt-2">
+                                    {isImgUrl ? (
+                                      <a
+                                        href={contentUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block rounded-md overflow-hidden border"
+                                        title={fileNameFromUrl(contentUrl)}
+                                      >
+                                        <img
+                                          src={contentUrl}
+                                          alt={fileNameFromUrl(contentUrl)}
+                                          className="w-full h-32 object-cover"
+                                          loading="lazy"
+                                        />
+                                      </a>
+                                    ) : isDocUrl ? (
+                                      <a
+                                        href={contentUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center text-xs underline break-all"
+                                        title={fileNameFromUrl(contentUrl)}
+                                      >
+                                        {fileNameFromUrl(contentUrl)}
+                                      </a>
+                                    ) : null}
+                                  </div>
+                                )}
+
+                                <div className="text-xs opacity-70 mt-1">
+                                  {displayName} •{" "}
+                                  {new Date(m.created_at).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
                                 </div>
-                              )}
-
-                              <div className="text-xs opacity-70 mt-1">
-                                {displayName} •{" "}
-                                {new Date(m.created_at).toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ));
+                  ));
                 })()}
               </div>
 
@@ -539,7 +602,7 @@ export default function Messages() {
                     multiple
                     className="hidden"
                     onChange={onFilesSelected}
-                    accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv,application/rtf"
                   />
 
                   {/* pill input (like screenshot) */}
