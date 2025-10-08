@@ -4,7 +4,9 @@ import React, { useEffect, useMemo, useState } from "react"
 import { useForm, Controller } from "react-hook-form"
 import axiosInstance from "@/api/axiosInstance"
 import Select from "react-select"
-import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 
 type Product = {
   id: string
@@ -134,18 +136,17 @@ export default function AddCouponForm({
 
       if (mode === "edit" && coupon?.id) {
         await axiosInstance.patch(`/coupons/${coupon.id}/`, payload)
-        alert("Coupon updated successfully!")
       } else {
         await axiosInstance.post("/coupons/", payload)
-        alert("Coupon created successfully!")
         reset()
       }
 
+      // no alerts — close & notify parent
       onOpenChange?.(false)
       onSuccess?.()
     } catch (err) {
-      alert(mode === "edit" ? "Error updating coupon" : "Error creating coupon")
-      console.error(err)
+      // no alerts — just log
+      console.error(mode === "edit" ? "Error updating coupon" : "Error creating coupon", err)
     } finally {
       setLoading(false)
     }
@@ -155,15 +156,14 @@ export default function AddCouponForm({
     <Dialog open={open} onOpenChange={(v) => onOpenChange?.(v)}>
       <DialogTrigger className="hidden" />
       <DialogContent className="max-w-3xl w-full p-0 overflow-hidden">
-        {/* Header */}
-        <div className="px-6 pt-6">
-          <h2 className="text-2xl font-semibold">
+        <DialogHeader className="px-6 pt-6">
+          <DialogTitle>
             {mode === "edit" ? `Edit Coupon${coupon?.code ? `: ${coupon.code}` : ""}` : "Create New Coupon"}
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1 mb-4">
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground mt-1">
             Configure discount details, limits, and scheduling. Fields marked with * are required.
           </p>
-        </div>
+        </DialogHeader>
 
         {/* Scrollable content */}
         <div className="px-6 max-h-[70vh] overflow-y-auto">
@@ -175,10 +175,9 @@ export default function AddCouponForm({
                 {/* Code */}
                 <div>
                   <label className="block text-sm font-medium mb-1">Code *</label>
-                  <input
+                  <Input
                     {...register("code", { required: true })}
                     placeholder="e.g. SUMMER25"
-                    className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
                     disabled={mode === "edit"}
                   />
                   <p className="text-xs text-muted-foreground mt-1">Unique coupon code customers will enter.</p>
@@ -205,12 +204,12 @@ export default function AddCouponForm({
                     {type === "percent" ? "Percent Value *" : "Amount Value *"}
                   </label>
                   <div className="flex">
-                    <input
+                    <Input
                       type="number"
                       step="0.01"
                       placeholder={type === "percent" ? "10" : "12.00"}
                       {...register("value", { required: true })}
-                      className="border px-3 py-2 rounded-l w-full focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
+                      className="rounded-r-none"
                     />
                     <span className="border border-l-0 rounded-r px-3 py-2 text-sm bg-gray-50 shrink-0">
                       {type === "percent" ? "%" : "$"}
@@ -261,7 +260,7 @@ export default function AddCouponForm({
               </div>
             </div>
 
-            {/* === NEW: Applicability selects (match screenshots) === */}
+            {/* === Applicability === */}
             <div className="md:col-span-2">
               <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Applicability</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -325,11 +324,10 @@ export default function AddCouponForm({
                 {/* Max usage */}
                 <div>
                   <label className="block text-sm font-medium mb-1">Max Usage</label>
-                  <input
+                  <Input
                     type="number"
                     {...register("max_usage")}
                     placeholder="e.g. 100"
-                    className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
                   />
                   <p className="text-xs text-muted-foreground mt-1">Total number of times this coupon can be used.</p>
                 </div>
@@ -337,11 +335,10 @@ export default function AddCouponForm({
                 {/* Max per user */}
                 <div>
                   <label className="block text-sm font-medium mb-1">Max per User</label>
-                  <input
+                  <Input
                     type="number"
                     {...register("max_usage_per_user")}
                     placeholder="e.g. 1"
-                    className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
                   />
                   <p className="text-xs text-muted-foreground mt-1">Limit usage for each customer.</p>
                 </div>
@@ -349,12 +346,11 @@ export default function AddCouponForm({
                 {/* Minimum spend */}
                 <div>
                   <label className="block text-sm font-medium mb-1">Minimum Spend</label>
-                  <input
+                  <Input
                     type="number"
                     step="0.01"
                     {...register("min_spend")}
                     placeholder="e.g. 50.00"
-                    className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
                   />
                   <p className="text-xs text-muted-foreground mt-1">Order subtotal must be at least this amount.</p>
                 </div>
@@ -367,10 +363,9 @@ export default function AddCouponForm({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">Expiry Date</label>
-                  <input
+                  <Input
                     type="datetime-local"
                     {...register("expires_at")}
-                    className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
                   />
                   <p className="text-xs text-muted-foreground mt-1">Leave empty if the coupon should not expire.</p>
                 </div>
@@ -381,14 +376,13 @@ export default function AddCouponForm({
 
         {/* Sticky footer */}
         <div className="sticky bottom-0 left-0 right-0 bg-white border-t px-6 py-4 flex justify-end">
-          <button
+          <Button
             type="submit"
             form="coupon-form"
             disabled={loading}
-            className="bg-sky-500 hover:bg-sky-600 text-white px-6 py-2 rounded-md transition"
           >
             {loading ? (mode === "edit" ? "Saving..." : "Creating...") : mode === "edit" ? "Save changes" : "Create Coupon"}
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

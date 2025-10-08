@@ -219,11 +219,11 @@ export default function CouponCodes() {
     if (!ok) return
     try {
       await axiosInstance.delete(`/coupons/${row.id}/`)
-      alert(`Coupon "${row.code}" deleted successfully`)
+      // no alerts — silent success
       await fetchCoupons()
     } catch (e) {
-      console.error(e)
-      alert("Failed to delete coupon")
+      // no alerts — just log
+      console.error("Failed to delete coupon", e)
     }
   }
 
