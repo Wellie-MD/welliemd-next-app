@@ -161,34 +161,85 @@ export default function Messages() {
     stickToBottomSoon();
   }, [activeConversation?.id]);
 
+  // ✅ Single Send button: if there are files, send multipart; else send text-only (unchanged endpoint)
   async function handleSend() {
-    if (!activeConversation || !newMessage.trim()) return;
+    if (!activeConversation || (!newMessage.trim() && files.length === 0)) return;
 
     try {
       setSending(true);
-      // we want to stay at the bottom after sending
       shouldStickRef.current = true;
 
+      if (files.length > 0) {
+        // multipart path (attachments + optional text)
+        const resp = await sendMessageWithFiles({
+          master_id: activeConversation.masterId,
+          to: "support",
+          from_super_admin: true as any,
+          apiEndpoint: selectedClient?.api_endpoint,
+          content: newMessage.trim() || undefined,
+          files,
+        });
+
+        const optimisticAttachments: NewAttachment[] =
+          resp.attachments && resp.attachments.length > 0
+            ? resp.attachments
+            : previews.map((p) => ({
+                url: p.url,
+                file_name: p.file.name,
+                mime_type: p.file.type || "application/octet-stream",
+              }));
+
+        const newMsg = {
+          id: resp?.id || Date.now(),
+          master_id: activeConversation.masterId,
+          content: newMessage,
+          created_at: new Date().toISOString(),
+          read: true,
+          sender_name: "Super Admin Support",
+          senderType: "super_support" as const,
+          side: "right" as const,
+          patientName: activeConversation.patientName,
+          message_type: "support_to_patient" as const,
+          attachments: optimisticAttachments,
+        };
+
+        setActiveConversation((prev) =>
+          prev
+            ? {
+                ...prev,
+                messages: [...prev.messages, newMsg],
+                lastMessage:
+                  newMsg.content || optimisticAttachments?.[0]?.file_name || "Attachment",
+                lastTime: newMsg.created_at,
+              }
+            : prev
+        );
+
+        setNewMessage("");
+        clearAllAttachments();
+        stickToBottomSoon();
+        return;
+      }
+
+      // text-only path (original behavior)
       await messageService.sendMessage({
         master_id: activeConversation.masterId,
         content: newMessage,
-        to: "support",                 // keep this; BE uses from_super_admin to tag it
-        from_super_admin: true as any, // already telling BE this is super admin
+        to: "support",
+        from_super_admin: true as any,
         apiEndpoint: selectedClient?.api_endpoint,
       });
 
-      // ✅ Optimistic UI should mirror BE shape
       const newMsg = {
         id: Date.now(),
         master_id: activeConversation.masterId,
         content: newMessage,
         created_at: new Date().toISOString(),
         read: true,
-        sender_name: "Super Admin Support",    // 👈 updated
-        senderType: "super_support" as const,  // 👈 updated
+        sender_name: "Super Admin Support",
+        senderType: "super_support" as const,
         side: "right" as const,
         patientName: activeConversation.patientName,
-        // keep this unless your BE actually returns a distinct value for super admin
         message_type: "support_to_patient" as const,
       };
 
@@ -207,64 +258,6 @@ export default function Messages() {
       stickToBottomSoon();
     } catch (err) {
       console.error("Failed to send message", err);
-    } finally {
-      setSending(false);
-    }
-  }
-
-  /* === ADD: separate sender for files (keeps existing handleSend intact) === */
-  async function handleSendFiles() {
-    if (!activeConversation || files.length === 0) return;
-    try {
-      setSending(true);
-      const resp = await sendMessageWithFiles({
-        master_id: activeConversation.masterId,
-        to: "support",
-        from_super_admin: true as any,
-        apiEndpoint: selectedClient?.api_endpoint,
-        content: newMessage.trim() || undefined,
-        files,
-      });
-
-      const optimisticAttachments: NewAttachment[] =
-        resp.attachments && resp.attachments.length > 0
-          ? resp.attachments
-          : previews.map((p) => ({
-              url: p.url, // object URL until poll replaces it with S3 URL
-              file_name: p.file.name,
-              mime_type: p.file.type || "application/octet-stream",
-            }));
-
-      const newMsg = {
-        id: resp?.id || Date.now(),
-        master_id: activeConversation.masterId,
-        content: newMessage,
-        created_at: new Date().toISOString(),
-        read: true,
-        sender_name: "Super Admin Support",
-        senderType: "super_support" as const,
-        side: "right" as const,
-        patientName: activeConversation.patientName,
-        message_type: "support_to_patient" as const,
-        attachments: optimisticAttachments,
-      };
-
-      setActiveConversation((prev) =>
-        prev
-          ? {
-              ...prev,
-              messages: [...prev.messages, newMsg],
-              lastMessage: newMsg.content || optimisticAttachments?.[0]?.file_name || "Attachment",
-              lastTime: newMsg.created_at,
-            }
-          : prev
-      );
-
-      setNewMessage("");
-      clearAllAttachments();
-      stickToBottomSoon();
-    } catch (e) {
-      console.error("Failed to send files", e);
     } finally {
       setSending(false);
     }
@@ -390,118 +383,120 @@ export default function Messages() {
                     (a, b) => new Date(a).getTime() - new Date(b).getTime()
                   );
 
-                  return sortedDates.map((dateKey) => (
-                    <div key={dateKey}>
-                      {/* Date separator */}
-                      <div className="flex justify-center my-4">
-                        <span className="bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full">
-                          {getMessageGroupLabel(dateKey)}
-                        </span>
-                      </div>
+                return sortedDates.map((dateKey) => (
+                  <div key={dateKey}>
+                    {/* Date separator */}
+                    <div className="flex justify-center my-4">
+                      <span className="bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full">
+                        {getMessageGroupLabel(dateKey)}
+                      </span>
+                    </div>
 
-                      {/* Messages for this day */}
-                      <div className="space-y-4">
-                        {grouped[dateKey].map((m: any) => {
-                          let displayName = m.sender_name || "";
-                          if (m.senderType === "patient") {
-                            displayName =
-                              m.message_type === "patient_to_doctor"
-                                ? "Patient → Doctor"
-                                : m.message_type === "patient_to_support"
-                                ? "Patient → Support"
-                                : "Patient";
-                          } else if (m.senderType === "doctor") displayName = "Doctor";
-                          else if (m.senderType === "support") displayName = "Client Support";
-                          else if (m.senderType === "super_support")
-                            displayName = "Super Admin Support";
+                    {/* Messages for this day */}
+                    <div className="space-y-4">
+                      {grouped[dateKey].map((m: any) => {
+                        let displayName = m.sender_name || "";
+                        if (m.senderType === "patient") {
+                          displayName =
+                            m.message_type === "patient_to_doctor"
+                              ? "Patient → Doctor"
+                              : m.message_type === "patient_to_support"
+                              ? "Patient → Support"
+                              : "Patient";
+                        } else if (m.senderType === "doctor") displayName = "Doctor";
+                        else if (m.senderType === "support") displayName = "Client Support";
+                        else if (m.senderType === "super_support")
+                          displayName = "Super Admin Support";
 
-                          let bubbleColor = "";
-                          if (m.senderType === "patient")
-                            bubbleColor = "bg-gray-100 text-gray-800";
-                          else if (m.senderType === "doctor")
-                            bubbleColor = "bg-blue-100 text-blue-800";
-                          else if (m.senderType === "support")
-                            bubbleColor = "bg-purple-100 text-purple-800";
-                          else if (m.senderType === "super_support")
-                            bubbleColor = "bg-red-100 text-red-800";
-                          else bubbleColor = "bg-gray-200 text-gray-800";
+                        let bubbleColor = "";
+                        if (m.senderType === "patient")
+                          bubbleColor = "bg-gray-100 text-gray-800";
+                        else if (m.senderType === "doctor")
+                          bubbleColor = "bg-blue-100 text-blue-800";
+                        else if (m.senderType === "support")
+                          bubbleColor = "bg-purple-100 text-purple-800";
+                        else if (m.senderType === "super_support")
+                          bubbleColor = "bg-red-100 text-red-800";
+                        else bubbleColor = "bg-gray-200 text-gray-800";
 
-                          return (
+                        const attachments: any[] = Array.isArray(m.attachments) ? m.attachments : [];
+
+                        return (
+                          <div
+                            key={m.id}
+                            className={`flex ${m.side === "left" ? "justify-start" : "justify-end"}`}
+                          >
                             <div
-                              key={m.id}
-                              className={`flex ${m.side === "left" ? "justify-start" : "justify-end"}`}
+                              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}
                             >
-                              <div
-                                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}
-                              >
-                                <div className="text-sm">{m.content}</div>
+                              <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>
 
-                                {/* === ADD: attachments renderer (non-breaking) === */}
-                                {Array.isArray((m as any).attachments) && (m as any).attachments.length > 0 && (
-                                  <div className="mt-2 space-y-2">
-                                    {/* Images grid */}
-                                    <div className="grid grid-cols-2 gap-2">
-                                      {(m as any).attachments
-                                        .filter((a: any) => isImage(a?.mime_type))
-                                        .map((a: any, idx: number) => (
-                                          <a
-                                            key={`${a.url}-${idx}`}
-                                            href={a.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="block rounded-md overflow-hidden border"
-                                            title={a.file_name || "image"}
-                                          >
-                                            <img
-                                              src={a.url}
-                                              alt={a.file_name || "image"}
-                                              className="w-full h-32 object-cover"
-                                              loading="lazy"
-                                            />
-                                          </a>
-                                        ))}
-                                    </div>
-
-                                    {/* Other files */}
-                                    <div className="space-y-1">
-                                      {(m as any).attachments
-                                        .filter((a: any) => !isImage(a?.mime_type))
-                                        .map((a: any, idx: number) => (
-                                          <a
-                                            key={`${a.url}-file-${idx}`}
-                                            href={a.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="block text-xs underline break-all"
-                                            title={a.file_name || "file"}
-                                          >
-                                            {a.file_name || a.url}
-                                          </a>
-                                        ))}
-                                    </div>
+                              {/* attachments */}
+                              {attachments.length > 0 && (
+                                <div className="mt-2 space-y-2">
+                                  {/* Images grid */}
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {attachments
+                                      .filter((a) => isImage(a?.mime_type))
+                                      .map((a, idx) => (
+                                        <a
+                                          key={`${a.url}-${idx}`}
+                                          href={a.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="block rounded-md overflow-hidden border"
+                                          title={a.file_name || "image"}
+                                        >
+                                          <img
+                                            src={a.url}
+                                            alt={a.file_name || "image"}
+                                            className="w-full h-32 object-cover"
+                                            loading="lazy"
+                                          />
+                                        </a>
+                                      ))}
                                   </div>
-                                )}
 
-                                <div className="text-xs opacity-70 mt-1">
-                                  {displayName} •{" "}
-                                  {new Date(m.created_at).toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
+                                  {/* Other files */}
+                                  <div className="space-y-1">
+                                    {attachments
+                                      .filter((a) => !isImage(a?.mime_type))
+                                      .map((a, idx) => (
+                                        <a
+                                          key={`${a.url}-file-${idx}`}
+                                          href={a.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="block text-xs underline break-all"
+                                          title={a.file_name || "file"}
+                                        >
+                                          {a.file_name || a.url}
+                                        </a>
+                                      ))}
+                                  </div>
                                 </div>
+                              )}
+
+                              <div className="text-xs opacity-70 mt-1">
+                                {displayName} •{" "}
+                                {new Date(m.created_at).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ));
+                  </div>
+                ));
                 })()}
               </div>
 
               {/* Composer */}
               <div className="p-4 border-t shrink-0">
-                {/* === ADD: local previews (simple block above row) === */}
+                {/* previews */}
                 {previews.length > 0 && (
                   <div className="mb-3 border rounded-lg p-3">
                     <div className="flex items-center justify-between mb-2">
@@ -537,7 +532,7 @@ export default function Messages() {
                 )}
 
                 <div className="flex items-center gap-3">
-                  {/* === ADD: hidden file input for attachments === */}
+                  {/* hidden file input */}
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -547,46 +542,39 @@ export default function Messages() {
                     accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                   />
 
-                  {/* === ADD: Attach button === */}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="gap-2"
-                    onClick={onClickAttach}
-                    title="Attach files"
-                  >
-                    <Paperclip className="h-4 w-4" />
-                    Attach
-                  </Button>
-
+                  {/* pill input (like screenshot) */}
                   <Input
-                    placeholder="Type your message here…"
-                    className="flex-1 text-base px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-400"
+                    placeholder="Type your message here..."
+                    className="flex-1 h-12 text-base px-6 rounded-full border focus:ring-2 focus:ring-blue-400"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleSend();
                     }}
                   />
+
+                  {/* icon-only paperclip */}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={onClickAttach}
+                    title="Attach files"
+                    className="rounded-full h-12 w-12"
+                  >
+                    <Paperclip className="h-5 w-5" />
+                    <span className="sr-only">Attach</span>
+                  </Button>
+
+                  {/* round gradient Send */}
                   <Button
                     onClick={handleSend}
                     disabled={sending || !selectedClient}
-                    className="px-6 py-3 text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-indigo-700 transition-all flex items-center gap-2"
+                    className="h-12 px-6 text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-full shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-indigo-700 transition-all flex items-center gap-2"
                     title={!selectedClient ? "Select a client first" : "Send"}
                   >
                     <Send className="h-5 w-5" />
                     Send
-                  </Button>
-
-                  {/* === ADD: Send Files (separate from existing Send) === */}
-                  <Button
-                    type="button"
-                    onClick={handleSendFiles}
-                    disabled={sending || !selectedClient || files.length === 0}
-                    className="px-3 py-3 text-sm font-semibold bg-gradient-to-r from-slate-500 to-slate-700 text-white rounded-xl shadow hover:from-slate-600 hover:to-slate-800 transition-all"
-                    title={!selectedClient ? "Select a client first" : files.length === 0 ? "Attach files to enable" : "Send files"}
-                  >
-                    Send Files
                   </Button>
                 </div>
               </div>
