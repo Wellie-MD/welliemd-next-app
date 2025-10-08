@@ -1,4 +1,5 @@
-// src/pages/Messages.tsx (Client Portal)
+// src/pages/Messages.tsx (Client Portal) — UPDATED to render image/file attachments
+
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,11 @@ import {
 
 type LastSeenMap = Record<string, string | number | undefined>;
 const LS_KEY = "msg_last_seen";
+
+// ---- (optional) S3 URL fallback base ----
+// If older rows store only the file name in `content`,
+// use this base to build a full public URL at bucket root.
+const S3_PUBLIC_BASE = "https://welliemd.s3.eu-north-1.amazonaws.com/";
 
 // ---- Date grouping helpers ----
 function getMessageGroupLabel(dateStr: string) {
@@ -52,6 +58,15 @@ function readLastSeenFromStorage(): LastSeenMap {
   }
 }
 
+// ---- media helpers ----
+function looksLikeImageUrl(url: string | undefined): boolean {
+  if (!url || typeof url !== "string") return false;
+  return /\.(jpg|jpeg|png|gif|webp|heic|bmp|tif|tiff)$/i.test(url.split("?")[0]);
+}
+function isImageMime(mime?: string): boolean {
+  return !!mime && mime.toLowerCase().startsWith("image/");
+}
+
 export default function Messages() {
   // keep your original hook contract
   const { messages, loading, error } = useMessages(5000);
@@ -69,7 +84,7 @@ export default function Messages() {
   const [belugaCache, setBelugaCache] = useState<Record<string, Message[]>>({});
 
   // when in Support tab and we have a selected patient, load its beluga thread (fixes 400)
-// 🆕 poll Beluga thread when Support tab is active
+  // 🆕 poll Beluga thread when Support tab is active
   useEffect(() => {
     const masterId = activeConversation?.masterId;
     if (tab !== "support" || !masterId) return;
@@ -309,7 +324,6 @@ export default function Messages() {
           : "support_to_patient",
       };
 
-
       if (tab === "support") {
         // update cache for this master
         setBelugaCache((prev) => {
@@ -527,7 +541,7 @@ export default function Messages() {
                               if (m.message_type === "patient_to_doctor") displayName = "Patient → Doctor";
                               else if (m.message_type === "patient_to_support") displayName = "Patient → Support";
                               else displayName = "Patient";
-                            } else if (m.senderType === "client") {                 // ✅ NEW
+                            } else if (m.senderType === "client") {
                               displayName = "Client";
                             } else if (m.senderType === "doctor") displayName = "Doctor";
                             else if (m.senderType === "support") displayName = "Client Support";
@@ -537,17 +551,60 @@ export default function Messages() {
 
                             let bubbleColor = "";
                             if (m.senderType === "patient") bubbleColor = "bg-gray-100 text-gray-800";
-                            else if (m.senderType === "client") bubbleColor = "bg-gray-100 text-gray-800";         // ✅ NEW (match patient styling)
+                            else if (m.senderType === "client") bubbleColor = "bg-gray-100 text-gray-800";
                             else if (m.senderType === "doctor") bubbleColor = "bg-blue-100 text-blue-800";
                             else if (m.senderType === "support") bubbleColor = "bg-purple-100 text-purple-800";
                             else if (m.senderType === "super_support") bubbleColor = "bg-red-100 text-red-800";
                             else if (m.senderType === "beluga_support") bubbleColor = "bg-green-100 text-green-800";
                             else bubbleColor = "bg-gray-200 text-gray-800";
 
+                            // ---- MEDIA-AWARE RENDERING ----
+                            const isMedia = !!m.is_media && (!!m.media_url || !!m.content);
+                            // Prefer explicit media_url if present; fallback to building from content if it looks like a file key
+                            const rawUrl = (m.media_url || (isMedia ? m.content : "")) || "";
+                            const mediaUrl =
+                              rawUrl.startsWith("http") || rawUrl.startsWith("data:")
+                                ? rawUrl
+                                : rawUrl
+                                ? `${S3_PUBLIC_BASE}${rawUrl.replace(/^\/+/, "")}`
+                                : "";
+
+                            const mime = (m.media_mime_type || "").toLowerCase();
+                            const fileName = m.media_file_name || m.content || "attachment";
+                            const imageLike = isImageMime(mime) || looksLikeImageUrl(mediaUrl);
+
                             return (
                               <div key={m.id} className={`flex ${m.side === "left" ? "justify-start" : "justify-end"}`}>
                                 <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}>
-                                  <div className="text-sm">{m.content}</div>
+                                  {/* CONTENT */}
+                                  {isMedia && mediaUrl ? (
+                                    imageLike ? (
+                                      <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="block group">
+                                        <img
+                                          src={mediaUrl}
+                                          alt={fileName}
+                                          className="rounded-md max-h-72 w-auto object-contain"
+                                          loading="lazy"
+                                        />
+                                        <div className="mt-1 text-xs opacity-80 truncate group-hover:underline">
+                                          {fileName}
+                                        </div>
+                                      </a>
+                                    ) : (
+                                      <a
+                                        href={mediaUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-2 text-sm underline break-all"
+                                      >
+                                        {fileName}
+                                      </a>
+                                    )
+                                  ) : (
+                                    <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>
+                                  )}
+
+                                  {/* META */}
                                   <div className="text-xs opacity-70 mt-1">
                                     {displayName} •{" "}
                                     {new Date(m.created_at).toLocaleTimeString([], {
