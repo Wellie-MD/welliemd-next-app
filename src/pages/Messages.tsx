@@ -18,6 +18,10 @@ import {
   formatISO,
 } from "date-fns";
 
+/* === ADD: imports for attachments (non-breaking) === */
+import { Paperclip } from "lucide-react";
+import { sendMessageWithFiles, type NewAttachment } from "@/services/messageService";
+
 // ---- helpers for grouping ----
 function getMessageGroupLabel(dateStr: string) {
   const date = new Date(dateStr);
@@ -47,6 +51,32 @@ export default function Messages() {
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
+
+  /* === ADD: attachment state & helpers (no changes to existing state) === */
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<{ url: string; file: File }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const isImage = (mime: string) => mime?.startsWith("image/");
+
+  const onClickAttach = () => fileInputRef.current?.click();
+  const onFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const list = Array.from(e.target.files || []);
+    if (!list.length) return;
+    setFiles((prev) => [...prev, ...list]);
+    setPreviews((prev) => [...prev, ...list.map((f) => ({ file: f, url: URL.createObjectURL(f) }))]);
+  };
+  const clearAttachment = (i: number) => {
+    setFiles((prev) => prev.filter((_, idx) => idx !== i));
+    const u = previews[i]?.url;
+    if (u) URL.revokeObjectURL(u);
+    setPreviews((prev) => prev.filter((_, idx) => idx !== i));
+  };
+  const clearAllAttachments = () => {
+    previews.forEach((p) => URL.revokeObjectURL(p.url));
+    setFiles([]);
+    setPreviews([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const conversations = groupMessages(messages);
 
@@ -182,6 +212,63 @@ export default function Messages() {
     }
   }
 
+  /* === ADD: separate sender for files (keeps existing handleSend intact) === */
+  async function handleSendFiles() {
+    if (!activeConversation || files.length === 0) return;
+    try {
+      setSending(true);
+      const resp = await sendMessageWithFiles({
+        master_id: activeConversation.masterId,
+        to: "support",
+        from_super_admin: true as any,
+        apiEndpoint: selectedClient?.api_endpoint,
+        content: newMessage.trim() || undefined,
+        files,
+      });
+
+      const optimisticAttachments: NewAttachment[] =
+        resp.attachments && resp.attachments.length > 0
+          ? resp.attachments
+          : previews.map((p) => ({
+              url: p.url, // object URL until poll replaces it with S3 URL
+              file_name: p.file.name,
+              mime_type: p.file.type || "application/octet-stream",
+            }));
+
+      const newMsg = {
+        id: resp?.id || Date.now(),
+        master_id: activeConversation.masterId,
+        content: newMessage,
+        created_at: new Date().toISOString(),
+        read: true,
+        sender_name: "Super Admin Support",
+        senderType: "super_support" as const,
+        side: "right" as const,
+        patientName: activeConversation.patientName,
+        message_type: "support_to_patient" as const,
+        attachments: optimisticAttachments,
+      };
+
+      setActiveConversation((prev) =>
+        prev
+          ? {
+              ...prev,
+              messages: [...prev.messages, newMsg],
+              lastMessage: newMsg.content || optimisticAttachments?.[0]?.file_name || "Attachment",
+              lastTime: newMsg.created_at,
+            }
+          : prev
+      );
+
+      setNewMessage("");
+      clearAllAttachments();
+      stickToBottomSoon();
+    } catch (e) {
+      console.error("Failed to send files", e);
+    } finally {
+      setSending(false);
+    }
+  }
 
   return (
     <div className="p-6">
@@ -348,6 +435,53 @@ export default function Messages() {
                                 className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}
                               >
                                 <div className="text-sm">{m.content}</div>
+
+                                {/* === ADD: attachments renderer (non-breaking) === */}
+                                {Array.isArray((m as any).attachments) && (m as any).attachments.length > 0 && (
+                                  <div className="mt-2 space-y-2">
+                                    {/* Images grid */}
+                                    <div className="grid grid-cols-2 gap-2">
+                                      {(m as any).attachments
+                                        .filter((a: any) => isImage(a?.mime_type))
+                                        .map((a: any, idx: number) => (
+                                          <a
+                                            key={`${a.url}-${idx}`}
+                                            href={a.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="block rounded-md overflow-hidden border"
+                                            title={a.file_name || "image"}
+                                          >
+                                            <img
+                                              src={a.url}
+                                              alt={a.file_name || "image"}
+                                              className="w-full h-32 object-cover"
+                                              loading="lazy"
+                                            />
+                                          </a>
+                                        ))}
+                                    </div>
+
+                                    {/* Other files */}
+                                    <div className="space-y-1">
+                                      {(m as any).attachments
+                                        .filter((a: any) => !isImage(a?.mime_type))
+                                        .map((a: any, idx: number) => (
+                                          <a
+                                            key={`${a.url}-file-${idx}`}
+                                            href={a.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="block text-xs underline break-all"
+                                            title={a.file_name || "file"}
+                                          >
+                                            {a.file_name || a.url}
+                                          </a>
+                                        ))}
+                                    </div>
+                                  </div>
+                                )}
+
                                 <div className="text-xs opacity-70 mt-1">
                                   {displayName} •{" "}
                                   {new Date(m.created_at).toLocaleTimeString([], {
@@ -367,7 +501,64 @@ export default function Messages() {
 
               {/* Composer */}
               <div className="p-4 border-t shrink-0">
+                {/* === ADD: local previews (simple block above row) === */}
+                {previews.length > 0 && (
+                  <div className="mb-3 border rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-muted-foreground">
+                        {previews.length} attachment{previews.length > 1 ? "s" : ""}
+                      </span>
+                      <button onClick={clearAllAttachments} className="text-xs underline">
+                        Clear all
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      {previews.map((p, i) => {
+                        const imgLike = p.file.type.startsWith("image/");
+                        return (
+                          <div key={i} className="relative border rounded-md overflow-hidden">
+                            {imgLike ? (
+                              <img src={p.url} alt={p.file.name} className="w-full h-24 object-cover" />
+                            ) : (
+                              <div className="p-2 text-xs break-all h-24 overflow-auto">{p.file.name}</div>
+                            )}
+                            <button
+                              onClick={() => clearAttachment(i)}
+                              className="absolute top-1 right-1 bg-black/60 text-white rounded px-1 text-[10px]"
+                              title="Remove"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-3">
+                  {/* === ADD: hidden file input for attachments === */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={onFilesSelected}
+                    accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  />
+
+                  {/* === ADD: Attach button === */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="gap-2"
+                    onClick={onClickAttach}
+                    title="Attach files"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                    Attach
+                  </Button>
+
                   <Input
                     placeholder="Type your message here…"
                     className="flex-1 text-base px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-400"
@@ -385,6 +576,17 @@ export default function Messages() {
                   >
                     <Send className="h-5 w-5" />
                     Send
+                  </Button>
+
+                  {/* === ADD: Send Files (separate from existing Send) === */}
+                  <Button
+                    type="button"
+                    onClick={handleSendFiles}
+                    disabled={sending || !selectedClient || files.length === 0}
+                    className="px-3 py-3 text-sm font-semibold bg-gradient-to-r from-slate-500 to-slate-700 text-white rounded-xl shadow hover:from-slate-600 hover:to-slate-800 transition-all"
+                    title={!selectedClient ? "Select a client first" : files.length === 0 ? "Attach files to enable" : "Send files"}
+                  >
+                    Send Files
                   </Button>
                 </div>
               </div>

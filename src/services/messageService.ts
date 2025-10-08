@@ -45,3 +45,36 @@ export const messageService = {
     return data;
   },
 };
+
+/* === ADD: Attachment types & multipart helper (no change to existing exports) === */
+export type NewAttachment = {
+  url: string;
+  file_name: string;
+  mime_type: string;
+  width?: number;
+  height?: number;
+};
+
+export async function sendMessageWithFiles(payload: {
+  apiEndpoint?: string;
+  master_id: string;
+  to: "doctor" | "support";
+  from_client?: boolean;
+  from_super_admin?: boolean;
+  content?: string;
+  files: File[]; // required for this helper
+}): Promise<{ sent: boolean; id: number; attachments?: NewAttachment[] }> {
+  const { apiEndpoint, files, ...body } = payload;
+  const url = apiEndpoint ? join(apiEndpoint, "/messages/send/") : "/messages/send/";
+
+  const form = new FormData();
+  Object.entries(body).forEach(([k, v]) => {
+    if (v !== undefined && v !== null) form.append(k, String(v));
+  });
+  files.forEach((f) => form.append("files", f)); // BE should accept "files"
+
+  const { data } = await api.post(url, form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+}
