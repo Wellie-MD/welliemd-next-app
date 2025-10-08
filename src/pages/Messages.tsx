@@ -1,4 +1,6 @@
 // src/pages/Messages.tsx (Client Portal) — attachments hidden for Support (Beluga) tab
+// UPDATED: always jump to the latest message when opening/switching chats,
+// and keep autoscrolling on new messages (minimal additions only).
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -132,6 +134,21 @@ export default function Messages() {
 
   const didAutoSelectRef = useRef(false);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // NEW: bottom anchor + helper to scroll
+  const bottomAnchorRef = useRef<HTMLDivElement | null>(null);
+  const scrollToBottom = (smooth = true) => {
+    if (bottomAnchorRef.current) {
+      bottomAnchorRef.current.scrollIntoView({
+        behavior: smooth ? "smooth" : "auto",
+        block: "end",
+      });
+      return;
+    }
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
+  };
 
   const originalTitleRef = useRef(document.title);
   useEffect(() => {
@@ -279,6 +296,15 @@ export default function Messages() {
     }
   }, [activeConversation?.messages]);
 
+  // NEW: when opening/switching a chat or tab, jump to bottom (ensures latest is visible)
+  useEffect(() => {
+    if (!activeConversation) return;
+    const id = setTimeout(() => {
+      scrollToBottom(false); // jump without smooth on open/switch
+    }, 0);
+    return () => clearTimeout(id);
+  }, [activeConversation?.id, tab]);
+
   // ----- attachments: helpers -----
   const openFilePicker = () => {
     if (tab === "support") return; // Beluga: not allowed (and UI is hidden)
@@ -340,6 +366,8 @@ export default function Messages() {
         });
 
         setNewMessage("");
+        // NEW: scroll to bottom after sending
+        requestAnimationFrame(() => scrollToBottom(true));
       } catch (err) {
         console.error("Failed to send beluga message", err);
       } finally {
@@ -450,6 +478,8 @@ export default function Messages() {
         if (messagesContainerRef.current) {
           messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
         }
+        // NEW: also use anchor (more reliable)
+        scrollToBottom(true);
       });
     } catch (err) {
       console.error("Failed to send message with attachments", err);
@@ -473,6 +503,8 @@ export default function Messages() {
         if (c.masterId && messageService.markRead) await messageService.markRead(c.masterId);
       } catch {}
     })();
+    // NEW: ensure we land on latest right after opening
+    requestAnimationFrame(() => scrollToBottom(false));
   }
 
   function getRightPaneMessages(): Message[] {
@@ -482,6 +514,12 @@ export default function Messages() {
     return list ?? [];
   }
   const rightMessages = getRightPaneMessages();
+
+  // NEW: whenever the visible message count changes, keep it pinned to bottom
+  useEffect(() => {
+    if (!activeConversation) return;
+    requestAnimationFrame(() => scrollToBottom(true));
+  }, [rightMessages.length, activeConversation?.id]);
 
   return (
     <div className="p-6">
@@ -714,6 +752,9 @@ export default function Messages() {
                     );
                   });
                 })()}
+
+                {/* NEW: bottom anchor for reliable scroll-to-bottom */}
+                <div ref={bottomAnchorRef} />
               </div>
 
               {/* Composer */}
