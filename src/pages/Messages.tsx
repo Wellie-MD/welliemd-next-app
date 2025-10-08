@@ -1,4 +1,4 @@
-// src/pages/Messages.tsx (Client Portal) — UPDATED to render image/file attachments
+// src/pages/Messages.tsx (Client Portal) — attachments hidden for Support (Beluga) tab
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -21,8 +21,6 @@ type LastSeenMap = Record<string, string | number | undefined>;
 const LS_KEY = "msg_last_seen";
 
 // ---- (optional) S3 URL fallback base ----
-// If older rows store only the file name in `content`,
-// use this base to build a full public URL at bucket root.
 const S3_PUBLIC_BASE = "https://welliemd.s3.eu-north-1.amazonaws.com/";
 
 // ---- Date grouping helpers ----
@@ -68,23 +66,25 @@ function isImageMime(mime?: string): boolean {
 }
 
 export default function Messages() {
-  // keep your original hook contract
   const { messages, loading, error } = useMessages(5000);
 
-  // simple tabs
+  // tabs: "patient" (normal support/doctor thread) and "support" (Beluga)
   const [tab, setTab] = useState<"patient" | "support">("patient");
 
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
 
+  // attachments state (ENABLED only for Patient tab)
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const conversations = useMemo(() => groupMessages(messages), [messages]);
 
-  // 🆕 beluga thread cache: master_id -> messages
+  // beluga support cache
   const [belugaCache, setBelugaCache] = useState<Record<string, Message[]>>({});
 
-  // when in Support tab and we have a selected patient, load its beluga thread (fixes 400)
-  // 🆕 poll Beluga thread when Support tab is active
   useEffect(() => {
     const masterId = activeConversation?.masterId;
     if (tab !== "support" || !masterId) return;
@@ -109,21 +109,16 @@ export default function Messages() {
       try {
         const msgs = await messageService.getBelugaThread(masterId);
         if (cancelled) return;
-
         setBelugaCache((prev) => {
           const existing = prev[masterId] || [];
-          if (belugaArraysEqual(existing, msgs)) return prev; // no change
+          if (belugaArraysEqual(existing, msgs)) return prev;
           return { ...prev, [masterId]: msgs };
         });
-      } catch {
-        // ignore polling errors
-      }
+      } catch {}
     };
 
-    // initial + poll every 5s
     fetchBeluga();
     const interval = setInterval(fetchBeluga, 5000);
-
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -133,25 +128,21 @@ export default function Messages() {
   // unread state synced to localStorage
   const [lastSeen, setLastSeen] = useState<LastSeenMap>(() => readLastSeenFromStorage());
   const initialLoadDoneRef = useRef(false);
-
-  // sound throttling (per chat latest message)
   const lastNotifiedKeyRef = useRef<Record<string, string | number | undefined>>({});
 
   const didAutoSelectRef = useRef(false);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // remember original title
   const originalTitleRef = useRef(document.title);
   useEffect(() => {
     originalTitleRef.current = document.title;
   }, []);
 
   const latestKey = (c: Conversation) => {
-    const lastMsg = c.messages[c.messages.length - 1];  // ✅ removed the stray c.length access
+    const lastMsg = c.messages[c.messages.length - 1];
     return (lastMsg?.id as number | string | undefined) ?? lastMsg?.created_at ?? c.lastTime;
   };
 
-  // chime
   const playChime = async () => {
     try {
       const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
@@ -185,7 +176,6 @@ export default function Messages() {
     } catch {}
   };
 
-  // seed lastSeen + lastNotified on first load
   useEffect(() => {
     if (!initialLoadDoneRef.current && !loading) {
       const next: LastSeenMap = {};
@@ -201,7 +191,6 @@ export default function Messages() {
     }
   }, [loading, conversations]);
 
-  // keep active conversation synced when messages update
   useEffect(() => {
     if (!activeConversation) return;
     const updated = conversations.find((c) => c.id === activeConversation.id);
@@ -209,7 +198,6 @@ export default function Messages() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
-  // mark active read & advance seen/notify
   useEffect(() => {
     if (!activeConversation) return;
     const k = latestKey(activeConversation);
@@ -230,7 +218,6 @@ export default function Messages() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConversation?.messages, activeConversation?.id]);
 
-  // compute which chats have new messages (not the active one)
   const hasNewMap: Record<string, boolean> = useMemo(() => {
     const map: Record<string, boolean> = {};
     if (!initialLoadDoneRef.current) return map;
@@ -247,7 +234,6 @@ export default function Messages() {
     [hasNewMap]
   );
 
-  // beep for new messages on unopened chats
   useEffect(() => {
     if (!initialLoadDoneRef.current) return;
     conversations.forEach((c) => {
@@ -263,7 +249,6 @@ export default function Messages() {
     });
   }, [conversations, hasNewMap, activeConversation?.id]);
 
-  // title badge
   useEffect(() => {
     const base = originalTitleRef.current || "Telehealth";
     document.title =
@@ -272,7 +257,6 @@ export default function Messages() {
         : base;
   }, [unseenCount]);
 
-  // auto-open first chat once
   useEffect(() => {
     if (didAutoSelectRef.current) return;
     if (loading) return;
@@ -282,7 +266,6 @@ export default function Messages() {
     }
   }, [loading, conversations, activeConversation]);
 
-  // keep view valid if active disappears
   useEffect(() => {
     if (activeConversation && !conversations.find((c) => c.id === activeConversation.id)) {
       if (conversations.length > 0) setActiveConversation(conversations[0]);
@@ -290,76 +273,188 @@ export default function Messages() {
     }
   }, [conversations, activeConversation]);
 
-  // auto-scroll chat to bottom on new messages
   useEffect(() => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   }, [activeConversation?.messages]);
 
-  async function handleSend() {
-    if (!activeConversation || !newMessage.trim()) return;
-    try {
-      setSending(true);
-      await messageService.sendMessage({
-        master_id: activeConversation.masterId,
-        content: newMessage,
-        to: tab === "support" ? "beluga_support" : "support",
-        from_client: true,
+  // ----- attachments: helpers -----
+  const openFilePicker = () => {
+    if (tab === "support") return; // Beluga: not allowed (and UI is hidden)
+    fileInputRef.current?.click();
+  };
+
+  const onChooseFile: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setAttachedFiles((prev) => {
+      const next = [...prev];
+      files.forEach((f) => {
+        const key = `${f.name}_${f.size}_${f.lastModified}`;
+        const exists = next.some((x) => `${x.name}_${x.size}_${x.lastModified}` === key);
+        if (!exists) next.push(f);
       });
+      return next;
+    });
+    e.currentTarget.value = ""; // allow re-pick same file
+  };
 
-      // inside handleSend(), create optimistic message:
-      const newMsg: Message = {
-        id: Date.now(),
-        master_id: activeConversation.masterId,
-        content: newMessage,
-        created_at: new Date().toISOString(),
-        read: true,
-        sender_name: tab === "support" ? "Client" : "Support",
-        senderType: tab === "support" ? "client" : "support",   // ✅ was "beluga_support"
-        side: "right",
-        patientName: activeConversation.patientName,
-        message_type: tab === "support"
-          ? "client_to_beluga_support"
-          : "support_to_patient",
-      };
+  const removeFile = (idx: number) =>
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== idx));
 
-      if (tab === "support") {
-        // update cache for this master
+  async function handleSend() {
+    if (!activeConversation) return;
+
+    const text = newMessage.trim();
+    const hasFiles = attachedFiles.length > 0;
+
+    // Beluga support: attachments NOT allowed (UI hidden, but guard anyway)
+    if (tab === "support") {
+      if (!text) return;
+      try {
+        setSending(true);
+        await messageService.sendMessage({
+          master_id: activeConversation.masterId,
+          content: text,
+          to: "beluga_support",
+          from_client: true,
+        });
+
+        const newMsg: Message = {
+          id: Date.now(),
+          master_id: activeConversation.masterId,
+          content: text,
+          created_at: new Date().toISOString(),
+          read: true,
+          sender_name: "Client",
+          senderType: "client",
+          side: "right",
+          patientName: activeConversation.patientName,
+          message_type: "client_to_beluga_support",
+        };
+
         setBelugaCache((prev) => {
           const list = prev[activeConversation.masterId] || [];
-          return {
-            ...prev,
-            [activeConversation.masterId]: [...list, newMsg],
-          };
+          return { ...prev, [activeConversation.masterId]: [...list, newMsg] };
         });
-      } else {
-        // update visible conversation (patient tab)
-        const updated = {
-          ...activeConversation,
-          messages: [...activeConversation.messages, newMsg],
-          lastMessage: newMsg.content,
-          lastTime: newMsg.created_at,
-        };
-        setActiveConversation(updated);
-        setLastSeen((prev) => {
-          const merged = { ...prev, [updated.id]: newMsg.id ?? newMsg.created_at };
-          writeLastSeenToStorage(merged);
-          return merged;
+
+        setNewMessage("");
+      } catch (err) {
+        console.error("Failed to send beluga message", err);
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+
+    // Patient tab: attachments allowed
+    if (!text && !hasFiles) return;
+
+    setSending(true);
+    setUploading(true);
+    try {
+      // 1) upload all attachments in parallel
+      const uploads = await Promise.all(
+        attachedFiles.map((f) => messageService.uploadAttachment(f))
+      ); // -> { url, fileName, mimeType }[]
+
+      // 2) send a text message; if any files, attach the first file to it
+      const optimistic: Message[] = [];
+      const sendTextFirst = !!text;
+
+      if (sendTextFirst) {
+        const first = uploads[0];
+        await messageService.sendMessage({
+          master_id: activeConversation.masterId,
+          to: "support",
+          content: text,
+          is_media: !!first,
+          media_url: first?.url,
+          media_mime_type: first?.mimeType,
+          media_file_name: first?.fileName,
+          from_client: true,
         });
-        lastNotifiedKeyRef.current[updated.id] = newMsg.id ?? newMsg.created_at;
+
+        optimistic.push({
+          id: Date.now(),
+          master_id: activeConversation.masterId,
+          content: text,
+          created_at: new Date().toISOString(),
+          read: true,
+          sender_name: "Support",
+          senderType: "support",
+          side: "right",
+          patientName: activeConversation.patientName,
+          message_type: "support_to_patient",
+          is_media: !!first,
+          media_url: first?.url,
+          media_mime_type: first?.mimeType,
+          media_file_name: first?.fileName,
+        });
+
+        if (first) uploads.shift();
       }
 
+      // 3) send any remaining files as standalone media messages
+      for (const up of uploads) {
+        await messageService.sendMessage({
+          master_id: activeConversation.masterId,
+          to: "support",
+          content: up.fileName || "Attachment",
+          is_media: true,
+          media_url: up.url,
+          media_mime_type: up.mimeType,
+          media_file_name: up.fileName,
+          from_client: true,
+        });
+
+        optimistic.push({
+          id: Date.now() + Math.random(),
+          master_id: activeConversation.masterId,
+          content: up.fileName || "Attachment",
+          created_at: new Date().toISOString(),
+          read: true,
+          sender_name: "Support",
+          senderType: "support",
+          side: "right",
+          patientName: activeConversation.patientName,
+          message_type: "support_to_patient",
+          is_media: true,
+          media_url: up.url,
+          media_mime_type: up.mimeType,
+          media_file_name: up.fileName,
+        });
+      }
+
+      // 4) update visible conversation
+      const updated = {
+        ...activeConversation,
+        messages: [...activeConversation.messages, ...optimistic],
+        lastMessage: optimistic[optimistic.length - 1]?.content || activeConversation.lastMessage,
+        lastTime: optimistic[optimistic.length - 1]?.created_at || activeConversation.lastTime,
+      };
+      setActiveConversation(updated);
+
+      setLastSeen((prev) => {
+        const merged = { ...prev, [updated.id]: optimistic[optimistic.length - 1]?.id ?? updated.lastTime };
+        writeLastSeenToStorage(merged);
+        return merged;
+      });
+      lastNotifiedKeyRef.current[updated.id] =
+        optimistic[optimistic.length - 1]?.id ?? updated.lastTime;
+
       setNewMessage("");
+      setAttachedFiles([]);
       requestAnimationFrame(() => {
         if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop =
-            messagesContainerRef.current.scrollHeight;
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
         }
       });
     } catch (err) {
-      console.error("Failed to send message", err);
+      console.error("Failed to send message with attachments", err);
     } finally {
+      setUploading(false);
       setSending(false);
     }
   }
@@ -380,7 +475,6 @@ export default function Messages() {
     })();
   }
 
-  // messages for right pane depend on tab
   function getRightPaneMessages(): Message[] {
     if (!activeConversation) return [];
     if (tab === "patient") return activeConversation.messages;
@@ -493,10 +587,10 @@ export default function Messages() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="gap-2">
+                  <Button variant="outline" size="sm" className="gap-2" aria-label="Call">
                     <Phone className="h-4 w-4" /> Call
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" aria-label="View Profile">
                     <Eye className="h-4 w-4" /> View Profile
                   </Button>
                 </div>
@@ -560,7 +654,6 @@ export default function Messages() {
 
                             // ---- MEDIA-AWARE RENDERING ----
                             const isMedia = !!m.is_media && (!!m.media_url || !!m.content);
-                            // Prefer explicit media_url if present; fallback to building from content if it looks like a file key
                             const rawUrl = (m.media_url || (isMedia ? m.content : "")) || "";
                             const mediaUrl =
                               rawUrl.startsWith("http") || rawUrl.startsWith("data:")
@@ -623,30 +716,78 @@ export default function Messages() {
                 })()}
               </div>
 
+              {/* Composer */}
               <div className="p-4 border-t shrink-0">
                 <div className="flex items-center gap-3">
                   <Input
-                    placeholder="Type your message here..."
+                    placeholder="Type your message here…"
                     className="flex-1 text-base px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-400"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSend()}
                   />
-                  <Button variant="ghost" size="sm" className="hidden">
+
+                  {/* (hidden) emoji button */}
+                  <Button variant="ghost" size="sm" className="hidden" aria-label="Emoji">
                     <Smile className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm" className="hidden">
-                    <Paperclip className="h-4 w-4" />
-                  </Button>
+
+                  {/* Attachments UI — completely hidden on Support tab */}
+                  {tab !== "support" && (
+                    <>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        accept={"image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"}
+                        multiple
+                        onChange={onChooseFile}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={openFilePicker}
+                        disabled={uploading || sending}
+                        title="Attach images or documents"
+                        aria-label="Attach files"
+                      >
+                        <Paperclip className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
+
                   <Button
                     onClick={handleSend}
                     disabled={sending}
                     className="px-6 py-3 text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-indigo-700 transition-all flex items-center gap-2"
                   >
                     <Send className="h-5 w-5" />
-                    Send
+                    {sending ? "Sending…" : "Send"}
                   </Button>
                 </div>
+
+                {/* Selected files preview — hidden on Support tab */}
+                {tab !== "support" && attachedFiles.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {attachedFiles.map((f, idx) => (
+                      <span
+                        key={`${f.name}_${f.size}_${f.lastModified}`}
+                        className="inline-flex items-center gap-2 text-xs px-2 py-1 border rounded-full bg-gray-50"
+                      >
+                        {f.type?.startsWith("image/") ? "Image:" : "File:"} {f.name}
+                        <button
+                          onClick={() => removeFile(idx)}
+                          className="ml-1 hover:text-red-600"
+                          title="Remove"
+                          type="button"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </>
           ) : (
