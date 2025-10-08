@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { Plus, Pencil, Trash2,Link2 } from "lucide-react"
+import { Plus, Pencil, Trash2, Link2 } from "lucide-react"
 import { DataTable } from "@/components/ui/data-table"
 import { DateRange } from "react-day-picker"
 import { isWithinInterval } from "date-fns"
@@ -15,7 +15,7 @@ type Coupon = {
   code: string
   type: "fixed" | "percent"
   value: string | number
-  promo_link?: string // e.g. "?promo=FANESSAG&promo-source=coupon"
+  promo_link?: string
   is_active: boolean
   max_usage?: number | null
   max_usage_per_user?: number | null
@@ -24,9 +24,29 @@ type Coupon = {
   total_used: number
   created_at?: string | null
   applicable_products: string[]
+  // ---- NEW FIELDS (from backend) ----
+  purchase_applicability: "both" | "first_only" | "followup_only"
+  catalog_applicability: "medical_only" | "labs_only" | "both"
+  subscription_applicability: "first_cycle_only" | "every_cycle"
 }
 
 type Product = { id: string; name: string }
+
+// label helpers (match your screenshots)
+const purchaseLabel: Record<Coupon["purchase_applicability"], string> = {
+  both: "For Both First and Followup Purchase",
+  first_only: "First Purchase Only",
+  followup_only: "Follow-up Purchase Only",
+}
+const catalogLabel: Record<Coupon["catalog_applicability"], string> = {
+  medical_only: "Apply Only to Medical Products",
+  labs_only: "Apply Only to Lab Panels",
+  both: "Apply to both Medical Products/Lab Panels",
+}
+const subLabel: Record<Coupon["subscription_applicability"], string> = {
+  first_cycle_only: "Apply Only to First Billing Cycle",
+  every_cycle: "Apply to Every Billing Cycle",
+}
 
 // Meaningful filters based on coupon data
 const statusFilters = ["All", "Active", "Inactive"]
@@ -103,28 +123,23 @@ export default function CouponCodes() {
   // Comprehensive filtering logic
   const filteredCoupons = useMemo(() => {
     return coupons.filter(coupon => {
-      // Search filter
       const matchesSearch = !searchTerm || 
         coupon.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
         coupon.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
         coupon.id.toLowerCase().includes(searchTerm.toLowerCase())
 
-      // Status filter
       const matchesStatus = activeStatusFilter === "All" || 
         (activeStatusFilter === "Active" && coupon.is_active) ||
         (activeStatusFilter === "Inactive" && !coupon.is_active)
 
-      // Type filter
       const matchesType = activeTypeFilter === "All" || 
         (activeTypeFilter === "Fixed Amount" && coupon.type === "fixed") ||
         (activeTypeFilter === "Percent" && coupon.type === "percent")
 
-      // Usage filter
       let matchesUsage = true
       if (activeUsageFilter !== "All") {
         const now = new Date()
         const expired = coupon.expires_at && new Date(coupon.expires_at) < now
-        
         switch (activeUsageFilter) {
           case "Used":
             matchesUsage = coupon.total_used > 0
@@ -138,17 +153,12 @@ export default function CouponCodes() {
         }
       }
 
-      // Date range filter based on created_at
       let matchesDateRange = true
       if (date?.from || date?.to) {
         if (coupon.created_at) {
           const couponDate = new Date(coupon.created_at)
-          
           if (date.from && date.to) {
-            matchesDateRange = isWithinInterval(couponDate, {
-              start: date.from,
-              end: date.to
-            })
+            matchesDateRange = isWithinInterval(couponDate, { start: date.from, end: date.to })
           } else if (date.from) {
             matchesDateRange = couponDate >= date.from
           } else if (date.to) {
@@ -163,7 +173,6 @@ export default function CouponCodes() {
 
   // Create filter configuration
   const filters = [
-    // Status filters
     ...statusFilters.map(status => ({
       key: `status-${status}`,
       label: status,
@@ -171,16 +180,14 @@ export default function CouponCodes() {
       value: activeStatusFilter === status ? status : undefined,
       onClick: () => setActiveStatusFilter(status)
     })),
-    // Type filters
-    ...typeFilters.slice(1).map(type => ({ // Skip "All" to avoid duplicate
+    ...typeFilters.slice(1).map(type => ({
       key: `type-${type}`,
       label: type,
       type: 'button' as const,
       value: activeTypeFilter === type ? type : undefined,
       onClick: () => setActiveTypeFilter(type)
     })),
-    // Usage filters
-    ...usageFilters.slice(1).map(usage => ({ // Skip "All" to avoid duplicate
+    ...usageFilters.slice(1).map(usage => ({
       key: `usage-${usage}`,
       label: usage,
       type: 'button' as const,
@@ -257,6 +264,23 @@ export default function CouponCodes() {
         return text.length > 60 ? text.slice(0, 60) + "…" : text || `${ids.length} product(s)`
       },
     },
+    // ---- NEW TABLE COLUMNS ----
+    {
+      key: "purchase_applicability",
+      label: "Coupon Applicable To",
+      render: (...a: any[]) => purchaseLabel[getRow<Coupon>(...a).purchase_applicability],
+    },
+    {
+      key: "catalog_applicability",
+      label: "Coupon Applicable To Meds/Lab Panel",
+      render: (...a: any[]) => catalogLabel[getRow<Coupon>(...a).catalog_applicability],
+    },
+    {
+      key: "subscription_applicability",
+      label: "Apply To Subscription Products",
+      render: (...a: any[]) => subLabel[getRow<Coupon>(...a).subscription_applicability],
+    },
+    // ---------------------------
     { key: "expires_at", label: "Expiry Date", render: (...a: any[]) => formatDate(getRow<Coupon>(...a).expires_at) },
     { key: "total_used", label: "Total Used" },
     { key: "created_at", label: "Created At", render: (...a: any[]) => formatDate(getRow<Coupon>(...a).created_at ?? null) },
@@ -267,7 +291,7 @@ export default function CouponCodes() {
         const row = getRow<Coupon>(...args)
         return (
           <div className="flex items-center justify-end gap-3">
-            <button type="button" className="hover:opacity-80" title="Links"onClick={() => setLinkCoupon(row)}>
+            <button type="button" className="hover:opacity-80" title="Links" onClick={() => setLinkCoupon(row)}>
               <Link2 className="h-4 w-4" />
             </button>
             <button type="button" className="hover:opacity-80" title="Edit" onClick={() => setEditingCoupon(row)}>

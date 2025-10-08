@@ -1,4 +1,3 @@
-// src/components/coupons/AddCouponForm.tsx
 "use client"
 
 import React, { useEffect, useMemo, useState } from "react"
@@ -21,7 +20,11 @@ type CouponFormValues = {
   max_usage?: number | null
   max_usage_per_user?: number | null
   min_spend?: number | null
-  expires_at?: string | null // yyyy-MM-ddTHH:mm in user's local time
+  expires_at?: string | null
+  // ---- NEW FIELDS (frontend form) ----
+  purchase_applicability: "both" | "first_only" | "followup_only"
+  catalog_applicability: "medical_only" | "labs_only" | "both"
+  subscription_applicability: "first_cycle_only" | "every_cycle"
 }
 
 type Props = {
@@ -37,6 +40,10 @@ type Props = {
     max_usage_per_user?: number | null
     min_spend?: number | string | null
     expires_at?: string | null
+    // ---- NEW (for edit mode defaults) ----
+    purchase_applicability: "both" | "first_only" | "followup_only"
+    catalog_applicability: "medical_only" | "labs_only" | "both"
+    subscription_applicability: "first_cycle_only" | "every_cycle"
   }
   open?: boolean
   onOpenChange?: (open: boolean) => void
@@ -87,6 +94,10 @@ export default function AddCouponForm({
           ? parseFloat(coupon.min_spend as string)
           : (coupon?.min_spend as number),
       expires_at: toLocalDatetimeInputValue(coupon?.expires_at ?? null),
+      // ---- NEW defaults (mirror backend defaults) ----
+      purchase_applicability: coupon?.purchase_applicability ?? "both",
+      catalog_applicability: coupon?.catalog_applicability ?? "medical_only",
+      subscription_applicability: coupon?.subscription_applicability ?? "first_cycle_only",
     },
   })
 
@@ -168,7 +179,7 @@ export default function AddCouponForm({
                     {...register("code", { required: true })}
                     placeholder="e.g. SUMMER25"
                     className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
-                    disabled={mode === "edit"} // usually immutable
+                    disabled={mode === "edit"}
                   />
                   <p className="text-xs text-muted-foreground mt-1">Unique coupon code customers will enter.</p>
                 </div>
@@ -246,6 +257,50 @@ export default function AddCouponForm({
                     }}
                   />
                   <p className="text-xs text-muted-foreground mt-1">Leave empty to apply the coupon to all products.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* === NEW: Applicability selects (match screenshots) === */}
+            <div className="md:col-span-2">
+              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Applicability</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Coupon Applicable To */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">Coupon Applicable To</label>
+                  <select
+                    {...register("purchase_applicability")}
+                    className="border px-3 py-2 rounded w-full bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
+                  >
+                    <option value="both">For Both First and Followup Purchase</option>
+                    <option value="first_only">First Purchase Only</option>
+                    <option value="followup_only">Follow-up Purchase Only</option>
+                  </select>
+                </div>
+
+                {/* Apply To Subscription Products */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">Apply To Subscription Products</label>
+                  <select
+                    {...register("subscription_applicability")}
+                    className="border px-3 py-2 rounded w-full bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
+                  >
+                    <option value="first_cycle_only">Apply Only to First Billing Cycle</option>
+                    <option value="every_cycle">Apply to Every Billing Cycle</option>
+                  </select>
+                </div>
+
+                {/* Coupon Applicable To Meds/Lab Panel (full width on md) */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium mb-1">Coupon Applicable To Meds/Lab Panel</label>
+                  <select
+                    {...register("catalog_applicability")}
+                    className="border px-3 py-2 rounded w-full bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
+                  >
+                    <option value="medical_only">Apply Only to Medical Products</option>
+                    <option value="labs_only">Apply Only to Lab Panels</option>
+                    <option value="both">Apply to both Medical Products/Lab Panels</option>
+                  </select>
                 </div>
               </div>
             </div>
