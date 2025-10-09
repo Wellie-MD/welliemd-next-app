@@ -81,14 +81,14 @@ function isInboundForPatient(m: RawMessage) {
 
 function routeLabel(m: RawMessage) {
   if (m.senderType === "patient") {
-    if (m.chatType === "doctor") return "You → Doctor";
-    if (m.chatType === "super_support") return "You → Super Admin Support";
-    if (m.chatType === "support") return "You → Support";
+    if (m.chatType === "doctor") return "to Doctor";
+    if (m.chatType === "super_support") return "to Super Admin Support";
+    if (m.chatType === "support") return "to Support";
     return "You";
   }
-  if (m.senderType === "doctor") return "Doctor → You";
-  if (m.senderType === "super_support") return "Super Admin Support → You";
-  if (m.senderType === "support") return "Client Support → You";
+  if (m.senderType === "doctor") return "Doctor";
+  if (m.senderType === "super_support") return "Client Support";
+  if (m.senderType === "support") return "Client Support";
   return "You";
 }
 
@@ -562,8 +562,8 @@ export default function Messages() {
                           let sub = isMe ? "text-blue-100" : "text-gray-500";
 
                           if (!isMe && m.senderType === "super_support") {
-                            bubble = "bg-red-100 text-red-800";
-                            sub = "text-red-700";
+                            bubble = "bg-purple-100 text-purple-800";
+                            sub = "text-purple-700";
                           } else if (!isMe && m.senderType === "support") {
                             bubble = "bg-purple-100 text-purple-800";
                             sub = "text-purple-700";
