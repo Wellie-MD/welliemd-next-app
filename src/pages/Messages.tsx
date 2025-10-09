@@ -25,7 +25,6 @@ import { useClients, type Client } from "@/hooks/useClients";
 
 import { isToday, isYesterday, isThisWeek, format, formatISO } from "date-fns";
 
-/* -------------------- Date helpers -------------------- */
 function getMessageGroupLabel(dateStr: string) {
   const date = new Date(dateStr);
   if (isToday(date)) return "Today";
@@ -43,7 +42,6 @@ function groupMessagesByDate<T extends { created_at: string }>(messages: T[]) {
   return groups;
 }
 
-/* -------------------- URL & file helpers -------------------- */
 const URL_RE = /https?:\/\/[^\s)]+/i;
 const IMG_EXT_RE = /\.(png|jpe?g|gif|webp|bmp|svg|heic|tiff?)(\?.*)?$/i;
 const DOC_EXT_RE = /\.(pdf|docx?|xlsx?|csv|txt|rtf|pptx?)(\?.*)?$/i;
