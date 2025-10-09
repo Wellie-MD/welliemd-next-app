@@ -148,27 +148,19 @@ function DocumentBubble({
           </div>
         </div>
       </div>
-      <div className="flex items-center justify-between border-t px-3 py-2">
+      <div className="flex items-center justify-center border-t px-3 py-2 text-gray-600 hover:text-gray-800">
         <a
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs font-medium hover:underline"
-          title="Open"
+          className="inline-flex items-center gap-1 text-md font-medium text-gray-700 hover:text-gray-900"
+          title="Open in new tab"
         >
           <ExternalLink className="h-3.5 w-3.5" />
           Open
         </a>
-        <a
-          href={url}
-          download={name || true}
-          className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800"
-          title="Download"
-        >
-          <DownloadIcon className="h-3.5 w-3.5" />
-          Download
-        </a>
       </div>
+
     </div>
   );
 }
