@@ -11,6 +11,15 @@ import {
   Video,
   ChevronDown,
   Paperclip,
+  FileText,
+  FileSpreadsheet,
+  FileArchive,
+  File as FileIcon,
+  FileAudio,
+  FileVideo,
+  FileCode,
+  ExternalLink,
+  Download as DownloadIcon,
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader } from "./ui/card";
@@ -84,6 +93,85 @@ function routeLabel(m: RawMessage) {
 }
 
 const isImage = (mime?: string) => (mime ?? "").startsWith("image/");
+
+// ---- NEW: tiny helpers for doc UI (non-images) ----
+const getExt = (name?: string) => {
+  if (!name) return "";
+  const dot = name.lastIndexOf(".");
+  return dot >= 0 ? name.slice(dot + 1).toLowerCase() : "";
+};
+
+const DocIcon = ({ ext, mime }: { ext: string; mime?: string }) => {
+  const m = (mime || "").toLowerCase();
+  if (m.startsWith("audio/")) return <FileAudio className="h-5 w-5" />;
+  if (m.startsWith("video/")) return <FileVideo className="h-5 w-5" />;
+  if (m.startsWith("text/") || ext === "txt" || ext === "rtf") return <FileText className="h-5 w-5" />;
+  if (ext === "pdf") return <FileText className="h-5 w-5" />;
+  if (["xls", "xlsx", "csv", "ods"].includes(ext)) return <FileSpreadsheet className="h-5 w-5" />;
+  if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) return <FileArchive className="h-5 w-5" />;
+  if (["js", "ts", "py", "java", "c", "cpp", "json", "yml", "yaml", "html", "css"].includes(ext))
+    return <FileCode className="h-5 w-5" />;
+  return <FileIcon className="h-5 w-5" />;
+};
+
+// ---- NEW: document attachment bubble ----
+function DocumentBubble({
+  url,
+  name,
+  mime,
+}: {
+  url: string;
+  name?: string | null;
+  mime?: string | null;
+}) {
+  const ext = getExt(name || undefined);
+  const display = name || "Attachment";
+  return (
+    <div className="w-[260px] lg:w-[320px] rounded-md bg-white shadow-sm ring-1 ring-gray-200">
+      <div className="p-3 flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-800">
+          <DocIcon ext={ext} mime={mime || undefined} />
+        </div>
+        <div className="min-w-0">
+          <div className="text-sm font-medium text-gray-900 break-words line-clamp-2">
+            {display}
+          </div>
+          <div className="mt-0.5 flex items-center gap-2">
+            {ext && (
+              <span className="inline-flex items-center rounded-full border bg-gray-50 px-2 py-0.5 text-[10px] uppercase tracking-wider text-gray-600">
+                {ext}
+              </span>
+            )}
+            {mime && (
+              <span className="text-[10px] text-gray-500 truncate">{mime}</span>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center justify-between border-t px-3 py-2">
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs font-medium hover:underline"
+          title="Open"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          Open
+        </a>
+        <a
+          href={url}
+          download={name || true}
+          className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800"
+          title="Download"
+        >
+          <DownloadIcon className="h-3.5 w-3.5" />
+          Download
+        </a>
+      </div>
+    </div>
+  );
+}
 
 export default function Messages() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -231,7 +319,6 @@ export default function Messages() {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    // Optional: further filter by size/mime if needed
     setAttachedFiles((prev) => {
       const next = [...prev];
       files.forEach((f) => {
@@ -242,7 +329,6 @@ export default function Messages() {
       return next;
     });
 
-    // reset so same file can be picked again
     e.currentTarget.value = "";
   };
 
@@ -313,7 +399,6 @@ export default function Messages() {
           })
         );
 
-        // remove the first from the list (already used)
         if (first) uploads.shift();
       }
 
@@ -505,15 +590,14 @@ export default function Messages() {
                                       />
                                     </a>
                                   ) : (
-                                    <a
-                                      href={m.media_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center text-xs underline break-all"
-                                      title={m.file_name || "Open file"}
-                                    >
-                                      {m.file_name || m.content || "Attachment"}
-                                    </a>
+                                    // ---- NEW: richer document UI instead of plain filename ----
+                                    <div className="mb-1">
+                                      <DocumentBubble
+                                        url={m.media_url}
+                                        name={m.file_name || m.content}
+                                        mime={m.mime_type}
+                                      />
+                                    </div>
                                   )
                                 ) : (
                                   <p className="text-sm whitespace-pre-wrap break-words">
