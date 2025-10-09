@@ -3,20 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Phone, Eye, Send } from "lucide-react";
+import { Phone, Eye, Send, ExternalLink, FileText, FileSpreadsheet, FileArchive, File as FileIcon, FileAudio, FileVideo, FileCode } from "lucide-react";
 
 import { useMessages } from "@/hooks/useMessages";
 import { groupMessages, type Conversation } from "@/utils/groupMessages";
 import { messageService } from "@/services/messageService";
 import { useClients, type Client } from "@/hooks/useClients";
 
-import {
-  isToday,
-  isYesterday,
-  isThisWeek,
-  format,
-  formatISO,
-} from "date-fns";
+import { isToday, isYesterday, isThisWeek, format, formatISO } from "date-fns";
 
 /* === ADD: imports for attachments (non-breaking) === */
 import { Paperclip } from "lucide-react";
@@ -41,8 +35,7 @@ function groupMessagesByDate<T extends { created_at: string }>(messages: T[]) {
 }
 
 /* === ADD: lightweight URL/file detectors (used when BE sends only a URL in content) === */
-const URL_RE =
-  /https?:\/\/[^\s)]+/i;
+const URL_RE = /https?:\/\/[^\s)]+/i;
 const IMG_EXT_RE = /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/i;
 const DOC_EXT_RE = /\.(pdf|docx?|xlsx?|csv|txt|rtf)(\?.*)?$/i;
 function isImageMime(mime?: string) { return !!mime && mime.startsWith("image/"); }
@@ -59,6 +52,76 @@ function fileNameFromUrl(u: string) {
     return u;
   }
 }
+
+/* ==== NEW: document helpers (same look as other portals) ==== */
+const getExt = (name?: string | null) => {
+  if (!name) return "";
+  const i = name.lastIndexOf(".");
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
+};
+
+const DocIcon = ({ ext, mime }: { ext: string; mime?: string | null }) => {
+  let Icon = FileIcon;
+  const m = (mime || "").toLowerCase();
+  if (m.startsWith("audio/")) Icon = FileAudio;
+  else if (m.startsWith("video/")) Icon = FileVideo;
+  else if (m.startsWith("text/") || ["txt", "rtf", "pdf"].includes(ext)) Icon = FileText;
+  else if (["xls", "xlsx", "csv", "ods"].includes(ext)) Icon = FileSpreadsheet;
+  else if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) Icon = FileArchive;
+  else if (["js", "ts", "py", "java", "c", "cpp", "json", "yml", "yaml", "html", "css"].includes(ext)) Icon = FileCode;
+
+  return (
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-800">
+      <Icon className="h-5 w-5" />
+    </div>
+  );
+};
+
+function DocumentBubble({
+  url,
+  name,
+  mime,
+}: {
+  url: string;
+  name?: string | null;
+  mime?: string | null;
+}) {
+  const ext = getExt(name);
+  const display = name || "Attachment";
+  return (
+    <div className="w-[260px] lg:w-[320px] rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
+      <div className="p-3 flex items-start gap-3">
+        <DocIcon ext={ext} mime={mime} />
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-gray-900 break-words line-clamp-2">
+            {display}
+          </div>
+          <div className="mt-1 flex items-center gap-2">
+            {ext && (
+              <span className="inline-flex items-center rounded-full bg-gray-50 text-gray-700 px-2 py-0.5 text-[10px] uppercase tracking-wider">
+                {ext}
+              </span>
+            )}
+            {mime && <span className="text-[11px] text-gray-500 truncate">{mime}</span>}
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center justify-center border-t px-3 py-2">
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 hover:text-gray-900"
+          title="Open in new tab"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          Open
+        </a>
+      </div>
+    </div>
+  );
+}
+/* ============================================================ */
 
 export default function Messages() {
   // 1) Admin: load clients
@@ -143,16 +206,13 @@ export default function Messages() {
     };
 
     el.addEventListener("scroll", onScroll, { passive: true });
-    // initialize once so we start with correct stickiness
     onScroll();
 
     return () => {
       el.removeEventListener("scroll", onScroll);
     };
-    // Re-attach when the conversation panel is remounted (container ref changes on key)
   }, [activeConversation?.id, selectedClient?.id]);
 
-  // Scroll to bottom helper (next paint)
   function stickToBottomSoon() {
     shouldStickRef.current = true;
     requestAnimationFrame(() => {
@@ -162,26 +222,16 @@ export default function Messages() {
     });
   }
 
-  // When messages for the active conversation change, only auto-scroll if we should stick
   useEffect(() => {
     const el = messagesContainerRef.current;
     if (!el || !activeConversation) return;
-
-    if (shouldStickRef.current) {
-      el.scrollTop = el.scrollHeight;
-    }
+    if (shouldStickRef.current) el.scrollTop = el.scrollHeight;
   }, [activeConversation?.messages]);
 
-  // When switching clients or conversations, we want to stick to bottom at open
-  useEffect(() => {
-    shouldStickRef.current = true;
-  }, [selectedClient?.id]);
-  useEffect(() => {
-    shouldStickRef.current = true;
-    stickToBottomSoon();
-  }, [activeConversation?.id]);
+  useEffect(() => { shouldStickRef.current = true; }, [selectedClient?.id]);
+  useEffect(() => { shouldStickRef.current = true; stickToBottomSoon(); }, [activeConversation?.id]);
 
-  // ✅ Single Send button: if there are files, send multipart; else send text-only (unchanged endpoint)
+  // ✅ Single Send button
   async function handleSend() {
     if (!activeConversation || (!newMessage.trim() && files.length === 0)) return;
 
@@ -190,7 +240,6 @@ export default function Messages() {
       shouldStickRef.current = true;
 
       if (files.length > 0) {
-        // multipart path (attachments + optional text)
         const resp = await sendMessageWithFiles({
           master_id: activeConversation.masterId,
           to: "support",
@@ -241,7 +290,6 @@ export default function Messages() {
         return;
       }
 
-      // text-only path (original behavior)
       await messageService.sendMessage({
         master_id: activeConversation.masterId,
         content: newMessage,
@@ -442,7 +490,7 @@ export default function Messages() {
                           // attachments array (preferred)
                           const attachments: any[] = Array.isArray(m.attachments) ? m.attachments : [];
 
-                          // === ADD: derive preview from content-only messages (URL pasted as text)
+                          // derive preview from content-only messages (URL pasted as text)
                           const contentUrl = extractFirstUrl(m.content || "");
                           const isImgUrl = !!contentUrl && IMG_EXT_RE.test(contentUrl);
                           const isDocUrl = !!contentUrl && DOC_EXT_RE.test(contentUrl);
@@ -452,9 +500,7 @@ export default function Messages() {
                               key={m.id}
                               className={`flex ${m.side === "left" ? "justify-start" : "justify-end"}`}
                             >
-                              <div
-                                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}
-                              >
+                              <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}>
                                 {/* original text */}
                                 {m.content && (
                                   <div className="text-sm whitespace-pre-wrap break-words">
@@ -488,27 +534,23 @@ export default function Messages() {
                                         ))}
                                     </div>
 
-                                    {/* Non-image files */}
-                                    <div className="space-y-1">
+                                    {/* Non-image files -> NEW DocumentBubble */}
+                                    <div className="space-y-2">
                                       {attachments
                                         .filter((a) => !isImageMime(a?.mime_type))
                                         .map((a, idx) => (
-                                          <a
+                                          <DocumentBubble
                                             key={`${a.url}-file-${idx}`}
-                                            href={a.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center text-xs underline break-all"
-                                            title={a.file_name || "file"}
-                                          >
-                                            {a.file_name || fileNameFromUrl(a.url)}
-                                          </a>
+                                            url={a.url}
+                                            name={a.file_name || fileNameFromUrl(a.url)}
+                                            mime={a.mime_type}
+                                          />
                                         ))}
                                     </div>
                                   </div>
                                 )}
 
-                                {/* === ADD: content-only URL previews (client-portal style) === */}
+                                {/* content-only URL previews */}
                                 {!attachments.length && contentUrl && (
                                   <div className="mt-2">
                                     {isImgUrl ? (
@@ -527,15 +569,11 @@ export default function Messages() {
                                         />
                                       </a>
                                     ) : isDocUrl ? (
-                                      <a
-                                        href={contentUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center text-xs underline break-all"
-                                        title={fileNameFromUrl(contentUrl)}
-                                      >
-                                        {fileNameFromUrl(contentUrl)}
-                                      </a>
+                                      <DocumentBubble
+                                        url={contentUrl}
+                                        name={fileNameFromUrl(contentUrl)}
+                                        mime={null}
+                                      />
                                     ) : null}
                                   </div>
                                 )}
@@ -605,7 +643,7 @@ export default function Messages() {
                     accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv,application/rtf"
                   />
 
-                  {/* pill input (like screenshot) */}
+                  {/* pill input */}
                   <Input
                     placeholder="Type your message here..."
                     className="flex-1 h-12 text-base px-6 rounded-full border focus:ring-2 focus:ring-blue-400"
@@ -616,7 +654,6 @@ export default function Messages() {
                     }}
                   />
 
-                  {/* icon-only paperclip */}
                   <Button
                     type="button"
                     variant="ghost"
@@ -629,7 +666,6 @@ export default function Messages() {
                     <span className="sr-only">Attach</span>
                   </Button>
 
-                  {/* round gradient Send */}
                   <Button
                     onClick={handleSend}
                     disabled={sending || !selectedClient}
