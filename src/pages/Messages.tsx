@@ -1,23 +1,16 @@
 // src/pages/Messages.tsx (Client Portal) — attachments hidden for Support (Beluga) tab
-// UPDATED: always jump to the latest message when opening/switching chats,
-// and keep autoscrolling on new messages (minimal additions only).
+// UPDATED: document UI matches patient portal (icon + filename + mime + centered “Open”).
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Phone, Eye, Send, Smile, Paperclip } from "lucide-react";
+import { Phone, Eye, Send, Smile, Paperclip, ExternalLink, FileText, FileSpreadsheet, FileArchive, File as FileIcon, FileAudio, FileVideo, FileCode } from "lucide-react";
 import { useMessages } from "@/hooks/useMessages";
 import { groupMessages, type Conversation } from "@/utils/groupMessages";
 import { messageService, type Message } from "@/services/messageService";
 
-import {
-  isToday,
-  isYesterday,
-  isThisWeek,
-  format,
-  formatISO,
-} from "date-fns";
+import { isToday, isYesterday, isThisWeek, format, formatISO } from "date-fns";
 
 type LastSeenMap = Record<string, string | number | undefined>;
 const LS_KEY = "msg_last_seen";
@@ -66,6 +59,78 @@ function looksLikeImageUrl(url: string | undefined): boolean {
 function isImageMime(mime?: string): boolean {
   return !!mime && mime.toLowerCase().startsWith("image/");
 }
+
+// ==== NEW: simple document helpers (same as patient portal style) ====
+const getExt = (name?: string | null) => {
+  if (!name) return "";
+  const i = name.lastIndexOf(".");
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
+};
+
+const DocIcon = ({ ext, mime }: { ext: string; mime?: string | null }) => {
+  let Icon = FileIcon;
+  const m = (mime || "").toLowerCase();
+  if (m.startsWith("audio/")) Icon = FileAudio;
+  else if (m.startsWith("video/")) Icon = FileVideo;
+  else if (m.startsWith("text/") || ["txt", "rtf", "pdf"].includes(ext)) Icon = FileText;
+  else if (["xls", "xlsx", "csv", "ods"].includes(ext)) Icon = FileSpreadsheet;
+  else if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) Icon = FileArchive;
+  else if (["js", "ts", "py", "java", "c", "cpp", "json", "yml", "yaml", "html", "css"].includes(ext)) Icon = FileCode;
+
+  // Dark icon on light gray chip (per your preference)
+  return (
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-800">
+      <Icon className="h-5 w-5" />
+    </div>
+  );
+};
+
+function DocumentBubble({
+  url,
+  name,
+  mime,
+}: {
+  url: string;
+  name?: string | null;
+  mime?: string | null;
+}) {
+  const ext = getExt(name);
+  const display = name || "Attachment";
+  return (
+    <div className="w-[260px] lg:w-[320px] rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
+      <div className="p-3 flex items-start gap-3">
+        <DocIcon ext={ext} mime={mime} />
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-gray-900 break-words line-clamp-2">
+            {display}
+          </div>
+          <div className="mt-1 flex items-center gap-2">
+            {ext && (
+              <span className="inline-flex items-center rounded-full bg-gray-50 text-gray-700 px-2 py-0.5 text-[10px] uppercase tracking-wider">
+                {ext}
+              </span>
+            )}
+            {mime && <span className="text-[11px] text-gray-500 truncate">{mime}</span>}
+          </div>
+        </div>
+      </div>
+      {/* Centered “Open” only, opens in new tab */}
+      <div className="flex items-center justify-center border-t px-3 py-2">
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 hover:text-gray-900"
+          title="Open in new tab"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          Open
+        </a>
+      </div>
+    </div>
+  );
+}
+// ====================================================================
 
 export default function Messages() {
   const { messages, loading, error } = useMessages(5000);
@@ -158,7 +223,7 @@ export default function Messages() {
   const latestKey = (c: Conversation) => {
     const lastMsg = c.messages[c.messages.length - 1];
     return (lastMsg?.id as number | string | undefined) ?? lastMsg?.created_at ?? c.lastTime;
-  };
+    };
 
   const playChime = async () => {
     try {
@@ -722,14 +787,10 @@ export default function Messages() {
                                         </div>
                                       </a>
                                     ) : (
-                                      <a
-                                        href={mediaUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-2 text-sm underline break-all"
-                                      >
-                                        {fileName}
-                                      </a>
+                                      // ====== NEW: Document bubble UI for non-image files ======
+                                      <div className="mb-1">
+                                        <DocumentBubble url={mediaUrl} name={fileName} mime={mime} />
+                                      </div>
                                     )
                                   ) : (
                                     <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>
