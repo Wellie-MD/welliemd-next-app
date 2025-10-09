@@ -1,27 +1,36 @@
-// src/pages/Messages.tsx (Admin Portal with date separators + smart autoscroll)
+// src/pages/Messages.tsx (Admin Portal with date separators + smart autoscroll + media_url/image/doc handling)
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Phone, Eye, Send, ExternalLink, FileText, FileSpreadsheet, FileArchive, File as FileIcon, FileAudio, FileVideo, FileCode } from "lucide-react";
+import {
+  Phone,
+  Eye,
+  Send,
+  ExternalLink,
+  FileText,
+  FileSpreadsheet,
+  FileArchive,
+  File as FileIcon,
+  FileAudio,
+  FileVideo,
+  FileCode,
+  Paperclip,
+} from "lucide-react";
 
 import { useMessages } from "@/hooks/useMessages";
 import { groupMessages, type Conversation } from "@/utils/groupMessages";
-import { messageService } from "@/services/messageService";
+import { messageService, sendMessageWithFiles, type NewAttachment } from "@/services/messageService";
 import { useClients, type Client } from "@/hooks/useClients";
 
 import { isToday, isYesterday, isThisWeek, format, formatISO } from "date-fns";
 
-/* === ADD: imports for attachments (non-breaking) === */
-import { Paperclip } from "lucide-react";
-import { sendMessageWithFiles, type NewAttachment } from "@/services/messageService";
-
-// ---- helpers for grouping ----
+/* -------------------- Date helpers -------------------- */
 function getMessageGroupLabel(dateStr: string) {
   const date = new Date(dateStr);
   if (isToday(date)) return "Today";
   if (isYesterday(date)) return "Yesterday";
-  if (isThisWeek(date)) return format(date, "EEEE"); // Monday, Tuesday…
+  if (isThisWeek(date)) return format(date, "EEEE");
   return format(date, "MMM d, yyyy");
 }
 function groupMessagesByDate<T extends { created_at: string }>(messages: T[]) {
@@ -34,16 +43,16 @@ function groupMessagesByDate<T extends { created_at: string }>(messages: T[]) {
   return groups;
 }
 
-/* === ADD: lightweight URL/file detectors (used when BE sends only a URL in content) === */
+/* -------------------- URL & file helpers -------------------- */
 const URL_RE = /https?:\/\/[^\s)]+/i;
-const IMG_EXT_RE = /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/i;
-const DOC_EXT_RE = /\.(pdf|docx?|xlsx?|csv|txt|rtf)(\?.*)?$/i;
-function isImageMime(mime?: string) { return !!mime && mime.startsWith("image/"); }
-function extractFirstUrl(text?: string): string | null {
+const IMG_EXT_RE = /\.(png|jpe?g|gif|webp|bmp|svg|heic|tiff?)(\?.*)?$/i;
+const DOC_EXT_RE = /\.(pdf|docx?|xlsx?|csv|txt|rtf|pptx?)(\?.*)?$/i;
+const isImageMime = (mime?: string) => !!mime && mime.toLowerCase().startsWith("image/");
+const extractFirstUrl = (text?: string): string | null => {
   if (!text) return null;
   const m = text.match(URL_RE);
   return m ? m[0] : null;
-}
+};
 function fileNameFromUrl(u: string) {
   try {
     const url = new URL(u);
@@ -53,7 +62,7 @@ function fileNameFromUrl(u: string) {
   }
 }
 
-/* ==== NEW: document helpers (same look as other portals) ==== */
+/* -------------------- Document UI (same as other portals) -------------------- */
 const getExt = (name?: string | null) => {
   if (!name) return "";
   const i = name.lastIndexOf(".");
@@ -121,8 +130,8 @@ function DocumentBubble({
     </div>
   );
 }
-/* ============================================================ */
 
+/* ==================== Component ==================== */
 export default function Messages() {
   // 1) Admin: load clients
   const { clients, loading: loadingClients, error: clientsError } = useClients();
@@ -135,11 +144,10 @@ export default function Messages() {
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
 
-  /* === ADD: attachment state & helpers (no changes to existing state) === */
+  // Attachments (compose)
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<{ url: string; file: File }[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const isImage = (mime: string) => mime?.startsWith("image/");
 
   const onClickAttach = () => fileInputRef.current?.click();
   const onFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -163,14 +171,14 @@ export default function Messages() {
 
   const conversations = groupMessages(messages);
 
-  // Auto-pick first client once clients load
+  // Auto-pick first client
   useEffect(() => {
     if (!loadingClients && !selectedClient && clients.length > 0) {
       setSelectedClient(clients[0]);
     }
   }, [loadingClients, clients, selectedClient]);
 
-  // Keep activeConversation in sync on new data (same client)
+  // Keep activeConversation in sync
   useEffect(() => {
     if (activeConversation) {
       const updated = conversations.find((c) => c.id === activeConversation.id);
@@ -178,12 +186,12 @@ export default function Messages() {
     }
   }, [messages]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 🔁 Reset conversation when client changes
+  // Reset conversation when client changes
   useEffect(() => {
     setActiveConversation(null);
   }, [selectedClient?.id]);
 
-  // 🔒 Only auto-open once new client's messages have loaded
+  // Auto-open first conversation
   useEffect(() => {
     if (!loading && !activeConversation && conversations.length > 0) {
       setActiveConversation(conversations[0]);
@@ -193,9 +201,8 @@ export default function Messages() {
   // ===== Smart autoscroll =====
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const shouldStickRef = useRef(true);
-  const SCROLL_THRESHOLD = 48; // px from bottom counts as "near bottom"
+  const SCROLL_THRESHOLD = 48;
 
-  // Recompute stickiness on user scroll
   useEffect(() => {
     const el = messagesContainerRef.current;
     if (!el) return;
@@ -207,10 +214,7 @@ export default function Messages() {
 
     el.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
-
-    return () => {
-      el.removeEventListener("scroll", onScroll);
-    };
+    return () => el.removeEventListener("scroll", onScroll);
   }, [activeConversation?.id, selectedClient?.id]);
 
   function stickToBottomSoon() {
@@ -231,7 +235,7 @@ export default function Messages() {
   useEffect(() => { shouldStickRef.current = true; }, [selectedClient?.id]);
   useEffect(() => { shouldStickRef.current = true; stickToBottomSoon(); }, [activeConversation?.id]);
 
-  // ✅ Single Send button
+  // Send
   async function handleSend() {
     if (!activeConversation || (!newMessage.trim() && files.length === 0)) return;
 
@@ -338,7 +342,6 @@ export default function Messages() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px] min-h-0">
         {/* LEFT: Clients + Conversations */}
         <div className="lg:col-span-1 bg-card rounded-lg border flex flex-col overflow-hidden">
-          {/* Client selector */}
           <div className="p-4 border-b space-y-3 shrink-0">
             <h2 className="text-lg font-semibold">All Messages</h2>
             <div>
@@ -363,7 +366,6 @@ export default function Messages() {
             </div>
           </div>
 
-          {/* Conversations list */}
           <div className="p-4 space-y-2 overflow-y-auto flex-1 min-h-0">
             {loading && selectedClient && (
               <div className="text-sm text-muted-foreground">
@@ -391,15 +393,10 @@ export default function Messages() {
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-sm">{displayName}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {c.lastMessage}
-                    </div>
+                    <div className="text-xs text-muted-foreground truncate">{c.lastMessage}</div>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {new Date(c.lastTime).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {new Date(c.lastTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </div>
                 </div>
               );
@@ -409,20 +406,17 @@ export default function Messages() {
 
         {/* RIGHT: Chat */}
         <div
-          key={selectedClient?.id || "no-client"}  // 🔑 force remount on client switch
+          key={selectedClient?.id || "no-client"}
           className="lg:col-span-2 bg-card rounded-lg border flex flex-col overflow-hidden"
         >
           {activeConversation ? (
             <>
-              {/* Header */}
               <div className="p-4 border-b flex items-center justify-between shrink-0">
                 <div>
                   <div className="font-semibold">
                     {activeConversation.patientName
                       ? `${activeConversation.patientName}${
-                          activeConversation.patientEmail
-                            ? ` (${activeConversation.patientEmail})`
-                            : ""
+                          activeConversation.patientEmail ? ` (${activeConversation.patientEmail})` : ""
                         }`
                       : activeConversation.patientEmail || "Patient"}
                   </div>
@@ -441,10 +435,7 @@ export default function Messages() {
               </div>
 
               {/* ---- DATE-GROUPED MESSAGES ---- */}
-              <div
-                ref={messagesContainerRef}
-                className="flex-1 overflow-y-auto p-4 space-y-6 min-h-0"
-              >
+              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-6 min-h-0">
                 {(() => {
                   const grouped = groupMessagesByDate(activeConversation.messages);
                   const sortedDates = Object.keys(grouped).sort(
@@ -473,42 +464,32 @@ export default function Messages() {
                                 : "Patient";
                           } else if (m.senderType === "doctor") displayName = "Doctor";
                           else if (m.senderType === "support") displayName = "Client Support";
-                          else if (m.senderType === "super_support")
-                            displayName = "Super Admin Support";
+                          else if (m.senderType === "super_support") displayName = "Super Admin Support";
 
                           let bubbleColor = "";
-                          if (m.senderType === "patient")
-                            bubbleColor = "bg-gray-100 text-gray-800";
-                          else if (m.senderType === "doctor")
-                            bubbleColor = "bg-blue-100 text-blue-800";
-                          else if (m.senderType === "support")
-                            bubbleColor = "bg-purple-100 text-purple-800";
-                          else if (m.senderType === "super_support")
-                            bubbleColor = "bg-red-100 text-red-800";
+                          if (m.senderType === "patient") bubbleColor = "bg-gray-100 text-gray-800";
+                          else if (m.senderType === "doctor") bubbleColor = "bg-blue-100 text-blue-800";
+                          else if (m.senderType === "support") bubbleColor = "bg-purple-100 text-purple-800";
+                          else if (m.senderType === "super_support") bubbleColor = "bg-red-100 text-red-800";
                           else bubbleColor = "bg-gray-200 text-gray-800";
 
-                          // attachments array (preferred)
+                          // attachments array (some backends)
                           const attachments: any[] = Array.isArray(m.attachments) ? m.attachments : [];
 
-                          // derive preview from content-only messages (URL pasted as text)
+                          // content-only URL fallback
                           const contentUrl = extractFirstUrl(m.content || "");
                           const isImgUrl = !!contentUrl && IMG_EXT_RE.test(contentUrl);
                           const isDocUrl = !!contentUrl && DOC_EXT_RE.test(contentUrl);
 
                           return (
-                            <div
-                              key={m.id}
-                              className={`flex ${m.side === "left" ? "justify-start" : "justify-end"}`}
-                            >
+                            <div key={m.id} className={`flex ${m.side === "left" ? "justify-start" : "justify-end"}`}>
                               <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}>
-                                {/* original text */}
+                                {/* original text (keep) */}
                                 {m.content && (
-                                  <div className="text-sm whitespace-pre-wrap break-words">
-                                    {m.content}
-                                  </div>
+                                  <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>
                                 )}
 
-                                {/* attachments from BE */}
+                                {/* attachments from backend (array) */}
                                 {attachments.length > 0 && (
                                   <div className="mt-2 space-y-2">
                                     {/* Images grid */}
@@ -534,7 +515,7 @@ export default function Messages() {
                                         ))}
                                     </div>
 
-                                    {/* Non-image files -> NEW DocumentBubble */}
+                                    {/* Non-image files -> DocumentBubble */}
                                     <div className="space-y-2">
                                       {attachments
                                         .filter((a) => !isImageMime(a?.mime_type))
@@ -550,8 +531,41 @@ export default function Messages() {
                                   </div>
                                 )}
 
-                                {/* content-only URL previews */}
-                                {!attachments.length && contentUrl && (
+                                {/* NEW: single-file media coming via is_media + media_url (your API shape) */}
+                                {!attachments.length && m.is_media && m.media_url && (
+                                  <div className="mt-2">
+                                    {isImageMime(m.media_mime_type) || IMG_EXT_RE.test(m.media_url) ? (
+                                      <a
+                                        href={m.media_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block rounded-md overflow-hidden border"
+                                        title={m.media_file_name || "image"}
+                                      >
+                                        <img
+                                          src={m.media_url}
+                                          alt={m.media_file_name || "image"}
+                                          className="w-full max-h-72 object-contain"
+                                          loading="lazy"
+                                        />
+                                        {m.media_file_name && (
+                                          <div className="mt-1 text-xs opacity-80 truncate">
+                                            {m.media_file_name}
+                                          </div>
+                                        )}
+                                      </a>
+                                    ) : (
+                                      <DocumentBubble
+                                        url={m.media_url}
+                                        name={m.media_file_name || m.content || "Attachment"}
+                                        mime={m.media_mime_type || undefined}
+                                      />
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* content-only URL previews (fallback when no media fields) */}
+                                {!attachments.length && !m.is_media && contentUrl && (
                                   <div className="mt-2">
                                     {isImgUrl ? (
                                       <a
@@ -643,7 +657,7 @@ export default function Messages() {
                     accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv,application/rtf"
                   />
 
-                  {/* pill input */}
+                  {/* input */}
                   <Input
                     placeholder="Type your message here..."
                     className="flex-1 h-12 text-base px-6 rounded-full border focus:ring-2 focus:ring-blue-400"
