@@ -540,11 +540,11 @@ export default function Messages() {
                   );
 
                   return days.map((day) => (
-                    <div key={day}>
-                      <div className="flex justify-center my-4">
-                        <span className="bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full">
-                          {getMessageGroupLabel(day)}
-                        </span>
+                      <div key={day}>
+                        <div className="flex justify-center my-4">
+                          <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-gray-100 text-gray-800 shadow-sm">
+                            {getMessageGroupLabel(day)}
+                          </span>
                       </div>
                       <div className="space-y-4">
                         {grouped[day].map((m) => {
