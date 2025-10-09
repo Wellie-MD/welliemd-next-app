@@ -122,4 +122,23 @@ All colors MUST be HSL.
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  .stripe-card-element {
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background-color: white;
+    min-height: 44px;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  }
+
+  .stripe-card-element:focus-within {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 1px #3b82f6;
+  }
+
+  .dark .stripe-card-element {
+    background-color: #374151;
+    border-color: #4b5563;
+  }
 }

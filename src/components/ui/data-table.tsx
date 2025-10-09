@@ -29,6 +29,7 @@ import {
   Download,
   CalendarIcon,
   X,
+  Building2,
 } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { format } from "date-fns"
@@ -37,6 +38,8 @@ interface Column {
   key: string
   label: string
   sortable?: boolean
+  headerClassName?: string
+  className?: string
   render?: (value: any, row: any) => React.ReactNode
 }
 
@@ -248,43 +251,55 @@ export function DataTable({
         </>
       )}
 
-      {/* Table */}
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {columns.map((column) => (
-                <TableHead key={column.key} className="font-medium">
-                  {column.label}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {visibleData.length > 0 ? (
-              visibleData.map((row, index) => (
-                <TableRow key={index}>
-                  {columns.map((column) => (
-                    <TableCell key={column.key}>
-                      {column.render
-                        ? column.render(row[column.key], row)
-                        : row[column.key]}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No results.
-                </TableCell>
+      {/* Table - Enhanced Design */}
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+          <Table className="min-w-full">
+            <TableHeader>
+              <TableRow className="bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-800 dark:to-gray-800/50 border-b border-gray-200 dark:border-gray-700">
+                {columns.map((column) => (
+                  <TableHead
+                    key={column.key}
+                    className={`font-medium text-gray-700 dark:text-gray-300 text-xs uppercase tracking-wider py-3 px-3 ${column.headerClassName || ''}`}
+                  >
+                    {column.label}
+                  </TableHead>
+                ))}
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {visibleData.length > 0 ? (
+                visibleData.map((row, index) => (
+                  <TableRow
+                    key={index}
+                    className="border-b border-gray-100 dark:border-gray-800 hover:bg-gradient-to-r hover:from-gray-50 hover:to-transparent dark:hover:from-gray-800/50 dark:hover:to-transparent transition-all duration-200 group"
+                  >
+                    {columns.map((column) => (
+                      <TableCell key={column.key} className={`py-4 px-4 ${column.className || ''}`}>
+                        {column.render
+                          ? column.render(row[column.key], row)
+                          : row[column.key]}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-32 text-center py-8"
+                  >
+                    <div className="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
+                      <Building2 className="w-12 h-12 mb-3 opacity-50" />
+                      <p className="text-lg font-medium mb-1">No clients found</p>
+                      <p className="text-sm">Try adjusting your search criteria</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {/* Pagination */}
