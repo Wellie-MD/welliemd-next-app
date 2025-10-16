@@ -773,28 +773,43 @@ export default function Messages() {
                               <div key={m.id} className={`flex ${m.side === "left" ? "justify-start" : "justify-end"}`}>
                                 <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}>
                                   {/* CONTENT */}
+                                  {/* CONTENT — media (no filename caption) + optional text */}
                                   {isMedia && mediaUrl ? (
-                                    imageLike ? (
-                                      <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="block group">
-                                        <img
-                                          src={mediaUrl}
-                                          alt={fileName}
-                                          className="rounded-md max-h-72 w-auto object-contain"
-                                          loading="lazy"
-                                        />
-                                        <div className="mt-1 text-xs opacity-80 truncate group-hover:underline">
-                                          {fileName}
+                                    <>
+                                      {imageLike ? (
+                                        <a
+                                          href={mediaUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="block"
+                                        >
+                                          <img
+                                            src={mediaUrl}
+                                            alt={fileName}
+                                            className="rounded-md max-h-72 w-auto object-contain"
+                                            loading="lazy"
+                                          />
+                                          {/* filename caption removed */}
+                                        </a>
+                                      ) : (
+                                        // keep the document bubble as-is (shows icon, etc.). If you want to hide names for non-images too, say the word.
+                                        <div className="mb-1">
+                                          <DocumentBubble url={mediaUrl} name={fileName} mime={mime} />
                                         </div>
-                                      </a>
-                                    ) : (
-                                      // ====== NEW: Document bubble UI for non-image files ======
-                                      <div className="mb-1">
-                                        <DocumentBubble url={mediaUrl} name={fileName} mime={mime} />
-                                      </div>
-                                    )
+                                      )}
+
+                                      {/* Show real text if present (and not just the filename) */}
+                                      {Boolean(m.content?.trim()) &&
+                                        m.content?.trim() !== (m.media_file_name || "").trim() && (
+                                          <div className="mt-2 text-sm whitespace-pre-wrap break-words">
+                                            {m.content}
+                                          </div>
+                                        )}
+                                    </>
                                   ) : (
                                     <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>
                                   )}
+
 
                                   {/* META */}
                                   <div className="text-xs opacity-70 mt-1">
