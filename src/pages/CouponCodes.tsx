@@ -7,8 +7,19 @@ import { isWithinInterval } from "date-fns"
 import AddCouponForm from "@/components/coupons/AddCouponForm"
 import axiosInstance from "@/api/axiosInstance"
 import { exportToCSV } from "@/utils/exportUtils"
-
 import CouponLinksModal from "@/components/coupons/CouponLinksModal"
+
+// ✨ NEW: modal imports
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 type Coupon = {
   id: string
@@ -24,7 +35,6 @@ type Coupon = {
   total_used: number
   created_at?: string | null
   applicable_products: string[]
-  // ---- NEW FIELDS (from backend) ----
   purchase_applicability: "both" | "first_only" | "followup_only"
   catalog_applicability: "medical_only" | "labs_only" | "both"
   subscription_applicability: "first_cycle_only" | "every_cycle"
@@ -32,7 +42,6 @@ type Coupon = {
 
 type Product = { id: string; name: string }
 
-// label helpers (match your screenshots)
 const purchaseLabel: Record<Coupon["purchase_applicability"], string> = {
   both: "For Both First and Followup Purchase",
   first_only: "First Purchase Only",
@@ -48,7 +57,6 @@ const subLabel: Record<Coupon["subscription_applicability"], string> = {
   every_cycle: "Apply to Every Billing Cycle",
 }
 
-// Meaningful filters based on coupon data
 const statusFilters = ["All", "Active", "Inactive"]
 const typeFilters = ["All", "Fixed Amount", "Percent"]
 const usageFilters = ["All", "Used", "Unused", "Expired"]
@@ -70,13 +78,6 @@ function formatDate(d?: string | null) {
   }
 }
 
-// Helper function to parse date in DD/MM/YYYY format
-const parseDate = (dateString: string) => {
-  if (!dateString) return new Date()
-  const [day, month, year] = dateString.split('/')
-  return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
-}
-
 const getRow = <T,>(...args: any[]): T => (args.length >= 2 ? args[1] : args[0])
 
 export default function CouponCodes() {
@@ -91,6 +92,10 @@ export default function CouponCodes() {
   const [date, setDate] = useState<DateRange | undefined>()
   const [refreshKey, setRefreshKey] = useState(0)
   const [linkCoupon, setLinkCoupon] = useState<Coupon | null>(null)
+
+  // ✨ NEW: deletion modal state
+  const [pendingDelete, setPendingDelete] = useState<Coupon | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const productMap = useMemo(
     () => Object.fromEntries(products.map((p) => [p.id, p.name])),
@@ -120,7 +125,6 @@ export default function CouponCodes() {
     fetchProducts()
   }, [])
 
-  // Comprehensive filtering logic
   const filteredCoupons = useMemo(() => {
     return coupons.filter(coupon => {
       const matchesSearch = !searchTerm || 
@@ -171,7 +175,6 @@ export default function CouponCodes() {
     })
   }, [coupons, searchTerm, activeStatusFilter, activeTypeFilter, activeUsageFilter, date, refreshKey])
 
-  // Create filter configuration
   const filters = [
     ...statusFilters.map(status => ({
       key: `status-${status}`,
@@ -213,17 +216,20 @@ export default function CouponCodes() {
     exportToCSV(filteredCoupons, columns, 'coupon_codes_export')
   }, [filteredCoupons])
 
-  const onDelete = async (row: Coupon) => {
-    if (!row) return
-    const ok = window.confirm(`Are you sure you want to delete coupon "${row.code}"?`)
-    if (!ok) return
+  // ❌ OLD confirm removed
+  const requestDelete = (row: Coupon) => setPendingDelete(row)
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return
     try {
-      await axiosInstance.delete(`/coupons/${row.id}/`)
-      // no alerts — silent success
+      setDeleting(true)
+      await axiosInstance.delete(`/coupons/${pendingDelete.id}/`)
       await fetchCoupons()
+      setPendingDelete(null)
     } catch (e) {
-      // no alerts — just log
       console.error("Failed to delete coupon", e)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -264,7 +270,6 @@ export default function CouponCodes() {
         return text.length > 60 ? text.slice(0, 60) + "…" : text || `${ids.length} product(s)`
       },
     },
-    // ---- NEW TABLE COLUMNS ----
     {
       key: "purchase_applicability",
       label: "Coupon Applicable To",
@@ -280,7 +285,6 @@ export default function CouponCodes() {
       label: "Apply To Subscription Products",
       render: (...a: any[]) => subLabel[getRow<Coupon>(...a).subscription_applicability],
     },
-    // ---------------------------
     { key: "expires_at", label: "Expiry Date", render: (...a: any[]) => formatDate(getRow<Coupon>(...a).expires_at) },
     { key: "total_used", label: "Total Used" },
     { key: "created_at", label: "Created At", render: (...a: any[]) => formatDate(getRow<Coupon>(...a).created_at ?? null) },
@@ -297,7 +301,12 @@ export default function CouponCodes() {
             <button type="button" className="hover:opacity-80" title="Edit" onClick={() => setEditingCoupon(row)}>
               <Pencil className="h-4 w-4" />
             </button>
-            <button type="button" className="text-red-600 hover:opacity-80" title="Delete" onClick={() => onDelete(row)}>
+            <button
+              type="button"
+              className="text-red-600 hover:opacity-80"
+              title="Delete"
+              onClick={() => requestDelete(row)}
+            >
               <Trash2 className="h-4 w-4" />
             </button>
           </div>
@@ -368,6 +377,30 @@ export default function CouponCodes() {
         onOpenChange={(v) => !v && setLinkCoupon(null)}
         coupon={linkCoupon}
       />
+
+      {/* ✨ Delete confirmation modal */}
+      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && !deleting && setPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete coupon?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDelete
+                ? `This will permanently delete the coupon "${pendingDelete.code}". This action cannot be undone.`
+                : "This action cannot be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
