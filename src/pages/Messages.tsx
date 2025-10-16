@@ -1,4 +1,7 @@
-// src/pages/Messages.tsx (Admin Portal with date separators + smart autoscroll + media_url/image/doc handling)
+// src/pages/Messages.tsx
+// Admin Portal with date separators + smart autoscroll
+// UPDATED: hide all attachment names (no filenames/titles anywhere)
+
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,7 +63,7 @@ function fileNameFromUrl(u: string) {
   }
 }
 
-/* -------------------- Document UI (same as other portals) -------------------- */
+/* -------------------- Document UI (names removed) -------------------- */
 const getExt = (name?: string | null) => {
   if (!name) return "";
   const i = name.lastIndexOf(".");
@@ -93,16 +96,16 @@ function DocumentBubble({
   name?: string | null;
   mime?: string | null;
 }) {
-  const ext = getExt(name);
-  const display = name || "Attachment";
+  // derive extension from given name or URL; DO NOT display the name
+  const derivedName = name ?? fileNameFromUrl(url);
+  const ext = getExt(derivedName);
+
   return (
     <div className="w-[260px] lg:w-[320px] rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
       <div className="p-3 flex items-start gap-3">
         <DocIcon ext={ext} mime={mime} />
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-gray-900 break-words line-clamp-2">
-            {display}
-          </div>
+          {/* filename/title intentionally omitted */}
           <div className="mt-1 flex items-center gap-2">
             {ext && (
               <span className="inline-flex items-center rounded-full bg-gray-50 text-gray-700 px-2 py-0.5 text-[10px] uppercase tracking-wider">
@@ -280,7 +283,7 @@ export default function Messages() {
                 ...prev,
                 messages: [...prev.messages, newMsg],
                 lastMessage:
-                  newMsg.content || optimisticAttachments?.[0]?.file_name || "Attachment",
+                  newMsg.content || "Attachment",
                 lastTime: newMsg.created_at,
               }
             : prev
@@ -501,11 +504,10 @@ export default function Messages() {
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="block rounded-md overflow-hidden border"
-                                            title={a.file_name || "image"}
                                           >
                                             <img
                                               src={a.url}
-                                              alt={a.file_name || "image"}
+                                              alt="image" // no filename
                                               className="w-full h-32 object-cover"
                                               loading="lazy"
                                             />
@@ -513,7 +515,7 @@ export default function Messages() {
                                         ))}
                                     </div>
 
-                                    {/* Non-image files -> DocumentBubble */}
+                                    {/* Non-image files -> DocumentBubble (no name) */}
                                     <div className="space-y-2">
                                       {attachments
                                         .filter((a) => !isImageMime(a?.mime_type))
@@ -521,7 +523,7 @@ export default function Messages() {
                                           <DocumentBubble
                                             key={`${a.url}-file-${idx}`}
                                             url={a.url}
-                                            name={a.file_name || fileNameFromUrl(a.url)}
+                                            name={undefined}
                                             mime={a.mime_type}
                                           />
                                         ))}
@@ -529,7 +531,7 @@ export default function Messages() {
                                   </div>
                                 )}
 
-                                {/* NEW: single-file media coming via is_media + media_url (your API shape) */}
+                                {/* NEW: single-file media coming via is_media + media_url */}
                                 {!attachments.length && m.is_media && m.media_url && (
                                   <div className="mt-2">
                                     {isImageMime(m.media_mime_type) || IMG_EXT_RE.test(m.media_url) ? (
@@ -538,24 +540,18 @@ export default function Messages() {
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="block rounded-md overflow-hidden border"
-                                        title={m.media_file_name || "image"}
                                       >
                                         <img
                                           src={m.media_url}
-                                          alt={m.media_file_name || "image"}
+                                          alt="image" // no filename
                                           className="w-full max-h-72 object-contain"
                                           loading="lazy"
                                         />
-                                        {m.media_file_name && (
-                                          <div className="mt-1 text-xs opacity-80 truncate">
-                                            {m.media_file_name}
-                                          </div>
-                                        )}
                                       </a>
                                     ) : (
                                       <DocumentBubble
                                         url={m.media_url}
-                                        name={m.media_file_name || m.content || "Attachment"}
+                                        name={undefined}
                                         mime={m.media_mime_type || undefined}
                                       />
                                     )}
@@ -571,11 +567,10 @@ export default function Messages() {
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="block rounded-md overflow-hidden border"
-                                        title={fileNameFromUrl(contentUrl)}
                                       >
                                         <img
                                           src={contentUrl}
-                                          alt={fileNameFromUrl(contentUrl)}
+                                          alt="image" // no filename
                                           className="w-full h-32 object-cover"
                                           loading="lazy"
                                         />
@@ -583,7 +578,7 @@ export default function Messages() {
                                     ) : isDocUrl ? (
                                       <DocumentBubble
                                         url={contentUrl}
-                                        name={fileNameFromUrl(contentUrl)}
+                                        name={undefined}
                                         mime={null}
                                       />
                                     ) : null}
@@ -609,7 +604,7 @@ export default function Messages() {
 
               {/* Composer */}
               <div className="p-4 border-t shrink-0">
-                {/* previews */}
+                {/* previews (composer) */}
                 {previews.length > 0 && (
                   <div className="mb-3 border rounded-lg p-3">
                     <div className="flex items-center justify-between mb-2">
@@ -626,9 +621,9 @@ export default function Messages() {
                         return (
                           <div key={i} className="relative border rounded-md overflow-hidden">
                             {imgLike ? (
-                              <img src={p.url} alt={p.file.name} className="w-full h-24 object-cover" />
+                              <img src={p.url} alt="image" className="w-full h-24 object-cover" />
                             ) : (
-                              <div className="p-2 text-xs break-all h-24 overflow-auto">{p.file.name}</div>
+                              <div className="p-2 text-xs break-all h-24 overflow-auto">Attachment</div>
                             )}
                             <button
                               onClick={() => clearAttachment(i)}
