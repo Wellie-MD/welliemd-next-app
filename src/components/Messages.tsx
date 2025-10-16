@@ -170,15 +170,13 @@ export default function Messages() {
   const [selected, setSelected] = useState<Conversation | null>(null);
 
   const [composeText, setComposeText] = useState("");
-  const [composeTo, setComposeTo] = useState<ChatRecipient>("support"); // default support
+  const [composeTo, setComposeTo] = useState<ChatRecipient>("doctor"); // default support
   const [search, setSearch] = useState("");
 
-  // attachments (multi-select)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // smart scroll
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isNearBottom, setIsNearBottom] = useState(true);
@@ -223,8 +221,6 @@ export default function Messages() {
       setConversations(convs);
       if (convs[0]) {
         setSelected(convs[0]);
-
-        // mark inbound unread as read
         const inboundUnread = convs[0].messages.filter(
           (m) => isInboundForPatient(m) && (m.readByPatient ?? m.read) === false
         );
@@ -236,7 +232,6 @@ export default function Messages() {
         prevCountRef.current = convs[0].messages.length;
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Polling only the selected conversation
@@ -245,20 +240,16 @@ export default function Messages() {
     const timer = setInterval(async () => {
       const fresh = await MessageService.getAllMessages(selected.masterId);
       const newestFirst = [...fresh].sort(byTimeDesc);
-
-      // mark inbound unread as read while viewing
       const inboundUnread = newestFirst.filter(
         (m) => isInboundForPatient(m) && (m.readByPatient ?? m.read) === false
       );
       if (inboundUnread.length) {
         await Promise.all(inboundUnread.map((m) => MessageService.markAsReadByPatient(m.id)));
       }
-
       setConversations((prev) =>
         prev.map((c) => (c.id === selected.id ? { ...c, messages: newestFirst } : c))
       );
       setSelected((prev) => (prev ? { ...prev, messages: newestFirst } : prev));
-
       if (!isUserScrollingRef.current) {
         const nowCount = newestFirst.length;
         const prevCount = prevCountRef.current;
@@ -266,15 +257,12 @@ export default function Messages() {
         prevCountRef.current = nowCount;
       }
     }, 2000);
-
     return () => clearInterval(timer);
   }, [selected]);
 
   const selectConversation = async (c: Conversation) => {
     setSelected({ ...c });
     setTimeout(() => scrollToBottom(true), 80);
-
-    // Mark inbound-unread as read
     const inboundUnread = c.messages.filter(
       (m) => isInboundForPatient(m) && (m.readByPatient ?? m.read) === false
     );
@@ -283,11 +271,10 @@ export default function Messages() {
     }
   };
 
-  // ----- Chip menu (clicking on the @ chip) -----
+  // ----- Chip menu -----
   const [showChipMenu, setShowChipMenu] = useState(false);
   const chipRef = useRef<HTMLDivElement | null>(null);
   const chipMenuRef = useRef<HTMLDivElement | null>(null);
-
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
       const target = e.target as Node;
@@ -306,11 +293,9 @@ export default function Messages() {
 
   // ----- Attachments -----
   const openFilePicker = () => fileInputRef.current?.click();
-
   const onChooseFile: React.ChangeEventHandler<HTMLInputElement> = (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-
     setAttachedFiles((prev) => {
       const next = [...prev];
       files.forEach((f) => {
@@ -320,36 +305,23 @@ export default function Messages() {
       });
       return next;
     });
-
     e.currentTarget.value = "";
   };
-
   const removeFile = (idx: number) =>
     setAttachedFiles((prev) => prev.filter((_, i) => i !== idx));
 
   // ----- Send -----
   const send = async () => {
     if (!selected) return;
-
     const body = composeText.trim();
     const hasFiles = attachedFiles.length > 0;
     if (!body && !hasFiles) return;
-
     setUploading(true);
     try {
-      // 1) upload all files (parallel)
       const uploads = await Promise.all(
         attachedFiles.map((f) => MessageService.uploadAttachment(f))
-      ); // -> [{url, fileName, mimeType}, ...]
-
-      const makeOptimistic = (opts: {
-        content: string;
-        is_media?: boolean;
-        media_url?: string;
-        mime_type?: string;
-        file_name?: string;
-        chatTo: ChatRecipient;
-      }): RawMessage => ({
+      );
+      const makeOptimistic = (opts: any): RawMessage => ({
         id: Date.now() + Math.random(),
         content: opts.content,
         timestamp: new Date().toISOString(),
@@ -364,10 +336,7 @@ export default function Messages() {
         mime_type: opts.mime_type,
         file_name: opts.file_name,
       });
-
       const optimistic: RawMessage[] = [];
-
-      // 2) if text exists, send it; if a file also exists, attach the first file to this message
       if (body) {
         const first = uploads[0];
         await MessageService.sendMessage({
@@ -379,7 +348,6 @@ export default function Messages() {
           media_mime_type: first?.mimeType,
           media_file_name: first?.fileName,
         });
-
         optimistic.push(
           makeOptimistic({
             content: body,
@@ -390,11 +358,8 @@ export default function Messages() {
             chatTo: composeTo,
           })
         );
-
         if (first) uploads.shift();
       }
-
-      // 3) send any remaining files as separate messages (no text)
       for (const up of uploads) {
         await MessageService.sendMessage({
           master_id: selected.masterId,
@@ -405,7 +370,6 @@ export default function Messages() {
           media_mime_type: up.mimeType,
           media_file_name: up.fileName,
         });
-
         optimistic.push(
           makeOptimistic({
             content: up.fileName || "Attachment",
@@ -417,14 +381,11 @@ export default function Messages() {
           })
         );
       }
-
-      // 4) update UI (newest-first in state)
       const next = [...optimistic, ...(selected.messages || [])];
       setSelected((prev) => (prev ? { ...prev, messages: next } : prev));
       setConversations((prev) =>
         prev.map((c) => (c.id === selected.id ? { ...c, messages: next } : c))
       );
-
       setComposeText("");
       setAttachedFiles([]);
       setTimeout(() => scrollToBottom(true), 40);
@@ -448,7 +409,6 @@ export default function Messages() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px] overflow-hidden">
-        {/* Sidebar */}
         <Card className="lg:col-span-1 flex flex-col overflow-hidden">
           <CardHeader className="pb-4">
             <div className="relative">
@@ -464,7 +424,7 @@ export default function Messages() {
           <CardContent className="p-0 flex-1 overflow-y-auto">
             {filtered.map((c) => {
               const isSelected = selected?.id === c.id;
-              const last = c.messages?.[0]; // newest-first
+              const last = c.messages?.[0];
               return (
                 <div
                   key={c.id}
@@ -499,7 +459,6 @@ export default function Messages() {
           </CardContent>
         </Card>
 
-        {/* Chat window */}
         <Card className="lg:col-span-2 flex flex-col min-h-0 overflow-hidden">
           {selected && (
             <>
@@ -540,11 +499,11 @@ export default function Messages() {
                   );
 
                   return days.map((day) => (
-                      <div key={day}>
-                        <div className="flex justify-center my-4">
-                          <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-gray-100 text-gray-800 shadow-sm">
-                            {getMessageGroupLabel(day)}
-                          </span>
+                    <div key={day}>
+                      <div className="flex justify-center my-4">
+                        <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-gray-100 text-gray-800 shadow-sm">
+                          {getMessageGroupLabel(day)}
+                        </span>
                       </div>
                       <div className="space-y-4">
                         {grouped[day].map((m) => {
@@ -552,7 +511,6 @@ export default function Messages() {
                           const alignment = isMe ? "justify-end" : "justify-start";
                           let bubble = isMe ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-900";
                           let sub = isMe ? "text-blue-100" : "text-gray-500";
-
                           if (!isMe && m.senderType === "super_support") {
                             bubble = "bg-purple-100 text-purple-800";
                             sub = "text-purple-700";
@@ -564,38 +522,40 @@ export default function Messages() {
                           return (
                             <div key={m.id} className={`flex ${alignment}`}>
                               <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubble}`}>
-                                {/* body or attachment */}
-                                {m.is_media && m.media_url ? (
-                                  isImage(m.mime_type) ? (
-                                    <a
-                                      href={m.media_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="block"
-                                      title={m.file_name || "Open image"}
-                                    >
-                                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img
-                                        src={m.media_url}
-                                        alt={m.file_name || "attachment"}
-                                        className="rounded-md max-h-60 object-contain mb-2"
-                                      />
-                                    </a>
-                                  ) : (
-                                    // ---- NEW: richer document UI instead of plain filename ----
-                                    <div className="mb-1">
-                                      <DocumentBubble
-                                        url={m.media_url}
-                                        name={m.file_name || m.content}
-                                        mime={m.mime_type}
-                                      />
-                                    </div>
-                                  )
-                                ) : (
-                                  <p className="text-sm whitespace-pre-wrap break-words">
-                                    {m.content}
-                                  </p>
-                                )}
+                                {/* ✅ UPDATED: now shows text + media together */}
+                                <div className="space-y-2">
+                                  {m.content && (
+                                    <p className="text-sm whitespace-pre-wrap break-words">
+                                      {m.content}
+                                    </p>
+                                  )}
+                                  {m.is_media && m.media_url && (
+                                    isImage(m.mime_type) ? (
+                                      <a
+                                        href={m.media_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block"
+                                        title={m.file_name || "Open image"}
+                                      >
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          src={m.media_url}
+                                          alt={m.file_name || "attachment"}
+                                          className="rounded-md max-h-60 object-contain"
+                                        />
+                                      </a>
+                                    ) : (
+                                      <div className="mb-1">
+                                        <DocumentBubble
+                                          url={m.media_url}
+                                          name={m.file_name || m.content}
+                                          mime={m.mime_type}
+                                        />
+                                      </div>
+                                    )
+                                  )}
+                                </div>
 
                                 <p className={`text-xs mt-1 ${sub}`}>
                                   {routeLabel(m)} •{" "}
@@ -618,7 +578,6 @@ export default function Messages() {
               {/* Composer */}
               <div className="p-4 border-t bg-white flex-shrink-0">
                 <div className="flex items-center gap-2 max-w-3xl mx-auto w-full">
-                  {/* Selected recipient chip (clickable) */}
                   <div className="relative" ref={chipRef}>
                     <button
                       type="button"
@@ -670,7 +629,6 @@ export default function Messages() {
                     )}
                   </div>
 
-                  {/* Message text */}
                   <div className="relative flex-1">
                     <Input
                       placeholder="Type your message…"
@@ -686,7 +644,6 @@ export default function Messages() {
                     />
                   </div>
 
-                  {/* Attach + Send */}
                   <div className="flex items-center gap-2">
                     <input
                       ref={fileInputRef}
@@ -714,7 +671,6 @@ export default function Messages() {
                   </div>
                 </div>
 
-                {/* Selected files preview (chips) */}
                 {attachedFiles.length > 0 && (
                   <div className="max-w-3xl mx-auto mt-2 flex flex-wrap gap-2">
                     {attachedFiles.map((f, idx) => (
