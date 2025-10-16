@@ -173,15 +173,21 @@ export default function Messages() {
   const [composeTo, setComposeTo] = useState<ChatRecipient>("doctor"); // default support
   const [search, setSearch] = useState("");
 
+  // attachments (multi-select)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // smart scroll
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isNearBottom, setIsNearBottom] = useState(true);
   const prevCountRef = useRef(0);
   const isUserScrollingRef = useRef(false);
+
+  // ---- NEW: highlight + last-seen maps
+  const [highlightedChats, setHighlightedChats] = useState<Record<string, boolean>>({});
+  const lastSeenLatestIdRef = useRef<Record<string, string | number>>({});
 
   const scrollToBottom = (force = false) => {
     if (force || isNearBottom) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -219,8 +225,19 @@ export default function Messages() {
       }
 
       setConversations(convs);
+
+      // seed last-seen id map
+      const seed: Record<string, string | number> = {};
+      for (const c of convs) {
+        const latest = c.messages?.[0];
+        if (latest) seed[c.id] = latest.id;
+      }
+      lastSeenLatestIdRef.current = seed;
+
       if (convs[0]) {
         setSelected(convs[0]);
+
+        // mark inbound unread as read
         const inboundUnread = convs[0].messages.filter(
           (m) => isInboundForPatient(m) && (m.readByPatient ?? m.read) === false
         );
@@ -234,35 +251,94 @@ export default function Messages() {
     })();
   }, []);
 
-  // Polling only the selected conversation
+  // Polling only the selected conversation (existing behavior)
   useEffect(() => {
     if (!selected) return;
     const timer = setInterval(async () => {
       const fresh = await MessageService.getAllMessages(selected.masterId);
       const newestFirst = [...fresh].sort(byTimeDesc);
+
       const inboundUnread = newestFirst.filter(
         (m) => isInboundForPatient(m) && (m.readByPatient ?? m.read) === false
       );
       if (inboundUnread.length) {
         await Promise.all(inboundUnread.map((m) => MessageService.markAsReadByPatient(m.id)));
       }
+
       setConversations((prev) =>
         prev.map((c) => (c.id === selected.id ? { ...c, messages: newestFirst } : c))
       );
       setSelected((prev) => (prev ? { ...prev, messages: newestFirst } : prev));
+
       if (!isUserScrollingRef.current) {
         const nowCount = newestFirst.length;
         const prevCount = prevCountRef.current;
         if (nowCount > prevCount && prevCount > 0) setTimeout(() => scrollToBottom(false), 50);
         prevCountRef.current = nowCount;
       }
+
+      const latest = newestFirst?.[0];
+      if (latest) lastSeenLatestIdRef.current[selected.id] = latest.id;
     }, 2000);
+
     return () => clearInterval(timer);
   }, [selected]);
 
+  // ---- NEW: Global refresher (no auto-timeout; highlight clears only on click)
+  useEffect(() => {
+    if (!conversations.length) return;
+
+    const timer = setInterval(async () => {
+      const list = [...conversations];
+
+      for (const conv of list) {
+        if (!conv?.id) continue;
+
+        const fresh = await MessageService.getAllMessages(conv.masterId);
+        const newestFirst = [...fresh].sort(byTimeDesc);
+        const latest = newestFirst?.[0];
+        if (!latest) continue;
+
+        const lastSeenId = lastSeenLatestIdRef.current[conv.id];
+        const isNew = lastSeenId !== undefined && latest.id !== lastSeenId;
+
+        if (isNew) {
+          // update messages + move to top
+          setConversations((prev) => {
+            const updated = prev.map((c) =>
+              c.id === conv.id ? { ...c, messages: newestFirst } : c
+            );
+            const found = updated.find((c) => c.id === conv.id);
+            if (!found) return updated;
+            return [found, ...updated.filter((c) => c.id !== conv.id)];
+          });
+
+          lastSeenLatestIdRef.current[conv.id] = latest.id;
+
+          // highlight only if not the open chat and it's inbound
+          if (selected?.id !== conv.id && isInboundForPatient(latest)) {
+            setHighlightedChats((prev) => ({ ...prev, [conv.id]: true }));
+          }
+        } else if (lastSeenId === undefined && latest) {
+          lastSeenLatestIdRef.current[conv.id] = latest.id;
+        }
+      }
+    }, 2500);
+
+    return () => clearInterval(timer);
+  }, [conversations, selected]);
+
   const selectConversation = async (c: Conversation) => {
     setSelected({ ...c });
+    // clear highlight on open
+    setHighlightedChats((prev) => ({ ...prev, [c.id]: false }));
+
+    const latest = c.messages?.[0];
+    if (latest) lastSeenLatestIdRef.current[c.id] = latest.id;
+
     setTimeout(() => scrollToBottom(true), 80);
+
+    // Mark inbound-unread as read
     const inboundUnread = c.messages.filter(
       (m) => isInboundForPatient(m) && (m.readByPatient ?? m.read) === false
     );
@@ -293,9 +369,11 @@ export default function Messages() {
 
   // ----- Attachments -----
   const openFilePicker = () => fileInputRef.current?.click();
+
   const onChooseFile: React.ChangeEventHandler<HTMLInputElement> = (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
+
     setAttachedFiles((prev) => {
       const next = [...prev];
       files.forEach((f) => {
@@ -305,23 +383,36 @@ export default function Messages() {
       });
       return next;
     });
+
     e.currentTarget.value = "";
   };
+
   const removeFile = (idx: number) =>
     setAttachedFiles((prev) => prev.filter((_, i) => i !== idx));
 
   // ----- Send -----
   const send = async () => {
     if (!selected) return;
+
     const body = composeText.trim();
     const hasFiles = attachedFiles.length > 0;
     if (!body && !hasFiles) return;
+
     setUploading(true);
     try {
+      // 1) upload all files
       const uploads = await Promise.all(
         attachedFiles.map((f) => MessageService.uploadAttachment(f))
       );
-      const makeOptimistic = (opts: any): RawMessage => ({
+
+      const makeOptimistic = (opts: {
+        content: string;
+        is_media?: boolean;
+        media_url?: string;
+        mime_type?: string;
+        file_name?: string;
+        chatTo: ChatRecipient;
+      }): RawMessage => ({
         id: Date.now() + Math.random(),
         content: opts.content,
         timestamp: new Date().toISOString(),
@@ -336,7 +427,10 @@ export default function Messages() {
         mime_type: opts.mime_type,
         file_name: opts.file_name,
       });
+
       const optimistic: RawMessage[] = [];
+
+      // 2) text + first file
       if (body) {
         const first = uploads[0];
         await MessageService.sendMessage({
@@ -348,6 +442,7 @@ export default function Messages() {
           media_mime_type: first?.mimeType,
           media_file_name: first?.fileName,
         });
+
         optimistic.push(
           makeOptimistic({
             content: body,
@@ -358,8 +453,11 @@ export default function Messages() {
             chatTo: composeTo,
           })
         );
+
         if (first) uploads.shift();
       }
+
+      // 3) remaining files
       for (const up of uploads) {
         await MessageService.sendMessage({
           master_id: selected.masterId,
@@ -370,6 +468,7 @@ export default function Messages() {
           media_mime_type: up.mimeType,
           media_file_name: up.fileName,
         });
+
         optimistic.push(
           makeOptimistic({
             content: up.fileName || "Attachment",
@@ -381,11 +480,14 @@ export default function Messages() {
           })
         );
       }
+
+      // 4) update UI
       const next = [...optimistic, ...(selected.messages || [])];
       setSelected((prev) => (prev ? { ...prev, messages: next } : prev));
       setConversations((prev) =>
         prev.map((c) => (c.id === selected.id ? { ...c, messages: next } : c))
       );
+
       setComposeText("");
       setAttachedFiles([]);
       setTimeout(() => scrollToBottom(true), 40);
@@ -409,6 +511,7 @@ export default function Messages() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px] overflow-hidden">
+        {/* Sidebar */}
         <Card className="lg:col-span-1 flex flex-col overflow-hidden">
           <CardHeader className="pb-4">
             <div className="relative">
@@ -425,23 +528,41 @@ export default function Messages() {
             {filtered.map((c) => {
               const isSelected = selected?.id === c.id;
               const last = c.messages?.[0];
+              const isHighlighted = highlightedChats[c.id] === true;
+
               return (
                 <div
                   key={c.id}
-                  className={`p-4 cursor-pointer hover:bg-gray-50 border-l-4 flex items-start ${
-                    isSelected ? "bg-blue-50 border-blue-500" : "border-transparent"
+                  className={`relative p-4 cursor-pointer border-l-4 flex items-start transition-colors ${
+                    isSelected
+                      ? "bg-blue-50 border-blue-600"
+                      : isHighlighted
+                      ? "bg-blue-50/70 border-blue-500"
+                      : "hover:bg-gray-50 border-transparent"
                   }`}
-                  onClick={() => selectConversation(c)}
+                  onClick={() => {
+                    selectConversation(c);
+                    setHighlightedChats((prev) => ({ ...prev, [c.id]: false }));
+                  }}
                 >
                   <div className="relative mr-3">
                     <Avatar className="h-10 w-10">
                       <AvatarImage />
                       <AvatarFallback>CH</AvatarFallback>
                     </Avatar>
+                    {isHighlighted && (
+                      <span
+                        aria-hidden
+                        className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-blue-600 ring-2 ring-white"
+                        title="New message"
+                      />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className="truncate font-medium">{c.label}</p>
+                      <p className={`truncate ${isHighlighted ? "font-semibold text-gray-900" : "font-medium"}`}>
+                        {c.label}
+                      </p>
                       {last && (
                         <span className="ml-2 shrink-0 text-xs text-gray-500">
                           {new Date(last.timestamp).toLocaleTimeString([], {
@@ -451,7 +572,11 @@ export default function Messages() {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 truncate">{last?.content}</p>
+                    <p className={`text-xs truncate ${
+                      isHighlighted ? "text-gray-900 font-medium" : "text-gray-500"
+                    }`}>
+                      {last?.content}
+                    </p>
                   </div>
                 </div>
               );
@@ -459,6 +584,7 @@ export default function Messages() {
           </CardContent>
         </Card>
 
+        {/* Chat window */}
         <Card className="lg:col-span-2 flex flex-col min-h-0 overflow-hidden">
           {selected && (
             <>
@@ -511,6 +637,7 @@ export default function Messages() {
                           const alignment = isMe ? "justify-end" : "justify-start";
                           let bubble = isMe ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-900";
                           let sub = isMe ? "text-blue-100" : "text-gray-500";
+
                           if (!isMe && m.senderType === "super_support") {
                             bubble = "bg-purple-100 text-purple-800";
                             sub = "text-purple-700";
@@ -522,7 +649,6 @@ export default function Messages() {
                           return (
                             <div key={m.id} className={`flex ${alignment}`}>
                               <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubble}`}>
-                                {/* ✅ UPDATED: now shows text + media together */}
                                 <div className="space-y-2">
                                   {m.content && (
                                     <p className="text-sm whitespace-pre-wrap break-words">
@@ -578,6 +704,7 @@ export default function Messages() {
               {/* Composer */}
               <div className="p-4 border-t bg-white flex-shrink-0">
                 <div className="flex items-center gap-2 max-w-3xl mx-auto w-full">
+                  {/* Selected recipient chip (clickable) */}
                   <div className="relative" ref={chipRef}>
                     <button
                       type="button"
@@ -629,6 +756,7 @@ export default function Messages() {
                     )}
                   </div>
 
+                  {/* Message text */}
                   <div className="relative flex-1">
                     <Input
                       placeholder="Type your message…"
@@ -644,6 +772,7 @@ export default function Messages() {
                     />
                   </div>
 
+                  {/* Attach + Send */}
                   <div className="flex items-center gap-2">
                     <input
                       ref={fileInputRef}
@@ -671,6 +800,7 @@ export default function Messages() {
                   </div>
                 </div>
 
+                {/* Selected files preview (chips) */}
                 {attachedFiles.length > 0 && (
                   <div className="max-w-3xl mx-auto mt-2 flex flex-wrap gap-2">
                     {attachedFiles.map((f, idx) => (
