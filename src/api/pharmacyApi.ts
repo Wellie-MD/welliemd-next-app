@@ -14,15 +14,15 @@ export type Pharmacy = {
   email?: string;
   website?: string;
   ncpdp_id?: string;
-  pharmacy_specialties?: string[]; // array of tags/strings
+  pharmacy_specialties?: string[];
   service_level?: number;
   latitude?: number | string | null;
   longitude?: number | string | null;
   is_active: boolean;
   last_synced_at?: string | null;
 
-  // integration block
-  api_vendor?: "life_file" | "dispense_pro" | "vs_digital_health" | "mdtoolbox" | "";
+  // integration block (unchanged)
+  api_vendor?: "life_file" | "lifefile" | "life file" | "dispense_pro" | "vs_digital_health" | "mdtoolbox" | "";
   api_url?: string;
   api_user?: string;
   api_password?: string;
@@ -31,6 +31,11 @@ export type Pharmacy = {
   location_id?: string;
   network_id?: string;
   api_name?: string;
+
+  // NEW: status fields from backend (read-only)
+  integration_status?: "pending" | "connected" | "error";
+  integration_last_validated_at?: string | null;
+  integration_last_error?: string | null;
 
   created_at?: string;
   updated_at?: string;
@@ -61,25 +66,33 @@ export const pharmacyApi = {
     await axiosInstance.delete(`${base}/${id}/`);
   },
 
-  // integration-only patch
+  // integration-only patch (kept)
   updateIntegration: async (id: string, payload: Partial<Pharmacy>) => {
     const { data } = await axiosInstance.patch(`${base}/${id}/integration/`, payload);
     return data;
   },
 
-  // dropdown options for vendors
+  // NEW: test connection action
+  testConnection: async (id: string) => {
+    const { data } = await axiosInstance.post<{
+      connected: boolean;
+      integration_status: Pharmacy["integration_status"];
+      integration_last_validated_at: string | null;
+      details?: { status_code?: number; error?: string | null };
+    }>(`${base}/${id}/test_connection/`);
+    return data;
+  },
+
   vendors: async () => {
     const { data } = await axiosInstance.get<Array<{ value: string; label: string }>>(`${base}/api-vendors/`);
     return data;
   },
 
-  // beluga search proxy
   belugaSearch: async (payload: { city?: string; state?: string; zip?: string; name?: string }) => {
     const { data } = await axiosInstance.post(`${base}/search/`, payload);
     return data?.pharmacies ?? [];
   },
 
-  // complete visit with beluga (if you need it on FE later)
   completeVisit: async (payload: any) => {
     const { data } = await axiosInstance.post(`${base}/complete_visit_with_beluga/`, payload);
     return data;

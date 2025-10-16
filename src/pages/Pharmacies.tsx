@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
+import { Plus, Pencil, Trash2, RefreshCw, Link as LinkIcon } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import PharmacyForm from "@/components/pharmacies/PharmacyForm";
 import { pharmacyApi, Pharmacy } from "@/api/pharmacyApi";
@@ -10,6 +10,13 @@ const getRow = <T,>(...args: any[]): T => (args.length >= 2 ? args[1] : args[0])
 function formatDate(s?: string | null) {
   if (!s) return "-";
   try { return new Date(s).toLocaleString(); } catch { return "-"; }
+}
+
+function StatusBadge({ status }: { status?: Pharmacy["integration_status"] }) {
+  const base = "px-2 py-1 rounded text-xs font-medium";
+  if (status === "connected") return <span className={`${base} bg-green-100 text-green-700`}>Connected</span>;
+  if (status === "error") return <span className={`${base} bg-red-100 text-red-700`}>Error</span>;
+  return <span className={`${base} bg-gray-100 text-gray-700`}>Pending</span>;
 }
 
 export default function Pharmacies() {
@@ -29,7 +36,7 @@ export default function Pharmacies() {
     }
   };
 
-  useEffect(() => { fetchList(); }, [refreshKey]); // initial
+  useEffect(() => { fetchList(); }, [refreshKey]); // initial + manual refresh
   useEffect(() => {
     const t = setTimeout(() => fetchList(), 300);
     return () => clearTimeout(t);
@@ -49,6 +56,18 @@ export default function Pharmacies() {
     }
   };
 
+  const onTestConnection = async (row: Pharmacy) => {
+    try {
+      const res = await pharmacyApi.testConnection(row.id);
+      const msg = res.connected ? "Connection OK" : (res.details?.error || "Connection failed");
+      alert(msg);
+      fetchList();
+    } catch (e) {
+      console.error(e);
+      alert("Connection test failed");
+    }
+  };
+
   const columns = [
     { key: "store_name", label: "Pharmacy" },
     { key: "city", label: "City" },
@@ -63,6 +82,16 @@ export default function Pharmacies() {
       render: (...a: any[]) => getRow<Pharmacy>(...a).api_vendor || "-"
     },
     {
+      key: "integration_status",
+      label: "Integration",
+      render: (...a: any[]) => <StatusBadge status={getRow<Pharmacy>(...a).integration_status} />,
+    },
+    {
+      key: "integration_last_validated_at",
+      label: "Last Checked",
+      render: (...a: any[]) => formatDate(getRow<Pharmacy>(...a).integration_last_validated_at),
+    },
+    {
       key: "updated_at",
       label: "Updated",
       render: (...a: any[]) => formatDate(getRow<Pharmacy>(...a).updated_at),
@@ -74,6 +103,15 @@ export default function Pharmacies() {
         const row = getRow<Pharmacy>(...a);
         return (
           <div className="flex items-center justify-end gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 px-2"
+            onClick={() => onTestConnection(row)}
+            title="Test connection"
+          >
+            Test Connection
+          </Button>
             <button title="Edit" onClick={() => setEditing(row)} className="hover:opacity-80">
               <Pencil className="h-4 w-4" />
             </button>
@@ -146,7 +184,6 @@ export default function Pharmacies() {
         showExport={true}
         onExport={() => {
           const rows = filtered.map(({ id, ...r }) => r);
-          // simple CSV export using your existing utility if present
           import("@/utils/exportUtils").then(({ exportToCSV }) =>
             exportToCSV(rows, columns, "pharmacies_export")
           );

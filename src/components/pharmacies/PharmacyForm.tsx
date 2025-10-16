@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
 import { pharmacyApi, Pharmacy } from "@/api/pharmacyApi";
@@ -30,7 +30,6 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
       is_active: pharmacy?.is_active ?? true,
       beluga_pharmacy_id: pharmacy?.beluga_pharmacy_id ?? "",
 
-
       api_vendor: pharmacy?.api_vendor ?? "",
       api_url: pharmacy?.api_url ?? "",
       api_user: pharmacy?.api_user ?? "",
@@ -52,9 +51,8 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
 
   useEffect(() => {
     if (pharmacy) {
-      // keep password empty for edit by default
       Object.entries(pharmacy).forEach(([k, v]) => setValue(k as any, v as any));
-      setValue("api_password", "");
+      setValue("api_password", ""); // keep blank on edit
     }
   }, [pharmacy, setValue]);
 
@@ -62,7 +60,6 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
     try {
       setLoading(true);
 
-      // Split core + integration, so we can call right endpoints if editing integration only later
       const corePayload: Partial<Pharmacy> = {
         store_name: data.store_name,
         address_1: data.address_1,
@@ -82,7 +79,6 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
         api_vendor: data.api_vendor,
         api_url: data.api_url,
         api_user: data.api_user,
-        // send api_password only if user typed something
         ...(data.api_password ? { api_password: data.api_password } : {}),
         practice_id: data.practice_id,
         vendor_id: data.vendor_id,
@@ -92,13 +88,10 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
       };
 
       if (mode === "edit" && pharmacy?.id) {
-        // update core
         await pharmacyApi.update(pharmacy.id, corePayload);
-        // update integration (separate endpoint)
         await pharmacyApi.updateIntegration(pharmacy.id, integrationPayload);
         alert("Pharmacy updated successfully!");
       } else {
-        // create in one go (backend accepts extra fields)
         await pharmacyApi.create({ ...corePayload, ...integrationPayload });
         alert("Pharmacy created successfully!");
         reset();
@@ -177,17 +170,12 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
                   <input {...register("ncpdp_id")} className="border px-3 py-2 rounded w-full" />
                 </div>
 
-
                 <div>
-                <label className="block text-sm font-medium mb-1">Beluga Pharmacy ID</label>
-                <input
-                    {...register("beluga_pharmacy_id")}
-                    placeholder="e.g. 110373"
-                    className="border px-3 py-2 rounded w-full"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
+                  <label className="block text-sm font-medium mb-1">Beluga Pharmacy ID</label>
+                  <input {...register("beluga_pharmacy_id")} placeholder="e.g. 110373" className="border px-3 py-2 rounded w-full" />
+                  <p className="text-xs text-muted-foreground mt-1">
                     Optional. Only used if you want to link to an existing Beluga pharmacy.
-                </p>
+                  </p>
                 </div>
 
                 <div>
