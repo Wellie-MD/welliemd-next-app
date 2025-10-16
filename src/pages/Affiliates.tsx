@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react"
+import { useEffect, useState } from "react"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -6,6 +6,18 @@ import { Plus, Pencil, Trash2, Link2 } from "lucide-react"
 import axiosInstance from "@/api/axiosInstance"
 import AffiliateForm from "@/components/affiliates/AffiliateForm"
 import AffiliateLinksModal from "@/components/affiliates/AffiliateLinksModal"
+
+// NEW: shadcn confirm modal
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 type Affiliate = {
   id: string
@@ -27,6 +39,10 @@ export default function Affiliates() {
   const [editingAffiliate, setEditingAffiliate] = useState<Affiliate | null>(null)
   const [linkAffiliate, setLinkAffiliate] = useState<Affiliate | null>(null)
 
+  // NEW: delete modal state
+  const [pendingDelete, setPendingDelete] = useState<Affiliate | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
   const fetchAffiliates = async () => {
     try {
       const res = await axiosInstance.get("/affiliates/")
@@ -42,17 +58,21 @@ export default function Affiliates() {
     fetchAffiliates()
   }, [])
 
-  const onDelete = async (row: Affiliate) => {
-    if (!row) return
-    const ok = window.confirm(`Are you sure you want to delete affiliate "${row.name}"?`)
-    if (!ok) return
+  // open modal
+  const requestDelete = (row: Affiliate) => setPendingDelete(row)
+
+  // confirm deletion
+  const confirmDelete = async () => {
+    if (!pendingDelete) return
     try {
-      await axiosInstance.delete(`/affiliates/${row.id}/`)
-      alert(`Affiliate "${row.name}" deleted successfully`)
-      fetchAffiliates()
+      setDeleting(true)
+      await axiosInstance.delete(`/affiliates/${pendingDelete.id}/`)
+      await fetchAffiliates()
+      setPendingDelete(null)
     } catch (e) {
-      console.error(e)
-      alert("Failed to delete affiliate")
+      console.error("Failed to delete affiliate", e)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -99,7 +119,7 @@ export default function Affiliates() {
             type="button"
             className="text-red-600 hover:opacity-80"
             title="Delete"
-            onClick={() => onDelete(row)}
+            onClick={() => requestDelete(row)}
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -155,6 +175,30 @@ export default function Affiliates() {
         onOpenChange={(v) => !v && setLinkAffiliate(null)}
         affiliate={linkAffiliate}
       />
+
+      {/* Delete confirmation modal */}
+      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && !deleting && setPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete affiliate?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDelete
+                ? `This will permanently delete "${pendingDelete.name}". This action cannot be undone.`
+                : "This action cannot be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
