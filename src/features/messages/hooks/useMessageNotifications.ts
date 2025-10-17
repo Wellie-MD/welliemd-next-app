@@ -72,7 +72,7 @@ export function useMessageNotifications() {
               content: latestSuperUnread.content,
               timestamp: latestSuperUnread.timestamp,
               read: false,
-              senderName: `${v.visit_type} – Super Admin Support`,
+              senderName: `${v.visit_type} – Client Support`,
               masterId,
               chatType: "super_support",
             });

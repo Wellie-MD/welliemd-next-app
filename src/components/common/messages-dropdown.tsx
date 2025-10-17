@@ -12,7 +12,7 @@ function TypePill({ type }: { type: ChatType }) {
   if (type === "super_support") {
     return (
       <span className="inline-flex items-center rounded-full border border-red-200 bg-red-50 text-red-700 text-[10px] px-1.5 py-0.5">
-        Super&nbsp;Admin
+        Client&nbsp;Support
       </span>
     );
   }
