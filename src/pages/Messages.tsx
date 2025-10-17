@@ -661,7 +661,7 @@ export default function Messages() {
                     }}
                   />
 
-                  <Button
+                  {/* <Button
                     type="button"
                     variant="ghost"
                     size="icon"
@@ -671,7 +671,7 @@ export default function Messages() {
                   >
                     <Paperclip className="h-5 w-5" />
                     <span className="sr-only">Attach</span>
-                  </Button>
+                  </Button> */}
 
                   <Button
                     onClick={handleSend}
