@@ -45,8 +45,13 @@ export interface Message {
     height?: number;
   }>;
 }
-
-/** Utility to join optional external endpoint with route */
+export type NewAttachment = {
+  url: string;
+  file_name: string;
+  mime_type: string;
+  width?: number;
+  height?: number;
+};
 function join(base: string | undefined, path: string) {
   if (!base) return path;
   const b = base.endsWith("/") ? base : base + "/";
@@ -54,22 +59,86 @@ function join(base: string | undefined, path: string) {
   return b + p;
 }
 
+// src/services/messageService.ts
+
+export async function uploadToAdminS3(files: File[]): Promise<NewAttachment[]> {
+  // Many backends accept one file per request. Do them sequentially.
+  const results: NewAttachment[] = [];
+
+  for (const file of files) {
+    const form = new FormData();
+    form.append("file", file);
+
+    const { data } = await api.post("/storage/upload/", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    // Accept: array, { files: [...] }, { results: [...] }, or single object
+    const items = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.files)
+      ? data.files
+      : Array.isArray(data?.results)
+      ? data.results
+      : [data]; // <-- single object fallback
+
+    for (const it of items) {
+      const url =
+        it?.url ?? it?.location ?? it?.Location ?? it?.file_url ?? it?.path ?? "";
+
+      if (!url) continue;
+
+      results.push({
+        url,
+        // support both snake_case and camelCase keys
+        file_name:
+          it?.file_name ??
+          it?.fileName ??
+          it?.name ??
+          it?.original_name ??
+          file.name ??
+          "file",
+        mime_type:
+          it?.mime_type ??
+          it?.mimeType ??
+          it?.content_type ??
+          it?.ContentType ??
+          file.type ??
+          "application/octet-stream",
+        width: it?.width,
+        height: it?.height,
+      });
+    }
+  }
+
+  return results;
+}
+
+
 export const messageService = {
-  /** Get all messages for the current user (or a specific client when apiEndpoint is given). */
   async getAllMessages(apiEndpoint?: string): Promise<Message[]> {
     const url = apiEndpoint ? join(apiEndpoint, "/messages/all/") : "/messages/all/";
     const { data } = await api.get<Message[]>(url);
     return data;
   },
 
-  /** Send a text message (no attachments). */
+  /** ---------- UPDATED: allow classic media fields ---------- */
   async sendMessage(payload: {
     master_id: string;
-    content: string;
+    content?: string;
     to: "doctor" | "support" | "beluga_support";
-    from_client?: boolean;     // client portal semantics
-    from_super_admin?: boolean; // admin portal semantics
-    apiEndpoint?: string;       // when targeting a specific client from admin
+    from_client?: boolean;
+    from_super_admin?: boolean;
+    apiEndpoint?: string;
+
+    // EITHER: traditional attachments array (keep supporting it)
+    attachments?: NewAttachment[];
+
+    // OR/AND: classic single-media fields (what you asked to populate)
+    is_media?: boolean;
+    media_url?: string;
+    media_mime_type?: string;
+    media_file_name?: string;
   }): Promise<{ sent: boolean; id: number }> {
     const { apiEndpoint, ...body } = payload;
     const url = apiEndpoint ? join(apiEndpoint, "/messages/send/") : "/messages/send/";
@@ -78,20 +147,7 @@ export const messageService = {
   },
 };
 
-/* ---------- Multipart helper for attachments ---------- */
 
-export type NewAttachment = {
-  url: string;
-  file_name: string;
-  mime_type: string;
-  width?: number;
-  height?: number;
-};
-
-/**
- * Send a message that can include one or more files.
- * Backend should accept "files" as a multi-part field.
- */
 export async function sendMessageWithFiles(payload: {
   apiEndpoint?: string;
   master_id: string;

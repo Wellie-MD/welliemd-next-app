@@ -1,3 +1,4 @@
+// src/api/clientApi.ts
 import axiosInstance from './axiosInstance';
 
 export interface Client {
@@ -17,7 +18,7 @@ export interface Client {
     full_name: string;
     phone: string;
     is_active: boolean;
-  };
+  } | null; // <-- can be null
   card_holder_name: string;
   card_last_four: string;
   payment_gateway: string;
@@ -26,7 +27,17 @@ export interface Client {
 
 export const clientApi = {
   list: async (): Promise<Client[]> => {
-    const response = await axiosInstance.get('/clients/');
-    return response.data.results;
+    const { data } = await axiosInstance.get('/clients/');
+    const results = Array.isArray(data?.results)
+      ? data.results
+      : Array.isArray(data)
+      ? data
+      : [];
+
+    // ensure `user` is either an object or null
+    return results.map((c: any) => ({
+      ...c,
+      user: c?.user ?? null,
+    })) as Client[];
   },
 };

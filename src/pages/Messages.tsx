@@ -20,13 +20,12 @@ import {
   FileCode,
   Paperclip,
 } from "lucide-react";
-
 import { useMessages } from "@/hooks/useMessages";
 import { groupMessages, type Conversation } from "@/utils/groupMessages";
-import { messageService, sendMessageWithFiles, type NewAttachment } from "@/services/messageService";
 import { useClients, type Client } from "@/hooks/useClients";
 
 import { isToday, isYesterday, isThisWeek, format, formatISO } from "date-fns";
+import { messageService, uploadToAdminS3, type NewAttachment } from "@/services/messageService";
 
 function getMessageGroupLabel(dateStr: string) {
   const date = new Date(dateStr);
@@ -236,77 +235,48 @@ export default function Messages() {
   useEffect(() => { shouldStickRef.current = true; }, [selectedClient?.id]);
   useEffect(() => { shouldStickRef.current = true; stickToBottomSoon(); }, [activeConversation?.id]);
 
-  // Send
-  async function handleSend() {
-    if (!activeConversation || (!newMessage.trim() && files.length === 0)) return;
 
-    try {
-      setSending(true);
-      shouldStickRef.current = true;
 
-      if (files.length > 0) {
-        const resp = await sendMessageWithFiles({
-          master_id: activeConversation.masterId,
-          to: "support",
-          from_super_admin: true as any,
-          apiEndpoint: selectedClient?.api_endpoint,
-          content: newMessage.trim() || undefined,
-          files,
-        });
+async function handleSend() {
+  if (!activeConversation || (!newMessage.trim() && files.length === 0)) return;
 
-        const optimisticAttachments: NewAttachment[] =
-          resp.attachments && resp.attachments.length > 0
-            ? resp.attachments
-            : previews.map((p) => ({
-                url: p.url,
-                file_name: p.file.name,
-                mime_type: p.file.type || "application/octet-stream",
-              }));
+  try {
+    setSending(true);
+    shouldStickRef.current = true;
 
-        const newMsg = {
-          id: resp?.id || Date.now(),
-          master_id: activeConversation.masterId,
-          content: newMessage,
-          created_at: new Date().toISOString(),
-          read: true,
-          sender_name: "Super Admin Support",
-          senderType: "super_support" as const,
-          side: "right" as const,
-          patientName: activeConversation.patientName,
-          message_type: "support_to_patient" as const,
-          attachments: optimisticAttachments,
-        };
+    // 1) Upload to Admin (works already)
+    let uploaded: NewAttachment[] = [];
+    if (files.length > 0) {
+      uploaded = await uploadToAdminS3(files);
+    }
 
-        setActiveConversation((prev) =>
-          prev
-            ? {
-                ...prev,
-                messages: [...prev.messages, newMsg],
-                lastMessage:
-                  newMsg.content || "Attachment",
-                lastTime: newMsg.created_at,
-              }
-            : prev
-        );
+    // 2) Build messages to send (classic media fields)
+    const text = newMessage.trim();
+    const [first, ...rest] = uploaded;
 
-        setNewMessage("");
-        clearAllAttachments();
-        stickToBottomSoon();
-        return;
-      }
-
-      await messageService.sendMessage({
+    // 2a) If we have text OR at least one file:
+    if (text || first) {
+      const resp = await messageService.sendMessage({
         master_id: activeConversation.masterId,
-        content: newMessage,
         to: "support",
         from_super_admin: true as any,
         apiEndpoint: selectedClient?.api_endpoint,
+        content: text || (first ? "Attachment" : undefined),
+
+        // <<< populate these (the key part you asked for)
+        is_media: !!first,
+        media_url: first?.url,
+        media_mime_type: first?.mime_type,
+        media_file_name: first?.file_name,
+
+        // keep attachments too if your BE also consumes them (optional)
+        // attachments: uploaded.length ? uploaded : undefined,
       });
 
       const newMsg = {
-        id: Date.now(),
+        id: resp?.id || Date.now(),
         master_id: activeConversation.masterId,
-        content: newMessage,
+        content: text || (first ? "Attachment" : ""),
         created_at: new Date().toISOString(),
         read: true,
         sender_name: "Super Admin Support",
@@ -314,6 +284,12 @@ export default function Messages() {
         side: "right" as const,
         patientName: activeConversation.patientName,
         message_type: "support_to_patient" as const,
+
+        // Optimistic echo of media fields
+        is_media: !!first,
+        media_url: first?.url,
+        media_mime_type: first?.mime_type,
+        media_file_name: first?.file_name,
       };
 
       setActiveConversation((prev) =>
@@ -321,20 +297,68 @@ export default function Messages() {
           ? {
               ...prev,
               messages: [...prev.messages, newMsg],
-              lastMessage: newMsg.content,
+              lastMessage: newMsg.content || (first ? "Attachment" : ""),
               lastTime: newMsg.created_at,
             }
           : prev
       );
-
-      setNewMessage("");
-      stickToBottomSoon();
-    } catch (err) {
-      console.error("Failed to send message", err);
-    } finally {
-      setSending(false);
     }
+
+    // 2b) Any remaining files -> send as standalone media messages
+    for (const up of rest) {
+      const resp = await messageService.sendMessage({
+        master_id: activeConversation.masterId,
+        to: "support",
+        from_super_admin: true as any,
+        apiEndpoint: selectedClient?.api_endpoint,
+
+        content: up.file_name || "Attachment",
+        is_media: true,
+        media_url: up.url,
+        media_mime_type: up.mime_type,
+        media_file_name: up.file_name,
+      });
+
+      const mediaMsg = {
+        id: resp?.id || Date.now() + Math.random(),
+        master_id: activeConversation.masterId,
+        content: up.file_name || "Attachment",
+        created_at: new Date().toISOString(),
+        read: true,
+        sender_name: "Super Admin Support",
+        senderType: "super_support" as const,
+        side: "right" as const,
+        patientName: activeConversation.patientName,
+        message_type: "support_to_patient" as const,
+
+        is_media: true,
+        media_url: up.url,
+        media_mime_type: up.mime_type,
+        media_file_name: up.file_name,
+      };
+
+      setActiveConversation((prev) =>
+        prev
+          ? {
+              ...prev,
+              messages: [...prev.messages, mediaMsg],
+              lastMessage: mediaMsg.content,
+              lastTime: mediaMsg.created_at,
+            }
+          : prev
+      );
+    }
+
+    // Cleanup
+    setNewMessage("");
+    clearAllAttachments();
+    stickToBottomSoon();
+  } catch (err) {
+    console.error("Failed to send message", err);
+  } finally {
+    setSending(false);
   }
+}
 
   return (
     <div className="p-6">
@@ -661,7 +685,7 @@ export default function Messages() {
                     }}
                   />
 
-                  {/* <Button
+                  <Button
                     type="button"
                     variant="ghost"
                     size="icon"
@@ -671,7 +695,7 @@ export default function Messages() {
                   >
                     <Paperclip className="h-5 w-5" />
                     <span className="sr-only">Attach</span>
-                  </Button> */}
+                  </Button>
 
                   <Button
                     onClick={handleSend}
