@@ -1,11 +1,26 @@
 // src/pages/Messages.tsx (Client Portal) — attachments hidden for Support (Beluga) tab
 // UPDATED: document UI matches patient portal (icon + filename + mime + centered “Open”).
+// UPDATED: Left list preview (message line + time) is now TAB-AWARE (Patient vs Support/Beluga)
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Phone, Eye, Send, Smile, Paperclip, ExternalLink, FileText, FileSpreadsheet, FileArchive, File as FileIcon, FileAudio, FileVideo, FileCode } from "lucide-react";
+import {
+  Phone,
+  Eye,
+  Send,
+  Smile,
+  Paperclip,
+  ExternalLink,
+  FileText,
+  FileSpreadsheet,
+  FileArchive,
+  File as FileIcon,
+  FileAudio,
+  FileVideo,
+  FileCode,
+} from "lucide-react";
 import { useMessages } from "@/hooks/useMessages";
 import { groupMessages, type Conversation } from "@/utils/groupMessages";
 import { messageService, type Message } from "@/services/messageService";
@@ -60,7 +75,7 @@ function isImageMime(mime?: string): boolean {
   return !!mime && mime.toLowerCase().startsWith("image/");
 }
 
-// ==== NEW: simple document helpers (same as patient portal style) ====
+// ==== simple document helpers (same as patient portal style) ====
 const getExt = (name?: string | null) => {
   if (!name) return "";
   const i = name.lastIndexOf(".");
@@ -77,7 +92,6 @@ const DocIcon = ({ ext, mime }: { ext: string; mime?: string | null }) => {
   else if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) Icon = FileArchive;
   else if (["js", "ts", "py", "java", "c", "cpp", "json", "yml", "yaml", "html", "css"].includes(ext)) Icon = FileCode;
 
-  // Dark icon on light gray chip (per your preference)
   return (
     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-800">
       <Icon className="h-5 w-5" />
@@ -192,6 +206,46 @@ export default function Messages() {
     };
   }, [tab, activeConversation?.masterId]);
 
+  // ---------- TAB-AWARE PREVIEW HELPERS (left list uses these) ----------
+  const isBeluga = (m: Message) =>
+    m.message_type === "client_to_beluga_support" ||
+    m.message_type === "beluga_support_to_client";
+
+  const isPatientSide = (m: Message) =>
+    m.message_type === "patient_to_doctor" ||
+    m.message_type === "patient_to_support" ||
+    m.message_type === "doctor_to_patient" ||
+    m.message_type === "support_to_patient" ||
+    m.message_type === "super_support_to_patient";
+
+  function displayFromMessage(m: Message) {
+    return m.is_media ? m.media_file_name || m.content || "Attachment" : m.content || "Attachment";
+  }
+
+  function getTabPreview(
+    c: Conversation,
+    tab: "patient" | "support",
+    belugaCache: Record<string, Message[]>
+  ) {
+    if (tab === "support") {
+      const belugaList = belugaCache[c.masterId];
+      const list = (belugaList && belugaList.length ? belugaList : c.messages.filter(isBeluga)).slice();
+      if (list.length) {
+        const last = list[list.length - 1];
+        return { text: displayFromMessage(last), time: last.created_at };
+      }
+      return { text: "", time: "" };
+    } else {
+      const pts = c.messages.filter(isPatientSide);
+      if (pts.length) {
+        const last = pts[pts.length - 1];
+        return { text: displayFromMessage(last), time: last.created_at };
+      }
+      return { text: c.lastMessage, time: c.lastTime };
+    }
+  }
+  // ---------------------------------------------------------------------
+
   // unread state synced to localStorage
   const [lastSeen, setLastSeen] = useState<LastSeenMap>(() => readLastSeenFromStorage());
   const initialLoadDoneRef = useRef(false);
@@ -200,7 +254,7 @@ export default function Messages() {
   const didAutoSelectRef = useRef(false);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // NEW: bottom anchor + helper to scroll
+  // bottom anchor + helper to scroll
   const bottomAnchorRef = useRef<HTMLDivElement | null>(null);
   const scrollToBottom = (smooth = true) => {
     if (bottomAnchorRef.current) {
@@ -223,7 +277,7 @@ export default function Messages() {
   const latestKey = (c: Conversation) => {
     const lastMsg = c.messages[c.messages.length - 1];
     return (lastMsg?.id as number | string | undefined) ?? lastMsg?.created_at ?? c.lastTime;
-    };
+  };
 
   const playChime = async () => {
     try {
@@ -237,12 +291,16 @@ export default function Messages() {
       g.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
       const a = ctx.createOscillator();
       const b = ctx.createOscillator();
-      a.type = "triangle"; b.type = "square";
+      a.type = "triangle";
+      b.type = "square";
       a.frequency.setValueAtTime(880, now);
       b.frequency.setValueAtTime(1318.51, now);
-      a.connect(g); b.connect(g);
-      a.start(now); b.start(now + 0.06);
-      a.stop(now + 0.5); b.stop(now + 0.5);
+      a.connect(g);
+      b.connect(g);
+      a.start(now);
+      b.start(now + 0.06);
+      a.stop(now + 0.5);
+      b.stop(now + 0.5);
     } catch {}
   };
 
@@ -361,7 +419,7 @@ export default function Messages() {
     }
   }, [activeConversation?.messages]);
 
-  // NEW: when opening/switching a chat or tab, jump to bottom (ensures latest is visible)
+  // when opening/switching a chat or tab, jump to bottom (ensures latest is visible)
   useEffect(() => {
     if (!activeConversation) return;
     const id = setTimeout(() => {
@@ -431,7 +489,7 @@ export default function Messages() {
         });
 
         setNewMessage("");
-        // NEW: scroll to bottom after sending
+        // scroll to bottom after sending
         requestAnimationFrame(() => scrollToBottom(true));
       } catch (err) {
         console.error("Failed to send beluga message", err);
@@ -543,7 +601,7 @@ export default function Messages() {
         if (messagesContainerRef.current) {
           messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
         }
-        // NEW: also use anchor (more reliable)
+        // also use anchor (more reliable)
         scrollToBottom(true);
       });
     } catch (err) {
@@ -568,7 +626,7 @@ export default function Messages() {
         if (c.masterId && messageService.markRead) await messageService.markRead(c.masterId);
       } catch {}
     })();
-    // NEW: ensure we land on latest right after opening
+    // ensure we land on latest right after opening
     requestAnimationFrame(() => scrollToBottom(false));
   }
 
@@ -580,7 +638,7 @@ export default function Messages() {
   }
   const rightMessages = getRightPaneMessages();
 
-  // NEW: whenever the visible message count changes, keep it pinned to bottom
+  // keep it pinned to bottom when visible message count changes
   useEffect(() => {
     if (!activeConversation) return;
     requestAnimationFrame(() => scrollToBottom(true));
@@ -632,6 +690,9 @@ export default function Messages() {
               const isActive = activeConversation?.id === c.id;
               const showNew = !!hasNewMap[c.id];
 
+              // TAB-AWARE PREVIEW FOR THIS ROW
+              const { text: previewText, time: previewTime } = getTabPreview(c, tab, belugaCache);
+
               let rowClass =
                 "flex items-center gap-3 p-2 rounded-lg cursor-pointer transition border hover:bg-muted border-transparent";
               if (isActive) {
@@ -660,11 +721,19 @@ export default function Messages() {
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-muted-foreground truncate">{c.lastMessage}</div>
+                    {/* Tab-aware preview text */}
+                    <div className="text-xs text-muted-foreground truncate">
+                      {previewText || (tab === "support" ? "" : c.lastMessage)}
+                    </div>
                   </div>
 
+                  {/* Tab-aware time */}
                   <div className={`text-xs whitespace-nowrap ${isActive ? "text-indigo-700" : "text-muted-foreground"}`}>
-                    {new Date(c.lastTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {previewTime
+                      ? new Date(previewTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                      : c.lastTime
+                      ? new Date(c.lastTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                      : ""}
                   </div>
                 </div>
               );
@@ -773,7 +842,6 @@ export default function Messages() {
                               <div key={m.id} className={`flex ${m.side === "left" ? "justify-start" : "justify-end"}`}>
                                 <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}>
                                   {/* CONTENT */}
-                                  {/* CONTENT — media (no filename caption) + optional text */}
                                   {isMedia && mediaUrl ? (
                                     <>
                                       {imageLike ? (
@@ -789,10 +857,8 @@ export default function Messages() {
                                             className="rounded-md max-h-72 w-auto object-contain"
                                             loading="lazy"
                                           />
-                                          {/* filename caption removed */}
                                         </a>
                                       ) : (
-                                        // keep the document bubble as-is (shows icon, etc.). If you want to hide names for non-images too, say the word.
                                         <div className="mb-1">
                                           <DocumentBubble url={mediaUrl} name={fileName} mime={mime} />
                                         </div>
@@ -809,7 +875,6 @@ export default function Messages() {
                                   ) : (
                                     <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>
                                   )}
-
 
                                   {/* META */}
                                   <div className="text-xs opacity-70 mt-1">
@@ -829,7 +894,7 @@ export default function Messages() {
                   });
                 })()}
 
-                {/* NEW: bottom anchor for reliable scroll-to-bottom */}
+                {/* bottom anchor for reliable scroll-to-bottom */}
                 <div ref={bottomAnchorRef} />
               </div>
 
