@@ -116,7 +116,7 @@ export const MessagesDropdown = ({ className }: { className?: string }) => {
                   >
                     {message.senderName}
                   </p>
-                  <TypePill type={message.chatType as ChatType} />
+                  {/* <TypePill type={message.chatType as ChatType} /> */}
                 </div>
 
                 <p className="text-sm text-gray-500 mt-0.5 truncate" title={message.content}>
