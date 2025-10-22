@@ -38,6 +38,9 @@ import AnalyticsReports from "./pages/AnalyticsReports";
 import CouponCodes from "./pages/CouponCodes";
 import CouponInsights from "./pages/CouponInsights";
 import Billing from "./pages/Billing";
+import TemplateManagement from "./pages/TemplateManagement";
+import TemplateQuestions from "./pages/TemplateQuestions";
+import FlowBuilder from "./pages/FlowBuilder";
 
 const LS_KEY = "msg_last_seen";
 
@@ -79,7 +82,7 @@ function showBrowserNotification(title: string, body: string) {
         if (perm === "granted") new Notification(title, { body });
       });
     }
-  } catch {}
+  } catch { /* empty */ }
 }
 
 /* ---------- global chime listener ---------- */
@@ -217,7 +220,10 @@ const App = () => {
                       <Route path="/coupon-insights" element={<ProtectedRoute><CouponInsights /></ProtectedRoute>} />
                       <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
                       <Route path="/affiliates" element={<ProtectedRoute><Affiliates /></ProtectedRoute>} />
-                      <Route path="/questionnaires" element={<ProtectedRoute><Questionnaires /></ProtectedRoute>} />
+                      <Route path="/questionnaires" element={<ProtectedRoute><TemplateManagement /></ProtectedRoute>} />
+                      <Route path="/templates" element={<ProtectedRoute><TemplateManagement /></ProtectedRoute>} />
+                      <Route path="/templates/:templateId" element={<ProtectedRoute><TemplateQuestions /></ProtectedRoute>} />
+                      <Route path="/templates/:templateId/flow-builder" element={<ProtectedRoute><FlowBuilder /></ProtectedRoute>} />
                     </Routes>
                   </main>
                 </div>
