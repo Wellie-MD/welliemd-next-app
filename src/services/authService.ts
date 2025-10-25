@@ -37,7 +37,10 @@ let refreshPromise: Promise<string | null> | null = null;
 
 export const authService = {
   login: async (credentials: LoginCredentials): Promise<User> => {
-    const { data } = await api.post<LoginResponse>('/auth/login/', credentials);
+    const { data } = await api.post<LoginResponse>('/auth/login/', {
+      ...credentials,
+      portal: 'client'
+    });
     const { access: accessToken, user } = data;
     
     useAuthStore.getState().login(accessToken, user);
