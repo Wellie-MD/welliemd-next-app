@@ -117,7 +117,7 @@ export async function uploadToAdminS3(files: File[]): Promise<NewAttachment[]> {
 
 export const messageService = {
   async getAllMessages(apiEndpoint?: string): Promise<Message[]> {
-    const url = apiEndpoint ? join(apiEndpoint, "/messages/all/") : "/messages/all/";
+    const url = apiEndpoint ? join(apiEndpoint, "/api/v1/messages/all/") : "/messages/all/";
     const { data } = await api.get<Message[]>(url);
     return data;
   },
@@ -141,7 +141,7 @@ export const messageService = {
     media_file_name?: string;
   }): Promise<{ sent: boolean; id: number }> {
     const { apiEndpoint, ...body } = payload;
-    const url = apiEndpoint ? join(apiEndpoint, "/messages/send/") : "/messages/send/";
+    const url = apiEndpoint ? join(apiEndpoint, "/api/v1/messages/send/") : "/messages/send/";
     const { data } = await api.post(url, body);
     return data;
   },
@@ -158,7 +158,7 @@ export async function sendMessageWithFiles(payload: {
   files: File[];
 }): Promise<{ sent: boolean; id: number; attachments?: NewAttachment[] }> {
   const { apiEndpoint, files, ...body } = payload;
-  const url = apiEndpoint ? join(apiEndpoint, "/messages/send/") : "/messages/send/";
+  const url = apiEndpoint ? join(apiEndpoint, "/api/v1/messages/send/") : "/messages/send/";
 
   const form = new FormData();
   Object.entries(body).forEach(([k, v]) => {
