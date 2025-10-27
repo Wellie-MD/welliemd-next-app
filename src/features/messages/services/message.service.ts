@@ -91,7 +91,6 @@ export const MessageService = {
     return res.data;
   },
 
-  /** POST /storage/upload/ (multipart) -> {url, fileName, mimeType, path} */
   async uploadAttachment(file: File): Promise<{ url: string; fileName: string; mimeType: string; path: string }> {
     const form = new FormData();
     form.append("file", file);
