@@ -171,9 +171,18 @@ function StripeSetupForm({ clientSecret, onSuccess, onError }: { clientSecret: s
     const ElementsComp = StripeElements.Elements;
     const PaymentElem = StripeElements.PaymentElement;
 
+    const useStripeHook = StripeElements.useStripe;
+    const useElementsHook = StripeElements.useElements;
+
     return (
       <ElementsComp stripe={StripeElements.stripePromise} options={{ clientSecret }}>
-        <DynamicInnerForm PaymentElem={PaymentElem} onSuccess={onSuccess} onError={onError} />
+        <DynamicInnerForm
+          PaymentElem={PaymentElem}
+          useStripeHook={useStripeHook}
+          useElementsHook={useElementsHook}
+          onSuccess={onSuccess}
+          onError={onError}
+        />
       </ElementsComp>
     );
   };
@@ -181,19 +190,34 @@ function StripeSetupForm({ clientSecret, onSuccess, onError }: { clientSecret: s
   return <StripeLoader />;
 }
 
-function DynamicInnerForm({ PaymentElem, onSuccess, onError }: { PaymentElem: any; onSuccess: () => void; onError: (msg: string) => void }) {
-  const stripe = (window as any).Stripe ? (window as any).Stripe : null;
+function DynamicInnerForm({ PaymentElem, useStripeHook, useElementsHook, onSuccess, onError }: { PaymentElem: any; useStripeHook: any; useElementsHook: any; onSuccess: () => void; onError: (msg: string) => void }) {
+  const stripe = useStripeHook();
+  const elements = useElementsHook();
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
-    // We rely on stripe's client to be loaded via the Elements wrapper; use the global confirm flow
+    if (!stripe || !elements) {
+      onError('Stripe has not loaded yet');
+      return;
+    }
     try {
       setSubmitting(true);
-      // Use stripe.confirmSetup via the Elements instance loaded by react-stripe-js
-      // Note: For simplicity we use the DOM-based approach: find the global stripe instance
-      // The react wrapper will handle the actual confirm when integrated normally.
-      onSuccess();
+      const res = await stripe.confirmSetup({
+        elements,
+        confirmParams: {
+          return_url: window.location.href,
+        },
+      });
+
+      if (res.error) {
+        onError(res.error.message || 'Failed to confirm payment method');
+      } else if (res.setupIntent && (res.setupIntent.status === 'succeeded' || res.setupIntent.status === 'requires_capture' || res.setupIntent.status === 'requires_confirmation')) {
+        // Success - call callback
+        onSuccess();
+      } else {
+        onError('Unexpected setup intent result');
+      }
     } catch (err: any) {
       onError(err?.message ?? 'Unexpected error');
     } finally {
