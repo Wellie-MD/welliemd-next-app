@@ -45,14 +45,14 @@ const menuSections = [
     items: [
       { title: "Home", url: "/dashboard", icon: BarChart3 },
       { title: "Clients", url: "/dashboard/clients", icon: Users },
-      {
-        title: "Treatments",
-        icon: Stethoscope,
-        children: [
-          { title: "Treatments", url: "/dashboard/treatments" },
-          { title: "Configurations", url: "/dashboard/treatments/configurations" }
-        ]
-      },
+      // {
+      //   title: "Treatments",
+      //   icon: Stethoscope,
+      //   children: [
+      //     { title: "Treatments", url: "/dashboard/treatments" },
+      //     { title: "Configurations", url: "/dashboard/treatments/configurations" }
+      //   ]
+      // },
       {
         title: "Orders",
         icon: ShoppingBag,
@@ -64,15 +64,15 @@ const menuSections = [
         ]
       },
       { title: "Messenger", url: "/dashboard/messages", icon: MessageSquare },
-      { 
-        title: "Analytics", 
-        icon: TrendingUp,
-        children: [
-          { title: "Live View", url: "/dashboard/analytics/live" },
-          { title: "Reports", url: "/dashboard/analytics/reports" },
-          { title: "Cohorts", url: "/dashboard/analytics/cohorts" }
-        ]
-      },
+      // { 
+      //   title: "Analytics", 
+      //   icon: TrendingUp,
+      //   children: [
+      //     { title: "Live View", url: "/dashboard/analytics/live" },
+      //     { title: "Reports", url: "/dashboard/analytics/reports" },
+      //     { title: "Cohorts", url: "/dashboard/analytics/cohorts" }
+      //   ]
+      // },
       { title: "Prescriptions", url: "/dashboard/prescriptions", icon: ScrollText }
     ]
   },
@@ -105,15 +105,15 @@ const menuSections = [
           { title: "Billing", url: "/dashboard/billing" },
         ]
       },
-      {
-        title: "Discounts",
-        icon: Gift,
-        children: [
-          { title: "Coupon Codes", url: "/dashboard/coupon-codes" },
-          { title: "Insights", url: "/dashboard/coupon-insights" }
-        ]
-      },
-      { title: "Affiliates", url: "/dashboard/affiliates", icon: Users }
+      // {
+      //   title: "Discounts",
+      //   icon: Gift,
+      //   children: [
+      //     { title: "Coupon Codes", url: "/dashboard/coupon-codes" },
+      //     { title: "Insights", url: "/dashboard/coupon-insights" }
+      //   ]
+      // },
+      // { title: "Affiliates", url: "/dashboard/affiliates", icon: Users }
     ]
   }
 ]
