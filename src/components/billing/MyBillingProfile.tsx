@@ -4,6 +4,7 @@ import billingService, { BillingProfile } from "@/services/billingService";
 // packages are not installed in some environments. We still list them in package.json
 // so a normal dev environment should install them.
 import mockData from "@/data/mockData.json";
+import visaIcon from '@/assets/icons/payment-methods/visa.svg';
 import { Button } from "@/components/ui/button";
 
 function Modal({ children, onClose }: { children: any; onClose: () => void }) {
@@ -21,16 +22,62 @@ function Modal({ children, onClose }: { children: any; onClose: () => void }) {
 
 export default function MyBillingProfile() {
   const [profile, setProfile] = useState<BillingProfile | null>(null);
+  const [paymentMethodText, setPaymentMethodText] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalContent, setModalContent] = useState<any | null>(null);
+
+  // Parse billing fields from the API text when available
+  const parseBillingFromText = (text?: string) => {
+    if (!text) return null;
+    const extract = (label: string) => {
+      // match 'Label: value' on same line or Label:\n\nvalue
+      const re = new RegExp(label + '\\s*:\\s*(?:\\n\\s*)*([^\\n]+)', 'i');
+      const m = text.match(re);
+      if (m && m[1]) return m[1].trim();
+      return '';
+    };
+
+    const name = extract('Name');
+    const email = extract('Email');
+    const address = extract('Address');
+
+    // card details
+    const cardLineMatch = text.match(/Card:\s*([^\n]+)/i);
+    const last4Match = text.match(/(\d{4})/g);
+    const expMatch = text.match(/Expires:\s*([^\n]+)/i);
+
+    const payment_method: any = {};
+    if (cardLineMatch) {
+      const brandMatch = cardLineMatch[1].match(/(\w+)/);
+      if (brandMatch) payment_method.brand = brandMatch[1];
+    }
+    if (last4Match && last4Match.length > 0) payment_method.last4 = last4Match[last4Match.length - 1];
+    if (expMatch) {
+      const exp = expMatch[1];
+      const [m, y] = exp.split('/').map(s => s.trim());
+      const exp_month = Number(m) || undefined;
+      const exp_year = Number(y) || undefined;
+      if (exp_month) payment_method.exp_month = exp_month;
+      if (exp_year) payment_method.exp_year = exp_year;
+    }
+
+  const result: any = {};
+  if (name) result.client_name = name;
+  if (email) result.email = email;
+  if (address) result.address = address;
+  if (Object.keys(payment_method).length) result.payment_method = payment_method;
+  return result as Partial<BillingProfile> | null;
+  };
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       setLoading(true);
-      const p = await billingService.getProfile();
-      if (!p) {
+  const pmText = await billingService.getPaymentMethodText();
+  // server no longer exposes a /billing/profile/ endpoint; keep using local mock data for structured fields
+  const p = null;
+  if (!p) {
         // fallback to mock
         const md: any = mockData as any;
         const mock = md.billingProfile ?? {
@@ -38,9 +85,19 @@ export default function MyBillingProfile() {
           payment_method: { brand: "Visa", last4: "1383", exp_month: 8, exp_year: 2026 },
           next_invoice_date: "2025-11-26",
         };
-        if (mounted) setProfile(mock);
+  if (mounted) setProfile(mock);
+  if (mounted && pmText) {
+    setPaymentMethodText(pmText);
+    const parsed = parseBillingFromText(pmText);
+    if (parsed) setProfile(prev => ({ ...(prev ?? {}), ...parsed }));
+  }
       } else {
-        if (mounted) setProfile(p);
+  if (mounted) setProfile(p);
+  if (mounted && pmText) {
+    setPaymentMethodText(pmText);
+    const parsed = parseBillingFromText(pmText);
+    if (parsed) setProfile(prev => ({ ...(prev ?? {}), ...parsed }));
+  }
       }
       setLoading(false);
     };
@@ -58,16 +115,24 @@ export default function MyBillingProfile() {
         <div className="flex flex-wrap justify-between gap-3 p-4">
           <p className="text-[#0d171b] tracking-light text-[32px] font-bold leading-tight min-w-72">My Billing Profile</p>
         </div>
-        <p className="text-[#0d171b] text-base font-normal leading-normal pb-3 pt-1 px-4">
-          This is the Payment method to be charged for medication and shipping costs when a prescription is sent to the pharmacy.
-        </p>
+        {!paymentMethodText && (
+          <p className="text-[#0d171b] text-base font-normal leading-normal pb-3 pt-1 px-4">
+            This is the Payment method to be charged for medication and shipping costs when a prescription is sent to the pharmacy.
+          </p>
+        )}
 
         <h3 className="text-[#0d171b] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">Payment Method</h3>
         <div className="flex items-center gap-4 bg-slate-50 px-4 min-h-[72px] py-2">
-          <div className="bg-center bg-no-repeat aspect-video bg-contain h-6 w-10 shrink-0" style={{ backgroundImage: `url('/visa.svg')` }} />
+          <img src={visaIcon} alt="card" className="h-10 w-auto shrink-0" />
           <div className="flex flex-col justify-center">
-            <p className="text-[#0d171b] text-base font-medium leading-normal line-clamp-1">{profile?.payment_method ? `Card: ${profile.payment_method.brand} **** **** **** ${profile.payment_method.last4}` : 'No payment method'}</p>
-            <p className="text-[#4c809a] text-sm font-normal leading-normal line-clamp-2">{profile?.payment_method ? `Expires: ${profile.payment_method.exp_month}/${profile.payment_method.exp_year}` : ''}</p>
+            <p className="text-[#0d171b] text-base font-medium leading-normal line-clamp-1">{paymentMethodText ? (() => {
+                const m = paymentMethodText.match(/Card:\s*([^\n]+)/i);
+                return m ? m[1] : 'Card: —';
+              })() : profile?.payment_method ? `Card: ${profile.payment_method.brand} **** **** **** ${profile.payment_method.last4}` : 'No payment method'}</p>
+            <p className="text-[#4c809a] text-sm font-normal leading-normal line-clamp-2">{paymentMethodText ? (() => {
+                const m = paymentMethodText.match(/Expires:\s*([^\n]+)/i);
+                return m ? `Expires: ${m[1]}` : '';
+              })() : profile?.payment_method ? `Expires: ${profile.payment_method.exp_month}/${profile.payment_method.exp_year}` : ''}</p>
           </div>
         </div>
 
@@ -115,8 +180,10 @@ export default function MyBillingProfile() {
                 <StripeSetupForm
                   clientSecret={modalContent.client_secret}
                   onSuccess={async () => {
-                    const p = await billingService.getProfile();
-                    setProfile(p);
+                    const refreshed = await billingService.getPaymentMethodText();
+                    setPaymentMethodText(refreshed);
+                    const parsed = parseBillingFromText(refreshed ?? undefined);
+                    if (parsed) setProfile(prev => ({ ...(prev ?? {}), ...parsed }));
                     setShowModal(false);
                     setModalContent(null);
                   }}

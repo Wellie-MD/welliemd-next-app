@@ -42,16 +42,7 @@ export interface InvoiceListResponse {
 }
 
 const billingService = {
-  async getProfile(): Promise<BillingProfile | null> {
-    try {
-      const { data } = await api.get<BillingProfile>("/billing/profile/");
-      return data;
-    } catch (err) {
-      // swallow and let UI fallback to mock data
-      console.warn("getProfile failed", err);
-      return null;
-    }
-  },
+  // getProfile removed: endpoint /billing/profile/ does not exist anymore.
 
   async postSetupIntent(): Promise<{ client_secret?: string } | null> {
     try {
@@ -59,6 +50,17 @@ const billingService = {
       return data;
     } catch (err) {
       console.warn("postSetupIntent failed", err);
+      return null;
+    }
+  },
+
+  async getPaymentMethodText(): Promise<string | null> {
+    try {
+      const { data } = await api.get<any>("/billing/payment-method/");
+      if (data && typeof data.text === 'string') return data.text;
+      return null;
+    } catch (err) {
+      console.warn('getPaymentMethodText failed', err);
       return null;
     }
   },
