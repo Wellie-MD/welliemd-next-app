@@ -1,12 +1,7 @@
 export const Logo = () => {
   return (
     <div className="flex items-center gap-2 mb-8">
-      <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
-        <div className="w-4 h-4 bg-white rounded-sm"></div>
-      </div>
-      <div>
-        <span className="text-xl font-bold text-foreground">Welliemd</span>
-      </div>
+      <img src="/welliemd_logo.png" alt="Welliemd" className="h-8 w-auto" />
     </div>
   );
 };

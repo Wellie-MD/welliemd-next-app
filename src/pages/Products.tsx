@@ -1,42 +1,12 @@
 // src/pages/dashboard/Products.tsx
 import { useEffect, useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { Pencil, Trash2 } from "lucide-react"
+import { Pencil } from "lucide-react"
 import { DataTable } from "@/components/ui/data-table"
-import axiosInstance from "@/api/axiosInstance"
+import { productApi, Product, TREATMENT_OPTIONS, PURCHASE_TYPE_OPTIONS } from "@/api/products"
 import AddProductForm from "@/components/products/AddProductForm"
 import { StatCard } from "@/components/ui/stat-card"
-
-type Product = {
-  id: number | string
-  name: string
-  description?: string | null
-  application_directions?: string | null
-  product_image?: string | null
-
-  // Pricing
-  price: string | number
-  cost: string | number
-  base_shipping_cost: string | number
-  shipping_fee: string | number
-
-  // Dosage / Quantity
-  dose?: string | null
-  quantity: number
-  refills: number
-  rx_quantity: number
-  rx_days_supply: number
-  rx_drug_form?: string | null
-
-  // Extra Info
-  ndic_number?: string | null
-  manufacturer_name?: string | null
-  purchase_type: string
-  safety_info?: string | null
-  side_effects?: string | null
-
-  created_at: string
-}
+import { useToast } from "@/hooks/use-toast"
 
 function money(n: number | string) {
   const num = typeof n === "string" ? parseFloat(n) : n
@@ -44,36 +14,34 @@ function money(n: number | string) {
   return `$${num.toFixed(2)}`
 }
 
-function dateOnly(iso?: string) {
-  if (!iso) return "-"
-  try {
-    return new Date(iso).toLocaleDateString()
-  } catch {
-    return "-"
-  }
-}
-
-// tolerant to DataTable render(value,row) vs render(row)
-const getRow = <T,>(...args: any[]): T => (args.length >= 2 ? args[1] : args[0])
-
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState("")
   const [editing, setEditing] = useState<Product | null>(null)
+  const [loading, setLoading] = useState(false)
+  const { toast } = useToast()
 
   const fetchProducts = async () => {
     try {
-      const res = await axiosInstance.get("/products/")
-      const items: Product[] = res.data?.results ?? res.data ?? []
+      setLoading(true)
+      const items = await productApi.listProducts()
       setProducts(items)
     } catch (e) {
       console.error("Failed to fetch products:", e)
+      toast({
+        title: "Error",
+        description: "Failed to fetch products",
+        variant: "destructive",
+      })
       setProducts([])
+    } finally {
+      setLoading(false)
     }
   }
 
   useEffect(() => {
     fetchProducts()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const filtered = useMemo(() => {
@@ -86,7 +54,9 @@ export default function Products() {
         p.manufacturer_name,
         p.rx_drug_form,
         p.purchase_type,
-        p.ndic_number,
+        p.ndc_number,
+        p.treatment,
+        p.generic_name,
       ]
         .filter(Boolean)
         .join(" ")
@@ -95,23 +65,36 @@ export default function Products() {
     )
   }, [products, search])
 
-  const onDelete = async (row: Product) => {
-    if (!row) return
-    const ok = window.confirm(`Delete product “${row.name}”?`)
-    if (!ok) return
-    try {
-      await axiosInstance.delete(`/products/${row.id}/`)
-      alert("Product deleted")
-      fetchProducts()
-    } catch (e) {
-      console.error(e)
-      alert("Failed to delete product")
-    }
+  const getTreatmentLabel = (value: string) => {
+    return TREATMENT_OPTIONS.find((opt) => opt.value === value)?.label || value
+  }
+
+  const getPurchaseTypeLabel = (value: string) => {
+    return PURCHASE_TYPE_OPTIONS.find((opt) => opt.value === value)?.label || value
   }
 
   const columns = [
-    { key: "id", label: "ID" },
-    { key: "name", label: "Name" },
+    { 
+      key: "name", 
+      label: "Product Name",
+      render: (value: unknown, row: Product) => {
+        return (
+          <div className="flex flex-col">
+            <span className="font-medium">{row.name}</span>
+            {row.generic_name && (
+              <span className="text-xs text-muted-foreground">{row.generic_name}</span>
+            )}
+          </div>
+        )
+      }
+    },
+    {
+      key: "treatment",
+      label: "Treatment",
+      render: (value: unknown, row: Product) => {
+        return <Badge variant="outline">{getTreatmentLabel(row.treatment)}</Badge>
+      },
+    },
     {
       key: "manufacturer_name",
       label: "Manufacturer",
@@ -119,46 +102,52 @@ export default function Products() {
     },
     {
       key: "rx_drug_form",
-      label: "Drug Form",
-      render: (v: string) => v || "-",
+      label: "Form",
+      render: (v: string) => v ? v.charAt(0).toUpperCase() + v.slice(1) : "-",
     },
     {
       key: "purchase_type",
-      label: "Purchase Type",
-      render: (v: string) => <Badge variant="secondary">{v || "-"}</Badge>,
+      label: "Type",
+      render: (value: unknown, row: Product) => {
+        return <Badge variant="secondary">{getPurchaseTypeLabel(row.purchase_type)}</Badge>
+      },
     },
     {
-      key: "price",
+      key: "base_price",
       label: "Price",
-      render: (v: number | string) => money(v),
+      render: (value: unknown, row: Product) => {
+        return money(row.base_price)
+      },
     },
     {
-      key: "created_at",
-      label: "Created At",
-      render: (...args: any[]) => dateOnly(getRow<Product>(...args).created_at),
+      key: "quantity",
+      label: "Qty",
+      render: (v: string) => v || "-",
+    },
+    {
+      key: "is_active",
+      label: "Status",
+      render: (value: unknown, row: Product) => {
+        return (
+          <Badge variant={row.is_active ? "default" : "secondary"}>
+            {row.is_active ? "Active" : "Inactive"}
+          </Badge>
+        )
+      },
     },
     {
       key: "__actions",
       label: "",
-      render: (...args: any[]) => {
-        const row = getRow<Product>(...args)
+      render: (value: unknown, row: Product) => {
         return (
           <div className="flex items-center justify-end gap-3">
             <button
               type="button"
-              className="hover:opacity-80"
+              className="hover:opacity-80 text-blue-600"
               title="Edit"
               onClick={() => setEditing(row)}
             >
               <Pencil className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              className="text-red-600 hover:opacity-80"
-              title="Delete"
-              onClick={() => onDelete(row)}
-            >
-              <Trash2 className="h-4 w-4" />
             </button>
           </div>
         )
@@ -168,52 +157,62 @@ export default function Products() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header (Add New removed) */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Products</h1>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-            <span>Products</span>
-            <span>›</span>
-            <span>Products</span>
-          </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            View and manage products assigned to you by the admin
+          </p>
         </div>
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <StatCard
+          title="Total Products"
+          value={products.length.toString()}
+          className="bg-muted/30"
+        />
         <StatCard
           title="Active Products"
-          value={`${products.length} -`}
-          className="bg-muted/30 md:col-span-3 md:max-w-md"
+          value={products.filter(p => p.is_active).length.toString()}
+          className="bg-muted/30"
+        />
+        <StatCard
+          title="RX Products"
+          value={products.filter(p => p.rx_or_otc === "rx").length.toString()}
+          className="bg-muted/30"
+        />
+        <StatCard
+          title="OTC Products"
+          value={products.filter(p => p.rx_or_otc === "otc").length.toString()}
+          className="bg-muted/30"
         />
       </div>
 
       {/* Edit modal */}
       {editing && (
-        <div className="border p-4 rounded-md bg-white shadow">
-          <AddProductForm
-            mode="edit"
-            product={editing}
-            open={!!editing}
-            onOpenChange={(v) => {
-              if (!v) setEditing(null)
-            }}
-            onSuccess={() => {
-              setEditing(null)
-              fetchProducts()
-            }}
-          />
-        </div>
+        <AddProductForm
+          product={editing}
+          open={!!editing}
+          onOpenChange={(v) => {
+            if (!v) setEditing(null)
+          }}
+          onSuccess={() => {
+            setEditing(null)
+            fetchProducts()
+          }}
+        />
       )}
 
       {/* Table */}
       <DataTable
         data={filtered}
         columns={columns}
-        searchPlaceholder="Search by name, product ID, pharmacy, manufacturer or generic form"
+        searchPlaceholder="Search by name, manufacturer, treatment, or NDC number"
         showDatePicker={false}
-        showExport={false}
+        showExport={true}
         onSearch={setSearch}
         onRefresh={fetchProducts}
       />

@@ -2,182 +2,145 @@
 
 import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
-import axiosInstance from "@/api/axiosInstance"
+import { Product, productApi } from "@/api/products"
 import {
   Dialog,
   DialogTrigger,
   DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog"
+import { useToast } from "@/hooks/use-toast"
+import { Button } from "@/components/ui/button"
 
 type ProductFormValues = {
-  name: string
+  // Client-editable fields
   description?: string
   application_directions?: string
+  learn_more?: string
   product_image?: File | null
-
-  price: string
-  cost?: string
-  base_shipping_cost?: string
-  shipping_fee?: string
-
-  dose?: string
-  quantity?: number
-  refills?: number
-  rx_quantity?: number
-  rx_days_supply?: number
-  rx_drug_form?: string
-
-  ndic_number?: string
+  safety_information?: string
+  side_effects?: string
+  quantity?: string
+  
+  // Client-editable pricing fields
+  base_price?: string
+  cost_to_client?: string
+  shipping_cost_to_client?: string
+  shipping_fee_patient?: string
+  
+  // Read-only fields (displayed but not editable)
+  name: string
   manufacturer_name?: string
   purchase_type: string
-  safety_info?: string
-  side_effects?: string
-}
-
-type Product = {
-  id: number | string
-  name: string
-  description?: string | null
-  application_directions?: string | null
-  product_image?: string | null
-  price: string | number
-  cost: string | number
-  base_shipping_cost: string | number
-  shipping_fee: string | number
-  dose?: string | null
-  quantity: number
+  treatment: string
+  rx_or_otc: string
+  dose?: string
   refills: number
-  rx_quantity: number
-  rx_days_supply: number
-  rx_drug_form?: string | null
-  ndic_number?: string | null
-  manufacturer_name?: string | null
-  purchase_type: string
-  safety_info?: string | null
-  side_effects?: string | null
+  rx_quantity: string
+  rx_drug_form?: string
+  ndc_number?: string
+  product_type: string
+  cost_to_welliemd?: string
+  shipping_cost_to_welliemd?: string
 }
 
 export default function AddProductForm({
-  mode,
   open,
   onOpenChange,
   onSuccess,
   product,
 }: {
-  mode: "create" | "edit"
   open: boolean
   onOpenChange: (v: boolean) => void
   onSuccess?: () => void
   product?: Product | null
 }) {
-  const { register, handleSubmit, reset, setValue, watch } = useForm<ProductFormValues>({
-    defaultValues: {
-      name: "",
-      description: "",
-      application_directions: "",
-      price: "0.00",
-      cost: "",
-      base_shipping_cost: "",
-      shipping_fee: "",
-      dose: "",
-      quantity: 1,
-      refills: 0,
-      rx_quantity: 1,
-      rx_days_supply: 30,
-      rx_drug_form: "",
-      ndic_number: "",
-      manufacturer_name: "",
-      purchase_type: "One Time",
-      safety_info: "",
-      side_effects: "",
-      product_image: null,
-    },
-  })
-
+  const { register, handleSubmit, reset, setValue } = useForm<ProductFormValues>()
   const [loading, setLoading] = useState(false)
+  const { toast } = useToast()
 
-  // preload for edit
+  // Load product data for editing
   useEffect(() => {
-    if (mode === "edit" && product) {
+    if (product) {
       reset({
-        name: product.name ?? "",
+        // Client-editable fields
         description: product.description ?? "",
         application_directions: product.application_directions ?? "",
-        price: String(product.price ?? "0.00"),
-        cost: product.cost ? String(product.cost) : "",
-        base_shipping_cost: product.base_shipping_cost ? String(product.base_shipping_cost) : "",
-        shipping_fee: product.shipping_fee ? String(product.shipping_fee) : "",
-        dose: product.dose ?? "",
-        quantity: product.quantity ?? 1,
-        refills: product.refills ?? 0,
-        rx_quantity: product.rx_quantity ?? 1,
-        rx_days_supply: product.rx_days_supply ?? 30,
-        rx_drug_form: product.rx_drug_form ?? "",
-        ndic_number: product.ndic_number ?? "",
-        manufacturer_name: product.manufacturer_name ?? "",
-        purchase_type: product.purchase_type ?? "One Time",
-        safety_info: product.safety_info ?? "",
+        learn_more: product.learn_more ?? "",
+        safety_information: product.safety_information ?? "",
         side_effects: product.side_effects ?? "",
-        product_image: null,
+        quantity: product.quantity ?? "1",
+        
+        // Client-editable pricing fields
+        base_price: product.base_price ?? "0.00",
+        cost_to_client: product.cost_to_client ?? "",
+        shipping_cost_to_client: product.shipping_cost_to_client ?? "0.00",
+        shipping_fee_patient: product.shipping_fee_patient ?? "0.00",
+        
+        // Read-only fields (for display)
+        name: product.name,
+        manufacturer_name: product.manufacturer_name ?? "",
+        purchase_type: product.purchase_type,
+        treatment: product.treatment,
+        rx_or_otc: product.rx_or_otc,
+        dose: product.dose ?? "",
+        refills: product.refills,
+        rx_quantity: product.rx_quantity,
+        rx_drug_form: product.rx_drug_form ?? "",
+        ndc_number: product.ndc_number ?? "",
+        product_type: product.product_type,
+        cost_to_welliemd: product.cost_to_welliemd ?? "",
+        shipping_cost_to_welliemd: product.shipping_cost_to_welliemd ?? "0.00",
       })
     }
-  }, [mode, product, reset])
-
-  const buildFormData = (data: ProductFormValues) => {
-    const fd = new FormData()
-    // append only defined fields
-    const entries: [string, any][] = [
-      ["name", data.name],
-      ["description", data.description],
-      ["application_directions", data.application_directions],
-      ["price", data.price],
-      ["cost", data.cost],
-      ["base_shipping_cost", data.base_shipping_cost],
-      ["shipping_fee", data.shipping_fee],
-      ["dose", data.dose],
-      ["quantity", data.quantity],
-      ["refills", data.refills],
-      ["rx_quantity", data.rx_quantity],
-      ["rx_days_supply", data.rx_days_supply],
-      ["rx_drug_form", data.rx_drug_form],
-      ["ndic_number", data.ndic_number],
-      ["manufacturer_name", data.manufacturer_name],
-      ["purchase_type", data.purchase_type],
-      ["safety_info", data.safety_info],
-      ["side_effects", data.side_effects],
-    ]
-    for (const [k, v] of entries) {
-      if (v !== undefined && v !== null && v !== "") fd.append(k, String(v))
-    }
-    const file = data.product_image
-    if (file instanceof File) {
-      fd.append("product_image", file)
-    }
-    return fd
-  }
+  }, [product, reset])
 
   const onSubmit = async (data: ProductFormValues) => {
+    if (!product) return
+
     try {
       setLoading(true)
-      if (mode === "create") {
-        const fd = buildFormData(data)
-        await axiosInstance.post("/products/", fd, {
-          headers: { "Content-Type": "multipart/form-data" },
-        })
-        alert("Product created")
-      } else if (product) {
-        const fd = buildFormData(data)
-        await axiosInstance.patch(`/products/${product.id}/`, fd, {
-          headers: { "Content-Type": "multipart/form-data" },
-        })
-        alert("Product updated")
+      
+      // Build FormData with only client-editable fields
+      const fd = new FormData()
+      
+      // Only include client-editable fields
+      if (data.description !== undefined) fd.append("description", data.description)
+      if (data.application_directions !== undefined) fd.append("application_directions", data.application_directions)
+      if (data.learn_more !== undefined) fd.append("learn_more", data.learn_more)
+      if (data.safety_information !== undefined) fd.append("safety_information", data.safety_information)
+      if (data.side_effects !== undefined) fd.append("side_effects", data.side_effects)
+      if (data.quantity !== undefined) fd.append("quantity", data.quantity)
+      
+      // Client-editable pricing fields
+      if (data.base_price !== undefined) fd.append("base_price", data.base_price)
+      if (data.cost_to_client !== undefined) fd.append("cost_to_client", data.cost_to_client)
+      if (data.shipping_cost_to_client !== undefined) fd.append("shipping_cost_to_client", data.shipping_cost_to_client)
+      if (data.shipping_fee_patient !== undefined) fd.append("shipping_fee_patient", data.shipping_fee_patient)
+      
+      // Handle image upload
+      if (data.product_image instanceof File) {
+        fd.append("product_image", data.product_image)
       }
+
+      await productApi.updateProduct(product.id, Object.fromEntries(fd))
+      
+      toast({
+        title: "Success",
+        description: "Product updated successfully",
+      })
+      
       onSuccess?.()
       onOpenChange(false)
-      reset()
     } catch (err) {
       console.error(err)
-      alert("Failed to save product")
+      toast({
+        title: "Error",
+        description: "Failed to update product",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
@@ -186,124 +149,309 @@ export default function AddProductForm({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger className="hidden" />
-      <DialogContent className="max-w-3xl w-full">
-        <h2 className="text-xl font-bold mb-4">
-          {mode === "create" ? "Add New Product" : `Edit Product: ${product?.name ?? ""}`}
-        </h2>
+      <DialogContent className="max-w-4xl w-full">
+        <DialogHeader>
+          <DialogTitle>Edit Product: {product?.name ?? ""}</DialogTitle>
+          <DialogDescription>
+            Fields marked as read-only are managed by the admin and cannot be edited.
+          </DialogDescription>
+        </DialogHeader>
 
-        {/* Scrollable body */}
-        <form onSubmit={handleSubmit(onSubmit)} className="max-h-[70vh] overflow-y-auto pr-1">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Left */}
-            <div className="space-y-4">
+        {/* Scrollable body - hide scrollbar */}
+        <form onSubmit={handleSubmit(onSubmit)} className="max-h-[70vh] overflow-y-auto pr-2 space-y-6 scrollbar-hide">
+          {/* Read-only Product Information */}
+          <div className="border rounded-lg p-4 bg-muted/30">
+            <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Product Information (Read-only)</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="text-sm font-medium">Name</label>
-                <input {...register("name", { required: true })} className="border px-3 py-2 rounded w-full" />
+                <label className="text-xs font-medium text-muted-foreground">Product Name</label>
+                <input 
+                  {...register("name")} 
+                  disabled 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                />
               </div>
-
               <div>
-                <label className="text-sm font-medium">Manufacturer</label>
-                <input {...register("manufacturer_name")} className="border px-3 py-2 rounded w-full" />
+                <label className="text-xs font-medium text-muted-foreground">Product Type</label>
+                <input 
+                  {...register("product_type")} 
+                  disabled 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                />
               </div>
-
               <div>
-                <label className="text-sm font-medium">Purchase Type</label>
-                <select {...register("purchase_type")} className="border px-3 py-2 rounded w-full">
-                  <option value="One Time">One Time</option>
-                  <option value="Subscription">Subscription</option>
-                </select>
+                <label className="text-xs font-medium text-muted-foreground">Treatment</label>
+                <input 
+                  {...register("treatment")} 
+                  disabled 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                />
               </div>
-
               <div>
-                <label className="text-sm font-medium">Price</label>
-                <input type="number" step="0.01" {...register("price", { required: true })} className="border px-3 py-2 rounded w-full" />
+                <label className="text-xs font-medium text-muted-foreground">Purchase Type</label>
+                <input 
+                  {...register("purchase_type")} 
+                  disabled 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                />
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-medium">Cost</label>
-                  <input type="number" step="0.01" {...register("cost")} className="border px-3 py-2 rounded w-full" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Shipping Fee</label>
-                  <input type="number" step="0.01" {...register("shipping_fee")} className="border px-3 py-2 rounded w-full" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Base Shipping Cost</label>
-                  <input type="number" step="0.01" {...register("base_shipping_cost")} className="border px-3 py-2 rounded w-full" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">NDC / NDIC Number</label>
-                  <input {...register("ndic_number")} className="border px-3 py-2 rounded w-full" />
-                </div>
-              </div>
-
               <div>
-                <label className="text-sm font-medium">Product Image</label>
-                <input type="file" accept="image/*" onChange={(e) => setValue("product_image", e.target.files?.[0] ?? null)} className="border px-3 py-2 rounded w-full" />
+                <label className="text-xs font-medium text-muted-foreground">RX/OTC</label>
+                <input 
+                  {...register("rx_or_otc")} 
+                  disabled 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Manufacturer</label>
+                <input 
+                  {...register("manufacturer_name")} 
+                  disabled 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">NDC Number</label>
+                <input 
+                  {...register("ndc_number")} 
+                  disabled 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Dose</label>
+                <input 
+                  {...register("dose")} 
+                  disabled 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Drug Form</label>
+                <input 
+                  {...register("rx_drug_form")} 
+                  disabled 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Refills</label>
+                <input 
+                  {...register("refills")} 
+                  disabled 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">RX Quantity</label>
+                <input 
+                  {...register("rx_quantity")} 
+                  disabled 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                />
               </div>
             </div>
+          </div>
 
-            {/* Right */}
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-medium">Dose</label>
-                  <input {...register("dose")} className="border px-3 py-2 rounded w-full" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Drug Form</label>
-                  <input {...register("rx_drug_form")} className="border px-3 py-2 rounded w-full" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Quantity</label>
-                  <input type="number" {...register("quantity", { valueAsNumber: true })} className="border px-3 py-2 rounded w-full" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Refills</label>
-                  <input type="number" {...register("refills", { valueAsNumber: true })} className="border px-3 py-2 rounded w-full" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Rx Quantity</label>
-                  <input type="number" {...register("rx_quantity", { valueAsNumber: true })} className="border px-3 py-2 rounded w-full" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Rx Days Supply</label>
-                  <input type="number" {...register("rx_days_supply", { valueAsNumber: true })} className="border px-3 py-2 rounded w-full" />
-                </div>
-              </div>
-
+          {/* Platform Costs (Read-only) */}
+          <div className="border rounded-lg p-4 bg-muted/30">
+            <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Platform Costs (Read-only)</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">Description</label>
-                <textarea rows={3} {...register("description")} className="border px-3 py-2 rounded w-full" />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Application Directions</label>
-                <textarea rows={3} {...register("application_directions")} className="border px-3 py-2 rounded w-full" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-sm font-medium">Safety Info</label>
-                  <textarea rows={3} {...register("safety_info")} className="border px-3 py-2 rounded w-full" />
+                <label className="text-xs font-medium text-muted-foreground">Cost from Platform</label>
+                <div className="flex items-center mt-1">
+                  <span className="border px-3 py-2 rounded-l bg-muted text-muted-foreground">$</span>
+                  <input 
+                    {...register("cost_to_welliemd")} 
+                    disabled 
+                    className="border border-l-0 px-3 py-2 rounded-r w-full bg-muted text-muted-foreground cursor-not-allowed" 
+                  />
                 </div>
-                <div>
-                  <label className="text-sm font-medium">Side Effects</label>
-                  <textarea rows={3} {...register("side_effects")} className="border px-3 py-2 rounded w-full" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Platform Shipping Cost</label>
+                <div className="flex items-center mt-1">
+                  <span className="border px-3 py-2 rounded-l bg-muted text-muted-foreground">$</span>
+                  <input 
+                    {...register("shipping_cost_to_welliemd")} 
+                    disabled 
+                    className="border border-l-0 px-3 py-2 rounded-r w-full bg-muted text-muted-foreground cursor-not-allowed" 
+                  />
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="mt-5 text-right">
-            <button
+          {/* Editable Pricing Fields */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold">Your Pricing (Editable)</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="text-sm font-medium">Your Price</label>
+                <div className="flex items-center mt-1">
+                  <span className="border px-3 py-2 rounded-l bg-gray-50">$</span>
+                  <input 
+                    type="number"
+                    step="0.01"
+                    {...register("base_price")} 
+                    className="border border-l-0 px-3 py-2 rounded-r w-full" 
+                    placeholder="0.00"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Price you charge customers</p>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">Base Shipping Cost</label>
+                <div className="flex items-center mt-1">
+                  <span className="border px-3 py-2 rounded-l bg-gray-50">$</span>
+                  <input 
+                    type="number"
+                    step="0.01"
+                    {...register("shipping_cost_to_client")} 
+                    className="border border-l-0 px-3 py-2 rounded-r w-full" 
+                    placeholder="0.00"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Your shipping cost</p>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">Shipping Fee (Patient)</label>
+                <div className="flex items-center mt-1">
+                  <span className="border px-3 py-2 rounded-l bg-gray-50">$</span>
+                  <input 
+                    type="number"
+                    step="0.01"
+                    {...register("shipping_fee_patient")} 
+                    className="border border-l-0 px-3 py-2 rounded-r w-full" 
+                    placeholder="0.00"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Per-patient fee</p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Quantity</label>
+                <input 
+                  type="text" 
+                  {...register("quantity")} 
+                  className="border px-3 py-2 rounded w-full mt-1" 
+                  placeholder="Available quantity"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Available inventory</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Editable Content Fields */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold">Product Content (Editable)</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Description</label>
+                <textarea 
+                  rows={4} 
+                  {...register("description")} 
+                  className="border px-3 py-2 rounded w-full mt-1" 
+                  placeholder="Enter product description"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Application Directions</label>
+                <textarea 
+                  rows={4} 
+                  {...register("application_directions")} 
+                  className="border px-3 py-2 rounded w-full mt-1" 
+                  placeholder="How to use/apply the product"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Learn More</label>
+                <textarea 
+                  rows={4} 
+                  {...register("learn_more")} 
+                  className="border px-3 py-2 rounded w-full mt-1" 
+                  placeholder="Additional information"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Safety Information</label>
+                <textarea 
+                  rows={4} 
+                  {...register("safety_information")} 
+                  className="border px-3 py-2 rounded w-full mt-1" 
+                  placeholder="Safety information for patients"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Side Effects</label>
+                <textarea 
+                  rows={4} 
+                  {...register("side_effects")} 
+                  className="border px-3 py-2 rounded w-full mt-1" 
+                  placeholder="Potential side effects"
+                />
+              </div>
+            </div>
+
+            <div className="col-span-2">
+              <label className="text-sm font-medium block mb-2">Product Image</label>
+              
+              {/* Show current image if exists */}
+              {product?.product_image && (
+                <div className="mb-3">
+                  <p className="text-xs text-muted-foreground mb-2">Current image:</p>
+                  <div className="relative inline-block">
+                    <img 
+                      src={product.product_image} 
+                      alt={product.name}
+                      className="max-w-xs max-h-48 rounded-lg border border-gray-200 object-contain"
+                      onError={(e) => {
+                        // Fallback if image fails to load
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 break-all">
+                    {product.product_image}
+                  </p>
+                </div>
+              )}
+              
+              {/* File input */}
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={(e) => setValue("product_image", e.target.files?.[0] ?? null)} 
+                className="border px-3 py-2 rounded w-full" 
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Upload a new image to replace the current one
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t sticky bottom-0 bg-white">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button
               type="submit"
               disabled={loading}
-              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-md transition"
             >
-              {loading ? (mode === "create" ? "Creating…" : "Saving…") : (mode === "create" ? "Create Product" : "Save changes")}
-            </button>
+              {loading ? "Saving…" : "Save"}
+            </Button>
           </div>
         </form>
       </DialogContent>
