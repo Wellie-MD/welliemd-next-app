@@ -2,7 +2,7 @@ import axios from "axios";
 import { useAuthStore } from "../store/useAuthStore";
 
 // const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://welliemdapi.welliemd.com/api/v1";
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://knysysapi.welliemd.com/api/v1";
 
 let isHydrating = false;
 

@@ -1,32 +1,14 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { useClients } from "@/hooks/useClients";
+import { useClients } from "@/hooks/useClients"
 
-type Coupon = {
-  id: string
-  code: string
-  promo_link?: string
-}
+// ⬇️ import your existing API layer (adjust path if needed)
+import { templateApi, type QuestionnaireTemplate } from "@/api/questionnaires"
 
-type Props = {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  coupon: Coupon | null
-}
-
-// Static list of questionnaires
-const QUESTIONNAIRES = [
-  { label: "NAD+ (3 Options)", path: "/questionnaires/nad-plus" },
-  { label: "Sermorelin", path: "/questionnaires/sermorelin" },
-  { label: "Glutathione (Nasal Spray & Injections)", path: "/questionnaires/glutathione" },
-  { label: "GLP-1 Weight Loss", path: "/questionnaires/glp1-weight-loss" },
-  { label: "ED", path: "/questionnaires/ed" },
-]
-
-// --- helpers (match affiliate behavior) ---
+// ------------ helpers (unchanged) ------------
 function ensureHttpsBase(urlLike?: string): string {
   const fallback = "https://my.welliemd.com"
   if (!urlLike) return fallback
@@ -58,18 +40,12 @@ function buildLink({
   const cleanPath = (path || "").replace(/^\/+/, "")
   const u = new URL(cleanPath, baseWithSlash)
 
-  // start with existing query string if provided
   const params = parseQueryParams(qs)
-
-  // ensure required tracking params exist (don’t double-add if already present)
   if (!params.has("promo") && fallbackPromo) params.set("promo", fallbackPromo)
   if (!params.has("promo-source")) params.set("promo-source", fallbackSource)
 
-  // assign back to URL
-  // Clear any existing search first to avoid duplicates
   u.search = ""
   params.forEach((v, k) => u.searchParams.set(k, v))
-
   return u.toString()
 }
 
@@ -95,19 +71,102 @@ async function copyToClipboard(text: string) {
   }
 }
 
+// ------------ local utils ------------
+function slugify(s: string) {
+  return s
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+}
+
+/**
+ * Tries to infer a frontend path for a template.
+ * Priority:
+ * 1) template.frontend_path (if BE provides this)
+ * 2) /questionnaires/{questionnaire_type} (if looks slug-like)
+ * 3) /questionnaires/{slug(name)}
+ * 4) Fallback to id: /questionnaires/{id}
+ */
+function inferFrontendPath(t: QuestionnaireTemplate): string {
+  const anyT = t as any
+  const explicit = anyT.frontend_path as string | undefined
+  if (explicit && explicit.startsWith("/")) return explicit
+  if (explicit) return `/${explicit}`
+
+  const qtype = t.questionnaire_type?.trim()
+  if (qtype && /^[a-z0-9-_/]+$/i.test(qtype)) {
+    // if BE sends something like "glp1-weight-loss" or "glp/ed"
+    const clean = qtype.startsWith("/") ? qtype : `/questionnaires/${qtype.replace(/^\//, "")}`
+    return clean
+  }
+
+  if (t.name) {
+    return `/questionnaires/${slugify(t.name)}`
+  }
+
+  return `/questionnaires/${t.id}`
+}
+
+type Coupon = {
+  id: string
+  code: string
+  promo_link?: string
+}
+
+type Props = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  coupon: Coupon | null
+}
+
 export default function CouponLinksModal({ open, onOpenChange, coupon }: Props) {
-  // 🔹 fetch questionnaire domain from client
   const { currentClient } = useClients()
   const questionnaireDomain = ensureHttpsBase(currentClient?.questionnaire_url)
 
-  // 🔹 promo query string (keep your original logic, but we’ll feed it through URLSearchParams)
   const qs = useMemo(() => {
     if (!coupon) return ""
     return coupon.promo_link || `?promo=${encodeURIComponent(coupon.code)}&promo-source=coupon`
   }, [coupon])
 
-  // 🔹 track copied state
   const [copiedLink, setCopiedLink] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [templates, setTemplates] = useState<QuestionnaireTemplate[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    const controller = new AbortController()
+
+    async function load() {
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await templateApi.listTemplates(
+          // ask for published ones first if your BE supports filtering
+          { page_size: 100, ordering: "name" },
+          controller.signal
+        )
+
+        const results = Array.isArray(data) ? data : (data as any)?.results ?? []
+        const publishedOnly = results.filter((t: QuestionnaireTemplate) => t.is_published)
+
+        if (!cancelled) setTemplates(publishedOnly)
+      } catch (e: any) {
+        if (cancelled) return
+        setError(e?.message || "Failed to load questionnaires")
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    if (open) load()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [open])
 
   const copy = async (text: string) => {
     const ok = await copyToClipboard(text)
@@ -121,7 +180,6 @@ export default function CouponLinksModal({ open, onOpenChange, coupon }: Props) 
 
   if (!coupon) return null
 
-  // Manual preview (base + qs, no specific path)
   const manualFull = buildLink({
     base: questionnaireDomain,
     path: "",
@@ -142,7 +200,6 @@ export default function CouponLinksModal({ open, onOpenChange, coupon }: Props) 
           <div>
             <p className="text-sm font-medium mb-2">Manual Preview</p>
             <div className="flex items-center gap-2">
-              {/* Keep your input showing only the query string (unchanged UX) */}
               <Input readOnly value={`${qs}`} className="bg-muted" />
               <Button variant="secondary" onClick={() => copy(manualFull)}>
                 {copiedLink === manualFull ? "Copied" : "Copy Link"}
@@ -152,28 +209,52 @@ export default function CouponLinksModal({ open, onOpenChange, coupon }: Props) 
 
           <Separator />
 
-          {/* Questionnaires */}
+          {/* Dynamic Questionnaires */}
           <div className="space-y-2">
-            <p className="text-sm font-medium">Questionnaires</p>
-            <div className="rounded-md border divide-y">
-              {QUESTIONNAIRES.map((q) => {
-                const full = buildLink({
-                  base: questionnaireDomain,
-                  path: q.path,
-                  qs,
-                  fallbackPromo: coupon.code,
-                  fallbackSource: "coupon",
-                })
-                return (
-                  <div key={q.path} className="flex items-center justify-between p-3">
-                    <span>{q.label}</span>
-                    <Button variant="outline" onClick={() => copy(full)}>
-                      {copiedLink === full ? "Copied" : "Copy Link"}
-                    </Button>
-                  </div>
-                )
-              })}
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Questionnaires</p>
+              {loading && <span className="text-xs text-muted-foreground">Loading…</span>}
             </div>
+
+            {error && (
+              <div className="rounded-md border p-3 text-sm text-red-600">
+                {error}
+              </div>
+            )}
+
+            {!loading && !error && templates.length === 0 && (
+              <div className="rounded-md border p-3 text-sm text-muted-foreground">
+                No questionnaires found.
+              </div>
+            )}
+
+            {!loading && !error && templates.length > 0 && (
+              <div className="rounded-md border divide-y">
+                {templates.map((t) => {
+                  const path = inferFrontendPath(t)
+                  const full = buildLink({
+                    base: questionnaireDomain,
+                    path,
+                    qs,
+                    fallbackPromo: coupon.code,
+                    fallbackSource: "coupon",
+                  })
+                  return (
+                    <div key={t.id} className="flex items-center justify-between p-3">
+                      <div className="min-w-0">
+                        <div className="font-medium">{t.name}</div>
+                        {/* <div className="text-xs text-muted-foreground truncate">
+                          {t.questionnaire_type}
+                        </div> */}
+                      </div>
+                      <Button variant="outline" onClick={() => copy(full)}>
+                        {copiedLink === full ? "Copied" : "Copy Link"}
+                      </Button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>
