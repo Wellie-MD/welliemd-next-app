@@ -95,10 +95,10 @@ const menuSections = [
     label: "SALES & CHANNELS",
     items: [
       {
-        title: "Finances",
+        title: "Billing",
         icon: CreditCard,
         children: [
-          { title: "Billing", url: "/dashboard/billing" },
+          { title: "My Billing Profile", url: "/dashboard/billing" },
           { title: "Invoices", url: "/dashboard/finances/invoices" },
         ],
       },

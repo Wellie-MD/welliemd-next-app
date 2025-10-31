@@ -38,6 +38,7 @@ import AnalyticsReports from "./pages/AnalyticsReports";
 import CouponCodes from "./pages/CouponCodes";
 import CouponInsights from "./pages/CouponInsights";
 import Billing from "./pages/Billing";
+import FinancesInvoices from "./pages/finances/Invoices";
 import TemplateManagement from "./pages/TemplateManagement";
 import TemplateQuestions from "./pages/TemplateQuestions";
 import FlowBuilder from "./pages/FlowBuilder";
@@ -219,6 +220,7 @@ const App = () => {
                       <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
                       <Route path="/coupon-insights" element={<ProtectedRoute><CouponInsights /></ProtectedRoute>} />
                       <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
+                      <Route path="/finances/invoices" element={<ProtectedRoute><FinancesInvoices /></ProtectedRoute>} />
                       <Route path="/affiliates" element={<ProtectedRoute><Affiliates /></ProtectedRoute>} />
                       <Route path="/questionnaires" element={<ProtectedRoute><TemplateManagement /></ProtectedRoute>} />
                       <Route path="/templates" element={<ProtectedRoute><TemplateManagement /></ProtectedRoute>} />
