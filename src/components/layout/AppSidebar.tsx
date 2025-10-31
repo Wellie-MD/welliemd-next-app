@@ -90,7 +90,8 @@ const menuSections = [
         children: [
           { title: "Products", url: "/dashboard/products" },
           { title: "Billing Plans", url: "/dashboard/products/billing-plans" },
-          { title: "Routing", url: "/dashboard/products/routing" }
+          { title: "Routing", url: "/dashboard/products/routing" },
+          { title: "Assignment", url: "/dashboard/products/assignment" }
         ]
       },
     ]

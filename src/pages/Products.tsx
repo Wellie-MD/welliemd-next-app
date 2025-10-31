@@ -1,11 +1,22 @@
 // src/pages/dashboard/Products.tsx
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useCallback } from "react"
+import { useNavigate } from "react-router-dom"
 import { Badge } from "@/components/ui/badge"
-import { Pencil, Trash2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Pencil, Trash2, Plus } from "lucide-react"
 import { DataTable } from "@/components/ui/data-table"
 import axiosInstance from "@/api/axiosInstance"
 import AddProductForm from "@/components/products/AddProductForm"
+import { ProductFormModal } from "@/components/products/ProductFormModal"
 import { StatCard } from "@/components/ui/stat-card"
+import { DateRange } from "react-day-picker"
+import { isWithinInterval, parseISO, format } from "date-fns"
+import { 
+  TREATMENT_OPTIONS, 
+  PURCHASE_TYPE_OPTIONS, 
+  RX_OTC_OPTIONS,
+  PRODUCT_TYPE_OPTIONS 
+} from "@/api/products"
 
 type Product = {
   id: number | string
@@ -38,7 +49,8 @@ type Product = {
   created_at: string
 }
 
-function money(n: number | string) {
+function money(n: number | string | undefined | null) {
+  if (n === undefined || n === null) return "-"
   const num = typeof n === "string" ? parseFloat(n) : n
   if (Number.isNaN(num)) return "-"
   return `$${num.toFixed(2)}`
@@ -54,12 +66,25 @@ function dateOnly(iso?: string) {
 }
 
 // tolerant to DataTable render(value,row) vs render(row)
-const getRow = <T,>(...args: any[]): T => (args.length >= 2 ? args[1] : args[0])
+const getRow = <T,>(...args: unknown[]): T => (args.length >= 2 ? args[1] : args[0])
+
+const statusFilters = ["All", "Active", "Inactive"];
+const treatmentFilters = ["All Treatments", ...TREATMENT_OPTIONS.map(opt => opt.label)];
+const purchaseTypeFilters = ["All Types", ...PURCHASE_TYPE_OPTIONS.map(opt => opt.label)];
+const rxOtcFilters = ["All", ...RX_OTC_OPTIONS.map(opt => opt.label)];
 
 export default function Products() {
+  const navigate = useNavigate()
   const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState("")
   const [editing, setEditing] = useState<Product | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [activeStatusFilter, setActiveStatusFilter] = useState("All")
+  const [activeTreatmentFilter, setActiveTreatmentFilter] = useState("All Treatments")
+  const [activePurchaseTypeFilter, setActivePurchaseTypeFilter] = useState("All Types")
+  const [activeRxOtcFilter, setActiveRxOtcFilter] = useState("All")
+  const [date, setDate] = useState<DateRange | undefined>()
 
   const fetchProducts = async () => {
     try {
@@ -77,23 +102,82 @@ export default function Products() {
   }, [])
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return products
-    return products.filter((p) =>
-      [
-        p.id,
-        p.name,
-        p.manufacturer_name,
-        p.rx_drug_form,
-        p.purchase_type,
-        p.ndic_number,
+    return products.filter((product) => {
+      // Search filter
+      const q = search.trim().toLowerCase()
+      const matchesSearch = !q || [
+        product.id,
+        product.name,
+        product.manufacturer_name,
+        product.rx_drug_form,
+        product.purchase_type,
+        product.ndic_number,
       ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
         .includes(q)
-    )
-  }, [products, search])
+
+      // Status filter - check if product has is_active field
+      const isActive = (product as any).is_active !== undefined ? (product as any).is_active : true
+      const matchesStatus =
+        activeStatusFilter === "All" ||
+        (activeStatusFilter === "Active" && isActive) ||
+        (activeStatusFilter === "Inactive" && !isActive)
+
+      // Treatment filter
+      const treatmentMapping: Record<string, string> = {
+        "Weight Loss": "weight_loss",
+        "Erectile Dysfunction": "ed",
+        "GLP": "glp",
+        "Individualized GLP": "individualized_glp",
+        "General": "general",
+      }
+      const matchesTreatment =
+        activeTreatmentFilter === "All Treatments" ||
+        (product as any).treatment === treatmentMapping[activeTreatmentFilter]
+
+      // Purchase Type filter
+      const purchaseTypeMapping: Record<string, string> = {
+        "One Time": "one_time",
+        "Subscription": "subscription",
+      }
+      const matchesPurchaseType =
+        activePurchaseTypeFilter === "All Types" ||
+        product.purchase_type === purchaseTypeMapping[activePurchaseTypeFilter]
+
+      // RX/OTC filter
+      const rxOtcMapping: Record<string, string> = {
+        "RX": "rx",
+        "OTC": "otc",
+      }
+      const matchesRxOtc =
+        activeRxOtcFilter === "All" ||
+        (product as any).rx_or_otc === rxOtcMapping[activeRxOtcFilter]
+
+      // Date range filter
+      let matchesDateRange = true
+      if (date?.from || date?.to) {
+        try {
+          const productDate = parseISO(product.created_at)
+          if (date.from && date.to) {
+            matchesDateRange = isWithinInterval(productDate, {
+              start: date.from,
+              end: date.to,
+            })
+          } else if (date.from) {
+            matchesDateRange = productDate >= date.from
+          } else if (date.to) {
+            matchesDateRange = productDate <= date.to
+          }
+        } catch {
+          matchesDateRange = false
+        }
+      }
+
+      return matchesSearch && matchesStatus && matchesTreatment && matchesPurchaseType && matchesRxOtc && matchesDateRange
+    })
+  }, [products, search, activeStatusFilter, activeTreatmentFilter, activePurchaseTypeFilter, activeRxOtcFilter, date])
 
   const onDelete = async (row: Product) => {
     if (!row) return
@@ -109,8 +193,56 @@ export default function Products() {
     }
   }
 
+  // Create filter configuration for DataTable
+  const filters = [
+    // Status filters
+    ...statusFilters.map((status) => ({
+      key: `status-${status}`,
+      label: status,
+      type: "button" as const,
+      value: activeStatusFilter === status ? status : undefined,
+      onClick: () => setActiveStatusFilter(status),
+    })),
+    // Treatment filters
+    ...treatmentFilters.map((treatment) => ({
+      key: `treatment-${treatment}`,
+      label: treatment,
+      type: "button" as const,
+      value: activeTreatmentFilter === treatment ? treatment : undefined,
+      onClick: () => setActiveTreatmentFilter(treatment),
+    })),
+    // Purchase Type filters
+    ...purchaseTypeFilters.map((type) => ({
+      key: `purchase-${type}`,
+      label: type,
+      type: "button" as const,
+      value: activePurchaseTypeFilter === type ? type : undefined,
+      onClick: () => setActivePurchaseTypeFilter(type),
+    })),
+    // RX/OTC filters
+    ...rxOtcFilters.map((rxOtc) => ({
+      key: `rxotc-${rxOtc}`,
+      label: rxOtc,
+      type: "button" as const,
+      value: activeRxOtcFilter === rxOtc ? rxOtc : undefined,
+      onClick: () => setActiveRxOtcFilter(rxOtc),
+    })),
+  ]
+
+  const handleResetFilters = useCallback(() => {
+    setActiveStatusFilter("All")
+    setActiveTreatmentFilter("All Treatments")
+    setActivePurchaseTypeFilter("All Types")
+    setActiveRxOtcFilter("All")
+    setDate(undefined)
+    setSearch("")
+  }, [])
+
+  const handleRefresh = useCallback(() => {
+    fetchProducts()
+  }, [])
+
   const columns = [
-    { key: "id", label: "ID" },
     { key: "name", label: "Name" },
     {
       key: "manufacturer_name",
@@ -125,7 +257,10 @@ export default function Products() {
     {
       key: "purchase_type",
       label: "Purchase Type",
-      render: (v: string) => <Badge variant="secondary">{v || "-"}</Badge>,
+      render: (v: string) => {
+        const formatted = v === "one_time" ? "One Time" : v === "subscription" ? "Subscription" : v || "-";
+        return <Badge variant="secondary">{formatted}</Badge>;
+      },
     },
     {
       key: "price",
@@ -135,12 +270,20 @@ export default function Products() {
     {
       key: "created_at",
       label: "Created At",
-      render: (...args: any[]) => dateOnly(getRow<Product>(...args).created_at),
+      render: (...args: unknown[]) => {
+        const row = getRow<Product>(...args)
+        try {
+          const date = parseISO(row.created_at)
+          return format(date, "MM/dd/yyyy")
+        } catch {
+          return dateOnly(row.created_at)
+        }
+      },
     },
     {
       key: "__actions",
       label: "",
-      render: (...args: any[]) => {
+      render: (...args: unknown[]) => {
         const row = getRow<Product>(...args)
         return (
           <div className="flex items-center justify-end gap-3">
@@ -148,7 +291,10 @@ export default function Products() {
               type="button"
               className="hover:opacity-80"
               title="Edit"
-              onClick={() => setEditing(row)}
+              onClick={() => {
+                setSelectedProduct(row);
+                setModalOpen(true);
+              }}
             >
               <Pencil className="h-4 w-4" />
             </button>
@@ -168,7 +314,7 @@ export default function Products() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header (Add New removed) */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Products</h1>
@@ -177,6 +323,23 @@ export default function Products() {
             <span>›</span>
             <span>Products</span>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => navigate("/dashboard/products/assign")}
+          >
+            Assign Product
+          </Button>
+          <Button
+            onClick={() => {
+              setSelectedProduct(null);
+              setModalOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create New
+          </Button>
         </div>
       </div>
 
@@ -189,33 +352,32 @@ export default function Products() {
         />
       </div>
 
-      {/* Edit modal */}
-      {editing && (
-        <div className="border p-4 rounded-md bg-white shadow">
-          <AddProductForm
-            mode="edit"
-            product={editing}
-            open={!!editing}
-            onOpenChange={(v) => {
-              if (!v) setEditing(null)
-            }}
-            onSuccess={() => {
-              setEditing(null)
-              fetchProducts()
-            }}
-          />
-        </div>
-      )}
+      {/* Product Form Modal */}
+      <ProductFormModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        product={selectedProduct}
+        onSuccess={() => {
+          setModalOpen(false);
+          setSelectedProduct(null);
+          fetchProducts();
+        }}
+      />
 
       {/* Table */}
       <DataTable
         data={filtered}
         columns={columns}
         searchPlaceholder="Search by name, product ID, pharmacy, manufacturer or generic form"
-        showDatePicker={false}
+        showDatePicker={true}
+        showResetFilters={true}
         showExport={false}
+        filters={filters}
+        dateRange={date}
+        onDateRangeChange={setDate}
         onSearch={setSearch}
-        onRefresh={fetchProducts}
+        onResetFilters={handleResetFilters}
+        onRefresh={handleRefresh}
       />
     </div>
   )

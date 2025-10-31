@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Table,
   TableBody,
@@ -6,22 +6,22 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { Calendar } from "@/components/ui/calendar"
+} from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
+} from "@/components/ui/popover";
 import {
   ChevronLeft,
   ChevronRight,
@@ -30,44 +30,46 @@ import {
   CalendarIcon,
   X,
   Building2,
-} from "lucide-react"
-import { DateRange } from "react-day-picker"
-import { format } from "date-fns"
+} from "lucide-react";
+import { DateRange } from "react-day-picker";
+import { format } from "date-fns";
 
 interface Column {
-  key: string
-  label: string
-  sortable?: boolean
-  headerClassName?: string
-  className?: string
-  render?: (value: any, row: any) => React.ReactNode
+  key: string;
+  label: string;
+  sortable?: boolean;
+  headerClassName?: string;
+  className?: string;
+  render?: (value: any, row: any) => React.ReactNode;
 }
 
 interface FilterConfig {
-  key: string
-  label: string
-  type: 'button' | 'select'
-  options?: string[]
-  value?: string
-  onClick?: () => void
+  key: string;
+  label: string;
+  type: "button" | "select";
+  options?: string[];
+  value?: string;
+  onClick?: () => void;
 }
 
 interface DataTableProps {
-  data: any[]
-  columns: Column[]
-  hideToolbar?: boolean
-  searchPlaceholder?: string
-  showDatePicker?: boolean
-  showExport?: boolean
-  showResetFilters?: boolean
-  filters?: FilterConfig[]
-  dateRange?: DateRange | undefined
-  onDateRangeChange?: (range: DateRange | undefined) => void
-  onSearch?: (searchTerm: string) => void
-  onFilter?: (filters: any) => void
-  onExport?: () => void
-  onResetFilters?: () => void
-  onRefresh?: () => void
+  data: any[];
+  columns: Column[];
+  hideToolbar?: boolean;
+  searchPlaceholder?: string;
+  emptyMessage?: string;
+  showDatePicker?: boolean;
+  showExport?: boolean;
+  showResetFilters?: boolean;
+  filters?: FilterConfig[];
+  dateRange?: DateRange | undefined;
+  onDateRangeChange?: (range: DateRange | undefined) => void;
+  onSearch?: (searchTerm: string) => void;
+  onFilter?: (filters: any) => void;
+  onExport?: () => void;
+  onResetFilters?: () => void;
+  onRefresh?: () => void;
+  getRowClassName?: (row: unknown) => string;
 }
 
 export function DataTable({
@@ -75,6 +77,7 @@ export function DataTable({
   columns,
   hideToolbar = false,
   searchPlaceholder = "Search...",
+  emptyMessage = "No results found",
   showDatePicker = false,
   showExport = true,
   showResetFilters = true,
@@ -86,56 +89,57 @@ export function DataTable({
   onExport,
   onResetFilters,
   onRefresh,
+  getRowClassName,
 }: DataTableProps) {
   // ---- pagination state ----
-  const [pageSize, setPageSize] = useState<number>(10)
-  const [page, setPage] = useState<number>(1)
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [page, setPage] = useState<number>(1);
 
   // ---- local search state ----
-  const [localSearch, setLocalSearch] = useState<string>("")
+  const [localSearch, setLocalSearch] = useState<string>("");
 
   // ---- filtering (using the filtered data passed from parent) ----
-  const filteredData = data ?? []
+  const filteredData = data ?? [];
 
   // ---- pagination ----
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil((filteredData.length ?? 0) / pageSize)),
     [filteredData.length, pageSize]
-  )
+  );
 
   useEffect(() => {
-    if (page > totalPages) setPage(totalPages)
-    if (page < 1) setPage(1)
-  }, [page, totalPages])
+    if (page > totalPages) setPage(totalPages);
+    if (page < 1) setPage(1);
+  }, [page, totalPages]);
 
   const visibleData = useMemo(() => {
-    const start = (page - 1) * pageSize
-    const end = start + pageSize
-    return filteredData.slice(start, end)
-  }, [filteredData, page, pageSize])
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredData.slice(start, end);
+  }, [filteredData, page, pageSize]);
 
   // ---- handlers ----
-  const goPrev = () => setPage((p) => Math.max(1, p - 1))
-  const goNext = () => setPage((p) => Math.min(totalPages, p + 1))
+  const goPrev = () => setPage((p) => Math.max(1, p - 1));
+  const goNext = () => setPage((p) => Math.min(totalPages, p + 1));
 
   const handleInputChange = (v: string) => {
-    setLocalSearch(v)
-    onSearch?.(v)
-    setPage(1)
-  }
+    setLocalSearch(v);
+    onSearch?.(v);
+    setPage(1);
+  };
 
   const handleClearInput = () => {
-    setLocalSearch("")
-    onSearch?.("")
-    setPage(1)
-  }
+    setLocalSearch("");
+    onSearch?.("");
+    setPage(1);
+  };
 
   // Use the onExport prop instead of defining our own export logic
   const handleExport = () => {
     if (onExport) {
-      onExport()
+      onExport();
     }
-  }
+  };
 
   return (
     <div className="space-y-4">
@@ -149,7 +153,9 @@ export function DataTable({
                 variant={filter.value ? "default" : "outline"}
                 size="sm"
                 onClick={filter.onClick}
-                className={filter.value ? "bg-primary text-primary-foreground" : ""}
+                className={
+                  filter.value ? "bg-primary text-primary-foreground" : ""
+                }
               >
                 {filter.label}
               </Button>
@@ -197,12 +203,16 @@ export function DataTable({
               {showDatePicker && (
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-[280px] justify-start text-left font-normal">
+                    <Button
+                      variant="outline"
+                      className="w-[280px] justify-start text-left font-normal"
+                    >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {dateRange?.from ? (
                         dateRange.to ? (
                           <>
-                            {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
+                            {format(dateRange.from, "LLL dd, y")} -{" "}
+                            {format(dateRange.to, "LLL dd, y")}
                           </>
                         ) : (
                           format(dateRange.from, "LLL dd, y")
@@ -238,9 +248,9 @@ export function DataTable({
               )}
 
               {/* Refresh Button */}
-              <Button 
-                variant="outline" 
-                size="icon" 
+              <Button
+                variant="outline"
+                size="icon"
                 onClick={onRefresh}
                 title="Refresh data"
               >
@@ -260,7 +270,9 @@ export function DataTable({
                 {columns.map((column) => (
                   <TableHead
                     key={column.key}
-                    className={`font-medium text-gray-700 dark:text-gray-300 text-xs uppercase tracking-wider py-3 px-3 ${column.headerClassName || ''}`}
+                    className={`font-medium text-gray-700 dark:text-gray-300 text-xs uppercase tracking-wider py-3 px-3 ${
+                      column.headerClassName || ""
+                    }`}
                   >
                     {column.label}
                   </TableHead>
@@ -272,10 +284,15 @@ export function DataTable({
                 visibleData.map((row, index) => (
                   <TableRow
                     key={index}
-                    className="border-b border-gray-100 dark:border-gray-800 hover:bg-gradient-to-r hover:from-gray-50 hover:to-transparent dark:hover:from-gray-800/50 dark:hover:to-transparent transition-all duration-200 group"
+                    className={`border-b border-gray-100 dark:border-gray-800 hover:bg-gradient-to-r hover:from-gray-50 hover:to-transparent dark:hover:from-gray-800/50 dark:hover:to-transparent transition-all duration-200 group ${
+                      getRowClassName ? getRowClassName(row) : ""
+                    }`}
                   >
                     {columns.map((column) => (
-                      <TableCell key={column.key} className={`py-4 px-4 ${column.className || ''}`}>
+                      <TableCell
+                        key={column.key}
+                        className={`py-4 px-4 ${column.className || ""}`}
+                      >
                         {column.render
                           ? column.render(row[column.key], row)
                           : row[column.key]}
@@ -291,8 +308,10 @@ export function DataTable({
                   >
                     <div className="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
                       <Building2 className="w-12 h-12 mb-3 opacity-50" />
-                      <p className="text-lg font-medium mb-1">No clients found</p>
-                      <p className="text-sm">Try adjusting your search criteria</p>
+                      <p className="text-lg font-medium mb-1">{emptyMessage}</p>
+                      <p className="text-sm">
+                        Try adjusting your search criteria
+                      </p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -309,8 +328,8 @@ export function DataTable({
           <Select
             value={String(pageSize)}
             onValueChange={(v) => {
-              setPageSize(parseInt(v, 10))
-              setPage(1)
+              setPageSize(parseInt(v, 10));
+              setPage(1);
             }}
           >
             <SelectTrigger className="w-16">
@@ -349,5 +368,5 @@ export function DataTable({
         </div>
       </div>
     </div>
-  )
+  );
 }

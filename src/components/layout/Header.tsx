@@ -24,14 +24,20 @@ export function Header() {
     navigate('/auth/signin')
   }
 
+  const handleLogoClick = () => {
+    navigate('/')
+  }
+
   return (
 <header className="h-16 bg-[#12517A] text-white flex items-center justify-between px-4">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-            <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-pink-500 rounded"></div>
-          </div>
-          <span className="font-semibold text-white-600">Welliemd</span>
+          <img 
+            src="/welliemd_logo.png" 
+            alt="Welliemd" 
+            className="h-8 w-auto cursor-pointer"
+            onClick={handleLogoClick}
+          />
         </div>
         <SidebarTrigger className="text-white-600 hover:bg-white/50 rounded-md p-1" />
       </div>

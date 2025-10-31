@@ -1,10 +1,11 @@
 import { Button } from "@/components/ui/button"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog"
 import {
   Select,
@@ -15,246 +16,553 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
+import { Separator } from "@/components/ui/separator"
+import { Badge } from "@/components/ui/badge"
+import { Plus, Trash2, Lock, GripVertical } from "lucide-react"
+import { toast } from "@/components/ui/use-toast"
+import { 
+  createTemplate, 
+  updateTemplate,
+  createQuestion,
+  QuestionnaireTemplate,
+  CreateTemplatePayload,
+  CreateQuestionPayload
+} from "@/api/questionnaires"
 
 interface AddQuestionnairesFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  template?: QuestionnaireTemplate | null
+  onSuccess: () => void
 }
 
-export default function AddQuestionnairesForm({ open, onOpenChange }: AddQuestionnairesFormProps) {
-  const [formData, setFormData] = useState({
-    name: "",
-    slug: "",
-    domain: "",
-    template: "",
-    treatmentType: "",
-    questionnaireType: "",
-    testMode: "",
-    belugaEnabled: "",
-    defaultLanguage: "English",
-    enableTranslations: "Yes",
-    globalLayout: "Layout One"
-  })
+interface QuestionFormData {
+  id?: string
+  question_text: string
+  question_type: string
+  is_required: boolean
+  answer_choices: string[]
+  beluga_field_mapping: string
+  include_in_qa_section: boolean
+}
 
-  const handleSave = () => {
-    // Handle form submission
-    console.log("Form data:", formData)
-    onOpenChange(false)
+const QUESTION_TYPES = [
+  { value: "text", label: "Short Text" },
+  { value: "textarea", label: "Long Text" },
+  { value: "single_choice", label: "Single Choice" },
+  { value: "multiple_choice", label: "Multiple Choice" },
+  { value: "number", label: "Number" },
+  { value: "date", label: "Date" },
+  { value: "height_weight", label: "Height & Weight" },
+  { value: "consent", label: "Consent" },
+  { value: "file_upload", label: "File Upload" },
+]
+
+const FIELD_MAPPINGS = [
+  { value: "none", label: "None" },
+  { value: "firstName", label: "First Name" },
+  { value: "lastName", label: "Last Name" },
+  { value: "dateOfBirth", label: "Date of Birth" },
+  { value: "sex", label: "Sex" },
+  { value: "medicalConditions", label: "Medical Conditions" },
+  { value: "medications", label: "Current Medications" },
+  { value: "allergies", label: "Allergies" },
+  { value: "custom_qa", label: "Custom Q&A" },
+]
+
+export default function AddQuestionnairesForm({ 
+  open, 
+  onOpenChange, 
+  template,
+  onSuccess 
+}: AddQuestionnairesFormProps) {
+  const [loading, setLoading] = useState(false)
+  const [formData, setFormData] = useState<CreateTemplatePayload>({
+    name: "",
+    description: "",
+    questionnaire_type: "client_custom",
+    beluga_visit_type: "none",
+    requires_photo_upload: false,
+    requires_identity_verification: false,
+    is_admin_template: true,
+  })
+  const [questions, setQuestions] = useState<QuestionFormData[]>([])
+
+  useEffect(() => {
+    if (template) {
+      setFormData({
+        name: template.name,
+        description: template.description || "",
+        questionnaire_type: template.questionnaire_type,
+        beluga_visit_type: template.beluga_visit_type || "none",
+        requires_photo_upload: template.requires_photo_upload,
+        requires_identity_verification: template.requires_identity_verification,
+        is_admin_template: template.is_admin_template !== undefined ? template.is_admin_template : true,
+      })
+      setQuestions([])
+    } else {
+      setFormData({
+        name: "",
+        description: "",
+        questionnaire_type: "client_custom",
+        beluga_visit_type: "none",
+        requires_photo_upload: false,
+        requires_identity_verification: false,
+        is_admin_template: true,
+      })
+      setQuestions([])
+    }
+  }, [template, open])
+
+  const addQuestion = () => {
+    const newQuestion: QuestionFormData = {
+      question_text: "",
+      question_type: "text",
+      is_required: false,
+      answer_choices: [],
+      beluga_field_mapping: "none",
+      include_in_qa_section: true,
+    }
+    setQuestions([...questions, newQuestion])
+  }
+
+  const updateQuestion = (index: number, field: keyof QuestionFormData, value: string | boolean | string[]) => {
+    const updatedQuestions = [...questions]
+    updatedQuestions[index] = { ...updatedQuestions[index], [field]: value }
+    setQuestions(updatedQuestions)
+  }
+
+  const removeQuestion = (index: number) => {
+    setQuestions(questions.filter((_, i) => i !== index))
+  }
+
+  const addAnswerChoice = (questionIndex: number) => {
+    const updatedQuestions = [...questions]
+    updatedQuestions[questionIndex].answer_choices.push("")
+    setQuestions(updatedQuestions)
+  }
+
+  const updateAnswerChoice = (questionIndex: number, choiceIndex: number, value: string) => {
+    const updatedQuestions = [...questions]
+    updatedQuestions[questionIndex].answer_choices[choiceIndex] = value
+    setQuestions(updatedQuestions)
+  }
+
+  const removeAnswerChoice = (questionIndex: number, choiceIndex: number) => {
+    const updatedQuestions = [...questions]
+    updatedQuestions[questionIndex].answer_choices = updatedQuestions[questionIndex].answer_choices.filter((_, i) => i !== choiceIndex)
+    setQuestions(updatedQuestions)
+  }
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!formData.name.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Template name is required",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate questions
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i]
+      if (!q.question_text.trim()) {
+        toast({
+          title: "Validation Error",
+          description: `Question ${i + 1} text is required`,
+          variant: "destructive",
+        })
+        return
+      }
+      if ((q.question_type === "single_choice" || q.question_type === "multiple_choice") && q.answer_choices.length === 0) {
+        toast({
+          title: "Validation Error",
+          description: `Question ${i + 1} requires at least one answer choice`,
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
+    try {
+      setLoading(true)
+      
+      // Remove beluga_visit_type if it's 'none'
+      const payload = {
+        ...formData,
+        beluga_visit_type: formData.beluga_visit_type === "none" ? undefined : formData.beluga_visit_type,
+      }
+      
+      let createdTemplate: QuestionnaireTemplate
+      
+      if (template) {
+        createdTemplate = await updateTemplate(template.id, payload)
+        toast({
+          title: "Success",
+          description: "Template updated successfully",
+        })
+      } else {
+        createdTemplate = await createTemplate(payload)
+        
+        // Create questions for the new template
+        if (questions.length > 0) {
+          for (let i = 0; i < questions.length; i++) {
+            const q = questions[i]
+            const questionPayload: CreateQuestionPayload = {
+              template_id: createdTemplate.id,
+              question_text: q.question_text,
+              question_type: q.question_type,
+              is_required: q.is_required,
+              is_read_only: true, // Always true for admin-created questions
+              answer_choices: q.answer_choices.filter(c => c.trim() !== ""),
+              beluga_field_mapping: q.beluga_field_mapping !== "none" ? q.beluga_field_mapping : undefined,
+              include_in_qa_section: q.include_in_qa_section,
+            }
+            await createQuestion(questionPayload)
+          }
+        }
+        
+        toast({
+          title: "Success",
+          description: `Template created successfully${questions.length > 0 ? ` with ${questions.length} question(s)` : ""}`,
+        })
+      }
+      
+      onSuccess()
+    } catch (error: unknown) {
+      toast({
+        title: "Error",
+        description: `Failed to ${template ? "update" : "create"} template`,
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl h-[80vh] flex flex-col">
-        <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-0">
-          <DialogTitle>New Questionnaire</DialogTitle>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto scrollbar-hide">
+        <DialogHeader>
+          <DialogTitle>
+            {template ? "Edit Template" : "Create New Template"}
+          </DialogTitle>
+          <DialogDescription>
+            {template 
+              ? "Update the template details below." 
+              : "Create a new questionnaire template. All questions created will be read-only by default."}
+          </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 overflow-y-auto">
-          <div className="space-y-6 py-4 px-5">
-            <div className="font-medium">Basic Info</div>
+        <form onSubmit={handleSave} className="space-y-6 py-4">
+          {/* Template Name */}
+          <div className="space-y-2">
+            <Label htmlFor="name">
+              Template Name <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="e.g., Weight Loss Intake Form"
+              required
+            />
+          </div>
 
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">
-                  Name <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="New Questionnaire"
-                />
-              </div>
+          {/* Description */}
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Brief description of this template"
+              rows={3}
+            />
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="slug">
-                  Slug <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="slug"
-                  value={formData.slug}
-                  onChange={(e) => setFormData(prev => ({ ...prev, slug: e.target.value }))}
-                  placeholder="/new-questionnaire"
-                />
-              </div>
+          {/* Questionnaire Type */}
+          <div className="space-y-2">
+            <Label htmlFor="questionnaire_type">
+              Questionnaire Type <span className="text-red-500">*</span>
+            </Label>
+            <Select
+              value={formData.questionnaire_type}
+              onValueChange={(value) =>
+                setFormData({ ...formData, questionnaire_type: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="standard_weight_loss">Standard Weight Loss Questionnaire</SelectItem>
+                <SelectItem value="individualized_glp">Individualized GLP Weight Loss</SelectItem>
+                <SelectItem value="follow_up">Weight Loss Follow-up Questionnaire</SelectItem>
+                <SelectItem value="ed_questionnaire">Erectile Dysfunction Questionnaire</SelectItem>
+                <SelectItem value="client_custom">Client Custom Questionnaire</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="domain">
-                  Domain <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={formData.domain}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, domain: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select an item" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="domain1">Domain 1</SelectItem>
-                    <SelectItem value="domain2">Domain 2</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          {/* Beluga Visit Type */}
+          <div className="space-y-2">
+            <Label htmlFor="beluga_visit_type">Beluga Visit Type</Label>
+            <Select
+              value={formData.beluga_visit_type}
+              onValueChange={(value) =>
+                setFormData({ ...formData, beluga_visit_type: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select visit type (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="initial">Initial Visit</SelectItem>
+                <SelectItem value="follow_up">Follow Up Visit</SelectItem>
+                <SelectItem value="consultation">Consultation</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="template">Template</Label>
-                <Select
-                  value={formData.template}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, template: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select an item" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="template1">Template 1</SelectItem>
-                    <SelectItem value="template2">Template 2</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          {/* Toggles */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="is_admin_template">
+                Admin Template
+                <span className="text-xs text-muted-foreground ml-2">
+                  (Can be assigned to clients)
+                </span>
+              </Label>
+              <Switch
+                id="is_admin_template"
+                checked={formData.is_admin_template}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, is_admin_template: checked })
+                }
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="treatmentType">Treatment Type</Label>
-                <Select
-                  value={formData.treatmentType}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, treatmentType: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select an item" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="type1">Type 1</SelectItem>
-                    <SelectItem value="type2">Type 2</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="requires_photo">Requires Photo Upload</Label>
+              <Switch
+                id="requires_photo"
+                checked={formData.requires_photo_upload}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, requires_photo_upload: checked })
+                }
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="questionnaireType">
-                  Questionnaire Type <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={formData.questionnaireType}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, questionnaireType: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select an item" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="type1">Type 1</SelectItem>
-                    <SelectItem value="type2">Type 2</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="testMode">
-                  Test Mode <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={formData.testMode}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, testMode: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select an item" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mode1">Mode 1</SelectItem>
-                    <SelectItem value="mode2">Mode 2</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="belugaEnabled">
-                  Beluga Enabled (RX) <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={formData.belugaEnabled}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, belugaEnabled: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select an item" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="enabled">Enabled</SelectItem>
-                    <SelectItem value="disabled">Disabled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="defaultLanguage">
-                  Default Language <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={formData.defaultLanguage}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, defaultLanguage: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="English" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="english">English</SelectItem>
-                    <SelectItem value="spanish">Spanish</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="enableTranslations">
-                  Enable Translations <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={formData.enableTranslations}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, enableTranslations: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Yes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="yes">Yes</SelectItem>
-                    <SelectItem value="no">No</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="globalLayout">
-                  Global Layout <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={formData.globalLayout}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, globalLayout: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Layout One" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="layout1">Layout One</SelectItem>
-                    <SelectItem value="layout2">Layout Two</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Products</Label>
-                  <Button variant="ghost" size="sm" className="h-8 px-2">
-                    + Add
-                  </Button>
-                </div>
-              </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="requires_verification">
+                Requires Identity Verification
+              </Label>
+              <Switch
+                id="requires_verification"
+                checked={formData.requires_identity_verification}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, requires_identity_verification: checked })
+                }
+              />
             </div>
           </div>
-        </ScrollArea>
-        
-        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200 bg-white flex-shrink-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave}>Save</Button>
-        </div>
+
+          {/* Question Builder Section */}
+          {!template && (
+            <>
+              <Separator className="my-6" />
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold">Questions</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Add questions to this template. All questions will be read-only by default.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addQuestion}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Question
+                  </Button>
+                </div>
+
+                {questions.length > 0 && (
+                  <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                    {questions.map((question, qIndex) => (
+                      <div
+                        key={qIndex}
+                        className="border rounded-lg p-4 space-y-4 bg-muted/30"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <GripVertical className="h-4 w-4 text-muted-foreground" />
+                            <Badge variant="secondary">Q{qIndex + 1}</Badge>
+                            <Badge variant="outline" className="gap-1">
+                              <Lock className="h-3 w-3" />
+                              Read-only
+                            </Badge>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeQuestion(qIndex)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </div>
+
+                        {/* Question Text */}
+                        <div className="space-y-2">
+                          <Label htmlFor={`question_text_${qIndex}`}>
+                            Question Text <span className="text-red-500">*</span>
+                          </Label>
+                          <Textarea
+                            id={`question_text_${qIndex}`}
+                            value={question.question_text}
+                            onChange={(e) => updateQuestion(qIndex, "question_text", e.target.value)}
+                            placeholder="Enter your question..."
+                            rows={2}
+                          />
+                        </div>
+
+                        {/* Question Type */}
+                        <div className="space-y-2">
+                          <Label htmlFor={`question_type_${qIndex}`}>Question Type</Label>
+                          <Select
+                            value={question.question_type}
+                            onValueChange={(value) => updateQuestion(qIndex, "question_type", value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {QUESTION_TYPES.map((type) => (
+                                <SelectItem key={type.value} value={type.value}>
+                                  {type.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Answer Choices for single/multiple choice */}
+                        {(question.question_type === "single_choice" || question.question_type === "multiple_choice") && (
+                          <div className="space-y-2">
+                            <Label>Answer Choices</Label>
+                            <div className="space-y-2">
+                              {question.answer_choices.map((choice, cIndex) => (
+                                <div key={cIndex} className="flex items-center gap-2">
+                                  <Input
+                                    value={choice}
+                                    onChange={(e) => updateAnswerChoice(qIndex, cIndex, e.target.value)}
+                                    placeholder={`Choice ${cIndex + 1}`}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeAnswerChoice(qIndex, cIndex)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-red-600" />
+                                  </Button>
+                                </div>
+                              ))}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => addAnswerChoice(qIndex)}
+                                className="w-full"
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Choice
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Beluga Field Mapping */}
+                        <div className="space-y-2">
+                          <Label htmlFor={`beluga_mapping_${qIndex}`}>Beluga Field Mapping</Label>
+                          <Select
+                            value={question.beluga_field_mapping}
+                            onValueChange={(value) => updateQuestion(qIndex, "beluga_field_mapping", value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {FIELD_MAPPINGS.map((mapping) => (
+                                <SelectItem key={mapping.value} value={mapping.value}>
+                                  {mapping.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Toggles */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label>Required</Label>
+                            <Switch
+                              checked={question.is_required}
+                              onCheckedChange={(checked) => updateQuestion(qIndex, "is_required", checked)}
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <Label>Include in Q&A Section</Label>
+                            <Switch
+                              checked={question.include_in_qa_section}
+                              onCheckedChange={(checked) => updateQuestion(qIndex, "include_in_qa_section", checked)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {questions.length === 0 && (
+                  <div className="text-center py-8 border-2 border-dashed rounded-lg">
+                    <p className="text-sm text-muted-foreground">
+                      No questions added yet. Click "Add Question" to get started.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Actions */}
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Saving..." : template ? "Update Template" : "Create Template"}
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   )

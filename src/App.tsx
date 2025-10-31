@@ -22,12 +22,16 @@ import ResolutionQueue from "./pages/ResolutionQueue";
 import Analytics from "./pages/Analytics";
 import Affiliates from "./pages/Affiliates";
 import Questionnaires from "./pages/Questionnaires";
+import QuestionnaireQuestions from "./pages/QuestionnaireQuestions";
+import FlowBuilder from "./pages/FlowBuilder";
+import TemplateAssignment from "./pages/TemplateAssignment";
 import Pharmacies from "./pages/Pharmacies";
 import TreatmentConfigurations from "./pages/TreatmentConfigurations";
 import Orders from "./pages/Orders";
 import Prescriptions from "./pages/Prescriptions";
 import NotFound from "./pages/NotFound";
 import Payments from "./pages/Payments";
+import ProductAssignment from "./pages/ProductAssignment";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import ForgotPassword from "./pages/auth/ForgotPassword";
@@ -97,6 +101,7 @@ const App = () => {
                     <Route path="/orders/resolution-queue" element={<ProtectedRoute><ResolutionQueue /></ProtectedRoute>} />
                     <Route path="/prescriptions" element={<ProtectedRoute><Prescriptions /></ProtectedRoute>} />
                     <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
+                    <Route path="/products/assign" element={<ProtectedRoute><ProductAssignment /></ProtectedRoute>} />
                     <Route path="/products/billing-plans" element={<ProtectedRoute><BillingPlans /></ProtectedRoute>} />
                     <Route path="/products/routing" element={<ProtectedRoute><ProductsRouting /></ProtectedRoute>} />
                     <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
@@ -108,6 +113,10 @@ const App = () => {
                     <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
                     <Route path="/affiliates" element={<ProtectedRoute><Affiliates /></ProtectedRoute>} />
                     <Route path="/questionnaires" element={<ProtectedRoute><Questionnaires /></ProtectedRoute>} />
+                    <Route path="/questionnaires/assign" element={<ProtectedRoute><TemplateAssignment /></ProtectedRoute>} />
+                    <Route path="/questionnaires/:templateId" element={<ProtectedRoute><QuestionnaireQuestions /></ProtectedRoute>} />
+                    <Route path="/questionnaires/:templateId/questions" element={<ProtectedRoute><QuestionnaireQuestions /></ProtectedRoute>} />
+                    <Route path="/questionnaires/:templateId/flow-builder" element={<ProtectedRoute><FlowBuilder /></ProtectedRoute>} />
                     <Route path="/pharmacies" element={<ProtectedRoute><Pharmacies /></ProtectedRoute>} />
                   </Routes>
                 </main>
