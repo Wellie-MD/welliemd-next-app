@@ -4,11 +4,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { useClients } from "@/hooks/useClients"
-
-// ⬇️ import your existing API layer (adjust path if needed)
 import { templateApi, type QuestionnaireTemplate } from "@/api/questionnaires"
+import { ExternalLink } from "lucide-react"   // ⬅️ new
 
-// ------------ helpers (unchanged) ------------
+const USE_VISIT_ROUTES = true
+
 function ensureHttpsBase(urlLike?: string): string {
   const fallback = "https://my.welliemd.com"
   if (!urlLike) return fallback
@@ -39,11 +39,9 @@ function buildLink({
   const baseWithSlash = ensureHttpsBase(base) + "/"
   const cleanPath = (path || "").replace(/^\/+/, "")
   const u = new URL(cleanPath, baseWithSlash)
-
   const params = parseQueryParams(qs)
   if (!params.has("promo") && fallbackPromo) params.set("promo", fallbackPromo)
   if (!params.has("promo-source")) params.set("promo-source", fallbackSource)
-
   u.search = ""
   params.forEach((v, k) => u.searchParams.set(k, v))
   return u.toString()
@@ -71,7 +69,6 @@ async function copyToClipboard(text: string) {
   }
 }
 
-// ------------ local utils ------------
 function slugify(s: string) {
   return s
     .toLowerCase()
@@ -81,32 +78,42 @@ function slugify(s: string) {
     .replace(/^-+|-+$/g, "")
 }
 
-/**
- * Tries to infer a frontend path for a template.
- * Priority:
- * 1) template.frontend_path (if BE provides this)
- * 2) /questionnaires/{questionnaire_type} (if looks slug-like)
- * 3) /questionnaires/{slug(name)}
- * 4) Fallback to id: /questionnaires/{id}
- */
 function inferFrontendPath(t: QuestionnaireTemplate): string {
   const anyT = t as any
   const explicit = anyT.frontend_path as string | undefined
   if (explicit && explicit.startsWith("/")) return explicit
   if (explicit) return `/${explicit}`
-
   const qtype = t.questionnaire_type?.trim()
   if (qtype && /^[a-z0-9-_/]+$/i.test(qtype)) {
-    // if BE sends something like "glp1-weight-loss" or "glp/ed"
     const clean = qtype.startsWith("/") ? qtype : `/questionnaires/${qtype.replace(/^\//, "")}`
     return clean
   }
-
-  if (t.name) {
-    return `/questionnaires/${slugify(t.name)}`
-  }
-
+  if (t.name) return `/questionnaires/${slugify(t.name)}`
   return `/questionnaires/${t.id}`
+}
+
+function resolveVisitType(
+  t: QuestionnaireTemplate
+): "GLP" | "ED" | "weight_loss" | null {
+  const hay = [
+    t.name,
+    t.questionnaire_type,
+    (t as any)?.beluga_visit_type,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+  if (/\bglp\b|\bglp-?1\b|\bindividualized glp\b/.test(hay)) return "GLP"
+  if (/\bed\b|\berectile dysfunction\b/.test(hay)) return "ED"
+  if (/\bstandard weight loss\b/.test(hay)) return "weight_loss"
+  if (/\bweight\s*loss\b/.test(hay)) return "weight_loss"
+  return null
+}
+
+function visitTypeToPathSegment(v: "GLP" | "ED" | "weight_loss") {
+  if (v === "GLP") return "glp"
+  if (v === "ED") return "ed"
+  return "weight_loss"
 }
 
 type Coupon = {
@@ -136,32 +143,26 @@ export default function CouponLinksModal({ open, onOpenChange, coupon }: Props) 
   const [templates, setTemplates] = useState<QuestionnaireTemplate[]>([])
 
   useEffect(() => {
+    if (!open) return
     let cancelled = false
     const controller = new AbortController()
-
-    async function load() {
+    ;(async () => {
       setLoading(true)
       setError(null)
       try {
         const data = await templateApi.listTemplates(
-          // ask for published ones first if your BE supports filtering
           { page_size: 100, ordering: "name" },
           controller.signal
         )
-
         const results = Array.isArray(data) ? data : (data as any)?.results ?? []
         const publishedOnly = results.filter((t: QuestionnaireTemplate) => t.is_published)
-
         if (!cancelled) setTemplates(publishedOnly)
       } catch (e: any) {
-        if (cancelled) return
-        setError(e?.message || "Failed to load questionnaires")
+        if (!cancelled) setError(e?.message || "Failed to load questionnaires")
       } finally {
         if (!cancelled) setLoading(false)
       }
-    }
-
-    if (open) load()
+    })()
     return () => {
       cancelled = true
       controller.abort()
@@ -178,21 +179,31 @@ export default function CouponLinksModal({ open, onOpenChange, coupon }: Props) 
     }
   }
 
-  if (!coupon) return null
-
+  const promoDisabled = !coupon
   const manualFull = buildLink({
     base: questionnaireDomain,
     path: "",
-    qs,
-    fallbackPromo: coupon.code,
+    qs: promoDisabled ? "" : qs,
+    fallbackPromo: coupon?.code ?? "",
     fallbackSource: "coupon",
   })
+
+  const items = useMemo(() => {
+    return templates
+      .map((t) => {
+        const vt = resolveVisitType(t)
+        const visitPath = vt ? `/visit/${visitTypeToPathSegment(vt)}` : null
+        const legacyPath = inferFrontendPath(t)
+        return { t, vt, visitPath, legacyPath }
+      })
+      .filter(i => USE_VISIT_ROUTES ? !!i.vt : true)
+  }, [templates])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Links for Coupon: {coupon.code}</DialogTitle>
+          <DialogTitle>Links for Coupon{coupon ? `: ${coupon.code}` : ""}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -200,16 +211,22 @@ export default function CouponLinksModal({ open, onOpenChange, coupon }: Props) 
           <div>
             <p className="text-sm font-medium mb-2">Manual Preview</p>
             <div className="flex items-center gap-2">
-              <Input readOnly value={`${qs}`} className="bg-muted" />
-              <Button variant="secondary" onClick={() => copy(manualFull)}>
+              <Input readOnly value={promoDisabled ? "" : `${qs}`} className="bg-muted" />
+              <Button
+                variant="secondary"
+                onClick={() => copy(manualFull)}
+                disabled={promoDisabled}
+                title={promoDisabled ? "No coupon selected" : "Copy full URL"}
+              >
                 {copiedLink === manualFull ? "Copied" : "Copy Link"}
               </Button>
+
             </div>
           </div>
 
           <Separator />
 
-          {/* Dynamic Questionnaires */}
+          {/* Dynamic Links */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">Questionnaires</p>
@@ -222,34 +239,55 @@ export default function CouponLinksModal({ open, onOpenChange, coupon }: Props) 
               </div>
             )}
 
-            {!loading && !error && templates.length === 0 && (
+            {!loading && !error && items.length === 0 && (
               <div className="rounded-md border p-3 text-sm text-muted-foreground">
                 No questionnaires found.
               </div>
             )}
 
-            {!loading && !error && templates.length > 0 && (
+            {!loading && !error && items.length > 0 && (
               <div className="rounded-md border divide-y">
-                {templates.map((t) => {
-                  const path = inferFrontendPath(t)
+                {items.map(({ t, vt, visitPath, legacyPath }) => {
+                  const path = USE_VISIT_ROUTES && visitPath ? visitPath : legacyPath
                   const full = buildLink({
                     base: questionnaireDomain,
                     path,
-                    qs,
-                    fallbackPromo: coupon.code,
+                    qs: promoDisabled ? "" : qs,
+                    fallbackPromo: coupon?.code ?? "",
                     fallbackSource: "coupon",
                   })
+
                   return (
                     <div key={t.id} className="flex items-center justify-between p-3">
                       <div className="min-w-0">
                         <div className="font-medium">{t.name}</div>
-                        {/* <div className="text-xs text-muted-foreground truncate">
-                          {t.questionnaire_type}
+                        {/* <div className="text-xs text-muted-foreground">
+                          {USE_VISIT_ROUTES && vt ? `Visit: ${vt} · ` : ""}
+                          Path: {path}
                         </div> */}
                       </div>
-                      <Button variant="outline" onClick={() => copy(full)}>
-                        {copiedLink === full ? "Copied" : "Copy Link"}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => copy(full)}
+                          disabled={promoDisabled}
+                          title={promoDisabled ? "No coupon selected" : "Copy full URL"}
+                        >
+                          {copiedLink === full ? "Copied" : "Copy Link"}
+                        </Button>
+                        {/* icon-only open-in-new-tab */}
+                        <a
+                          href={full}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-disabled={promoDisabled}
+                          onClick={e => { if (promoDisabled) e.preventDefault() }}
+                          title="Open in new tab"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      </div>
                     </div>
                   )
                 })}
