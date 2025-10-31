@@ -180,18 +180,7 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate }: P
               <Button variant="secondary" onClick={() => copy(affiliate.referral_link)}>
                 {copiedLink === affiliate.referral_link ? "Copied" : "Copy"}
               </Button>
-              {/* Open in new tab icon */}
-              {affiliate.referral_link ? (
-                <a
-                  href={affiliate.referral_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Open in new tab"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              ) : null}
+
             </div>
           </div>
 
@@ -225,7 +214,6 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate }: P
                     <div key={t.id} className="flex items-center justify-between p-3">
                       <div className="min-w-0">
                         <div className="font-medium">{t.name}</div>
-                        <div className="text-xs text-muted-foreground">Path: {path}</div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button variant="outline" onClick={() => copy(full)} disabled={openDisabled}>
