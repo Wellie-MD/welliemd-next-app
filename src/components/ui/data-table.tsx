@@ -37,6 +37,7 @@ interface Column {
   key: string
   label: string
   sortable?: boolean
+  className?: string
   render?: (value: any, row: any) => React.ReactNode
 }
 
@@ -54,6 +55,7 @@ interface DataTableProps {
   columns: Column[]
   hideToolbar?: boolean
   searchPlaceholder?: string
+  emptyMessage?: string
   showDatePicker?: boolean
   showExport?: boolean
   showResetFilters?: boolean
@@ -65,6 +67,7 @@ interface DataTableProps {
   onExport?: () => void
   onResetFilters?: () => void
   onRefresh?: () => void
+  getRowClassName?: (row: unknown) => string
 }
 
 export function DataTable({
@@ -72,6 +75,7 @@ export function DataTable({
   columns,
   hideToolbar = false,
   searchPlaceholder = "Search...",
+  emptyMessage = "No results found",
   showDatePicker = false,
   showExport = true,
   showResetFilters = true,
@@ -83,6 +87,7 @@ export function DataTable({
   onExport,
   onResetFilters,
   onRefresh,
+  getRowClassName,
 }: DataTableProps) {
   // ---- pagination state ----
   const [pageSize, setPageSize] = useState<number>(10)
@@ -263,9 +268,12 @@ export function DataTable({
           <TableBody>
             {visibleData.length > 0 ? (
               visibleData.map((row, index) => (
-                <TableRow key={index}>
+                <TableRow 
+                  key={index}
+                  className={getRowClassName ? getRowClassName(row) : undefined}
+                >
                   {columns.map((column) => (
-                    <TableCell key={column.key}>
+                    <TableCell key={column.key} className={column.className}>
                       {column.render
                         ? column.render(row[column.key], row)
                         : row[column.key]}
@@ -277,9 +285,9 @@ export function DataTable({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="h-24 text-center"
+                  className="h-24 text-center text-muted-foreground"
                 >
-                  No results.
+                  {emptyMessage}
                 </TableCell>
               </TableRow>
             )}

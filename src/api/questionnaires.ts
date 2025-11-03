@@ -2,6 +2,8 @@
  * Questionnaire Template & Question Management API with React Flow Integration
  */
 import axiosInstance from "./axiosInstance";
+import { toast } from "@/hooks/use-toast";
+import { AxiosError } from "axios";
 
 // ==================== TYPES ====================
 
@@ -17,6 +19,15 @@ export interface QuestionnaireTemplate {
   created_at: string;
   updated_at: string;
   questions?: Question[];
+}
+
+export interface ConsentForm {
+  id?: string;
+  consent_type: string;
+  consent_text: string;
+  requires_agreement: boolean;
+  is_disqualifying: boolean;
+  beluga_consent_code?: string;
 }
 
 export interface Question {
@@ -35,12 +46,14 @@ export interface Question {
   is_required: boolean;
   order_index: number;
   answer_choices: string[];
-  conditional_logic: Record<string, any>;
-  validation_rules: Record<string, any>;
+  conditional_logic: Record<string, unknown>;
+  validation_rules: Record<string, unknown>;
   beluga_field_mapping: string;
   include_in_qa_section: boolean;
   is_client_custom: boolean;
   can_be_modified: boolean;
+  is_read_only: boolean;
+  consent_form?: ConsentForm;
   created_at: string;
   updated_at: string;
 }
@@ -60,10 +73,11 @@ export interface CreateQuestionPayload {
   question_type: string;
   is_required: boolean;
   answer_choices?: string[];
-  conditional_logic?: Record<string, any>;
-  validation_rules?: Record<string, any>;
+  conditional_logic?: Record<string, unknown>;
+  validation_rules?: Record<string, unknown>;
   beluga_field_mapping?: string;
   include_in_qa_section?: boolean;
+  is_read_only?: boolean;
 }
 
 // ==================== TEMPLATE API ====================
@@ -156,15 +170,39 @@ export const questionApi = {
     id: string,
     payload: Partial<CreateQuestionPayload>
   ): Promise<Question> => {
-    const { data } = await axiosInstance.put<Question>(
-      `questionnaires/frontend/questions/${id}/`,
-      payload
-    );
-    return data;
+    try {
+      const { data } = await axiosInstance.put<Question>(
+        `questionnaires/frontend/questions/${id}/`,
+        payload
+      );
+      return data;
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.status === 403) {
+        toast({
+          title: "Cannot Edit Question",
+          description:
+            "This question cannot be edited because it's part of the admin template",
+          variant: "destructive",
+        });
+      }
+      throw error;
+    }
   },
 
   deleteQuestion: async (id: string): Promise<void> => {
-    await axiosInstance.delete(`questionnaires/frontend/questions/${id}/`);
+    try {
+      await axiosInstance.delete(`questionnaires/frontend/questions/${id}/`);
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.status === 403) {
+        toast({
+          title: "Cannot Delete Question",
+          description:
+            "This question cannot be deleted because it's part of the admin template",
+          variant: "destructive",
+        });
+      }
+      throw error;
+    }
   },
 
   reorderQuestions: async (

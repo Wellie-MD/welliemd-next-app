@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   questionApi,
@@ -27,6 +27,7 @@ import {
   CreateQuestionPayload,
   QuestionnaireTemplate,
 } from "@/api/questionnaires";
+import { ReadOnlyIndicator } from "./ReadOnlyIndicator";
 
 interface AddQuestionnairesFormProps {
   open: boolean;
@@ -262,6 +263,7 @@ export function AddQuestionnairesForm({
             ? undefined
             : formData.beluga_field_mapping,
         include_in_qa_section: formData.include_in_qa_section,
+        // Note: is_read_only is automatically set to false by the backend for client-created questions
       };
 
       if (question) {
@@ -311,6 +313,9 @@ export function AddQuestionnairesForm({
     (q) => q.id !== question?.id
   );
 
+  // Check if question is read-only
+  const isReadOnly = question?.is_read_only || false;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto scrollbar-hide">
@@ -325,347 +330,418 @@ export function AddQuestionnairesForm({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6 py-4">
-          {/* Question Text */}
-          <div className="space-y-2">
-            <Label htmlFor="question_text">
-              Question Text <span className="text-red-500">*</span>
-            </Label>
-            <Textarea
-              id="question_text"
-              value={formData.question_text}
-              onChange={(e) =>
-                setFormData({ ...formData, question_text: e.target.value })
-              }
-              placeholder="Enter your question here"
-              rows={3}
-              required
-            />
-          </div>
+        {/* Read-only warning view */}
+        {isReadOnly ? (
+          <div className="space-y-6 py-4">
+            <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-lg bg-muted/30">
+              <Lock className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Question is Locked</h3>
+              <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
+                This question is from the admin template and cannot be modified
+                or deleted. Only administrators can edit template questions.
+              </p>
+              <ReadOnlyIndicator />
+            </div>
 
-          {/* Question Type */}
-          <div className="space-y-2">
-            <Label htmlFor="question_type">
-              Question Type <span className="text-red-500">*</span>
-            </Label>
-            <Select
-              value={formData.question_type}
-              onValueChange={(value) =>
-                setFormData({ ...formData, question_type: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="text">Text (Short Answer)</SelectItem>
-                <SelectItem value="textarea">
-                  Text Area (Long Answer)
-                </SelectItem>
-                <SelectItem value="single_choice">
-                  Single Choice (Radio)
-                </SelectItem>
-                <SelectItem value="multiple_choice">
-                  Multiple Choice (Checkbox)
-                </SelectItem>
-                <SelectItem value="number">Number</SelectItem>
-                <SelectItem value="date">Date</SelectItem>
-                <SelectItem value="height_weight">Height & Weight</SelectItem>
-                <SelectItem value="consent">Consent Checkbox</SelectItem>
-                <SelectItem value="file_upload">File Upload</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+            {/* Display question details in read-only mode */}
+            <div className="space-y-4 p-4 border rounded-lg bg-muted/10">
+              <div>
+                <Label className="text-muted-foreground">Question Text</Label>
+                <p className="mt-1 text-sm">{question?.question_text}</p>
+              </div>
 
-          {/* ========== ANSWER CONFIGURATION (Single/Multiple Choice) ========== */}
-          {showAnswerChoices && (
-            <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
-              <h3 className="font-semibold text-sm">Answer Configuration</h3>
-              <div className="space-y-2">
-                <Label>
-                  Answer Choices <span className="text-red-500">*</span>
-                </Label>
+              <div>
+                <Label className="text-muted-foreground">Question Type</Label>
+                <p className="mt-1 text-sm capitalize">
+                  {question?.question_type?.replace(/_/g, " ")}
+                </p>
+              </div>
 
-                {/* Existing choices with inline edit */}
-                <div className="space-y-2">
-                  {formData.answer_choices?.map((choice, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Input
-                        value={choice}
-                        onChange={(e) =>
-                          handleUpdateChoice(index, e.target.value)
-                        }
-                        placeholder={`Choice ${index + 1}`}
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveChoice(index)}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </Button>
-                    </div>
-                  ))}
+              {question?.answer_choices &&
+                question.answer_choices.length > 0 && (
+                  <div>
+                    <Label className="text-muted-foreground">
+                      Answer Choices
+                    </Label>
+                    <ul className="mt-1 text-sm list-disc list-inside">
+                      {question.answer_choices.map((choice, idx) => (
+                        <li key={idx}>{choice}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+              <div className="flex gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Required</Label>
+                  <p className="mt-1 text-sm">
+                    {question?.is_required ? "Yes" : "No"}
+                  </p>
                 </div>
-
-                {/* Add new choice */}
-                <div className="flex gap-2">
-                  <Input
-                    value={newAnswerChoice}
-                    onChange={(e) => setNewAnswerChoice(e.target.value)}
-                    placeholder="Enter a new answer choice"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddChoice();
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleAddChoice}
-                    variant="outline"
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add
-                  </Button>
+                <div>
+                  <Label className="text-muted-foreground">Include in QA</Label>
+                  <p className="mt-1 text-sm">
+                    {question?.include_in_qa_section ? "Yes" : "No"}
+                  </p>
                 </div>
               </div>
             </div>
-          )}
 
-          {/* ========== FILE UPLOAD SETTINGS ========== */}
-          {showFileSettings && (
+            {/* Close button */}
+            <div className="flex justify-end pt-4">
+              <Button type="button" onClick={() => onOpenChange(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6 py-4">
+            {/* Question Text */}
+            <div className="space-y-2">
+              <Label htmlFor="question_text">
+                Question Text <span className="text-red-500">*</span>
+              </Label>
+              <Textarea
+                id="question_text"
+                value={formData.question_text}
+                onChange={(e) =>
+                  setFormData({ ...formData, question_text: e.target.value })
+                }
+                placeholder="Enter your question here"
+                rows={3}
+                required
+              />
+            </div>
+
+            {/* Question Type */}
+            <div className="space-y-2">
+              <Label htmlFor="question_type">
+                Question Type <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={formData.question_type}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, question_type: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text">Text (Short Answer)</SelectItem>
+                  <SelectItem value="textarea">
+                    Text Area (Long Answer)
+                  </SelectItem>
+                  <SelectItem value="single_choice">
+                    Single Choice (Radio)
+                  </SelectItem>
+                  <SelectItem value="multiple_choice">
+                    Multiple Choice (Checkbox)
+                  </SelectItem>
+                  <SelectItem value="number">Number</SelectItem>
+                  <SelectItem value="date">Date</SelectItem>
+                  <SelectItem value="height_weight">Height & Weight</SelectItem>
+                  <SelectItem value="consent">Consent Checkbox</SelectItem>
+                  <SelectItem value="file_upload">File Upload</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* ========== ANSWER CONFIGURATION (Single/Multiple Choice) ========== */}
+            {showAnswerChoices && (
+              <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+                <h3 className="font-semibold text-sm">Answer Configuration</h3>
+                <div className="space-y-2">
+                  <Label>
+                    Answer Choices <span className="text-red-500">*</span>
+                  </Label>
+
+                  {/* Existing choices with inline edit */}
+                  <div className="space-y-2">
+                    {formData.answer_choices?.map((choice, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input
+                          value={choice}
+                          onChange={(e) =>
+                            handleUpdateChoice(index, e.target.value)
+                          }
+                          placeholder={`Choice ${index + 1}`}
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveChoice(index)}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add new choice */}
+                  <div className="flex gap-2">
+                    <Input
+                      value={newAnswerChoice}
+                      onChange={(e) => setNewAnswerChoice(e.target.value)}
+                      placeholder="Enter a new answer choice"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddChoice();
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleAddChoice}
+                      variant="outline"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ========== FILE UPLOAD SETTINGS ========== */}
+            {showFileSettings && (
+              <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+                <h3 className="font-semibold text-sm">File Upload Settings</h3>
+
+                <div className="space-y-2">
+                  <Label htmlFor="max_file_size">Max File Size (MB)</Label>
+                  <Input
+                    id="max_file_size"
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={formData.max_file_size || 5}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        max_file_size: Number(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Allowed File Extensions</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {["pdf", "jpg", "jpeg", "png", "doc", "docx"].map((ext) => (
+                      <div key={ext} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`ext-${ext}`}
+                          checked={
+                            formData.allowed_extensions?.includes(ext) || false
+                          }
+                          onChange={() => handleToggleExtension(ext)}
+                          className="rounded"
+                        />
+                        <label
+                          htmlFor={`ext-${ext}`}
+                          className="text-sm cursor-pointer"
+                        >
+                          .{ext}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Beluga Field Mapping */}
+            <div className="space-y-2">
+              <Label htmlFor="beluga_field_mapping">Beluga Field Mapping</Label>
+              <Select
+                value={formData.beluga_field_mapping}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, beluga_field_mapping: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select field mapping" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="first_name">First Name</SelectItem>
+                  <SelectItem value="last_name">Last Name</SelectItem>
+                  <SelectItem value="date_of_birth">Date of Birth</SelectItem>
+                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="phone">Phone</SelectItem>
+                  <SelectItem value="address">Address</SelectItem>
+                  <SelectItem value="height">Height</SelectItem>
+                  <SelectItem value="weight">Weight</SelectItem>
+                  <SelectItem value="medical_history">
+                    Medical History
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* ========== FOLLOW-UP SETTINGS ========== */}
             <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
-              <h3 className="font-semibold text-sm">File Upload Settings</h3>
-
-              <div className="space-y-2">
-                <Label htmlFor="max_file_size">Max File Size (MB)</Label>
-                <Input
-                  id="max_file_size"
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={formData.max_file_size || 5}
-                  onChange={(e) =>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="is_follow_up">Is Follow-up Question</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Show this question only when a parent question has a
+                    specific answer
+                  </p>
+                </div>
+                <Switch
+                  id="is_follow_up"
+                  checked={formData.is_follow_up}
+                  onCheckedChange={(checked) => {
                     setFormData({
                       ...formData,
-                      max_file_size: Number(e.target.value),
-                    })
+                      is_follow_up: checked,
+                      parent_question_id: checked
+                        ? formData.parent_question_id
+                        : "",
+                      trigger_value: checked ? formData.trigger_value : "",
+                    });
+                  }}
+                  disabled={parentQuestionOptions.length === 0}
+                />
+              </div>
+
+              {parentQuestionOptions.length === 0 && (
+                <p className="text-xs text-amber-600">
+                  No existing questions available. Add other questions first to
+                  create follow-ups.
+                </p>
+              )}
+
+              {showFollowUpSettings && (
+                <div className="space-y-3 mt-3 pl-4 border-l-2">
+                  {/* Parent Question Dropdown */}
+                  <div className="space-y-2">
+                    <Label htmlFor="parent_question">
+                      Parent Question <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={formData.parent_question_id}
+                      onValueChange={(value) => {
+                        setFormData({
+                          ...formData,
+                          parent_question_id: value,
+                          trigger_value: "", // Reset trigger when parent changes
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select parent question" />
+                      </SelectTrigger>
+                      <SelectContent
+                        className="max-w-[min(600px,calc(100vw-20rem))]"
+                        position="popper"
+                        sideOffset={5}
+                      >
+                        {parentQuestionOptions.map((q) => (
+                          <SelectItem
+                            key={q.id}
+                            value={q.id}
+                            className="max-w-full"
+                          >
+                            <span
+                              className="block truncate max-w-full"
+                              title={q.question_text}
+                            >
+                              {q.order_index ? `${q.order_index}. ` : ""}
+                              {q.question_text}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {/* Trigger Value Dropdown */}
+                  {selectedParent && (
+                    <div className="space-y-2">
+                      <Label htmlFor="trigger_value">
+                        Trigger Value <span className="text-red-500">*</span>
+                      </Label>
+                      {triggerOptions.length > 0 ? (
+                        <Select
+                          value={formData.trigger_value}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, trigger_value: value })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select trigger value" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {triggerOptions.map((option, idx) => (
+                              <SelectItem key={idx} value={option}>
+                                {option}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <p className="text-xs text-amber-600 p-2 bg-amber-50 rounded">
+                          The selected parent question has no answer choices.
+                          Choose a single_choice or multiple_choice question.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Toggles */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="is_required">Required Question</Label>
+                <Switch
+                  id="is_required"
+                  checked={formData.is_required}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, is_required: checked })
                   }
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Allowed File Extensions</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {["pdf", "jpg", "jpeg", "png", "doc", "docx"].map((ext) => (
-                    <div key={ext} className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id={`ext-${ext}`}
-                        checked={
-                          formData.allowed_extensions?.includes(ext) || false
-                        }
-                        onChange={() => handleToggleExtension(ext)}
-                        className="rounded"
-                      />
-                      <label
-                        htmlFor={`ext-${ext}`}
-                        className="text-sm cursor-pointer"
-                      >
-                        .{ext}
-                      </label>
-                    </div>
-                  ))}
-                </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="include_in_qa">Include in QA Section</Label>
+                <Switch
+                  id="include_in_qa"
+                  checked={formData.include_in_qa_section}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, include_in_qa_section: checked })
+                  }
+                />
               </div>
             </div>
-          )}
 
-          {/* Beluga Field Mapping */}
-          <div className="space-y-2">
-            <Label htmlFor="beluga_field_mapping">Beluga Field Mapping</Label>
-            <Select
-              value={formData.beluga_field_mapping}
-              onValueChange={(value) =>
-                setFormData({ ...formData, beluga_field_mapping: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select field mapping" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                <SelectItem value="first_name">First Name</SelectItem>
-                <SelectItem value="last_name">Last Name</SelectItem>
-                <SelectItem value="date_of_birth">Date of Birth</SelectItem>
-                <SelectItem value="email">Email</SelectItem>
-                <SelectItem value="phone">Phone</SelectItem>
-                <SelectItem value="address">Address</SelectItem>
-                <SelectItem value="height">Height</SelectItem>
-                <SelectItem value="weight">Weight</SelectItem>
-                <SelectItem value="medical_history">Medical History</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* ========== FOLLOW-UP SETTINGS ========== */}
-          <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="is_follow_up">Is Follow-up Question</Label>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Show this question only when a parent question has a specific
-                  answer
-                </p>
-              </div>
-              <Switch
-                id="is_follow_up"
-                checked={formData.is_follow_up}
-                onCheckedChange={(checked) => {
-                  setFormData({
-                    ...formData,
-                    is_follow_up: checked,
-                    parent_question_id: checked
-                      ? formData.parent_question_id
-                      : "",
-                    trigger_value: checked ? formData.trigger_value : "",
-                  });
-                }}
-                disabled={parentQuestionOptions.length === 0}
-              />
+            {/* Actions */}
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading
+                  ? "Saving..."
+                  : question
+                  ? "Update Question"
+                  : "Create Question"}
+              </Button>
             </div>
-
-            {parentQuestionOptions.length === 0 && (
-              <p className="text-xs text-amber-600">
-                No existing questions available. Add other questions first to
-                create follow-ups.
-              </p>
-            )}
-
-            {showFollowUpSettings && (
-              <div className="space-y-3 mt-3 pl-4 border-l-2">
-                {/* Parent Question Dropdown */}
-                <div className="space-y-2">
-                  <Label htmlFor="parent_question">
-                    Parent Question <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={formData.parent_question_id}
-                    onValueChange={(value) => {
-                      setFormData({
-                        ...formData,
-                        parent_question_id: value,
-                        trigger_value: "", // Reset trigger when parent changes
-                      });
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select parent question" />
-                    </SelectTrigger>
-                    <SelectContent
-                      className="max-w-[min(600px,calc(100vw-20rem))]"
-                      position="popper"
-                      sideOffset={5}
-                    >
-                      {parentQuestionOptions.map((q) => (
-                        <SelectItem
-                          key={q.id}
-                          value={q.id}
-                          className="max-w-full"
-                        >
-                          <span className="block truncate max-w-full" title={q.question_text}>
-                            {q.order_index ? `${q.order_index}. ` : ""}
-                            {q.question_text}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {/* Trigger Value Dropdown */}
-                {selectedParent && (
-                  <div className="space-y-2">
-                    <Label htmlFor="trigger_value">
-                      Trigger Value <span className="text-red-500">*</span>
-                    </Label>
-                    {triggerOptions.length > 0 ? (
-                      <Select
-                        value={formData.trigger_value}
-                        onValueChange={(value) =>
-                          setFormData({ ...formData, trigger_value: value })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select trigger value" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {triggerOptions.map((option, idx) => (
-                            <SelectItem key={idx} value={option}>
-                              {option}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <p className="text-xs text-amber-600 p-2 bg-amber-50 rounded">
-                        The selected parent question has no answer choices.
-                        Choose a single_choice or multiple_choice question.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Toggles */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="is_required">Required Question</Label>
-              <Switch
-                id="is_required"
-                checked={formData.is_required}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, is_required: checked })
-                }
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <Label htmlFor="include_in_qa">Include in QA Section</Label>
-              <Switch
-                id="include_in_qa"
-                checked={formData.include_in_qa_section}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, include_in_qa_section: checked })
-                }
-              />
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading
-                ? "Saving..."
-                : question
-                ? "Update Question"
-                : "Create Question"}
-            </Button>
-          </div>
-        </form>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );

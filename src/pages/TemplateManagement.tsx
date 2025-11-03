@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Plus, Edit, Trash2, Eye, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
 import { useNavigate } from "react-router-dom";
 import { templateApi, QuestionnaireTemplate } from "@/api/questionnaires";
-import { CreateTemplateModal } from "@/components/questionnaires/CreateTemplateModal";
+
 import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
 import { isWithinInterval, parseISO, format } from "date-fns";
@@ -55,9 +55,6 @@ const typeFilters = ["All Types", "Initial", "Follow-up", "Annual"];
 export default function TemplateManagement() {
   const [templates, setTemplates] = useState<QuestionnaireTemplate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] =
-    useState<QuestionnaireTemplate | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeStatusFilter, setActiveStatusFilter] = useState("All");
   const [activeTypeFilter, setActiveTypeFilter] = useState("All Types");
@@ -80,7 +77,7 @@ export default function TemplateManagement() {
       } else {
         setTemplates([]);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to fetch templates:", error);
       toast({
         title: "Error",
@@ -100,54 +97,9 @@ export default function TemplateManagement() {
     fetchTemplates();
   }, []);
 
-  const handleCreateTemplate = () => {
-    setSelectedTemplate(null);
-    setCreateModalOpen(true);
-  };
 
-  const handleEditTemplate = (template: QuestionnaireTemplate) => {
-    setSelectedTemplate(template);
-    setCreateModalOpen(true);
-  };
 
-  const handleDeleteTemplate = async (template: QuestionnaireTemplate) => {
-    if (!confirm(`Are you sure you want to delete "${template.name}"?`)) return;
 
-    try {
-      await templateApi.deleteTemplate(template.id);
-      toast({
-        title: "Success",
-        description: "Template deleted successfully",
-      });
-      fetchTemplates();
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.response?.data?.error || "Failed to delete template",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleTogglePublish = async (template: QuestionnaireTemplate) => {
-    try {
-      if (template.is_published) {
-        await templateApi.unpublishTemplate(template.id);
-        toast({ title: "Success", description: "Template unpublished" });
-      } else {
-        await templateApi.publishTemplate(template.id);
-        toast({ title: "Success", description: "Template published" });
-      }
-      fetchTemplates();
-    } catch (error: unknown) {
-      toast({
-        title: "Error",
-        description:
-          error.response?.data?.error || "Failed to update template status",
-        variant: "destructive",
-      });
-    }
-  };
 
   const handleManageQuestions = (template: QuestionnaireTemplate) => {
     navigate(`/dashboard/templates/${template.id}/flow-builder`);
@@ -261,33 +213,9 @@ export default function TemplateManagement() {
               variant="ghost"
               size="sm"
               onClick={() => handleManageQuestions(template)}
-              title="Visual Flow Builder"
+              title="View Flow Builder"
             >
               <FileText className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleEditTemplate(template)}
-              title="Edit Template"
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleTogglePublish(template)}
-              title={template.is_published ? "Unpublish" : "Publish"}
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleDeleteTemplate(template)}
-              title="Delete Template"
-            >
-              <Trash2 className="h-4 w-4 text-red-600" />
             </Button>
           </div>
         ),
@@ -298,16 +226,11 @@ export default function TemplateManagement() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          {/* <h1 className="text-2xl font-bold">Template Management</h1> */}
           <h1 className="text-2xl font-bold">Questionnaires</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Create and manage questionnaire templates with visual flow builder
+            Manage questionnaire templates assigned by admin
           </p>
         </div>
-        <Button className="gap-2" onClick={handleCreateTemplate}>
-          <Plus className="h-4 w-4" />
-          Add New
-        </Button>
       </div>
 
       {loading ? (
@@ -316,11 +239,10 @@ export default function TemplateManagement() {
         </div>
       ) : templates.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-lg">
-          <p className="text-muted-foreground mb-4">No templates yet</p>
-          <Button onClick={handleCreateTemplate}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Your First Template
-          </Button>
+          <p className="text-muted-foreground mb-4">No templates assigned yet</p>
+          <p className="text-sm text-muted-foreground">
+            Templates will appear here once assigned by your administrator
+          </p>
         </div>
       ) : (
         <DataTable
@@ -343,15 +265,6 @@ export default function TemplateManagement() {
         />
       )}
 
-      <CreateTemplateModal
-        open={createModalOpen}
-        onOpenChange={setCreateModalOpen}
-        template={selectedTemplate}
-        onSuccess={() => {
-          fetchTemplates();
-          setCreateModalOpen(false);
-        }}
-      />
     </div>
   );
 }

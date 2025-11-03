@@ -8,6 +8,7 @@ export const QuestionNode = memo(({ data, selected, id }: NodeProps<{ question: 
   const isQuestionLocked = useFlowStore(state => state.isQuestionLocked(id));
   const locked = isLocked || isQuestionLocked;
 
+  const isConsentQuestion = question.question_type === 'consent';
   const hasChoices = question.answer_choices && question.answer_choices.length > 0;
 
   return (
@@ -33,8 +34,42 @@ export const QuestionNode = memo(({ data, selected, id }: NodeProps<{ question: 
         </div>
       </div>
 
-      {/* Answer Choices */}
-      {hasChoices && (
+      {/* Consent Text (for consent questions) */}
+      {isConsentQuestion && question.consent_form?.consent_text && (
+        <div className="px-4 py-3 border-b border-gray-100 bg-blue-50">
+          <div className="text-xs font-medium text-blue-900 mb-1">Consent Text:</div>
+          <div className="text-sm text-gray-700 max-h-24 overflow-y-auto">
+            {question.consent_form.consent_text}
+          </div>
+        </div>
+      )}
+
+      {/* Consent Choices - use actual answer_choices from API */}
+      {isConsentQuestion && hasChoices && (
+        <div className="p-2 space-y-2">
+          {question.answer_choices.map((choice, idx) => (
+            <div
+              key={idx}
+              className="relative flex items-center px-4 py-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+            >
+              <span className="text-sm text-gray-700">{choice}</span>
+              
+              {/* Handle for each consent choice */}
+              <Handle
+                type="source"
+                position={Position.Right}
+                id={`choice-${idx}`}
+                className="!w-4 !h-4 !bg-blue-400 !border-2 !border-white !-right-2"
+                isConnectable={!locked}
+                style={{ top: '50%' }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Answer Choices (for choice-based questions) */}
+      {!isConsentQuestion && hasChoices && (
         <div className="p-2 space-y-2">
           {question.answer_choices.map((choice, idx) => (
             <div
@@ -58,7 +93,7 @@ export const QuestionNode = memo(({ data, selected, id }: NodeProps<{ question: 
       )}
 
       {/* Single Handle for non-choice questions */}
-      {!hasChoices && (
+      {!isConsentQuestion && !hasChoices && (
         <Handle 
           type="source" 
           position={Position.Right} 

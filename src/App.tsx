@@ -10,6 +10,7 @@ import { useAuthStore } from "./store/useAuthStore";
 import { Loader2 } from "lucide-react";
 import { useMessages } from "@/hooks/useMessages";
 import { groupMessages } from "@/utils/groupMessages";
+import { Toaster } from "@/components/ui/toaster";
 
 // pages
 import Dashboard from "./pages/Dashboard";
@@ -175,6 +176,7 @@ const App = () => {
 
   return (
     <BrowserRouter>
+      <Toaster />
       <Routes>
         <Route path="/" element={<ProtectedRoute><Navigate to="/dashboard" replace /></ProtectedRoute>} />
 

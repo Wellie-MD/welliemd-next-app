@@ -91,10 +91,20 @@ function FlowBuilderContent() {
       try {
         const data = await templateApi.getTemplate(templateId);
         setTemplate(data);
-        setQuestions(data.questions || []);
+        
+        // Ensure questions is an array
+        const questionsList = Array.isArray(data.questions) ? data.questions : [];
+        setQuestions(questionsList);
+
+        console.log("Template loaded:", {
+          templateId: data.id,
+          templateName: data.name,
+          questionsCount: questionsList.length,
+          questions: questionsList
+        });
 
         // Generate flow using the service
-        if (data.questions && data.questions.length > 0) {
+        if (questionsList.length > 0) {
           const flowResult = generateFlowFromTemplate(data, true);
 
           setNodes(flowResult.nodes);
@@ -105,8 +115,11 @@ function FlowBuilderContent() {
 
           // Fit view after a short delay
           setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 100);
+        } else {
+          console.warn("No questions found in template");
         }
       } catch (error: unknown) {
+        console.error("Failed to load template:", error);
         toast({
           title: "Error",
           description: "Failed to load template",

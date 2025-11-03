@@ -42,7 +42,7 @@ export const authService = {
     const { data } = await api.post<LoginResponse>('/auth/login/', {
       email: credentials.email,
       password: credentials.password,
-      portal: 'client'
+      // portal: 'client'
     });
     const { access: accessToken, user } = data;
     
