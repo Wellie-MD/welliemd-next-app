@@ -82,6 +82,7 @@ export function QuestionForm({
   });
 
   const [newAnswerChoice, setNewAnswerChoice] = useState("");
+  const [disqualifyingAnswers, setDisqualifyingAnswers] = useState<string[]>([]);
 
   // Fetch template and existing questions when modal opens
   useEffect(() => {
@@ -105,6 +106,16 @@ export function QuestionForm({
       const parentQuestionId =
         question.conditional_logic?.show_if?.question_id || "";
       const triggerValue = question.conditional_logic?.show_if?.value || "";
+
+      // Extract disqualifying answers from validation_rules
+      const validationRules = question.validation_rules as any;
+      let disqualifyingAnswersList: string[] = [];
+      if (validationRules?.disqualifying_answer) {
+        disqualifyingAnswersList = [validationRules.disqualifying_answer];
+      } else if (validationRules?.disqualifying_answers && Array.isArray(validationRules.disqualifying_answers)) {
+        disqualifyingAnswersList = validationRules.disqualifying_answers;
+      }
+      setDisqualifyingAnswers(disqualifyingAnswersList);
 
       setFormData({
         template_id: templateId,
@@ -132,6 +143,7 @@ export function QuestionForm({
         beluga_consent_code: question.consent_form?.beluga_consent_code || "",
       });
     } else {
+      setDisqualifyingAnswers([]);
       setFormData({
         template_id: templateId,
         question_text: "",
@@ -268,14 +280,26 @@ export function QuestionForm({
           }
         : {};
 
-      // Build validation_rules for file upload
-      const validationRules =
-        formData.question_type === "file_upload"
-          ? {
-              max_file_size: formData.max_file_size,
-              allowed_extensions: formData.allowed_extensions,
-            }
-          : formData.validation_rules || {};
+      // Build validation_rules
+      let validationRules: unknown = {};
+      
+      if (formData.question_type === "file_upload") {
+        validationRules = {
+          max_file_size: formData.max_file_size,
+          allowed_extensions: formData.allowed_extensions,
+        };
+      } else {
+        validationRules = formData.validation_rules || {};
+      }
+      
+      // Add disqualifying answers for choice-based questions
+      if (["single_choice", "multiple_choice"].includes(formData.question_type) && disqualifyingAnswers.length > 0) {
+        if (disqualifyingAnswers.length === 1) {
+          validationRules.disqualifying_answer = disqualifyingAnswers[0];
+        } else {
+          validationRules.disqualifying_answers = disqualifyingAnswers;
+        }
+      }
 
       // Build consent_form for consent questions
       const consentForm =
@@ -288,6 +312,12 @@ export function QuestionForm({
               beluga_consent_code: formData.beluga_consent_code || "",
             }
           : undefined;
+      
+      // For consent questions with disqualification, add to validation_rules
+      if (formData.question_type === "consent" && formData.is_disqualifying && formData.answer_choices && formData.answer_choices.length > 1) {
+        // The second choice (index 1) is typically the "disagree" option
+        validationRules.disqualifying_answer = formData.answer_choices[1];
+      }
 
       const payload: CreateQuestionPayload = {
         template_id: formData.template_id,
@@ -389,9 +419,21 @@ export function QuestionForm({
             </Label>
             <Select
               value={formData.question_type}
-              onValueChange={(value) =>
-                setFormData({ ...formData, question_type: value })
-              }
+              onValueChange={(value) => {
+                // Initialize default answer choices for consent questions
+                if (value === "consent" && (!formData.answer_choices || formData.answer_choices.length === 0)) {
+                  setFormData({
+                    ...formData,
+                    question_type: value,
+                    answer_choices: [
+                      "I acknowledge that I have read and understood the above information",
+                      "I have read the above information and I do not wish to continue"
+                    ]
+                  });
+                } else {
+                  setFormData({ ...formData, question_type: value });
+                }
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select type" />
@@ -437,6 +479,25 @@ export function QuestionForm({
                         placeholder={`Choice ${index + 1}`}
                         className="flex-1"
                       />
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id={`disqualify-${index}`}
+                          checked={disqualifyingAnswers.includes(choice)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setDisqualifyingAnswers([...disqualifyingAnswers, choice]);
+                            } else {
+                              setDisqualifyingAnswers(disqualifyingAnswers.filter(a => a !== choice));
+                            }
+                          }}
+                          className="rounded"
+                          title="Mark as disqualifying"
+                        />
+                        <label htmlFor={`disqualify-${index}`} className="text-xs text-red-600 cursor-pointer whitespace-nowrap">
+                          Disqualify
+                        </label>
+                      </div>
                       <Button
                         type="button"
                         variant="ghost"
@@ -471,6 +532,12 @@ export function QuestionForm({
                     Add
                   </Button>
                 </div>
+                
+                {disqualifyingAnswers.length > 0 && (
+                  <p className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                    ⚠️ {disqualifyingAnswers.length} answer(s) marked as disqualifying. Selecting these will disqualify the patient.
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -566,9 +633,87 @@ export function QuestionForm({
                   rows={6}
                   required
                 />
-                <p className="text-xs text-muted-foreground">
-                  This text will be displayed to users. They will see "Agree" and "Disagree" options.
+              </div>
+
+              <div className="space-y-2">
+                <Label>
+                  Answer Choices <span className="text-red-500">*</span>
+                </Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Customize the consent response options (typically Agree/Disagree)
                 </p>
+                
+                {/* Existing consent choices */}
+                <div className="space-y-2">
+                  {formData.answer_choices && formData.answer_choices.length > 0 ? (
+                    formData.answer_choices.map((choice, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input
+                          value={choice}
+                          onChange={(e) => handleUpdateChoice(index, e.target.value)}
+                          placeholder={index === 0 ? "Agree option" : "Disagree option"}
+                          className="flex-1"
+                        />
+                        {formData.answer_choices && formData.answer_choices.length > 2 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveChoice(index)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="space-y-2">
+                      <Input
+                        value="I acknowledge that I have read and understood the above information"
+                        onChange={(e) => {
+                          const newChoices = [...(formData.answer_choices || [])];
+                          newChoices[0] = e.target.value;
+                          setFormData({ ...formData, answer_choices: newChoices });
+                        }}
+                        placeholder="Agree option"
+                      />
+                      <Input
+                        value="I have read the above information and I do not wish to continue"
+                        onChange={(e) => {
+                          const newChoices = [...(formData.answer_choices || [])];
+                          newChoices[1] = e.target.value;
+                          setFormData({ ...formData, answer_choices: newChoices });
+                        }}
+                        placeholder="Disagree option"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Add new choice for consent */}
+                {formData.answer_choices && formData.answer_choices.length < 4 && (
+                  <div className="flex gap-2">
+                    <Input
+                      value={newAnswerChoice}
+                      onChange={(e) => setNewAnswerChoice(e.target.value)}
+                      placeholder="Add another option (optional)"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddChoice();
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleAddChoice}
+                      variant="outline"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">
@@ -590,9 +735,9 @@ export function QuestionForm({
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label htmlFor="is_disqualifying">Is Disqualifying</Label>
+                    <Label htmlFor="is_disqualifying">Disagreement Disqualifies</Label>
                     <p className="text-xs text-muted-foreground">
-                      Refusal disqualifies the patient
+                      Selecting the second option (typically "Disagree") will disqualify the patient
                     </p>
                   </div>
                   <Switch
@@ -603,6 +748,12 @@ export function QuestionForm({
                     }
                   />
                 </div>
+                
+                {formData.is_disqualifying && formData.answer_choices && formData.answer_choices.length > 1 && (
+                  <p className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                    ⚠️ Selecting "{formData.answer_choices[1]}" will disqualify the patient.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">

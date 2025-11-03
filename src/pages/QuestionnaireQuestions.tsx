@@ -5,6 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   templateApi,
   questionApi,
   QuestionnaireTemplate,
@@ -78,6 +88,8 @@ export default function QuestionnaireQuestions() {
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(
     null
   );
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [questionToDelete, setQuestionToDelete] = useState<Question | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTypeFilter, setActiveTypeFilter] = useState("All Types");
 
@@ -122,11 +134,16 @@ export default function QuestionnaireQuestions() {
     setModalOpen(true);
   };
 
-  const handleDeleteQuestion = async (question: Question) => {
-    if (!confirm(`Are you sure you want to delete this question?`)) return;
+  const handleDeleteQuestion = (question: Question) => {
+    setQuestionToDelete(question);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteQuestion = async () => {
+    if (!questionToDelete) return;
 
     try {
-      await questionApi.deleteQuestion(question.id);
+      await questionApi.deleteQuestion(questionToDelete.id);
       toast({
         title: "Success",
         description: "Question deleted successfully",
@@ -138,6 +155,9 @@ export default function QuestionnaireQuestions() {
         description: error.response?.data?.error || "Failed to delete question",
         variant: "destructive",
       });
+    } finally {
+      setDeleteDialogOpen(false);
+      setQuestionToDelete(null);
     }
   };
 
@@ -283,6 +303,31 @@ export default function QuestionnaireQuestions() {
           setModalOpen(false);
         }}
       />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Question</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this question? This action cannot be undone.
+              {questionToDelete && (
+                <div className="mt-2 p-2 bg-muted rounded text-sm">
+                  <strong>Question:</strong> {questionToDelete.question_text}
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteQuestion}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -10,7 +10,6 @@ export const QuestionNode = memo(({ data, selected, id }: NodeProps<{ question: 
 
   const isConsentQuestion = question.question_type === 'consent';
   const hasChoices = question.answer_choices && question.answer_choices.length > 0;
-  const consentChoices = isConsentQuestion ? ['Agree', 'Disagree'] : [];
 
   return (
     <div
@@ -45,10 +44,10 @@ export const QuestionNode = memo(({ data, selected, id }: NodeProps<{ question: 
         </div>
       )}
 
-      {/* Consent Choices (Agree/Disagree) */}
-      {isConsentQuestion && (
+      {/* Consent Choices - use actual answer_choices from API */}
+      {isConsentQuestion && hasChoices && (
         <div className="p-2 space-y-2">
-          {consentChoices.map((choice, idx) => (
+          {question.answer_choices.map((choice, idx) => (
             <div
               key={idx}
               className="relative flex items-center px-4 py-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
