@@ -11,7 +11,11 @@ import { DateRange } from "react-day-picker";
 import { isWithinInterval, parseISO, format } from "date-fns";
 import { exportToCSV } from "@/utils/exportUtils";
 
-const getTemplateColumns = (navigate: ReturnType<typeof useNavigate>) => [
+const getTemplateColumns = (
+  navigate: ReturnType<typeof useNavigate>,
+  handlePublishToggle: (template: QuestionnaireTemplate) => Promise<void>,
+  publishingIds: Set<string>
+) => [
   {
     key: "name",
     label: "Name",
@@ -24,20 +28,68 @@ const getTemplateColumns = (navigate: ReturnType<typeof useNavigate>) => [
       </button>
     ),
   },
-  { key: "questionnaire_type", label: "Type" },
-  { key: "beluga_visit_type", label: "Visit Type" },
+  {
+    key: "questionnaire_type",
+    label: "Type",
+    render: (value: string) => {
+      return value
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+    },
+  },
+  {
+    key: "question_count",
+    label: "Questions",
+    render: (value: number | undefined, row: QuestionnaireTemplate) => {
+      // Try question_count first, then questions array length, then 0
+      if (value !== undefined && value !== null) return value;
+      if (row.questions && Array.isArray(row.questions))
+        return row.questions.length;
+      return 0;
+    },
+  },
+  {
+    key: "review",
+    label: "Review",
+    render: (_value: unknown, row: QuestionnaireTemplate) => {
+      const isPublishing = publishingIds.has(row.id);
+      return (
+        <Button
+          variant={row.is_published ? "outline" : "default"}
+          size="sm"
+          onClick={() => handlePublishToggle(row)}
+          disabled={isPublishing}
+          className={
+            row.is_published
+              ? "text-red-600 border-red-600 hover:bg-red-50"
+              : ""
+          }
+        >
+          {isPublishing
+            ? "Processing..."
+            : row.is_published
+            ? "Unpublish"
+            : "Publish"}
+        </Button>
+      );
+    },
+  },
   {
     key: "is_published",
     label: "Status",
     render: (value: boolean) => (
-      <Badge variant={value ? "default" : "secondary"}>
-        {value ? "Published" : "Draft"}
+      <Badge
+        variant={value ? "default" : "secondary"}
+        className={value ? "bg-green-100 text-green-800" : ""}
+      >
+        {value ? "Approved" : "Draft"}
       </Badge>
     ),
   },
   {
-    key: "created_at",
-    label: "Created At",
+    key: "updated_at",
+    label: "Last Updated",
     render: (value: string) => {
       try {
         const date = parseISO(value);
@@ -60,6 +112,7 @@ export default function TemplateManagement() {
   const [activeTypeFilter, setActiveTypeFilter] = useState("All Types");
   const [date, setDate] = useState<DateRange | undefined>();
   const [refreshKey, setRefreshKey] = useState(0);
+  const [publishingIds, setPublishingIds] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -73,7 +126,7 @@ export default function TemplateManagement() {
         setTemplates(data);
       } else if (data && typeof data === "object" && "results" in data) {
         // Paginated response
-        setTemplates((data as any).results || []);
+        setTemplates((data as unknown).results || []);
       } else {
         setTemplates([]);
       }
@@ -97,12 +150,51 @@ export default function TemplateManagement() {
     fetchTemplates();
   }, []);
 
-
-
-
-
   const handleManageQuestions = (template: QuestionnaireTemplate) => {
     navigate(`/dashboard/templates/${template.id}/flow-builder`);
+  };
+
+  const handlePublishToggle = async (template: QuestionnaireTemplate) => {
+    // Add to publishing set
+    setPublishingIds((prev) => new Set(prev).add(template.id));
+
+    try {
+      if (template.is_published) {
+        // Unpublish
+        await templateApi.unpublishTemplate(template.id);
+        toast({
+          title: "Success",
+          description: `Template "${template.name}" has been unpublished`,
+        });
+      } else {
+        // Publish
+        await templateApi.publishTemplate(template.id);
+        toast({
+          title: "Success",
+          description: `Template "${template.name}" has been published`,
+        });
+      }
+      // Refresh templates to get updated status
+      fetchTemplates();
+    } catch (error: unknown) {
+      toast({
+        title: "Error",
+        description:
+          error.response?.data?.error ||
+          error.message ||
+          `Failed to ${
+            template.is_published ? "unpublish" : "publish"
+          } template`,
+        variant: "destructive",
+      });
+    } finally {
+      // Remove from publishing set
+      setPublishingIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(template.id);
+        return newSet;
+      });
+    }
   };
 
   // Comprehensive filtering logic
@@ -197,11 +289,22 @@ export default function TemplateManagement() {
   const handleExport = useCallback(() => {
     const exportData = filteredTemplates.map((template) => ({
       ...template,
-      is_published: template.is_published ? "Published" : "Draft",
-      created_at: format(parseISO(template.created_at), "MM/dd/yyyy"),
+      is_published: template.is_published ? "Approved" : "Draft",
+      updated_at: format(
+        parseISO(template.updated_at || template.created_at),
+        "MM/dd/yyyy"
+      ),
     }));
-    exportToCSV(exportData, getTemplateColumns(navigate), "templates_export");
-  }, [filteredTemplates, navigate]);
+    // Create export columns without the Review column and actions
+    const exportColumns = [
+      { key: "name", label: "Name" },
+      { key: "questionnaire_type", label: "Type" },
+      { key: "question_count", label: "Questions" },
+      { key: "is_published", label: "Status" },
+      { key: "updated_at", label: "Last Updated" },
+    ];
+    exportToCSV(exportData, exportColumns, "templates_export");
+  }, [filteredTemplates]);
 
   // Only map if templates is an array
   const templatesWithActions = Array.isArray(filteredTemplates)
@@ -239,7 +342,9 @@ export default function TemplateManagement() {
         </div>
       ) : templates.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-lg">
-          <p className="text-muted-foreground mb-4">No templates assigned yet</p>
+          <p className="text-muted-foreground mb-4">
+            No templates assigned yet
+          </p>
           <p className="text-sm text-muted-foreground">
             Templates will appear here once assigned by your administrator
           </p>
@@ -248,7 +353,7 @@ export default function TemplateManagement() {
         <DataTable
           data={templatesWithActions}
           columns={[
-            ...getTemplateColumns(navigate),
+            ...getTemplateColumns(navigate, handlePublishToggle, publishingIds),
             { key: "actions", label: "Actions" },
           ]}
           searchPlaceholder="Search templates by name, type, or visit type"
@@ -264,7 +369,6 @@ export default function TemplateManagement() {
           onRefresh={handleRefresh}
         />
       )}
-
     </div>
   );
 }
