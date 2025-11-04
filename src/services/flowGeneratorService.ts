@@ -404,30 +404,28 @@ function generateEdges(questions: Question[], questionNodes: Node[], disqualifyN
     }
   }
 
-  // Generate conditional logic edges (only to FIRST question in each group)
-  const processedConditionalGroups = new Set<string>();
+  // Generate conditional logic edges
+  // Track which questions have already had edges created to avoid duplicates
+  const processedConditionalQuestions = new Set<string>();
   
   questions.forEach((question) => {
     const logic = question.conditional_logic as ConditionalLogic;
 
-    // Generate follow-up edges (show_if) - but only for the FIRST question in each group
-    if (logic?.show_if) {
+    // Generate follow-up edges (show_if)
+    // For questions with multiple trigger values, create all edges at once
+    if (logic?.show_if && !processedConditionalQuestions.has(question.id)) {
+      processedConditionalQuestions.add(question.id);
+      
       const values = Array.isArray(logic.show_if.value) ? logic.show_if.value : [logic.show_if.value];
       
+      // Create an edge for each trigger value
       values.forEach(value => {
-        const groupKey = `${logic.show_if.question_id}|${value}`;
-        
-        // Only create edge if this is the first question in this conditional group
-        if (!processedConditionalGroups.has(groupKey)) {
-          processedConditionalGroups.add(groupKey);
-          
-          const followUpEdges = generateFollowUpEdges(
-            question,
-            { ...logic.show_if, value },
-            questions
-          );
-          edges.push(...followUpEdges);
-        }
+        const followUpEdges = generateFollowUpEdges(
+          question,
+          { ...logic.show_if, value },
+          questions
+        );
+        edges.push(...followUpEdges);
       });
     }
 
@@ -494,8 +492,13 @@ function generateFollowUpEdges(
   // Create edge with label
   const edgeLabel = formatConditionLabel(showIf.value, showIf.operator);
 
+  // Include trigger value in ID to ensure uniqueness when multiple triggers exist
+  const edgeId = sourceHandle 
+    ? `e-conditional-${sourceQuestion.id}-${sourceHandle}-${targetQuestion.id}`
+    : `e-conditional-${sourceQuestion.id}-${targetQuestion.id}`;
+
   edges.push({
-    id: `e-conditional-${sourceQuestion.id}-${targetQuestion.id}`,
+    id: edgeId,
     source: sourceQuestion.id,
     sourceHandle,
     target: targetQuestion.id,
