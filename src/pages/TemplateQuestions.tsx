@@ -68,7 +68,6 @@ const questionColumns = [
     )
   },
   { key: 'order_index', label: 'Order' },
-  { key: 'created_at', label: 'Created At' },
 ];
 
 export default function TemplateQuestions() {
@@ -115,7 +114,7 @@ export default function TemplateQuestions() {
 
   useEffect(() => {
     fetchData();
-  }, [templateId]);
+  }, [fetchData, templateId]);
 
   const handleAddQuestion = () => {
     setSelectedQuestion(null);

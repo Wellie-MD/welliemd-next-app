@@ -18,16 +18,14 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Lock } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Plus, Trash2 } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 import {
   questionApi,
   templateApi,
   Question,
   CreateQuestionPayload,
-  QuestionnaireTemplate,
 } from "@/api/questionnaires";
-import { ReadOnlyIndicator } from "./ReadOnlyIndicator";
 
 interface AddQuestionnairesFormProps {
   open: boolean;
@@ -43,6 +41,11 @@ interface ExtendedQuestionPayload extends CreateQuestionPayload {
   is_follow_up?: boolean;
   parent_question_id?: string;
   trigger_value?: string;
+  consent_text?: string;
+  consent_type?: string;
+  requires_agreement?: boolean;
+  is_disqualifying?: boolean;
+  beluga_consent_code?: string;
 }
 
 export function AddQuestionnairesForm({
@@ -53,7 +56,6 @@ export function AddQuestionnairesForm({
   onSuccess,
 }: AddQuestionnairesFormProps) {
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
 
   const [existingQuestions, setExistingQuestions] = useState<Question[]>([]);
 
@@ -72,9 +74,25 @@ export function AddQuestionnairesForm({
     is_follow_up: false,
     parent_question_id: "",
     trigger_value: "",
+    consent_text: "",
+    consent_type: "custom",
+    requires_agreement: true,
+    is_disqualifying: false,
+    beluga_consent_code: "",
   });
 
   const [newAnswerChoice, setNewAnswerChoice] = useState("");
+  const [disqualifyingAnswers, setDisqualifyingAnswers] = useState<string[]>(
+    []
+  );
+  const [enableNumberValidation, setEnableNumberValidation] = useState(false);
+  const [numberValidationOperator, setNumberValidationOperator] = useState<
+    "gt" | "lt" | "gte" | "lte" | "eq"
+  >("gt");
+  const [numberValidationValue, setNumberValidationValue] = useState<
+    number | ""
+  >("");
+  const [triggerValues, setTriggerValues] = useState<string[]>([]);
 
   // Fetch template and existing questions when modal opens
   useEffect(() => {
@@ -99,6 +117,58 @@ export function AddQuestionnairesForm({
         question.conditional_logic?.show_if?.question_id || "";
       const triggerValue = question.conditional_logic?.show_if?.value || "";
 
+      // Handle multiple trigger values
+      const triggerValuesList = Array.isArray(
+        question.conditional_logic?.show_if?.value
+      )
+        ? question.conditional_logic.show_if.value
+        : triggerValue
+        ? [triggerValue]
+        : [];
+      setTriggerValues(triggerValuesList);
+
+      // Extract disqualifying answers from validation_rules
+      const validationRules = question.validation_rules as any;
+      let disqualifyingAnswersList: string[] = [];
+      if (validationRules?.disqualifying_answer) {
+        disqualifyingAnswersList = [validationRules.disqualifying_answer];
+      } else if (
+        validationRules?.disqualifying_answers &&
+        Array.isArray(validationRules.disqualifying_answers)
+      ) {
+        disqualifyingAnswersList = validationRules.disqualifying_answers;
+      }
+      setDisqualifyingAnswers(disqualifyingAnswersList);
+
+      // Extract number validation rules
+      if (question.question_type === "number" && validationRules) {
+        const hasValidation =
+          validationRules.min !== undefined ||
+          validationRules.max !== undefined ||
+          validationRules.greater_than !== undefined ||
+          validationRules.less_than !== undefined ||
+          validationRules.equals !== undefined;
+
+        setEnableNumberValidation(hasValidation);
+
+        if (validationRules.greater_than !== undefined) {
+          setNumberValidationOperator("gt");
+          setNumberValidationValue(validationRules.greater_than);
+        } else if (validationRules.greater_than_or_equal !== undefined) {
+          setNumberValidationOperator("gte");
+          setNumberValidationValue(validationRules.greater_than_or_equal);
+        } else if (validationRules.less_than !== undefined) {
+          setNumberValidationOperator("lt");
+          setNumberValidationValue(validationRules.less_than);
+        } else if (validationRules.less_than_or_equal !== undefined) {
+          setNumberValidationOperator("lte");
+          setNumberValidationValue(validationRules.less_than_or_equal);
+        } else if (validationRules.equals !== undefined) {
+          setNumberValidationOperator("eq");
+          setNumberValidationValue(validationRules.equals);
+        }
+      }
+
       setFormData({
         template_id: templateId,
         question_text: question.question_text,
@@ -118,8 +188,21 @@ export function AddQuestionnairesForm({
         is_follow_up: isFollowUp,
         parent_question_id: parentQuestionId,
         trigger_value: triggerValue,
+        consent_text: question.consent_form?.consent_text || "",
+        consent_type: question.consent_form?.consent_type || "custom",
+        requires_agreement:
+          question.consent_form?.requires_agreement !== undefined
+            ? question.consent_form.requires_agreement
+            : true,
+        is_disqualifying: question.consent_form?.is_disqualifying || false,
+        beluga_consent_code: question.consent_form?.beluga_consent_code || "",
       });
     } else {
+      setDisqualifyingAnswers([]);
+      setTriggerValues([]);
+      setEnableNumberValidation(false);
+      setNumberValidationOperator("gt");
+      setNumberValidationValue("");
       setFormData({
         template_id: templateId,
         question_text: "",
@@ -135,9 +218,14 @@ export function AddQuestionnairesForm({
         is_follow_up: false,
         parent_question_id: "",
         trigger_value: "",
+        consent_text: "",
+        consent_type: "custom",
+        requires_agreement: true,
+        is_disqualifying: false,
+        beluga_consent_code: "",
       });
     }
-  }, [question, templateId, open, existingQuestions]);
+  }, [question, templateId, open]);
 
   const handleAddChoice = () => {
     if (newAnswerChoice.trim()) {
@@ -153,16 +241,36 @@ export function AddQuestionnairesForm({
   };
 
   const handleRemoveChoice = (index: number) => {
+    const choiceToRemove = formData.answer_choices?.[index];
+    const updatedChoices =
+      formData.answer_choices?.filter((_, i) => i !== index) || [];
+
+    // Also remove from disqualifying answers if it was marked
+    if (choiceToRemove && disqualifyingAnswers.includes(choiceToRemove)) {
+      setDisqualifyingAnswers(
+        disqualifyingAnswers.filter((a) => a !== choiceToRemove)
+      );
+    }
+
     setFormData({
       ...formData,
-      answer_choices:
-        formData.answer_choices?.filter((_, i) => i !== index) || [],
+      answer_choices: updatedChoices,
     });
   };
 
   const handleUpdateChoice = (index: number, value: string) => {
+    const oldValue = formData.answer_choices?.[index];
     const updatedChoices = [...(formData.answer_choices || [])];
     updatedChoices[index] = value;
+
+    // Update disqualifying answers if the old value was marked
+    if (oldValue && disqualifyingAnswers.includes(oldValue)) {
+      const updatedDisqualifying = disqualifyingAnswers.map((a) =>
+        a === oldValue ? value : a
+      );
+      setDisqualifyingAnswers(updatedDisqualifying);
+    }
+
     setFormData({
       ...formData,
       answer_choices: updatedChoices,
@@ -207,6 +315,19 @@ export function AddQuestionnairesForm({
       return;
     }
 
+    // Validate consent text for consent questions
+    if (
+      formData.question_type === "consent" &&
+      !formData.consent_text?.trim()
+    ) {
+      toast({
+        title: "Validation Error",
+        description: "Consent text is required for consent questions",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Validate follow-up settings
     if (formData.is_follow_up) {
       if (!formData.parent_question_id) {
@@ -217,10 +338,24 @@ export function AddQuestionnairesForm({
         });
         return;
       }
-      if (!formData.trigger_value) {
+      if (triggerValues.length === 0) {
         toast({
           title: "Validation Error",
-          description: "Trigger value is required for follow-up questions",
+          description:
+            "At least one trigger value is required for follow-up questions",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // Validate number validation settings
+    if (formData.question_type === "number" && enableNumberValidation) {
+      if (numberValidationValue === "" || numberValidationValue === null) {
+        toast({
+          title: "Validation Error",
+          description:
+            "Validation value is required when number validation is enabled",
           variant: "destructive",
         });
         return;
@@ -235,20 +370,74 @@ export function AddQuestionnairesForm({
         ? {
             show_if: {
               question_id: formData.parent_question_id,
-              value: formData.trigger_value,
-              operator: "equals",
+              value:
+                triggerValues.length === 1 ? triggerValues[0] : triggerValues,
+              operator: triggerValues.length === 1 ? "equals" : "in",
             },
           }
         : {};
 
-      // Build validation_rules for file upload
-      const validationRules =
-        formData.question_type === "file_upload"
+      // Build validation_rules
+      let validationRules: unknown = {};
+
+      if (formData.question_type === "file_upload") {
+        validationRules = {
+          max_file_size: formData.max_file_size,
+          allowed_extensions: formData.allowed_extensions,
+        };
+      } else if (
+        formData.question_type === "number" &&
+        enableNumberValidation &&
+        numberValidationValue !== ""
+      ) {
+        // Add number validation rules
+        const operatorMap = {
+          gt: "greater_than",
+          gte: "greater_than_or_equal",
+          lt: "less_than",
+          lte: "less_than_or_equal",
+          eq: "equals",
+        };
+        validationRules[operatorMap[numberValidationOperator]] =
+          numberValidationValue;
+      } else {
+        validationRules = formData.validation_rules || {};
+      }
+
+      // Handle disqualifying answers for choice-based questions
+      if (
+        ["single_choice", "multiple_choice", "consent"].includes(
+          formData.question_type
+        )
+      ) {
+        // Remove old disqualifying fields first
+        delete validationRules.disqualifying_answer;
+        delete validationRules.disqualifying_answers;
+
+        // Add new disqualifying answers only if there are any
+        if (disqualifyingAnswers.length > 0) {
+          if (disqualifyingAnswers.length === 1) {
+            validationRules.disqualifying_answer = disqualifyingAnswers[0];
+          } else {
+            validationRules.disqualifying_answers = disqualifyingAnswers;
+          }
+        }
+      }
+
+      // Build consent_form for consent questions
+      const consentForm =
+        formData.question_type === "consent" && formData.consent_text
           ? {
-              max_file_size: formData.max_file_size,
-              allowed_extensions: formData.allowed_extensions,
+              consent_type: formData.consent_type || "custom",
+              consent_text: formData.consent_text,
+              requires_agreement:
+                formData.requires_agreement !== undefined
+                  ? formData.requires_agreement
+                  : true,
+              is_disqualifying: disqualifyingAnswers.length > 0,
+              beluga_consent_code: formData.beluga_consent_code || "",
             }
-          : formData.validation_rules || {};
+          : undefined;
 
       const payload: CreateQuestionPayload = {
         template_id: formData.template_id,
@@ -263,7 +452,7 @@ export function AddQuestionnairesForm({
             ? undefined
             : formData.beluga_field_mapping,
         include_in_qa_section: formData.include_in_qa_section,
-        // Note: is_read_only is automatically set to false by the backend for client-created questions
+        consent_form_data: consentForm,
       };
 
       if (question) {
@@ -282,12 +471,9 @@ export function AddQuestionnairesForm({
 
       onSuccess();
     } catch (error: unknown) {
-      const errorMessage =
-        (error as unknown)?.response?.data?.message ||
-        `Failed to ${question ? "update" : "create"} question`;
       toast({
         title: "Error",
-        description: errorMessage,
+        description: `Failed to ${question ? "update" : "create"} question`,
         variant: "destructive",
       });
     } finally {
@@ -300,6 +486,7 @@ export function AddQuestionnairesForm({
     formData.question_type
   );
   const showFileSettings = formData.question_type === "file_upload";
+  const showConsentSettings = formData.question_type === "consent";
   const showFollowUpSettings = formData.is_follow_up;
 
   // Get parent question's answer choices for trigger dropdown
@@ -312,9 +499,6 @@ export function AddQuestionnairesForm({
   const parentQuestionOptions = existingQuestions.filter(
     (q) => q.id !== question?.id
   );
-
-  // Check if question is read-only
-  const isReadOnly = question?.is_read_only || false;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -330,418 +514,724 @@ export function AddQuestionnairesForm({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Read-only warning view */}
-        {isReadOnly ? (
-          <div className="space-y-6 py-4">
-            <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-lg bg-muted/30">
-              <Lock className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Question is Locked</h3>
-              <p className="text-sm text-muted-foreground text-center max-w-md mb-4">
-                This question is from the admin template and cannot be modified
-                or deleted. Only administrators can edit template questions.
-              </p>
-              <ReadOnlyIndicator />
-            </div>
-
-            {/* Display question details in read-only mode */}
-            <div className="space-y-4 p-4 border rounded-lg bg-muted/10">
-              <div>
-                <Label className="text-muted-foreground">Question Text</Label>
-                <p className="mt-1 text-sm">{question?.question_text}</p>
-              </div>
-
-              <div>
-                <Label className="text-muted-foreground">Question Type</Label>
-                <p className="mt-1 text-sm capitalize">
-                  {question?.question_type?.replace(/_/g, " ")}
-                </p>
-              </div>
-
-              {question?.answer_choices &&
-                question.answer_choices.length > 0 && (
-                  <div>
-                    <Label className="text-muted-foreground">
-                      Answer Choices
-                    </Label>
-                    <ul className="mt-1 text-sm list-disc list-inside">
-                      {question.answer_choices.map((choice, idx) => (
-                        <li key={idx}>{choice}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-              <div className="flex gap-4">
-                <div>
-                  <Label className="text-muted-foreground">Required</Label>
-                  <p className="mt-1 text-sm">
-                    {question?.is_required ? "Yes" : "No"}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Include in QA</Label>
-                  <p className="mt-1 text-sm">
-                    {question?.include_in_qa_section ? "Yes" : "No"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Close button */}
-            <div className="flex justify-end pt-4">
-              <Button type="button" onClick={() => onOpenChange(false)}>
-                Close
-              </Button>
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-6 py-4">
+          {/* Question Text */}
+          <div className="space-y-2">
+            <Label htmlFor="question_text">
+              Question Text <span className="text-red-500">*</span>
+            </Label>
+            <Textarea
+              id="question_text"
+              value={formData.question_text}
+              onChange={(e) =>
+                setFormData({ ...formData, question_text: e.target.value })
+              }
+              placeholder="Enter your question here"
+              rows={3}
+              required
+            />
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-6 py-4">
-            {/* Question Text */}
-            <div className="space-y-2">
-              <Label htmlFor="question_text">
-                Question Text <span className="text-red-500">*</span>
-              </Label>
-              <Textarea
-                id="question_text"
-                value={formData.question_text}
-                onChange={(e) =>
-                  setFormData({ ...formData, question_text: e.target.value })
-                }
-                placeholder="Enter your question here"
-                rows={3}
-                required
-              />
-            </div>
 
-            {/* Question Type */}
-            <div className="space-y-2">
-              <Label htmlFor="question_type">
-                Question Type <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={formData.question_type}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, question_type: value })
+          {/* Question Type */}
+          <div className="space-y-2">
+            <Label htmlFor="question_type">
+              Question Type <span className="text-red-500">*</span>
+            </Label>
+            <Select
+              value={formData.question_type}
+              onValueChange={(value) => {
+                // Initialize default answer choices for consent questions
+                if (
+                  value === "consent" &&
+                  (!formData.answer_choices ||
+                    formData.answer_choices.length === 0)
+                ) {
+                  setFormData({
+                    ...formData,
+                    question_type: value,
+                    answer_choices: [
+                      "I acknowledge that I have read and understood the above information",
+                      "I have read the above information and I do not wish to continue",
+                    ],
+                  });
+                } else {
+                  // Reset validation states when changing question type
+                  if (value !== "number") {
+                    setEnableNumberValidation(false);
+                    setNumberValidationValue("");
+                  }
+                  if (!["single_choice", "multiple_choice"].includes(value)) {
+                    setDisqualifyingAnswers([]);
+                  }
+                  setFormData({ ...formData, question_type: value });
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="text">Text (Short Answer)</SelectItem>
-                  <SelectItem value="textarea">
-                    Text Area (Long Answer)
-                  </SelectItem>
-                  <SelectItem value="single_choice">
-                    Single Choice (Radio)
-                  </SelectItem>
-                  <SelectItem value="multiple_choice">
-                    Multiple Choice (Checkbox)
-                  </SelectItem>
-                  <SelectItem value="number">Number</SelectItem>
-                  <SelectItem value="date">Date</SelectItem>
-                  <SelectItem value="height_weight">Height & Weight</SelectItem>
-                  <SelectItem value="consent">Consent Checkbox</SelectItem>
-                  <SelectItem value="file_upload">File Upload</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="text">Text (Short Answer)</SelectItem>
+                <SelectItem value="textarea">
+                  Text Area (Long Answer)
+                </SelectItem>
+                <SelectItem value="single_choice">
+                  Single Choice (Radio)
+                </SelectItem>
+                <SelectItem value="multiple_choice">
+                  Multiple Choice (Checkbox)
+                </SelectItem>
+                <SelectItem value="number">Number</SelectItem>
+                <SelectItem value="date">Date</SelectItem>
+                <SelectItem value="height_weight">Height & Weight</SelectItem>
+                <SelectItem value="consent">Consent Checkbox</SelectItem>
+                <SelectItem value="file_upload">File Upload</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-            {/* ========== ANSWER CONFIGURATION (Single/Multiple Choice) ========== */}
-            {showAnswerChoices && (
-              <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
-                <h3 className="font-semibold text-sm">Answer Configuration</h3>
+          {/* Answer Choices */}
+          {showAnswerChoices && (
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+              <h3 className="font-semibold text-sm">Answer Configuration</h3>
+              <div className="space-y-2">
+                <Label>
+                  Answer Choices <span className="text-red-500">*</span>
+                </Label>
+
+                {/* Existing choices */}
                 <div className="space-y-2">
-                  <Label>
-                    Answer Choices <span className="text-red-500">*</span>
-                  </Label>
-
-                  {/* Existing choices with inline edit */}
-                  <div className="space-y-2">
-                    {formData.answer_choices?.map((choice, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <Input
-                          value={choice}
-                          onChange={(e) =>
-                            handleUpdateChoice(index, e.target.value)
-                          }
-                          placeholder={`Choice ${index + 1}`}
-                          className="flex-1"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveChoice(index)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Add new choice */}
-                  <div className="flex gap-2">
-                    <Input
-                      value={newAnswerChoice}
-                      onChange={(e) => setNewAnswerChoice(e.target.value)}
-                      placeholder="Enter a new answer choice"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleAddChoice();
+                  {formData.answer_choices?.map((choice, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        value={choice}
+                        onChange={(e) =>
+                          handleUpdateChoice(index, e.target.value)
                         }
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      onClick={handleAddChoice}
-                      variant="outline"
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Add
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ========== FILE UPLOAD SETTINGS ========== */}
-            {showFileSettings && (
-              <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
-                <h3 className="font-semibold text-sm">File Upload Settings</h3>
-
-                <div className="space-y-2">
-                  <Label htmlFor="max_file_size">Max File Size (MB)</Label>
-                  <Input
-                    id="max_file_size"
-                    type="number"
-                    min="1"
-                    max="100"
-                    value={formData.max_file_size || 5}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        max_file_size: Number(e.target.value),
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Allowed File Extensions</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {["pdf", "jpg", "jpeg", "png", "doc", "docx"].map((ext) => (
-                      <div key={ext} className="flex items-center space-x-2">
+                        placeholder={`Choice ${index + 1}`}
+                        className="flex-1"
+                      />
+                      <div className="flex items-center gap-2">
                         <input
                           type="checkbox"
-                          id={`ext-${ext}`}
-                          checked={
-                            formData.allowed_extensions?.includes(ext) || false
-                          }
-                          onChange={() => handleToggleExtension(ext)}
+                          id={`disqualify-${index}`}
+                          checked={disqualifyingAnswers.includes(choice)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setDisqualifyingAnswers([
+                                ...disqualifyingAnswers,
+                                choice,
+                              ]);
+                            } else {
+                              setDisqualifyingAnswers(
+                                disqualifyingAnswers.filter((a) => a !== choice)
+                              );
+                            }
+                          }}
                           className="rounded"
+                          title="Mark as disqualifying"
                         />
                         <label
-                          htmlFor={`ext-${ext}`}
-                          className="text-sm cursor-pointer"
+                          htmlFor={`disqualify-${index}`}
+                          className="text-xs text-red-600 cursor-pointer whitespace-nowrap"
                         >
-                          .{ext}
+                          Disqualify
                         </label>
                       </div>
-                    ))}
-                  </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveChoice(index)}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-              </div>
-            )}
 
-            {/* Beluga Field Mapping */}
-            <div className="space-y-2">
-              <Label htmlFor="beluga_field_mapping">Beluga Field Mapping</Label>
-              <Select
-                value={formData.beluga_field_mapping}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, beluga_field_mapping: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select field mapping" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="first_name">First Name</SelectItem>
-                  <SelectItem value="last_name">Last Name</SelectItem>
-                  <SelectItem value="date_of_birth">Date of Birth</SelectItem>
-                  <SelectItem value="email">Email</SelectItem>
-                  <SelectItem value="phone">Phone</SelectItem>
-                  <SelectItem value="address">Address</SelectItem>
-                  <SelectItem value="height">Height</SelectItem>
-                  <SelectItem value="weight">Weight</SelectItem>
-                  <SelectItem value="medical_history">
-                    Medical History
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                {/* Add new choice */}
+                <div className="flex gap-2">
+                  <Input
+                    value={newAnswerChoice}
+                    onChange={(e) => setNewAnswerChoice(e.target.value)}
+                    placeholder="Enter a new answer choice"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddChoice();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleAddChoice}
+                    variant="outline"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add
+                  </Button>
+                </div>
 
-            {/* ========== FOLLOW-UP SETTINGS ========== */}
-            <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="is_follow_up">Is Follow-up Question</Label>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Show this question only when a parent question has a
-                    specific answer
+                {disqualifyingAnswers.length > 0 && (
+                  <p className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                    ⚠️ {disqualifyingAnswers.length} answer(s) marked as
+                    disqualifying. Selecting these will disqualify the patient.
                   </p>
-                </div>
-                <Switch
-                  id="is_follow_up"
-                  checked={formData.is_follow_up}
-                  onCheckedChange={(checked) => {
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* File Upload Settings */}
+          {showFileSettings && (
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+              <h3 className="font-semibold text-sm">File Upload Settings</h3>
+
+              <div className="space-y-2">
+                <Label htmlFor="max_file_size">Max File Size (MB)</Label>
+                <Input
+                  id="max_file_size"
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={formData.max_file_size || 5}
+                  onChange={(e) =>
                     setFormData({
                       ...formData,
-                      is_follow_up: checked,
-                      parent_question_id: checked
-                        ? formData.parent_question_id
-                        : "",
-                      trigger_value: checked ? formData.trigger_value : "",
-                    });
-                  }}
-                  disabled={parentQuestionOptions.length === 0}
+                      max_file_size: Number(e.target.value),
+                    })
+                  }
                 />
               </div>
 
-              {parentQuestionOptions.length === 0 && (
-                <p className="text-xs text-amber-600">
-                  No existing questions available. Add other questions first to
-                  create follow-ups.
-                </p>
-              )}
-
-              {showFollowUpSettings && (
-                <div className="space-y-3 mt-3 pl-4 border-l-2">
-                  {/* Parent Question Dropdown */}
-                  <div className="space-y-2">
-                    <Label htmlFor="parent_question">
-                      Parent Question <span className="text-red-500">*</span>
-                    </Label>
-                    <Select
-                      value={formData.parent_question_id}
-                      onValueChange={(value) => {
-                        setFormData({
-                          ...formData,
-                          parent_question_id: value,
-                          trigger_value: "", // Reset trigger when parent changes
-                        });
-                      }}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select parent question" />
-                      </SelectTrigger>
-                      <SelectContent
-                        className="max-w-[min(600px,calc(100vw-20rem))]"
-                        position="popper"
-                        sideOffset={5}
+              <div className="space-y-2">
+                <Label>Allowed File Extensions</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {["pdf", "jpg", "jpeg", "png", "doc", "docx"].map((ext) => (
+                    <div key={ext} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`ext-${ext}`}
+                        checked={
+                          formData.allowed_extensions?.includes(ext) || false
+                        }
+                        onChange={() => handleToggleExtension(ext)}
+                        className="rounded"
+                      />
+                      <label
+                        htmlFor={`ext-${ext}`}
+                        className="text-sm cursor-pointer"
                       >
-                        {parentQuestionOptions.map((q) => (
-                          <SelectItem
-                            key={q.id}
-                            value={q.id}
-                            className="max-w-full"
-                          >
-                            <span
-                              className="block truncate max-w-full"
-                              title={q.question_text}
-                            >
-                              {q.order_index ? `${q.order_index}. ` : ""}
-                              {q.question_text}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {/* Trigger Value Dropdown */}
-                  {selectedParent && (
-                    <div className="space-y-2">
-                      <Label htmlFor="trigger_value">
-                        Trigger Value <span className="text-red-500">*</span>
-                      </Label>
-                      {triggerOptions.length > 0 ? (
-                        <Select
-                          value={formData.trigger_value}
-                          onValueChange={(value) =>
-                            setFormData({ ...formData, trigger_value: value })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select trigger value" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {triggerOptions.map((option, idx) => (
-                              <SelectItem key={idx} value={option}>
-                                {option}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <p className="text-xs text-amber-600 p-2 bg-amber-50 rounded">
-                          The selected parent question has no answer choices.
-                          Choose a single_choice or multiple_choice question.
-                        </p>
-                      )}
+                        .{ext}
+                      </label>
                     </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Consent Settings */}
+          {showConsentSettings && (
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+              <h3 className="font-semibold text-sm">Consent Configuration</h3>
+
+              <div className="space-y-2">
+                <Label htmlFor="consent_type">Consent Type</Label>
+                <Select
+                  value={formData.consent_type}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, consent_type: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select consent type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hipaa">HIPAA Authorization</SelectItem>
+                    <SelectItem value="telehealth">
+                      Telehealth Consent
+                    </SelectItem>
+                    <SelectItem value="treatment">Treatment Consent</SelectItem>
+                    <SelectItem value="privacy">Privacy Policy</SelectItem>
+                    <SelectItem value="terms">Terms of Service</SelectItem>
+                    <SelectItem value="marketing">
+                      Marketing Communications
+                    </SelectItem>
+                    <SelectItem value="custom">Custom Consent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="consent_text">
+                  Consent Text <span className="text-red-500">*</span>
+                </Label>
+                <Textarea
+                  id="consent_text"
+                  value={formData.consent_text}
+                  onChange={(e) =>
+                    setFormData({ ...formData, consent_text: e.target.value })
+                  }
+                  placeholder="Enter the full consent text that users will see..."
+                  rows={6}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>
+                  Answer Choices <span className="text-red-500">*</span>
+                </Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Customize the consent response options (e.g., Agree, Disagree,
+                  I'm not sure)
+                </p>
+
+                {/* Existing consent choices */}
+                <div className="space-y-2">
+                  {formData.answer_choices && formData.answer_choices.length > 0
+                    ? formData.answer_choices.map((choice, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <Input
+                            value={choice}
+                            onChange={(e) =>
+                              handleUpdateChoice(index, e.target.value)
+                            }
+                            placeholder={`Option ${index + 1}`}
+                            className="flex-1"
+                          />
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id={`consent-disqualify-${index}`}
+                              checked={disqualifyingAnswers.includes(choice)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setDisqualifyingAnswers([
+                                    ...disqualifyingAnswers,
+                                    choice,
+                                  ]);
+                                } else {
+                                  setDisqualifyingAnswers(
+                                    disqualifyingAnswers.filter(
+                                      (a) => a !== choice
+                                    )
+                                  );
+                                }
+                              }}
+                              className="rounded"
+                              title="Mark as disqualifying"
+                            />
+                            <label
+                              htmlFor={`consent-disqualify-${index}`}
+                              className="text-xs text-red-600 cursor-pointer whitespace-nowrap"
+                            >
+                              Disqualify
+                            </label>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveChoice(index)}
+                            disabled={
+                              formData.answer_choices &&
+                              formData.answer_choices.length <= 1
+                            }
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </div>
+                      ))
+                    : null}
+                </div>
+
+                {disqualifyingAnswers.length > 0 && (
+                  <p className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                    ⚠️ {disqualifyingAnswers.length} answer(s) marked as
+                    disqualifying. Selecting these will disqualify the patient.
+                  </p>
+                )}
+
+                {/* Add new choice for consent */}
+                <div className="flex gap-2">
+                  <Input
+                    value={newAnswerChoice}
+                    onChange={(e) => setNewAnswerChoice(e.target.value)}
+                    placeholder="Add another option"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddChoice();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleAddChoice}
+                    variant="outline"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="requires_agreement">
+                      Requires Agreement
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      User must agree to proceed
+                    </p>
+                  </div>
+                  <Switch
+                    id="requires_agreement"
+                    checked={formData.requires_agreement}
+                    onCheckedChange={(checked) =>
+                      setFormData({ ...formData, requires_agreement: checked })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="beluga_consent_code">
+                  Beluga Consent Code (Optional)
+                </Label>
+                <Input
+                  id="beluga_consent_code"
+                  value={formData.beluga_consent_code}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      beluga_consent_code: e.target.value,
+                    })
+                  }
+                  placeholder="e.g., HIPAA_AUTH"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Number Validation Settings */}
+          {formData.question_type === "number" && (
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="enable_number_validation">
+                    Enable Validation
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Add validation rules for numeric input (e.g., BMI must be
+                    greater than 27)
+                  </p>
+                </div>
+                <Switch
+                  id="enable_number_validation"
+                  checked={enableNumberValidation}
+                  onCheckedChange={(checked) => {
+                    setEnableNumberValidation(checked);
+                    if (!checked) {
+                      setNumberValidationValue("");
+                    }
+                  }}
+                />
+              </div>
+
+              {enableNumberValidation && (
+                <div className="space-y-3 mt-3 pl-4 border-l-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="validation_operator">Operator</Label>
+                      <Select
+                        value={numberValidationOperator}
+                        onValueChange={(value: unknown) =>
+                          setNumberValidationOperator(value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="gt">
+                            Greater than (&gt;)
+                          </SelectItem>
+                          <SelectItem value="gte">
+                            Greater than or equal (≥)
+                          </SelectItem>
+                          <SelectItem value="lt">Less than (&lt;)</SelectItem>
+                          <SelectItem value="lte">
+                            Less than or equal (≤)
+                          </SelectItem>
+                          <SelectItem value="eq">Equal to (=)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="validation_value">
+                        Value <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="validation_value"
+                        type="number"
+                        step="any"
+                        value={numberValidationValue}
+                        onChange={(e) =>
+                          setNumberValidationValue(
+                            e.target.value === "" ? "" : Number(e.target.value)
+                          )
+                        }
+                        placeholder="e.g., 27"
+                      />
+                    </div>
+                  </div>
+                  {numberValidationValue !== "" && (
+                    <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                      ℹ️ Value must be{" "}
+                      {numberValidationOperator === "gt"
+                        ? "greater than"
+                        : numberValidationOperator === "gte"
+                        ? "greater than or equal to"
+                        : numberValidationOperator === "lt"
+                        ? "less than"
+                        : numberValidationOperator === "lte"
+                        ? "less than or equal to"
+                        : "equal to"}{" "}
+                      {numberValidationValue}
+                    </p>
                   )}
                 </div>
               )}
             </div>
+          )}
 
-            {/* Toggles */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="is_required">Required Question</Label>
-                <Switch
-                  id="is_required"
-                  checked={formData.is_required}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, is_required: checked })
-                  }
-                />
-              </div>
+          {/* Beluga Field Mapping */}
+          <div className="space-y-2">
+            <Label htmlFor="beluga_field_mapping">Beluga Field Mapping</Label>
+            <Select
+              value={formData.beluga_field_mapping}
+              onValueChange={(value) =>
+                setFormData({ ...formData, beluga_field_mapping: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select field mapping" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="first_name">First Name</SelectItem>
+                <SelectItem value="last_name">Last Name</SelectItem>
+                <SelectItem value="date_of_birth">Date of Birth</SelectItem>
+                <SelectItem value="email">Email</SelectItem>
+                <SelectItem value="phone">Phone</SelectItem>
+                <SelectItem value="address">Address</SelectItem>
+                <SelectItem value="height">Height</SelectItem>
+                <SelectItem value="weight">Weight</SelectItem>
+                <SelectItem value="medical_history">Medical History</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-              <div className="flex items-center justify-between">
-                <Label htmlFor="include_in_qa">Include in QA Section</Label>
-                <Switch
-                  id="include_in_qa"
-                  checked={formData.include_in_qa_section}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, include_in_qa_section: checked })
-                  }
-                />
+          {/* Follow-up Settings */}
+          <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="is_follow_up">Is Follow-up Question</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Show this question only when a parent question has a specific
+                  answer
+                </p>
               </div>
+              <Switch
+                id="is_follow_up"
+                checked={formData.is_follow_up}
+                onCheckedChange={(checked) => {
+                  setFormData({
+                    ...formData,
+                    is_follow_up: checked,
+                    parent_question_id: checked
+                      ? formData.parent_question_id
+                      : "",
+                    trigger_value: checked ? formData.trigger_value : "",
+                  });
+                }}
+                disabled={parentQuestionOptions.length === 0}
+              />
             </div>
 
-            {/* Actions */}
-            <div className="flex justify-end gap-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={loading}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading
-                  ? "Saving..."
-                  : question
-                  ? "Update Question"
-                  : "Create Question"}
-              </Button>
+            {parentQuestionOptions.length === 0 && (
+              <p className="text-xs text-amber-600">
+                No existing questions available. Add other questions first to
+                create follow-ups.
+              </p>
+            )}
+
+            {showFollowUpSettings && (
+              <div className="space-y-3 mt-3 pl-4 border-l-2">
+                {/* Parent Question */}
+                <div className="space-y-2">
+                  <Label htmlFor="parent_question">
+                    Parent Question <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={formData.parent_question_id}
+                    onValueChange={(value) => {
+                      setFormData({
+                        ...formData,
+                        parent_question_id: value,
+                        trigger_value: "",
+                      });
+                      setTriggerValues([]);
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select parent question" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {parentQuestionOptions.map((q) => (
+                        <SelectItem key={q.id} value={q.id}>
+                          {q.order_index ? `${q.order_index}. ` : ""}
+                          {q.question_text}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Trigger Values (Multiple Selection) */}
+                {selectedParent && (
+                  <div className="space-y-2">
+                    <Label htmlFor="trigger_values">
+                      Trigger Values <span className="text-red-500">*</span>
+                    </Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Select one or more parent options that will trigger this
+                      follow-up question
+                    </p>
+                    {triggerOptions.length > 0 ? (
+                      <div className="space-y-2">
+                        {/* Selected trigger values */}
+                        {triggerValues.length > 0 && (
+                          <div className="flex flex-wrap gap-2 p-2 bg-muted/50 rounded">
+                            {triggerValues.map((value, idx) => (
+                              <div
+                                key={idx}
+                                className="flex items-center gap-1 bg-primary text-primary-foreground px-3 py-1 rounded text-sm font-medium"
+                              >
+                                <span>{value}</span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setTriggerValues(
+                                      triggerValues.filter((v) => v !== value)
+                                    )
+                                  }
+                                  className="ml-1 hover:text-red-200 font-bold text-lg leading-none"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Dropdown to add trigger values */}
+                        <Select
+                          value=""
+                          onValueChange={(value) => {
+                            if (value && !triggerValues.includes(value)) {
+                              setTriggerValues([...triggerValues, value]);
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select trigger value(s)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {triggerOptions.map((option, idx) => (
+                              <SelectItem
+                                key={idx}
+                                value={option}
+                                disabled={triggerValues.includes(option)}
+                              >
+                                {option}{" "}
+                                {triggerValues.includes(option) ? "✓" : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        {triggerValues.length > 0 && (
+                          <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                            ℹ️ This question will show when the parent question
+                            has{" "}
+                            {triggerValues.length === 1
+                              ? "this value"
+                              : "any of these values"}
+                            : {triggerValues.join(", ")}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-amber-600 p-2 bg-amber-50 rounded">
+                        The selected parent question has no answer choices.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Toggles */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="is_required">Required Question</Label>
+              <Switch
+                id="is_required"
+                checked={formData.is_required}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, is_required: checked })
+                }
+              />
             </div>
-          </form>
-        )}
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="include_in_qa">Include in QA Section</Label>
+              <Switch
+                id="include_in_qa"
+                checked={formData.include_in_qa_section}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, include_in_qa_section: checked })
+                }
+              />
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading
+                ? "Saving..."
+                : question
+                ? "Update Question"
+                : "Create Question"}
+            </Button>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
