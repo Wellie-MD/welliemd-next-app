@@ -12,6 +12,7 @@ import { Loader2 } from 'lucide-react';
 // Import pages
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
+import ClientForm from "./pages/ClientForm";
 import Treatments from "./pages/Treatments";
 import Products from "./pages/Products";
 import BillingPlans from "./pages/BillingPlans";
@@ -93,6 +94,8 @@ const App = () => {
                   <Routes>
                     <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                     <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
+                    <Route path="/clients/create" element={<ProtectedRoute><ClientForm /></ProtectedRoute>} />
+                    <Route path="/clients/:id/edit" element={<ProtectedRoute><ClientForm /></ProtectedRoute>} />
                     <Route path="/treatments" element={<ProtectedRoute><Treatments /></ProtectedRoute>} />
                     <Route path="/treatments/configurations" element={<ProtectedRoute><TreatmentConfigurations /></ProtectedRoute>} />
                     <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />

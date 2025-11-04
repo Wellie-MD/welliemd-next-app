@@ -1,12 +1,16 @@
 "use client"
 
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import { clientApi } from '@/api/clientApi';
 import { ClientDataTable } from '@/components/clients/ClientDataTable';
 import { Skeleton } from '@/components/ui/skeleton';
-import CreateClientForm from "@/components/clients/CreateClientForm";
+import { Button } from '@/components/ui/button';
 
 export default function Clients() {
+  const navigate = useNavigate();
+  
   const { data: clients, isLoading, isError } = useQuery({
     queryKey: ['clients'],
     queryFn: clientApi.list,
@@ -16,8 +20,16 @@ export default function Clients() {
     return (
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">All Clients</h2>
-          <CreateClientForm onCreate={() => {}} />
+          <div>
+            <h2 className="text-2xl font-bold">All Clients</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Manage client organizations and their configurations
+            </p>
+          </div>
+          <Button onClick={() => navigate('/dashboard/clients/create')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Client
+          </Button>
         </div>
         <div className="space-y-4">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -32,8 +44,16 @@ export default function Clients() {
     return (
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">All Clients</h2>
-          <CreateClientForm onCreate={() => {}} />
+          <div>
+            <h2 className="text-2xl font-bold">All Clients</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Manage client organizations and their configurations
+            </p>
+          </div>
+          <Button onClick={() => navigate('/dashboard/clients/create')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Client
+          </Button>
         </div>
         <div className="text-center py-8">
           <p className="text-red-500">Failed to load clients. Please try again.</p>
@@ -45,8 +65,16 @@ export default function Clients() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">All Clients</h2>
-        <CreateClientForm onCreate={() => {}} />
+        <div>
+          <h2 className="text-2xl font-bold">All Clients</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage client organizations and their configurations
+          </p>
+        </div>
+        <Button onClick={() => navigate('/dashboard/clients/create')}>
+          <Plus className="h-4 w-4 mr-2" />
+          Create Client
+        </Button>
       </div>
       <ClientDataTable clients={clients || []} />
     </div>
