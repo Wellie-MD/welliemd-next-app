@@ -74,7 +74,6 @@ const questionColumns = [
     ),
   },
   { key: "order_index", label: "Order" },
-  { key: "created_at", label: "Created At" },
 ];
 
 export default function QuestionnaireQuestions() {

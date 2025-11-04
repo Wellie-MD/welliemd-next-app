@@ -6,7 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "@/components/ui/use-toast";
-import { templateApi, QuestionnaireTemplate, assignmentApi } from "@/api/questionnaires";
+import {
+  templateApi,
+  QuestionnaireTemplate,
+  assignmentApi,
+} from "@/api/questionnaires";
 import { clientApi, Client } from "@/api/clientApi";
 import { useNavigate } from "react-router-dom";
 
@@ -75,12 +79,19 @@ export default function TemplateAssignment() {
     fetchData();
   }, []);
 
-  // Filter templates based on search
+  // Filter templates based on search and publication status
+  // Only show published templates (hide drafts)
   const filteredTemplates = useMemo(() => {
-    if (!templateSearch.trim()) return templates;
+    // First filter: only published templates
+    const publishedTemplates = templates.filter(
+      (template) => template.is_published === true
+    );
+
+    // Second filter: search
+    if (!templateSearch.trim()) return publishedTemplates;
 
     const search = templateSearch.toLowerCase();
-    return templates.filter(
+    return publishedTemplates.filter(
       (template) =>
         template.name.toLowerCase().includes(search) ||
         template.questionnaire_type?.toLowerCase().includes(search)
@@ -159,18 +170,37 @@ export default function TemplateAssignment() {
       return;
     }
 
+    // Validate that all selected templates are published
+    const selectedTemplateIds = Array.from(selectedTemplates);
+    const draftTemplates = templates.filter(
+      (t) => selectedTemplateIds.includes(t.id) && !t.is_published
+    );
+
+    if (draftTemplates.length > 0) {
+      toast({
+        title: "Draft Templates Selected",
+        description: `Cannot assign draft templates. Please publish them first: ${draftTemplates
+          .map((t) => t.name)
+          .join(", ")}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setLoading(true);
 
       const result = await assignmentApi.assignToClients({
-        template_ids: Array.from(selectedTemplates),
+        template_ids: selectedTemplateIds,
         client_ids: Array.from(selectedClients),
       });
 
       if (result.success) {
         toast({
           title: "Success",
-          description: result.message || `Assigned ${result.successful} template(s) successfully`,
+          description:
+            result.message ||
+            `Assigned ${result.successful} template(s) successfully`,
         });
 
         // Clear selections after successful assignment
@@ -187,7 +217,8 @@ export default function TemplateAssignment() {
       console.error("Assignment error:", error);
       toast({
         title: "Error",
-        description: error.response?.data?.error || "Failed to assign templates",
+        description:
+          error.response?.data?.error || "Failed to assign templates",
         variant: "destructive",
       });
     } finally {
@@ -223,113 +254,114 @@ export default function TemplateAssignment() {
             size="sm"
             onClick={() => navigate("/dashboard/questionnaires")}
           >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold">
-                Assign Templates to Clients
-              </h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Select templates and clients to create assignments
-              </p>
-            </div>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Assign Templates to Clients</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Select templates and clients to create assignments
+            </p>
+          </div>
+        </div>
+        <Button
+          onClick={handleAssign}
+          disabled={selectedTemplates.size === 0 || selectedClients.size === 0}
+          size="lg"
+        >
+          Assign Templates
+        </Button>
+      </div>
+
+      {/* Selection Summary */}
+      {(selectedTemplates.size > 0 || selectedClients.size > 0) && (
+        <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-blue-900">
+              {selectedTemplates.size} template(s) selected •{" "}
+              {selectedClients.size} client(s) selected
+            </p>
           </div>
           <Button
-            onClick={handleAssign}
-            disabled={
-              selectedTemplates.size === 0 || selectedClients.size === 0
-            }
-            size="lg"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSelectedTemplates(new Set());
+              setSelectedClients(new Set());
+            }}
           >
-            Assign Templates
+            Clear All
           </Button>
         </div>
+      )}
 
-        {/* Selection Summary */}
-        {(selectedTemplates.size > 0 || selectedClients.size > 0) && (
-          <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex-1">
-              <p className="text-sm font-medium text-blue-900">
-                {selectedTemplates.size} template(s) selected •{" "}
-                {selectedClients.size} client(s) selected
-              </p>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSelectedTemplates(new Set());
-                setSelectedClients(new Set());
-              }}
-            >
-              Clear All
-            </Button>
-          </div>
-        )}
-
-        {/* Dual List Transfer Interface */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Templates List */}
-          <div className="border rounded-lg bg-white shadow-sm">
-            <div className="p-4 border-b bg-gray-50">
-              <div className="flex items-center justify-between mb-3">
+      {/* Dual List Transfer Interface */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Templates List */}
+        <div className="border rounded-lg bg-white shadow-sm">
+          <div className="p-4 border-b bg-gray-50">
+            <div className="flex items-center justify-between mb-3">
+              <div>
                 <h2 className="text-lg font-semibold">Templates</h2>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={selectAllTemplates}
-                    disabled={filteredTemplates.length === 0}
-                  >
-                    Select All
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={deselectAllTemplates}
-                    disabled={selectedTemplates.size === 0}
-                  >
-                    Clear
-                  </Button>
-                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Only published templates can be assigned
+                </p>
               </div>
-
-              {/* Template Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={templateSearch}
-                  onChange={(e) => setTemplateSearch(e.target.value)}
-                  placeholder="Search templates..."
-                  className="pl-9 pr-9"
-                />
-                {templateSearch && (
-                  <button
-                    onClick={() => setTemplateSearch("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={selectAllTemplates}
+                  disabled={filteredTemplates.length === 0}
+                >
+                  Select All
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={deselectAllTemplates}
+                  disabled={selectedTemplates.size === 0}
+                >
+                  Clear
+                </Button>
               </div>
             </div>
 
-            <ScrollArea className="h-[calc(100vh-28rem)]">
-              <div className="p-2">
-                {filteredTemplates.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    {templateSearch
-                      ? "No templates found"
-                      : "No templates available"}
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {filteredTemplates.map((template) => (
-                      <div
-                        key={template.id}
-                        onClick={() => toggleTemplate(template.id)}
-                        className={`
+            {/* Template Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={templateSearch}
+                onChange={(e) => setTemplateSearch(e.target.value)}
+                placeholder="Search templates..."
+                className="pl-9 pr-9"
+              />
+              {templateSearch && (
+                <button
+                  onClick={() => setTemplateSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <ScrollArea className="h-[calc(100vh-28rem)]">
+            <div className="p-2">
+              {filteredTemplates.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  {templateSearch
+                    ? "No templates found"
+                    : "No templates available"}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {filteredTemplates.map((template) => (
+                    <div
+                      key={template.id}
+                      onClick={() => toggleTemplate(template.id)}
+                      className={`
                         flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors
                         ${
                           selectedTemplates.has(template.id)
@@ -337,103 +369,96 @@ export default function TemplateAssignment() {
                             : "hover:bg-gray-50 border-2 border-transparent"
                         }
                       `}
-                      >
-                        <Checkbox
-                          checked={selectedTemplates.has(template.id)}
-                          onCheckedChange={() => toggleTemplate(template.id)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="mt-1"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="font-medium text-sm truncate">
-                              {template.name}
-                            </p>
-                            {template.is_published && (
-                              <Badge variant="default" className="text-xs">
-                                Published
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {formatTemplateType(template.questionnaire_type)}
+                    >
+                      <Checkbox
+                        checked={selectedTemplates.has(template.id)}
+                        onCheckedChange={() => toggleTemplate(template.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-1"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate mb-1">
+                          {template.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatTemplateType(template.questionnaire_type)}
+                        </p>
+                        {template.question_count !== undefined && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {template.question_count} question(s)
                           </p>
-                          {template.question_count !== undefined && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {template.question_count} question(s)
-                            </p>
-                          )}
-                        </div>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </ScrollArea>
 
-            <div className="p-3 border-t bg-gray-50 text-sm text-muted-foreground">
-              {selectedTemplates.size} of {filteredTemplates.length} selected
+          <div className="p-3 border-t bg-gray-50 text-sm text-muted-foreground">
+            {selectedTemplates.size} of {filteredTemplates.length} selected
+          </div>
+        </div>
+
+        {/* Clients List */}
+        <div className="border rounded-lg bg-white shadow-sm">
+          <div className="p-4 border-b bg-gray-50">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold">Clients</h2>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={selectAllClients}
+                  disabled={filteredClients.length === 0}
+                >
+                  Select All
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={deselectAllClients}
+                  disabled={selectedClients.size === 0}
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
+
+            {/* Client Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={clientSearch}
+                onChange={(e) => setClientSearch(e.target.value)}
+                placeholder="Search clients..."
+                className="pl-9 pr-9"
+              />
+              {clientSearch && (
+                <button
+                  onClick={() => setClientSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Clients List */}
-          <div className="border rounded-lg bg-white shadow-sm">
-            <div className="p-4 border-b bg-gray-50">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-semibold">Clients</h2>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={selectAllClients}
-                    disabled={filteredClients.length === 0}
-                  >
-                    Select All
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={deselectAllClients}
-                    disabled={selectedClients.size === 0}
-                  >
-                    Clear
-                  </Button>
+          <ScrollArea className="h-[calc(100vh-28rem)]">
+            <div className="p-2">
+              {filteredClients.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  {clientSearch ? "No clients found" : "No clients available"}
                 </div>
-              </div>
-
-              {/* Client Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={clientSearch}
-                  onChange={(e) => setClientSearch(e.target.value)}
-                  placeholder="Search clients..."
-                  className="pl-9 pr-9"
-                />
-                {clientSearch && (
-                  <button
-                    onClick={() => setClientSearch("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <ScrollArea className="h-[calc(100vh-28rem)]">
-              <div className="p-2">
-                {filteredClients.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    {clientSearch ? "No clients found" : "No clients available"}
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {filteredClients.map((client) => (
-                      <div
-                        key={client.id}
-                        onClick={() => toggleClient(client.id)}
-                        className={`
+              ) : (
+                <div className="space-y-1">
+                  {filteredClients.map((client) => (
+                    <div
+                      key={client.id}
+                      onClick={() => toggleClient(client.id)}
+                      className={`
                         flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors
                         ${
                           selectedClients.has(client.id)
@@ -441,48 +466,48 @@ export default function TemplateAssignment() {
                             : "hover:bg-gray-50 border-2 border-transparent"
                         }
                       `}
-                      >
-                        <Checkbox
-                          checked={selectedClients.has(client.id)}
-                          onCheckedChange={() => toggleClient(client.id)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="mt-1"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="font-medium text-sm truncate">
-                              {client.name}
-                            </p>
-                            {client.is_active && (
-                              <Badge variant="default" className="text-xs">
-                                Active
-                              </Badge>
-                            )}
-                          </div>
-                          {client.user && (
-                            <>
-                              <p className="text-xs text-muted-foreground truncate">
-                                {client.user.full_name ||
-                                  `${client.user.first_name} ${client.user.last_name}`}
-                              </p>
-                              <p className="text-xs text-muted-foreground truncate">
-                                {client.user.email}
-                              </p>
-                            </>
+                    >
+                      <Checkbox
+                        checked={selectedClients.has(client.id)}
+                        onCheckedChange={() => toggleClient(client.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-1"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-sm truncate">
+                            {client.name}
+                          </p>
+                          {client.is_active && (
+                            <Badge variant="default" className="text-xs">
+                              Active
+                            </Badge>
                           )}
                         </div>
+                        {client.user && (
+                          <>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {client.user.full_name ||
+                                `${client.user.first_name} ${client.user.last_name}`}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {client.user.email}
+                            </p>
+                          </>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-
-            <div className="p-3 border-t bg-gray-50 text-sm text-muted-foreground">
-              {selectedClients.size} of {filteredClients.length} selected
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+          </ScrollArea>
+
+          <div className="p-3 border-t bg-gray-50 text-sm text-muted-foreground">
+            {selectedClients.size} of {filteredClients.length} selected
           </div>
         </div>
+      </div>
     </div>
   );
 }

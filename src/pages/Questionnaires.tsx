@@ -19,8 +19,13 @@ import AddQuestionnairesForm from "@/components/questionnaires/AddQuestionnaires
 import { toast } from "@/components/ui/use-toast";
 import { DateRange } from "react-day-picker";
 import { isWithinInterval, parseISO, format } from "date-fns";
+import { useState as useLoadingState } from "react";
 
-const getTemplateColumns = (navigate: ReturnType<typeof useNavigate>) => [
+const getTemplateColumns = (
+  navigate: ReturnType<typeof useNavigate>,
+  handlePublishToggle: (template: QuestionnaireTemplate) => Promise<void>,
+  publishingIds: Set<string>
+) => [
   {
     key: "name",
     label: "Name",
@@ -54,11 +59,29 @@ const getTemplateColumns = (navigate: ReturnType<typeof useNavigate>) => [
     },
   },
   {
+    key: "review",
+    label: "Review",
+    render: (_value: unknown, row: QuestionnaireTemplate) => {
+      const isPublishing = publishingIds.has(row.id);
+      return (
+        <Button
+          variant={row.is_published ? "outline" : "default"}
+          size="sm"
+          onClick={() => handlePublishToggle(row)}
+          disabled={isPublishing}
+          className={row.is_published ? "text-red-600 border-red-600 hover:bg-red-50" : ""}
+        >
+          {isPublishing ? "Processing..." : row.is_published ? "Unpublish" : "Publish"}
+        </Button>
+      );
+    },
+  },
+  {
     key: "is_published",
     label: "Status",
     render: (value: boolean) => (
-      <Badge variant={value ? "default" : "secondary"}>
-        {value ? "Published" : "Draft"}
+      <Badge variant={value ? "default" : "secondary"} className={value ? "bg-green-100 text-green-800" : ""}>
+        {value ? "Approved" : "Draft"}
       </Badge>
     ),
   },
@@ -90,6 +113,7 @@ export default function Questionnaires() {
   const [activeStatusFilter, setActiveStatusFilter] = useState("All");
   const [activeTypeFilter, setActiveTypeFilter] = useState("All Types");
   const [date, setDate] = useState<DateRange | undefined>();
+  const [publishingIds, setPublishingIds] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
 
   const fetchTemplates = async () => {
@@ -165,6 +189,47 @@ export default function Questionnaires() {
 
   const handleViewQuestions = (template: QuestionnaireTemplate) => {
     navigate(`/dashboard/questionnaires/${template.id}/questions`);
+  };
+
+  const handlePublishToggle = async (template: QuestionnaireTemplate) => {
+    // Add to publishing set
+    setPublishingIds((prev) => new Set(prev).add(template.id));
+
+    try {
+      if (template.is_published) {
+        // Unpublish
+        await templateApi.unpublishTemplate(template.id);
+        toast({
+          title: "Success",
+          description: `Template "${template.name}" has been unpublished`,
+        });
+      } else {
+        // Publish
+        await templateApi.publishTemplate(template.id);
+        toast({
+          title: "Success",
+          description: `Template "${template.name}" has been published`,
+        });
+      }
+      // Refresh templates to get updated status
+      fetchTemplates();
+    } catch (error: unknown) {
+      toast({
+        title: "Error",
+        description:
+          error.response?.data?.error ||
+          error.message ||
+          `Failed to ${template.is_published ? "unpublish" : "publish"} template`,
+        variant: "destructive",
+      });
+    } finally {
+      // Remove from publishing set
+      setPublishingIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(template.id);
+        return newSet;
+      });
+    }
   };
 
   // Comprehensive filtering logic
@@ -326,7 +391,7 @@ export default function Questionnaires() {
         <DataTable
           data={templatesWithActions}
           columns={[
-            ...getTemplateColumns(navigate),
+            ...getTemplateColumns(navigate, handlePublishToggle, publishingIds),
             { key: "actions", label: "Actions" },
           ]}
           searchPlaceholder="Search templates by name or type"

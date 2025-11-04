@@ -28,7 +28,7 @@ export interface FlowGenerationResult {
 interface ConditionalLogic {
   show_if?: {
     question_id: string;
-    value: string;
+    value: string | string[];
     operator: string;
   };
   disqualify_if?:
@@ -222,16 +222,25 @@ function generateEdges(questions: Question[], questionNodes: Node[], disqualifyN
 
   // Group questions by their show_if condition to handle duplicates
   // Key: "parentQuestionId|value", Value: array of questions with that condition
+  // For questions with multiple trigger values, we only add them once (to avoid duplicates)
   const conditionalGroups = new Map<string, Question[]>();
+  const processedQuestions = new Set<string>();
   
   questions.forEach((question) => {
     const logic = question.conditional_logic as ConditionalLogic;
     if (logic?.show_if) {
-      const key = `${logic.show_if.question_id}|${logic.show_if.value}`;
-      if (!conditionalGroups.has(key)) {
-        conditionalGroups.set(key, []);
+      const values = Array.isArray(logic.show_if.value) ? logic.show_if.value : [logic.show_if.value];
+      
+      // Only add the question once, using the first trigger value as the key
+      if (!processedQuestions.has(question.id)) {
+        const firstValue = values[0];
+        const key = `${logic.show_if.question_id}|${firstValue}`;
+        if (!conditionalGroups.has(key)) {
+          conditionalGroups.set(key, []);
+        }
+        conditionalGroups.get(key)!.push(question);
+        processedQuestions.add(question.id);
       }
-      conditionalGroups.get(key)!.push(question);
     }
   });
 
@@ -289,9 +298,12 @@ function generateEdges(questions: Question[], questionNodes: Node[], disqualifyN
       }
       
       if (isParent) {
-        const key = `${question.id}|${logic.show_if.value}`;
-        console.log(`  Conditional rule: Q${question.order_index} choice "${logic.show_if.value}" triggers Q${otherQ.order_index}`);
-        choicesWithRules.set(key, true);
+        const values = Array.isArray(logic.show_if.value) ? logic.show_if.value : [logic.show_if.value];
+        values.forEach(value => {
+          const key = `${question.id}|${value}`;
+          console.log(`  Conditional rule: Q${question.order_index} choice "${value}" triggers Q${otherQ.order_index}`);
+          choicesWithRules.set(key, true);
+        });
       }
     });
   });
@@ -336,30 +348,39 @@ function generateEdges(questions: Question[], questionNodes: Node[], disqualifyN
       // Create edges from choices that DON'T have conditional/disqualify rules
       const choices = currentQuestion.answer_choices;
       
-      choices.forEach((choice, choiceIndex) => {
-        const choiceKey = `${currentQuestion.id}|${choice}`;
-        const hasRule = choicesWithRules.has(choiceKey);
-        
-        // Only create sequential edge if this choice doesn't have a rule
-        if (!hasRule) {
-          console.log(`Creating sequential edge: Q${currentQuestion.order_index} choice "${choice}" -> Q${targetQuestion.order_index}`);
-          edges.push({
-            id: `e-order-${currentQuestion.id}-choice-${choiceIndex}-${targetQuestion.id}`,
-            source: currentQuestion.id,
-            sourceHandle: `choice-${choiceIndex}`,
-            target: targetQuestion.id,
-            type: "default",
-            animated: false,
-            style: { stroke: "#94a3b8", strokeWidth: 2 },
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              color: "#94a3b8",
-            },
-          });
-        } else {
-          console.log(`Skipping sequential edge for Q${currentQuestion.order_index} choice "${choice}" (has rule)`);
-        }
-      });
+      // Don't create any sequential edges if the target is still a conditional question
+      // This can happen if all remaining questions are conditional
+      const targetIsConditional = questionsWithIncomingConditional.has(targetQuestion.id) && 
+                                  !questionsInConditionalChain.has(targetQuestion.id);
+      
+      if (!targetIsConditional) {
+        choices.forEach((choice, choiceIndex) => {
+          const choiceKey = `${currentQuestion.id}|${choice}`;
+          const hasRule = choicesWithRules.has(choiceKey);
+          
+          // Only create sequential edge if this choice doesn't have a rule
+          if (!hasRule) {
+            console.log(`Creating sequential edge: Q${currentQuestion.order_index} choice "${choice}" -> Q${targetQuestion.order_index}`);
+            edges.push({
+              id: `e-order-${currentQuestion.id}-choice-${choiceIndex}-${targetQuestion.id}`,
+              source: currentQuestion.id,
+              sourceHandle: `choice-${choiceIndex}`,
+              target: targetQuestion.id,
+              type: "default",
+              animated: false,
+              style: { stroke: "#94a3b8", strokeWidth: 2 },
+              markerEnd: {
+                type: MarkerType.ArrowClosed,
+                color: "#94a3b8",
+              },
+            });
+          } else {
+            console.log(`Skipping sequential edge for Q${currentQuestion.order_index} choice "${choice}" (has rule)`);
+          }
+        });
+      } else {
+        console.log(`Skipping all sequential edges from Q${currentQuestion.order_index} - target Q${targetQuestion.order_index} is conditional`);
+      }
     } else {
       // For non-choice questions, skip if next is conditional
       if (nextIsFirstConditional) {
@@ -391,19 +412,23 @@ function generateEdges(questions: Question[], questionNodes: Node[], disqualifyN
 
     // Generate follow-up edges (show_if) - but only for the FIRST question in each group
     if (logic?.show_if) {
-      const groupKey = `${logic.show_if.question_id}|${logic.show_if.value}`;
+      const values = Array.isArray(logic.show_if.value) ? logic.show_if.value : [logic.show_if.value];
       
-      // Only create edge if this is the first question in this conditional group
-      if (!processedConditionalGroups.has(groupKey)) {
-        processedConditionalGroups.add(groupKey);
+      values.forEach(value => {
+        const groupKey = `${logic.show_if.question_id}|${value}`;
         
-        const followUpEdges = generateFollowUpEdges(
-          question,
-          logic.show_if,
-          questions
-        );
-        edges.push(...followUpEdges);
-      }
+        // Only create edge if this is the first question in this conditional group
+        if (!processedConditionalGroups.has(groupKey)) {
+          processedConditionalGroups.add(groupKey);
+          
+          const followUpEdges = generateFollowUpEdges(
+            question,
+            { ...logic.show_if, value },
+            questions
+          );
+          edges.push(...followUpEdges);
+        }
+      });
     }
 
     // Generate disqualify edges from validation_rules
@@ -517,7 +542,7 @@ function generateDisqualifyEdgesFromValidation(
 
   if (!validationRules) return edges;
 
-  // Get disqualifying answers from validation_rules
+  // Handle choice-based disqualifying answers
   const disqualifyingAnswers: string[] = [];
   
   if (validationRules.disqualifying_answer) {
@@ -528,9 +553,7 @@ function generateDisqualifyEdgesFromValidation(
     disqualifyingAnswers.push(...validationRules.disqualifying_answers);
   }
 
-  if (disqualifyingAnswers.length === 0) return edges;
-
-  // Create edges for each disqualifying answer
+  // Create edges for each disqualifying answer (choice-based questions)
   disqualifyingAnswers.forEach((answer) => {
     if (!question.answer_choices) return;
 
@@ -580,6 +603,61 @@ function generateDisqualifyEdgesFromValidation(
       },
     });
   });
+
+  // Handle number validation disqualifying rules
+  if (question.question_type === "number") {
+    let disqualifyLabel = "";
+    
+    if (validationRules.greater_than !== undefined) {
+      disqualifyLabel = `If ≤ ${validationRules.greater_than}`;
+    } else if (validationRules.greater_than_or_equal !== undefined) {
+      disqualifyLabel = `If < ${validationRules.greater_than_or_equal}`;
+    } else if (validationRules.less_than !== undefined) {
+      disqualifyLabel = `If ≥ ${validationRules.less_than}`;
+    } else if (validationRules.less_than_or_equal !== undefined) {
+      disqualifyLabel = `If > ${validationRules.less_than_or_equal}`;
+    } else if (validationRules.equals !== undefined) {
+      disqualifyLabel = `If ≠ ${validationRules.equals}`;
+    }
+    
+    if (disqualifyLabel) {
+      edges.push({
+        id: `e-${question.id}-number-validation-disqualify`,
+        source: question.id,
+        target: disqualifyNodeId,
+        type: "conditional",
+        animated: true,
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: "#ef4444",
+        },
+        data: {
+          label: disqualifyLabel,
+          condition: {
+            value: "validation_failed",
+            operator: "disqualify",
+          },
+        },
+        label: disqualifyLabel,
+        labelStyle: {
+          fill: "#991b1b",
+          fontWeight: 600,
+          fontSize: 12,
+        },
+        labelBgStyle: {
+          fill: "#fee2e2",
+          fillOpacity: 0.9,
+        },
+        labelBgPadding: [8, 4] as [number, number],
+        labelBgBorderRadius: 4,
+        style: {
+          stroke: "#ef4444",
+          strokeWidth: 2,
+          strokeDasharray: "5,5",
+        },
+      });
+    }
+  }
 
   return edges;
 }
