@@ -26,6 +26,7 @@ import Questionnaires from "./pages/Questionnaires";
 import QuestionnaireQuestions from "./pages/QuestionnaireQuestions";
 import FlowBuilder from "./pages/FlowBuilder";
 import TemplateAssignment from "./pages/TemplateAssignment";
+import TemplateAssignmentHistory from "./pages/TemplateAssignmentHistory";
 import Pharmacies from "./pages/Pharmacies";
 import TreatmentConfigurations from "./pages/TreatmentConfigurations";
 import Orders from "./pages/Orders";
@@ -117,6 +118,7 @@ const App = () => {
                     <Route path="/affiliates" element={<ProtectedRoute><Affiliates /></ProtectedRoute>} />
                     <Route path="/questionnaires" element={<ProtectedRoute><Questionnaires /></ProtectedRoute>} />
                     <Route path="/questionnaires/assign" element={<ProtectedRoute><TemplateAssignment /></ProtectedRoute>} />
+                    <Route path="/questionnaires/assignment-history" element={<ProtectedRoute><TemplateAssignmentHistory /></ProtectedRoute>} />
                     <Route path="/questionnaires/:templateId" element={<ProtectedRoute><QuestionnaireQuestions /></ProtectedRoute>} />
                     <Route path="/questionnaires/:templateId/questions" element={<ProtectedRoute><QuestionnaireQuestions /></ProtectedRoute>} />
                     <Route path="/questionnaires/:templateId/flow-builder" element={<ProtectedRoute><FlowBuilder /></ProtectedRoute>} />

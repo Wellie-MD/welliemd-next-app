@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, ArrowRight, Search, X } from "lucide-react";
+import { ArrowLeft, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -264,13 +264,26 @@ export default function TemplateAssignment() {
             </p>
           </div>
         </div>
-        <Button
-          onClick={handleAssign}
-          disabled={selectedTemplates.size === 0 || selectedClients.size === 0}
-          size="lg"
-        >
-          Assign Templates
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() =>
+              navigate("/dashboard/questionnaires/assignment-history")
+            }
+            size="lg"
+          >
+            Assignment History
+          </Button>
+          <Button
+            onClick={handleAssign}
+            disabled={
+              selectedTemplates.size === 0 || selectedClients.size === 0
+            }
+            size="lg"
+          >
+            Assign Templates
+          </Button>
+        </div>
       </div>
 
       {/* Selection Summary */}
