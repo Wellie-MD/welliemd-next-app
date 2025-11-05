@@ -88,7 +88,11 @@ export default function Products() {
 
   const fetchProducts = async () => {
     try {
-      const res = await axiosInstance.get("/products/")
+      const res = await axiosInstance.get("/products/", {
+        params: {
+          page_size: 1000 // Fetch all products with a large page size
+        }
+      })
       const items: Product[] = res.data?.results ?? res.data ?? []
       setProducts(items)
     } catch (e) {
@@ -153,7 +157,7 @@ export default function Products() {
       }
       const matchesRxOtc =
         activeRxOtcFilter === "All" ||
-        (product as any).rx_or_otc === rxOtcMapping[activeRxOtcFilter]
+        (product as unknown).rx_or_otc === rxOtcMapping[activeRxOtcFilter]
 
       // Date range filter
       let matchesDateRange = true

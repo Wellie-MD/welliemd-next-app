@@ -26,6 +26,7 @@ import {
   Question,
   CreateQuestionPayload,
 } from "@/api/questionnaires";
+import { ProductSelector } from "./ProductSelector";
 
 interface QuestionFormProps {
   open: boolean;
@@ -106,7 +107,13 @@ export function QuestionForm({
   const [logicOperator, setLogicOperator] = useState<"AND" | "OR">("OR");
   
   // State for checkout question type
-  const [productName, setProductName] = useState<string>("");
+  const [checkoutConfig, setCheckoutConfig] = useState<{
+    product_id: string;
+    product_name: string;
+    pharmacy_id?: string;
+    pharmacy_name?: string;
+    beluga_medicine_id?: string;
+  } | null>(null);
 
   // Fetch template and existing questions when modal opens
   useEffect(() => {
@@ -195,9 +202,9 @@ export function QuestionForm({
       }
       setDisqualifyingAnswers(disqualifyingAnswersList);
 
-      // Extract product_name for checkout questions
-      if (question.question_type === "checkout" && validationRules?.product_name) {
-        setProductName(validationRules.product_name);
+      // Extract checkout_config for checkout questions
+      if (question.question_type === "checkout" && validationRules?.checkout_config) {
+        setCheckoutConfig(validationRules.checkout_config);
       }
 
       // Extract number validation rules
@@ -263,7 +270,7 @@ export function QuestionForm({
       setParentQuestions([]);
       setSelectedParentForAdding("");
       setLogicOperator("OR");
-      setProductName("");
+      setCheckoutConfig(null);
       setEnableNumberValidation(false);
       setNumberValidationOperator("gt");
       setNumberValidationValue("");
@@ -465,10 +472,10 @@ export function QuestionForm({
       }
 
       // Validate checkout question type
-      if (formData.question_type === "checkout" && !productName.trim()) {
+      if (formData.question_type === "checkout" && !checkoutConfig) {
         toast({
           title: "Validation Error",
-          description: "Product name is required for checkout questions",
+          description: "Product selection is required for checkout questions",
           variant: "destructive",
         });
         return;
@@ -484,7 +491,7 @@ export function QuestionForm({
         };
       } else if (formData.question_type === "checkout") {
         validationRules = {
-          product_name: productName,
+          checkout_config: checkoutConfig,
         };
       } else if (
         formData.question_type === "number" &&
@@ -692,23 +699,20 @@ export function QuestionForm({
             </Select>
           </div>
 
-          {/* Checkout Product Name */}
+          {/* Checkout Product Selection */}
           {formData.question_type === "checkout" && (
             <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
               <h3 className="font-semibold text-sm">Checkout Configuration</h3>
               <div className="space-y-2">
-                <Label htmlFor="product_name">
-                  Product Name <span className="text-red-500">*</span>
+                <Label>
+                  Select Product <span className="text-red-500">*</span>
                 </Label>
-                <Input
-                  id="product_name"
-                  value={productName}
-                  onChange={(e) => setProductName(e.target.value)}
-                  placeholder="Enter product name to display"
-                  required
+                <ProductSelector
+                  value={checkoutConfig}
+                  onChange={setCheckoutConfig}
                 />
                 <p className="text-xs text-muted-foreground">
-                  This product will be displayed to the patient for checkout
+                  This product will be displayed to the patient for checkout. The product's Beluga Med ID and pharmacy will be automatically included.
                 </p>
               </div>
             </div>
