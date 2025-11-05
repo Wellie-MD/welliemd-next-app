@@ -35,12 +35,18 @@ interface QuestionFormProps {
   onSuccess: () => void;
 }
 
+interface ParentQuestionConfig {
+  question_id: string;
+  trigger_values: string[];
+}
+
 interface ExtendedQuestionPayload extends CreateQuestionPayload {
   max_file_size?: number;
   allowed_extensions?: string[];
   is_follow_up?: boolean;
-  parent_question_id?: string;
-  trigger_value?: string;
+  parent_question_id?: string; // Deprecated - kept for backward compatibility
+  trigger_value?: string; // Deprecated - kept for backward compatibility
+  parent_questions?: ParentQuestionConfig[]; // New: supports multiple parents
   consent_text?: string;
   consent_type?: string;
   requires_agreement?: boolean;
@@ -93,6 +99,14 @@ export function QuestionForm({
     number | ""
   >("");
   const [triggerValues, setTriggerValues] = useState<string[]>([]);
+  
+  // New state for multiple parent questions
+  const [parentQuestions, setParentQuestions] = useState<ParentQuestionConfig[]>([]);
+  const [selectedParentForAdding, setSelectedParentForAdding] = useState<string>("");
+  const [logicOperator, setLogicOperator] = useState<"AND" | "OR">("OR");
+  
+  // State for checkout question type
+  const [productName, setProductName] = useState<string>("");
 
   // Fetch template and existing questions when modal opens
   useEffect(() => {
@@ -113,22 +127,63 @@ export function QuestionForm({
     if (question) {
       // Extract follow-up data from conditional_logic
       const isFollowUp = !!question.conditional_logic?.show_if;
-      const parentQuestionId =
-        question.conditional_logic?.show_if?.question_id || "";
-      const triggerValue = question.conditional_logic?.show_if?.value || "";
-
-      // Handle multiple trigger values
-      const triggerValuesList = Array.isArray(
-        question.conditional_logic?.show_if?.value
-      )
-        ? question.conditional_logic.show_if.value
-        : triggerValue
-        ? [triggerValue]
-        : [];
-      setTriggerValues(triggerValuesList);
+      
+      // Initialize variables for backward compatibility
+      let parentQuestionId = "";
+      let triggerValue = "";
+      
+      // Check if this is the new multi-parent format or legacy single-parent format
+      const showIf = question.conditional_logic?.show_if;
+      
+      if (showIf && Array.isArray(showIf)) {
+        // New format: Array of parent question configs
+        const parentConfigs: ParentQuestionConfig[] = showIf.map((config: unknown) => ({
+          question_id: config.question_id,
+          trigger_values: Array.isArray(config.value) ? config.value : [config.value]
+        }));
+        setParentQuestions(parentConfigs);
+        
+        // Extract logic_operator (AND/OR)
+        const operator = question.conditional_logic?.logic_operator;
+        if (operator === "AND" || operator === "OR") {
+          setLogicOperator(operator);
+        }
+        
+        // For backward compatibility with single parent UI
+        if (parentConfigs.length > 0) {
+          const firstParent = parentConfigs[0];
+          parentQuestionId = firstParent.question_id;
+          triggerValue = firstParent.trigger_values[0] || "";
+          setTriggerValues(firstParent.trigger_values);
+        }
+      } else if (showIf && typeof showIf === 'object' && showIf.question_id) {
+        // Legacy format: Single parent question
+        parentQuestionId = showIf.question_id || "";
+        triggerValue = showIf.value || "";
+        
+        // Handle multiple trigger values for single parent
+        const triggerValuesList = Array.isArray(showIf.value)
+          ? showIf.value
+          : triggerValue
+          ? [triggerValue]
+          : [];
+        setTriggerValues(triggerValuesList);
+        
+        // Convert to new format
+        if (parentQuestionId && triggerValuesList.length > 0) {
+          setParentQuestions([{
+            question_id: parentQuestionId,
+            trigger_values: triggerValuesList
+          }]);
+        }
+      } else {
+        // No follow-up logic
+        setParentQuestions([]);
+        setTriggerValues([]);
+      }
 
       // Extract disqualifying answers from validation_rules
-      const validationRules = question.validation_rules as any;
+      const validationRules = question.validation_rules as unknown;
       let disqualifyingAnswersList: string[] = [];
       if (validationRules?.disqualifying_answer) {
         disqualifyingAnswersList = [validationRules.disqualifying_answer];
@@ -139,6 +194,11 @@ export function QuestionForm({
         disqualifyingAnswersList = validationRules.disqualifying_answers;
       }
       setDisqualifyingAnswers(disqualifyingAnswersList);
+
+      // Extract product_name for checkout questions
+      if (question.question_type === "checkout" && validationRules?.product_name) {
+        setProductName(validationRules.product_name);
+      }
 
       // Extract number validation rules
       if (question.question_type === "number" && validationRules) {
@@ -200,6 +260,10 @@ export function QuestionForm({
     } else {
       setDisqualifyingAnswers([]);
       setTriggerValues([]);
+      setParentQuestions([]);
+      setSelectedParentForAdding("");
+      setLogicOperator("OR");
+      setProductName("");
       setEnableNumberValidation(false);
       setNumberValidationOperator("gt");
       setNumberValidationValue("");
@@ -330,22 +394,26 @@ export function QuestionForm({
 
     // Validate follow-up settings
     if (formData.is_follow_up) {
-      if (!formData.parent_question_id) {
+      if (parentQuestions.length === 0) {
         toast({
           title: "Validation Error",
-          description: "Parent question is required for follow-up questions",
+          description: "At least one parent question is required for follow-up questions",
           variant: "destructive",
         });
         return;
       }
-      if (triggerValues.length === 0) {
-        toast({
-          title: "Validation Error",
-          description:
-            "At least one trigger value is required for follow-up questions",
-          variant: "destructive",
-        });
-        return;
+      
+      // Validate each parent has trigger values
+      for (const parent of parentQuestions) {
+        if (parent.trigger_values.length === 0) {
+          const parentQ = existingQuestions.find(q => q.id === parent.question_id);
+          toast({
+            title: "Validation Error",
+            description: `Parent question "${parentQ?.question_text || 'Unknown'}" must have at least one trigger value`,
+            variant: "destructive",
+          });
+          return;
+        }
       }
     }
 
@@ -366,16 +434,45 @@ export function QuestionForm({
       setLoading(true);
 
       // Build conditional_logic based on follow-up settings
-      const conditionalLogic = formData.is_follow_up
-        ? {
+      let conditionalLogic = {};
+      
+      if (formData.is_follow_up && parentQuestions.length > 0) {
+        if (parentQuestions.length === 1) {
+          // Single parent: use legacy format for backward compatibility
+          const parent = parentQuestions[0];
+          conditionalLogic = {
             show_if: {
-              question_id: formData.parent_question_id,
-              value:
-                triggerValues.length === 1 ? triggerValues[0] : triggerValues,
-              operator: triggerValues.length === 1 ? "equals" : "in",
+              question_id: parent.question_id,
+              value: parent.trigger_values.length === 1 
+                ? parent.trigger_values[0] 
+                : parent.trigger_values,
+              operator: parent.trigger_values.length === 1 ? "equals" : "in",
             },
-          }
-        : {};
+          };
+        } else {
+          // Multiple parents: use new array format with logic operator
+          conditionalLogic = {
+            show_if: parentQuestions.map(parent => ({
+              question_id: parent.question_id,
+              value: parent.trigger_values.length === 1 
+                ? parent.trigger_values[0] 
+                : parent.trigger_values,
+              operator: parent.trigger_values.length === 1 ? "equals" : "in",
+            })),
+            logic_operator: logicOperator, // AND or OR
+          };
+        }
+      }
+
+      // Validate checkout question type
+      if (formData.question_type === "checkout" && !productName.trim()) {
+        toast({
+          title: "Validation Error",
+          description: "Product name is required for checkout questions",
+          variant: "destructive",
+        });
+        return;
+      }
 
       // Build validation_rules
       let validationRules: unknown = {};
@@ -384,6 +481,10 @@ export function QuestionForm({
         validationRules = {
           max_file_size: formData.max_file_size,
           allowed_extensions: formData.allowed_extensions,
+        };
+      } else if (formData.question_type === "checkout") {
+        validationRules = {
+          product_name: productName,
         };
       } else if (
         formData.question_type === "number" &&
@@ -586,9 +687,32 @@ export function QuestionForm({
                 <SelectItem value="height_weight">Height & Weight</SelectItem>
                 <SelectItem value="consent">Consent Checkbox</SelectItem>
                 <SelectItem value="file_upload">File Upload</SelectItem>
+                <SelectItem value="checkout">Checkout (Product Display)</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {/* Checkout Product Name */}
+          {formData.question_type === "checkout" && (
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+              <h3 className="font-semibold text-sm">Checkout Configuration</h3>
+              <div className="space-y-2">
+                <Label htmlFor="product_name">
+                  Product Name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="product_name"
+                  value={productName}
+                  onChange={(e) => setProductName(e.target.value)}
+                  placeholder="Enter product name to display"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  This product will be displayed to the patient for checkout
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Answer Choices */}
           {showAnswerChoices && (
@@ -1072,118 +1196,186 @@ export function QuestionForm({
             )}
 
             {showFollowUpSettings && (
-              <div className="space-y-3 mt-3 pl-4 border-l-2">
-                {/* Parent Question */}
-                <div className="space-y-2">
-                  <Label htmlFor="parent_question">
-                    Parent Question <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={formData.parent_question_id}
-                    onValueChange={(value) => {
-                      setFormData({
-                        ...formData,
-                        parent_question_id: value,
-                        trigger_value: "",
-                      });
-                      setTriggerValues([]);
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select parent question" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {parentQuestionOptions.map((q) => (
-                        <SelectItem key={q.id} value={q.id}>
-                          {q.order_index ? `${q.order_index}. ` : ""}
-                          {q.question_text}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Trigger Values (Multiple Selection) */}
-                {selectedParent && (
-                  <div className="space-y-2">
-                    <Label htmlFor="trigger_values">
-                      Trigger Values <span className="text-red-500">*</span>
+              <div className="space-y-4 mt-3 pl-4 border-l-2">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>
+                      Parent Questions <span className="text-red-500">*</span>
                     </Label>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Select one or more parent options that will trigger this
-                      follow-up question
-                    </p>
-                    {triggerOptions.length > 0 ? (
-                      <div className="space-y-2">
-                        {/* Selected trigger values */}
-                        {triggerValues.length > 0 && (
-                          <div className="flex flex-wrap gap-2 p-2 bg-muted/50 rounded">
-                            {triggerValues.map((value, idx) => (
-                              <div
-                                key={idx}
-                                className="flex items-center gap-1 bg-primary text-primary-foreground px-3 py-1 rounded text-sm font-medium"
-                              >
-                                <span>{value}</span>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setTriggerValues(
-                                      triggerValues.filter((v) => v !== value)
-                                    )
-                                  }
-                                  className="ml-1 hover:text-red-200 font-bold text-lg leading-none"
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                    <span className="text-xs text-muted-foreground">
+                      {parentQuestions.length} parent(s) configured
+                    </span>
+                  </div>
+                  
+                  {/* AND/OR Logic Selector */}
+                  {parentQuestions.length > 1 && (
+                    <div className="space-y-2 p-3 border rounded-lg bg-blue-50">
+                      <Label htmlFor="logic_operator">Logic Operator</Label>
+                      <Select
+                        value={logicOperator}
+                        onValueChange={(value: "AND" | "OR") => setLogicOperator(value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="OR">OR - Show if ANY parent matches</SelectItem>
+                          <SelectItem value="AND">AND - Show if ALL parents match</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        {logicOperator === "OR" 
+                          ? "This question will show when ANY of the parent questions has the specified trigger values"
+                          : "This question will show only when ALL parent questions have the specified trigger values"}
+                      </p>
+                    </div>
+                  )}
 
-                        {/* Dropdown to add trigger values */}
-                        <Select
-                          value=""
-                          onValueChange={(value) => {
-                            if (value && !triggerValues.includes(value)) {
-                              setTriggerValues([...triggerValues, value]);
-                            }
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select trigger value(s)" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {triggerOptions.map((option, idx) => (
-                              <SelectItem
-                                key={idx}
-                                value={option}
-                                disabled={triggerValues.includes(option)}
+                  {/* List of configured parent questions */}
+                  {parentQuestions.length > 0 && (
+                    <div className="space-y-3">
+                      {parentQuestions.map((parent, parentIdx) => {
+                        const parentQ = existingQuestions.find(q => q.id === parent.question_id);
+                        return (
+                          <div key={parentIdx} className="p-3 border rounded-lg bg-muted/30 space-y-2">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <p className="text-sm font-medium">
+                                  {parentQ?.order_index ? `${parentQ.order_index}. ` : ""}
+                                  {parentQ?.question_text || "Unknown Question"}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Trigger when answer is:
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setParentQuestions(parentQuestions.filter((_, idx) => idx !== parentIdx));
+                                }}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
                               >
-                                {option}{" "}
-                                {triggerValues.includes(option) ? "✓" : ""}
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            
+                            {/* Trigger values for this parent */}
+                            <div className="space-y-2">
+                              {parent.trigger_values.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                  {parent.trigger_values.map((value, valueIdx) => (
+                                    <div
+                                      key={valueIdx}
+                                      className="flex items-center gap-1 bg-primary text-primary-foreground px-2 py-1 rounded text-xs"
+                                    >
+                                      <span>{value}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const updatedParents = [...parentQuestions];
+                                          updatedParents[parentIdx].trigger_values = 
+                                            updatedParents[parentIdx].trigger_values.filter((_, idx) => idx !== valueIdx);
+                                          setParentQuestions(updatedParents);
+                                        }}
+                                        className="ml-1 hover:text-red-200 font-bold leading-none"
+                                      >
+                                        ×
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Add trigger value dropdown */}
+                              {parentQ?.answer_choices && parentQ.answer_choices.length > 0 && (
+                                <Select
+                                  value=""
+                                  onValueChange={(value) => {
+                                    if (value && !parent.trigger_values.includes(value)) {
+                                      const updatedParents = [...parentQuestions];
+                                      updatedParents[parentIdx].trigger_values.push(value);
+                                      setParentQuestions(updatedParents);
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue placeholder="Add trigger value" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {parentQ.answer_choices.map((option, idx) => (
+                                      <SelectItem
+                                        key={idx}
+                                        value={option}
+                                        disabled={parent.trigger_values.includes(option)}
+                                      >
+                                        {option} {parent.trigger_values.includes(option) ? "✓" : ""}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Add new parent question */}
+                  <div className="space-y-2 pt-2 border-t">
+                    <Label className="text-xs">Add Parent Question</Label>
+                    <div className="flex gap-2">
+                      <Select
+                        value={selectedParentForAdding}
+                        onValueChange={setSelectedParentForAdding}
+                      >
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Select a parent question" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {parentQuestionOptions
+                            .filter(q => !parentQuestions.some(p => p.question_id === q.id))
+                            .map((q) => (
+                              <SelectItem key={q.id} value={q.id}>
+                                {q.order_index ? `${q.order_index}. ` : ""}
+                                {q.question_text}
                               </SelectItem>
                             ))}
-                          </SelectContent>
-                        </Select>
-
-                        {triggerValues.length > 0 && (
-                          <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
-                            ℹ️ This question will show when the parent question
-                            has{" "}
-                            {triggerValues.length === 1
-                              ? "this value"
-                              : "any of these values"}
-                            : {triggerValues.join(", ")}
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-amber-600 p-2 bg-amber-50 rounded">
-                        The selected parent question has no answer choices.
-                      </p>
-                    )}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          if (selectedParentForAdding) {
+                            setParentQuestions([
+                              ...parentQuestions,
+                              {
+                                question_id: selectedParentForAdding,
+                                trigger_values: []
+                              }
+                            ]);
+                            setSelectedParentForAdding("");
+                          }
+                        }}
+                        disabled={!selectedParentForAdding}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add
+                      </Button>
+                    </div>
                   </div>
-                )}
+
+                  {parentQuestions.length > 0 && (
+                    <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                      ℹ️ This question will show when ANY of the {parentQuestions.length} parent question(s) 
+                      has the specified trigger value(s)
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </div>
