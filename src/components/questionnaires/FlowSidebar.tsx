@@ -219,24 +219,33 @@ export function FlowSidebar({ onEditQuestion, onQuestionSelect }: FlowSidebarPro
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem onClick={(e) => {
-                            e.stopPropagation();
-                            duplicateQuestion(question.id);
-                          }}>
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              duplicateQuestion(question.id);
+                            }}
+                            disabled={question.is_read_only}
+                          >
                             <Copy className="h-3.5 w-3.5 mr-2" />
                             Duplicate
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => {
-                            e.stopPropagation();
-                            onEditQuestion(question);
-                          }}>
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditQuestion(question);
+                            }}
+                            disabled={question.is_read_only}
+                          >
                             <Edit className="h-3.5 w-3.5 mr-2" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => {
-                            e.stopPropagation();
-                            toggleLockQuestion(question.id);
-                          }}>
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleLockQuestion(question.id);
+                            }}
+                            disabled={question.is_read_only}
+                          >
                             {isLocked ? (
                               <>
                                 <Unlock className="h-3.5 w-3.5 mr-2" />
@@ -254,6 +263,7 @@ export function FlowSidebar({ onEditQuestion, onQuestionSelect }: FlowSidebarPro
                               e.stopPropagation();
                               toggleArchiveQuestion(question.id);
                             }}
+                            disabled={question.is_read_only}
                             className={isArchived ? 'text-green-600' : 'text-red-600'}
                           >
                             {isArchived ? (

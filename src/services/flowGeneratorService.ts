@@ -76,20 +76,27 @@ export function generateFlowFromTemplate(
 
   // Generate nodes and edges
   const questionNodes = generateQuestionNodes(questions);
-  
+
   // Check if any question has disqualifying logic
   const hasDisqualifyingQuestions = questions.some((q) => {
     const validationRules = q.validation_rules as unknown;
-    return validationRules?.disqualifying_answer || validationRules?.disqualifying_answers;
+    return (
+      validationRules?.disqualifying_answer ||
+      validationRules?.disqualifying_answers
+    );
   });
-  
+
   // Create single shared disqualify node if needed
-  const disqualifyNode = hasDisqualifyingQuestions ? generateSharedDisqualifyNode() : null;
-  
+  const disqualifyNode = hasDisqualifyingQuestions
+    ? generateSharedDisqualifyNode()
+    : null;
+
   const edges = generateEdges(questions, questionNodes, disqualifyNode);
 
   // Combine all nodes
-  let allNodes = disqualifyNode ? [...questionNodes, disqualifyNode] : questionNodes;
+  let allNodes = disqualifyNode
+    ? [...questionNodes, disqualifyNode]
+    : questionNodes;
   let allEdges = edges;
 
   // Apply automatic layout if requested
@@ -177,7 +184,11 @@ function generateSharedDisqualifyNode(): Node {
 /**
  * Generate edges representing follow-up relationships and disqualification paths
  */
-function generateEdges(questions: Question[], questionNodes: Node[], disqualifyNode: Node | null): Edge[] {
+function generateEdges(
+  questions: Question[],
+  questionNodes: Node[],
+  disqualifyNode: Node | null
+): Edge[] {
   const edges: Edge[] = [];
 
   // Sort questions by order_index for sequential edges
@@ -188,33 +199,68 @@ function generateEdges(questions: Question[], questionNodes: Node[], disqualifyN
   // First pass: Identify questions that have outgoing conditional logic
   // These questions should NOT have sequential edges because they branch conditionally
   const questionsWithConditionalBranching = new Set<string>();
-  
+
   questions.forEach((question) => {
     const validationRules = question.validation_rules as unknown;
-    
+
     // Check if this question has disqualifying answers (creates branching)
-    if (validationRules?.disqualifying_answer || validationRules?.disqualifying_answers) {
+    if (
+      validationRules?.disqualifying_answer ||
+      validationRules?.disqualifying_answers
+    ) {
       questionsWithConditionalBranching.add(question.id);
     }
-    
+
     // Check if OTHER questions have conditional logic that depends on THIS question
     // If so, this question has conditional branching
     const hasConditionalChildren = questions.some((otherQ) => {
       const logic = otherQ.conditional_logic as ConditionalLogic;
       if (!logic?.show_if) return false;
-      
-      // Check if the show_if references this question (by ID or legacy order_index)
-      if (logic.show_if.question_id === question.id) return true;
-      
-      // Check legacy format (q_4 -> order_index 4)
-      if (logic.show_if.question_id.startsWith("q_")) {
-        const orderIndex = parseInt(logic.show_if.question_id.substring(2), 10);
-        if (!isNaN(orderIndex) && question.order_index === orderIndex) return true;
+
+      // Handle multi-parent format (array)
+      if (Array.isArray(logic.show_if)) {
+        return logic.show_if.some((parent: any) => {
+          if (!parent.question_id) return false;
+
+          // Check if the parent references this question (by ID)
+          if (parent.question_id === question.id) return true;
+
+          // Check legacy format (q_4 -> order_index 4)
+          if (
+            typeof parent.question_id === "string" &&
+            parent.question_id.startsWith("q_")
+          ) {
+            const orderIndex = parseInt(parent.question_id.substring(2), 10);
+            if (!isNaN(orderIndex) && question.order_index === orderIndex)
+              return true;
+          }
+
+          return false;
+        });
       }
-      
+
+      // Handle single-parent format (object)
+      if (typeof logic.show_if === "object" && logic.show_if.question_id) {
+        // Check if the show_if references this question (by ID or legacy order_index)
+        if (logic.show_if.question_id === question.id) return true;
+
+        // Check legacy format (q_4 -> order_index 4)
+        if (
+          typeof logic.show_if.question_id === "string" &&
+          logic.show_if.question_id.startsWith("q_")
+        ) {
+          const orderIndex = parseInt(
+            logic.show_if.question_id.substring(2),
+            10
+          );
+          if (!isNaN(orderIndex) && question.order_index === orderIndex)
+            return true;
+        }
+      }
+
       return false;
     });
-    
+
     if (hasConditionalChildren) {
       questionsWithConditionalBranching.add(question.id);
     }
@@ -225,21 +271,45 @@ function generateEdges(questions: Question[], questionNodes: Node[], disqualifyN
   // For questions with multiple trigger values, we only add them once (to avoid duplicates)
   const conditionalGroups = new Map<string, Question[]>();
   const processedQuestions = new Set<string>();
-  
+
   questions.forEach((question) => {
     const logic = question.conditional_logic as ConditionalLogic;
     if (logic?.show_if) {
-      const values = Array.isArray(logic.show_if.value) ? logic.show_if.value : [logic.show_if.value];
-      
-      // Only add the question once, using the first trigger value as the key
-      if (!processedQuestions.has(question.id)) {
-        const firstValue = values[0];
-        const key = `${logic.show_if.question_id}|${firstValue}`;
-        if (!conditionalGroups.has(key)) {
-          conditionalGroups.set(key, []);
+      // Handle multi-parent format (array)
+      if (Array.isArray(logic.show_if)) {
+        // For multi-parent, use the first parent as the key
+        if (!processedQuestions.has(question.id) && logic.show_if.length > 0) {
+          const firstParent = logic.show_if[0];
+          const values = Array.isArray(firstParent.value)
+            ? firstParent.value
+            : [firstParent.value];
+          const firstValue = values[0];
+          const key = `${firstParent.question_id}|${firstValue}`;
+          if (!conditionalGroups.has(key)) {
+            conditionalGroups.set(key, []);
+          }
+          conditionalGroups.get(key)!.push(question);
+          processedQuestions.add(question.id);
         }
-        conditionalGroups.get(key)!.push(question);
-        processedQuestions.add(question.id);
+      } else if (
+        typeof logic.show_if === "object" &&
+        logic.show_if.question_id
+      ) {
+        // Handle single-parent format (object)
+        const values = Array.isArray(logic.show_if.value)
+          ? logic.show_if.value
+          : [logic.show_if.value];
+
+        // Only add the question once, using the first trigger value as the key
+        if (!processedQuestions.has(question.id)) {
+          const firstValue = values[0];
+          const key = `${logic.show_if.question_id}|${firstValue}`;
+          if (!conditionalGroups.has(key)) {
+            conditionalGroups.set(key, []);
+          }
+          conditionalGroups.get(key)!.push(question);
+          processedQuestions.add(question.id);
+        }
       }
     }
   });
@@ -248,16 +318,18 @@ function generateEdges(questions: Question[], questionNodes: Node[], disqualifyN
   // and questions that should be chained sequentially (the REST in each group)
   const questionsWithIncomingConditional = new Set<string>();
   const questionsInConditionalChain = new Set<string>();
-  
+
   conditionalGroups.forEach((groupQuestions) => {
     // Sort by order_index to get the correct sequence
-    const sorted = groupQuestions.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
-    
+    const sorted = groupQuestions.sort(
+      (a, b) => (a.order_index || 0) - (b.order_index || 0)
+    );
+
     // First question gets the conditional edge
     if (sorted.length > 0) {
       questionsWithIncomingConditional.add(sorted[0].id);
     }
-    
+
     // Rest are part of the sequential chain (should not have incoming sequential from previous questions)
     for (let i = 1; i < sorted.length; i++) {
       questionsInConditionalChain.add(sorted[i].id);
@@ -267,47 +339,103 @@ function generateEdges(questions: Question[], questionNodes: Node[], disqualifyN
   // Build a map of which choices have conditional/disqualify rules
   // Key: "questionId|choiceValue", Value: true if this choice has a rule
   const choicesWithRules = new Map<string, boolean>();
-  
-  console.log('=== Building choicesWithRules map ===');
+
+  console.log("=== Building choicesWithRules map ===");
   questions.forEach((question) => {
     // Check for disqualifying answers
     const validationRules = question.validation_rules as unknown;
     if (validationRules?.disqualifying_answer) {
-      choicesWithRules.set(`${question.id}|${validationRules.disqualifying_answer}`, true);
+      choicesWithRules.set(
+        `${question.id}|${validationRules.disqualifying_answer}`,
+        true
+      );
     }
-    if (validationRules?.disqualifying_answers && Array.isArray(validationRules.disqualifying_answers)) {
+    if (
+      validationRules?.disqualifying_answers &&
+      Array.isArray(validationRules.disqualifying_answers)
+    ) {
       validationRules.disqualifying_answers.forEach((answer: string) => {
         choicesWithRules.set(`${question.id}|${answer}`, true);
       });
     }
-    
+
     // Check for conditional children (other questions that depend on this question's choices)
     questions.forEach((otherQ) => {
       const logic = otherQ.conditional_logic as ConditionalLogic;
       if (!logic?.show_if) return;
-      
-      // Check if this is the parent question
-      let isParent = logic.show_if.question_id === question.id;
-      
-      // Check legacy format
-      if (!isParent && logic.show_if.question_id.startsWith("q_")) {
-        const orderIndex = parseInt(logic.show_if.question_id.substring(2), 10);
-        if (!isNaN(orderIndex) && question.order_index === orderIndex) {
-          isParent = true;
-        }
-      }
-      
-      if (isParent) {
-        const values = Array.isArray(logic.show_if.value) ? logic.show_if.value : [logic.show_if.value];
-        values.forEach(value => {
-          const key = `${question.id}|${value}`;
-          console.log(`  Conditional rule: Q${question.order_index} choice "${value}" triggers Q${otherQ.order_index}`);
-          choicesWithRules.set(key, true);
+
+      // Handle multi-parent format (array)
+      if (Array.isArray(logic.show_if)) {
+        logic.show_if.forEach((parent: any) => {
+          if (!parent.question_id) return;
+
+          // Check if this is the parent question
+          let isParent = parent.question_id === question.id;
+
+          // Check legacy format
+          if (
+            !isParent &&
+            typeof parent.question_id === "string" &&
+            parent.question_id.startsWith("q_")
+          ) {
+            const orderIndex = parseInt(parent.question_id.substring(2), 10);
+            if (!isNaN(orderIndex) && question.order_index === orderIndex) {
+              isParent = true;
+            }
+          }
+
+          if (isParent) {
+            const values = Array.isArray(parent.value)
+              ? parent.value
+              : [parent.value];
+            values.forEach((value) => {
+              const key = `${question.id}|${value}`;
+              console.log(
+                `  Conditional rule: Q${question.order_index} choice "${value}" triggers Q${otherQ.order_index}`
+              );
+              choicesWithRules.set(key, true);
+            });
+          }
         });
+      } else if (
+        typeof logic.show_if === "object" &&
+        logic.show_if.question_id
+      ) {
+        // Handle single-parent format (object)
+        // Check if this is the parent question
+        let isParent = logic.show_if.question_id === question.id;
+
+        // Check legacy format
+        if (
+          !isParent &&
+          typeof logic.show_if.question_id === "string" &&
+          logic.show_if.question_id.startsWith("q_")
+        ) {
+          const orderIndex = parseInt(
+            logic.show_if.question_id.substring(2),
+            10
+          );
+          if (!isNaN(orderIndex) && question.order_index === orderIndex) {
+            isParent = true;
+          }
+        }
+
+        if (isParent) {
+          const values = Array.isArray(logic.show_if.value)
+            ? logic.show_if.value
+            : [logic.show_if.value];
+          values.forEach((value) => {
+            const key = `${question.id}|${value}`;
+            console.log(
+              `  Conditional rule: Q${question.order_index} choice "${value}" triggers Q${otherQ.order_index}`
+            );
+            choicesWithRules.set(key, true);
+          });
+        }
       }
     });
   });
-  
+
   console.log(`Total choices with rules: ${choicesWithRules.size}`);
 
   // Generate order-based edges (sequential flow)
@@ -316,27 +444,31 @@ function generateEdges(questions: Question[], questionNodes: Node[], disqualifyN
     const nextQuestion = sortedQuestions[i + 1];
 
     // Check if next question is the FIRST in a conditional group
-    const nextIsFirstConditional = questionsWithIncomingConditional.has(nextQuestion.id) && 
-                                   !questionsInConditionalChain.has(nextQuestion.id);
+    const nextIsFirstConditional =
+      questionsWithIncomingConditional.has(nextQuestion.id) &&
+      !questionsInConditionalChain.has(nextQuestion.id);
 
     // Check if current question has multiple choices
-    const hasChoices = currentQuestion.answer_choices && currentQuestion.answer_choices.length > 0;
-    const isConsentQuestion = currentQuestion.question_type === 'consent';
-    
+    const hasChoices =
+      currentQuestion.answer_choices &&
+      currentQuestion.answer_choices.length > 0;
+    const isConsentQuestion = currentQuestion.question_type === "consent";
+
     if (hasChoices || isConsentQuestion) {
       // For questions with choices, we need to find the ACTUAL next sequential question
       // If nextQuestion is conditional, we need to skip to the question after it
       let targetQuestion = nextQuestion;
       let targetIndex = i + 1;
-      
+
       // If next question is conditional, find the next non-conditional question
       if (nextIsFirstConditional) {
         // Find the next question that is NOT a first conditional
         for (let j = i + 2; j < sortedQuestions.length; j++) {
           const candidateQuestion = sortedQuestions[j];
-          const isFirstConditional = questionsWithIncomingConditional.has(candidateQuestion.id) && 
-                                    !questionsInConditionalChain.has(candidateQuestion.id);
-          
+          const isFirstConditional =
+            questionsWithIncomingConditional.has(candidateQuestion.id) &&
+            !questionsInConditionalChain.has(candidateQuestion.id);
+
           if (!isFirstConditional) {
             targetQuestion = candidateQuestion;
             targetIndex = j;
@@ -344,23 +476,26 @@ function generateEdges(questions: Question[], questionNodes: Node[], disqualifyN
           }
         }
       }
-      
+
       // Create edges from choices that DON'T have conditional/disqualify rules
       const choices = currentQuestion.answer_choices;
-      
+
       // Don't create any sequential edges if the target is still a conditional question
       // This can happen if all remaining questions are conditional
-      const targetIsConditional = questionsWithIncomingConditional.has(targetQuestion.id) && 
-                                  !questionsInConditionalChain.has(targetQuestion.id);
-      
+      const targetIsConditional =
+        questionsWithIncomingConditional.has(targetQuestion.id) &&
+        !questionsInConditionalChain.has(targetQuestion.id);
+
       if (!targetIsConditional) {
         choices.forEach((choice, choiceIndex) => {
           const choiceKey = `${currentQuestion.id}|${choice}`;
           const hasRule = choicesWithRules.has(choiceKey);
-          
+
           // Only create sequential edge if this choice doesn't have a rule
           if (!hasRule) {
-            console.log(`Creating sequential edge: Q${currentQuestion.order_index} choice "${choice}" -> Q${targetQuestion.order_index}`);
+            console.log(
+              `Creating sequential edge: Q${currentQuestion.order_index} choice "${choice}" -> Q${targetQuestion.order_index}`
+            );
             edges.push({
               id: `e-order-${currentQuestion.id}-choice-${choiceIndex}-${targetQuestion.id}`,
               source: currentQuestion.id,
@@ -375,19 +510,25 @@ function generateEdges(questions: Question[], questionNodes: Node[], disqualifyN
               },
             });
           } else {
-            console.log(`Skipping sequential edge for Q${currentQuestion.order_index} choice "${choice}" (has rule)`);
+            console.log(
+              `Skipping sequential edge for Q${currentQuestion.order_index} choice "${choice}" (has rule)`
+            );
           }
         });
       } else {
-        console.log(`Skipping all sequential edges from Q${currentQuestion.order_index} - target Q${targetQuestion.order_index} is conditional`);
+        console.log(
+          `Skipping all sequential edges from Q${currentQuestion.order_index} - target Q${targetQuestion.order_index} is conditional`
+        );
       }
     } else {
       // For non-choice questions, skip if next is conditional
       if (nextIsFirstConditional) {
-        console.log(`Skipping sequential edge from Q${currentQuestion.order_index} to Q${nextQuestion.order_index} (next is first conditional)`);
+        console.log(
+          `Skipping sequential edge from Q${currentQuestion.order_index} to Q${nextQuestion.order_index} (next is first conditional)`
+        );
         continue;
       }
-      
+
       // Single edge for non-choice questions (text, textarea, number, etc.)
       edges.push({
         id: `e-order-${currentQuestion.id}-${nextQuestion.id}`,
@@ -407,7 +548,7 @@ function generateEdges(questions: Question[], questionNodes: Node[], disqualifyN
   // Generate conditional logic edges
   // Track which questions have already had edges created to avoid duplicates
   const processedConditionalQuestions = new Set<string>();
-  
+
   questions.forEach((question) => {
     const logic = question.conditional_logic as ConditionalLogic;
 
@@ -415,18 +556,49 @@ function generateEdges(questions: Question[], questionNodes: Node[], disqualifyN
     // For questions with multiple trigger values, create all edges at once
     if (logic?.show_if && !processedConditionalQuestions.has(question.id)) {
       processedConditionalQuestions.add(question.id);
-      
-      const values = Array.isArray(logic.show_if.value) ? logic.show_if.value : [logic.show_if.value];
-      
-      // Create an edge for each trigger value
-      values.forEach(value => {
-        const followUpEdges = generateFollowUpEdges(
-          question,
-          { ...logic.show_if, value },
-          questions
-        );
-        edges.push(...followUpEdges);
-      });
+
+      // Handle multi-parent format (array)
+      if (Array.isArray(logic.show_if)) {
+        logic.show_if.forEach((parent: unknown) => {
+          if (!parent.question_id) return;
+
+          const values = Array.isArray(parent.value)
+            ? parent.value
+            : [parent.value];
+
+          // Create an edge for each trigger value
+          values.forEach((value) => {
+            const followUpEdges = generateFollowUpEdges(
+              question,
+              {
+                question_id: parent.question_id,
+                value,
+                operator: parent.operator,
+              },
+              questions
+            );
+            edges.push(...followUpEdges);
+          });
+        });
+      } else if (
+        typeof logic.show_if === "object" &&
+        logic.show_if.question_id
+      ) {
+        // Handle single-parent format (object)
+        const values = Array.isArray(logic.show_if.value)
+          ? logic.show_if.value
+          : [logic.show_if.value];
+
+        // Create an edge for each trigger value
+        values.forEach((value) => {
+          const followUpEdges = generateFollowUpEdges(
+            question,
+            { ...logic.show_if, value },
+            questions
+          );
+          edges.push(...followUpEdges);
+        });
+      }
     }
 
     // Generate disqualify edges from validation_rules
@@ -493,7 +665,7 @@ function generateFollowUpEdges(
   const edgeLabel = formatConditionLabel(showIf.value, showIf.operator);
 
   // Include trigger value in ID to ensure uniqueness when multiple triggers exist
-  const edgeId = sourceHandle 
+  const edgeId = sourceHandle
     ? `e-conditional-${sourceQuestion.id}-${sourceHandle}-${targetQuestion.id}`
     : `e-conditional-${sourceQuestion.id}-${targetQuestion.id}`;
 
@@ -547,12 +719,15 @@ function generateDisqualifyEdgesFromValidation(
 
   // Handle choice-based disqualifying answers
   const disqualifyingAnswers: string[] = [];
-  
+
   if (validationRules.disqualifying_answer) {
     disqualifyingAnswers.push(validationRules.disqualifying_answer);
   }
-  
-  if (validationRules.disqualifying_answers && Array.isArray(validationRules.disqualifying_answers)) {
+
+  if (
+    validationRules.disqualifying_answers &&
+    Array.isArray(validationRules.disqualifying_answers)
+  ) {
     disqualifyingAnswers.push(...validationRules.disqualifying_answers);
   }
 
@@ -610,7 +785,7 @@ function generateDisqualifyEdgesFromValidation(
   // Handle number validation disqualifying rules
   if (question.question_type === "number") {
     let disqualifyLabel = "";
-    
+
     if (validationRules.greater_than !== undefined) {
       disqualifyLabel = `If ≤ ${validationRules.greater_than}`;
     } else if (validationRules.greater_than_or_equal !== undefined) {
@@ -622,7 +797,7 @@ function generateDisqualifyEdgesFromValidation(
     } else if (validationRules.equals !== undefined) {
       disqualifyLabel = `If ≠ ${validationRules.equals}`;
     }
-    
+
     if (disqualifyLabel) {
       edges.push({
         id: `e-${question.id}-number-validation-disqualify`,
