@@ -58,6 +58,7 @@ export function ProductFormModal({
     ndc_number: "",
     rx_drug_form: "tablet",
     rx_quantity: "30",
+    rx_drug_strength: "",
     rx_days_supply: 30,
     refills: 0,
     beluga_medicine_id: "",
@@ -88,6 +89,7 @@ export function ProductFormModal({
         ndc_number: product.ndc_number || "",
         rx_drug_form: product.rx_drug_form || "tablet",
         rx_quantity: product.rx_quantity?.toString() || "30",
+        rx_drug_strength: product.rx_drug_strength || "",
         rx_days_supply: product.rx_days_supply || 30,
         refills: product.refills || 0,
         beluga_medicine_id: product.beluga_medicine_id || "",
@@ -117,6 +119,7 @@ export function ProductFormModal({
         ndc_number: "",
         rx_drug_form: "tablet",
         rx_quantity: "30",
+        rx_drug_strength: "",
         rx_days_supply: 30,
         refills: 0,
         beluga_medicine_id: "",
@@ -161,7 +164,7 @@ export function ProductFormModal({
         cost_to_welliemd: parseFloat(formData.cost_to_welliemd),
         shipping_cost_to_client: parseFloat(formData.shipping_cost_to_client),
         shipping_cost_to_welliemd: parseFloat(formData.shipping_cost_to_welliemd),
-        rx_quantity: parseInt(formData.rx_quantity),
+        rx_quantity: parseFloat(formData.rx_quantity),
         quantity: parseInt(formData.quantity),
       };
 
@@ -180,7 +183,7 @@ export function ProductFormModal({
       }
 
       onSuccess();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
         description: error.response?.data?.error || `Failed to ${product ? "update" : "create"} product`,
@@ -417,9 +420,20 @@ export function ProductFormModal({
                 <Input
                   id="rx_quantity"
                   type="number"
-                  min="1"
+                  step="0.01"
+                  min="0"
                   value={formData.rx_quantity}
                   onChange={(e) => setFormData({ ...formData, rx_quantity: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="rx_drug_strength">Drug Strength</Label>
+                <Input
+                  id="rx_drug_strength"
+                  value={formData.rx_drug_strength}
+                  onChange={(e) => setFormData({ ...formData, rx_drug_strength: e.target.value })}
+                  placeholder="e.g., 5mg/ml, 10mg"
                 />
               </div>
 
