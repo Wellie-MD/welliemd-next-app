@@ -1,17 +1,19 @@
 // src/components/clients/ClientDataTable.tsx
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DataTable } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import { Client } from '@/api/clientApi';
 import { CreateSubscriptionModal } from '@/components/subscriptions/CreateSubscriptionModal';
 import { ManageSubscriptionModal } from '@/components/subscriptions/ManageSubscriptionModal';
-import { Building2, CheckCircle, XCircle, CreditCard, Settings, Plus } from 'lucide-react';
+import { Building2, CheckCircle, XCircle, CreditCard, Settings, Plus, Pencil } from 'lucide-react';
 
 interface ClientDataTableProps {
   clients: Client[];
 }
 
 export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => {
+  const navigate = useNavigate();
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [manageModalOpen, setManageModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -24,6 +26,10 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => 
   const handleManageSubscription = (client: Client) => {
     setSelectedClient(client);
     setManageModalOpen(true);
+  };
+
+  const handleEditClient = (client: Client) => {
+    navigate(`/dashboard/clients/edit/${client.id}`);
   };
 
   const columns = [
@@ -112,9 +118,18 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => 
       label: 'Actions',
       headerClassName: 'w-1/3 text-right',
       className: 'text-right',
-      render: (_: any, row: Client) =>
-        row.stripe_subscription_id ? (
-          <div className="flex justify-end">
+      render: (_: any, row: Client) => (
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleEditClient(row)}
+            className="flex items-center gap-1 text-gray-600 hover:text-primary hover:bg-gray-100 dark:text-gray-400 dark:hover:text-primary dark:hover:bg-gray-800"
+          >
+            <Pencil className="w-4 h-4" />
+            Edit
+          </Button>
+          {row.stripe_subscription_id ? (
             <Button
               variant="outline"
               size="sm"
@@ -124,9 +139,7 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => 
               <Settings className="w-4 h-4" />
               Manage Subscription
             </Button>
-          </div>
-        ) : (
-          <div className="flex justify-end">
+          ) : (
             <Button
               size="sm"
               onClick={() => handleCreateSubscription(row)}
@@ -135,8 +148,9 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => 
               <Plus className="w-4 h-4" />
               Create Subscription
             </Button>
-          </div>
-        ),
+          )}
+        </div>
+      ),
     },
   ];
 

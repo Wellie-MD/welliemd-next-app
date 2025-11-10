@@ -1,12 +1,19 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Info, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Card,
   CardContent,
@@ -30,6 +37,20 @@ import {
 } from "@/api/clientApi";
 import { PasswordDisplayModal } from "@/components/clients/PasswordDisplayModal";
 
+// Helper component for field info tooltips
+const FieldInfo = ({ content }: { content: string }) => (
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Info className="h-4 w-4 text-muted-foreground cursor-help inline-block ml-1" />
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs">
+        <p className="text-sm">{content}</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+);
+
 export default function ClientForm() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -40,6 +61,7 @@ export default function ClientForm() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState("");
   const [clientName, setClientName] = useState("");
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   // Form state
   const [formData, setFormData] = useState<ClientCreatePayload>({
@@ -180,30 +202,81 @@ export default function ClientForm() {
     },
   });
 
+  // Validate JSON fields
+  const validateJSON = (value: string, fieldName: string): boolean => {
+    try {
+      JSON.parse(value);
+      setValidationErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[fieldName];
+        return newErrors;
+      });
+      return true;
+    } catch (error) {
+      setValidationErrors((prev) => ({
+        ...prev,
+        [fieldName]: "Invalid JSON format",
+      }));
+      return false;
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Clear previous validation errors
+    setValidationErrors({});
+
     // Validation
-    if (
-      !formData.name ||
-      !formData.admin_panel_domain ||
-      !formData.database_name
-    ) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
+    const errors: Record<string, string> = {};
+
+    if (!formData.name) {
+      errors.name = "Client name is required";
+    }
+    if (!formData.admin_panel_domain) {
+      errors.admin_panel_domain = "Admin panel domain is required";
+    }
+    if (!formData.database_name) {
+      errors.database_name = "Database name is required";
     }
 
-    if (
-      !isEditMode &&
-      (!formData.email || !formData.first_name || !formData.last_name)
-    ) {
+    if (!isEditMode) {
+      if (!formData.email) {
+        errors.email = "Email is required";
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        errors.email = "Invalid email format";
+      }
+      if (!formData.first_name) {
+        errors.first_name = "First name is required";
+      }
+      if (!formData.last_name) {
+        errors.last_name = "Last name is required";
+      }
+    }
+
+    // Validate URL fields
+    const urlFields = [
+      "admin_panel_domain",
+      "patient_portal_domain",
+      "api_endpoint",
+      "questionnaire_url",
+    ];
+    urlFields.forEach((field) => {
+      const value = formData[field as keyof typeof formData];
+      if (value && typeof value === "string" && value.trim()) {
+        try {
+          new URL(value);
+        } catch {
+          errors[field] = "Invalid URL format (must include http:// or https://)";
+        }
+      }
+    });
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
       toast({
         title: "Validation Error",
-        description: "Admin user information is required",
+        description: "Please fix the errors in the form",
         variant: "destructive",
       });
       return;
@@ -334,22 +407,36 @@ export default function ClientForm() {
                     <Input
                       id="name"
                       value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
+                      onChange={(e) => {
+                        setFormData({ ...formData, name: e.target.value });
+                        if (validationErrors.name) {
+                          setValidationErrors((prev) => {
+                            const newErrors = { ...prev };
+                            delete newErrors.name;
+                            return newErrors;
+                          });
+                        }
+                      }}
                       placeholder="Acme Healthcare"
                       required
+                      className={validationErrors.name ? "border-red-500" : ""}
                     />
+                    {validationErrors.name && (
+                      <p className="text-xs text-red-500">{validationErrors.name}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="master_id_prefix">Master ID Prefix</Label>
+                    <Label htmlFor="master_id_prefix">
+                      Master ID Prefix
+                      <FieldInfo content="Prefix for patient master_id generation (e.g., 'kinmeds', 'knysys'). Lowercase recommended." />
+                    </Label>
                     <Input
                       id="master_id_prefix"
                       value={formData.master_id_prefix}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          master_id_prefix: e.target.value,
+                          master_id_prefix: e.target.value.toLowerCase(),
                         })
                       }
                       placeholder="welliemd"
@@ -394,14 +481,25 @@ export default function ClientForm() {
                       id="email"
                       type="email"
                       value={formData.email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
-                      }
+                      onChange={(e) => {
+                        setFormData({ ...formData, email: e.target.value });
+                        if (validationErrors.email) {
+                          setValidationErrors((prev) => {
+                            const newErrors = { ...prev };
+                            delete newErrors.email;
+                            return newErrors;
+                          });
+                        }
+                      }}
                       placeholder="admin@acme.com"
                       required
                       disabled={isEditMode}
+                      className={validationErrors.email ? "border-red-500" : ""}
                     />
-                    {isEditMode && (
+                    {validationErrors.email && (
+                      <p className="text-xs text-red-500">{validationErrors.email}</p>
+                    )}
+                    {isEditMode && !validationErrors.email && (
                       <p className="text-xs text-muted-foreground">
                         Email cannot be changed after creation
                       </p>
@@ -429,12 +527,23 @@ export default function ClientForm() {
                     <Input
                       id="first_name"
                       value={formData.first_name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, first_name: e.target.value })
-                      }
+                      onChange={(e) => {
+                        setFormData({ ...formData, first_name: e.target.value });
+                        if (validationErrors.first_name) {
+                          setValidationErrors((prev) => {
+                            const newErrors = { ...prev };
+                            delete newErrors.first_name;
+                            return newErrors;
+                          });
+                        }
+                      }}
                       placeholder="John"
                       required
+                      className={validationErrors.first_name ? "border-red-500" : ""}
                     />
+                    {validationErrors.first_name && (
+                      <p className="text-xs text-red-500">{validationErrors.first_name}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="last_name">
@@ -443,12 +552,23 @@ export default function ClientForm() {
                     <Input
                       id="last_name"
                       value={formData.last_name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, last_name: e.target.value })
-                      }
+                      onChange={(e) => {
+                        setFormData({ ...formData, last_name: e.target.value });
+                        if (validationErrors.last_name) {
+                          setValidationErrors((prev) => {
+                            const newErrors = { ...prev };
+                            delete newErrors.last_name;
+                            return newErrors;
+                          });
+                        }
+                      }}
                       placeholder="Doe"
                       required
+                      className={validationErrors.last_name ? "border-red-500" : ""}
                     />
+                    {validationErrors.last_name && (
+                      <p className="text-xs text-red-500">{validationErrors.last_name}</p>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -500,20 +620,32 @@ export default function ClientForm() {
                 <div className="space-y-2">
                   <Label htmlFor="admin_panel_domain">
                     Admin Panel Domain <span className="text-red-500">*</span>
+                    <FieldInfo content="Full URL to the client's admin panel (must include https://)" />
                   </Label>
                   <Input
                     id="admin_panel_domain"
                     type="url"
                     value={formData.admin_panel_domain}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setFormData({
                         ...formData,
                         admin_panel_domain: e.target.value,
-                      })
-                    }
+                      });
+                      if (validationErrors.admin_panel_domain) {
+                        setValidationErrors((prev) => {
+                          const newErrors = { ...prev };
+                          delete newErrors.admin_panel_domain;
+                          return newErrors;
+                        });
+                      }
+                    }}
                     placeholder="https://admin.acme.com"
                     required
+                    className={validationErrors.admin_panel_domain ? "border-red-500" : ""}
                   />
+                  {validationErrors.admin_panel_domain && (
+                    <p className="text-xs text-red-500">{validationErrors.admin_panel_domain}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -566,6 +698,7 @@ export default function ClientForm() {
                 <div className="space-y-2">
                   <Label htmlFor="allowed_iframe_domains">
                     Allowed Iframe Domains (JSON Array)
+                    <FieldInfo content='Enter a JSON array of domains. Example: ["example.com", "*.subdomain.com"]. Use * for wildcards.' />
                   </Label>
                   <Textarea
                     id="allowed_iframe_domains"
@@ -575,22 +708,43 @@ export default function ClientForm() {
                       2
                     )}
                     onChange={(e) => {
+                      const value = e.target.value;
                       try {
-                        const parsed = JSON.parse(e.target.value);
-                        setFormData({
-                          ...formData,
-                          allowed_iframe_domains: parsed,
-                        });
+                        const parsed = JSON.parse(value);
+                        if (Array.isArray(parsed)) {
+                          setFormData({
+                            ...formData,
+                            allowed_iframe_domains: parsed,
+                          });
+                          setValidationErrors((prev) => {
+                            const newErrors = { ...prev };
+                            delete newErrors.allowed_iframe_domains;
+                            return newErrors;
+                          });
+                        } else {
+                          setValidationErrors((prev) => ({
+                            ...prev,
+                            allowed_iframe_domains: "Must be a JSON array",
+                          }));
+                        }
                       } catch (error) {
-                        // Invalid JSON, don't update
+                        setValidationErrors((prev) => ({
+                          ...prev,
+                          allowed_iframe_domains: "Invalid JSON format",
+                        }));
                       }
                     }}
                     placeholder='["example.com", "*.subdomain.com"]'
                     rows={4}
+                    className={validationErrors.allowed_iframe_domains ? "border-red-500" : ""}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    List of domains allowed to embed this client's questionnaire
-                  </p>
+                  {validationErrors.allowed_iframe_domains ? (
+                    <p className="text-xs text-red-500">{validationErrors.allowed_iframe_domains}</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      List of domains allowed to embed this client's questionnaire
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -608,7 +762,10 @@ export default function ClientForm() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="database_host">Database Host</Label>
+                    <Label htmlFor="database_host">
+                      Database Host
+                      <FieldInfo content="Database server hostname or IP address. Default is 127.0.0.1 (localhost)" />
+                    </Label>
                     <Input
                       id="database_host"
                       value={formData.database_host}
@@ -624,19 +781,31 @@ export default function ClientForm() {
                   <div className="space-y-2">
                     <Label htmlFor="database_name">
                       Database Name <span className="text-red-500">*</span>
+                      <FieldInfo content="Unique database name for this client (e.g., acme_db, client_healthcare)" />
                     </Label>
                     <Input
                       id="database_name"
                       value={formData.database_name}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setFormData({
                           ...formData,
                           database_name: e.target.value,
-                        })
-                      }
+                        });
+                        if (validationErrors.database_name) {
+                          setValidationErrors((prev) => {
+                            const newErrors = { ...prev };
+                            delete newErrors.database_name;
+                            return newErrors;
+                          });
+                        }
+                      }}
                       placeholder="acme_db"
                       required
+                      className={validationErrors.database_name ? "border-red-500" : ""}
                     />
+                    {validationErrors.database_name && (
+                      <p className="text-xs text-red-500">{validationErrors.database_name}</p>
+                    )}
                   </div>
                 </div>
               </CardContent>
