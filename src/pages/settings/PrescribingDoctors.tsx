@@ -119,12 +119,12 @@ export default function PrescribingDoctors() {
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium text-muted-foreground">Doctor Group</label>
-              <Select defaultValue="bask-doctor-group">
+              <Select defaultValue="welliemd-doctor-group">
                 <SelectTrigger className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="bask-doctor-group">Bask Doctor Group</SelectItem>
+                  <SelectItem value="welliemd-doctor-group">WellieMD Doctor Group</SelectItem>
                   <SelectItem value="other-group">Other Doctor Group</SelectItem>
                 </SelectContent>
               </Select>
