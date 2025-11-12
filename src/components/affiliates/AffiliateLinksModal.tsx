@@ -7,6 +7,8 @@ import { useClients } from "@/hooks/useClients"
 import { ExternalLink } from "lucide-react"
 import { templateApi, type QuestionnaireTemplate } from "@/api/questionnaires"
 
+const USE_VISIT_ROUTES = true
+
 // ---------- helpers ----------
 function ensureHttpsBase(urlLike?: string): string {
   const fallback = "https://my.welliemd.com"
@@ -40,11 +42,10 @@ function buildLink({
     params.forEach((v, k) => u.searchParams.set(k, v))
     return u.toString()
   } catch {
-    return "" // invalid URL -> disable "Open"
+    return "" // invalid URL
   }
 }
 
-// clipboard
 async function copyToClipboard(text: string) {
   try {
     await navigator.clipboard.writeText(text)
@@ -67,7 +68,7 @@ async function copyToClipboard(text: string) {
   }
 }
 
-// ---------- LEGACY path inference (same logic your old code relied on) ----------
+// ---------- helpers ----------
 function slugify(s: string) {
   return s
     .toLowerCase()
@@ -82,16 +83,37 @@ function inferFrontendPath(t: QuestionnaireTemplate): string {
   const explicit = anyT.frontend_path as string | undefined
   if (explicit && explicit.startsWith("/")) return explicit
   if (explicit) return `/${explicit}`
-
   const qtype = t.questionnaire_type?.trim()
   if (qtype && /^[a-z0-9-_/]+$/i.test(qtype)) {
-    // legacy: /questionnaires/<type>
     const clean = qtype.startsWith("/") ? qtype : `/questionnaires/${qtype.replace(/^\//, "")}`
     return clean
   }
-
   if (t.name) return `/questionnaires/${slugify(t.name)}`
   return `/questionnaires/${t.id}`
+}
+
+// ---------- visit detection ----------
+function resolveVisitType(t: QuestionnaireTemplate): "GLP" | "ED" | "weight_loss" | null {
+  const hay = [
+    t.name,
+    t.questionnaire_type,
+    (t as any)?.beluga_visit_type,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+
+  if (/\bglp\b|\bglp-?1\b|\bindividualized glp\b/.test(hay)) return "GLP"
+  if (/\bed\b|\berectile dysfunction\b/.test(hay)) return "ED"
+  if (/\bstandard weight loss\b/.test(hay)) return "weight_loss"
+  if (/\bweight\s*loss\b/.test(hay)) return "weight_loss"
+  return null
+}
+
+function visitTypeToPathSegment(v: "GLP" | "ED" | "weight_loss") {
+  if (v === "GLP") return "glp"
+  if (v === "ED") return "ed"
+  return "weight_loss"
 }
 
 // ---------- types ----------
@@ -112,7 +134,6 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate }: P
   const { currentClient } = useClients()
   const questionnaireDomain = ensureHttpsBase(currentClient?.questionnaire_url)
 
-  // Affiliate UTM/params (legacy kept)
   const qs = useMemo(() => {
     if (!affiliate) return ""
     const p = new URLSearchParams()
@@ -126,6 +147,7 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate }: P
   const [error, setError] = useState<string | null>(null)
   const [templates, setTemplates] = useState<QuestionnaireTemplate[]>([])
 
+  // fetch templates
   useEffect(() => {
     if (!open) return
     let cancelled = false
@@ -157,10 +179,20 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate }: P
     if (ok) {
       setCopiedLink(text)
       setTimeout(() => setCopiedLink(null), 2000)
-    } else {
-      console.error("❌ Failed to copy link")
     }
   }
+
+  // ✅ Always run hooks before conditional returns
+  const items = useMemo(() => {
+    return templates
+      .map((t) => {
+        const vt = resolveVisitType(t)
+        const visitPath = vt ? `/visit/${visitTypeToPathSegment(vt)}` : null
+        const legacyPath = inferFrontendPath(t)
+        return { t, vt, visitPath, legacyPath }
+      })
+      .filter((i) => (USE_VISIT_ROUTES ? !!i.vt : true))
+  }, [templates])
 
   if (!affiliate) return null
 
@@ -180,13 +212,12 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate }: P
               <Button variant="secondary" onClick={() => copy(affiliate.referral_link)}>
                 {copiedLink === affiliate.referral_link ? "Copied" : "Copy"}
               </Button>
-
             </div>
           </div>
 
           <Separator />
 
-          {/* Dynamic Questionnaires (LEGACY paths) */}
+          {/* Questionnaires */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">Questionnaires</p>
@@ -197,16 +228,16 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate }: P
               <div className="rounded-md border p-3 text-sm text-red-600">{error}</div>
             )}
 
-            {!loading && !error && templates.length === 0 && (
+            {!loading && !error && items.length === 0 && (
               <div className="rounded-md border p-3 text-sm text-muted-foreground">
                 No questionnaires found.
               </div>
             )}
 
-            {!loading && !error && templates.length > 0 && (
+            {!loading && !error && items.length > 0 && (
               <div className="rounded-md border divide-y">
-                {templates.map((t) => {
-                  const path = inferFrontendPath(t)                      // 👈 legacy route
+                {items.map(({ t, visitPath, legacyPath }) => {
+                  const path = USE_VISIT_ROUTES && visitPath ? visitPath : legacyPath
                   const full = buildLink({ base: questionnaireDomain, path, qs })
                   const openDisabled = !full
 
@@ -219,7 +250,6 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate }: P
                         <Button variant="outline" onClick={() => copy(full)} disabled={openDisabled}>
                           {copiedLink === full ? "Copied" : "Copy Link"}
                         </Button>
-                        {/* Open in new tab icon */}
                         <a
                           href={full || undefined}
                           target="_blank"
@@ -228,7 +258,9 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate }: P
                           className={`inline-flex h-8 w-8 items-center justify-center rounded-md ${
                             openDisabled ? "opacity-50 cursor-not-allowed" : "hover:bg-muted"
                           }`}
-                          onClick={(e) => { if (openDisabled) e.preventDefault() }}
+                          onClick={(e) => {
+                            if (openDisabled) e.preventDefault()
+                          }}
                         >
                           <ExternalLink className="h-4 w-4" />
                         </a>

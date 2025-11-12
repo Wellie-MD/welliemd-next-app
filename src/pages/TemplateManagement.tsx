@@ -30,8 +30,19 @@ const getTemplateColumns = (
   },
   {
     key: "questionnaire_type",
-    label: "Type",
+    label: "Treatment Type",
     render: (value: string) => {
+      return value
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+    },
+  },
+  {
+    key: "beluga_visit_type",
+    label: "Visit Type",
+    render: (value: string) => {
+      if (!value) return "-";
       return value
         .split("_")
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -284,7 +295,7 @@ export default function TemplateManagement() {
   const handleRefresh = useCallback(() => {
     setRefreshKey((prev) => prev + 1);
     fetchTemplates();
-  }, []);
+  }, [fetchTemplates]);
 
   const handleExport = useCallback(() => {
     const exportData = filteredTemplates.map((template) => ({
@@ -298,7 +309,8 @@ export default function TemplateManagement() {
     // Create export columns without the Review column and actions
     const exportColumns = [
       { key: "name", label: "Name" },
-      { key: "questionnaire_type", label: "Type" },
+      { key: "questionnaire_type", label: "Treatment Type" },
+      { key: "beluga_visit_type", label: "Visit Type" },
       { key: "question_count", label: "Questions" },
       { key: "is_published", label: "Status" },
       { key: "updated_at", label: "Last Updated" },
