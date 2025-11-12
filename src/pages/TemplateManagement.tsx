@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { FileText } from "lucide-react";
+import { FileText, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
 import { useNavigate } from "react-router-dom";
 import { templateApi, QuestionnaireTemplate } from "@/api/questionnaires";
-
+import { useClients } from "@/hooks/useClients";
 import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
 import { isWithinInterval, parseISO, format } from "date-fns";
@@ -126,6 +126,18 @@ export default function TemplateManagement() {
   const [publishingIds, setPublishingIds] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { currentClient, clients, loading: clientsLoading } = useClients();
+
+  // Use matched client or fallback to single client if available
+  const effectiveClient = useMemo(() => {
+    if (currentClient) {
+      return currentClient;
+    }
+    if (clients.length === 1) {
+      return clients[0];
+    }
+    return null;
+  }, [currentClient, clients]);
 
   const fetchTemplates = async () => {
     try {
@@ -159,10 +171,70 @@ export default function TemplateManagement() {
 
   useEffect(() => {
     fetchTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleManageQuestions = (template: QuestionnaireTemplate) => {
     navigate(`/dashboard/templates/${template.id}/flow-builder`);
+  };
+
+  const handleCopyQuestionnaireLink = async (
+    template: QuestionnaireTemplate
+  ) => {
+    if (!effectiveClient?.questionnaire_url) {
+      toast({
+        title: "Error",
+        description: "Questionnaire URL is not configured for this client",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!template.beluga_visit_type) {
+      toast({
+        title: "Error",
+        description: "Visit type is not set for this template",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Build the questionnaire link: questionnaire_url + /visit/ + visit_type
+    const baseUrl = effectiveClient.questionnaire_url.replace(/\/$/, ""); // Remove trailing slash
+    const visitType = template.beluga_visit_type;
+    const questionnaireLink = `${baseUrl}/visit/${visitType}`;
+
+    // Copy to clipboard with fallback for older browsers
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(questionnaireLink);
+        toast({
+          title: "Success",
+          description: "Questionnaire link copied to clipboard",
+        });
+      } else {
+        // Fallback for older browsers
+        const textArea = document.createElement("textarea");
+        textArea.value = questionnaireLink;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textArea);
+        toast({
+          title: "Success",
+          description: "Questionnaire link copied to clipboard",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to copy:", error);
+      toast({
+        title: "Error",
+        description: "Failed to copy link to clipboard",
+        variant: "destructive",
+      });
+    }
   };
 
   const handlePublishToggle = async (template: QuestionnaireTemplate) => {
@@ -256,14 +328,7 @@ export default function TemplateManagement() {
 
       return matchesSearch && matchesStatus && matchesType && matchesDateRange;
     });
-  }, [
-    templates,
-    searchTerm,
-    activeStatusFilter,
-    activeTypeFilter,
-    date,
-    refreshKey,
-  ]);
+  }, [templates, searchTerm, activeStatusFilter, activeTypeFilter, date]);
 
   // Create filter configuration for DataTable
   const filters = [
@@ -295,7 +360,8 @@ export default function TemplateManagement() {
   const handleRefresh = useCallback(() => {
     setRefreshKey((prev) => prev + 1);
     fetchTemplates();
-  }, [fetchTemplates]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleExport = useCallback(() => {
     const exportData = filteredTemplates.map((template) => ({
@@ -320,21 +386,56 @@ export default function TemplateManagement() {
 
   // Only map if templates is an array
   const templatesWithActions = Array.isArray(filteredTemplates)
-    ? filteredTemplates.map((template) => ({
-        ...template,
-        actions: (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleManageQuestions(template)}
-              title="View Flow Builder"
-            >
-              <FileText className="h-4 w-4" />
-            </Button>
-          </div>
-        ),
-      }))
+    ? filteredTemplates.map((template) => {
+        const hasVisitType = !!template.beluga_visit_type;
+        const hasQuestionnaireUrl = !!effectiveClient?.questionnaire_url;
+        const isLinkDisabled = !hasVisitType || !hasQuestionnaireUrl;
+
+        return {
+          ...template,
+          actions: (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleCopyQuestionnaireLink(template);
+                }}
+                title={
+                  isLinkDisabled
+                    ? !hasVisitType
+                      ? "Visit type not set"
+                      : "Questionnaire URL not configured"
+                    : "Copy Questionnaire Link"
+                }
+                disabled={isLinkDisabled}
+                className={`${
+                  isLinkDisabled
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer hover:bg-gray-100 hover:text-blue-600"
+                }`}
+              >
+                <Link2 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleManageQuestions(template);
+                }}
+                title="View Flow Builder"
+                className="cursor-pointer hover:bg-gray-100 hover:text-blue-600"
+              >
+                <FileText className="h-4 w-4" />
+              </Button>
+            </div>
+          ),
+        };
+      })
     : [];
 
   return (
