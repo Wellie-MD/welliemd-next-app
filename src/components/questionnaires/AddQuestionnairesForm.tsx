@@ -82,8 +82,8 @@ export default function AddQuestionnairesForm({
   const [formData, setFormData] = useState<CreateTemplatePayload>({
     name: "",
     description: "",
-    questionnaire_type: "client_custom",
-    beluga_visit_type: "none",
+    questionnaire_type: "",
+    beluga_visit_type: "",
     requires_photo_upload: false,
     requires_identity_verification: false,
     is_admin_template: true,
@@ -96,7 +96,7 @@ export default function AddQuestionnairesForm({
         name: template.name,
         description: template.description || "",
         questionnaire_type: template.questionnaire_type,
-        beluga_visit_type: template.beluga_visit_type || "none",
+        beluga_visit_type: template.beluga_visit_type || "",
         requires_photo_upload: template.requires_photo_upload,
         requires_identity_verification: template.requires_identity_verification,
         is_admin_template: template.is_admin_template !== undefined ? template.is_admin_template : true,
@@ -106,8 +106,8 @@ export default function AddQuestionnairesForm({
       setFormData({
         name: "",
         description: "",
-        questionnaire_type: "client_custom",
-        beluga_visit_type: "none",
+        questionnaire_type: "",
+        beluga_visit_type: "",
         requires_photo_upload: false,
         requires_identity_verification: false,
         is_admin_template: true,
@@ -192,10 +192,10 @@ export default function AddQuestionnairesForm({
     try {
       setLoading(true)
       
-      // Remove beluga_visit_type if it's 'none'
+      // Remove beluga_visit_type if it's empty
       const payload = {
         ...formData,
-        beluga_visit_type: formData.beluga_visit_type === "none" ? undefined : formData.beluga_visit_type,
+        beluga_visit_type: formData.beluga_visit_type.trim() === "" ? undefined : formData.beluga_visit_type,
       }
       
       let createdTemplate: QuestionnaireTemplate
@@ -286,49 +286,29 @@ export default function AddQuestionnairesForm({
             />
           </div>
 
-          {/* Questionnaire Type */}
+          {/* Treatment Type */}
           <div className="space-y-2">
             <Label htmlFor="questionnaire_type">
-              Questionnaire Type <span className="text-red-500">*</span>
+              Treatment Type <span className="text-red-500">*</span>
             </Label>
-            <Select
+            <Input
+              id="questionnaire_type"
               value={formData.questionnaire_type}
-              onValueChange={(value) =>
-                setFormData({ ...formData, questionnaire_type: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="standard_weight_loss">Standard Weight Loss Questionnaire</SelectItem>
-                <SelectItem value="individualized_glp">Individualized GLP Weight Loss</SelectItem>
-                <SelectItem value="follow_up">Weight Loss Follow-up Questionnaire</SelectItem>
-                <SelectItem value="ed_questionnaire">Erectile Dysfunction Questionnaire</SelectItem>
-                <SelectItem value="client_custom">Client Custom Questionnaire</SelectItem>
-              </SelectContent>
-            </Select>
+              onChange={(e) => setFormData({ ...formData, questionnaire_type: e.target.value })}
+              placeholder="e.g., Weight Loss, GLP-1, Erectile Dysfunction"
+              required
+            />
           </div>
 
-          {/* Beluga Visit Type */}
+          {/* Visit Type */}
           <div className="space-y-2">
-            <Label htmlFor="beluga_visit_type">Beluga Visit Type</Label>
-            <Select
+            <Label htmlFor="beluga_visit_type">Visit Type</Label>
+            <Input
+              id="beluga_visit_type"
               value={formData.beluga_visit_type}
-              onValueChange={(value) =>
-                setFormData({ ...formData, beluga_visit_type: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select visit type (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                <SelectItem value="initial">Initial Visit</SelectItem>
-                <SelectItem value="follow_up">Follow Up Visit</SelectItem>
-                <SelectItem value="consultation">Consultation</SelectItem>
-              </SelectContent>
-            </Select>
+              onChange={(e) => setFormData({ ...formData, beluga_visit_type: e.target.value })}
+              placeholder="e.g., Initial Visit, Follow-up, Consultation (optional)"
+            />
           </div>
 
           {/* Toggles */}
@@ -493,26 +473,6 @@ export default function AddQuestionnairesForm({
                             </div>
                           </div>
                         )}
-
-                        {/* Beluga Field Mapping */}
-                        <div className="space-y-2">
-                          <Label htmlFor={`beluga_mapping_${qIndex}`}>Beluga Field Mapping</Label>
-                          <Select
-                            value={question.beluga_field_mapping}
-                            onValueChange={(value) => updateQuestion(qIndex, "beluga_field_mapping", value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {FIELD_MAPPINGS.map((mapping) => (
-                                <SelectItem key={mapping.value} value={mapping.value}>
-                                  {mapping.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
 
                         {/* Toggles */}
                         <div className="space-y-3">

@@ -38,10 +38,21 @@ const getTemplateColumns = (
       </button>
     ),
   },
-  { 
-    key: "questionnaire_type", 
-    label: "Type",
+  {
+    key: "questionnaire_type",
+    label: "Treatment Type",
     render: (value: string) => {
+      return value
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+    },
+  },
+  {
+    key: "beluga_visit_type",
+    label: "Visit Type",
+    render: (value: string) => {
+      if (!value) return "-";
       return value
         .split("_")
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -54,7 +65,8 @@ const getTemplateColumns = (
     render: (value: number | undefined, row: QuestionnaireTemplate) => {
       // Try question_count first, then questions array length, then 0
       if (value !== undefined && value !== null) return value;
-      if (row.questions && Array.isArray(row.questions)) return row.questions.length;
+      if (row.questions && Array.isArray(row.questions))
+        return row.questions.length;
       return 0;
     },
   },
@@ -69,9 +81,17 @@ const getTemplateColumns = (
           size="sm"
           onClick={() => handlePublishToggle(row)}
           disabled={isPublishing}
-          className={row.is_published ? "text-red-600 border-red-600 hover:bg-red-50" : ""}
+          className={
+            row.is_published
+              ? "text-red-600 border-red-600 hover:bg-red-50"
+              : ""
+          }
         >
-          {isPublishing ? "Processing..." : row.is_published ? "Unpublish" : "Publish"}
+          {isPublishing
+            ? "Processing..."
+            : row.is_published
+            ? "Unpublish"
+            : "Publish"}
         </Button>
       );
     },
@@ -80,7 +100,10 @@ const getTemplateColumns = (
     key: "is_published",
     label: "Status",
     render: (value: boolean) => (
-      <Badge variant={value ? "default" : "secondary"} className={value ? "bg-green-100 text-green-800" : ""}>
+      <Badge
+        variant={value ? "default" : "secondary"}
+        className={value ? "bg-green-100 text-green-800" : ""}
+      >
         {value ? "Approved" : "Draft"}
       </Badge>
     ),
@@ -100,15 +123,24 @@ const getTemplateColumns = (
 ];
 
 const statusFilters = ["All", "Published", "Draft"];
-const typeFilters = ["All Types", "Standard Weight Loss", "Individualized GLP", "Follow-up", "ED", "Client Custom"];
+const typeFilters = [
+  "All Types",
+  "Standard Weight Loss",
+  "Individualized GLP",
+  "Follow-up",
+  "ED",
+  "Client Custom",
+];
 
 export default function Questionnaires() {
   const [templates, setTemplates] = useState<QuestionnaireTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<QuestionnaireTemplate | null>(null);
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<QuestionnaireTemplate | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [templateToDelete, setTemplateToDelete] = useState<QuestionnaireTemplate | null>(null);
+  const [templateToDelete, setTemplateToDelete] =
+    useState<QuestionnaireTemplate | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeStatusFilter, setActiveStatusFilter] = useState("All");
   const [activeTypeFilter, setActiveTypeFilter] = useState("All Types");
@@ -219,7 +251,9 @@ export default function Questionnaires() {
         description:
           error.response?.data?.error ||
           error.message ||
-          `Failed to ${template.is_published ? "unpublish" : "publish"} template`,
+          `Failed to ${
+            template.is_published ? "unpublish" : "publish"
+          } template`,
         variant: "destructive",
       });
     } finally {
@@ -239,7 +273,9 @@ export default function Questionnaires() {
       const matchesSearch =
         !searchTerm ||
         template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        template.questionnaire_type?.toLowerCase().includes(searchTerm.toLowerCase());
+        template.questionnaire_type
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase());
 
       // Status filter
       const matchesStatus =
@@ -252,10 +288,10 @@ export default function Questionnaires() {
         "Standard Weight Loss": "standard_weight_loss",
         "Individualized GLP": "individualized_glp",
         "Follow-up": "follow_up",
-        "ED": "ed_questionnaire",
+        ED: "ed_questionnaire",
         "Client Custom": "client_custom",
       };
-      
+
       const matchesType =
         activeTypeFilter === "All Types" ||
         template.questionnaire_type === typeMapping[activeTypeFilter];
@@ -421,8 +457,8 @@ export default function Questionnaires() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the template "{templateToDelete?.name}".
-              This action cannot be undone.
+              This will permanently delete the template "
+              {templateToDelete?.name}". This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
