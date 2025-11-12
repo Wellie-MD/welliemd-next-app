@@ -17,11 +17,11 @@ export default function Domains() {
   const [domains] = useState<Domain[]>([
     {
       id: "1",
-      name: "pause-rx.mybaskhealth.com",
+      name: "pause-rx.welliemd.com",
       status: "Connected",
       dateAdded: "May 22nd, 2025",
       autoRenew: "Never Expires",
-      provider: "Bask"
+      provider: "WellieMD"
     }
   ])
 
@@ -78,10 +78,10 @@ export default function Domains() {
         </CardContent>
       </Card>
 
-      {/* Bask Managed Domain */}
+      {/* WellieMD Managed Domain */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Bask Managed Domain</CardTitle>
+          <CardTitle className="text-lg">WellieMD Managed Domain</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">

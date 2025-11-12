@@ -137,7 +137,7 @@ export default function Payments() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-lg font-medium">Bask Payments</CardTitle>
+            <CardTitle className="text-lg font-medium">WellieMD Payments</CardTitle>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -290,7 +290,7 @@ export default function Payments() {
                 <div className="space-y-3 p-4 bg-blue-50 rounded-lg">
                   <h3 className="font-medium">Test Mode</h3>
                   <p className="text-sm text-muted-foreground">
-                    Test Bask Payments setup and configuration to simulate successful and failed transactions.{" "}
+                    Test WellieMD Payments setup and configuration to simulate successful and failed transactions.{" "}
                     <a href="#" className="text-sky-600 hover:text-sky-700">Learn more about test mode</a>
                   </p>
                   <div className="flex items-center gap-3">

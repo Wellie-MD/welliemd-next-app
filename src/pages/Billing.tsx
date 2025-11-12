@@ -12,7 +12,7 @@ export default function Billing() {
           <div>
             <h2 className="text-lg font-semibold">Payment methods</h2>
             <p className="text-sm text-muted-foreground">
-              Manage how you pay your bills in Bask.
+              Manage how you pay your bills in WellieMD.
             </p>
           </div>
         </div>
@@ -21,7 +21,7 @@ export default function Billing() {
           <div>
             <h2 className="text-lg font-semibold">Default payment methods</h2>
             <p className="text-sm text-muted-foreground">
-              Add a payment method for purchases and bills in Bask.
+              Add a payment method for purchases and bills in WellieMD.
             </p>
           </div>
           
@@ -97,7 +97,7 @@ export default function Billing() {
           
           <div className="space-y-3">
             <div className="flex justify-between">
-              <span className="text-sm">Bask Standard</span>
+              <span className="text-sm">WellieMD Standard</span>
               <span className="text-sm">$2,000</span>
             </div>
             <div className="flex justify-between">
