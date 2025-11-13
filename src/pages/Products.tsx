@@ -17,6 +17,15 @@ import {
   RX_OTC_OPTIONS,
   PRODUCT_TYPE_OPTIONS 
 } from "@/api/products"
+import { productCategoryApi, ProductCategory } from "@/api/productCategories"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
 
 type Product = {
   id: number | string
@@ -84,6 +93,9 @@ export default function Products() {
   const [activeTreatmentFilter, setActiveTreatmentFilter] = useState("All Treatments")
   const [activePurchaseTypeFilter, setActivePurchaseTypeFilter] = useState("All Types")
   const [activeRxOtcFilter, setActiveRxOtcFilter] = useState("All")
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>("all")
+  const [categories, setCategories] = useState<ProductCategory[]>([])
+  const [categorySearch, setCategorySearch] = useState("")
   const [date, setDate] = useState<DateRange | undefined>()
 
   const fetchProducts = async () => {
@@ -101,8 +113,19 @@ export default function Products() {
     }
   }
 
+  const fetchCategories = async () => {
+    try {
+      const data = await productCategoryApi.listCategories()
+      setCategories(data)
+    } catch (e) {
+      console.error("Failed to fetch categories:", e)
+      setCategories([])
+    }
+  }
+
   useEffect(() => {
     fetchProducts()
+    fetchCategories()
   }, [])
 
   const filtered = useMemo(() => {
@@ -157,7 +180,12 @@ export default function Products() {
       }
       const matchesRxOtc =
         activeRxOtcFilter === "All" ||
-        (product as unknown).rx_or_otc === rxOtcMapping[activeRxOtcFilter]
+        (product as any).rx_or_otc === rxOtcMapping[activeRxOtcFilter]
+
+      // Category filter
+      const matchesCategory =
+        activeCategoryFilter === "all" ||
+        (product as any).category?.toString() === activeCategoryFilter
 
       // Date range filter
       let matchesDateRange = true
@@ -179,9 +207,9 @@ export default function Products() {
         }
       }
 
-      return matchesSearch && matchesStatus && matchesTreatment && matchesPurchaseType && matchesRxOtc && matchesDateRange
+      return matchesSearch && matchesStatus && matchesTreatment && matchesPurchaseType && matchesRxOtc && matchesCategory && matchesDateRange
     })
-  }, [products, search, activeStatusFilter, activeTreatmentFilter, activePurchaseTypeFilter, activeRxOtcFilter, date])
+  }, [products, search, activeStatusFilter, activeTreatmentFilter, activePurchaseTypeFilter, activeRxOtcFilter, activeCategoryFilter, date])
 
   const onDelete = async (row: Product) => {
     if (!row) return
@@ -238,6 +266,8 @@ export default function Products() {
     setActiveTreatmentFilter("All Treatments")
     setActivePurchaseTypeFilter("All Types")
     setActiveRxOtcFilter("All")
+    setActiveCategoryFilter("all")
+    setCategorySearch("")
     setDate(undefined)
     setSearch("")
   }, [])
@@ -248,6 +278,21 @@ export default function Products() {
 
   const columns = [
     { key: "name", label: "Name" },
+    {
+      key: "category_name",
+      label: "Category",
+      render: (...args: unknown[]) => {
+        const row = getRow<Product>(...args)
+        const categoryId = (row as any).category
+        if (!categoryId) return <span className="text-muted-foreground">-</span>
+        const category = categories.find((c) => c.id === categoryId)
+        return category ? (
+          <Badge variant="outline">{category.name}</Badge>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )
+      },
+    },
     {
       key: "manufacturer_name",
       label: "Manufacturer",
@@ -367,6 +412,60 @@ export default function Products() {
           fetchProducts();
         }}
       />
+
+      {/* Category Filter */}
+      <div className="flex items-center gap-4 bg-muted/30 p-4 rounded-lg">
+        <div className="flex-1 max-w-xs">
+          <label className="text-sm font-medium mb-2 block">Filter by Category</label>
+          <Select
+            value={activeCategoryFilter}
+            onValueChange={setActiveCategoryFilter}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <div className="p-2">
+                <Input
+                  placeholder="Search categories..."
+                  value={categorySearch}
+                  onChange={(e) => setCategorySearch(e.target.value)}
+                  className="mb-2"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories
+                .filter((cat) =>
+                  cat.name.toLowerCase().includes(categorySearch.toLowerCase())
+                )
+                .map((category) => (
+                  <SelectItem key={category.id} value={category.id.toString()}>
+                    {category.name}
+                  </SelectItem>
+                ))}
+              {categories.length === 0 && (
+                <div className="p-2 text-sm text-muted-foreground text-center">
+                  No categories found
+                </div>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+        {activeCategoryFilter !== "all" && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setActiveCategoryFilter("all");
+              setCategorySearch("");
+            }}
+            className="mt-6"
+          >
+            Clear Category Filter
+          </Button>
+        )}
+      </div>
 
       {/* Table */}
       <DataTable

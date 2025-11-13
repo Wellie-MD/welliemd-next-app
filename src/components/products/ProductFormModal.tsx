@@ -27,6 +27,7 @@ import {
   TREATMENT_OPTIONS,
   RX_DRUG_FORM_OPTIONS,
 } from "@/api/products";
+import { CategorySelector } from "./CategorySelector";
 
 interface ProductFormModalProps {
   open: boolean;
@@ -46,6 +47,7 @@ export function ProductFormModal({
     name: "",
     description: "",
     application_directions: "",
+    category: null as number | null,
     product_type: "single",
     purchase_type: "one_time",
     treatment: "general",
@@ -77,6 +79,7 @@ export function ProductFormModal({
         name: product.name || "",
         description: product.description || "",
         application_directions: product.application_directions || "",
+        category: (product as unknown).category || null,
         product_type: product.product_type || "single",
         purchase_type: product.purchase_type || "one_time",
         treatment: product.treatment || "general",
@@ -107,6 +110,7 @@ export function ProductFormModal({
         name: "",
         description: "",
         application_directions: "",
+        category: null,
         product_type: "single",
         purchase_type: "one_time",
         treatment: "general",
@@ -235,6 +239,15 @@ export function ProductFormModal({
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Product description"
                   rows={3}
+                />
+              </div>
+
+              <div className="col-span-2">
+                <Label htmlFor="category">Product Category</Label>
+                <CategorySelector
+                  value={formData.category}
+                  onChange={(categoryId) => setFormData({ ...formData, category: categoryId })}
+                  disabled={loading}
                 />
               </div>
 

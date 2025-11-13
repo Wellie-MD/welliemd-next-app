@@ -18,6 +18,8 @@ export interface Product {
   application_directions?: string;
   learn_more?: string;
   product_image?: string;
+  category?: number;
+  category_name?: string;
   product_type: "single" | "bundle";
   bundle_products?: string[];
   bundle_product_names?: string[];
