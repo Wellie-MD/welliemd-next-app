@@ -40,12 +40,21 @@ const getTemplateColumns = (
   },
   {
     key: "questionnaire_type",
+    label: "Questionnaire Type",
+    render: (value: string) => {
+      const typeMap: Record<string, string> = {
+        onboarding: "Onboarding",
+        follow_up: "Follow-up",
+      };
+      return typeMap[value] || value;
+    },
+  },
+  {
+    key: "treatment_type",
     label: "Treatment Type",
     render: (value: string) => {
-      return value
-        .split("_")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(" ");
+      if (!value) return "-";
+      return value;
     },
   },
   {
@@ -53,10 +62,7 @@ const getTemplateColumns = (
     label: "Visit Type",
     render: (value: string) => {
       if (!value) return "-";
-      return value
-        .split("_")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(" ");
+      return value;
     },
   },
   {
@@ -123,14 +129,7 @@ const getTemplateColumns = (
 ];
 
 const statusFilters = ["All", "Published", "Draft"];
-const typeFilters = [
-  "All Types",
-  "Standard Weight Loss",
-  "Individualized GLP",
-  "Follow-up",
-  "ED",
-  "Client Custom",
-];
+const questionnaireTypeFilters = ["All", "Onboarding", "Follow-up"];
 
 export default function Questionnaires() {
   const [templates, setTemplates] = useState<QuestionnaireTemplate[]>([]);
@@ -143,7 +142,7 @@ export default function Questionnaires() {
     useState<QuestionnaireTemplate | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeStatusFilter, setActiveStatusFilter] = useState("All");
-  const [activeTypeFilter, setActiveTypeFilter] = useState("All Types");
+  const [activeQuestionnaireTypeFilter, setActiveQuestionnaireTypeFilter] = useState("All");
   const [date, setDate] = useState<DateRange | undefined>();
   const [publishingIds, setPublishingIds] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
@@ -275,6 +274,12 @@ export default function Questionnaires() {
         template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         template.questionnaire_type
           ?.toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        template.treatment_type
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        template.beluga_visit_type
+          ?.toLowerCase()
           .includes(searchTerm.toLowerCase());
 
       // Status filter
@@ -283,18 +288,15 @@ export default function Questionnaires() {
         (activeStatusFilter === "Published" && template.is_published) ||
         (activeStatusFilter === "Draft" && !template.is_published);
 
-      // Type filter - map display names to actual values
-      const typeMapping: Record<string, string> = {
-        "Standard Weight Loss": "standard_weight_loss",
-        "Individualized GLP": "individualized_glp",
+      // Questionnaire Type filter
+      const questionnaireTypeMapping: Record<string, string> = {
+        "Onboarding": "onboarding",
         "Follow-up": "follow_up",
-        ED: "ed_questionnaire",
-        "Client Custom": "client_custom",
       };
 
-      const matchesType =
-        activeTypeFilter === "All Types" ||
-        template.questionnaire_type === typeMapping[activeTypeFilter];
+      const matchesQuestionnaireType =
+        activeQuestionnaireTypeFilter === "All" ||
+        template.questionnaire_type === questionnaireTypeMapping[activeQuestionnaireTypeFilter];
 
       // Date range filter
       let matchesDateRange = true;
@@ -317,9 +319,9 @@ export default function Questionnaires() {
         }
       }
 
-      return matchesSearch && matchesStatus && matchesType && matchesDateRange;
+      return matchesSearch && matchesStatus && matchesQuestionnaireType && matchesDateRange;
     });
-  }, [templates, searchTerm, activeStatusFilter, activeTypeFilter, date]);
+  }, [templates, searchTerm, activeStatusFilter, activeQuestionnaireTypeFilter, date]);
 
   // Create filter configuration for DataTable
   const filters = [
@@ -331,19 +333,19 @@ export default function Questionnaires() {
       value: activeStatusFilter === status ? status : undefined,
       onClick: () => setActiveStatusFilter(status),
     })),
-    // Type filters
-    ...typeFilters.map((type) => ({
-      key: `type-${type}`,
+    // Questionnaire Type filters
+    ...questionnaireTypeFilters.map((type) => ({
+      key: `qtype-${type}`,
       label: type,
       type: "button" as const,
-      value: activeTypeFilter === type ? type : undefined,
-      onClick: () => setActiveTypeFilter(type),
+      value: activeQuestionnaireTypeFilter === type ? type : undefined,
+      onClick: () => setActiveQuestionnaireTypeFilter(type),
     })),
   ];
 
   const handleResetFilters = useCallback(() => {
     setActiveStatusFilter("All");
-    setActiveTypeFilter("All Types");
+    setActiveQuestionnaireTypeFilter("All");
     setDate(undefined);
     setSearchTerm("");
   }, []);

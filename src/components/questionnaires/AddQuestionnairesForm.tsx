@@ -82,7 +82,8 @@ export default function AddQuestionnairesForm({
   const [formData, setFormData] = useState<CreateTemplatePayload>({
     name: "",
     description: "",
-    questionnaire_type: "",
+    questionnaire_type: "onboarding",
+    treatment_type: "",
     beluga_visit_type: "",
     requires_photo_upload: false,
     requires_identity_verification: false,
@@ -96,6 +97,7 @@ export default function AddQuestionnairesForm({
         name: template.name,
         description: template.description || "",
         questionnaire_type: template.questionnaire_type,
+        treatment_type: template.treatment_type || "",
         beluga_visit_type: template.beluga_visit_type || "",
         requires_photo_upload: template.requires_photo_upload,
         requires_identity_verification: template.requires_identity_verification,
@@ -106,7 +108,8 @@ export default function AddQuestionnairesForm({
       setFormData({
         name: "",
         description: "",
-        questionnaire_type: "",
+        questionnaire_type: "onboarding",
+        treatment_type: "",
         beluga_visit_type: "",
         requires_photo_upload: false,
         requires_identity_verification: false,
@@ -286,17 +289,33 @@ export default function AddQuestionnairesForm({
             />
           </div>
 
-          {/* Treatment Type */}
+          {/* Questionnaire Type */}
           <div className="space-y-2">
             <Label htmlFor="questionnaire_type">
-              Treatment Type <span className="text-red-500">*</span>
+              Questionnaire Type <span className="text-red-500">*</span>
             </Label>
-            <Input
-              id="questionnaire_type"
+            <Select
               value={formData.questionnaire_type}
-              onChange={(e) => setFormData({ ...formData, questionnaire_type: e.target.value })}
+              onValueChange={(value) => setFormData({ ...formData, questionnaire_type: value as "onboarding" | "follow_up" })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="onboarding">Onboarding</SelectItem>
+                <SelectItem value="follow_up">Follow-up</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Treatment Type */}
+          <div className="space-y-2">
+            <Label htmlFor="treatment_type">Treatment Type</Label>
+            <Input
+              id="treatment_type"
+              value={formData.treatment_type}
+              onChange={(e) => setFormData({ ...formData, treatment_type: e.target.value })}
               placeholder="e.g., Weight Loss, GLP-1, Erectile Dysfunction"
-              required
             />
           </div>
 

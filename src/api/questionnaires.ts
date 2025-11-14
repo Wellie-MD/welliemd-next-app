@@ -12,8 +12,9 @@ export interface QuestionnaireTemplate {
   id: string;
   name: string;
   description?: string;
-  questionnaire_type: string;
-  beluga_visit_type?: string;
+  questionnaire_type: "onboarding" | "follow_up"; // Onboarding or Follow-up
+  treatment_type?: string; // Weight Loss, GLP-1, ED, etc.
+  beluga_visit_type?: string; // Visit type (Initial Visit, Follow-up Consultation, etc.)
   requires_photo_upload: boolean;
   requires_identity_verification: boolean;
   is_published: boolean;
@@ -64,7 +65,8 @@ export interface Question {
 export interface CreateTemplatePayload {
   name: string;
   description?: string;
-  questionnaire_type: string;
+  questionnaire_type: "onboarding" | "follow_up";
+  treatment_type?: string;
   beluga_visit_type?: string;
   requires_photo_upload?: boolean;
   requires_identity_verification?: boolean;
@@ -74,7 +76,8 @@ export interface CreateTemplatePayload {
 export interface UpdateTemplatePayload {
   name?: string;
   description?: string;
-  questionnaire_type?: string;
+  questionnaire_type?: "onboarding" | "follow_up";
+  treatment_type?: string;
   beluga_visit_type?: string;
   requires_photo_upload?: boolean;
   requires_identity_verification?: boolean;
