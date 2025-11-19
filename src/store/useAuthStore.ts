@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist, createJSONStorage } from "zustand/middleware";
 
 interface User {
   id: string;
@@ -20,8 +20,16 @@ interface AuthState {
   setAccessToken: (token: string) => void;
   setLoading: (loading: boolean) => void;
   requestPasswordReset: (email: string) => Promise<void>;
-  confirmPasswordReset: (uid: string, token: string, newPassword: string) => Promise<void>;
-  register: (credentials: { name: string; email: string; password: string }) => Promise<void>;
+  confirmPasswordReset: (
+    uid: string,
+    token: string,
+    newPassword: string
+  ) => Promise<void>;
+  register: (credentials: {
+    name: string;
+    email: string;
+    password: string;
+  }) => Promise<void>;
 }
 
 const useAuthStore = create<AuthState>()(
@@ -32,7 +40,7 @@ const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: true,
       error: "",
-      
+
       login: (accessToken, user) =>
         set({
           accessToken,
@@ -56,27 +64,36 @@ const useAuthStore = create<AuthState>()(
           isLoading: true,
         }),
 
-      setUser: (user) => set({ user, isAuthenticated: !!user, isLoading: false }),
+      setUser: (user) =>
+        set({ user, isAuthenticated: !!user, isLoading: false }),
       setAccessToken: (token) => set({ accessToken: token }),
       setLoading: (loading) => set({ isLoading: loading }),
 
       requestPasswordReset: async (email: string) => {
-        const authService = await import('../services/authService');
+        const authService = await import("../services/authService");
         await authService.authService.requestPasswordReset(email);
       },
-      
-      confirmPasswordReset: async (uid: string, token: string, newPassword: string) => {
-        const authService = await import('../services/authService');
-        await authService.authService.confirmPasswordReset(uid, token, newPassword);
+
+      confirmPasswordReset: async (
+        uid: string,
+        token: string,
+        newPassword: string
+      ) => {
+        const authService = await import("../services/authService");
+        await authService.authService.confirmPasswordReset(
+          uid,
+          token,
+          newPassword
+        );
       },
 
       register: async (credentials) => {
         set({ isLoading: true, error: "" });
         try {
-          const authService = await import('../services/authService');
+          const authService = await import("../services/authService");
           await authService.authService.register(credentials);
         } catch (error: any) {
-          const errorMessage = error.message || 'Registration failed';
+          const errorMessage = error.message || "Registration failed";
           set({ error: errorMessage });
         } finally {
           set({ isLoading: false });
@@ -84,7 +101,7 @@ const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'auth-storage',
+      name: "auth-storage",
       storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({
         user: state.user,

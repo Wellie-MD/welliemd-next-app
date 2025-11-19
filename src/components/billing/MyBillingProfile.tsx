@@ -4,7 +4,7 @@ import billingService, { BillingProfile } from "@/services/billingService";
 // packages are not installed in some environments. We still list them in package.json
 // so a normal dev environment should install them.
 import mockData from "@/data/mockData.json";
-import visaIcon from '@/assets/icons/payment-methods/visa.svg';
+import visaIcon from "@/assets/icons/payment-methods/visa.svg";
 import { Button } from "@/components/ui/button";
 
 function Modal({ children, onClose }: { children: any; onClose: () => void }) {
@@ -13,7 +13,9 @@ function Modal({ children, onClose }: { children: any; onClose: () => void }) {
       <div className="bg-white rounded shadow-lg w-[90%] max-w-lg p-4">
         {children}
         <div className="mt-4 text-right">
-          <Button variant="outline" onClick={onClose}>Close</Button>
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
         </div>
       </div>
     </div>
@@ -22,7 +24,11 @@ function Modal({ children, onClose }: { children: any; onClose: () => void }) {
 
 export default function MyBillingProfile() {
   const [profile, setProfile] = useState<BillingProfile | null>(null);
-  const [paymentMethodText, setPaymentMethodText] = useState<string | null>(null);
+  const [paymentMethodText, setPaymentMethodText] = useState<string | null>(
+    null
+  );
+  const [paymentMethodStatus, setPaymentMethodStatus] =
+    useState<string>("active");
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalContent, setModalContent] = useState<any | null>(null);
@@ -32,15 +38,15 @@ export default function MyBillingProfile() {
     if (!text) return null;
     const extract = (label: string) => {
       // match 'Label: value' on same line or Label:\n\nvalue
-      const re = new RegExp(label + '\\s*:\\s*(?:\\n\\s*)*([^\\n]+)', 'i');
+      const re = new RegExp(label + "\\s*:\\s*(?:\\n\\s*)*([^\\n]+)", "i");
       const m = text.match(re);
       if (m && m[1]) return m[1].trim();
-      return '';
+      return "";
     };
 
-    const name = extract('Name');
-    const email = extract('Email');
-    const address = extract('Address');
+    const name = extract("Name");
+    const email = extract("Email");
+    const address = extract("Address");
 
     // card details
     const cardLineMatch = text.match(/Card:\s*([^\n]+)/i);
@@ -52,52 +58,56 @@ export default function MyBillingProfile() {
       const brandMatch = cardLineMatch[1].match(/(\w+)/);
       if (brandMatch) payment_method.brand = brandMatch[1];
     }
-    if (last4Match && last4Match.length > 0) payment_method.last4 = last4Match[last4Match.length - 1];
+    if (last4Match && last4Match.length > 0)
+      payment_method.last4 = last4Match[last4Match.length - 1];
     if (expMatch) {
       const exp = expMatch[1];
-      const [m, y] = exp.split('/').map(s => s.trim());
+      const [m, y] = exp.split("/").map((s) => s.trim());
       const exp_month = Number(m) || undefined;
       const exp_year = Number(y) || undefined;
       if (exp_month) payment_method.exp_month = exp_month;
       if (exp_year) payment_method.exp_year = exp_year;
     }
 
-  const result: any = {};
-  if (name) result.client_name = name;
-  if (email) result.email = email;
-  if (address) result.address = address;
-  if (Object.keys(payment_method).length) result.payment_method = payment_method;
-  return result as Partial<BillingProfile> | null;
+    const result: any = {};
+    if (name) result.client_name = name;
+    if (email) result.email = email;
+    if (address) result.address = address;
+    if (Object.keys(payment_method).length)
+      result.payment_method = payment_method;
+    return result as Partial<BillingProfile> | null;
   };
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       setLoading(true);
-  const pmText = await billingService.getPaymentMethodText();
-  // server no longer exposes a /billing/profile/ endpoint; keep using local mock data for structured fields
-  const p = null;
-  if (!p) {
+      const pmData = await billingService.getPaymentMethodStatus();
+
+      if (mounted && pmData) {
+        setPaymentMethodStatus(pmData.status);
+        setPaymentMethodText(pmData.text);
+        const parsed = parseBillingFromText(pmData.text);
+        if (parsed) {
+          setProfile((prev) => ({ ...(prev ?? {}), ...parsed }));
+        }
+      } else {
         // fallback to mock
         const md: any = mockData as any;
         const mock = md.billingProfile ?? {
-          client_name: md?.client?.name ?? md?.dashboard?.payments?.[0]?.merchant ?? "Acme Health",
-          payment_method: { brand: "Visa", last4: "1383", exp_month: 8, exp_year: 2026 },
+          client_name:
+            md?.client?.name ??
+            md?.dashboard?.payments?.[0]?.merchant ??
+            "Acme Health",
+          payment_method: {
+            brand: "Visa",
+            last4: "1383",
+            exp_month: 8,
+            exp_year: 2026,
+          },
           next_invoice_date: "2025-11-26",
         };
-  if (mounted) setProfile(mock);
-  if (mounted && pmText) {
-    setPaymentMethodText(pmText);
-    const parsed = parseBillingFromText(pmText);
-    if (parsed) setProfile(prev => ({ ...(prev ?? {}), ...parsed }));
-  }
-      } else {
-  if (mounted) setProfile(p);
-  if (mounted && pmText) {
-    setPaymentMethodText(pmText);
-    const parsed = parseBillingFromText(pmText);
-    if (parsed) setProfile(prev => ({ ...(prev ?? {}), ...parsed }));
-  }
+        if (mounted) setProfile(mock);
       }
       setLoading(false);
     };
@@ -113,64 +123,161 @@ export default function MyBillingProfile() {
     <div className="p-4">
       <div className="layout-content-container flex flex-col w-full max-w-[960px]">
         <div className="flex flex-wrap justify-between gap-3 p-4">
-          <p className="text-[#0d171b] tracking-light text-[32px] font-bold leading-tight min-w-72">My Billing Profile</p>
+          <p className="text-[#0d171b] tracking-light text-[32px] font-bold leading-tight min-w-72">
+            My Billing Profile
+          </p>
         </div>
         {!paymentMethodText && (
           <p className="text-[#0d171b] text-base font-normal leading-normal pb-3 pt-1 px-4">
-            This is the Payment method to be charged for medication and shipping costs when a prescription is sent to the pharmacy.
+            This is the Payment method to be charged for medication and shipping
+            costs when a prescription is sent to the pharmacy.
           </p>
         )}
 
-        <h3 className="text-[#0d171b] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">Payment Method</h3>
-        <div className="flex items-center gap-4 bg-slate-50 px-4 min-h-[72px] py-2">
-          <img src={visaIcon} alt="card" className="h-10 w-auto shrink-0" />
-          <div className="flex flex-col justify-center">
-            <p className="text-[#0d171b] text-base font-medium leading-normal line-clamp-1">{paymentMethodText ? (() => {
-                const m = paymentMethodText.match(/Card:\s*([^\n]+)/i);
-                return m ? m[1] : 'Card: —';
-              })() : profile?.payment_method ? `Card: ${profile.payment_method.brand} **** **** **** ${profile.payment_method.last4}` : 'No payment method'}</p>
-            <p className="text-[#4c809a] text-sm font-normal leading-normal line-clamp-2">{paymentMethodText ? (() => {
-                const m = paymentMethodText.match(/Expires:\s*([^\n]+)/i);
-                return m ? `Expires: ${m[1]}` : '';
-              })() : profile?.payment_method ? `Expires: ${profile.payment_method.exp_month}/${profile.payment_method.exp_year}` : ''}</p>
-          </div>
-        </div>
+        <h3 className="text-[#0d171b] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">
+          Payment Method
+        </h3>
 
-        <h3 className="text-[#0d171b] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">Billing Details</h3>
+        {paymentMethodStatus === "no_customer" ||
+        paymentMethodStatus === "no_payment_method" ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-6 mx-4">
+            <div className="flex items-start gap-3">
+              <svg
+                className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+              <div className="flex-1">
+                <p className="text-[#0d171b] text-base font-semibold mb-2">
+                  No Payment Method on File
+                </p>
+                <p className="text-[#4c809a] text-sm mb-4">
+                  {paymentMethodStatus === "no_customer"
+                    ? "Please add your payment method to enable billing for medication and shipping costs."
+                    : "Your billing account is set up, but no payment method has been added yet."}
+                </p>
+                <Button
+                  onClick={async () => {
+                    setShowModal(true);
+                    setModalContent({ loading: true });
+                    const res = await billingService.postSetupIntent();
+                    if (res && res.client_secret) {
+                      setModalContent({
+                        loading: false,
+                        client_secret: res.client_secret,
+                      });
+                    } else {
+                      setModalContent({
+                        loading: false,
+                        error: "Failed to create setup intent",
+                      });
+                    }
+                  }}
+                  className="bg-[#42b6f0] hover:bg-[#3aa5df] text-[#0d171b]"
+                >
+                  Add Payment Method
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-4 bg-slate-50 px-4 min-h-[72px] py-2">
+            <img src={visaIcon} alt="card" className="h-10 w-auto shrink-0" />
+            <div className="flex flex-col justify-center">
+              <p className="text-[#0d171b] text-base font-medium leading-normal line-clamp-1">
+                {paymentMethodText
+                  ? (() => {
+                      const m = paymentMethodText.match(/Card:\s*([^\n]+)/i);
+                      return m ? m[1] : "Card: —";
+                    })()
+                  : profile?.payment_method
+                  ? `Card: ${profile.payment_method.brand} **** **** **** ${profile.payment_method.last4}`
+                  : "No payment method"}
+              </p>
+              <p className="text-[#4c809a] text-sm font-normal leading-normal line-clamp-2">
+                {paymentMethodText
+                  ? (() => {
+                      const m = paymentMethodText.match(/Expires:\s*([^\n]+)/i);
+                      return m ? `Expires: ${m[1]}` : "";
+                    })()
+                  : profile?.payment_method
+                  ? `Expires: ${profile.payment_method.exp_month}/${profile.payment_method.exp_year}`
+                  : ""}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <h3 className="text-[#0d171b] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">
+          Billing Details
+        </h3>
         <div className="p-4 grid grid-cols-[20%_1fr] gap-x-6">
           <div className="col-span-2 grid grid-cols-subgrid border-t border-t-[#cfdfe7] py-5">
-            <p className="text-[#4c809a] text-sm font-normal leading-normal">Name:</p>
-            <p className="text-[#0d171b] text-sm font-normal leading-normal">{profile?.client_name ?? '-'}</p>
+            <p className="text-[#4c809a] text-sm font-normal leading-normal">
+              Name:
+            </p>
+            <p className="text-[#0d171b] text-sm font-normal leading-normal">
+              {profile?.client_name ?? "-"}
+            </p>
           </div>
           <div className="col-span-2 grid grid-cols-subgrid border-t border-t-[#cfdfe7] py-5">
-            <p className="text-[#4c809a] text-sm font-normal leading-normal">Email:</p>
-            <p className="text-[#0d171b] text-sm font-normal leading-normal">{(profile as any)?.email ?? ''}</p>
+            <p className="text-[#4c809a] text-sm font-normal leading-normal">
+              Email:
+            </p>
+            <p className="text-[#0d171b] text-sm font-normal leading-normal">
+              {(profile as any)?.email ?? ""}
+            </p>
           </div>
           <div className="col-span-2 grid grid-cols-subgrid border-t border-t-[#cfdfe7] py-5">
-            <p className="text-[#4c809a] text-sm font-normal leading-normal">Address:</p>
-            <p className="text-[#0d171b] text-sm font-normal leading-normal">{(profile as any)?.address ?? ''}</p>
+            <p className="text-[#4c809a] text-sm font-normal leading-normal">
+              Address:
+            </p>
+            <p className="text-[#0d171b] text-sm font-normal leading-normal">
+              {(profile as any)?.address ?? ""}
+            </p>
           </div>
         </div>
-        <div className="flex px-4 py-3 justify-start">
-          <button
-            onClick={async () => {
-              setShowModal(true);
-              setModalContent({ loading: true });
-              const res = await billingService.postSetupIntent();
-              if (res && res.client_secret) {
-                setModalContent({ loading: false, client_secret: res.client_secret });
-              } else {
-                setModalContent({ loading: false, error: 'Failed to create setup intent' });
-              }
-            }}
-            className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-[#42b6f0] text-[#0d171b] text-sm font-bold leading-normal tracking-[0.015em]"
-          >
-            <span className="truncate">Update Payment Method</span>
-          </button>
-        </div>
+        {paymentMethodStatus === "active" && (
+          <div className="flex px-4 py-3 justify-start">
+            <button
+              onClick={async () => {
+                setShowModal(true);
+                setModalContent({ loading: true });
+                const res = await billingService.postSetupIntent();
+                if (res && res.client_secret) {
+                  setModalContent({
+                    loading: false,
+                    client_secret: res.client_secret,
+                  });
+                } else {
+                  setModalContent({
+                    loading: false,
+                    error: "Failed to create setup intent",
+                  });
+                }
+              }}
+              className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-[#42b6f0] text-[#0d171b] text-sm font-bold leading-normal tracking-[0.015em]"
+            >
+              <span className="truncate">Update Payment Method</span>
+            </button>
+          </div>
+        )}
       </div>
       {showModal && (
-        <Modal onClose={() => { setShowModal(false); setModalContent(null); }}>
+        <Modal
+          onClose={() => {
+            setShowModal(false);
+            setModalContent(null);
+          }}
+        >
           {modalContent?.loading ? (
             <div>Preparing update flow…</div>
           ) : modalContent?.client_secret ? (
@@ -180,19 +287,28 @@ export default function MyBillingProfile() {
                 <StripeSetupForm
                   clientSecret={modalContent.client_secret}
                   onSuccess={async () => {
-                    const refreshed = await billingService.getPaymentMethodText();
-                    setPaymentMethodText(refreshed);
-                    const parsed = parseBillingFromText(refreshed ?? undefined);
-                    if (parsed) setProfile(prev => ({ ...(prev ?? {}), ...parsed }));
+                    const pmData =
+                      await billingService.getPaymentMethodStatus();
+                    if (pmData) {
+                      setPaymentMethodStatus(pmData.status);
+                      setPaymentMethodText(pmData.text);
+                      const parsed = parseBillingFromText(pmData.text);
+                      if (parsed)
+                        setProfile((prev) => ({ ...(prev ?? {}), ...parsed }));
+                    }
                     setShowModal(false);
                     setModalContent(null);
                   }}
-                  onError={(errMsg: string) => setModalContent({ loading: false, error: errMsg })}
+                  onError={(errMsg: string) =>
+                    setModalContent({ loading: false, error: errMsg })
+                  }
                 />
               </div>
             </div>
           ) : (
-            <div className="text-red-600">{modalContent?.error ?? 'Unknown error'}</div>
+            <div className="text-red-600">
+              {modalContent?.error ?? "Unknown error"}
+            </div>
           )}
         </Modal>
       )}
@@ -200,13 +316,35 @@ export default function MyBillingProfile() {
   );
 }
 
-function StripeSetupForm({ clientSecret, onSuccess, onError }: { clientSecret: string; onSuccess: () => void; onError: (msg: string) => void }) {
+function StripeSetupForm({
+  clientSecret,
+  onSuccess,
+  onError,
+}: {
+  clientSecret: string;
+  onSuccess: () => void;
+  onError: (msg: string) => void;
+}) {
   const publishable = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
   if (!publishable) {
     return (
       <div className="p-4 border rounded bg-yellow-50 text-sm">
-        Stripe publishable key is not set (VITE_STRIPE_PUBLISHABLE_KEY). Please configure it in your environment to enable the live payment element.
-        <div className="mt-3"><pre className="text-xs text-muted-foreground">{clientSecret}</pre></div>
+        <p className="font-semibold text-amber-800 mb-2">
+          Stripe Configuration Required
+        </p>
+        <p className="text-amber-700 mb-3">
+          Stripe publishable key is not set (VITE_STRIPE_PUBLISHABLE_KEY).
+          Please configure it in your environment to enable the live payment
+          element.
+        </p>
+        <div className="mt-3 bg-amber-100 p-2 rounded">
+          <p className="text-xs text-amber-600 mb-1">
+            Client Secret (for debugging):
+          </p>
+          <pre className="text-xs text-amber-800 break-all whitespace-pre-wrap overflow-wrap-anywhere">
+            {clientSecret}
+          </pre>
+        </div>
       </div>
     );
   }
@@ -219,18 +357,26 @@ function StripeSetupForm({ clientSecret, onSuccess, onError }: { clientSecret: s
       (async () => {
         try {
           const [{ loadStripe }, stripeReact] = await Promise.all([
-            await import('@stripe/stripe-js'),
-            await import('@stripe/react-stripe-js')
+            await import("@stripe/stripe-js"),
+            await import("@stripe/react-stripe-js"),
           ]);
           const stripePromise = loadStripe(publishable);
           if (!mounted) return;
-          setStripeElements({ Elements: stripeReact.Elements, stripePromise, PaymentElement: stripeReact.PaymentElement, useStripe: stripeReact.useStripe, useElements: stripeReact.useElements });
+          setStripeElements({
+            Elements: stripeReact.Elements,
+            stripePromise,
+            PaymentElement: stripeReact.PaymentElement,
+            useStripe: stripeReact.useStripe,
+            useElements: stripeReact.useElements,
+          });
         } catch (err) {
-          console.error('Failed to load stripe libs', err);
+          console.error("Failed to load stripe libs", err);
           setStripeElements(null);
         }
       })();
-      return () => { mounted = false; };
+      return () => {
+        mounted = false;
+      };
     }, []);
 
     if (!StripeElements) return <div>Loading payment UI…</div>;
@@ -242,7 +388,10 @@ function StripeSetupForm({ clientSecret, onSuccess, onError }: { clientSecret: s
     const useElementsHook = StripeElements.useElements;
 
     return (
-      <ElementsComp stripe={StripeElements.stripePromise} options={{ clientSecret }}>
+      <ElementsComp
+        stripe={StripeElements.stripePromise}
+        options={{ clientSecret }}
+      >
         <DynamicInnerForm
           PaymentElem={PaymentElem}
           useStripeHook={useStripeHook}
@@ -257,36 +406,51 @@ function StripeSetupForm({ clientSecret, onSuccess, onError }: { clientSecret: s
   return <StripeLoader />;
 }
 
-function DynamicInnerForm({ PaymentElem, useStripeHook, useElementsHook, onSuccess, onError }: { PaymentElem: any; useStripeHook: any; useElementsHook: any; onSuccess: () => void; onError: (msg: string) => void }) {
+function DynamicInnerForm({
+  PaymentElem,
+  useStripeHook,
+  useElementsHook,
+  onSuccess,
+  onError,
+}: {
+  PaymentElem: any;
+  useStripeHook: any;
+  useElementsHook: unknown;
+  onSuccess: () => void;
+  onError: (msg: string) => void;
+}) {
   const stripe = useStripeHook();
   const elements = useElementsHook();
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: unknown) => {
     e.preventDefault();
     if (!stripe || !elements) {
-      onError('Stripe has not loaded yet');
+      onError("Stripe has not loaded yet");
       return;
     }
     try {
       setSubmitting(true);
       const res = await stripe.confirmSetup({
         elements,
-        confirmParams: {
-          return_url: window.location.href,
-        },
+        redirect: "if_required",
       });
 
       if (res.error) {
-        onError(res.error.message || 'Failed to confirm payment method');
-      } else if (res.setupIntent && (res.setupIntent.status === 'succeeded' || res.setupIntent.status === 'requires_capture' || res.setupIntent.status === 'requires_confirmation')) {
+        onError(res.error.message || "Failed to confirm payment method");
+      } else if (
+        res.setupIntent &&
+        (res.setupIntent.status === "succeeded" ||
+          res.setupIntent.status === "requires_capture" ||
+          res.setupIntent.status === "requires_confirmation")
+      ) {
         // Success - call callback
         onSuccess();
       } else {
-        onError('Unexpected setup intent result');
+        onError("Unexpected setup intent result");
       }
-    } catch (err: any) {
-      onError(err?.message ?? 'Unexpected error');
+    } catch (err: unknown) {
+      onError(err?.message ?? "Unexpected error");
     } finally {
       setSubmitting(false);
     }
@@ -298,7 +462,9 @@ function DynamicInnerForm({ PaymentElem, useStripeHook, useElementsHook, onSucce
         <PaymentElem />
       </div>
       <div className="text-right">
-        <Button type="submit" disabled={submitting}>{submitting ? 'Saving…' : 'Save payment method'}</Button>
+        <Button type="submit" disabled={submitting}>
+          {submitting ? "Saving…" : "Save payment method"}
+        </Button>
       </div>
     </form>
   );

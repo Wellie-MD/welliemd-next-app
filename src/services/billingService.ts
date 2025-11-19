@@ -65,6 +65,19 @@ const billingService = {
     }
   },
 
+  async getPaymentMethodStatus(): Promise<{ status: string; text: string } | null> {
+    try {
+      const { data } = await api.get<any>("/billing/payment-method/");
+      if (data && data.status && data.text) {
+        return { status: data.status, text: data.text };
+      }
+      return null;
+    } catch (err) {
+      console.warn('getPaymentMethodStatus failed', err);
+      return null;
+    }
+  },
+
   async getInvoices(
     type: "reimbursement" | "saas",
     page = 1,
@@ -72,7 +85,7 @@ const billingService = {
   ): Promise<InvoiceListResponse> {
     try {
       const params = { page, page_size: pageSize } as any;
-      const { data } = await api.get<any>(`/billing/invoices/${type}/`, { params });
+      const { data } = await api.get<unknown>(`/billing/invoices/${type}/`, { params });
       // API returns paginated shape: { count, next, previous, results: [...] }
       if (data && Array.isArray(data.results)) return data as InvoiceListResponse;
       // If backend returns array directly, map into paginated shape
