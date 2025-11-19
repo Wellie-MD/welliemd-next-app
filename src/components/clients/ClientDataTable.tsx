@@ -1,12 +1,10 @@
 // src/components/clients/ClientDataTable.tsx
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DataTable } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import { Client } from '@/api/clientApi';
-import { CreateSubscriptionModal } from '@/components/subscriptions/CreateSubscriptionModal';
-import { ManageSubscriptionModal } from '@/components/subscriptions/ManageSubscriptionModal';
-import { Building2, CheckCircle, XCircle, CreditCard, Settings, Plus, Pencil } from 'lucide-react';
+import { Building2, CheckCircle, XCircle, CreditCard, Pencil } from 'lucide-react';
 
 interface ClientDataTableProps {
   clients: Client[];
@@ -14,19 +12,6 @@ interface ClientDataTableProps {
 
 export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => {
   const navigate = useNavigate();
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [manageModalOpen, setManageModalOpen] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-
-  const handleCreateSubscription = (client: Client) => {
-    setSelectedClient(client);
-    setCreateModalOpen(true);
-  };
-
-  const handleManageSubscription = (client: Client) => {
-    setSelectedClient(client);
-    setManageModalOpen(true);
-  };
 
   const handleEditClient = (client: Client) => {
     navigate(`/dashboard/clients/edit/${client.id}`);
@@ -116,9 +101,9 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => 
     {
       key: 'actions',
       label: 'Actions',
-      headerClassName: 'w-1/3 text-right',
+      headerClassName: 'w-1/6 text-right',
       className: 'text-right',
-      render: (_: any, row: Client) => (
+      render: (_: unknown, row: Client) => (
         <div className="flex justify-end gap-2">
           <Button
             variant="ghost"
@@ -129,51 +114,19 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => 
             <Pencil className="w-4 h-4" />
             Edit
           </Button>
-          {row.stripe_subscription_id ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleManageSubscription(row)}
-              className="flex items-center gap-2 text-primary bg-white border border-primary hover:bg-primary/5 dark:bg-gray-800 dark:hover:bg-primary/10"
-            >
-              <Settings className="w-4 h-4" />
-              Manage Subscription
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              onClick={() => handleCreateSubscription(row)}
-              className="flex items-center gap-2 text-white bg-primary hover:bg-primary/90"
-            >
-              <Plus className="w-4 h-4" />
-              Create Subscription
-            </Button>
-          )}
         </div>
       ),
     },
   ];
 
   return (
-    <>
-      <DataTable
-        data={clients ?? []}
-        columns={columns}
-        searchPlaceholder="Search clients..."
-        showExport={false}
-        showDatePicker={false}
-        showResetFilters={false}
-      />
-      <CreateSubscriptionModal
-        isOpen={createModalOpen}
-        onOpenChange={setCreateModalOpen}
-        client={selectedClient}
-      />
-      <ManageSubscriptionModal
-        isOpen={manageModalOpen}
-        onOpenChange={setManageModalOpen}
-        client={selectedClient}
-      />
-    </>
+    <DataTable
+      data={clients ?? []}
+      columns={columns}
+      searchPlaceholder="Search clients..."
+      showExport={false}
+      showDatePicker={false}
+      showResetFilters={false}
+    />
   );
 };

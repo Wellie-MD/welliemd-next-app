@@ -28,7 +28,7 @@ export const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = (
     },
     onError: (error: unknown) => {
       console.error('Subscription cancel error:', error);
-      const axiosError = error as any;
+      const axiosError = error as unknown;
       const message = axiosError?.response?.data?.detail || axiosError?.message || 'An error occurred';
       toast.error(`Failed to cancel subscription: ${message}`);
     },
@@ -83,6 +83,7 @@ export const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = (
                         ) : 'N/A'}
                       </span>
                       <Button
+                        type="button"
                         variant="ghost"
                         size="sm"
                         onClick={handleCopyId}
@@ -122,6 +123,7 @@ export const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = (
                       <h4 className="text-md font-semibold text-red-600 dark:text-red-400">Danger Zone</h4>
                       <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 mb-3">Canceling will immediately revoke access to this subscription.</p>
                       <Button
+                        type="button"
                         variant="destructive"
                         className="w-full flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm"
                         onClick={() => mutation.mutate(client.id)}

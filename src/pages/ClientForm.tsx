@@ -36,6 +36,8 @@ import {
   ClientUpdatePayload,
 } from "@/api/clientApi";
 import { PasswordDisplayModal } from "@/components/clients/PasswordDisplayModal";
+import { B2BBillingDisplay } from "@/components/billing/B2BBillingDisplay";
+import { B2BInvoiceList } from "@/components/billing/B2BInvoiceList";
 
 // Helper component for field info tooltips
 const FieldInfo = ({ content }: { content: string }) => (
@@ -62,6 +64,7 @@ export default function ClientForm() {
   const [generatedPassword, setGeneratedPassword] = useState("");
   const [clientName, setClientName] = useState("");
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [hasPaymentMethod, setHasPaymentMethod] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState<ClientCreatePayload>({
@@ -80,16 +83,6 @@ export default function ClientForm() {
     patient_portal_domain: "",
     api_endpoint: "",
     questionnaire_url: "",
-
-    // Configuration
-    allowed_iframe_domains: [],
-    default_template_id: "",
-    branding_config: {},
-    token_expiry_minutes: 30,
-
-    // Database Configuration
-    database_host: "127.0.0.1",
-    database_name: "",
 
     // Billing Settings
     patient_fee: 5.0,
@@ -113,6 +106,20 @@ export default function ClientForm() {
     queryFn: () => clientApi.get(id!),
     enabled: isEditMode,
   });
+
+  // Fetch payment method status if editing
+  const { data: paymentMethodData } = useQuery({
+    queryKey: ["paymentMethod", id],
+    queryFn: () => clientApi.getPaymentMethod(id!),
+    enabled: isEditMode && !!id,
+  });
+
+  // Update hasPaymentMethod state when payment method data changes
+  useEffect(() => {
+    if (paymentMethodData) {
+      setHasPaymentMethod(!!paymentMethodData.payment_method && paymentMethodData.status !== "none");
+    }
+  }, [paymentMethodData]);
 
   // Populate form with existing data
   useEffect(() => {
@@ -166,13 +173,34 @@ export default function ClientForm() {
         description: response.message,
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Error",
         description:
           error.response?.data?.detail ||
           error.response?.data?.message ||
           "Failed to create client",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Email update mutation (separate from regular update)
+  const emailUpdateMutation = useMutation({
+    mutationFn: (newEmail: string) => clientApi.updateEmail(id!, newEmail),
+    onSuccess: (response) => {
+      toast({
+        title: "Email Updated",
+        description: response.message,
+      });
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: "Error",
+        description:
+          error.response?.data?.error ||
+          error.response?.data?.message ||
+          "Failed to update email",
         variant: "destructive",
       });
     },
@@ -190,7 +218,7 @@ export default function ClientForm() {
       });
       navigate("/dashboard/clients");
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: "Error",
         description:
@@ -236,9 +264,6 @@ export default function ClientForm() {
     if (!formData.admin_panel_domain) {
       errors.admin_panel_domain = "Admin panel domain is required";
     }
-    if (!formData.database_name) {
-      errors.database_name = "Database name is required";
-    }
 
     if (!isEditMode) {
       if (!formData.email) {
@@ -283,40 +308,63 @@ export default function ClientForm() {
     }
 
     if (isEditMode) {
-      // For update, only send changed fields
-      const updatePayload: ClientUpdatePayload = {
-        first_name: formData.first_name,
-        last_name: formData.last_name,
-        phone: formData.phone,
-        name: formData.name,
-        domain: formData.domain,
-        subdomain: formData.subdomain,
-        master_id_prefix: formData.master_id_prefix,
-        admin_panel_domain: formData.admin_panel_domain,
-        patient_portal_domain: formData.patient_portal_domain,
-        api_endpoint: formData.api_endpoint,
-        questionnaire_url: formData.questionnaire_url,
-        allowed_iframe_domains: formData.allowed_iframe_domains,
-        default_template_id: formData.default_template_id,
-        branding_config: formData.branding_config,
-        token_expiry_minutes: formData.token_expiry_minutes,
-        database_host: formData.database_host,
-        database_name: formData.database_name,
-        patient_fee: formData.patient_fee,
-        async_consult_fee_to_client: formData.async_consult_fee_to_client,
-        async_consult_cost: formData.async_consult_cost,
-        sync_video_consult_fee_to_client:
-          formData.sync_video_consult_fee_to_client,
-        sync_consult_cost: formData.sync_consult_cost,
-        monthly_saas_fee: formData.monthly_saas_fee,
-        first_next_saas_fees_billing_date:
-          formData.first_next_saas_fees_billing_date,
-        payment_gateway: formData.payment_gateway,
-        is_active: formData.is_active,
-      };
-      updateMutation.mutate(updatePayload);
+      // Check if email has changed
+      const emailChanged = existingClient?.user?.email && formData.email !== existingClient.user.email;
+      
+      // If email changed, update it first
+      if (emailChanged) {
+        emailUpdateMutation.mutate(formData.email, {
+          onSuccess: () => {
+            // After email update succeeds, proceed with regular update
+            performRegularUpdate();
+          },
+        });
+      } else {
+        // No email change, just do regular update
+        performRegularUpdate();
+      }
+      
+      function performRegularUpdate() {
+        // For update, only send changed fields
+        const updatePayload: ClientUpdatePayload = {
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          phone: formData.phone,
+          name: formData.name,
+          domain: formData.domain,
+          subdomain: formData.subdomain,
+          master_id_prefix: formData.master_id_prefix,
+          admin_panel_domain: formData.admin_panel_domain,
+          patient_portal_domain: formData.patient_portal_domain,
+          api_endpoint: formData.api_endpoint,
+          questionnaire_url: formData.questionnaire_url,
+          allowed_iframe_domains: formData.allowed_iframe_domains,
+          default_template_id: formData.default_template_id,
+          branding_config: formData.branding_config,
+          token_expiry_minutes: formData.token_expiry_minutes,
+          database_host: formData.database_host,
+          database_name: formData.database_name,
+          patient_fee: formData.patient_fee,
+          async_consult_fee_to_client: formData.async_consult_fee_to_client,
+          async_consult_cost: formData.async_consult_cost,
+          sync_video_consult_fee_to_client:
+            formData.sync_video_consult_fee_to_client,
+          sync_consult_cost: formData.sync_consult_cost,
+          monthly_saas_fee: formData.monthly_saas_fee,
+          first_next_saas_fees_billing_date:
+            formData.first_next_saas_fees_billing_date || undefined,
+          payment_gateway: formData.payment_gateway,
+          is_active: formData.is_active,
+        };
+        updateMutation.mutate(updatePayload);
+      }
     } else {
-      createMutation.mutate(formData);
+      // Clean up empty date fields for create
+      const createPayload = {
+        ...formData,
+        first_next_saas_fees_billing_date: formData.first_next_saas_fees_billing_date || undefined,
+      };
+      createMutation.mutate(createPayload);
     }
   };
 
@@ -333,7 +381,7 @@ export default function ClientForm() {
     );
   }
 
-  const isLoading = createMutation.isPending || updateMutation.isPending;
+  const isLoading = createMutation.isPending || updateMutation.isPending || emailUpdateMutation.isPending;
 
   return (
     <div className="p-6 space-y-6">
@@ -381,12 +429,10 @@ export default function ClientForm() {
           onValueChange={setActiveTab}
           className="space-y-6"
         >
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="basic">Basic Info</TabsTrigger>
             <TabsTrigger value="domains">Domains</TabsTrigger>
-            <TabsTrigger value="database">Database</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
-            <TabsTrigger value="advanced">Advanced</TabsTrigger>
           </TabsList>
 
           {/* Tab 1: Basic Information */}
@@ -493,15 +539,15 @@ export default function ClientForm() {
                       }}
                       placeholder="admin@acme.com"
                       required
-                      disabled={isEditMode}
                       className={validationErrors.email ? "border-red-500" : ""}
                     />
                     {validationErrors.email && (
                       <p className="text-xs text-red-500">{validationErrors.email}</p>
                     )}
                     {isEditMode && !validationErrors.email && (
-                      <p className="text-xs text-muted-foreground">
-                        Email cannot be changed after creation
+                      <p className="text-xs text-amber-600 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        Changing email will update login credentials
                       </p>
                     )}
                   </div>
@@ -575,48 +621,16 @@ export default function ClientForm() {
             </Card>
           </TabsContent>
 
-          {/* Tab 2: Domain Configuration */}
+          {/* Tab 2: Domain Configuration - Streamlined */}
           <TabsContent value="domains" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Domain Configuration</CardTitle>
                 <CardDescription>
-                  Configure client domains and endpoints
+                  Essential domain and endpoint configuration
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="domain">Primary Domain</Label>
-                    <Input
-                      id="domain"
-                      value={formData.domain}
-                      onChange={(e) =>
-                        setFormData({ ...formData, domain: e.target.value })
-                      }
-                      placeholder="acme.welliemd.com"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Main domain for tenant resolution
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="subdomain">Subdomain</Label>
-                    <Input
-                      id="subdomain"
-                      value={formData.subdomain}
-                      onChange={(e) =>
-                        setFormData({ ...formData, subdomain: e.target.value })
-                      }
-                      placeholder="acme"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      For questionnaire app (e.g.,
-                      acme.questionnaire.welliemd.com)
-                    </p>
-                  </div>
-                </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="admin_panel_domain">
                     Admin Panel Domain <span className="text-red-500">*</span>
@@ -646,24 +660,24 @@ export default function ClientForm() {
                   {validationErrors.admin_panel_domain && (
                     <p className="text-xs text-red-500">{validationErrors.admin_panel_domain}</p>
                   )}
+                  <p className="text-xs text-muted-foreground">
+                    Primary URL where client admins will access the system
+                  </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="patient_portal_domain">
-                    Patient Portal Domain
-                  </Label>
+                  <Label htmlFor="subdomain">Subdomain</Label>
                   <Input
-                    id="patient_portal_domain"
-                    type="url"
-                    value={formData.patient_portal_domain}
+                    id="subdomain"
+                    value={formData.subdomain}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        patient_portal_domain: e.target.value,
-                      })
+                      setFormData({ ...formData, subdomain: e.target.value })
                     }
-                    placeholder="https://portal.acme.com"
+                    placeholder="acme"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Used for questionnaire app (e.g., acme.questionnaire.welliemd.com)
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -677,142 +691,23 @@ export default function ClientForm() {
                     }
                     placeholder="https://api.acme.com"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Base API URL for this client's backend services
+                  </p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="questionnaire_url">Questionnaire URL</Label>
-                  <Input
-                    id="questionnaire_url"
-                    type="url"
-                    value={formData.questionnaire_url}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        questionnaire_url: e.target.value,
-                      })
-                    }
-                    placeholder="https://questionnaire.acme.com"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="allowed_iframe_domains">
-                    Allowed Iframe Domains (JSON Array)
-                    <FieldInfo content='Enter a JSON array of domains. Example: ["example.com", "*.subdomain.com"]. Use * for wildcards.' />
-                  </Label>
-                  <Textarea
-                    id="allowed_iframe_domains"
-                    value={JSON.stringify(
-                      formData.allowed_iframe_domains,
-                      null,
-                      2
-                    )}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      try {
-                        const parsed = JSON.parse(value);
-                        if (Array.isArray(parsed)) {
-                          setFormData({
-                            ...formData,
-                            allowed_iframe_domains: parsed,
-                          });
-                          setValidationErrors((prev) => {
-                            const newErrors = { ...prev };
-                            delete newErrors.allowed_iframe_domains;
-                            return newErrors;
-                          });
-                        } else {
-                          setValidationErrors((prev) => ({
-                            ...prev,
-                            allowed_iframe_domains: "Must be a JSON array",
-                          }));
-                        }
-                      } catch (error) {
-                        setValidationErrors((prev) => ({
-                          ...prev,
-                          allowed_iframe_domains: "Invalid JSON format",
-                        }));
-                      }
-                    }}
-                    placeholder='["example.com", "*.subdomain.com"]'
-                    rows={4}
-                    className={validationErrors.allowed_iframe_domains ? "border-red-500" : ""}
-                  />
-                  {validationErrors.allowed_iframe_domains ? (
-                    <p className="text-xs text-red-500">{validationErrors.allowed_iframe_domains}</p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      List of domains allowed to embed this client's questionnaire
-                    </p>
-                  )}
-                </div>
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    Additional domain fields (Patient Portal, Questionnaire URL, etc.) can be configured later if needed.
+                    These three fields are sufficient for initial setup.
+                  </AlertDescription>
+                </Alert>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Tab 3: Database Configuration */}
-          <TabsContent value="database" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Database Configuration</CardTitle>
-                <CardDescription>
-                  Database connection settings for this client
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="database_host">
-                      Database Host
-                      <FieldInfo content="Database server hostname or IP address. Default is 127.0.0.1 (localhost)" />
-                    </Label>
-                    <Input
-                      id="database_host"
-                      value={formData.database_host}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          database_host: e.target.value,
-                        })
-                      }
-                      placeholder="127.0.0.1"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="database_name">
-                      Database Name <span className="text-red-500">*</span>
-                      <FieldInfo content="Unique database name for this client (e.g., acme_db, client_healthcare)" />
-                    </Label>
-                    <Input
-                      id="database_name"
-                      value={formData.database_name}
-                      onChange={(e) => {
-                        setFormData({
-                          ...formData,
-                          database_name: e.target.value,
-                        });
-                        if (validationErrors.database_name) {
-                          setValidationErrors((prev) => {
-                            const newErrors = { ...prev };
-                            delete newErrors.database_name;
-                            return newErrors;
-                          });
-                        }
-                      }}
-                      placeholder="acme_db"
-                      required
-                      className={validationErrors.database_name ? "border-red-500" : ""}
-                    />
-                    {validationErrors.database_name && (
-                      <p className="text-xs text-red-500">{validationErrors.database_name}</p>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Tab 4: Billing Configuration */}
+          {/* Tab 3: Billing Configuration */}
           <TabsContent value="billing" className="space-y-6">
             <Card>
               <CardHeader>
@@ -951,115 +846,15 @@ export default function ClientForm() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Payment Gateway</CardTitle>
-                <CardDescription>
-                  Select the primary payment gateway for this client
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <Label htmlFor="payment_gateway">Payment Gateway</Label>
-                  <Select
-                    value={formData.payment_gateway}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, payment_gateway: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select gateway" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="nmi">NMI</SelectItem>
-                      <SelectItem value="authorize_net">
-                        Authorize.Net
-                      </SelectItem>
-                      <SelectItem value="stripe">Stripe</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
+            {/* B2B Billing Display - Only show in edit mode */}
+            {isEditMode && id && (
+              <>
+                <B2BBillingDisplay clientId={id} client={existingClient} />
+                <B2BInvoiceList clientId={id} />
+              </>
+            )}
           </TabsContent>
 
-          {/* Tab 5: Advanced Settings */}
-          <TabsContent value="advanced" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Advanced Configuration</CardTitle>
-                <CardDescription>
-                  Template, branding, and security settings
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="default_template_id">
-                    Default Template ID
-                  </Label>
-                  <Input
-                    id="default_template_id"
-                    value={formData.default_template_id}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        default_template_id: e.target.value,
-                      })
-                    }
-                    placeholder="template-uuid"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Default questionnaire template for this client
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="token_expiry_minutes">
-                    Token Expiry (Minutes)
-                  </Label>
-                  <Input
-                    id="token_expiry_minutes"
-                    type="number"
-                    min="5"
-                    max="1440"
-                    value={formData.token_expiry_minutes}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        token_expiry_minutes: parseInt(e.target.value),
-                      })
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Token expiry time (5-1440 minutes)
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="branding_config">
-                    Branding Configuration (JSON)
-                  </Label>
-                  <Textarea
-                    id="branding_config"
-                    value={JSON.stringify(formData.branding_config, null, 2)}
-                    onChange={(e) => {
-                      try {
-                        const parsed = JSON.parse(e.target.value);
-                        setFormData({ ...formData, branding_config: parsed });
-                      } catch (error) {
-                        // Invalid JSON, don't update
-                      }
-                    }}
-                    placeholder='{"primary_color": "#007bff", "logo_url": "..."}'
-                    rows={8}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Client-specific branding (colors, logo, theme, etc.)
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
       </form>
 
