@@ -579,9 +579,48 @@ export function QuestionForm({
 
       onSuccess();
     } catch (error: unknown) {
+      // Extract error message from backend response
+      let errorMessage = `Failed to ${question ? "update" : "create"} question`;
+      
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: unknown } };
+        const responseData = axiosError.response?.data;
+        
+        if (responseData && typeof responseData === 'object') {
+          // Handle field-specific errors (e.g., {"answer_choices": ["error message"]})
+          const errorFields = Object.entries(responseData);
+          if (errorFields.length > 0) {
+            const errorMessages: string[] = [];
+            
+            for (const [field, messages] of errorFields) {
+              if (Array.isArray(messages)) {
+                errorMessages.push(...messages);
+              } else if (typeof messages === 'string') {
+                errorMessages.push(messages);
+              }
+            }
+            
+            if (errorMessages.length > 0) {
+              errorMessage = errorMessages.join('. ');
+            }
+          }
+          
+          // Handle generic error message
+          if ('error' in responseData && typeof responseData.error === 'string') {
+            errorMessage = responseData.error;
+          }
+          if ('message' in responseData && typeof responseData.message === 'string') {
+            errorMessage = responseData.message;
+          }
+          if ('detail' in responseData && typeof responseData.detail === 'string') {
+            errorMessage = responseData.detail;
+          }
+        }
+      }
+      
       toast({
         title: "Error",
-        description: `Failed to ${question ? "update" : "create"} question`,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -671,7 +710,20 @@ export function QuestionForm({
                   if (!["single_choice", "multiple_choice"].includes(value)) {
                     setDisqualifyingAnswers([]);
                   }
-                  setFormData({ ...formData, question_type: value });
+                  
+                  // Auto-set beluga_field_mapping for new Beluga-mapped question types
+                  let belugaMapping = formData.beluga_field_mapping;
+                  if (value === "sex") {
+                    belugaMapping = "sex";
+                  } else if (value === "self_reported_meds") {
+                    belugaMapping = "self_reported_meds";
+                  } else if (value === "allergies") {
+                    belugaMapping = "allergies";
+                  } else if (value === "medical_conditions") {
+                    belugaMapping = "medical_conditions";
+                  }
+                  
+                  setFormData({ ...formData, question_type: value, beluga_field_mapping: belugaMapping });
                 }
               }}
             >
@@ -695,6 +747,10 @@ export function QuestionForm({
                 <SelectItem value="consent">Consent Checkbox</SelectItem>
                 <SelectItem value="file_upload">File Upload</SelectItem>
                 <SelectItem value="checkout">Checkout (Product Display)</SelectItem>
+                <SelectItem value="sex">Sex (Beluga Mapped)</SelectItem>
+                <SelectItem value="self_reported_meds">Self Reported Medications (Beluga Mapped)</SelectItem>
+                <SelectItem value="allergies">Allergies (Beluga Mapped)</SelectItem>
+                <SelectItem value="medical_conditions">Medical Conditions (Beluga Mapped)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1161,6 +1217,10 @@ export function QuestionForm({
                 <SelectItem value="height">Height</SelectItem>
                 <SelectItem value="weight">Weight</SelectItem>
                 <SelectItem value="medical_history">Medical History</SelectItem>
+                <SelectItem value="sex">Sex</SelectItem>
+                <SelectItem value="self_reported_meds">Self Reported Medications</SelectItem>
+                <SelectItem value="allergies">Allergies</SelectItem>
+                <SelectItem value="medical_conditions">Medical Conditions</SelectItem>
               </SelectContent>
             </Select>
           </div>
