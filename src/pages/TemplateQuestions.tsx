@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Edit, Trash2, FileText } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Trash2, FileText, ArrowUpDown, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
@@ -15,6 +15,19 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
   templateApi,
   questionApi,
   QuestionnaireTemplate,
@@ -22,6 +35,8 @@ import {
 } from "@/api/questionnaires";
 import { AddQuestionnairesForm } from "@/components/questionnaires/AddQuestionnairesForm";
 import { ReadOnlyIndicator } from "@/components/questionnaires/ReadOnlyIndicator";
+import { ReorderableQuestionRow } from "@/components/questionnaires/ReorderableQuestionRow";
+import { useQuestionReorder } from "@/hooks/useQuestionReorder";
 import { useToast } from "@/hooks/use-toast";
 
 const questionTypeFilters = [
@@ -133,6 +148,29 @@ export default function TemplateQuestions() {
     fetchData();
   }, [fetchData]);
 
+  // Drag-and-drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Question reorder hook
+  const {
+    items: reorderableQuestions,
+    isReorderMode,
+    isSaving,
+    hasChanges,
+    isConditional,
+    enterReorderMode,
+    cancelReorder,
+    handleDragEnd,
+    saveOrder,
+  } = useQuestionReorder(questions, templateId!, {
+    onSuccess: fetchData,
+  });
+
   const handleAddQuestion = () => {
     setSelectedQuestion(null);
     setModalOpen(true);
@@ -195,9 +233,12 @@ export default function TemplateQuestions() {
     navigate(`/dashboard/templates/${templateId}/flow-builder`);
   };
 
+  // Use reorderable questions when in reorder mode, otherwise use original questions
+  const displayQuestions = isReorderMode ? reorderableQuestions : questions;
+
   // Filter questions based on search and type filter
   const filteredQuestions = useMemo(() => {
-    return questions.filter((question) => {
+    return displayQuestions.filter((question) => {
       // Search filter
       const matchesSearch =
         !searchTerm ||
@@ -213,7 +254,7 @@ export default function TemplateQuestions() {
 
       return matchesSearch && matchesType;
     });
-  }, [questions, searchTerm, activeTypeFilter]);
+  }, [displayQuestions, searchTerm, activeTypeFilter]);
 
   // Create filter configuration for DataTable
   const filters = questionTypeFilters.map((type) => ({
@@ -291,14 +332,40 @@ export default function TemplateQuestions() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleFlowBuilder}>
-            <FileText className="h-4 w-4 mr-2" />
-            Flow Builder
-          </Button>
-          <Button onClick={handleAddQuestion}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Question
-          </Button>
+          {isReorderMode ? (
+            <>
+              <Button
+                variant="outline"
+                onClick={cancelReorder}
+                disabled={isSaving}
+              >
+                <X className="h-4 w-4 mr-2" />
+                Cancel
+              </Button>
+              <Button
+                onClick={saveOrder}
+                disabled={!hasChanges || isSaving}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {isSaving ? 'Saving...' : 'Save Order'}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={handleFlowBuilder}>
+                <FileText className="h-4 w-4 mr-2" />
+                Flow Builder
+              </Button>
+              <Button variant="outline" onClick={enterReorderMode}>
+                <ArrowUpDown className="h-4 w-4 mr-2" />
+                Reorder
+              </Button>
+              <Button onClick={handleAddQuestion}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Question
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -320,7 +387,51 @@ export default function TemplateQuestions() {
             </Button>
           </div>
         </div>
+      ) : isReorderMode ? (
+        // Reorder Mode: Drag-and-drop table
+        <div className="rounded-md border">
+          <div className="bg-muted/50 px-4 py-3 border-b">
+            <p className="text-sm text-muted-foreground">
+              <strong>Reorder Mode:</strong> Drag questions to reorder them. 
+              Conditional questions (with dependencies) cannot be moved.
+            </p>
+          </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={filteredQuestions.map((q) => q.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <table className="w-full">
+                <thead className="bg-muted/50">
+                  <tr className="border-b">
+                    <th className="px-4 py-3 text-left text-sm font-medium w-12"></th>
+                    <th className="px-4 py-3 text-left text-sm font-medium w-20">Order</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">Question Text</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">Type</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">Required</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredQuestions.map((question) => (
+                    <ReorderableQuestionRow
+                      key={question.id}
+                      question={question}
+                      isConditional={isConditional(question)}
+                      isReorderMode={isReorderMode}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </SortableContext>
+          </DndContext>
+        </div>
       ) : (
+        // Normal Mode: Standard DataTable
         <DataTable
           data={questionsWithActions}
           columns={[...questionColumns, { key: "actions", label: "Actions" }]}

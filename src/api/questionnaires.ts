@@ -42,7 +42,12 @@ export interface Question {
     | "date"
     | "height_weight"
     | "consent"
-    | "file_upload";
+    | "file_upload"
+    | "checkout"
+    | "sex"
+    | "self_reported_meds"
+    | "allergies"
+    | "medical_conditions";
   is_required: boolean;
   order_index: number;
   answer_choices: string[];
