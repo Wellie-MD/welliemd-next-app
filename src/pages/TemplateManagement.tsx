@@ -30,12 +30,21 @@ const getTemplateColumns = (
   },
   {
     key: "questionnaire_type",
+    label: "Questionnaire Type",
+    render: (value: string) => {
+      const typeMap: Record<string, string> = {
+        onboarding: "Onboarding",
+        follow_up: "Follow-up",
+      };
+      return typeMap[value] || value;
+    },
+  },
+  {
+    key: "treatment_type",
     label: "Treatment Type",
     render: (value: string) => {
-      return value
-        .split("_")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(" ");
+      if (!value) return "-";
+      return value;
     },
   },
   {

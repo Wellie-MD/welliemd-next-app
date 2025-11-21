@@ -128,7 +128,7 @@ export function AddQuestionnairesForm({
       setTriggerValues(triggerValuesList);
 
       // Extract disqualifying answers from validation_rules
-      const validationRules = question.validation_rules as any;
+      const validationRules = question.validation_rules as unknown;
       let disqualifyingAnswersList: string[] = [];
       if (validationRules?.disqualifying_answer) {
         disqualifyingAnswersList = [validationRules.disqualifying_answer];
@@ -603,19 +603,7 @@ export function AddQuestionnairesForm({
                     setDisqualifyingAnswers([]);
                   }
                   
-                  // Auto-set beluga_field_mapping for new Beluga-mapped question types
-                  let belugaMapping = formData.beluga_field_mapping;
-                  if (value === "sex") {
-                    belugaMapping = "sex";
-                  } else if (value === "self_reported_meds") {
-                    belugaMapping = "self_reported_meds";
-                  } else if (value === "allergies") {
-                    belugaMapping = "allergies";
-                  } else if (value === "medical_conditions") {
-                    belugaMapping = "medical_conditions";
-                  }
-                  
-                  setFormData({ ...formData, question_type: value, beluga_field_mapping: belugaMapping });
+                  setFormData({ ...formData, question_type: value });
                 }
               }}
             >
@@ -1065,37 +1053,6 @@ export function AddQuestionnairesForm({
               )}
             </div>
           )}
-
-          {/* Beluga Field Mapping */}
-          <div className="space-y-2">
-            <Label htmlFor="beluga_field_mapping">Beluga Field Mapping</Label>
-            <Select
-              value={formData.beluga_field_mapping}
-              onValueChange={(value) =>
-                setFormData({ ...formData, beluga_field_mapping: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select field mapping" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                <SelectItem value="first_name">First Name</SelectItem>
-                <SelectItem value="last_name">Last Name</SelectItem>
-                <SelectItem value="date_of_birth">Date of Birth</SelectItem>
-                <SelectItem value="email">Email</SelectItem>
-                <SelectItem value="phone">Phone</SelectItem>
-                <SelectItem value="address">Address</SelectItem>
-                <SelectItem value="height">Height</SelectItem>
-                <SelectItem value="weight">Weight</SelectItem>
-                <SelectItem value="medical_history">Medical History</SelectItem>
-                <SelectItem value="sex">Sex</SelectItem>
-                <SelectItem value="self_reported_meds">Self Reported Medications</SelectItem>
-                <SelectItem value="allergies">Allergies</SelectItem>
-                <SelectItem value="medical_conditions">Medical Conditions</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
 
           {/* Follow-up Settings */}
           <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
