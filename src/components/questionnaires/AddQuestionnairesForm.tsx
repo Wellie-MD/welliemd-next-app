@@ -301,7 +301,7 @@ export function AddQuestionnairesForm({
     }
 
     // Validate answer choices for choice-based questions
-    const choiceTypes = ["single_choice", "multiple_choice"];
+    const choiceTypes = ["single_choice", "multiple_choice", "sex"];
     if (
       choiceTypes.includes(formData.question_type) &&
       (!formData.answer_choices || formData.answer_choices.length === 0)
@@ -521,7 +521,7 @@ export function AddQuestionnairesForm({
   };
 
   // Dynamic visibility flags
-  const showAnswerChoices = ["single_choice", "multiple_choice"].includes(
+  const showAnswerChoices = ["single_choice", "multiple_choice", "sex"].includes(
     formData.question_type
   );
   const showFileSettings = formData.question_type === "file_upload";
@@ -593,13 +593,24 @@ export function AddQuestionnairesForm({
                       "I have read the above information and I do not wish to continue",
                     ],
                   });
+                } else if (
+                  value === "sex" &&
+                  (!formData.answer_choices ||
+                    formData.answer_choices.length === 0)
+                ) {
+                  // Initialize default answer choices for sex questions
+                  setFormData({
+                    ...formData,
+                    question_type: value,
+                    answer_choices: ["Male", "Female", "Other"],
+                  });
                 } else {
                   // Reset validation states when changing question type
                   if (value !== "number") {
                     setEnableNumberValidation(false);
                     setNumberValidationValue("");
                   }
-                  if (!["single_choice", "multiple_choice"].includes(value)) {
+                  if (!["single_choice", "multiple_choice", "sex"].includes(value)) {
                     setDisqualifyingAnswers([]);
                   }
                   
