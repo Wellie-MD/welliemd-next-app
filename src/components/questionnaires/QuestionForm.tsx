@@ -27,6 +27,8 @@ import {
   CreateQuestionPayload,
 } from "@/api/questionnaires";
 import { ProductSelector } from "./ProductSelector";
+import { GroupedQuestionBuilder } from "./GroupedQuestionBuilder";
+import { SubQuestion } from "@/api/questionnaires";
 
 interface QuestionFormProps {
   open: boolean;
@@ -117,6 +119,11 @@ export function QuestionForm({
     pharmacy_name?: string;
     beluga_medicine_id?: string;
   } | null>(null);
+
+  // State for grouped questions
+  const [subQuestions, setSubQuestions] = useState<Omit<SubQuestion, "id">[]>(
+    []
+  );
 
   // Fetch template and existing questions when modal opens
   useEffect(() => {
@@ -219,6 +226,25 @@ export function QuestionForm({
         setCheckoutConfig(validationRules.checkout_config);
       }
 
+      // Extract sub-questions for grouped questions
+      if (
+        question.sub_questions &&
+        question.sub_questions.length > 0 &&
+        (question.question_type === "personal_details" ||
+          question.question_type === "shipping_address")
+      ) {
+        setSubQuestions(
+          question.sub_questions.map((sq) => ({
+            question_text: sq.question_text,
+            question_type: sq.question_type,
+            is_required: sq.is_required,
+            order_index: sq.order_index,
+            validation_rules: sq.validation_rules,
+            answer_choices: sq.answer_choices,
+          }))
+        );
+      }
+
       // Extract number validation rules
       if (question.question_type === "number" && validationRules) {
         const hasValidation =
@@ -283,6 +309,7 @@ export function QuestionForm({
       setSelectedParentForAdding("");
       setLogicOperator("OR");
       setCheckoutConfig(null);
+      setSubQuestions([]);
       setEnableNumberValidation(false);
       setNumberValidationOperator("gt");
       setNumberValidationValue("");
@@ -384,7 +411,7 @@ export function QuestionForm({
     }
 
     // Validate answer choices for choice-based questions
-    const choiceTypes = ["single_choice", "multiple_choice"];
+    const choiceTypes = ["single_choice", "multiple_choice", "sex"];
     if (
       choiceTypes.includes(formData.question_type) &&
       (!formData.answer_choices || formData.answer_choices.length === 0)
@@ -566,6 +593,21 @@ export function QuestionForm({
             }
           : undefined;
 
+      // Validate grouped questions
+      if (
+        (formData.question_type === "personal_details" ||
+          formData.question_type === "shipping_address") &&
+        subQuestions.length === 0
+      ) {
+        toast({
+          title: "Validation Error",
+          description:
+            "At least one sub-question is required for grouped questions",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const payload: CreateQuestionPayload = {
         template_id: formData.template_id,
         question_text: formData.question_text,
@@ -580,6 +622,11 @@ export function QuestionForm({
             : formData.beluga_field_mapping,
         include_in_qa_section: formData.include_in_qa_section,
         consent_form_data: consentForm,
+        sub_questions:
+          formData.question_type === "personal_details" ||
+          formData.question_type === "shipping_address"
+            ? subQuestions
+            : undefined,
       };
 
       if (question) {
@@ -657,7 +704,7 @@ export function QuestionForm({
   };
 
   // Dynamic visibility flags
-  const showAnswerChoices = ["single_choice", "multiple_choice"].includes(
+  const showAnswerChoices = ["single_choice", "multiple_choice", "sex"].includes(
     formData.question_type
   );
   const showFileSettings = formData.question_type === "file_upload";
@@ -729,13 +776,24 @@ export function QuestionForm({
                       "I have read the above information and I do not wish to continue",
                     ],
                   });
+                } else if (
+                  value === "sex" &&
+                  (!formData.answer_choices ||
+                    formData.answer_choices.length === 0)
+                ) {
+                  // Initialize default answer choices for sex questions
+                  setFormData({
+                    ...formData,
+                    question_type: value,
+                    answer_choices: ["Male", "Female", "Other"],
+                  });
                 } else {
                   // Reset validation states when changing question type
                   if (value !== "number") {
                     setEnableNumberValidation(false);
                     setNumberValidationValue("");
                   }
-                  if (!["single_choice", "multiple_choice"].includes(value)) {
+                  if (!["single_choice", "multiple_choice", "sex"].includes(value)) {
                     setDisqualifyingAnswers([]);
                   }
 
@@ -751,6 +809,10 @@ export function QuestionForm({
                 <SelectItem value="textarea">
                   Text Area (Long Answer)
                 </SelectItem>
+                <SelectItem value="email">Email Address</SelectItem>
+                <SelectItem value="phone">Phone Number</SelectItem>
+                <SelectItem value="state">State</SelectItem>
+                <SelectItem value="zip">ZIP Code</SelectItem>
                 <SelectItem value="single_choice">
                   Single Choice (Radio)
                 </SelectItem>
@@ -765,6 +827,12 @@ export function QuestionForm({
                 <SelectItem value="checkout">
                   Checkout (Product Display)
                 </SelectItem>
+                <SelectItem value="personal_details">
+                  Personal Details (Grouped)
+                </SelectItem>
+                <SelectItem value="shipping_address">
+                  Shipping Address (Grouped)
+                </SelectItem>
                 <SelectItem value="sex">Sex (Beluga Mapped)</SelectItem>
                 <SelectItem value="self_reported_meds">
                   Self Reported Medications (Beluga Mapped)
@@ -778,6 +846,16 @@ export function QuestionForm({
               </SelectContent>
             </Select>
           </div>
+
+          {/* Grouped Question Builder */}
+          {(formData.question_type === "personal_details" ||
+            formData.question_type === "shipping_address") && (
+            <GroupedQuestionBuilder
+              groupType={formData.question_type}
+              subQuestions={subQuestions}
+              onChange={setSubQuestions}
+            />
+          )}
 
           {/* Checkout Product Selection */}
           {formData.question_type === "checkout" && (

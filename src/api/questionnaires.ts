@@ -40,6 +40,10 @@ export interface Question {
   question_type:
     | "text"
     | "textarea"
+    | "email"
+    | "phone"
+    | "state"
+    | "zip"
     | "single_choice"
     | "multiple_choice"
     | "number"
@@ -48,6 +52,8 @@ export interface Question {
     | "consent"
     | "file_upload"
     | "checkout"
+    | "personal_details"
+    | "shipping_address"
     | "sex"
     | "self_reported_meds"
     | "allergies"
@@ -63,8 +69,20 @@ export interface Question {
   is_client_custom: boolean;
   can_be_modified: boolean;
   consent_form?: ConsentForm;
+  parent_question?: string | null; // UUID of parent question for grouped questions
+  sub_questions?: SubQuestion[]; // Sub-questions for grouped question types
   created_at: string;
   updated_at: string;
+}
+
+export interface SubQuestion {
+  id: string;
+  question_text: string;
+  question_type: "text" | "email" | "phone" | "state" | "zip" | "number" | "date";
+  is_required: boolean;
+  order_index: number;
+  validation_rules: Record<string, unknown>;
+  answer_choices: string[];
 }
 
 export interface CreateTemplatePayload {
@@ -101,6 +119,8 @@ export interface CreateQuestionPayload {
   beluga_field_mapping?: string;
   include_in_qa_section?: boolean;
   consent_form_data?: Omit<ConsentForm, 'id'>;
+  parent_question?: string | null; // UUID of parent question for sub-questions
+  sub_questions?: Omit<SubQuestion, 'id'>[]; // Sub-questions to create for grouped questions
 }
 
 export interface UpdateQuestionPayload {
@@ -113,6 +133,8 @@ export interface UpdateQuestionPayload {
   validation_rules?: Record<string, unknown>;
   beluga_field_mapping?: string;
   include_in_qa_section?: boolean;
+  parent_question?: string | null;
+  sub_questions?: Omit<SubQuestion, 'id'>[];
 }
 
 // ==================== TEMPLATE API ====================
