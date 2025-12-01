@@ -1,33 +1,23 @@
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
-import mockData from "@/data/mockData.json"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Plus, Edit, Trash2 } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { isWithinInterval } from "date-fns"
 import { exportToCSV } from "@/utils/exportUtils"
-
-const routingColumns = [
-  { key: "id", label: "ID" },
-  { key: "name", label: "Name" },
-  { key: "createdAt", label: "Created At" }
-]
+import axiosInstance from "@/api/axiosInstance"
+import { useToast } from "@/components/ui/use-toast"
+import { RoutingModal } from "@/components/routing/RoutingModal"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 // Fixed filters to match exact data values shown in your table
 const regionFilters = ["All", "North Region", "South Region", "East Coast", "West Coast", "Central"]
@@ -47,14 +37,77 @@ export default function ProductsRouting() {
   const [activeRouteTypeFilter, setActiveRouteTypeFilter] = useState("All")
   const [date, setDate] = useState<DateRange | undefined>()
   const [refreshKey, setRefreshKey] = useState(0)
-  const [formData, setFormData] = useState({
-    name: "",
-    groupId: "",
-  })
+  const [routingData, setRoutingData] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedRouting, setSelectedRouting] = useState<any>(null)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const { toast } = useToast()
+
+  // Fetch routing configurations from backend
+  useEffect(() => {
+    fetchRoutingConfigs()
+  }, [refreshKey])
+
+  const fetchRoutingConfigs = async () => {
+    try {
+      setLoading(true)
+      const response = await axiosInstance.get('/routing-configurations/')
+      
+      // Transform backend data to match table format
+      const transformed = response.data.map((config: any) => ({
+        id: config.id,
+        name: config.name,
+        medication_group: config.medication_group,
+        createdAt: new Date(config.created_at).toLocaleDateString('en-GB'),
+        rawData: config // Store raw data for editing
+      }))
+      
+      setRoutingData(transformed)
+    } catch (error) {
+      console.error('Error fetching routing configs:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to load routing configurations',
+        variant: 'destructive'
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteId) return
+
+    try {
+      await axiosInstance.delete(`/routing-configurations/${deleteId}/`)
+      toast({
+        title: 'Success',
+        description: 'Routing configuration deleted successfully'
+      })
+      handleRefresh()
+    } catch (error) {
+      console.error('Error deleting routing config:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to delete routing configuration',
+        variant: 'destructive'
+      })
+    } finally {
+      setDeleteId(null)
+    }
+  }
+
+  const handleEdit = (id: string) => {
+    const routing = routingData.find(r => r.id === id)
+    if (routing) {
+      setSelectedRouting(routing.rawData)
+      setOpen(true)
+    }
+  }
 
   // FIXED: Comprehensive filtering logic based on actual routing data
   const filteredRouting = useMemo(() => {
-    return mockData.routing.filter(route => {
+    return routingData.filter(route => {
       // Search filter - search by name or ID
       const matchesSearch = !searchTerm || 
         route.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -87,7 +140,7 @@ export default function ProductsRouting() {
 
       return matchesSearch && matchesRegion && matchesRouteType && matchesDateRange
     })
-  }, [mockData.routing, searchTerm, activeRegionFilter, activeRouteTypeFilter, date, refreshKey])
+  }, [routingData, searchTerm, activeRegionFilter, activeRouteTypeFilter, date])
 
   // Create filter configuration based on routing data patterns
   const filters = [
@@ -118,19 +171,47 @@ export default function ProductsRouting() {
 
   const handleRefresh = useCallback(() => {
     setRefreshKey(prev => prev + 1)
-    console.log("Refreshing routing data...")
   }, [])
 
   const handleExport = useCallback(() => {
     exportToCSV(filteredRouting, routingColumns, 'products_routing_export')
   }, [filteredRouting])
 
-  const handleCreate = () => {
-    // Handle routing creation here
-    console.log("Creating new routing:", formData)
-    setOpen(false)
-    setFormData({ name: "", groupId: "" })
+  const handleSuccess = () => {
+    handleRefresh()
+    setSelectedRouting(null)
   }
+
+  const routingColumns = useMemo(() => [
+    { key: "id", label: "ID" },
+    { key: "name", label: "Name" },
+    { key: "medication_group", label: "Medication Group" },
+    { key: "createdAt", label: "Created At" },
+    { 
+      key: "actions", 
+      label: "Actions",
+      render: (_, row: any) => (
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleEdit(row.id)}
+            className="h-8 w-8"
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setDeleteId(row.id)}
+            className="h-8 w-8 text-destructive hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      )
+    }
+  ], [handleEdit])
 
   return (
     <div className="p-6 space-y-6">
@@ -143,74 +224,13 @@ export default function ProductsRouting() {
             <span>Routing</span>
           </div>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add New
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>New Routing Config</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">
-                  Name <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, name: e.target.value }))
-                  }
-                  placeholder="Enter name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="groupId">
-                  Group ID <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={formData.groupId}
-                  onValueChange={(value) =>
-                    setFormData((prev) => ({ ...prev, groupId: value }))
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Please select a group" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Semaglutide">Semaglutide</SelectItem>
-                    <SelectItem value="NAD">NAD</SelectItem>
-                    <SelectItem value="GTH">GTH</SelectItem>
-                    <SelectItem value="Remi">Remi</SelectItem>
-                    <SelectItem value="Tirzep">Tirzep</SelectItem>
-                    <SelectItem value="LockLab">LockLab</SelectItem>
-                    <SelectItem value="Brand-Name-GLPs">Brand Name GLPs</SelectItem>
-                    <SelectItem value="VitD">VitD</SelectItem>
-                    <SelectItem value="Sublingual">Sublingual Sema</SelectItem>
-                    <SelectItem value="Everyday">Everyday +</SelectItem>
-                    <SelectItem value="micb12">micb12</SelectItem>
-                    <SelectItem value="Zofran">Zofran</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleCreate}
-                  disabled={!formData.name || !formData.groupId}
-                >
-                  Save
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button className="gap-2" onClick={() => {
+          setSelectedRouting(null)
+          setOpen(true)
+        }}>
+          <Plus className="h-4 w-4" />
+          Add New
+        </Button>
       </div>
 
       <DataTable
@@ -228,6 +248,33 @@ export default function ProductsRouting() {
         onExport={handleExport}
         onRefresh={handleRefresh}
       />
+
+      <RoutingModal
+        open={open}
+        onClose={() => {
+          setOpen(false)
+          setSelectedRouting(null)
+        }}
+        onSuccess={handleSuccess}
+        initialData={selectedRouting}
+      />
+
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the routing configuration.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

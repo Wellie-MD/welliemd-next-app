@@ -30,6 +30,13 @@ export interface ConsentForm {
   beluga_consent_code?: string;
 }
 
+export interface ProductChoice {
+  product_id: string;
+  product_name: string;
+  beluga_medicine_id?: string;
+  name?: string;
+}
+
 export interface Question {
   id: string;
   question_text: string;
@@ -44,13 +51,14 @@ export interface Question {
     | "consent"
     | "file_upload"
     | "checkout"
+    | "product_selection"
     | "sex"
     | "self_reported_meds"
     | "allergies"
     | "medical_conditions";
   is_required: boolean;
   order_index: number;
-  answer_choices: string[];
+  answer_choices: (string | ProductChoice)[];
   conditional_logic: Record<string, unknown>;
   validation_rules: Record<string, unknown>;
   beluga_field_mapping: string;

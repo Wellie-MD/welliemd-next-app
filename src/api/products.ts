@@ -266,22 +266,12 @@ export const productApi = {
   /**
    * List all products assigned to the client
    * Clients only see products assigned to them (not admin products)
+   * Returns paginated response or array
    */
-  listProducts: async (params?: ProductListParams): Promise<Product[]> => {
-    const { data } = await axiosInstance.get<{ results?: Product[] } | Product[]>(
-      "products/",
-      { params }
-    );
-    // Handle paginated response
-    if (data && typeof data === "object" && "results" in data) {
-      return data.results || [];
-    }
-    // Handle array response
-    if (Array.isArray(data)) {
-      return data;
-    }
-    // Fallback for unexpected response
-    return [];
+  listProducts: async (params?: ProductListParams): Promise<unknown> => {
+    const { data } = await axiosInstance.get("products/", { params });
+    // Return the full response (could be paginated or array)
+    return data;
   },
 
   /**

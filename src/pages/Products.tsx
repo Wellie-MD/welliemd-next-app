@@ -32,12 +32,81 @@ export default function Products() {
   const [activePurchaseTypeFilter, setActivePurchaseTypeFilter] = useState("All Types")
   const [activeRxOtcFilter, setActiveRxOtcFilter] = useState("All")
   const [date, setDate] = useState<DateRange | undefined>()
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const [pageSize, setPageSize] = useState(5)
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (page: number = 1, customPageSize?: number) => {
     try {
       setLoading(true)
-      const items = await productApi.listProducts()
-      setProducts(items)
+      
+      // Use custom page size if provided, otherwise use state
+      const currentPageSize = customPageSize !== undefined ? customPageSize : pageSize
+      
+      // Build filter params
+      const params: unknown = {
+        page,
+        page_size: currentPageSize,
+      }
+      
+      // Add search
+      if (search.trim()) {
+        params.search = search.trim()
+      }
+      
+      // Add status filter
+      if (activeStatusFilter !== "All") {
+        params.is_active = activeStatusFilter === "Active"
+      }
+      
+      // Add treatment filter
+      if (activeTreatmentFilter !== "All Treatments") {
+        const treatmentMapping: Record<string, string> = {
+          "Weight Loss": "weight_loss",
+          "Erectile Dysfunction": "ed",
+          "GLP": "glp",
+          "Individualized GLP": "individualized_glp",
+          "General": "general",
+        }
+        params.treatment = treatmentMapping[activeTreatmentFilter]
+      }
+      
+      // Add purchase type filter
+      if (activePurchaseTypeFilter !== "All Types") {
+        const purchaseTypeMapping: Record<string, string> = {
+          "One Time": "one_time",
+          "Subscription": "subscription",
+        }
+        params.purchase_type = purchaseTypeMapping[activePurchaseTypeFilter]
+      }
+      
+      // Add RX/OTC filter
+      if (activeRxOtcFilter !== "All") {
+        const rxOtcMapping: Record<string, string> = {
+          "RX": "rx",
+          "OTC": "otc",
+        }
+        params.rx_or_otc = rxOtcMapping[activeRxOtcFilter]
+      }
+      
+      const response = await productApi.listProducts(params)
+      
+      // Handle paginated response
+      if (response && typeof response === "object" && "results" in response) {
+        const items: Product[] = response.results ?? []
+        setProducts(items)
+        setTotalCount(response.count || 0)
+        setTotalPages(Math.ceil((response.count || 0) / currentPageSize))
+        setCurrentPage(page)
+      } else if (Array.isArray(response)) {
+        setProducts(response)
+        setTotalCount(response.length)
+        setTotalPages(1)
+        setCurrentPage(1)
+      }
     } catch (e) {
       console.error("Failed to fetch products:", e)
       toast({
@@ -52,88 +121,47 @@ export default function Products() {
   }
 
   useEffect(() => {
-    fetchProducts()
+    fetchProducts(1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  
+  // Refetch when filters change
+  useEffect(() => {
+    if (currentPage === 1) {
+      fetchProducts(1, pageSize)
+    } else {
+      setCurrentPage(1)
+      fetchProducts(1, pageSize)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, activeStatusFilter, activeTreatmentFilter, activePurchaseTypeFilter, activeRxOtcFilter])
 
+  // Apply only client-side date filter since backend doesn't support it
   const filtered = useMemo(() => {
+    if (!date?.from && !date?.to) {
+      return products
+    }
+    
     return products.filter((product) => {
-      // Search filter
-      const q = search.trim().toLowerCase()
-      const matchesSearch = !q || [
-        product.id,
-        product.name,
-        product.manufacturer_name,
-        product.rx_drug_form,
-        product.purchase_type,
-        product.ndc_number,
-        product.treatment,
-        product.generic_name,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(q)
-
-      // Status filter
-      const matchesStatus =
-        activeStatusFilter === "All" ||
-        (activeStatusFilter === "Active" && product.is_active) ||
-        (activeStatusFilter === "Inactive" && !product.is_active)
-
-      // Treatment filter
-      const treatmentMapping: Record<string, string> = {
-        "Weight Loss": "weight_loss",
-        "Erectile Dysfunction": "ed",
-        "GLP": "glp",
-        "Individualized GLP": "individualized_glp",
-        "General": "general",
-      }
-      const matchesTreatment =
-        activeTreatmentFilter === "All Treatments" ||
-        product.treatment === treatmentMapping[activeTreatmentFilter]
-
-      // Purchase Type filter
-      const purchaseTypeMapping: Record<string, string> = {
-        "One Time": "one_time",
-        "Subscription": "subscription",
-      }
-      const matchesPurchaseType =
-        activePurchaseTypeFilter === "All Types" ||
-        product.purchase_type === purchaseTypeMapping[activePurchaseTypeFilter]
-
-      // RX/OTC filter
-      const rxOtcMapping: Record<string, string> = {
-        "RX": "rx",
-        "OTC": "otc",
-      }
-      const matchesRxOtc =
-        activeRxOtcFilter === "All" ||
-        product.rx_or_otc === rxOtcMapping[activeRxOtcFilter]
-
       // Date range filter
-      let matchesDateRange = true
-      if (date?.from || date?.to) {
-        try {
-          const productDate = parseISO(product.created_at)
-          if (date.from && date.to) {
-            matchesDateRange = isWithinInterval(productDate, {
-              start: date.from,
-              end: date.to,
-            })
-          } else if (date.from) {
-            matchesDateRange = productDate >= date.from
-          } else if (date.to) {
-            matchesDateRange = productDate <= date.to
-          }
-        } catch {
-          matchesDateRange = false
+      try {
+        const productDate = parseISO(product.created_at)
+        if (date.from && date.to) {
+          return isWithinInterval(productDate, {
+            start: date.from,
+            end: date.to,
+          })
+        } else if (date.from) {
+          return productDate >= date.from
+        } else if (date.to) {
+          return productDate <= date.to
         }
+      } catch {
+        return false
       }
-
-      return matchesSearch && matchesStatus && matchesTreatment && matchesPurchaseType && matchesRxOtc && matchesDateRange
+      return true
     })
-  }, [products, search, activeStatusFilter, activeTreatmentFilter, activePurchaseTypeFilter, activeRxOtcFilter, date])
+  }, [products, date])
 
   const getTreatmentLabel = (value: string) => {
     return TREATMENT_OPTIONS.find((opt) => opt.value === value)?.label || value
@@ -186,11 +214,25 @@ export default function Products() {
     setActiveRxOtcFilter("All")
     setDate(undefined)
     setSearch("")
+    setCurrentPage(1)
   }, [])
 
   const handleRefresh = useCallback(() => {
-    fetchProducts()
-  }, [])
+    fetchProducts(currentPage)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage])
+  
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page)
+    fetchProducts(page, pageSize)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageSize])
+  
+  const handlePageSizeChange = useCallback((newPageSize: number) => {
+    setPageSize(newPageSize)
+    setCurrentPage(1)
+    fetchProducts(1, newPageSize)
+  }, [fetchProducts])
 
   const columns = [
     { 
@@ -290,7 +332,7 @@ export default function Products() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard
           title="Total Products"
-          value={products.length.toString()}
+          value={totalCount.toString()}
           className="bg-muted/30"
         />
         <StatCard
@@ -339,6 +381,15 @@ export default function Products() {
         onSearch={setSearch}
         onResetFilters={handleResetFilters}
         onRefresh={handleRefresh}
+        loading={loading}
+        pagination={{
+          currentPage,
+          totalPages,
+          pageSize,
+          totalCount,
+          onPageChange: handlePageChange,
+          onPageSizeChange: handlePageSizeChange,
+        }}
       />
     </div>
   )
