@@ -14,7 +14,8 @@ import {
   Tag,
   Globe,
   Palette,
-  TrendingUp
+  TrendingUp,
+  Settings2
 } from "lucide-react"
 import {
   Sidebar,
@@ -50,6 +51,7 @@ const settingsMenuItems = [
   { title: "Domains", url: "/dashboard/settings/domains", icon: Globe },
   { title: "Brand", url: "/dashboard/settings/brand", icon: Palette },
   { title: "Analytics and SEO", url: "/dashboard/settings/analytics-seo", icon: TrendingUp },
+  { title: "SMTP Settings", url: "/dashboard/settings/smtp-settings", icon: Settings2 },
 ]
 
 export function SettingsSidebar() {

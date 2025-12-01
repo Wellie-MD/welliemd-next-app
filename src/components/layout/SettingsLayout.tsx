@@ -14,6 +14,7 @@ import WebhooksApis from "@/pages/settings/WebhooksApis"
 import PrescribingDoctors from "@/pages/settings/PrescribingDoctors"
 import Brand from "@/pages/settings/Brand"
 import AnalyticsSeo from "@/pages/settings/AnalyticsSeo"
+import SmtpSettings from "@/pages/settings/SmtpSettings"
 
 export function SettingsLayout() {
   return (
@@ -43,6 +44,7 @@ export function SettingsLayout() {
               <Route path="domains" element={<Domains />} />
               <Route path="brand" element={<Brand />} />
               <Route path="analytics-seo" element={<AnalyticsSeo />} />
+              <Route path="smtp-settings" element={<SmtpSettings />} />
               <Route path="" element={<StoreDetails />} />
             </Routes>
           </div>
