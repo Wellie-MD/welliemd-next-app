@@ -43,6 +43,7 @@ import AnalyticsReports from "./pages/AnalyticsReports";
 import CouponCodes from "./pages/CouponCodes";
 import CouponInsights from "./pages/CouponInsights";
 import Billing from "./pages/Billing";
+import ProductDoseMappings from "./pages/ProductDoseMappings";
 
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -108,6 +109,7 @@ const App = () => {
                     <Route path="/products/assign" element={<ProtectedRoute><ProductAssignment /></ProtectedRoute>} />
                     <Route path="/products/billing-plans" element={<ProtectedRoute><BillingPlans /></ProtectedRoute>} />
                     <Route path="/products/routing" element={<ProtectedRoute><ProductsRouting /></ProtectedRoute>} />
+                    <Route path="/products/dose-mappings" element={<ProtectedRoute><ProductDoseMappings /></ProtectedRoute>} />
                     <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
                     <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
                     <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} />

@@ -18,37 +18,38 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
-import { productCategoryApi, ProductCategory } from "@/api/productCategories";
+import { titrationCategoryApi, TitrationCategory } from "@/api/titrationCategories";
 
-interface CategorySelectorProps {
+interface TitrationCategoryManagerProps {
   value?: number | null;
   onChange: (categoryId: number | null) => void;
   disabled?: boolean;
 }
 
-export function CategorySelector({
+export function TitrationCategoryManager({
   value,
   onChange,
   disabled = false,
-}: CategorySelectorProps) {
+}: TitrationCategoryManagerProps) {
   const [open, setOpen] = useState(false);
-  const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [categories, setCategories] = useState<TitrationCategory[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryCode, setNewCategoryCode] = useState("");
   const [newCategoryDescription, setNewCategoryDescription] = useState("");
   const [creating, setCreating] = useState(false);
 
   const fetchCategories = async () => {
     try {
       setLoading(true);
-      const data = await productCategoryApi.listCategories();
+      const data = await titrationCategoryApi.listCategories();
       setCategories(data);
     } catch (error) {
-      console.error("Failed to fetch categories:", error);
+      console.error("Failed to fetch titration categories:", error);
       toast({
         title: "Error",
-        description: "Failed to load categories",
+        description: "Failed to load titration categories",
         variant: "destructive",
       });
     } finally {
@@ -71,16 +72,27 @@ export function CategorySelector({
       return;
     }
 
+    if (!newCategoryCode.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Category code is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setCreating(true);
-      const newCategory = await productCategoryApi.createCategory({
+      const newCategory = await titrationCategoryApi.createCategory({
         name: newCategoryName.trim(),
+        code: newCategoryCode.trim().toLowerCase(),
         description: newCategoryDescription.trim() || undefined,
+        display_order: categories.length + 1,
       });
 
       toast({
         title: "Success",
-        description: "Category created successfully",
+        description: "Titration category created successfully",
       });
 
       // Refresh categories list
@@ -91,13 +103,14 @@ export function CategorySelector({
 
       // Reset form
       setNewCategoryName("");
+      setNewCategoryCode("");
       setNewCategoryDescription("");
       setShowAddForm(false);
     } catch (error: any) {
-      console.error("Failed to create category:", error);
+      console.error("Failed to create titration category:", error);
       toast({
         title: "Error",
-        description: error.response?.data?.error || "Failed to create category",
+        description: error.response?.data?.error || "Failed to create titration category",
         variant: "destructive",
       });
     } finally {
@@ -120,14 +133,14 @@ export function CategorySelector({
                 className="w-full justify-between"
                 disabled={disabled}
               >
-                {selectedCategory ? selectedCategory.name : "Select category..."}
+                {selectedCategory ? selectedCategory.name : "Select regimen (optional)"}
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[400px] p-0">
               <Command>
-                <CommandInput placeholder="Search categories..." />
-                <CommandEmpty>No category found.</CommandEmpty>
+                <CommandInput placeholder="Search regimens..." />
+                <CommandEmpty>No regimen found.</CommandEmpty>
                 <CommandGroup className="max-h-[200px] overflow-auto">
                   {categories.map((category) => (
                     <CommandItem
@@ -146,6 +159,9 @@ export function CategorySelector({
                       />
                       <div className="flex-1">
                         <div className="font-medium">{category.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Code: {category.code}
+                        </div>
                         {category.description && (
                           <div className="text-xs text-muted-foreground line-clamp-1">
                             {category.description}
@@ -166,7 +182,7 @@ export function CategorySelector({
                     onClick={() => setShowAddForm(true)}
                   >
                     <Plus className="mr-2 h-4 w-4" />
-                    Add New Category
+                    Add New Regimen
                   </Button>
                 </div>
               )}
@@ -174,13 +190,14 @@ export function CategorySelector({
               {showAddForm && (
                 <div className="border-t p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-sm">Add New Category</h4>
+                    <h4 className="font-semibold text-sm">Add New Regimen</h4>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => {
                         setShowAddForm(false);
                         setNewCategoryName("");
+                        setNewCategoryCode("");
                         setNewCategoryDescription("");
                       }}
                     >
@@ -189,22 +206,38 @@ export function CategorySelector({
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="new-category-name">
+                    <Label htmlFor="new-regimen-name">
                       Name <span className="text-red-500">*</span>
                     </Label>
                     <Input
-                      id="new-category-name"
+                      id="new-regimen-name"
                       value={newCategoryName}
                       onChange={(e) => setNewCategoryName(e.target.value)}
-                      placeholder="e.g., Weight Loss Medications"
+                      placeholder="e.g., Alternative Regimen"
                       disabled={creating}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="new-category-description">Description</Label>
+                    <Label htmlFor="new-regimen-code">
+                      Code <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="new-regimen-code"
+                      value={newCategoryCode}
+                      onChange={(e) => setNewCategoryCode(e.target.value)}
+                      placeholder="e.g., alternative"
+                      disabled={creating}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Lowercase identifier used in API calls
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="new-regimen-description">Description</Label>
                     <Textarea
-                      id="new-category-description"
+                      id="new-regimen-description"
                       value={newCategoryDescription}
                       onChange={(e) => setNewCategoryDescription(e.target.value)}
                       placeholder="Optional description"
@@ -217,10 +250,10 @@ export function CategorySelector({
                     <Button
                       size="sm"
                       onClick={handleCreateCategory}
-                      disabled={creating || !newCategoryName.trim()}
+                      disabled={creating || !newCategoryName.trim() || !newCategoryCode.trim()}
                       className="flex-1"
                     >
-                      {creating ? "Creating..." : "Create Category"}
+                      {creating ? "Creating..." : "Create Regimen"}
                     </Button>
                     <Button
                       size="sm"
@@ -228,6 +261,7 @@ export function CategorySelector({
                       onClick={() => {
                         setShowAddForm(false);
                         setNewCategoryName("");
+                        setNewCategoryCode("");
                         setNewCategoryDescription("");
                       }}
                       disabled={creating}

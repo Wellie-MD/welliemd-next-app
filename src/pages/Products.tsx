@@ -1,4 +1,3 @@
-// src/pages/dashboard/Products.tsx
 import { useEffect, useMemo, useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { Badge } from "@/components/ui/badge"
@@ -11,11 +10,11 @@ import { ProductFormModal } from "@/components/products/ProductFormModal"
 import { StatCard } from "@/components/ui/stat-card"
 import { DateRange } from "react-day-picker"
 import { isWithinInterval, parseISO, format } from "date-fns"
-import { 
-  TREATMENT_OPTIONS, 
-  PURCHASE_TYPE_OPTIONS, 
+import {
+  TREATMENT_OPTIONS,
+  PURCHASE_TYPE_OPTIONS,
   RX_OTC_OPTIONS,
-  PRODUCT_TYPE_OPTIONS 
+  PRODUCT_TYPE_OPTIONS
 } from "@/api/products"
 import { productCategoryApi, ProductCategory } from "@/api/productCategories"
 import {
@@ -83,147 +82,185 @@ const purchaseTypeFilters = ["All Types", ...PURCHASE_TYPE_OPTIONS.map(opt => op
 const rxOtcFilters = ["All", ...RX_OTC_OPTIONS.map(opt => opt.label)];
 
 export default function Products() {
-  const navigate = useNavigate()
-  const [products, setProducts] = useState<Product[]>([])
-  const [search, setSearch] = useState("")
-  const [editing, setEditing] = useState<Product | null>(null)
-  const [modalOpen, setModalOpen] = useState(false)
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-  const [activeStatusFilter, setActiveStatusFilter] = useState("All")
-  const [activeTreatmentFilter, setActiveTreatmentFilter] = useState("All Treatments")
-  const [activePurchaseTypeFilter, setActivePurchaseTypeFilter] = useState("All Types")
-  const [activeRxOtcFilter, setActiveRxOtcFilter] = useState("All")
-  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>("all")
-  const [categories, setCategories] = useState<ProductCategory[]>([])
-  const [categorySearch, setCategorySearch] = useState("")
-  const [date, setDate] = useState<DateRange | undefined>()
+  const navigate = useNavigate();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [search, setSearch] = useState("");
+  const [editing, setEditing] = useState<Product | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [activeStatusFilter, setActiveStatusFilter] = useState("All");
+  const [activeTreatmentFilter, setActiveTreatmentFilter] =
+    useState("All Treatments");
+  const [activePurchaseTypeFilter, setActivePurchaseTypeFilter] =
+    useState("All Types");
+  const [activeRxOtcFilter, setActiveRxOtcFilter] = useState("All");
+  const [activeCategoryFilter, setActiveCategoryFilter] =
+    useState<string>("all");
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [date, setDate] = useState<DateRange | undefined>();
 
-  const fetchProducts = async () => {
-    try {
-      const res = await axiosInstance.get("/products/", {
-        params: {
-          page_size: 1000 // Fetch all products with a large page size
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [pageSize, setPageSize] = useState(5);
+  const [loading, setLoading] = useState(false);
+
+  const fetchProducts = useCallback(
+    async (page: number = 1) => {
+      try {
+        setLoading(true);
+
+        // Use pageSize from state
+        const currentPageSize = pageSize;
+
+        // Build filter params
+        const params: unknown = {
+          page,
+          page_size: currentPageSize,
+        };
+
+        // Add search
+        if (search.trim()) {
+          params.search = search.trim();
         }
-      })
-      const items: Product[] = res.data?.results ?? res.data ?? []
-      setProducts(items)
-    } catch (e) {
-      console.error("Failed to fetch products:", e)
-      setProducts([])
-    }
-  }
+
+        // Add status filter
+        if (activeStatusFilter !== "All") {
+          params.is_active = activeStatusFilter === "Active";
+        }
+
+        // Add treatment filter
+        if (activeTreatmentFilter !== "All Treatments") {
+          const treatmentMapping: Record<string, string> = {
+            "Weight Loss": "weight_loss",
+            "Erectile Dysfunction": "ed",
+            GLP: "glp",
+            "Individualized GLP": "individualized_glp",
+            General: "general",
+          };
+          params.treatment = treatmentMapping[activeTreatmentFilter];
+        }
+
+        // Add purchase type filter
+        if (activePurchaseTypeFilter !== "All Types") {
+          const purchaseTypeMapping: Record<string, string> = {
+            "One Time": "one_time",
+            Subscription: "subscription",
+          };
+          params.purchase_type = purchaseTypeMapping[activePurchaseTypeFilter];
+        }
+
+        // Add RX/OTC filter
+        if (activeRxOtcFilter !== "All") {
+          const rxOtcMapping: Record<string, string> = {
+            RX: "rx",
+            OTC: "otc",
+          };
+          params.rx_or_otc = rxOtcMapping[activeRxOtcFilter];
+        }
+
+        // Add category filter
+        if (activeCategoryFilter !== "all") {
+          params.category = activeCategoryFilter;
+        }
+
+        const res = await axiosInstance.get("/products/", { params });
+
+        // Handle paginated response
+        if (res.data && typeof res.data === "object" && "results" in res.data) {
+          const items: Product[] = res.data.results ?? [];
+          setProducts(items);
+          setTotalCount(res.data.count || 0);
+          setTotalPages(Math.ceil((res.data.count || 0) / currentPageSize));
+          setCurrentPage(page);
+        } else if (Array.isArray(res.data)) {
+          setProducts(res.data);
+          setTotalCount(res.data.length);
+          setTotalPages(1);
+          setCurrentPage(1);
+        }
+      } catch (e) {
+        console.error("Failed to fetch products:", e);
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      pageSize,
+      search,
+      activeStatusFilter,
+      activeTreatmentFilter,
+      activePurchaseTypeFilter,
+      activeRxOtcFilter,
+      activeCategoryFilter,
+    ]
+  );
 
   const fetchCategories = async () => {
     try {
-      const data = await productCategoryApi.listCategories()
-      setCategories(data)
+      const data = await productCategoryApi.listCategories();
+      setCategories(data);
     } catch (e) {
-      console.error("Failed to fetch categories:", e)
-      setCategories([])
+      console.error("Failed to fetch categories:", e);
+      setCategories([]);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchProducts()
-    fetchCategories()
-  }, [])
+    fetchProducts(1);
+    fetchCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Refetch when filters or pageSize change (reset to page 1)
+  useEffect(() => {
+    setCurrentPage(1);
+    fetchProducts(1);
+  }, [fetchProducts]);
+
+  // Apply only client-side date filter since backend doesn't support it
   const filtered = useMemo(() => {
+    if (!date?.from && !date?.to) {
+      return products;
+    }
+
     return products.filter((product) => {
-      // Search filter
-      const q = search.trim().toLowerCase()
-      const matchesSearch = !q || [
-        product.id,
-        product.name,
-        product.manufacturer_name,
-        product.rx_drug_form,
-        product.purchase_type,
-        product.ndic_number,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(q)
-
-      // Status filter - check if product has is_active field
-      const isActive = (product as any).is_active !== undefined ? (product as any).is_active : true
-      const matchesStatus =
-        activeStatusFilter === "All" ||
-        (activeStatusFilter === "Active" && isActive) ||
-        (activeStatusFilter === "Inactive" && !isActive)
-
-      // Treatment filter
-      const treatmentMapping: Record<string, string> = {
-        "Weight Loss": "weight_loss",
-        "Erectile Dysfunction": "ed",
-        "GLP": "glp",
-        "Individualized GLP": "individualized_glp",
-        "General": "general",
-      }
-      const matchesTreatment =
-        activeTreatmentFilter === "All Treatments" ||
-        (product as any).treatment === treatmentMapping[activeTreatmentFilter]
-
-      // Purchase Type filter
-      const purchaseTypeMapping: Record<string, string> = {
-        "One Time": "one_time",
-        "Subscription": "subscription",
-      }
-      const matchesPurchaseType =
-        activePurchaseTypeFilter === "All Types" ||
-        product.purchase_type === purchaseTypeMapping[activePurchaseTypeFilter]
-
-      // RX/OTC filter
-      const rxOtcMapping: Record<string, string> = {
-        "RX": "rx",
-        "OTC": "otc",
-      }
-      const matchesRxOtc =
-        activeRxOtcFilter === "All" ||
-        (product as any).rx_or_otc === rxOtcMapping[activeRxOtcFilter]
-
-      // Category filter
-      const matchesCategory =
-        activeCategoryFilter === "all" ||
-        (product as any).category?.toString() === activeCategoryFilter
-
       // Date range filter
-      let matchesDateRange = true
-      if (date?.from || date?.to) {
-        try {
-          const productDate = parseISO(product.created_at)
-          if (date.from && date.to) {
-            matchesDateRange = isWithinInterval(productDate, {
-              start: date.from,
-              end: date.to,
-            })
-          } else if (date.from) {
-            matchesDateRange = productDate >= date.from
-          } else if (date.to) {
-            matchesDateRange = productDate <= date.to
-          }
-        } catch {
-          matchesDateRange = false
+      try {
+        const productDate = parseISO(product.created_at);
+        if (date.from && date.to) {
+          return isWithinInterval(productDate, {
+            start: date.from,
+            end: date.to,
+          });
+        } else if (date.from) {
+          return productDate >= date.from;
+        } else if (date.to) {
+          return productDate <= date.to;
         }
+      } catch {
+        return false;
       }
-
-      return matchesSearch && matchesStatus && matchesTreatment && matchesPurchaseType && matchesRxOtc && matchesCategory && matchesDateRange
-    })
-  }, [products, search, activeStatusFilter, activeTreatmentFilter, activePurchaseTypeFilter, activeRxOtcFilter, activeCategoryFilter, date])
+      return true;
+    });
+  }, [products, date]);
 
   const onDelete = async (row: Product) => {
-    if (!row) return
-    const ok = window.confirm(`Delete product “${row.name}”?`)
-    if (!ok) return
+    if (!row) return;
+    const ok = window.confirm(`Delete product “${row.name}”?`);
+    if (!ok) return;
     try {
-      await axiosInstance.delete(`/products/${row.id}/`)
-      alert("Product deleted")
-      fetchProducts()
+      await axiosInstance.delete(`/products/${row.id}/`);
+      alert("Product deleted");
+      fetchProducts();
     } catch (e) {
-      console.error(e)
-      alert("Failed to delete product")
+      console.error(e);
+      alert("Failed to delete product");
     }
-  }
+  };
 
   // Create filter configuration for DataTable
   const filters = [
@@ -259,22 +296,40 @@ export default function Products() {
       value: activeRxOtcFilter === rxOtc ? rxOtc : undefined,
       onClick: () => setActiveRxOtcFilter(rxOtc),
     })),
-  ]
+  ];
 
   const handleResetFilters = useCallback(() => {
-    setActiveStatusFilter("All")
-    setActiveTreatmentFilter("All Treatments")
-    setActivePurchaseTypeFilter("All Types")
-    setActiveRxOtcFilter("All")
-    setActiveCategoryFilter("all")
-    setCategorySearch("")
-    setDate(undefined)
-    setSearch("")
-  }, [])
+    setActiveStatusFilter("All");
+    setActiveTreatmentFilter("All Treatments");
+    setActivePurchaseTypeFilter("All Types");
+    setActiveRxOtcFilter("All");
+    setActiveCategoryFilter("all");
+    setCategorySearch("");
+    setDate(undefined);
+    setSearch("");
+    setCurrentPage(1);
+  }, []);
 
   const handleRefresh = useCallback(() => {
-    fetchProducts()
-  }, [])
+    fetchProducts(currentPage);
+  }, [currentPage, fetchProducts]);
+
+  const handlePageChange = useCallback(
+    (page: number) => {
+      setCurrentPage(page);
+      fetchProducts(page);
+    },
+    [fetchProducts]
+  );
+
+  const handlePageSizeChange = useCallback(
+    (newPageSize: number) => {
+      setPageSize(newPageSize);
+      setCurrentPage(1);
+      // Don't call fetchProducts here - useEffect will handle it
+    },
+    []
+  );
 
   const columns = [
     { key: "name", label: "Name" },
@@ -282,15 +337,16 @@ export default function Products() {
       key: "category_name",
       label: "Category",
       render: (...args: unknown[]) => {
-        const row = getRow<Product>(...args)
-        const categoryId = (row as any).category
-        if (!categoryId) return <span className="text-muted-foreground">-</span>
-        const category = categories.find((c) => c.id === categoryId)
+        const row = getRow<Product>(...args);
+        const categoryId = (row as unknown).category;
+        if (!categoryId)
+          return <span className="text-muted-foreground">-</span>;
+        const category = categories.find((c) => c.id === categoryId);
         return category ? (
           <Badge variant="outline">{category.name}</Badge>
         ) : (
           <span className="text-muted-foreground">-</span>
-        )
+        );
       },
     },
     {
@@ -307,7 +363,12 @@ export default function Products() {
       key: "purchase_type",
       label: "Purchase Type",
       render: (v: string) => {
-        const formatted = v === "one_time" ? "One Time" : v === "subscription" ? "Subscription" : v || "-";
+        const formatted =
+          v === "one_time"
+            ? "One Time"
+            : v === "subscription"
+            ? "Subscription"
+            : v || "-";
         return <Badge variant="secondary">{formatted}</Badge>;
       },
     },
@@ -320,12 +381,12 @@ export default function Products() {
       key: "created_at",
       label: "Created At",
       render: (...args: unknown[]) => {
-        const row = getRow<Product>(...args)
+        const row = getRow<Product>(...args);
         try {
-          const date = parseISO(row.created_at)
-          return format(date, "MM/dd/yyyy")
+          const date = parseISO(row.created_at);
+          return format(date, "MM/dd/yyyy");
         } catch {
-          return dateOnly(row.created_at)
+          return dateOnly(row.created_at);
         }
       },
     },
@@ -333,7 +394,7 @@ export default function Products() {
       key: "__actions",
       label: "",
       render: (...args: unknown[]) => {
-        const row = getRow<Product>(...args)
+        const row = getRow<Product>(...args);
         return (
           <div className="flex items-center justify-end gap-3">
             <button
@@ -356,10 +417,10 @@ export default function Products() {
               <Trash2 className="h-4 w-4" />
             </button>
           </div>
-        )
+        );
       },
     },
-  ]
+  ];
 
   return (
     <div className="p-6 space-y-6">
@@ -395,8 +456,8 @@ export default function Products() {
       {/* Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard
-          title="Active Products"
-          value={`${products.length} -`}
+          title="Total Products"
+          value={`${totalCount}`}
           className="bg-muted/30 md:col-span-3 md:max-w-md"
         />
       </div>
@@ -416,7 +477,9 @@ export default function Products() {
       {/* Category Filter */}
       <div className="flex items-center gap-4 bg-muted/30 p-4 rounded-lg">
         <div className="flex-1 max-w-xs">
-          <label className="text-sm font-medium mb-2 block">Filter by Category</label>
+          <label className="text-sm font-medium mb-2 block">
+            Filter by Category
+          </label>
           <Select
             value={activeCategoryFilter}
             onValueChange={setActiveCategoryFilter}
@@ -481,7 +544,16 @@ export default function Products() {
         onSearch={setSearch}
         onResetFilters={handleResetFilters}
         onRefresh={handleRefresh}
+        loading={loading}
+        pagination={{
+          currentPage,
+          totalPages,
+          pageSize,
+          totalCount,
+          onPageChange: handlePageChange,
+          onPageSizeChange: handlePageSizeChange,
+        }}
       />
     </div>
-  )
+  );
 }

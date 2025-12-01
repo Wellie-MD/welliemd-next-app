@@ -91,7 +91,7 @@ const menuSections = [
           { title: "Products", url: "/dashboard/products" },
           { title: "Billing Plans", url: "/dashboard/products/billing-plans" },
           { title: "Routing", url: "/dashboard/products/routing" },
-          { title: "Assignment", url: "/dashboard/products/assignment" }
+          { title: "Dose Mappings", url: "/dashboard/products/dose-mappings" }
         ]
       },
     ]

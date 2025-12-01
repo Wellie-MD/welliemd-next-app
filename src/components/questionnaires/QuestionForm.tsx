@@ -115,9 +115,15 @@ export function QuestionForm({
   const [checkoutConfig, setCheckoutConfig] = useState<{
     product_id: string;
     product_name: string;
+    has_hierarchy: boolean;
+    regimen?: string;
+    regimen_name?: string;
+    duration?: string;
+    duration_name?: string;
     pharmacy_id?: string;
     pharmacy_name?: string;
-    beluga_medicine_id?: string;
+    beluga_medicine_id: string;
+    price?: number;
   } | null>(null);
 
   // State for grouped questions

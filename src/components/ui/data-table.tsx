@@ -40,7 +40,7 @@ interface Column {
   sortable?: boolean;
   headerClassName?: string;
   className?: string;
-  render?: (value: any, row: any) => React.ReactNode;
+  render?: (value: unknown, row: unknown) => React.ReactNode;
 }
 
 interface FilterConfig {
@@ -52,8 +52,17 @@ interface FilterConfig {
   onClick?: () => void;
 }
 
+interface PaginationConfig {
+  currentPage: number;
+  totalPages: number;
+  pageSize: number;
+  totalCount: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void; // Optional callback for page size change
+}
+
 interface DataTableProps {
-  data: any[];
+  data: unknown[];
   columns: Column[];
   hideToolbar?: boolean;
   searchPlaceholder?: string;
@@ -65,11 +74,13 @@ interface DataTableProps {
   dateRange?: DateRange | undefined;
   onDateRangeChange?: (range: DateRange | undefined) => void;
   onSearch?: (searchTerm: string) => void;
-  onFilter?: (filters: any) => void;
+  onFilter?: (filters: unknown) => void;
   onExport?: () => void;
   onResetFilters?: () => void;
   onRefresh?: () => void;
   getRowClassName?: (row: unknown) => string;
+  loading?: boolean;
+  pagination?: PaginationConfig; // External pagination config
 }
 
 export function DataTable({
@@ -90,10 +101,25 @@ export function DataTable({
   onResetFilters,
   onRefresh,
   getRowClassName,
+  loading,
+  pagination,
 }: DataTableProps) {
-  // ---- pagination state ----
-  const [pageSize, setPageSize] = useState<number>(10);
-  const [page, setPage] = useState<number>(1);
+  // ---- pagination state (internal or external) ----
+  const [internalPageSize, setInternalPageSize] = useState<number>(10);
+  const [internalPage, setInternalPage] = useState<number>(1);
+
+  // Use external pagination if provided, otherwise use internal
+  const isExternalPagination = !!pagination;
+  const pageSize = isExternalPagination
+    ? pagination.pageSize
+    : internalPageSize;
+  const page = isExternalPagination ? pagination.currentPage : internalPage;
+  const totalPages = isExternalPagination
+    ? pagination.totalPages
+    : Math.max(1, Math.ceil((data?.length ?? 0) / internalPageSize));
+  const totalCount = isExternalPagination
+    ? pagination.totalCount
+    : data?.length ?? 0;
 
   // ---- local search state ----
   const [localSearch, setLocalSearch] = useState<string>("");
@@ -101,37 +127,56 @@ export function DataTable({
   // ---- filtering (using the filtered data passed from parent) ----
   const filteredData = data ?? [];
 
-  // ---- pagination ----
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil((filteredData.length ?? 0) / pageSize)),
-    [filteredData.length, pageSize]
-  );
-
+  // ---- internal pagination (only if not using external) ----
   useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-    if (page < 1) setPage(1);
-  }, [page, totalPages]);
+    if (!isExternalPagination) {
+      if (internalPage > totalPages) setInternalPage(totalPages);
+      if (internalPage < 1) setInternalPage(1);
+    }
+  }, [internalPage, totalPages, isExternalPagination]);
 
   const visibleData = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    const end = start + pageSize;
+    // If external pagination, show all data (already paginated by backend)
+    if (isExternalPagination) {
+      return filteredData;
+    }
+    // Otherwise, do client-side pagination
+    const start = (internalPage - 1) * internalPageSize;
+    const end = start + internalPageSize;
     return filteredData.slice(start, end);
-  }, [filteredData, page, pageSize]);
+  }, [filteredData, internalPage, internalPageSize, isExternalPagination]);
 
   // ---- handlers ----
-  const goPrev = () => setPage((p) => Math.max(1, p - 1));
-  const goNext = () => setPage((p) => Math.min(totalPages, p + 1));
+  const goPrev = () => {
+    if (isExternalPagination) {
+      pagination.onPageChange(page - 1);
+    } else {
+      setInternalPage((p) => Math.max(1, p - 1));
+    }
+  };
+
+  const goNext = () => {
+    if (isExternalPagination) {
+      pagination.onPageChange(page + 1);
+    } else {
+      setInternalPage((p) => Math.min(totalPages, p + 1));
+    }
+  };
 
   const handleInputChange = (v: string) => {
     setLocalSearch(v);
     onSearch?.(v);
-    setPage(1);
+    if (!isExternalPagination) {
+      setInternalPage(1);
+    }
   };
 
   const handleClearInput = () => {
     setLocalSearch("");
     onSearch?.("");
-    setPage(1);
+    if (!isExternalPagination) {
+      setInternalPage(1);
+    }
   };
 
   // Use the onExport prop instead of defining our own export logic
@@ -328,14 +373,22 @@ export function DataTable({
           <Select
             value={String(pageSize)}
             onValueChange={(v) => {
-              setPageSize(parseInt(v, 10));
-              setPage(1);
+              const newSize = parseInt(v, 10);
+              if (isExternalPagination) {
+                // External pagination: notify parent
+                pagination?.onPageSizeChange?.(newSize);
+              } else {
+                // Internal pagination: update local state
+                setInternalPageSize(newSize);
+                setInternalPage(1);
+              }
             }}
           >
             <SelectTrigger className="w-16">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="5">5</SelectItem>
               <SelectItem value="10">10</SelectItem>
               <SelectItem value="20">20</SelectItem>
               <SelectItem value="50">50</SelectItem>
@@ -352,7 +405,7 @@ export function DataTable({
               variant="outline"
               size="icon"
               onClick={goPrev}
-              disabled={page <= 1}
+              disabled={page <= 1 || loading}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -360,7 +413,7 @@ export function DataTable({
               variant="outline"
               size="icon"
               onClick={goNext}
-              disabled={page >= totalPages}
+              disabled={page >= totalPages || loading}
             >
               <ChevronRight className="h-4 w-4" />
             </Button>

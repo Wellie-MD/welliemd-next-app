@@ -19,6 +19,11 @@ export interface QuestionnaireTemplate {
   requires_identity_verification: boolean;
   is_published: boolean;
   is_admin_template?: boolean;
+  
+  // Phase 2 additions
+  primary_category?: number; // Primary product category for automated dose injection
+  primary_category_name?: string; // Category name for display
+  
   created_at: string;
   updated_at: string;
   questions?: Question[];
@@ -62,8 +67,8 @@ export interface Question {
   is_read_only: boolean;
   order_index: number;
   answer_choices: string[];
-  conditional_logic: Record<string, any>;
-  validation_rules: Record<string, any>;
+  conditional_logic: Record<string, unknown>;
+  validation_rules: Record<string, unknown>;
   beluga_field_mapping: string;
   include_in_qa_section: boolean;
   is_client_custom: boolean;
@@ -71,6 +76,12 @@ export interface Question {
   consent_form?: ConsentForm;
   parent_question?: string | null; // UUID of parent question for grouped questions
   sub_questions?: SubQuestion[]; // Sub-questions for grouped question types
+  
+  // Phase 1 additions
+  is_strength_question?: boolean; // Mark if this question asks for medication strength/dose
+  checkout_category?: number; // Product category for checkout questions
+  checkout_allowed_regimens?: number[]; // Allowed titration categories for checkout questions
+  
   created_at: string;
   updated_at: string;
 }

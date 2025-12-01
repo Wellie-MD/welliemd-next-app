@@ -1,101 +1,151 @@
-import { useState, useEffect, useCallback } from "react";
-import { Search, Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
+import { Label } from "@/components/ui/label";
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import axiosInstance from "@/api/axiosInstance";
-import { cn } from "@/lib/utils";
+import { listDoseMappings, ProductDoseMapping } from "@/api/productDoseMappings";
+import { productCategoryApi } from "@/api/productCategories";
 
-interface Product {
-  id: string;
-  name: string;
-  beluga_medicine_id?: string;
-  pharmacy?: string;
-  pharmacy_name?: string;
-  treatment?: string;
+interface MedicationConfig {
+  medication_base_name: string;
+  regimen?: string;
+  regimen_name?: string;
+  dose_mapping?: number;  // Dose mapping ID
+  dose_mapping_label?: string;  // Patient-facing label
+  // These are kept for compatibility but might be empty for generic selection
+  product_id?: string;
+  product_name?: string;
+  has_hierarchy?: boolean;
 }
 
 interface ProductSelectorProps {
-  value?: {
-    product_id: string;
-    product_name: string;
-    pharmacy_id?: string;
-    pharmacy_name?: string;
-    beluga_medicine_id?: string;
-  } | null;
-  onChange: (config: {
-    product_id: string;
-    product_name: string;
-    pharmacy_id?: string;
-    pharmacy_name?: string;
-    beluga_medicine_id?: string;
-  } | null) => void;
+  value?: MedicationConfig | null;
+  onChange: (config: MedicationConfig | null) => void;
   disabled?: boolean;
 }
 
-export function ProductSelector({ value, onChange, disabled }: ProductSelectorProps) {
-  const [open, setOpen] = useState(false);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState("");
+interface Regimen {
+  code: string;
+  name: string;
+  description: string;
+}
 
-  const fetchProducts = useCallback(async (searchQuery: string = "") => {
-    setLoading(true);
-    try {
-      const params: any = {
-        page_size: 50,
-        is_active: true,
-      };
-      
-      if (searchQuery) {
-        params.search = searchQuery;
-      }
+export function ProductSelector({
+  value,
+  onChange,
+  disabled,
+}: ProductSelectorProps) {
+  const [medications, setMedications] = useState<string[]>([]);
+  const [regimens, setRegimens] = useState<Regimen[]>([]);
+  const [doseMappings, setDoseMappings] = useState<ProductDoseMapping[]>([]);
+  const [loadingMeds, setLoadingMeds] = useState(false);
+  const [loadingRegimens, setLoadingRegimens] = useState(false);
+  const [loadingDoseMappings, setLoadingDoseMappings] = useState(false);
 
-      const response = await axiosInstance.get("/products/", { params });
-      const items = response.data?.results || response.data || [];
-      setProducts(items);
-    } catch (error) {
-      console.error("Failed to fetch products:", error);
-      setProducts([]);
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    fetchMedications();
   }, []);
 
   useEffect(() => {
-    if (open) {
-      fetchProducts(search);
+    if (value?.medication_base_name) {
+      fetchRegimens(value.medication_base_name);
+    } else {
+      setRegimens([]);
     }
-  }, [open, fetchProducts]);
+  }, [value?.medication_base_name]);
 
-  const handleSearch = useCallback(
-    (searchValue: string) => {
-      setSearch(searchValue);
-      fetchProducts(searchValue);
-    },
-    [fetchProducts]
-  );
+  useEffect(() => {
+    if (value?.medication_base_name) {
+      fetchDoseMappings(value.medication_base_name);
+    } else {
+      setDoseMappings([]);
+    }
+  }, [value?.medication_base_name]);
 
-  const handleSelect = (product: Product) => {
+  const fetchMedications = async () => {
+    setLoadingMeds(true);
+    try {
+      const response = await axiosInstance.get("/products/medications/");
+      const meds = response.data.medications || [];
+      const uniqueMeds = Array.from(new Set(meds)).sort() as string[];
+      setMedications(uniqueMeds);
+    } catch (error) {
+      console.error("Failed to fetch medications:", error);
+      setMedications([]);
+    } finally {
+      setLoadingMeds(false);
+    }
+  };
+
+  const fetchRegimens = async (medication: string) => {
+    setLoadingRegimens(true);
+    try {
+      // We don't pass client_id here, so backend will return all available regimens for this medication
+      const response = await axiosInstance.get("/products/available-regimens/", {
+        params: { medication },
+      });
+      setRegimens(response.data.regimens || []);
+    } catch (error) {
+      console.error("Failed to fetch regimens:", error);
+      setRegimens([]);
+    } finally {
+      setLoadingRegimens(false);
+    }
+  };
+
+  const fetchDoseMappings = async (medication: string) => {
+    setLoadingDoseMappings(true);
+    try {
+      // First, get the category for this medication
+      const categories = await productCategoryApi.listCategories();
+      const category = categories.find(c => 
+        c.name.toLowerCase().includes(medication.toLowerCase())
+      );
+      
+      if (category) {
+        const response = await listDoseMappings({
+          category: category.id,
+          page_size: 100,
+        });
+        setDoseMappings(response.results || []);
+      } else {
+        setDoseMappings([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch dose mappings:", error);
+      setDoseMappings([]);
+    } finally {
+      setLoadingDoseMappings(false);
+    }
+  };
+
+  const handleMedicationSelect = (medication: string) => {
+    // Reset regimen and dose when medication changes
     onChange({
-      product_id: product.id,
-      product_name: product.name,
-      pharmacy_id: product.pharmacy || undefined,
-      pharmacy_name: product.pharmacy_name || undefined,
-      beluga_medicine_id: product.beluga_medicine_id || undefined,
+      medication_base_name: medication,
+      product_name: medication, // Fallback name
+      has_hierarchy: false,
     });
-    setOpen(false);
+  };
+
+  const handleRegimenSelect = (regimenCode: string) => {
+    if (!value?.medication_base_name) return;
+
+    const selectedRegimen = regimens.find((r) => r.code === regimenCode);
+    
+    onChange({
+      ...value,
+      regimen: regimenCode,
+      regimen_name: selectedRegimen?.name,
+      // Reset dose_mapping when regimen changes
+      dose_mapping: undefined,
+      dose_mapping_label: undefined,
+    });
   };
 
   const handleClear = () => {
@@ -103,98 +153,126 @@ export function ProductSelector({ value, onChange, disabled }: ProductSelectorPr
   };
 
   return (
-    <div className="space-y-2">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className="w-full justify-between"
-            disabled={disabled}
-          >
-            {value ? (
-              <span className="truncate">{value.product_name}</span>
-            ) : (
-              <span className="text-muted-foreground">Select product...</span>
-            )}
-            <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[400px] p-0" align="start">
-          <Command shouldFilter={false}>
-            <CommandInput
-              placeholder="Search products..."
-              value={search}
-              onValueChange={handleSearch}
-            />
-            <CommandList>
-              {loading ? (
-                <div className="py-6 text-center text-sm">Loading...</div>
-              ) : (
-                <>
-                  <CommandEmpty>No products found.</CommandEmpty>
-                  <CommandGroup>
-                    {products.map((product) => (
-                      <CommandItem
-                        key={product.id}
-                        value={product.id}
-                        onSelect={() => handleSelect(product)}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            value?.product_id === product.id
-                              ? "opacity-100"
-                              : "opacity-0"
-                          )}
-                        />
-                        <div className="flex flex-col">
-                          <span className="font-medium">{product.name}</span>
-                          {product.pharmacy_name && (
-                            <span className="text-xs text-muted-foreground">
-                              {product.pharmacy_name}
-                            </span>
-                          )}
-                          {product.beluga_medicine_id && (
-                            <span className="text-xs text-muted-foreground">
-                              Med ID: {product.beluga_medicine_id}
-                            </span>
-                          )}
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </>
-              )}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+    <div className="space-y-3">
+      <div className="space-y-2">
+        <Label>
+          Select Medication <span className="text-red-500">*</span>
+        </Label>
+        <Select
+          value={value?.medication_base_name || ""}
+          onValueChange={handleMedicationSelect}
+          disabled={disabled || loadingMeds}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder={loadingMeds ? "Loading medications..." : "Select medication..."} />
+          </SelectTrigger>
+          <SelectContent>
+            {medications.map((medication) => (
+              <SelectItem key={medication} value={medication}>
+                {medication}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-      {value && (
-        <div className="flex items-center justify-between rounded-md border p-3 text-sm">
+      {value?.medication_base_name && (
+        <div className="space-y-2">
+          <Label>
+            Select Titration Category / Regimen <span className="text-red-500">*</span>
+          </Label>
+          <Select
+            value={value.regimen || ""}
+            onValueChange={handleRegimenSelect}
+            disabled={disabled || loadingRegimens}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={loadingRegimens ? "Loading regimens..." : "Select regimen..."} />
+            </SelectTrigger>
+            <SelectContent>
+              {regimens.map((regimen) => (
+                <SelectItem key={regimen.code} value={regimen.code}>
+                  {regimen.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {value?.medication_base_name && value?.regimen && (
+        <div className="space-y-2">
+          <Label>
+            Select Dose Level <span className="text-red-500">*</span>
+          </Label>
+          <Select
+            value={value.dose_mapping?.toString() || ""}
+            onValueChange={(doseMappingId) => {
+              const selectedDoseMapping = doseMappings.find(
+                (dm) => dm.id.toString() === doseMappingId
+              );
+              onChange({
+                ...value,
+                dose_mapping: parseInt(doseMappingId),
+                dose_mapping_label: selectedDoseMapping?.patient_label,
+              });
+            }}
+            disabled={disabled || loadingDoseMappings}
+          >
+            <SelectTrigger>
+              <SelectValue 
+                placeholder={
+                  loadingDoseMappings 
+                    ? "Loading dose levels..." 
+                    : "Select dose level..."
+                } 
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {doseMappings.map((doseMapping) => (
+                <SelectItem key={doseMapping.id} value={doseMapping.id.toString()}>
+                  {doseMapping.patient_label}
+                </SelectItem>
+              ))}
+              {doseMappings.length === 0 && !loadingDoseMappings && (
+                <div className="p-2 text-sm text-muted-foreground text-center">
+                  No dose levels found for this medication
+                </div>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      <p className="text-xs text-muted-foreground">
+        Generic medication name without pharmacy suffix. The questionnaire app will dynamically match products based on patient selections.
+      </p>
+
+      {/* Selected Configuration Display */}
+      {value?.medication_base_name && value?.regimen && value?.dose_mapping && (
+        <div className="flex items-center justify-between rounded-md border p-3 text-sm bg-green-50 border-green-200">
           <div className="space-y-1">
-            <div className="font-medium">{value.product_name}</div>
-            {value.pharmacy_name && (
-              <div className="text-xs text-muted-foreground">
-                Pharmacy: {value.pharmacy_name}
-              </div>
-            )}
-            {value.beluga_medicine_id && (
-              <div className="text-xs text-muted-foreground">
-                Beluga Med ID: {value.beluga_medicine_id}
-              </div>
-            )}
+            <div className="font-medium text-green-900">
+              {value.medication_base_name}
+            </div>
+            <div className="text-xs text-green-700">
+              Regimen: {value.regimen_name || value.regimen}
+            </div>
+            <div className="text-xs text-green-700">
+              Dose: {value.dose_mapping_label}
+            </div>
+            <div className="text-xs text-green-700">
+              ✓ Patients will select duration at checkout
+            </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
+            type="button"
             onClick={handleClear}
             disabled={disabled}
+            className="text-sm text-red-600 hover:text-red-800 disabled:opacity-50"
           >
             Clear
-          </Button>
+          </button>
         </div>
       )}
     </div>

@@ -28,6 +28,9 @@ import {
   RX_DRUG_FORM_OPTIONS,
 } from "@/api/products";
 import { CategorySelector } from "./CategorySelector";
+import { TitrationCategoryManager } from "./TitrationCategoryManager";
+import { pharmacyApi } from "@/api/pharmacyApi";
+import { listDoseMappings, ProductDoseMapping } from "@/api/productDoseMappings";
 
 interface ProductFormModalProps {
   open: boolean;
@@ -43,11 +46,17 @@ export function ProductFormModal({
   onSuccess,
 }: ProductFormModalProps) {
   const [loading, setLoading] = useState(false);
+  const [pharmacies, setPharmacies] = useState<any[]>([]);
+  const [doseMappings, setDoseMappings] = useState<ProductDoseMapping[]>([]);
+  const [loadingDoseMappings, setLoadingDoseMappings] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     application_directions: "",
     category: null as number | null,
+    dose_mapping: null as number | null,
+    titration_category: null as number | null,
+    pharmacy: null as string | null,
     product_type: "single",
     purchase_type: "one_time",
     treatment: "general",
@@ -73,6 +82,59 @@ export function ProductFormModal({
     sync_to_tenants: false,
   });
 
+  // Fetch pharmacies on mount
+  useEffect(() => {
+    const fetchPharmacies = async () => {
+      try {
+        const data = await pharmacyApi.list({ page_size: 100, is_active: true });
+        setPharmacies(data || []);
+      } catch (error) {
+        console.error("Failed to fetch pharmacies:", error);
+      }
+    };
+    if (open) {
+      fetchPharmacies();
+    }
+  }, [open]);
+
+  // Fetch dose mappings when category changes
+  useEffect(() => {
+    const fetchDoseMappings = async () => {
+      if (!formData.category) {
+        setDoseMappings([]);
+        return;
+      }
+      
+      try {
+        setLoadingDoseMappings(true);
+        const response = await listDoseMappings({
+          category: formData.category,
+          page_size: 100,
+        });
+        setDoseMappings(response.results || []);
+      } catch (error) {
+        console.error("Failed to fetch dose mappings:", error);
+        setDoseMappings([]);
+      } finally {
+        setLoadingDoseMappings(false);
+      }
+    };
+    
+    if (open) {
+      fetchDoseMappings();
+    }
+  }, [formData.category, open]);
+
+  // Reset dose_mapping when category changes if it doesn't belong to new category
+  useEffect(() => {
+    if (formData.dose_mapping && doseMappings.length > 0) {
+      const isValid = doseMappings.some(dm => dm.id === formData.dose_mapping);
+      if (!isValid) {
+        setFormData(prev => ({ ...prev, dose_mapping: null }));
+      }
+    }
+  }, [doseMappings, formData.dose_mapping]);
+
   useEffect(() => {
     if (product) {
       setFormData({
@@ -80,6 +142,9 @@ export function ProductFormModal({
         description: product.description || "",
         application_directions: product.application_directions || "",
         category: (product as unknown).category || null,
+        dose_mapping: (product as any).dose_mapping || null,
+        titration_category: (product as unknown).titration_category || null,
+        pharmacy: product.pharmacy ? String(product.pharmacy) : null,
         product_type: product.product_type || "single",
         purchase_type: product.purchase_type || "one_time",
         treatment: product.treatment || "general",
@@ -111,6 +176,9 @@ export function ProductFormModal({
         description: "",
         application_directions: "",
         category: null,
+        dose_mapping: null,
+        titration_category: null,
+        pharmacy: null,
         product_type: "single",
         purchase_type: "one_time",
         treatment: "general",
@@ -249,6 +317,26 @@ export function ProductFormModal({
                   onChange={(categoryId) => setFormData({ ...formData, category: categoryId })}
                   disabled={loading}
                 />
+              </div>
+
+              <div className="col-span-2">
+                <Label htmlFor="pharmacy">Pharmacy</Label>
+                <Select
+                  value={formData.pharmacy || "none"}
+                  onValueChange={(value) => setFormData({ ...formData, pharmacy: value === "none" ? null : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select pharmacy (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Pharmacy</SelectItem>
+                    {pharmacies.map((pharmacy) => (
+                      <SelectItem key={pharmacy.id} value={String(pharmacy.id)}>
+                        {pharmacy.store_name || pharmacy.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
@@ -522,6 +610,60 @@ export function ProductFormModal({
                   onChange={(e) => setFormData({ ...formData, provider_network: e.target.value })}
                   placeholder="e.g., welliemd"
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Simplified Product Configuration */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Product Configuration</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <Label htmlFor="titration_category">Titration Category / Regimen</Label>
+                <TitrationCategoryManager
+                  value={formData.titration_category}
+                  onChange={(categoryId) => setFormData({ ...formData, titration_category: categoryId })}
+                  disabled={loading}
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  Select the regimen type (e.g., Alternative, Rapid, Twice Weekly)
+                </p>
+              </div>
+
+              <div className="col-span-2">
+                <Label htmlFor="dose_mapping">Dose Level</Label>
+                <Select
+                  value={formData.dose_mapping?.toString() || "none"}
+                  onValueChange={(value) => setFormData({ ...formData, dose_mapping: value === "none" ? null : parseInt(value) })}
+                  disabled={!formData.category || loadingDoseMappings}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={
+                      !formData.category 
+                        ? "Select a category first" 
+                        : loadingDoseMappings 
+                          ? "Loading dose levels..." 
+                          : "Select dose level (optional)"
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Dose Level</SelectItem>
+                    {doseMappings.map((doseMapping) => (
+                      <SelectItem key={doseMapping.id} value={doseMapping.id.toString()}>
+                        {doseMapping.patient_label}
+                      </SelectItem>
+                    ))}
+                    {doseMappings.length === 0 && formData.category && !loadingDoseMappings && (
+                      <div className="p-2 text-sm text-muted-foreground text-center">
+                        No dose levels found for this category
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Optional: Select a structured dose level for this product
+                </p>
               </div>
             </div>
           </div>

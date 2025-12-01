@@ -36,7 +36,18 @@ export interface Product {
   shipping_fee_patient?: string;
   base_shipping_cost?: string | number;
   shipping_fee?: string | number;
+  
+  // Dose Mapping (NEW - Phase 1)
+  dose_mapping?: number;
+  dose_mapping_name?: string;
+  dose_mapping_label?: string;
+  
+  // Deprecated fields (use dose_mapping instead)
+  /** @deprecated Use dose_mapping instead */
   dose?: string;
+  /** @deprecated Use dose_mapping instead */
+  base_medication_name?: string;
+  
   refills?: number;
   rx_quantity?: string | number;
   rx_quantity_units?: string;
@@ -207,7 +218,7 @@ export interface AssignmentSummary {
 export const productApi = {
   /**
    * List all products (admin sees all products)
-   */
+      */
   listProducts: async (params?: any): Promise<any[]> => {
     const { data } = await axiosInstance.get("products/", { params });
     // Handle paginated response
@@ -216,8 +227,8 @@ export const productApi = {
     }
     // Handle array response
     if (Array.isArray(data)) {
-      return data;
-    }
+    return data;
+}
     return [];
   },
 
@@ -240,7 +251,7 @@ export const productApi = {
   /**
    * Update a product (admin can update all fields)
    */
-  updateProduct: async (id: string | number, payload: any): Promise<any> => {
+  updateProduct: async (id: string | number, payload: any): Promise<unknown> => {
     const { data } = await axiosInstance.patch(`products/${id}/`, payload);
     return data;
   },
