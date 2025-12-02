@@ -100,6 +100,37 @@ export default function ClientForm() {
     is_active: true,
   });
 
+  // Track whether the master_id_prefix has been manually edited by the user.
+  // If false, we'll auto-update the prefix when the client name changes.
+  const [prefixTouched, setPrefixTouched] = useState(false);
+
+  // Track whether other derived fields have been manually edited.
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [firstNameTouched, setFirstNameTouched] = useState(false);
+  const [lastNameTouched, setLastNameTouched] = useState(false);
+  const [adminDomainTouched, setAdminDomainTouched] = useState(false);
+  const [subdomainTouched, setSubdomainTouched] = useState(false);
+  const [apiEndpointTouched, setApiEndpointTouched] = useState(false);
+
+  // Derive a safe master id prefix from a client name: lowercase + remove non-alphanumerics
+  const derivePrefix = (name: string) => {
+    if (!name) return "";
+    return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  };
+
+  // Derive first name from client name (first word)
+  const deriveFirstName = (name: string) => {
+    if (!name) return "";
+    return name.trim().split(/\s+/)[0];
+  };
+
+  // Derive last name from client name (remaining words joined)
+  const deriveLastName = (name: string) => {
+    if (!name) return "";
+    const parts = name.trim().split(/\s+/);
+    return parts.length > 1 ? parts.slice(1).join(" ") : "";
+  };
+
   // Fetch existing client data if editing
   const { data: existingClient, isLoading: isLoadingClient } = useQuery({
     queryKey: ["client", id],
@@ -157,6 +188,15 @@ export default function ClientForm() {
         is_active: existingClient.is_active,
       });
       setClientName(existingClient.name);
+      // When loading an existing client, treat derived fields as already "touched"
+      // so we don't override existing, intentional values.
+      setPrefixTouched(true);
+      setEmailTouched(true);
+      setFirstNameTouched(true);
+      setLastNameTouched(true);
+      setAdminDomainTouched(true);
+      setSubdomainTouched(true);
+      setApiEndpointTouched(true);
     }
   }, [existingClient]);
 
@@ -454,7 +494,43 @@ export default function ClientForm() {
                       id="name"
                       value={formData.name}
                       onChange={(e) => {
-                        setFormData({ ...formData, name: e.target.value });
+                        const newName = e.target.value;
+                        const p = derivePrefix(newName);
+                        const fn = deriveFirstName(newName);
+                        const ln = deriveLastName(newName);
+                        setFormData((prev) => ({
+                          ...prev,
+                          name: newName,
+                          master_id_prefix: prefixTouched
+                            ? prev.master_id_prefix
+                            : p || prev.master_id_prefix,
+                          email: emailTouched
+                            ? prev.email
+                            : p
+                            ? `${p}@welliemd.com`
+                            : prev.email,
+                          admin_panel_domain: adminDomainTouched
+                            ? prev.admin_panel_domain
+                            : p
+                            ? `https://${p}client.welliemd.com`
+                            : prev.admin_panel_domain,
+                          subdomain: subdomainTouched
+                            ? prev.subdomain
+                            : p
+                            ? `https://${p}questionnaire.welliemd.com`
+                            : prev.subdomain,
+                          api_endpoint: apiEndpointTouched
+                            ? prev.api_endpoint
+                            : p
+                            ? `https://${p}api.welliemd.com/api/v1/`
+                            : prev.api_endpoint,
+                          first_name: firstNameTouched
+                            ? prev.first_name
+                            : fn || prev.first_name,
+                          last_name: lastNameTouched
+                            ? prev.last_name
+                            : ln || prev.last_name,
+                        }));
                         if (validationErrors.name) {
                           setValidationErrors((prev) => {
                             const newErrors = { ...prev };
@@ -479,12 +555,14 @@ export default function ClientForm() {
                     <Input
                       id="master_id_prefix"
                       value={formData.master_id_prefix}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        setPrefixTouched(true);
                         setFormData({
                           ...formData,
                           master_id_prefix: e.target.value.toLowerCase(),
-                        })
-                      }
+                        });
+                      }}
+                      onFocus={() => setPrefixTouched(true)}
                       placeholder="welliemd"
                     />
                   </div>
@@ -528,6 +606,7 @@ export default function ClientForm() {
                       type="email"
                       value={formData.email}
                       onChange={(e) => {
+                        setEmailTouched(true);
                         setFormData({ ...formData, email: e.target.value });
                         if (validationErrors.email) {
                           setValidationErrors((prev) => {
@@ -537,6 +616,7 @@ export default function ClientForm() {
                           });
                         }
                       }}
+                      onFocus={() => setEmailTouched(true)}
                       placeholder="admin@acme.com"
                       required
                       className={validationErrors.email ? "border-red-500" : ""}
@@ -574,6 +654,7 @@ export default function ClientForm() {
                       id="first_name"
                       value={formData.first_name}
                       onChange={(e) => {
+                        setFirstNameTouched(true);
                         setFormData({ ...formData, first_name: e.target.value });
                         if (validationErrors.first_name) {
                           setValidationErrors((prev) => {
@@ -599,6 +680,7 @@ export default function ClientForm() {
                       id="last_name"
                       value={formData.last_name}
                       onChange={(e) => {
+                        setLastNameTouched(true);
                         setFormData({ ...formData, last_name: e.target.value });
                         if (validationErrors.last_name) {
                           setValidationErrors((prev) => {
@@ -633,7 +715,7 @@ export default function ClientForm() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="admin_panel_domain">
-                    Admin Panel Domain <span className="text-red-500">*</span>
+                    Client Portal Domain <span className="text-red-500">*</span>
                     <FieldInfo content="Full URL to the client's admin panel (must include https://)" />
                   </Label>
                   <Input
@@ -641,6 +723,7 @@ export default function ClientForm() {
                     type="url"
                     value={formData.admin_panel_domain}
                     onChange={(e) => {
+                      setAdminDomainTouched(true);
                       setFormData({
                         ...formData,
                         admin_panel_domain: e.target.value,
@@ -653,6 +736,7 @@ export default function ClientForm() {
                         });
                       }
                     }}
+                    onFocus={() => setAdminDomainTouched(true)}
                     placeholder="https://admin.acme.com"
                     required
                     className={validationErrors.admin_panel_domain ? "border-red-500" : ""}
@@ -670,9 +754,11 @@ export default function ClientForm() {
                   <Input
                     id="subdomain"
                     value={formData.subdomain}
-                    onChange={(e) =>
-                      setFormData({ ...formData, subdomain: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setSubdomainTouched(true);
+                      setFormData({ ...formData, subdomain: e.target.value });
+                    }}
+                    onFocus={() => setSubdomainTouched(true)}
                     placeholder="acme"
                   />
                   <p className="text-xs text-muted-foreground">
@@ -686,13 +772,28 @@ export default function ClientForm() {
                     id="api_endpoint"
                     type="url"
                     value={formData.api_endpoint}
-                    onChange={(e) =>
-                      setFormData({ ...formData, api_endpoint: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setApiEndpointTouched(true);
+                      setFormData({ ...formData, api_endpoint: e.target.value });
+                    }}
+                    onFocus={() => setApiEndpointTouched(true)}
                     placeholder="https://api.acme.com"
                   />
                   <p className="text-xs text-muted-foreground">
                     Base API URL for this client's backend services
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Patient Portal Preview URL</Label>
+                  <Input
+                    type="url"
+                    value={derivePrefix(formData.name) ? `https://${derivePrefix(formData.name)}patientportal.welliemd.com` : ""}
+                    readOnly
+                    className="bg-muted cursor-not-allowed"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Preview of patient portal domain (auto-generated from client name)
                   </p>
                 </div>
 
