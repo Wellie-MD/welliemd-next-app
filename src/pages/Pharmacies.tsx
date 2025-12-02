@@ -4,6 +4,17 @@ import { Plus, Pencil, Trash2, RefreshCw, Link as LinkIcon } from "lucide-react"
 import { DataTable } from "@/components/ui/data-table";
 import PharmacyForm from "@/components/pharmacies/PharmacyForm";
 import { pharmacyApi, Pharmacy } from "@/api/pharmacyApi";
+import { toast } from "@/components/ui/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const getRow = <T,>(...args: any[]): T => (args.length >= 2 ? args[1] : args[0]);
 
@@ -25,6 +36,7 @@ export default function Pharmacies() {
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Pharmacy | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<Pharmacy | null>(null);
 
   const fetchList = async () => {
     try {
@@ -44,27 +56,53 @@ export default function Pharmacies() {
 
   const onDelete = async (row: Pharmacy) => {
     if (!row) return;
-    const ok = window.confirm(`Delete pharmacy "${row.store_name}"?`);
-    if (!ok) return;
+    setDeleteTarget(row);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await pharmacyApi.remove(row.id);
-      alert("Deleted");
+      await pharmacyApi.remove(deleteTarget.id);
+      toast({
+        title: "Success",
+        description: "Pharmacy deleted successfully",
+      });
       fetchList();
     } catch (e) {
       console.error(e);
-      alert("Failed to delete");
+      toast({
+        title: "Error",
+        description: "Failed to delete pharmacy",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
   const onTestConnection = async (row: Pharmacy) => {
     try {
       const res = await pharmacyApi.testConnection(row.id);
-      const msg = res.connected ? "Connection OK" : (res.details?.error || "Connection failed");
-      alert(msg);
+      if (res.connected) {
+        toast({
+          title: "Success",
+          description: "Connection test successful",
+        });
+      } else {
+        toast({
+          title: "Connection Failed",
+          description: res.details?.error || "Connection test failed",
+          variant: "destructive",
+        });
+      }
       fetchList();
     } catch (e) {
       console.error(e);
-      alert("Connection test failed");
+      toast({
+        title: "Error",
+        description: "Connection test failed",
+        variant: "destructive",
+      });
     }
   };
 
@@ -190,6 +228,24 @@ export default function Pharmacies() {
         }}
         onRefresh={() => setRefreshKey(v => v + 1)}
       />
+
+      {/* Delete Confirmation Modal */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the pharmacy "{deleteTarget?.store_name}". This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

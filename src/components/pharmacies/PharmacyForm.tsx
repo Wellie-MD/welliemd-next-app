@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
 import { pharmacyApi, Pharmacy } from "@/api/pharmacyApi";
+import { toast } from "@/components/ui/use-toast";
 
 type Props = {
   mode: "create" | "edit";
@@ -14,7 +15,7 @@ type Props = {
 };
 
 export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange, onSuccess }: Props) {
-  const { register, handleSubmit, reset, setValue } = useForm<Pharmacy>({
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<Pharmacy>({
     defaultValues: {
       store_name: pharmacy?.store_name ?? "",
       address_1: pharmacy?.address_1 ?? "",
@@ -90,18 +91,32 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
       if (mode === "edit" && pharmacy?.id) {
         await pharmacyApi.update(pharmacy.id, corePayload);
         await pharmacyApi.updateIntegration(pharmacy.id, integrationPayload);
-        alert("Pharmacy updated successfully!");
+        toast({
+          title: "Success",
+          description: "Pharmacy updated successfully!",
+        });
       } else {
         await pharmacyApi.create({ ...corePayload, ...integrationPayload });
-        alert("Pharmacy created successfully!");
+        toast({
+          title: "Success",
+          description: "Pharmacy created successfully!",
+        });
         reset();
       }
 
       onOpenChange?.(false);
       onSuccess?.();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert(mode === "edit" ? "Error updating pharmacy" : "Error creating pharmacy");
+      const errorMessage = e?.response?.data?.error || 
+                          e?.response?.data?.detail || 
+                          e?.message || 
+                          (mode === "edit" ? "Error updating pharmacy" : "Error creating pharmacy");
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -110,7 +125,7 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
   return (
     <Dialog open={open} onOpenChange={(v) => onOpenChange?.(v)}>
       <DialogTrigger className="hidden" />
-      <DialogContent className="max-w-4xl w-full p-0 overflow-hidden">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
         <div className="px-6 pt-6">
           <h2 className="text-2xl font-semibold">
             {mode === "edit" ? `Edit Pharmacy${pharmacy?.store_name ? `: ${pharmacy.store_name}` : ""}` : "Create New Pharmacy"}
@@ -120,15 +135,25 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
           </p>
         </div>
 
-        <div className="px-6 max-h-[70vh] overflow-y-auto">
+        <div className="px-6 max-h-[calc(90vh-180px)] overflow-y-auto scrollbar-hide">
           <form id="pharmacy-form" onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-5 pb-24">
             {/* Basic Info */}
             <div className="md:col-span-2">
               <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Pharmacy Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium mb-1">Pharmacy Name *</label>
-                  <input {...register("store_name", { required: true })} className="border px-3 py-2 rounded w-full" />
+                  <label className="block text-sm font-medium mb-1">
+                    Pharmacy Name <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    {...register("store_name", { 
+                      required: "Pharmacy name is required" 
+                    })} 
+                    className="border px-3 py-2 rounded w-full" 
+                  />
+                  {errors.store_name && (
+                    <p className="text-red-500 text-xs mt-1">{errors.store_name.message}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Active</label>
@@ -136,8 +161,18 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium mb-1">Address 1 *</label>
-                  <input {...register("address_1", { required: true })} className="border px-3 py-2 rounded w-full" />
+                  <label className="block text-sm font-medium mb-1">
+                    Address 1 <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    {...register("address_1", { 
+                      required: "Address is required" 
+                    })} 
+                    className="border px-3 py-2 rounded w-full" 
+                  />
+                  {errors.address_1 && (
+                    <p className="text-red-500 text-xs mt-1">{errors.address_1.message}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Address 2</label>
@@ -145,29 +180,93 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">City *</label>
-                  <input {...register("city", { required: true })} className="border px-3 py-2 rounded w-full" />
+                  <label className="block text-sm font-medium mb-1">
+                    City <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    {...register("city", { 
+                      required: "City is required" 
+                    })} 
+                    className="border px-3 py-2 rounded w-full" 
+                  />
+                  {errors.city && (
+                    <p className="text-red-500 text-xs mt-1">{errors.city.message}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">State *</label>
-                  <input {...register("state", { required: true })} className="border px-3 py-2 rounded w-full" />
+                  <label className="block text-sm font-medium mb-1">
+                    State <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    {...register("state", { 
+                      required: "State is required",
+                      maxLength: { value: 2, message: "State must be 2 characters" },
+                      pattern: { value: /^[A-Z]{2}$/, message: "State must be 2 uppercase letters" }
+                    })} 
+                    className="border px-3 py-2 rounded w-full" 
+                    maxLength={2}
+                    placeholder="e.g., NY"
+                  />
+                  {errors.state && (
+                    <p className="text-red-500 text-xs mt-1">{errors.state.message}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Zip Code *</label>
-                  <input {...register("zip_code", { required: true })} className="border px-3 py-2 rounded w-full" />
+                  <label className="block text-sm font-medium mb-1">
+                    Zip Code <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    {...register("zip_code", { 
+                      required: "Zip code is required" 
+                    })} 
+                    className="border px-3 py-2 rounded w-full" 
+                  />
+                  {errors.zip_code && (
+                    <p className="text-red-500 text-xs mt-1">{errors.zip_code.message}</p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Phone</label>
-                  <input {...register("primary_phone")} className="border px-3 py-2 rounded w-full" />
+                  <label className="block text-sm font-medium mb-1">
+                    Phone <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    {...register("primary_phone", { 
+                      required: "Phone number is required" 
+                    })} 
+                    className="border px-3 py-2 rounded w-full" 
+                  />
+                  {errors.primary_phone && (
+                    <p className="text-red-500 text-xs mt-1">{errors.primary_phone.message}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Fax</label>
-                  <input {...register("primary_fax")} className="border px-3 py-2 rounded w-full" />
+                  <label className="block text-sm font-medium mb-1">
+                    Fax <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    {...register("primary_fax", { 
+                      required: "Fax number is required" 
+                    })} 
+                    className="border px-3 py-2 rounded w-full" 
+                  />
+                  {errors.primary_fax && (
+                    <p className="text-red-500 text-xs mt-1">{errors.primary_fax.message}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">NCPDP ID</label>
-                  <input {...register("ncpdp_id")} className="border px-3 py-2 rounded w-full" />
+                  <label className="block text-sm font-medium mb-1">
+                    NCPDP ID <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    {...register("ncpdp_id", { 
+                      required: "NCPDP ID is required" 
+                    })} 
+                    className="border px-3 py-2 rounded w-full" 
+                  />
+                  {errors.ncpdp_id && (
+                    <p className="text-red-500 text-xs mt-1">{errors.ncpdp_id.message}</p>
+                  )}
                 </div>
 
                 <div>
@@ -179,65 +278,180 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Email</label>
-                  <input type="email" {...register("email")} className="border px-3 py-2 rounded w-full" />
+                  <label className="block text-sm font-medium mb-1">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="email"
+                    {...register("email", { 
+                      required: "Email is required",
+                      pattern: {
+                        value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                        message: "Invalid email address"
+                      }
+                    })} 
+                    className="border px-3 py-2 rounded w-full" 
+                  />
+                  {errors.email && (
+                    <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>
+                  )}
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium mb-1">Website</label>
-                  <input type="url" {...register("website")} className="border px-3 py-2 rounded w-full" />
+                  <label className="block text-sm font-medium mb-1">
+                    Website <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="url"
+                    {...register("website", { 
+                      required: "Website is required" 
+                    })} 
+                    className="border px-3 py-2 rounded w-full" 
+                    placeholder="https://example.com"
+                  />
+                  {errors.website && (
+                    <p className="text-red-500 text-xs mt-1">{errors.website.message}</p>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Integration */}
+            {/* API Integration */}
             <div className="md:col-span-2">
-              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                Prescription Push Pharmacy API Integration
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Prescription Push Pharmacy API Integration</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Pharmacy API</label>
-                  <select {...register("api_vendor")} className="border px-3 py-2 rounded w-full bg-white">
+                  <label className="block text-sm font-medium mb-1">
+                    Pharmacy API <span className="text-red-500">*</span>
+                  </label>
+                  <select 
+                    {...register("api_vendor", { 
+                      required: "Pharmacy API is required" 
+                    })} 
+                    className="border px-3 py-2 rounded w-full"
+                  >
                     <option value="">— Not configured —</option>
                     {vendorOptions.map((v) => (
-                      <option key={v.value} value={v.value}>{v.label}</option>
-                    ))}
+                    <option key={v.value} value={v.value}>{v.label}</option>
+))}
                   </select>
+                  {errors.api_vendor && (
+                    <p className="text-red-500 text-xs mt-1">{errors.api_vendor.message}</p>
+                  )}
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium mb-1">API URL</label>
-                  <input {...register("api_url")} className="border px-3 py-2 rounded w-full" />
+                  <label className="block text-sm font-medium mb-1">
+                    API URL <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="url"
+                    {...register("api_url", { 
+                      required: "API URL is required" 
+                    })} 
+                    className="border px-3 py-2 rounded w-full" 
+                  />
+                  {errors.api_url && (
+                    <p className="text-red-500 text-xs mt-1">{errors.api_url.message}</p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">API User</label>
-                  <input {...register("api_user")} className="border px-3 py-2 rounded w-full" />
+                  <label className="block text-sm font-medium mb-1">
+                    API User <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    {...register("api_user", { 
+                      required: "API User is required" 
+                    })} 
+                    className="border px-3 py-2 rounded w-full" 
+                  />
+                  {errors.api_user && (
+                    <p className="text-red-500 text-xs mt-1">{errors.api_user.message}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">API Password</label>
-                  <input type="password" {...register("api_password")} className="border px-3 py-2 rounded w-full" />
+                  <label className="block text-sm font-medium mb-1">
+                    API Password <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="password"
+                    {...register("api_password", { 
+                      required: "API Password is required" 
+                    })} 
+                    className="border px-3 py-2 rounded w-full" 
+                  />
+                  {errors.api_password && (
+                    <p className="text-red-500 text-xs mt-1">{errors.api_password.message}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">API Name</label>
-                  <input {...register("api_name")} className="border px-3 py-2 rounded w-full" />
+                  <label className="block text-sm font-medium mb-1">
+                    Practice ID <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    {...register("practice_id", { 
+                      required: "Practice ID is required" 
+                    })} 
+                    className="border px-3 py-2 rounded w-full" 
+                  />
+                  {errors.practice_id && (
+                    <p className="text-red-500 text-xs mt-1">{errors.practice_id.message}</p>
+                  )}
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium mb-1">Practice ID</label>
-                  <input {...register("practice_id")} className="border px-3 py-2 rounded w-full" />
+                  <label className="block text-sm font-medium mb-1">
+                    Vendor ID <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    {...register("vendor_id", { 
+                      required: "Vendor ID is required" 
+                    })} 
+                    className="border px-3 py-2 rounded w-full" 
+                  />
+                  {errors.vendor_id && (
+                    <p className="text-red-500 text-xs mt-1">{errors.vendor_id.message}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Vendor ID</label>
-                  <input {...register("vendor_id")} className="border px-3 py-2 rounded w-full" />
+                  <label className="block text-sm font-medium mb-1">
+                    Location ID <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    {...register("location_id", { 
+                      required: "Location ID is required" 
+                    })} 
+                    className="border px-3 py-2 rounded w-full" 
+                  />
+                  {errors.location_id && (
+                    <p className="text-red-500 text-xs mt-1">{errors.location_id.message}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Location ID</label>
-                  <input {...register("location_id")} className="border px-3 py-2 rounded w-full" />
+                  <label className="block text-sm font-medium mb-1">
+                    Network ID <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    {...register("network_id", { 
+                      required: "Network ID is required" 
+                    })} 
+                    className="border px-3 py-2 rounded w-full" 
+                  />
+                  {errors.network_id && (
+                    <p className="text-red-500 text-xs mt-1">{errors.network_id.message}</p>
+                  )}
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">Network ID</label>
-                  <input {...register("network_id")} className="border px-3 py-2 rounded w-full" />
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium mb-1">
+                    API Name <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    {...register("api_name", { 
+                      required: "API Name is required" 
+                    })} 
+                    className="border px-3 py-2 rounded w-full" 
+                  />
+                  {errors.api_name && (
+                    <p className="text-red-500 text-xs mt-1">{errors.api_name.message}</p>
+                  )}
                 </div>
               </div>
             </div>
