@@ -15,8 +15,6 @@ import Clients from "./pages/Clients";
 import ClientForm from "./pages/ClientForm";
 import Treatments from "./pages/Treatments";
 import Products from "./pages/Products";
-import BillingPlans from "./pages/BillingPlans";
-import ProductsRouting from "./pages/ProductsRouting";
 import Messages from "./pages/Messages";
 import Disputes from "./pages/Disputes";
 import ResolutionQueue from "./pages/ResolutionQueue";
@@ -107,8 +105,6 @@ const App = () => {
                     <Route path="/prescriptions" element={<ProtectedRoute><Prescriptions /></ProtectedRoute>} />
                     <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
                     <Route path="/products/assign" element={<ProtectedRoute><ProductAssignment /></ProtectedRoute>} />
-                    <Route path="/products/billing-plans" element={<ProtectedRoute><BillingPlans /></ProtectedRoute>} />
-                    <Route path="/products/routing" element={<ProtectedRoute><ProductsRouting /></ProtectedRoute>} />
                     <Route path="/products/dose-mappings" element={<ProtectedRoute><ProductDoseMappings /></ProtectedRoute>} />
                     <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
                     <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />

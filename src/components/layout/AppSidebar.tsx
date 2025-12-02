@@ -89,8 +89,6 @@ const menuSections = [
         icon: Package,
         children: [
           { title: "Products", url: "/dashboard/products" },
-          { title: "Billing Plans", url: "/dashboard/products/billing-plans" },
-          { title: "Routing", url: "/dashboard/products/routing" },
           { title: "Dose Mappings", url: "/dashboard/products/dose-mappings" }
         ]
       },
@@ -99,7 +97,7 @@ const menuSections = [
   {
     label: "SALES & CHANNELS", 
     items: [
-      {
+{
         title: "Finances",
         icon: CreditCard,
         children: [
