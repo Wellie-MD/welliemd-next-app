@@ -89,7 +89,7 @@ const menuSections = [
         icon: Package,
         children: [
           { title: "Products", url: "/dashboard/products" },
-          { title: "Dose Mappings", url: "/dashboard/products/dose-mappings" }
+          { title: "Configuration", url: "/dashboard/products/config" }
         ]
       },
     ]
