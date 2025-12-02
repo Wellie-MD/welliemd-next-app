@@ -316,9 +316,6 @@ export default function Orders() {
           <Button variant="outline" size="sm" onClick={handleGridView}>
             <Grid3X3 className="h-4 w-4" />
           </Button>
-          <Button variant="default" size="sm" onClick={handleCreateOrder}>
-            Create Order
-          </Button>
         </div>
       </div>
 
