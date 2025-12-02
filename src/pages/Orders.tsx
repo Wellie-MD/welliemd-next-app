@@ -1,11 +1,13 @@
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CalendarDays, RotateCcw, TrendingUp, Download, RefreshCw, Grid3X3 } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { isWithinInterval } from "date-fns"
 import mockData from "@/data/mockData.json"
+import { ordersApi, Order } from "@/api/ordersApi"
 import { exportToCSV } from "@/utils/exportUtils"
 
 const orderColumns = [
@@ -23,12 +25,27 @@ const orderColumns = [
   { key: "address", label: "Address" },
   { key: "orderStatus", label: "Order Status" },
   { key: "orderTotal", label: "Order Total" }
+  ,{ key: "actions", label: "Actions", render: (_: any, row: any) => null }
 ]
 
 // Meaningful filters based on the orders data structure
 const paymentStatusFilters = ["All", "Paid", "Pending", "Failed", "Refunded"]
-const orderStatusFilters = ["All", "Processing", "Shipped", "Delivered", "Cancelled"]
 const visitStatusFilters = ["All", "Scheduled", "Completed", "Missed", "Rescheduled"]
+
+// Backend order status choices (value, label)
+const ORDER_STATUS_CHOICES = [
+  { value: 'created', label: 'Created' },
+  { value: 'processing', label: 'Processing' },
+  { value: 'visit_failed', label: 'Visit Failed' },
+  { value: 'visit_pending', label: 'Visit Pending' },
+  { value: 'consult_canceled', label: 'Consult Canceled' },
+  { value: 'referred', label: 'Referred' },
+  { value: 'prescribed', label: 'Prescribed' },
+  { value: 'billing_pending', label: 'Billing Pending' },
+  { value: 'rx_sent', label: 'Rx Sent' },
+  { value: 'shipped', label: 'Shipped' },
+  { value: 'canceled', label: 'Canceled' },
+]
 
 // Additional filter buttons (keeping the original ones from your design)
 const additionalFilters = [
@@ -39,11 +56,25 @@ const additionalFilters = [
   "Extra Filters"
 ]
 
-// Helper function to parse date in DD/MM/YYYY format
-const parseDate = (dateString: string) => {
+// Helper function to parse date strings. Handles ISO timestamps and DD/MM/YYYY.
+const parseDate = (dateString?: string | null) => {
   if (!dateString) return new Date()
-  const [day, month, year] = dateString.split('/')
-  return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+
+  // If it's an ISO-like string with a 'T' or '-' assume Date can parse it
+  if (dateString.includes('T') || /\d{4}-\d{2}-\d{2}/.test(dateString)) {
+    const d = new Date(dateString)
+    if (!isNaN(d.getTime())) return d
+  }
+
+  // Fallback: try DD/MM/YYYY format
+  const parts = dateString.split('/')
+  if (parts.length === 3) {
+    const [day, month, year] = parts
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+  }
+
+  // Final fallback
+  return new Date(dateString)
 }
 
 export default function Orders() {
@@ -54,17 +85,24 @@ export default function Orders() {
   const [activeAdditionalFilters, setActiveAdditionalFilters] = useState<string[]>([])
   const [date, setDate] = useState<DateRange | undefined>()
   const [refreshKey, setRefreshKey] = useState(0)
+  const [orders, setOrders] = useState<Order[]>(mockData.orders || [])
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [editedStatuses, setEditedStatuses] = useState<Record<string, string>>({})
+  const [savingId, setSavingId] = useState<string | null>(null)
 
   // Comprehensive filtering logic based on actual order data
   const filteredOrders = useMemo(() => {
-    return mockData.orders.filter(order => {
-      // Search filter - search across multiple fields
-      const matchesSearch = !searchTerm || 
-        order.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.phone.includes(searchTerm) ||
-        order.mrn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.pharmacy.toLowerCase().includes(searchTerm.toLowerCase())
+    const lowerSearch = searchTerm.trim().toLowerCase()
+    return orders.filter(order => {
+      const matchesSearch = !lowerSearch ||
+        (order.name ?? '').toLowerCase().includes(lowerSearch) ||
+        (order.email ?? '').toLowerCase().includes(lowerSearch) ||
+        (order.phone ?? '').includes(searchTerm) ||
+        (order.mrn ?? '').toLowerCase().includes(lowerSearch) ||
+        (order.pharmacy ?? '').toLowerCase().includes(lowerSearch)
 
       // Payment Status filter
       const matchesPaymentStatus = activePaymentStatusFilter === "All" || order.paymentStatus === activePaymentStatusFilter
@@ -78,7 +116,7 @@ export default function Orders() {
       // Date range filter based on orderDate
       let matchesDateRange = true
       if (date?.from || date?.to) {
-        const orderDate = parseDate(order.orderDate)
+          const orderDate = parseDate(order.orderDate as string)
         
         if (date.from && date.to) {
           matchesDateRange = isWithinInterval(orderDate, {
@@ -101,7 +139,7 @@ export default function Orders() {
 
       return matchesSearch && matchesPaymentStatus && matchesOrderStatus && matchesVisitStatus && matchesDateRange && matchesAdditionalFilters
     })
-  }, [mockData.orders, searchTerm, activePaymentStatusFilter, activeOrderStatusFilter, activeVisitStatusFilter, date, activeAdditionalFilters, refreshKey])
+  }, [orders, searchTerm, activePaymentStatusFilter, activeOrderStatusFilter, activeVisitStatusFilter, date, activeAdditionalFilters, refreshKey])
 
   // Create filter configuration - combining all filter types
   const filters = [
@@ -113,14 +151,15 @@ export default function Orders() {
       value: activePaymentStatusFilter === status ? status : undefined,
       onClick: () => setActivePaymentStatusFilter(status)
     })),
-    // Order Status filters  
-    ...orderStatusFilters.slice(1).map(status => ({ // Skip "All" to avoid duplicate
-      key: `order-${status}`,
-      label: status,
-      type: 'button' as const,
-      value: activeOrderStatusFilter === status ? status : undefined,
-      onClick: () => setActiveOrderStatusFilter(status)
-    })),
+    // Order Status select (uses backend keys)
+    {
+      key: 'order-status',
+      label: 'Order status',
+      type: 'select' as const,
+      options: [{ value: 'All', label: 'All' }, ...ORDER_STATUS_CHOICES],
+      value: activeOrderStatusFilter === 'All' ? 'All' : activeOrderStatusFilter || undefined,
+      onChange: (v: string) => setActiveOrderStatusFilter(v),
+    },
     // Visit Status filters
     ...visitStatusFilters.slice(1).map(status => ({ // Skip "All" to avoid duplicate
       key: `visit-${status}`,
@@ -156,8 +195,92 @@ export default function Orders() {
 
   const handleRefresh = useCallback(() => {
     setRefreshKey(prev => prev + 1)
-    console.log("Refreshing orders data...")
+    loadOrders()
   }, [])
+
+  // Load orders from API
+  const loadOrders = async () => {
+    setIsLoadingOrders(true)
+    setError(null)
+    try {
+      const data = await ordersApi.fetchOrders()
+      setOrders(data.results)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load orders')
+      console.error('Error loading orders:', err)
+    } finally {
+      setIsLoadingOrders(false)
+    }
+  }
+
+  useEffect(() => {
+    loadOrders()
+  }, [])
+
+  const handleDeleteOrder = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this order?')) return
+    setIsSaving(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      await ordersApi.deleteOrder(id)
+      setSuccess('Order deleted')
+      await loadOrders()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete order')
+      console.error('Delete order error:', err)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleStatusChange = (id: string, value: string) => {
+    setEditedStatuses(prev => ({ ...prev, [id]: value }))
+  }
+
+  const handleSaveOrder = async (id: string) => {
+    const newStatus = editedStatuses[id]
+    if (newStatus == null) return
+    setSavingId(id)
+    setError(null)
+    setSuccess(null)
+    try {
+      await ordersApi.updateOrder(id, { status: newStatus })
+      setSuccess('Order updated')
+      // clear local edited value for this row
+      setEditedStatuses(prev => {
+        const copy = { ...prev }
+        delete copy[id]
+        return copy
+      })
+      await loadOrders()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update order')
+      console.error('Update order error:', err)
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const handleCreateOrder = async () => {
+    const name = window.prompt('Patient name')
+    if (!name) return
+    const email = window.prompt('Email') || ''
+    const amount = window.prompt('Amount (e.g. 49.00)') || '0.00'
+    setIsSaving(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      await ordersApi.createOrder({ name, email, amount })
+      setSuccess('Order created')
+      await loadOrders()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create order')
+      console.error('Create order error:', err)
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   const handleExport = useCallback(() => {
     exportToCSV(filteredOrders, orderColumns, 'orders_export')
@@ -193,23 +316,76 @@ export default function Orders() {
           <Button variant="outline" size="sm" onClick={handleGridView}>
             <Grid3X3 className="h-4 w-4" />
           </Button>
+          <Button variant="default" size="sm" onClick={handleCreateOrder}>
+            Create Order
+          </Button>
         </div>
       </div>
 
+      {error && (
+        <div className="text-sm text-red-600">{error}</div>
+      )}
+
       <DataTable
-        data={filteredOrders}
-        columns={orderColumns}
+        data={filteredOrders.map(o => ({ ...o }))}
+        columns={orderColumns.map(col => {
+          if (col.key === 'actions') {
+            return {
+              ...col,
+              render: (_: any, row: any) => (
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleSaveOrder(row.id)}
+                    disabled={!(editedStatuses[row.id] && editedStatuses[row.id] !== (row.orderStatus || '')) || savingId === row.id}
+                  >
+                    {savingId === row.id ? 'Saving...' : 'Save'}
+                  </Button>
+                </div>
+              ),
+            }
+          }
+
+          if (col.key === 'orderStatus') {
+            return {
+              ...col,
+              render: (_: any, row: any) => (
+                <div>
+                  <Select
+                    value={editedStatuses[row.id] ?? (row.orderStatus ?? 'created')}
+                    onValueChange={(v) => handleStatusChange(row.id, v)}
+                  >
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ORDER_STATUS_CHOICES.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ),
+            }
+          }
+
+          return col
+        })}
         searchPlaceholder="Search by Order#, affiliate order #, MRN#, patient name, phone number"
         showDatePicker={true}
         showExport={true}
-        showResetFilters={true}
-        filters={filters}
+        showResetFilters={false}
+        // filters={filters}
         dateRange={date}
         onDateRangeChange={setDate}
         onSearch={setSearchTerm}
         onResetFilters={handleResetFilters}
         onExport={handleExport}
         onRefresh={handleRefresh}
+        loading={isLoadingOrders || isSaving}
       />
     </div>
   )

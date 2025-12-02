@@ -43,13 +43,19 @@ interface Column {
   render?: (value: unknown, row: unknown) => React.ReactNode;
 }
 
+interface FilterOption {
+  value: string;
+  label: string;
+}
+
 interface FilterConfig {
   key: string;
   label: string;
   type: "button" | "select";
-  options?: string[];
+  options?: FilterOption[];
   value?: string;
   onClick?: () => void;
+  onChange?: (value: string) => void;
 }
 
 interface PaginationConfig {
@@ -192,19 +198,40 @@ export function DataTable({
         <>
           {/* All filters in a single line */}
           <div className="flex items-center gap-2 flex-wrap">
-            {filters.map((filter) => (
-              <Button
-                key={filter.key}
-                variant={filter.value ? "default" : "outline"}
-                size="sm"
-                onClick={filter.onClick}
-                className={
-                  filter.value ? "bg-primary text-primary-foreground" : ""
-                }
-              >
-                {filter.label}
-              </Button>
-            ))}
+            {filters.map((filter) => {
+              if (filter.type === 'select') {
+                return (
+                  <Select
+                    key={filter.key}
+                    value={filter.value}
+                    onValueChange={(v) => filter.onChange?.(v)}
+                  >
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder={filter.label} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filter.options?.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )
+              }
+
+              return (
+                <Button
+                  key={filter.key}
+                  variant={filter.value ? "default" : "outline"}
+                  size="sm"
+                  onClick={filter.onClick}
+                  className={filter.value ? "bg-primary text-primary-foreground" : ""}
+                >
+                  {filter.label}
+                </Button>
+              )
+            })}
 
             {/* Reset Filters Button */}
             {showResetFilters && (
