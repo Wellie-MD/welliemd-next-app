@@ -43,6 +43,9 @@ import CouponInsights from "./pages/CouponInsights";
 import Billing from "./pages/Billing";
 import ProductDoseMappings from "./pages/ProductDoseMappings";
 import ProductConfig from "./pages/ProductConfig";
+import ArchiveTemplates from "./pages/ArchiveTemplates";
+import ArchiveProducts from "./pages/ArchiveProducts";
+import ManageAccount from "./pages/ManageAccount";
 
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -99,11 +102,11 @@ const App = () => {
                     <Route path="/clients/edit/:id" element={<ProtectedRoute><ClientForm /></ProtectedRoute>} />
                     <Route path="/treatments" element={<ProtectedRoute><Treatments /></ProtectedRoute>} />
                     <Route path="/treatments/configurations" element={<ProtectedRoute><TreatmentConfigurations /></ProtectedRoute>} />
-                    <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
-                    <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
-                    <Route path="/orders/disputes" element={<ProtectedRoute><Disputes /></ProtectedRoute>} />
-                    <Route path="/orders/resolution-queue" element={<ProtectedRoute><ResolutionQueue /></ProtectedRoute>} />
-                    <Route path="/prescriptions" element={<ProtectedRoute><Prescriptions /></ProtectedRoute>} />
+                    {/* <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} /> */}
+                    {/* <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} /> */}
+                    {/* <Route path="/orders/disputes" element={<ProtectedRoute><Disputes /></ProtectedRoute>} /> */}
+                    {/* <Route path="/orders/resolution-queue" element={<ProtectedRoute><ResolutionQueue /></ProtectedRoute>} /> */}
+                    {/* <Route path="/prescriptions" element={<ProtectedRoute><Prescriptions /></ProtectedRoute>} /> */}
                     <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
                     <Route path="/products/assign" element={<ProtectedRoute><ProductAssignment /></ProtectedRoute>} />
                     <Route path="/products/dose-mappings" element={<ProtectedRoute><ProductDoseMappings /></ProtectedRoute>} />
@@ -122,7 +125,10 @@ const App = () => {
                     <Route path="/questionnaires/:templateId" element={<ProtectedRoute><QuestionnaireQuestions /></ProtectedRoute>} />
                     <Route path="/questionnaires/:templateId/questions" element={<ProtectedRoute><QuestionnaireQuestions /></ProtectedRoute>} />
                     <Route path="/questionnaires/:templateId/flow-builder" element={<ProtectedRoute><FlowBuilder /></ProtectedRoute>} />
+                    <Route path="/questionnaires/archive" element={<ProtectedRoute><ArchiveTemplates /></ProtectedRoute>} />
                     <Route path="/pharmacies" element={<ProtectedRoute><Pharmacies /></ProtectedRoute>} />
+                    <Route path="/products/archive" element={<ProtectedRoute><ArchiveProducts /></ProtectedRoute>} />
+                    <Route path="/manage-account" element={<ProtectedRoute><ManageAccount /></ProtectedRoute>} />
                   </Routes>
                 </main>
               </div>

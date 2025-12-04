@@ -12,7 +12,7 @@ import { listDoseMappings, ProductDoseMapping } from "@/api/productDoseMappings"
 import { productCategoryApi } from "@/api/productCategories";
 
 interface MedicationConfig {
-  medication_base_name: string;
+  category: string;
   regimen?: string;
   regimen_name?: string;
   dose_mapping?: number;  // Dose mapping ID
@@ -40,45 +40,44 @@ export function ProductSelector({
   onChange,
   disabled,
 }: ProductSelectorProps) {
-  const [medications, setMedications] = useState<string[]>([]);
+  const [categories, setCategories] = useState<Array<{id: string, name: string}>>([]);
   const [regimens, setRegimens] = useState<Regimen[]>([]);
   const [doseMappings, setDoseMappings] = useState<ProductDoseMapping[]>([]);
-  const [loadingMeds, setLoadingMeds] = useState(false);
+  const [loadingCategories, setLoadingCategories] = useState(false);
   const [loadingRegimens, setLoadingRegimens] = useState(false);
   const [loadingDoseMappings, setLoadingDoseMappings] = useState(false);
 
   useEffect(() => {
-    fetchMedications();
+    fetchCategories();
   }, []);
 
   useEffect(() => {
-    if (value?.medication_base_name) {
-      fetchRegimens(value.medication_base_name);
+    if (value?.category) {
+      fetchRegimens(value.category);
     } else {
       setRegimens([]);
     }
-  }, [value?.medication_base_name]);
+  }, [value?.category]);
 
   useEffect(() => {
-    if (value?.medication_base_name) {
-      fetchDoseMappings(value.medication_base_name);
+    if (value?.category) {
+      fetchDoseMappings(value.category);
     } else {
       setDoseMappings([]);
     }
-  }, [value?.medication_base_name]);
+  }, [value?.category]);
 
-  const fetchMedications = async () => {
-    setLoadingMeds(true);
+  const fetchCategories = async () => {
+    setLoadingCategories(true);
     try {
-      const response = await axiosInstance.get("/products/medications/");
-      const meds = response.data.medications || [];
-      const uniqueMeds = Array.from(new Set(meds)).sort() as string[];
-      setMedications(uniqueMeds);
+      const response = await axiosInstance.get("/products/categories/");
+      const cats = response.data.results || response.data || [];
+      setCategories(cats);
     } catch (error) {
-      console.error("Failed to fetch medications:", error);
-      setMedications([]);
+      console.error("Failed to fetch categories:", error);
+      setCategories([]);
     } finally {
-      setLoadingMeds(false);
+      setLoadingCategories(false);
     }
   };
 
@@ -124,17 +123,18 @@ export function ProductSelector({
     }
   };
 
-  const handleMedicationSelect = (medication: string) => {
-    // Reset regimen and dose when medication changes
+  const handleCategorySelect = (categoryId: string) => {
+    const selectedCategory = categories.find(c => c.id === categoryId);
+    // Reset regimen and dose when category changes
     onChange({
-      medication_base_name: medication,
-      product_name: medication, // Fallback name
+      medication_base_name: selectedCategory?.name || '',
+      product_name: selectedCategory?.name || '', // Fallback name
       has_hierarchy: false,
     });
   };
 
   const handleRegimenSelect = (regimenCode: string) => {
-    if (!value?.medication_base_name) return;
+    if (!value?.category) return;
 
     const selectedRegimen = regimens.find((r) => r.code === regimenCode);
     
@@ -156,27 +156,35 @@ export function ProductSelector({
     <div className="space-y-3">
       <div className="space-y-2">
         <Label>
-          Select Medication <span className="text-red-500">*</span>
+          Select Category <span className="text-red-500">*</span>
         </Label>
         <Select
-          value={value?.medication_base_name || ""}
-          onValueChange={handleMedicationSelect}
-          disabled={disabled || loadingMeds}
+          value={value?.category || ""}
+          onValueChange={(categoryName) => {
+            // Find the category to get its full details if needed
+            const selectedCategory = categories.find(c => c.name === categoryName);
+            onChange({
+              category: categoryName,
+              product_name: categoryName,
+              has_hierarchy: false,
+            });
+          }}
+          disabled={disabled || loadingCategories}
         >
           <SelectTrigger>
-            <SelectValue placeholder={loadingMeds ? "Loading medications..." : "Select medication..."} />
+            <SelectValue placeholder={loadingCategories ? "Loading categories..." : "Select category..."} />
           </SelectTrigger>
           <SelectContent>
-            {medications.map((medication) => (
-              <SelectItem key={medication} value={medication}>
-                {medication}
+            {categories.map((category) => (
+              <SelectItem key={category.id} value={category.name}>
+                {category.name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
-      {value?.medication_base_name && (
+      {value?.category && (
         <div className="space-y-2">
           <Label>
             Select Titration Category / Regimen <span className="text-red-500">*</span>
@@ -200,7 +208,7 @@ export function ProductSelector({
         </div>
       )}
 
-      {value?.medication_base_name && value?.regimen && (
+      {value?.category && value?.regimen && (
         <div className="space-y-2">
           <Label>
             Select Dose Level <span className="text-red-500">*</span>
@@ -245,15 +253,15 @@ export function ProductSelector({
       )}
 
       <p className="text-xs text-muted-foreground">
-        Generic medication name without pharmacy suffix. The questionnaire app will dynamically match products based on patient selections.
+        Generic category name without pharmacy suffix. The questionnaire app will dynamically match products based on patient selections.
       </p>
 
       {/* Selected Configuration Display */}
-      {value?.medication_base_name && value?.regimen && value?.dose_mapping && (
+      {value?.category && value?.regimen && value?.dose_mapping && (
         <div className="flex items-center justify-between rounded-md border p-3 text-sm bg-green-50 border-green-200">
           <div className="space-y-1">
             <div className="font-medium text-green-900">
-              {value.medication_base_name}
+              {value.category}
             </div>
             <div className="text-xs text-green-700">
               Regimen: {value.regimen_name || value.regimen}

@@ -36,18 +36,18 @@ export interface Product {
   shipping_fee_patient?: string;
   base_shipping_cost?: string | number;
   shipping_fee?: string | number;
-  
+
   // Dose Mapping (NEW - Phase 1)
   dose_mapping?: number;
   dose_mapping_name?: string;
   dose_mapping_label?: string;
-  
+
   // Deprecated fields (use dose_mapping instead)
   /** @deprecated Use dose_mapping instead */
   dose?: string;
   /** @deprecated Use dose_mapping instead */
   base_medication_name?: string;
-  
+
   refills?: number;
   rx_quantity?: string | number;
   rx_quantity_units?: string;
@@ -83,6 +83,7 @@ export interface Product {
   is_client_custom?: boolean;
   allow_client_modifications?: boolean;
   sync_to_tenants?: boolean;
+  is_modified_need_to_re_assigned?: boolean; // True if product was modified and needs re-assignment
   is_active: boolean;
   created_at: string;
   updated_at?: string;
@@ -227,8 +228,8 @@ export const productApi = {
     }
     // Handle array response
     if (Array.isArray(data)) {
-    return data;
-}
+      return data;
+    }
     return [];
   },
 
@@ -272,6 +273,48 @@ export const productApi = {
   ): Promise<BulkAssignmentResponse> => {
     const { data } = await axiosInstance.post<BulkAssignmentResponse>(
       "products/bulk_assign/",
+      payload
+    );
+    return data;
+  },
+
+  /**
+   * Re-assign modified products to clients (force update)
+   * POST /api/v1/products/admin/assignments/re-assign/
+   */
+  reAssignProducts: async (
+    payload: BulkAssignmentPayload
+  ): Promise<BulkAssignmentResponse> => {
+    const { data } = await axiosInstance.post<BulkAssignmentResponse>(
+      "products/admin/assignments/re-assign/",
+      payload
+    );
+    return data;
+  },
+
+  /**
+   * Archive products on client databases
+   */
+  archiveProducts: async (payload: {
+    product_ids: number[];
+    client_ids: string[];
+  }) => {
+    const { data } = await axiosInstance.post(
+      'products/admin/assignments/archive/',
+      payload
+    );
+    return data;
+  },
+
+  /**
+   * Unarchive products on client databases
+   */
+  unarchiveProducts: async (payload: {
+    product_ids: number[];
+    client_ids: string[];
+  }) => {
+    const { data } = await axiosInstance.post(
+      'products/admin/assignments/unarchive/',
       payload
     );
     return data;

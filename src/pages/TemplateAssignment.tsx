@@ -1,11 +1,17 @@
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Search, X } from "lucide-react";
+import { ArrowLeft, Search, X, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "@/components/ui/use-toast";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   templateApi,
   QuestionnaireTemplate,
@@ -226,6 +232,70 @@ export default function TemplateAssignment() {
     }
   };
 
+  // Handle re-assignment for modified templates
+  const handleReAssign = async () => {
+    if (selectedTemplates.size === 0 || selectedClients.size === 0) {
+      toast({
+        title: "Selection Required",
+        description: "Please select at least one template and one client",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const result = await assignmentApi.reAssignToClients({
+        template_ids: Array.from(selectedTemplates),
+        client_ids: Array.from(selectedClients),
+      });
+
+      if (result.success) {
+        toast({
+          title: "Success",
+          description:
+            result.message ||
+            `Re-assigned ${result.successful} template(s) successfully`,
+        });
+
+        // Clear selections and refresh templates
+        setSelectedTemplates(new Set());
+        setSelectedClients(new Set());
+        
+        // Refresh templates list to get updated modification flags
+        const templatesData = await templateApi.listTemplates();
+        let templatesList: QuestionnaireTemplate[] = [];
+        if (Array.isArray(templatesData)) {
+          templatesList = templatesData;
+        } else if (
+          templatesData &&
+          typeof templatesData === "object" &&
+          "results" in templatesData
+        ) {
+          templatesList = (templatesData as unknown).results || [];
+        }
+        setTemplates(templatesList);
+      } else {
+        toast({
+          title: "Partial Success",
+          description: `${result.successful} succeeded, ${result.failed} failed`,
+          variant: "destructive",
+        });
+      }
+    } catch (error: unknown) {
+      console.error("Re-assignment error:", error);
+      toast({
+        title: "Error",
+        description:
+          error.response?.data?.error || "Failed to re-assign templates",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Format template type for display
   const formatTemplateType = (type: string): string => {
     return type
@@ -282,6 +352,17 @@ export default function TemplateAssignment() {
             size="lg"
           >
             Assign Templates
+          </Button>
+          <Button
+            onClick={handleReAssign}
+            disabled={
+              selectedTemplates.size === 0 || selectedClients.size === 0
+            }
+            size="lg"
+            variant="secondary"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Re-assign
           </Button>
         </div>
       </div>
@@ -390,9 +471,26 @@ export default function TemplateAssignment() {
                         className="mt-1"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate mb-1">
-                          {template.name}
-                        </p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-sm truncate">
+                            {template.name}
+                          </p>
+                          {template.is_modified_need_to_re_assigned && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Badge variant="destructive" className="text-xs">
+                                    UPDATED
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>You have updated this template.</p>
+                                  <p>You need to re-assign it to clients to push the updates.</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           {formatTemplateType(template.questionnaire_type)}
                         </p>

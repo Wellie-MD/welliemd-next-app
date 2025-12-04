@@ -19,11 +19,12 @@ export interface QuestionnaireTemplate {
   requires_identity_verification: boolean;
   is_published: boolean;
   is_admin_template?: boolean;
-  
+  is_modified_need_to_re_assigned?: boolean; // True if template was modified and needs re-assignment
+
   // Phase 2 additions
   primary_category?: number; // Primary product category for automated dose injection
   primary_category_name?: string; // Category name for display
-  
+
   created_at: string;
   updated_at: string;
   questions?: Question[];
@@ -43,26 +44,26 @@ export interface Question {
   id: string;
   question_text: string;
   question_type:
-    | "text"
-    | "textarea"
-    | "email"
-    | "phone"
-    | "state"
-    | "zip"
-    | "single_choice"
-    | "multiple_choice"
-    | "number"
-    | "date"
-    | "height_weight"
-    | "consent"
-    | "file_upload"
-    | "checkout"
-    | "personal_details"
-    | "shipping_address"
-    | "sex"
-    | "self_reported_meds"
-    | "allergies"
-    | "medical_conditions";
+  | "text"
+  | "textarea"
+  | "email"
+  | "phone"
+  | "state"
+  | "zip"
+  | "single_choice"
+  | "multiple_choice"
+  | "number"
+  | "date"
+  | "height_weight"
+  | "consent"
+  | "file_upload"
+  | "checkout"
+  | "personal_details"
+  | "shipping_address"
+  | "sex"
+  | "self_reported_meds"
+  | "allergies"
+  | "medical_conditions";
   is_required: boolean;
   is_read_only: boolean;
   order_index: number;
@@ -76,12 +77,12 @@ export interface Question {
   consent_form?: ConsentForm;
   parent_question?: string | null; // UUID of parent question for grouped questions
   sub_questions?: SubQuestion[]; // Sub-questions for grouped question types
-  
+
   // Phase 1 additions
   is_strength_question?: boolean; // Mark if this question asks for medication strength/dose
   checkout_category?: number; // Product category for checkout questions
   checkout_allowed_regimens?: number[]; // Allowed titration categories for checkout questions
-  
+
   created_at: string;
   updated_at: string;
 }
@@ -373,6 +374,20 @@ export const assignmentApi = {
   },
 
   /**
+   * Re-assign modified templates to clients (force update)
+   * POST /api/v1/questionnaires/admin/template-assignments/re-assign/
+   */
+  reAssignToClients: async (
+    payload: AssignTemplatesPayload
+  ): Promise<AssignTemplatesResponse> => {
+    const { data } = await axiosInstance.post<AssignTemplatesResponse>(
+      "questionnaires/admin/template-assignments/re-assign/",
+      payload
+    );
+    return data;
+  },
+
+  /**
    * Get assignment history with filtering and pagination
    * GET /api/v1/questionnaires/admin/template-assignments/assignment-history/
    */
@@ -386,6 +401,33 @@ export const assignmentApi = {
     return data;
   },
 
+  /**
+   * Archive templates on client databases
+   */
+  archiveTemplates: async (payload: {
+    template_ids: string[];
+    client_ids: string[];
+  }) => {
+    const { data } = await axiosInstance.post(
+      'questionnaires/admin/template-assignments/archive/',
+      payload
+    );
+    return data;
+  },
+
+  /**
+   * Unarchive templates on client databases
+   */
+  unarchiveTemplates: async (payload: {
+    template_ids: string[];
+    client_ids: string[];
+  }) => {
+    const { data } = await axiosInstance.post(
+      'questionnaires/admin/template-assignments/unarchive/',
+      payload
+    );
+    return data;
+  },
   /**
    * Retry a failed assignment
    * POST /api/v1/questionnaires/admin/template-assignments/{log_id}/retry/

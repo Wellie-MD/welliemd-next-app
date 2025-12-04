@@ -17,7 +17,8 @@ import {
   MessageCircle,
   MapPin,        // <- used for Pharmacies
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Archive
 } from "lucide-react"
 
 import {
@@ -53,16 +54,16 @@ const menuSections = [
       //     { title: "Configurations", url: "/dashboard/treatments/configurations" }
       //   ]
       // },
-      {
-        title: "Orders",
-        icon: ShoppingBag,
-        children: [
-          { title: "Orders", url: "/dashboard/orders" },
-          { title: "Payments", url: "/dashboard/orders/payments" },
-          { title: "Disputes", url: "/dashboard/orders/disputes" },
-          { title: "Resolution Queue", url: "/dashboard/orders/resolution-queue" }
-        ]
-      },
+      // {
+      //   title: "Orders",
+      //   icon: ShoppingBag,
+      //   children: [
+      //     { title: "Orders", url: "/dashboard/orders" },
+      //     { title: "Payments", url: "/dashboard/orders/payments" },
+      //     { title: "Disputes", url: "/dashboard/orders/disputes" },
+      //     { title: "Resolution Queue", url: "/dashboard/orders/resolution-queue" }
+      //   ]
+      // },
       { title: "Messenger", url: "/dashboard/messages", icon: MessageSquare },
       // { 
       //   title: "Analytics", 
@@ -73,7 +74,7 @@ const menuSections = [
       //     { title: "Cohorts", url: "/dashboard/analytics/cohorts" }
       //   ]
       // },
-      { title: "Prescriptions", url: "/dashboard/prescriptions", icon: ScrollText }
+      // { title: "Prescriptions", url: "/dashboard/prescriptions", icon: ScrollText }
     ]
   },
   {
@@ -90,6 +91,15 @@ const menuSections = [
         children: [
           { title: "Products", url: "/dashboard/products" },
           { title: "Configuration", url: "/dashboard/products/config" }
+        ]
+      },
+
+      {
+        title: "Archive",
+        icon: Archive,
+        children: [
+          { title: "Archive Products", url: "/dashboard/products/archive" },
+          { title: "Archive Templates", url: "/dashboard/questionnaires/archive" }
         ]
       },
     ]

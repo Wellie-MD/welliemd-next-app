@@ -1,11 +1,17 @@
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Search, X } from "lucide-react";
+import { ArrowLeft, Search, X, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "@/components/ui/use-toast";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { productApi } from "@/api/products";
 import { clientApi, Client } from "@/api/clientApi";
 import { useNavigate } from "react-router-dom";
@@ -18,6 +24,7 @@ interface ProductForAssignment {
   is_active: boolean;
   base_price?: string;
   rx_or_otc?: string;
+  is_modified_need_to_re_assigned?: boolean;
 }
 
 export default function ProductAssignment() {
@@ -190,6 +197,57 @@ export default function ProductAssignment() {
     }
   };
 
+  // Handle re-assignment for modified products
+  const handleReAssign = async () => {
+    if (selectedProducts.size === 0 || selectedClients.size === 0) {
+      toast({
+        title: "Selection Required",
+        description: "Please select at least one product and one client",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const result = await productApi.reAssignProducts({
+        product_ids: Array.from(selectedProducts),
+        client_ids: Array.from(selectedClients),
+      });
+      
+      if (result.successful > 0) {
+        toast({
+          title: "Success",
+          description: `Re-assigned ${result.successful} product(s) successfully${result.failed > 0 ? `, ${result.failed} failed` : ''}`,
+        });
+
+        // Clear selections and refresh products
+        setSelectedProducts(new Set());
+        setSelectedClients(new Set());
+        
+        // Refresh products list
+        const productsData = await productApi.listProducts();
+        setProducts(Array.isArray(productsData) ? productsData : []);
+      } else {
+        toast({
+          title: "Re-assignment Failed",
+          description: "All re-assignments failed. Please check the logs.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: unknown) {
+      console.error("Re-assignment error:", error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.error || "Failed to re-assign products",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Format treatment for display
   const formatTreatment = (treatment: string): string => {
     return treatment
@@ -234,6 +292,15 @@ export default function ProductAssignment() {
             size="lg"
           >
             Assign Products
+          </Button>
+          <Button
+            onClick={handleReAssign}
+            disabled={selectedProducts.size === 0 || selectedClients.size === 0}
+            size="lg"
+            variant="secondary"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Re-assign
           </Button>
         </div>
 
@@ -346,6 +413,21 @@ export default function ProductAssignment() {
                               <Badge variant="outline" className="text-xs uppercase">
                                 {product.rx_or_otc}
                               </Badge>
+                            )}
+                            {product.is_modified_need_to_re_assigned && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <Badge variant="destructive" className="text-xs">
+                                      UPDATED
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>You have updated this product.</p>
+                                    <p>You need to re-assign it to clients to push the updates.</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground">

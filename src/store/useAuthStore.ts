@@ -4,7 +4,11 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 interface User {
   id: string;
   email: string;
-  name: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  phone?: string;
+  avatar_url?: string;
 }
 
 interface AuthState {
@@ -32,7 +36,7 @@ const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: true,
       error: "",
-      
+
       login: (accessToken, user) =>
         set({
           accessToken,
@@ -64,7 +68,7 @@ const useAuthStore = create<AuthState>()(
         const authService = await import('../services/authService');
         await authService.authService.requestPasswordReset(email);
       },
-      
+
       confirmPasswordReset: async (uid: string, token: string, newPassword: string) => {
         const authService = await import('../services/authService');
         await authService.authService.confirmPasswordReset(uid, token, newPassword);
