@@ -15,29 +15,17 @@ import { Toaster } from "@/components/ui/toaster";
 // pages
 import Dashboard from "./pages/Dashboard";
 import Patients from "./pages/Patients";
-import Treatments from "./pages/Treatments";
 import Products from "./pages/Products";
-import BillingPlans from "./pages/BillingPlans";
 import ProductsRouting from "./pages/ProductsRouting";
 import Messages from "./pages/Messages";
-import Disputes from "./pages/Disputes";
-import ResolutionQueue from "./pages/ResolutionQueue";
-import Analytics from "./pages/Analytics";
 import Affiliates from "./pages/Affiliates";
-import Questionnaires from "./pages/Questionnaires";
-import TreatmentConfigurations from "./pages/TreatmentConfigurations";
 import Orders from "./pages/Orders";
-import Prescriptions from "./pages/Prescriptions";
-import NotFound from "./pages/NotFound";
 import Payments from "./pages/Payments";
+import NotFound from "./pages/NotFound";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
-import AnalyticsCohorts from "./pages/AnalyticsCohorts";
-import AnalyticsReports from "./pages/AnalyticsReports";
-import CouponCodes from "./pages/CouponCodes";
-import CouponInsights from "./pages/CouponInsights";
 import Billing from "./pages/Billing";
 import FinancesInvoices from "./pages/finances/Invoices";
 import TemplateManagement from "./pages/TemplateManagement";
@@ -205,22 +193,11 @@ const App = () => {
                     <Routes>
                       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                       <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
-                      <Route path="/treatments" element={<ProtectedRoute><Treatments /></ProtectedRoute>} />
-                      <Route path="/treatments/configurations" element={<ProtectedRoute><TreatmentConfigurations /></ProtectedRoute>} />
                       <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
                       <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
-                      <Route path="/orders/disputes" element={<ProtectedRoute><Disputes /></ProtectedRoute>} />
-                      <Route path="/orders/resolution-queue" element={<ProtectedRoute><ResolutionQueue /></ProtectedRoute>} />
-                      <Route path="/prescriptions" element={<ProtectedRoute><Prescriptions /></ProtectedRoute>} />
                       <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
-                      <Route path="/products/billing-plans" element={<ProtectedRoute><BillingPlans /></ProtectedRoute>} />
                       <Route path="/products/routing" element={<ProtectedRoute><ProductsRouting /></ProtectedRoute>} />
                       <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
-                      <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-                      <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} />
-                      <Route path="/analytics/reports" element={<ProtectedRoute><AnalyticsReports /></ProtectedRoute>} />
-                      <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
-                      <Route path="/coupon-insights" element={<ProtectedRoute><CouponInsights /></ProtectedRoute>} />
                       <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
                       <Route path="/finances/invoices" element={<ProtectedRoute><FinancesInvoices /></ProtectedRoute>} />
                       <Route path="/affiliates" element={<ProtectedRoute><Affiliates /></ProtectedRoute>} />

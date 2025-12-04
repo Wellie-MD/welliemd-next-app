@@ -38,14 +38,9 @@ import {
 
 const settingsMenuItems = [
   { title: "Store Details", url: "/dashboard/settings/store-details", icon: Store },
-  { title: "Integrations", url: "/dashboard/settings/integrations", icon: Plug2 },
   { title: "Users and Permissions", url: "/dashboard/settings/users-permissions", icon: Users },
-  { title: "Fulfillment and Inventory", url: "/dashboard/settings/fulfillment-inventory", icon: Package },
-  { title: "E-prescribing and doctors", url: "/dashboard/settings/prescribing-doctors", icon: Stethoscope },
   { title: "Payments", url: "/dashboard/settings/payments", icon: CreditCard },
   { title: "Notifications", url: "/dashboard/settings/notifications", icon: Bell },
-  { title: "Webhooks & APIs", url: "/dashboard/settings/webhooks-apis", icon: Webhook },
-  { title: "Files", url: "/dashboard/settings/files", icon: FileText },
   { title: "Policies", url: "/dashboard/settings/policies", icon: Shield },
   { title: "Metafields", url: "/dashboard/settings/metafields", icon: Tag },
   { title: "Domains", url: "/dashboard/settings/domains", icon: Globe },

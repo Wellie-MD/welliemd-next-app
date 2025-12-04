@@ -1,9 +1,8 @@
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus } from "lucide-react"
-import mockData from "@/data/mockData.json"
+import { Plus, AlertCircle } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -14,8 +13,45 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { DateRange } from "react-day-picker"
-import { isWithinInterval, parseISO } from "date-fns"
+import { isWithinInterval, parseISO, format } from "date-fns"
 import { exportToCSV } from "@/utils/exportUtils"
+import { patientService, type Patient } from "@/services/patientService"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+
+// Transform backend patient data to table row format
+interface PatientTableRow {
+  id: string
+  name: string
+  startDate: string
+  mrn: string
+  subscription: string
+  productName: string
+  email: string
+  phone: string
+  orders: number
+  location: string
+  patientStatus: string
+  visitStatus: string
+  lastOrder: string
+}
+
+const transformPatientData = (patient: Patient): PatientTableRow => {
+  return {
+    id: patient.id,
+    name: patient.full_name || `${patient.first_name} ${patient.last_name}`.trim() || patient.email,
+    startDate: format(new Date(patient.created_at), 'dd/MM/yyyy'),
+    mrn: patient.id.substring(0, 8).toUpperCase(), // Use first 8 chars of UUID as MRN
+    subscription: "Active", // TODO: Get from actual subscription data
+    productName: "-", // TODO: Get from actual product/order data
+    email: patient.email,
+    phone: patient.phone,
+    orders: 0, // TODO: Get from actual order count
+    location: patient.city && patient.state ? `${patient.city}, ${patient.state}` : patient.state || "-",
+    patientStatus: "Active", // TODO: Determine from actual patient status
+    visitStatus: "-", // TODO: Get from visits data
+    lastOrder: "-", // TODO: Get from last order date
+  }
+}
 
 const patientColumns = [
   { key: "name", label: "Name" },
@@ -53,16 +89,39 @@ export default function Patients() {
   const [activeAdditionalFilters, setActiveAdditionalFilters] = useState<string[]>([])
   const [date, setDate] = useState<DateRange | undefined>()
   const [isOpen, setIsOpen] = useState(false)
-  const [refreshKey, setRefreshKey] = useState(0) // For triggering refresh
+  const [patients, setPatients] = useState<PatientTableRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [newPatient, setNewPatient] = useState({
     firstName: "",
     lastName: "",
     email: "",
   })
 
+  // Fetch patients from backend
+  const fetchPatients = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await patientService.getPatients()
+      const transformedData = data.map(transformPatientData)
+      setPatients(transformedData)
+    } catch (err: any) {
+      console.error('Error fetching patients:', err)
+      setError(err.message || 'Failed to load patients')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Fetch patients on mount
+  useEffect(() => {
+    fetchPatients()
+  }, [fetchPatients])
+
   // Comprehensive filtering logic
   const filteredPatients = useMemo(() => {
-    return mockData.patients.filter(patient => {
+    return patients.filter(patient => {
       // Search filter
       const matchesSearch = !searchTerm || 
         patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -90,11 +149,9 @@ export default function Patients() {
         }
       }
 
-      // Additional filters logic (you can customize this based on your needs)
+      // Additional filters logic
       let matchesAdditionalFilters = true
       if (activeAdditionalFilters.length > 0) {
-        // Example: if "Visit Status" is selected, you might want to filter by specific visit statuses
-        // This is a placeholder - implement according to your business logic
         if (activeAdditionalFilters.includes("Visit Status")) {
           // You can add specific logic here
         }
@@ -109,7 +166,7 @@ export default function Patients() {
 
       return matchesSearch && matchesStatus && matchesDateRange && matchesAdditionalFilters
     })
-  }, [mockData.patients, searchTerm, activeFilter, date, activeAdditionalFilters, refreshKey])
+  }, [patients, searchTerm, activeFilter, date, activeAdditionalFilters])
 
   // Create filter configuration for DataTable
   const filters = [
@@ -145,20 +202,8 @@ export default function Patients() {
   }, [])
 
   const handleRefresh = useCallback(() => {
-    // Increment refresh key to trigger re-render and data refresh
-    setRefreshKey(prev => prev + 1)
-    
-    // In a real app, you would also:
-    // - Fetch fresh data from your API
-    // - Show loading state
-    // - Handle errors
-    
-    // For now, we'll simulate a refresh by forcing a re-computation
-    console.log("Refreshing patient data...")
-    
-    // Optional: Show some feedback to user
-    // You could add a toast notification here
-  }, [])
+    fetchPatients()
+  }, [fetchPatients])
 
   const handleExport = useCallback(() => {
     exportToCSV(filteredPatients, patientColumns, 'patients_export')
@@ -226,6 +271,14 @@ export default function Patients() {
         </Dialog>
       </div>
 
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       <DataTable
         data={filteredPatients}
         columns={patientColumns}
@@ -240,6 +293,7 @@ export default function Patients() {
         onResetFilters={handleResetFilters}
         onExport={handleExport}
         onRefresh={handleRefresh}
+        loading={loading}
       />
     </div>
   )

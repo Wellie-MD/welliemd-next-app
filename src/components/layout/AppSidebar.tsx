@@ -46,34 +46,14 @@ const menuSections = [
       { title: "Home", url: "/dashboard", icon: BarChart3 },
       { title: "Patients", url: "/dashboard/patients", icon: Users },
       {
-        title: "Treatments",
-        icon: Stethoscope,
-        children: [
-          { title: "Treatments", url: "/dashboard/treatments" },
-          { title: "Configurations", url: "/dashboard/treatments/configurations" },
-        ],
-      },
-      {
         title: "Orders",
         icon: ShoppingBag,
         children: [
           { title: "Orders", url: "/dashboard/orders" },
           { title: "Payments", url: "/dashboard/orders/payments" },
-          { title: "Disputes", url: "/dashboard/orders/disputes" },
-          { title: "Resolution Queue", url: "/dashboard/orders/resolution-queue" },
         ],
       },
       { title: "Messages", url: "/dashboard/messages", icon: MessageSquare },
-      {
-        title: "Analytics",
-        icon: TrendingUp,
-        children: [
-          { title: "Live View", url: "/dashboard/analytics/live" },
-          { title: "Reports", url: "/dashboard/analytics/reports" },
-          { title: "Cohorts", url: "/dashboard/analytics/cohorts" },
-        ],
-      },
-      { title: "Prescriptions", url: "/dashboard/prescriptions", icon: ScrollText },
     ],
   },
   {
@@ -85,7 +65,6 @@ const menuSections = [
         icon: Package,
         children: [
           { title: "Products", url: "/dashboard/products" },
-          { title: "Billing Plans", url: "/dashboard/products/billing-plans" },
           { title: "Routing", url: "/dashboard/products/routing" },
         ],
       },
@@ -102,14 +81,6 @@ const menuSections = [
           { title: "Invoices", url: "/dashboard/finances/invoices" },
         ],
       },
-      {
-        title: "Discounts",
-        icon: Gift,
-        children: [
-          { title: "Coupon Codes", url: "/dashboard/coupon-codes" },
-          { title: "Insights", url: "/dashboard/coupon-insights" },
-        ],
-      },
       { title: "Affiliates", url: "/dashboard/affiliates", icon: Users },
     ],
   },
@@ -117,8 +88,6 @@ const menuSections = [
     label: "SUPPORT & CONFIG",
     items: [
       { title: "Settings", url: "/dashboard/settings", icon: Settings },
-      { title: "Feedback", url: "/dashboard/feedback", icon: MessageCircle },
-      { title: "Roadmap", url: "/dashboard/roadmap", icon: MapPin },
     ],
   },
 ];
