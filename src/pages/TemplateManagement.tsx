@@ -74,38 +74,62 @@ const getTemplateColumns = (
     label: "Review",
     render: (_value: unknown, row: QuestionnaireTemplate) => {
       const isPublishing = publishingIds.has(row.id);
+      const isArchivedByAdmin = row.archived_by_admin || false;
+      const isArchived = row.is_archived || false;
+      const isDisabled = isPublishing || isArchivedByAdmin || isArchived;
+
       return (
-        <Button
-          variant={row.is_published ? "outline" : "default"}
-          size="sm"
-          onClick={() => handlePublishToggle(row)}
-          disabled={isPublishing}
-          className={
-            row.is_published
-              ? "text-red-600 border-red-600 hover:bg-red-50"
-              : ""
-          }
-        >
-          {isPublishing
-            ? "Processing..."
-            : row.is_published
-            ? "Unpublish"
-            : "Publish"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={row.is_published ? "outline" : "default"}
+            size="sm"
+            onClick={() => handlePublishToggle(row)}
+            disabled={isDisabled}
+            className={
+              row.is_published
+                ? "text-red-600 border-red-600 hover:bg-red-50"
+                : ""
+            }
+            title={
+              isArchivedByAdmin
+                ? "This template was archived by admin and cannot be published"
+                : isArchived
+                ? "This template is archived"
+                : ""
+            }
+          >
+            {isPublishing
+              ? "Processing..."
+              : isArchivedByAdmin
+              ? "Archived by Admin"
+              : row.is_published
+              ? "Unpublish"
+              : "Publish"}
+          </Button>
+        </div>
       );
     },
   },
   {
     key: "is_published",
     label: "Status",
-    render: (value: boolean) => (
-      <Badge
-        variant={value ? "default" : "secondary"}
-        className={value ? "bg-green-100 text-green-800" : ""}
-      >
-        {value ? "Approved" : "Draft"}
-      </Badge>
-    ),
+    render: (value: boolean, row: QuestionnaireTemplate) => {
+      if (row.is_archived || row.archived_by_admin) {
+        return (
+          <Badge variant="secondary" className="bg-gray-200 text-gray-700">
+            Archived
+          </Badge>
+        );
+      }
+      return (
+        <Badge
+          variant={value ? "default" : "secondary"}
+          className={value ? "bg-green-100 text-green-800" : ""}
+        >
+          {value ? "Approved" : "Draft"}
+        </Badge>
+      );
+    },
   },
   {
     key: "updated_at",
@@ -247,6 +271,18 @@ export default function TemplateManagement() {
   };
 
   const handlePublishToggle = async (template: QuestionnaireTemplate) => {
+    // Check if template is archived by admin
+    if (template.archived_by_admin || template.is_archived) {
+      toast({
+        title: "Cannot Publish",
+        description: template.archived_by_admin
+          ? "This template was archived by admin and cannot be published. Please contact your administrator."
+          : "This template is archived and cannot be published.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Add to publishing set
     setPublishingIds((prev) => new Set(prev).add(template.id));
 

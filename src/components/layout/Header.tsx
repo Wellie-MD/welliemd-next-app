@@ -61,18 +61,18 @@ export function Header() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2 focus-visible:ring-0">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={user?.avatarUrl || ""} alt={user?.name} />
+                <AvatarImage src={user?.avatar_url || ""} alt={user?.full_name} />
                 <AvatarFallback>
-                  {user?.name?.charAt(0).toUpperCase() || "U"}
+                  {user?.full_name?.charAt(0).toUpperCase() || user?.first_name?.charAt(0).toUpperCase() || "U"}
                 </AvatarFallback>
               </Avatar>
-              <span className="hidden sm:inline-block font-medium">{user?.name || "User"}</span>
+              <span className="hidden sm:inline-block font-medium">{user?.full_name || "User"}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/dashboard/manage-account')}>
               <User className="mr-2 h-4 w-4" />
               <span>Manage account</span>
             </DropdownMenuItem>

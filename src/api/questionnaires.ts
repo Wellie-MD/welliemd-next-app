@@ -16,6 +16,9 @@ export interface QuestionnaireTemplate {
   requires_photo_upload: boolean;
   requires_identity_verification: boolean;
   is_published: boolean;
+  is_archived?: boolean;
+  archived_by_admin?: boolean;
+  archived_at?: string;
   created_at: string;
   updated_at: string;
   questions?: Question[];
