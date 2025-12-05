@@ -81,6 +81,7 @@ const menuSections = [
           { title: "Invoices", url: "/dashboard/finances/invoices" },
         ],
       },
+      { title: "Coupon Codes", url: "/dashboard/coupon-codes", icon: Gift },
       { title: "Affiliates", url: "/dashboard/affiliates", icon: Users },
     ],
   },
