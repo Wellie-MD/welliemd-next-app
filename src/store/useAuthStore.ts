@@ -9,6 +9,8 @@ interface User {
   full_name: string;
   phone?: string;
   avatar_url?: string;
+  roles?: string[];
+  primary_role?: string;
 }
 
 interface AuthState {

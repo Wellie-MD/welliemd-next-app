@@ -1,126 +1,337 @@
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Info } from "lucide-react"
-
-const storeOwners = [
-  {
-    id: "1",
-    name: "Jessica Lynne White",
-    avatar: "/api/placeholder/32/32",
-    initials: "JW",
-    permissions: "Limited Permissions",
-    lastLogin: "Saturday, August 16th 2025, 1:07:18 am"
-  }
-]
-
-const admins = [
-  {
-    id: "1",
-    name: "Kashif Rizwan",
-    avatar: "/api/placeholder/32/32",
-    initials: "KR",
-    permissions: "Limited Permissions",
-    lastLogin: "Thursday, May 22nd 2025, 9:27:01 pm"
-  }
-]
+import { useState, useEffect, useCallback } from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import { MoreVertical, UserPlus, Loader2 } from "lucide-react";
+import { userManagementService, PortalUser, Role } from '@/services/userManagementService';
+import { InviteUserModal } from '@/components/users/InviteUserModal';
+import { DeactivateUserModal } from '@/components/users/DeactivateUserModal';
+import { UserProfileModal } from '@/components/users/UserProfileModal';
+import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 export default function UsersPermissions() {
+  const [users, setUsers] = useState<PortalUser[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [deactivateModal, setDeactivateModal] = useState<{ open: boolean; userId: string; userName: string }>({
+    open: false,
+    userId: '',
+    userName: '',
+  });
+  const [profileModal, setProfileModal] = useState<{ open: boolean; user: PortalUser | null }>({
+    open: false,
+    user: null,
+  });
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [usersData, rolesData] = await Promise.all([
+        userManagementService.listUsers(),
+        userManagementService.getAvailableRoles(),
+      ]);
+      setUsers(usersData);
+      setRoles(rolesData);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load users',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleInviteUser = async (email: string, roleId: string, firstName?: string, lastName?: string) => {
+    try {
+      const response = await userManagementService.inviteUser({ 
+        email, 
+        role_id: roleId,
+        first_name: firstName,
+        last_name: lastName,
+      });
+      
+      // Show success message
+      toast({
+        title: 'Success',
+        description: `User created! Welcome email sent to ${email}`,
+        duration: 5000,
+      });
+      
+      // Close modal
+      setInviteModalOpen(false);
+      
+      // Reload data in background to show new user (don't await to avoid blocking)
+      loadData().catch(err => {
+        console.error('Failed to reload users:', err);
+        // Don't show error toast as user was created successfully
+      });
+      
+    } catch (error: unknown) {
+      console.error('Failed to create user:', error);
+      toast({
+        title: 'Error',
+        description: error.response?.data?.error || 'Failed to create user',
+        variant: 'destructive',
+      });
+      throw error; // Re-throw to keep modal open on error
+    }
+  };
+
+  const handleAssignRole = async (userId: string, roleId: string) => {
+    try {
+      await userManagementService.assignRole(userId, { role_id: roleId });
+      toast({
+        title: 'Success',
+        description: 'Role assigned successfully',
+      });
+      loadData(); // Reload to show updated roles
+    } catch (error: unknown) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.error || 'Failed to assign role',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeactivateUser = (userId: string, userName: string) => {
+    setDeactivateModal({ open: true, userId, userName });
+  };
+
+  const confirmDeactivateUser = async () => {
+    try {
+      await userManagementService.deactivateUser(deactivateModal.userId);
+      toast({
+        title: 'Success',
+        description: `User ${deactivateModal.userName} deactivated successfully`,
+      });
+      setDeactivateModal({ open: false, userId: '', userName: '' }); // Close modal
+      loadData(); // Reload to update list
+    } catch (error: unknown) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.error || 'Failed to deactivate user',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleUserClick = (user: PortalUser) => {
+    // If clicking on Primary Owner's own card, redirect to manage account
+    const isPrimaryOwner = user.primary_role === 'Primary Owner';
+    const isCurrentUser = users.find(u => u.primary_role === 'Primary Owner')?.id === user.id;
+    
+    if (isPrimaryOwner && isCurrentUser) {
+      navigate('/dashboard/manage-account');
+    } else {
+      // Show profile modal for other users
+      setProfileModal({ open: true, user });
+    }
+  };
+
+  // Group users by role
+  const usersByRole = users.reduce((acc, user) => {
+    const role = user.primary_role || 'No Role';
+    if (!acc[role]) acc[role] = [];
+    acc[role].push(user);
+    return acc;
+  }, {} as Record<string, PortalUser[]>);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Your team</h1>
-        <p className="text-muted-foreground mt-1">
-          Manage what users can see or do in your store.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Your team</h1>
+          <p className="text-muted-foreground mt-1">
+            Manage what users can see or do in your portal.
+          </p>
+        </div>
+        <Button onClick={() => setInviteModalOpen(true)}>
+          <UserPlus className="h-4 w-4 mr-2" />
+          Invite User
+        </Button>
       </div>
 
-      {/* Store Owner Section */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-lg font-medium">Store Owner (1 of 1)</CardTitle>
-          </div>
-          <Button variant="outline" size="sm">Add Staff</Button>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <Info className="h-4 w-4 text-blue-600 shrink-0" />
-            <div className="text-sm text-blue-700">
-              You have reached your staff limit. You can replace or add staff by deactivating a staff member or upgrading your plan.{" "}
-              <button className="text-blue-600 underline hover:no-underline">
-                Compare Plans
-              </button>
-            </div>
-          </div>
+      {/* Render sections for each role */}
+      {['Primary Owner', 'Admin', 'Customer Service'].map((roleName) => {
+        const roleUsers = usersByRole[roleName] || [];
+        if (roleUsers.length === 0) return null;
 
-          {storeOwners.map((owner) => (
-            <div key={owner.id} className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={owner.avatar} alt={owner.name} />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                    {owner.initials}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium text-foreground">{owner.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Last login was {owner.lastLogin}
-                  </p>
-                </div>
-              </div>
-              <Badge variant="secondary" className="text-xs">
-                {owner.permissions}
-              </Badge>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+        return (
+          <Card key={roleName}>
+            <CardHeader>
+              <CardTitle className="text-lg font-medium">
+                {roleName} ({roleUsers.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {roleUsers.map((user) => (
+                <UserCard
+                  key={user.id}
+                  user={user}
+                  roles={roles}
+                  onAssignRole={handleAssignRole}
+                  onDeactivate={handleDeactivateUser}
+                  onClick={() => handleUserClick(user)}
+                />
+              ))}
+            </CardContent>
+          </Card>
+        );
+      })}
 
-      {/* Admins Section */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-lg font-medium">Admins (1 of 1)</CardTitle>
-          </div>
-          <Button variant="outline" size="sm">Add Staff</Button>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <Info className="h-4 w-4 text-blue-600 shrink-0" />
-            <div className="text-sm text-blue-700">
-              You have reached your staff limit. You can replace or add staff by deactivating a staff member or upgrading your plan.{" "}
-              <button className="text-blue-600 underline hover:no-underline">
-                Compare Plans
-              </button>
-            </div>
-          </div>
+      <InviteUserModal
+        open={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+        onInvite={handleInviteUser}
+        roles={roles}
+      />
 
-          {admins.map((admin) => (
-            <div key={admin.id} className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={admin.avatar} alt={admin.name} />
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                    {admin.initials}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium text-foreground">{admin.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Last login was {admin.lastLogin}
-                  </p>
-                </div>
-              </div>
-              <Badge variant="secondary" className="text-xs">
-                {admin.permissions}
-              </Badge>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+      <DeactivateUserModal
+        open={deactivateModal.open}
+        onClose={() => setDeactivateModal({ open: false, userId: '', userName: '' })}
+        onConfirm={confirmDeactivateUser}
+        userName={deactivateModal.userName}
+      />
+
+      <UserProfileModal
+        open={profileModal.open}
+        onClose={() => setProfileModal({ open: false, user: null })}
+        user={profileModal.user}
+      />
     </div>
-  )
+  );
+}
+
+// User card component
+function UserCard({ user, roles, onAssignRole, onDeactivate, onClick }: {
+  user: PortalUser;
+  roles: Role[];
+  onAssignRole: (userId: string, roleId: string) => void;
+  onDeactivate: (userId: string, userName: string) => void;
+  onClick: () => void;
+}) {
+  const [showPassword, setShowPassword] = useState(false);
+  const initials = `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
+  const fullName = `${user.first_name} ${user.last_name}`;
+  const isPrimaryOwner = user.primary_role === 'Primary Owner';
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  return (
+    <div 
+      className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
+      onClick={onClick}
+    >
+      <div className="flex items-center gap-3 flex-1">
+        <Avatar className="h-10 w-10">
+          <AvatarFallback className="bg-primary text-primary-foreground">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1">
+          <p className="font-medium">{fullName}</p>
+          <p className="text-sm text-muted-foreground">{user.email}</p>
+          
+          {/* Show password if available */}
+          {user.password && (
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-xs text-muted-foreground">
+                Password: {showPassword ? user.password : '••••••••'}
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 px-2 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowPassword(!showPassword);
+                }}
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 px-2 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyToClipboard(user.password!);
+                }}
+              >
+                Copy
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-2">
+        <Badge variant="secondary">{user.primary_role}</Badge>
+        
+        {!isPrimaryOwner && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {roles.map((role) => (
+                <DropdownMenuItem
+                  key={role.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAssignRole(user.id, role.id);
+                  }}
+                >
+                  Change to {role.name}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeactivate(user.id, fullName);
+                }}
+                className="text-destructive"
+              >
+                Deactivate User
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+    </div>
+  );
 }

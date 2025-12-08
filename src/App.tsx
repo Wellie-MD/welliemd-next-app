@@ -33,6 +33,10 @@ import TemplateQuestions from "./pages/TemplateQuestions";
 import FlowBuilder from "./pages/FlowBuilder";
 import ManageAccount from "./pages/ManageAccount";
 import CouponCodes from "./pages/CouponCodes";
+import AcceptInvitation from "./pages/AcceptInvitation";
+import Forbidden from "./pages/Forbidden";
+import { Permissions } from "@/constants/permissions";
+
 
 const LS_KEY = "msg_last_seen";
 
@@ -176,6 +180,11 @@ const App = () => {
         <Route path="/signup" element={<SignUp />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/accept-invitation" element={<AcceptInvitation />} />
+        
+        {/* Error pages */}
+        <Route path="/forbidden" element={<Forbidden />} />
+
 
         {/* Dashboard routes */}
         <Route
@@ -200,7 +209,14 @@ const App = () => {
                       <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
                       <Route path="/products/routing" element={<ProtectedRoute><ProductsRouting /></ProtectedRoute>} />
                       <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
-                      <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
+                      <Route 
+                        path="/billing" 
+                        element={
+                          <ProtectedRoute requiredPermission={Permissions.BILLING_VIEW}>
+                            <Billing />
+                          </ProtectedRoute>
+                        } 
+                      />
                       <Route path="/finances/invoices" element={<ProtectedRoute><FinancesInvoices /></ProtectedRoute>} />
                       <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
                       <Route path="/affiliates" element={<ProtectedRoute><Affiliates /></ProtectedRoute>} />
