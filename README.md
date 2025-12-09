@@ -202,4 +202,4 @@ Ensure the following environment variables are set:
 
 ## 📞 Support
 
-For issues and questions, please contact the development team or create an issue in the repository.
+For issues and questions, please contact the development team or create an issue in the repository
