@@ -34,6 +34,7 @@ import FlowBuilder from "./pages/FlowBuilder";
 import ManageAccount from "./pages/ManageAccount";
 import CouponCodes from "./pages/CouponCodes";
 import AcceptInvitation from "./pages/AcceptInvitation";
+import RegisterInvitation from "./pages/auth/RegisterInvitation";
 import Forbidden from "./pages/Forbidden";
 import { Permissions } from "@/constants/permissions";
 
@@ -180,6 +181,7 @@ const App = () => {
         <Route path="/signup" element={<SignUp />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/register" element={<RegisterInvitation />} />
         <Route path="/accept-invitation" element={<AcceptInvitation />} />
         
         {/* Error pages */}

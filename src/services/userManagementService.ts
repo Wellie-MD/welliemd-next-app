@@ -10,7 +10,10 @@ export interface PortalUser {
     created_at: string;
     roles: string[];           // From backend enrichment
     primary_role?: string;     // From backend enrichment
-    password?: string;         // For Primary Owner only
+    // Invitation system fields (replaces password)
+    invitation_status?: 'pending' | 'active' | 'expired';
+    invitation_link?: string;  // Only for pending users
+    invitation_expires_at?: string;  // ISO datetime string
 }
 
 export interface Role {

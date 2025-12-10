@@ -18,7 +18,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Role } from "@/services/userManagementService";
-import { Loader2 } from "lucide-react";
+import { Loader2, Copy, CheckCircle, Link } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+interface InviteResponse {
+  status: string;
+  message: string;
+  email: string;
+  role: string;
+  user_id: string;
+  invitation_link: string;
+  invitation_status: string;
+  expires_at: string;
+}
 
 interface InviteUserModalProps {
   open: boolean;
@@ -28,7 +40,7 @@ interface InviteUserModalProps {
     roleId: string,
     firstName?: string,
     lastName?: string
-  ) => Promise<void>;
+  ) => Promise<InviteResponse | void>;
   roles: Role[];
 }
 
@@ -44,6 +56,8 @@ export function InviteUserModal({
   const [roleId, setRoleId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [inviteResult, setInviteResult] = useState<InviteResponse | null>(null);
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,12 +76,10 @@ export function InviteUserModal({
 
     try {
       setLoading(true);
-      await onInvite(email, roleId, firstName, lastName);
-      // Reset form
-      setEmail("");
-      setFirstName("");
-      setLastName("");
-      setRoleId("");
+      const result = await onInvite(email, roleId, firstName, lastName);
+      if (result && result.invitation_link) {
+        setInviteResult(result);
+      }
     } catch (error) {
       // Error handled by parent
     } finally {
@@ -81,8 +93,76 @@ export function InviteUserModal({
     setLastName("");
     setRoleId("");
     setError("");
+    setInviteResult(null);
     onClose();
   };
+
+  const copyInviteLink = () => {
+    if (inviteResult?.invitation_link) {
+      navigator.clipboard.writeText(inviteResult.invitation_link);
+      toast({
+        title: "Copied!",
+        description: "Invitation link copied to clipboard",
+        duration: 2000,
+      });
+    }
+  };
+
+  // Show success screen with invitation link
+  if (inviteResult) {
+    return (
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-6 w-6 text-green-500" />
+              <DialogTitle>User Invited Successfully!</DialogTitle>
+            </div>
+            <DialogDescription>
+              Share the invitation link below with {inviteResult.email}. They can use it to set up their account.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label className="flex items-center gap-2">
+                <Link className="h-4 w-4" />
+                Invitation Link
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  value={inviteResult.invitation_link}
+                  readOnly
+                  className="flex-1 font-mono text-sm"
+                />
+                <Button variant="outline" size="sm" onClick={copyInviteLink}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                This link expires on {new Date(inviteResult.expires_at).toLocaleDateString()} at {new Date(inviteResult.expires_at).toLocaleTimeString()}
+              </p>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
+              <p className="text-sm text-amber-800">
+                <strong>Note:</strong> The user must complete registration using this link before it expires. 
+                Once registered, they can log in with their own password.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={copyInviteLink}>
+              <Copy className="mr-2 h-4 w-4" />
+              Copy Link
+            </Button>
+            <Button onClick={handleClose}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -90,8 +170,8 @@ export function InviteUserModal({
         <DialogHeader>
           <DialogTitle>Add User</DialogTitle>
           <DialogDescription>
-            Add a new user to your portal. They will receive login credentials
-            via email.
+            Add a new user to your portal. They will receive an invitation link
+            to set up their account.
           </DialogDescription>
         </DialogHeader>
 
@@ -176,7 +256,7 @@ export function InviteUserModal({
             </Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Add User
+              Send Invitation
             </Button>
           </DialogFooter>
         </form>

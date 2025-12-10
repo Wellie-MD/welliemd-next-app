@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -70,24 +70,23 @@ export default function UsersPermissions() {
       // Show success message
       toast({
         title: 'Success',
-        description: `User created! Welcome email sent to ${email}`,
+        description: `Invitation created for ${email}`,
         duration: 5000,
       });
       
-      // Close modal
-      setInviteModalOpen(false);
-      
-      // Reload data in background to show new user (don't await to avoid blocking)
+      // Reload data in background to show new user
       loadData().catch(err => {
         console.error('Failed to reload users:', err);
-        // Don't show error toast as user was created successfully
       });
       
+      // Return response so modal can show invitation link
+      return response;
+      
     } catch (error: unknown) {
-      console.error('Failed to create user:', error);
+      console.error('Failed to create invitation:', error);
       toast({
         title: 'Error',
-        description: error.response?.data?.error || 'Failed to create user',
+        description: error.response?.data?.error || 'Failed to create invitation',
         variant: 'destructive',
       });
       throw error; // Re-throw to keep modal open on error
@@ -236,13 +235,24 @@ function UserCard({ user, roles, onAssignRole, onDeactivate, onClick }: {
   onDeactivate: (userId: string, userName: string) => void;
   onClick: () => void;
 }) {
-  const [showPassword, setShowPassword] = useState(false);
   const initials = `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
   const fullName = `${user.first_name} ${user.last_name}`;
   const isPrimaryOwner = user.primary_role === 'Primary Owner';
 
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = (text: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     navigator.clipboard.writeText(text);
+  };
+
+  // Get status badge based on invitation status
+  const getStatusBadge = () => {
+    if (user.invitation_status === 'pending') {
+      return <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 text-xs">Pending</Badge>;
+    }
+    if (user.invitation_status === 'expired') {
+      return <Badge variant="outline" className="text-red-600 border-red-300 bg-red-50 text-xs">Expired</Badge>;
+    }
+    return null; // Active users don't need a status badge
   };
 
   return (
@@ -260,33 +270,19 @@ function UserCard({ user, roles, onAssignRole, onDeactivate, onClick }: {
           <p className="font-medium">{fullName}</p>
           <p className="text-sm text-muted-foreground">{user.email}</p>
           
-          {/* Show password if available */}
-          {user.password && (
+          {/* Show invitation link for pending users */}
+          {user.invitation_status === 'pending' && user.invitation_link && (
             <div className="flex items-center gap-2 mt-1">
-              <p className="text-xs text-muted-foreground">
-                Password: {showPassword ? user.password : '••••••••'}
+              <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                Invite: {user.invitation_link}
               </p>
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-5 px-2 text-xs"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowPassword(!showPassword);
-                }}
+                onClick={(e) => copyToClipboard(user.invitation_link!, e)}
               >
-                {showPassword ? 'Hide' : 'Show'}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-5 px-2 text-xs"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  copyToClipboard(user.password!);
-                }}
-              >
-                Copy
+                Copy Link
               </Button>
             </div>
           )}
@@ -294,6 +290,7 @@ function UserCard({ user, roles, onAssignRole, onDeactivate, onClick }: {
       </div>
       
       <div className="flex items-center gap-2">
+        {getStatusBadge()}
         <Badge variant="secondary">{user.primary_role}</Badge>
         
         {!isPrimaryOwner && (

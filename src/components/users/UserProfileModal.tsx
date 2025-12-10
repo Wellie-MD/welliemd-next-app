@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, Mail, Shield, Key, Loader2, Copy, Eye, EyeOff } from "lucide-react";
+import { User, Mail, Shield, Copy, Link, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { PortalUser } from '@/services/userManagementService';
 import { useToast } from '@/hooks/use-toast';
 
@@ -23,7 +23,6 @@ interface UserProfileModalProps {
 }
 
 export function UserProfileModal({ open, onClose, user }: UserProfileModalProps) {
-  const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
 
   if (!user) return null;
@@ -38,6 +37,20 @@ export function UserProfileModal({ open, onClose, user }: UserProfileModalProps)
       description: `${label} copied to clipboard`,
       duration: 2000,
     });
+  };
+
+  // Determine invitation status display
+  const getStatusBadge = () => {
+    if (user.invitation_status === 'pending') {
+      return <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">Pending Invitation</Badge>;
+    }
+    if (user.invitation_status === 'expired') {
+      return <Badge variant="outline" className="text-red-600 border-red-300 bg-red-50">Invitation Expired</Badge>;
+    }
+    if (user.is_active) {
+      return <Badge variant="default" className="bg-green-600">Active</Badge>;
+    }
+    return <Badge variant="secondary">Inactive</Badge>;
   };
 
   return (
@@ -104,49 +117,61 @@ export function UserProfileModal({ open, onClose, user }: UserProfileModalProps)
             </div>
           </div>
 
-          {/* Password (if available) */}
-          {user.password && (
+          {/* Invitation Link (for pending users) */}
+          {user.invitation_status === 'pending' && user.invitation_link && (
             <div className="grid gap-2">
               <Label className="flex items-center gap-2">
-                <Key className="h-4 w-4" />
-                Password
+                <Link className="h-4 w-4" />
+                Invitation Link
               </Label>
               <div className="flex gap-2">
                 <Input
-                  type={showPassword ? 'text' : 'password'}
-                  value={user.password}
-                  disabled
-                  className="flex-1 font-mono"
+                  value={user.invitation_link}
+                  readOnly
+                  className="flex-1 font-mono text-sm"
                 />
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => copyToClipboard(user.password!, 'Password')}
+                  onClick={() => copyToClipboard(user.invitation_link!, 'Invitation link')}
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                This password was automatically generated and sent to the user via email.
-              </p>
+              {user.invitation_expires_at && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Expires: {new Date(user.invitation_expires_at).toLocaleDateString()} at {new Date(user.invitation_expires_at).toLocaleTimeString()}
+                </p>
+              )}
+              <div className="bg-amber-50 border border-amber-200 rounded-md p-2 mt-1">
+                <p className="text-xs text-amber-800">
+                  User must complete registration using this link before it expires.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Active user confirmation */}
+          {user.invitation_status === 'active' && (
+            <div className="flex items-center gap-2 text-green-600 bg-green-50 border border-green-200 rounded-md p-3">
+              <CheckCircle className="h-5 w-5" />
+              <span className="text-sm font-medium">Account is active and registered</span>
+            </div>
+          )}
+
+          {/* Expired invitation warning */}
+          {user.invitation_status === 'expired' && (
+            <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
+              <AlertCircle className="h-5 w-5" />
+              <span className="text-sm font-medium">Invitation expired - resend invitation to user</span>
             </div>
           )}
 
           {/* Account Status */}
           <div className="grid gap-2">
             <Label>Account Status</Label>
-            <div>
-              <Badge variant={user.is_active ? 'default' : 'secondary'}>
-                {user.is_active ? 'Active' : 'Inactive'}
-              </Badge>
-            </div>
+            <div>{getStatusBadge()}</div>
           </div>
         </div>
 
