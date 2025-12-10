@@ -33,14 +33,14 @@ export const Permissions = {
     COUPON_DELETE: 'coupon:delete',
 
     // Products
-    PRODUCT_MANAGE: 'manage_products',
-    PRODUCT_ASSIGN: 'assign_products',
-    PRODUCT_ARCHIVE: 'archive_products',
+    PRODUCT_MANAGE: 'product:manage',
+    PRODUCT_ASSIGN: 'product:assign',
+    PRODUCT_ARCHIVE: 'product:archive',
 
     // Templates
-    TEMPLATE_MANAGE: 'manage_templates',
-    TEMPLATE_ASSIGN: 'assign_templates',
-    TEMPLATE_ARCHIVE: 'archive_templates',
+    TEMPLATE_MANAGE: 'template:manage',
+    TEMPLATE_ASSIGN: 'template:assign',
+    TEMPLATE_ARCHIVE: 'template:archive',
 } as const;
 
 export const RoleNames = {
