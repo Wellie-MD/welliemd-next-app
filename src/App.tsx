@@ -18,6 +18,7 @@ import Patients from "./pages/Patients";
 import Products from "./pages/Products";
 import ProductsRouting from "./pages/ProductsRouting";
 import Messages from "./pages/Messages";
+import Analytics from "./pages/Analytics";
 import Affiliates from "./pages/Affiliates";
 import Orders from "./pages/Orders";
 import Payments from "./pages/Payments";
@@ -26,6 +27,9 @@ import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
+import AnalyticsCohorts from "./pages/AnalyticsCohorts";
+import AnalyticsReports from "./pages/AnalyticsReports";
+import CouponInsights from "./pages/CouponInsights";
 import Billing from "./pages/Billing";
 import FinancesInvoices from "./pages/finances/Invoices";
 import TemplateManagement from "./pages/TemplateManagement";
@@ -219,6 +223,11 @@ const App = () => {
                           </ProtectedRoute>
                         } 
                       />
+                      <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+                      <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} />
+                      <Route path="/analytics/reports" element={<ProtectedRoute><AnalyticsReports /></ProtectedRoute>} />
+                      <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
+                      <Route path="/coupon-insights" element={<ProtectedRoute><CouponInsights /></ProtectedRoute>} />
                       <Route path="/finances/invoices" element={<ProtectedRoute><FinancesInvoices /></ProtectedRoute>} />
                       <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
                       <Route path="/affiliates" element={<ProtectedRoute><Affiliates /></ProtectedRoute>} />

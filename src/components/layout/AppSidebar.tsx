@@ -71,6 +71,15 @@ const menuSections = [
         icon: MessageSquare,
         permission: Permissions.MESSAGE_LIST, // All roles
       },
+      {
+        title: "Analytics",
+        icon: TrendingUp,
+        children: [
+          { title: "Live View", url: "/dashboard/analytics/live" },
+          { title: "Reports", url: "/dashboard/analytics/reports" },
+          { title: "Cohorts", url: "/dashboard/analytics/cohorts" },
+        ],
+      },
     ],
   },
   {
@@ -105,11 +114,19 @@ const menuSections = [
           { title: "Invoices", url: "/dashboard/finances/invoices" },
         ],
       },
+      // {
+      //   title: "Coupon Codes",
+      //   url: "/dashboard/coupon-codes",
+      //   icon: Gift,
+      //   permission: Permissions.COUPON_CREATE, // All roles
+      // },
       {
-        title: "Coupon Codes",
-        url: "/dashboard/coupon-codes",
+        title: "Discounts",
         icon: Gift,
-        permission: Permissions.COUPON_CREATE, // All roles
+        children: [
+          { title: "Coupon Codes", url: "/dashboard/coupon-codes" },
+          { title: "Insights", url: "/dashboard/coupon-insights" },
+        ],
       },
       {
         title: "Affiliates",
