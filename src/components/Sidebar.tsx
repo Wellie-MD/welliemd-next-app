@@ -12,7 +12,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  BookOpen,
+  // BookOpen, // Unused - Resources page disabled
 } from "lucide-react";
 import { cn } from "./ui/utils";
 
@@ -30,7 +30,7 @@ const navigationItems: NavigationItem[] = [
   { icon: Pill, label: "Prescriptions", path: "/dashboard/prescriptions" },
   { icon: TestTube, label: "Treatments", path: "/dashboard/treatments" },
   { icon: MessageSquare, label: "Messages", path: "/dashboard/messages" },
-  { icon: BookOpen, label: "Resources", path: "/dashboard/blog" },
+  // { icon: BookOpen, label: "Resources", path: "/dashboard/blog" }, // Hidden - Resources page disabled
   { icon: Settings, label: "Settings", path: "/dashboard/settings" },
   { icon: HelpCircle, label: "Help", path: "/dashboard/help" },
 ];

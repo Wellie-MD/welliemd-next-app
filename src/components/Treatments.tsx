@@ -17,39 +17,7 @@ interface Treatment {
 }
 
 export default function Treatments() {
-  const treatments: Treatment[] = [
-    {
-      id: 1,
-      name: "Lisinopril",
-      doctor: "Dr. Sarah Johnson",
-      status: "active",
-      startDate: "2024-12-01",
-      dosage: "10mg",
-      frequency: "Once daily",
-      instructions: "Take with food in the morning"
-    },
-    {
-      id: 2,
-      name: "Metformin",
-      doctor: "Dr. Emily Rodriguez",
-      status: "active",
-      startDate: "2024-11-15",
-      dosage: "500mg",
-      frequency: "Twice daily",
-      instructions: "Take with meals"
-    },
-    {
-      id: 3,
-      name: "Physical Therapy",
-      doctor: "Dr. David Wilson",
-      status: "completed",
-      startDate: "2024-10-01",
-      endDate: "2024-11-30",
-      dosage: "N/A",
-      frequency: "3x per week",
-      instructions: "Focus on knee strengthening exercises"
-    }
-  ];
+  const treatments: Treatment[] = [];
 
   const activeT = treatments.filter(t => t.status === 'active');
   const completedT = treatments.filter(t => t.status === 'completed');
@@ -144,18 +112,28 @@ export default function Treatments() {
           ) : (
             <Card>
               <CardContent className="p-12 text-center">
-                <Pill className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No active treatments</h3>
-                <p className="text-gray-600">There are not active treatments at the moment.</p>
+                <Pill className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No treatments recorded</h3>
+                <p className="text-gray-600">No treatment history available.</p>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
         <TabsContent value="completed" className="space-y-4">
-          {completedT.map((treatment) => (
-            <TreatmentCard key={treatment.id} treatment={treatment} />
-          ))}
+          {completedT.length > 0 ? (
+            completedT.map((treatment) => (
+              <TreatmentCard key={treatment.id} treatment={treatment} />
+            ))
+          ) : (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Pill className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No completed treatments</h3>
+                <p className="text-gray-600">You don't have any completed treatments yet.</p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

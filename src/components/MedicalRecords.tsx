@@ -19,68 +19,7 @@ interface MedicalRecord {
 
 export default function MedicalRecords() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [records] = useState<MedicalRecord[]>([
-    {
-      id: 1,
-      title: "Blood Test Results",
-      type: "PDF",
-      date: "2024-12-20",
-      doctor: "Dr. Sarah Johnson",
-      size: "245 KB",
-      description: "Complete blood count and lipid panel",
-      category: "lab-results"
-    },
-    {
-      id: 2,
-      title: "Chest X-Ray",
-      type: "DICOM",
-      date: "2024-12-18",
-      doctor: "Dr. Michael Chen",
-      size: "12.3 MB",
-      description: "Routine chest imaging",
-      category: "imaging"
-    },
-    {
-      id: 3,
-      title: "Cardiology Consultation Report",
-      type: "PDF",
-      date: "2024-12-15",
-      doctor: "Dr. Sarah Johnson",
-      size: "156 KB",
-      description: "Follow-up consultation and treatment plan",
-      category: "reports"
-    },
-    {
-      id: 4,
-      title: "Prescription - Lisinopril",
-      type: "PDF",
-      date: "2024-12-10",
-      doctor: "Dr. Emily Rodriguez",
-      size: "89 KB",
-      description: "Blood pressure medication prescription",
-      category: "prescriptions"
-    },
-    {
-      id: 5,
-      title: "MRI Scan - Knee",
-      type: "DICOM",
-      date: "2024-12-05",
-      doctor: "Dr. David Wilson",
-      size: "245 MB",
-      description: "Right knee MRI following injury",
-      category: "imaging"
-    },
-    {
-      id: 6,
-      title: "Annual Physical Exam",
-      type: "PDF",
-      date: "2024-11-28",
-      doctor: "Dr. Emily Rodriguez",
-      size: "324 KB",
-      description: "Comprehensive annual health examination",
-      category: "reports"
-    }
-  ]);
+  const [records] = useState<MedicalRecord[]>([]);
 
   const filteredRecords = records.filter(record =>
     record.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -186,36 +125,76 @@ export default function MedicalRecords() {
           ) : (
             <Card>
               <CardContent className="p-12 text-center">
-                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No records found</h3>
-                <p className="text-gray-600">Try adjusting your search criteria.</p>
+                <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No medical records available</h3>
+                <p className="text-gray-600">You don't have any medical records yet.</p>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
         <TabsContent value="lab-results" className="space-y-4">
-          {getRecordsByCategory('lab-results').map((record) => (
-            <RecordCard key={record.id} record={record} />
-          ))}
+          {getRecordsByCategory('lab-results').length > 0 ? (
+            getRecordsByCategory('lab-results').map((record) => (
+              <RecordCard key={record.id} record={record} />
+            ))
+          ) : (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No lab results available</h3>
+                <p className="text-gray-600">You don't have any lab results yet.</p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="imaging" className="space-y-4">
-          {getRecordsByCategory('imaging').map((record) => (
-            <RecordCard key={record.id} record={record} />
-          ))}
+          {getRecordsByCategory('imaging').length > 0 ? (
+            getRecordsByCategory('imaging').map((record) => (
+              <RecordCard key={record.id} record={record} />
+            ))
+          ) : (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No imaging records available</h3>
+                <p className="text-gray-600">You don't have any imaging records yet.</p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">
-          {getRecordsByCategory('reports').map((record) => (
-            <RecordCard key={record.id} record={record} />
-          ))}
+          {getRecordsByCategory('reports').length > 0 ? (
+            getRecordsByCategory('reports').map((record) => (
+              <RecordCard key={record.id} record={record} />
+            ))
+          ) : (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No reports available</h3>
+                <p className="text-gray-600">You don't have any reports yet.</p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="prescriptions" className="space-y-4">
-          {getRecordsByCategory('prescriptions').map((record) => (
-            <RecordCard key={record.id} record={record} />
-          ))}
+          {getRecordsByCategory('prescriptions').length > 0 ? (
+            getRecordsByCategory('prescriptions').map((record) => (
+              <RecordCard key={record.id} record={record} />
+            ))
+          ) : (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No prescription records available</h3>
+                <p className="text-gray-600">You don't have any prescription records yet.</p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

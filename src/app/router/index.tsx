@@ -16,8 +16,9 @@ const Prescriptions = React.lazy(() => import('@/components/Prescriptions'));
 const Messages = React.lazy(() => import('@/components/Messages'));
 const MedicalRecords = React.lazy(() => import('@/components/MedicalRecords'));
 const Appointments = React.lazy(() => import('@/components/Appointments'));
-const Blog = React.lazy(() => import('@/components/Blog'));
-const BlogPost = React.lazy(() => import('@/components/BlogPost'));
+// Resources pages disabled
+// const Blog = React.lazy(() => import('@/components/Blog'));
+// const BlogPost = React.lazy(() => import('@/components/BlogPost'));
 
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -55,8 +56,9 @@ export const AppRouter: React.FC = () => {
             <Route path="prescriptions" element={<Prescriptions />} />
             <Route path="treatments" element={<Treatments />} />
             <Route path="messages" element={<Messages />} />
-            <Route path="blog" element={<Blog />} />
-            <Route path="blog/:id" element={<BlogPost />} />
+            {/* Resources routes disabled */}
+            {/* <Route path="blog" element={<Blog />} /> */}
+            {/* <Route path="blog/:id" element={<BlogPost />} /> */}
             
             {/* Settings and Help pages */}
             <Route path="settings" element={

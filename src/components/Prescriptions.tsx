@@ -25,71 +25,7 @@ interface Prescription {
 }
 
 export default function Prescriptions() {
-  const [prescriptions] = useState<Prescription[]>([
-    {
-      id: 1,
-      medication: "Lisinopril",
-      genericName: "Lisinopril",
-      dosage: "10mg tablets",
-      frequency: "Once daily",
-      quantity: 30,
-      refillsRemaining: 3,
-      prescribedBy: "Dr. Sarah Johnson",
-      prescribedDate: "2024-12-01",
-      expiryDate: "2025-12-01",
-      instructions: "Take with food in the morning. Monitor blood pressure regularly.",
-      status: "active",
-      category: "chronic",
-      sideEffects: ["Dizziness", "Dry cough", "Headache"]
-    },
-    {
-      id: 2,
-      medication: "Metformin",
-      genericName: "Metformin HCl",
-      dosage: "500mg tablets",
-      frequency: "Twice daily with meals",
-      quantity: 60,
-      refillsRemaining: 2,
-      prescribedBy: "Dr. Emily Rodriguez",
-      prescribedDate: "2024-11-15",
-      expiryDate: "2025-11-15",
-      instructions: "Take with breakfast and dinner. May cause stomach upset initially.",
-      status: "active",
-      category: "chronic",
-      sideEffects: ["Nausea", "Diarrhea", "Metallic taste"]
-    },
-    {
-      id: 3,
-      medication: "Amoxicillin",
-      genericName: "Amoxicillin",
-      dosage: "500mg capsules",
-      frequency: "Three times daily",
-      quantity: 21,
-      refillsRemaining: 0,
-      prescribedBy: "Dr. Michael Chen",
-      prescribedDate: "2024-12-10",
-      expiryDate: "2024-12-17",
-      instructions: "Complete full course even if feeling better. Take with food.",
-      status: "expired",
-      category: "acute"
-    },
-    {
-      id: 4,
-      medication: "Atorvastatin",
-      genericName: "Atorvastatin Calcium",
-      dosage: "20mg tablets",
-      frequency: "Once daily at bedtime",
-      quantity: 30,
-      refillsRemaining: 5,
-      prescribedBy: "Dr. Sarah Johnson",
-      prescribedDate: "2024-10-15",
-      expiryDate: "2025-10-15",
-      instructions: "Take at bedtime. Avoid grapefruit juice.",
-      status: "active",
-      category: "preventive",
-      refillRequestDate: "2024-12-20"
-    }
-  ]);
+  const [prescriptions] = useState<Prescription[]>([]);
 
   const activePrescriptions = prescriptions.filter(p => p.status === 'active');
   const expiredPrescriptions = prescriptions.filter(p => p.status === 'expired' || p.status === 'discontinued');
@@ -282,22 +218,28 @@ export default function Prescriptions() {
           ) : (
             <Card>
               <CardContent className="p-12 text-center">
-                <Pill className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No active prescriptions</h3>
-                <p className="text-gray-600 mb-4">You don't have any active prescriptions at the moment.</p>
-                <Button>
-                  <Pill className="h-4 w-4 mr-2" />
-                  Request New Prescription
-                </Button>
+                <Pill className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No prescriptions found</h3>
+                <p className="text-gray-600">You currently have no active prescriptions.</p>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
         <TabsContent value="history" className="space-y-4">
-          {expiredPrescriptions.map((prescription) => (
-            <PrescriptionCard key={prescription.id} prescription={prescription} />
-          ))}
+          {expiredPrescriptions.length > 0 ? (
+            expiredPrescriptions.map((prescription) => (
+              <PrescriptionCard key={prescription.id} prescription={prescription} />
+            ))
+          ) : (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Pill className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No prescription history</h3>
+                <p className="text-gray-600">You don't have any past prescriptions.</p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
 

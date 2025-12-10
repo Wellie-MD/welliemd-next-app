@@ -18,49 +18,7 @@ interface Appointment {
 }
 
 export default function Appointments() {
-  const [appointments] = useState<Appointment[]>([
-    {
-      id: 1,
-      doctor: "Dr. Sarah Johnson",
-      specialty: "Cardiology",
-      date: "2024-12-28",
-      time: "10:00 AM",
-      location: "Medical Center - Building A, Room 201",
-      type: "Follow-up",
-      status: "upcoming",
-      notes: "Bring recent ECG results"
-    },
-    {
-      id: 2,
-      doctor: "Dr. Michael Chen",
-      specialty: "Dermatology",
-      date: "2024-12-30",
-      time: "2:30 PM",
-      location: "Skin Care Clinic - Suite 305",
-      type: "Consultation",
-      status: "upcoming"
-    },
-    {
-      id: 3,
-      doctor: "Dr. Emily Rodriguez",
-      specialty: "Primary Care",
-      date: "2024-12-15",
-      time: "9:00 AM",
-      location: "Main Campus - Building B, Room 102",
-      type: "Annual Checkup",
-      status: "completed"
-    },
-    {
-      id: 4,
-      doctor: "Dr. David Wilson",
-      specialty: "Orthopedics",
-      date: "2024-12-10",
-      time: "3:00 PM",
-      location: "Sports Medicine Center",
-      type: "Follow-up",
-      status: "completed"
-    }
-  ]);
+  const [appointments] = useState<Appointment[]>([]);
 
   const upcomingAppointments = appointments.filter(apt => apt.status === 'upcoming');
   const pastAppointments = appointments.filter(apt => apt.status === 'completed');
@@ -167,22 +125,28 @@ export default function Appointments() {
           ) : (
             <Card>
               <CardContent className="p-12 text-center">
-                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No upcoming appointments</h3>
-                <p className="text-gray-600 mb-4">You don't have any scheduled appointments.</p>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Schedule Your First Appointment
-                </Button>
+                <p className="text-gray-600">You have no appointments scheduled.</p>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
         <TabsContent value="past" className="space-y-4">
-          {pastAppointments.map((appointment) => (
-            <AppointmentCard key={appointment.id} appointment={appointment} />
-          ))}
+          {pastAppointments.length > 0 ? (
+            pastAppointments.map((appointment) => (
+              <AppointmentCard key={appointment.id} appointment={appointment} />
+            ))
+          ) : (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No past appointments</h3>
+                <p className="text-gray-600">You don't have any appointment history yet.</p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>
