@@ -25,6 +25,9 @@ interface ProductForAssignment {
   base_price?: string;
   rx_or_otc?: string;
   is_modified_need_to_re_assigned?: boolean;
+  pharmacy_name?: string;
+  category_name?: string;
+  beluga_medicine_id?: string;
 }
 
 interface PaginatedProductsResponse {
@@ -130,7 +133,7 @@ export default function ProductAssignment() {
     }
   };
 
-  // Filter products based on search
+  // Filter products based on search (multi-field: name, pharmacy, category, MedID)
   const filteredProducts = useMemo(() => {
     if (!productSearch.trim()) return products;
     const search = productSearch.toLowerCase();
@@ -138,7 +141,10 @@ export default function ProductAssignment() {
       (product) =>
         product.name.toLowerCase().includes(search) ||
         product.treatment?.toLowerCase().includes(search) ||
-        product.manufacturer_name?.toLowerCase().includes(search)
+        product.manufacturer_name?.toLowerCase().includes(search) ||
+        product.pharmacy_name?.toLowerCase().includes(search) ||
+        product.category_name?.toLowerCase().includes(search) ||
+        product.beluga_medicine_id?.toLowerCase().includes(search)
     );
   }, [products, productSearch]);
 
@@ -421,7 +427,7 @@ export default function ProductAssignment() {
               <Input
                 value={productSearch}
                 onChange={(e) => setProductSearch(e.target.value)}
-                placeholder="Search products..."
+                placeholder="Search by name, pharmacy, category, or MedID..."
                 className="pl-9 pr-9"
               />
               {productSearch && (
@@ -504,6 +510,16 @@ export default function ProductAssignment() {
                         <p className="text-xs text-muted-foreground">
                           {formatTreatment(product.treatment)}
                         </p>
+                        {product.pharmacy_name && (
+                          <p className="text-xs text-muted-foreground">
+                            Pharmacy: {product.pharmacy_name}
+                          </p>
+                        )}
+                        {product.category_name && (
+                          <p className="text-xs text-muted-foreground">
+                            Category: {product.category_name}
+                          </p>
+                        )}
                         {product.manufacturer_name && (
                           <p className="text-xs text-muted-foreground mt-1">
                             {product.manufacturer_name}
