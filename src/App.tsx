@@ -18,6 +18,7 @@ import Patients from "./pages/Patients";
 import Products from "./pages/Products";
 import ProductsRouting from "./pages/ProductsRouting";
 import Messages from "./pages/Messages";
+import Analytics from "./pages/Analytics";
 import Affiliates from "./pages/Affiliates";
 import Orders from "./pages/Orders";
 import Payments from "./pages/Payments";
@@ -26,6 +27,9 @@ import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
+import AnalyticsCohorts from "./pages/AnalyticsCohorts";
+import AnalyticsReports from "./pages/AnalyticsReports";
+import CouponInsights from "./pages/CouponInsights";
 import Billing from "./pages/Billing";
 import FinancesInvoices from "./pages/finances/Invoices";
 import TemplateManagement from "./pages/TemplateManagement";
@@ -33,6 +37,11 @@ import TemplateQuestions from "./pages/TemplateQuestions";
 import FlowBuilder from "./pages/FlowBuilder";
 import ManageAccount from "./pages/ManageAccount";
 import CouponCodes from "./pages/CouponCodes";
+import AcceptInvitation from "./pages/AcceptInvitation";
+import RegisterInvitation from "./pages/auth/RegisterInvitation";
+import Forbidden from "./pages/Forbidden";
+import { Permissions } from "@/constants/permissions";
+
 
 const LS_KEY = "msg_last_seen";
 
@@ -176,6 +185,12 @@ const App = () => {
         <Route path="/signup" element={<SignUp />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/register" element={<RegisterInvitation />} />
+        <Route path="/accept-invitation" element={<AcceptInvitation />} />
+        
+        {/* Error pages */}
+        <Route path="/forbidden" element={<Forbidden />} />
+
 
         {/* Dashboard routes */}
         <Route
@@ -200,7 +215,19 @@ const App = () => {
                       <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
                       <Route path="/products/routing" element={<ProtectedRoute><ProductsRouting /></ProtectedRoute>} />
                       <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
-                      <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
+                      <Route 
+                        path="/billing" 
+                        element={
+                          <ProtectedRoute requiredPermission={Permissions.BILLING_VIEW}>
+                            <Billing />
+                          </ProtectedRoute>
+                        } 
+                      />
+                      <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+                      <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} />
+                      <Route path="/analytics/reports" element={<ProtectedRoute><AnalyticsReports /></ProtectedRoute>} />
+                      <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
+                      <Route path="/coupon-insights" element={<ProtectedRoute><CouponInsights /></ProtectedRoute>} />
                       <Route path="/finances/invoices" element={<ProtectedRoute><FinancesInvoices /></ProtectedRoute>} />
                       <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
                       <Route path="/affiliates" element={<ProtectedRoute><Affiliates /></ProtectedRoute>} />
