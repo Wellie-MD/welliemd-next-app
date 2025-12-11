@@ -60,8 +60,6 @@ const menuSections = [
         children: [
           { title: "Orders", url: "/dashboard/orders" },
           { title: "Payments", url: "/dashboard/orders/payments" },
-          { title: "Disputes", url: "/dashboard/orders/disputes" },
-          { title: "Resolution Queue", url: "/dashboard/orders/resolution-queue" }
         ]
       },
       { title: "Messenger", url: "/dashboard/messages", icon: MessageSquare },

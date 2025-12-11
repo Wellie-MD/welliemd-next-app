@@ -16,8 +16,6 @@ import ClientForm from "./pages/ClientForm";
 import Treatments from "./pages/Treatments";
 import Products from "./pages/Products";
 import Messages from "./pages/Messages";
-import Disputes from "./pages/Disputes";
-import ResolutionQueue from "./pages/ResolutionQueue";
 import Analytics from "./pages/Analytics";
 import Affiliates from "./pages/Affiliates";
 import Questionnaires from "./pages/Questionnaires";
@@ -104,8 +102,6 @@ const App = () => {
                     <Route path="/treatments/configurations" element={<ProtectedRoute><TreatmentConfigurations /></ProtectedRoute>} />
                     <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
                     <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
-                    <Route path="/orders/disputes" element={<ProtectedRoute><Disputes /></ProtectedRoute>} />
-                    <Route path="/orders/resolution-queue" element={<ProtectedRoute><ResolutionQueue /></ProtectedRoute>} />
                     <Route path="/prescriptions" element={<ProtectedRoute><Prescriptions /></ProtectedRoute>} />
                     <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
                     <Route path="/products/assign" element={<ProtectedRoute><ProductAssignment /></ProtectedRoute>} />
