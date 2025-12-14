@@ -15,6 +15,7 @@ import PrescribingDoctors from "@/pages/settings/PrescribingDoctors"
 import Brand from "@/pages/settings/Brand"
 import AnalyticsSeo from "@/pages/settings/AnalyticsSeo"
 import SmtpSettings from "@/pages/settings/SmtpSettings"
+import SmtpDomainSettings from "@/pages/settings/SmtpDomainSettings"
 
 export function SettingsLayout() {
   return (
@@ -45,6 +46,7 @@ export function SettingsLayout() {
               <Route path="brand" element={<Brand />} />
               <Route path="analytics-seo" element={<AnalyticsSeo />} />
               <Route path="smtp-settings" element={<SmtpSettings />} />
+              <Route path="smtp-domains" element={<SmtpDomainSettings />} />
               <Route path="" element={<StoreDetails />} />
             </Routes>
           </div>

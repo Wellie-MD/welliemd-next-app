@@ -1,5 +1,47 @@
 import api from './axiosInstance';
 
+const apiBaseUrl = import.meta.env.MAILGUN_API_BASE || "http://127.0.0.1:8000/api/v1";
+
+// --- Mailgun Domain API ---
+export interface MailgunDomain {
+  name: string;
+  smtp_password?: string;
+  [key: string]: any;
+}
+
+export interface MailgunDomainResponse {
+  domain: any;
+  receiving_dns_records: any[];
+  sending_dns_records: any[];
+  [key: string]: any;
+}
+
+export const createMailgunDomain = async (domain: MailgunDomain): Promise<MailgunDomainResponse> => {
+  const { data } = await api.post(`${apiBaseUrl}/mailgun-domains/`, domain);
+  return data;
+};
+
+export const getMailgunDomain = async (domainName: string): Promise<MailgunDomainResponse> => {
+  const { data } = await api.get(`${apiBaseUrl}/mailgun-domains/${domainName}/`);
+  return data;
+};
+
+export const deleteMailgunDomain = async (domainName: string): Promise<any> => {
+  const { data } = await api.delete(`${apiBaseUrl}/mailgun-domains/${domainName}/`);
+  return data;
+};
+
+export const createMailgunCredentials = async (domainName: string, login: string): Promise<MailgunDomainResponse> => {
+  const { data } = await api.post(`${apiBaseUrl}/mailgun-domains/${domainName}/credentials/`, { login });
+  return data;
+};
+
+export const deleteMailgunCredentials = async (domainName: string, login: string): Promise<MailgunDomainResponse> => {
+  const { data } = await api.delete(`${apiBaseUrl}/mailgun-domains/${domainName}/credentials/${login}/`);
+  return data;
+};
+
+// --- Existing App SMTP API ---
 export interface ClientEmailConfiguration {
   id?: number;
   client?: number;
@@ -144,4 +186,9 @@ export const smtpApi = {
   replaceEmailConfiguration,
   deleteEmailConfiguration,
   searchEmailConfigurations,
+  createMailgunDomain,
+  getMailgunDomain,
+  deleteMailgunDomain,
+  createMailgunCredentials,
+  deleteMailgunCredentials
 };

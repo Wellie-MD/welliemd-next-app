@@ -47,6 +47,7 @@ const settingsMenuItems = [
   { title: "Brand", url: "/dashboard/settings/brand", icon: Palette },
   { title: "Analytics and SEO", url: "/dashboard/settings/analytics-seo", icon: TrendingUp },
   { title: "SMTP Settings", url: "/dashboard/settings/smtp-settings", icon: Settings2 },
+  { title: "Sending Domain", url: "/dashboard/settings/smtp-domains", icon: Globe },
 ]
 
 export function SettingsSidebar() {
