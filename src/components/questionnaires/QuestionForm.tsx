@@ -566,7 +566,7 @@ export function QuestionForm({
 
       // Handle disqualifying answers for choice-based questions
       if (
-        ["single_choice", "multiple_choice", "consent"].includes(
+        ["single_choice", "multiple_choice", "consent", "sex"].includes(
           formData.question_type
         )
       ) {
