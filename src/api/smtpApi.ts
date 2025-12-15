@@ -1,6 +1,6 @@
 import api from './axiosInstance';
 
-const apiBaseUrl = import.meta.env.MAILGUN_API_BASE || "http://127.0.0.1:8000/api/v1";
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1/";
 
 // --- Mailgun Domain API ---
 export interface MailgunDomain {
@@ -17,27 +17,27 @@ export interface MailgunDomainResponse {
 }
 
 export const createMailgunDomain = async (domain: MailgunDomain): Promise<MailgunDomainResponse> => {
-  const { data } = await api.post(`${apiBaseUrl}/mailgun-domains/`, domain);
+  const { data } = await api.post(`${apiBaseUrl}mailgun-domains/`, domain);
   return data;
 };
 
 export const getMailgunDomain = async (domainName: string): Promise<MailgunDomainResponse> => {
-  const { data } = await api.get(`${apiBaseUrl}/mailgun-domains/${domainName}/`);
+  const { data } = await api.get(`${apiBaseUrl}mailgun-domains/${domainName}/`);
   return data;
 };
 
 export const deleteMailgunDomain = async (domainName: string): Promise<any> => {
-  const { data } = await api.delete(`${apiBaseUrl}/mailgun-domains/${domainName}/`);
+  const { data } = await api.delete(`${apiBaseUrl}mailgun-domains/${domainName}/`);
   return data;
 };
 
 export const createMailgunCredentials = async (domainName: string, login: string): Promise<MailgunDomainResponse> => {
-  const { data } = await api.post(`${apiBaseUrl}/mailgun-domains/${domainName}/credentials/`, { login });
+  const { data } = await api.post(`${apiBaseUrl}mailgun-domains/${domainName}/credentials/`, { login });
   return data;
 };
 
 export const deleteMailgunCredentials = async (domainName: string, login: string): Promise<MailgunDomainResponse> => {
-  const { data } = await api.delete(`${apiBaseUrl}/mailgun-domains/${domainName}/credentials/${login}/`);
+  const { data } = await api.delete(`${apiBaseUrl}mailgun-domains/${domainName}/credentials/${login}/`);
   return data;
 };
 
