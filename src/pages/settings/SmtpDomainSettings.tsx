@@ -67,8 +67,16 @@ export default function SmtpDomainSettings() {
     setCredError(null)
     setCredSuccess(null)
     try {
-      const response = await smtpApi.createMailgunCredentials(mgDomain, formData.email_host_user)
-      setCredSuccess('Crdentials created and saved successfully!')
+      if (configId) {
+        // Update existing
+        await smtpApi.updateEmailConfiguration(configId, formData)
+        setCredSuccess('Email configuration updated successfully!')
+      } else {
+        // Create new
+        const response = await smtpApi.createEmailConfiguration(formData)
+        setConfigId(response.id)
+        setCredSuccess('Email configuration created successfully!')
+      }
     } catch (err) {
       const data = err.response?.data;
       let message = "Something went wrong";
@@ -106,11 +114,11 @@ export default function SmtpDomainSettings() {
         email_host_password: "",
         default_from_email: "",
       })
-      setCredSuccess('Credentials deleted successfully!')
+      setCredSuccess('Email configuration deleted successfully!')
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to delete credentials'
+      const errorMsg = err instanceof Error ? err.message : 'Failed to delete configuration'
       setCredError(errorMsg)
-      console.error('Error deleting email credentials:', err)
+      console.error('Error deleting email configuration:', err)
     } finally {
       setIsSaving(false)
     }
@@ -183,7 +191,7 @@ export default function SmtpDomainSettings() {
   return (
     <div className="max-w-4xl mx-auto space-y-8 p-6">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">SMTP Domain Settings</h1>
+        <h1 className="text-2xl font-semibold text-foreground">Email and Sending Domain Settings</h1>
       </div>
       {/* Error Alert */}
       {error && (
@@ -233,10 +241,12 @@ export default function SmtpDomainSettings() {
                 {mgLoading ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : null}
                 Get Status
               </Button>
-              <Button onClick={handleDeleteDomain} disabled={mgLoading || !mgDomain} variant="outline" size="sm" className="text-red-600 border-red-600 hover:bg-red-50">
-                {mgLoading ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : null}
-                Delete Domain
-              </Button>
+              {mgDomain && (  
+                <Button onClick={handleDeleteDomain} disabled={mgLoading || !mgDomain} variant="outline" size="sm" className="text-red-600 border-red-600 hover:bg-red-50">
+                  {mgLoading ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  Delete Domain
+                </Button>
+              )}
             </div>
             {mgError && (
               <div className="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800">
@@ -292,16 +302,16 @@ export default function SmtpDomainSettings() {
           <Card>
             <CardContent className="p-6 space-y-6">
               <div>
-                <h2 className="text-lg font-medium mb-1">Credentials</h2>
+                <h2 className="text-lg font-medium mb-1">Email Settings</h2>
                 <p className="text-sm text-muted-foreground">
-                  Click button below to create the credentials.
+                  Enter your email settings.
                 </p>
               </div>
               <div>
-                <Label className="text-sm font-medium">Login</Label>
+                <Label className="text-sm font-medium">Default From Email</Label>
                 <Input
-                  value={formData.email_host_user}
-                  onChange={e => handleInputChange('email_host_user', e.target.value)}
+                  value={formData.default_from_email}
+                  onChange={e => handleInputChange('default_from_email', e.target.value)}
                   className="mt-1"
                   placeholder="e.g. mail.example.com"
                   disabled={isSaving}
@@ -321,7 +331,7 @@ export default function SmtpDomainSettings() {
                       Saving...
                     </>
                   ) : (
-                    'Create Credentials'
+                    'Save Configuration'
                   )}
                 </Button>
                 {configId && (
@@ -339,7 +349,7 @@ export default function SmtpDomainSettings() {
                         Deleting...
                       </>
                     ) : (
-                      'Delete Credentials'
+                      'Delete Configuration'
                     )}
                   </Button>
                 )}

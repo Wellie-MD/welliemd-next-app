@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,6 +10,8 @@ import { AlertCircle, CheckCircle, Loader } from "lucide-react"
 
 
 export default function SmtpSettings() {
+  const navigate = useNavigate();
+  navigate('/dashboard/settings/email-domain')
   const [formData, setFormData] = useState<ClientEmailConfiguration>({
     email_host_user: "",
     email_host_password: "",

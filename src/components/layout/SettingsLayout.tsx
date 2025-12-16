@@ -46,7 +46,7 @@ export function SettingsLayout() {
               <Route path="brand" element={<Brand />} />
               <Route path="analytics-seo" element={<AnalyticsSeo />} />
               <Route path="smtp-settings" element={<SmtpSettings />} />
-              <Route path="smtp-domains" element={<SmtpDomainSettings />} />
+              <Route path="email-domain" element={<SmtpDomainSettings />} />
               <Route path="" element={<StoreDetails />} />
             </Routes>
           </div>
