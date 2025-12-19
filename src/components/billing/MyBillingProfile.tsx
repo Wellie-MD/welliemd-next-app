@@ -24,59 +24,24 @@ function Modal({ children, onClose }: { children: any; onClose: () => void }) {
 
 export default function MyBillingProfile() {
   const [profile, setProfile] = useState<BillingProfile | null>(null);
-  const [paymentMethodText, setPaymentMethodText] = useState<string | null>(
-    null
-  );
   const [paymentMethodStatus, setPaymentMethodStatus] =
     useState<string>("active");
+  const [paymentMethod, setPaymentMethod] = useState<{
+    id?: string;
+    brand?: string;
+    last4?: string;
+    exp_month?: number;
+    exp_year?: number;
+    is_expired?: boolean;
+  } | null>(null);
+  const [billingDetails, setBillingDetails] = useState<{
+    name?: string;
+    email?: string;
+    address?: string;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalContent, setModalContent] = useState<any | null>(null);
-
-  // Parse billing fields from the API text when available
-  const parseBillingFromText = (text?: string) => {
-    if (!text) return null;
-    const extract = (label: string) => {
-      // match 'Label: value' on same line or Label:\n\nvalue
-      const re = new RegExp(label + "\\s*:\\s*(?:\\n\\s*)*([^\\n]+)", "i");
-      const m = text.match(re);
-      if (m && m[1]) return m[1].trim();
-      return "";
-    };
-
-    const name = extract("Name");
-    const email = extract("Email");
-    const address = extract("Address");
-
-    // card details
-    const cardLineMatch = text.match(/Card:\s*([^\n]+)/i);
-    const last4Match = text.match(/(\d{4})/g);
-    const expMatch = text.match(/Expires:\s*([^\n]+)/i);
-
-    const payment_method: any = {};
-    if (cardLineMatch) {
-      const brandMatch = cardLineMatch[1].match(/(\w+)/);
-      if (brandMatch) payment_method.brand = brandMatch[1];
-    }
-    if (last4Match && last4Match.length > 0)
-      payment_method.last4 = last4Match[last4Match.length - 1];
-    if (expMatch) {
-      const exp = expMatch[1];
-      const [m, y] = exp.split("/").map((s) => s.trim());
-      const exp_month = Number(m) || undefined;
-      const exp_year = Number(y) || undefined;
-      if (exp_month) payment_method.exp_month = exp_month;
-      if (exp_year) payment_method.exp_year = exp_year;
-    }
-
-    const result: any = {};
-    if (name) result.client_name = name;
-    if (email) result.email = email;
-    if (address) result.address = address;
-    if (Object.keys(payment_method).length)
-      result.payment_method = payment_method;
-    return result as Partial<BillingProfile> | null;
-  };
 
   useEffect(() => {
     let mounted = true;
@@ -86,13 +51,31 @@ export default function MyBillingProfile() {
 
       if (mounted && pmData) {
         setPaymentMethodStatus(pmData.status);
-        setPaymentMethodText(pmData.text);
-        const parsed = parseBillingFromText(pmData.text);
-        if (parsed) {
-          setProfile((prev) => ({ ...(prev ?? {}), ...parsed }));
+        
+        // Use the new structured response format
+        if (pmData.payment_method) {
+          setPaymentMethod(pmData.payment_method);
+          // Also update the profile for backward compatibility
+          setProfile((prev) => ({
+            ...(prev ?? {}),
+            payment_method: {
+              brand: pmData.payment_method?.brand,
+              last4: pmData.payment_method?.last4,
+              exp_month: pmData.payment_method?.exp_month,
+              exp_year: pmData.payment_method?.exp_year,
+            },
+          }));
+        }
+        
+        if (pmData.billing_details) {
+          setBillingDetails(pmData.billing_details);
+          setProfile((prev) => ({
+            ...(prev ?? {}),
+            client_name: pmData.billing_details?.name,
+          }));
         }
       } else {
-        // fallback to mock
+        // fallback to mock only if API fails completely
         const md: any = mockData as any;
         const mock = md.billingProfile ?? {
           client_name:
@@ -127,7 +110,7 @@ export default function MyBillingProfile() {
             My Billing Profile
           </p>
         </div>
-        {!paymentMethodText && (
+        {!paymentMethod && paymentMethodStatus !== "no_customer" && paymentMethodStatus !== "no_payment_method" && (
           <p className="text-[#0d171b] text-base font-normal leading-normal pb-3 pt-1 px-4">
             This is the Payment method to be charged for medication and shipping
             costs when a prescription is sent to the pharmacy.
@@ -193,21 +176,15 @@ export default function MyBillingProfile() {
             <img src={visaIcon} alt="card" className="h-10 w-auto shrink-0" />
             <div className="flex flex-col justify-center">
               <p className="text-[#0d171b] text-base font-medium leading-normal line-clamp-1">
-                {paymentMethodText
-                  ? (() => {
-                      const m = paymentMethodText.match(/Card:\s*([^\n]+)/i);
-                      return m ? m[1] : "Card: —";
-                    })()
+                {paymentMethod
+                  ? `Card: ${paymentMethod.brand?.charAt(0).toUpperCase()}${paymentMethod.brand?.slice(1) ?? ''} **** **** **** ${paymentMethod.last4}`
                   : profile?.payment_method
                   ? `Card: ${profile.payment_method.brand} **** **** **** ${profile.payment_method.last4}`
                   : "No payment method"}
               </p>
               <p className="text-[#4c809a] text-sm font-normal leading-normal line-clamp-2">
-                {paymentMethodText
-                  ? (() => {
-                      const m = paymentMethodText.match(/Expires:\s*([^\n]+)/i);
-                      return m ? `Expires: ${m[1]}` : "";
-                    })()
+                {paymentMethod
+                  ? `Expires: ${paymentMethod.exp_month}/${paymentMethod.exp_year}`
                   : profile?.payment_method
                   ? `Expires: ${profile.payment_method.exp_month}/${profile.payment_method.exp_year}`
                   : ""}
@@ -225,7 +202,7 @@ export default function MyBillingProfile() {
               Name:
             </p>
             <p className="text-[#0d171b] text-sm font-normal leading-normal">
-              {profile?.client_name ?? "-"}
+              {billingDetails?.name ?? profile?.client_name ?? "-"}
             </p>
           </div>
           <div className="col-span-2 grid grid-cols-subgrid border-t border-t-[#cfdfe7] py-5">
@@ -233,7 +210,7 @@ export default function MyBillingProfile() {
               Email:
             </p>
             <p className="text-[#0d171b] text-sm font-normal leading-normal">
-              {(profile as any)?.email ?? ""}
+              {billingDetails?.email ?? ""}
             </p>
           </div>
           <div className="col-span-2 grid grid-cols-subgrid border-t border-t-[#cfdfe7] py-5">
@@ -241,7 +218,7 @@ export default function MyBillingProfile() {
               Address:
             </p>
             <p className="text-[#0d171b] text-sm font-normal leading-normal">
-              {(profile as any)?.address ?? ""}
+              {billingDetails?.address ?? ""}
             </p>
           </div>
         </div>
@@ -291,10 +268,25 @@ export default function MyBillingProfile() {
                       await billingService.getPaymentMethodStatus();
                     if (pmData) {
                       setPaymentMethodStatus(pmData.status);
-                      setPaymentMethodText(pmData.text);
-                      const parsed = parseBillingFromText(pmData.text);
-                      if (parsed)
-                        setProfile((prev) => ({ ...(prev ?? {}), ...parsed }));
+                      if (pmData.payment_method) {
+                        setPaymentMethod(pmData.payment_method);
+                        setProfile((prev) => ({
+                          ...(prev ?? {}),
+                          payment_method: {
+                            brand: pmData.payment_method?.brand,
+                            last4: pmData.payment_method?.last4,
+                            exp_month: pmData.payment_method?.exp_month,
+                            exp_year: pmData.payment_method?.exp_year,
+                          },
+                        }));
+                      }
+                      if (pmData.billing_details) {
+                        setBillingDetails(pmData.billing_details);
+                        setProfile((prev) => ({
+                          ...(prev ?? {}),
+                          client_name: pmData.billing_details?.name,
+                        }));
+                      }
                     }
                     setShowModal(false);
                     setModalContent(null);
