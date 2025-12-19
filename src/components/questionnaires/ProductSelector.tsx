@@ -81,12 +81,12 @@ export function ProductSelector({
     }
   };
 
-  const fetchRegimens = async (medication: string) => {
+  const fetchRegimens = async (category: string) => {
     setLoadingRegimens(true);
     try {
-      // We don't pass client_id here, so backend will return all available regimens for this medication
+      // We don't pass client_id here, so backend will return all available regimens for this category
       const response = await axiosInstance.get("/products/available-regimens/", {
-        params: { medication },
+        params: { category },
       });
       setRegimens(response.data.regimens || []);
     } catch (error) {
@@ -97,13 +97,13 @@ export function ProductSelector({
     }
   };
 
-  const fetchDoseMappings = async (medication: string) => {
+  const fetchDoseMappings = async (categoryName: string) => {
     setLoadingDoseMappings(true);
     try {
-      // First, get the category for this medication
+      // Get all categories and find the matching one
       const categories = await productCategoryApi.listCategories();
       const category = categories.find(c => 
-        c.name.toLowerCase().includes(medication.toLowerCase())
+        c.name.toLowerCase() === categoryName.toLowerCase()
       );
       
       if (category) {

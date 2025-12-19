@@ -566,7 +566,7 @@ export function QuestionForm({
 
       // Handle disqualifying answers for choice-based questions
       if (
-        ["single_choice", "multiple_choice", "consent"].includes(
+        ["single_choice", "multiple_choice", "consent", "sex"].includes(
           formData.question_type
         )
       ) {
@@ -827,7 +827,7 @@ export function QuestionForm({
                 </SelectItem>
                 <SelectItem value="number">Number</SelectItem>
                 <SelectItem value="date">Date</SelectItem>
-                <SelectItem value="height_weight">Height & Weight</SelectItem>
+                <SelectItem value="bmi">BMI (Height, Weight & Auto-Calculate)</SelectItem>
                 <SelectItem value="consent">Consent Checkbox</SelectItem>
                 <SelectItem value="file_upload">File Upload</SelectItem>
                 <SelectItem value="checkout">
@@ -855,7 +855,8 @@ export function QuestionForm({
 
           {/* Grouped Question Builder */}
           {(formData.question_type === "personal_details" ||
-            formData.question_type === "shipping_address") && (
+            formData.question_type === "shipping_address" ||
+            formData.question_type === "bmi") && (
             <GroupedQuestionBuilder
               groupType={formData.question_type}
               subQuestions={subQuestions}

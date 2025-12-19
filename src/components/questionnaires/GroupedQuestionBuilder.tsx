@@ -13,7 +13,7 @@ import { Plus, Trash2, GripVertical } from "lucide-react";
 import { SubQuestion } from "@/api/questionnaires";
 
 interface GroupedQuestionBuilderProps {
-  groupType: "personal_details" | "shipping_address";
+  groupType: "personal_details" | "shipping_address" | "bmi";
   subQuestions: Omit<SubQuestion, "id">[];
   onChange: (subQuestions: Omit<SubQuestion, "id">[]) => void;
 }
@@ -34,6 +34,11 @@ const SHIPPING_ADDRESS_TEMPLATES = [
   { text: "Country", type: "text" as const, required: true },
 ];
 
+const BMI_TEMPLATES = [
+  { text: "What is your weight in pounds?", type: "number" as const, required: true },
+  { text: "What is your height in feet and inches?", type: "text" as const, required: true },
+];
+
 export function GroupedQuestionBuilder({
   groupType,
   subQuestions,
@@ -51,7 +56,9 @@ export function GroupedQuestionBuilder({
   const templates =
     groupType === "personal_details"
       ? PERSONAL_DETAILS_TEMPLATES
-      : SHIPPING_ADDRESS_TEMPLATES;
+      : groupType === "bmi"
+        ? BMI_TEMPLATES
+        : SHIPPING_ADDRESS_TEMPLATES;
 
   const handleAddTemplate = () => {
     const newSubQuestions = templates.map((template, index) => ({
@@ -128,7 +135,9 @@ export function GroupedQuestionBuilder({
         <h3 className="font-semibold text-sm">
           {groupType === "personal_details"
             ? "Personal Details Fields"
-            : "Shipping Address Fields"}
+            : groupType === "bmi"
+              ? "BMI Fields (Height & Weight)"
+              : "Shipping Address Fields"}
         </h3>
         {subQuestions.length === 0 && (
           <Button
