@@ -108,7 +108,7 @@ const menuSections = [
       {
         title: "Billing",
         icon: CreditCard,
-        // permission: Permissions.BILLING_VIEW, // Primary Owner only
+        permission: Permissions.BILLING_VIEW, // Primary Owner only
         children: [
           { title: "My Billing Profile", url: "/dashboard/billing" },
           { title: "Invoices", url: "/dashboard/finances/invoices" },
