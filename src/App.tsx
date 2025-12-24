@@ -131,16 +131,18 @@ const App = () => {
         } />
         
         <Route path="/dashboard/settings/*" element={
-          <SidebarProvider>
-            <div className="min-h-screen flex w-full">
-              <div className="flex-1 flex flex-col">
-                <Header />
-                <div className="flex flex-1">
-                  <SettingsLayout />
+          <ProtectedRoute>
+            <SidebarProvider>
+              <div className="min-h-screen flex w-full">
+                <div className="flex-1 flex flex-col">
+                  <Header />
+                  <div className="flex flex-1">
+                    <SettingsLayout />
+                  </div>
                 </div>
               </div>
-            </div>
-          </SidebarProvider>
+            </SidebarProvider>
+          </ProtectedRoute>
         } />
         
         
