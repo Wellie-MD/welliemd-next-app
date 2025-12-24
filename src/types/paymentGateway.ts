@@ -40,6 +40,7 @@ export interface GatewayFieldConfig {
     key: keyof PaymentGatewayConfig;
     label: string;
     placeholder: string;
+    description: string;  // Help text shown in tooltip
     type?: 'text' | 'password' | 'select';
     options?: { value: string; label: string }[];
     required?: boolean;
@@ -47,24 +48,90 @@ export interface GatewayFieldConfig {
 
 export const GATEWAY_FIELDS: Record<PaymentGatewayType, GatewayFieldConfig[]> = {
     stripe: [
-        { key: 'stripe_publishable_key', label: 'Publishable Key', placeholder: 'pk_live_...', type: 'text', required: true },
-        { key: 'stripe_secret_key', label: 'Secret Key', placeholder: 'sk_live_...', type: 'password', required: true },
+        {
+            key: 'stripe_publishable_key',
+            label: 'Publishable Key',
+            placeholder: 'pk_live_...',
+            description: 'Your Stripe publishable key starts with "pk_live_" (production) or "pk_test_" (sandbox). Find it in Stripe Dashboard → Developers → API keys.',
+            type: 'text',
+            required: true
+        },
+        {
+            key: 'stripe_secret_key',
+            label: 'Secret Key',
+            placeholder: 'sk_live_...',
+            description: 'Your Stripe secret key starts with "sk_live_" (production) or "sk_test_" (sandbox). Keep this secure and never expose it publicly.',
+            type: 'password',
+            required: true
+        },
     ],
     nmi: [
-        { key: 'nmi_security_key', label: 'Security Key', placeholder: 'Enter NMI Security Key', type: 'password', required: true },
-        { key: 'nmi_api_key', label: 'API Key', placeholder: 'Enter NMI API Key', type: 'password' },
-        { key: 'nmi_public_key', label: 'Public Key', placeholder: 'Enter NMI Public Key', type: 'text' },
-        { key: 'nmi_base_url', label: 'Base URL', placeholder: 'https://secure.networkmerchants.com/api/transact.php', type: 'text' },
+        {
+            key: 'nmi_security_key',
+            label: 'Security Key',
+            placeholder: 'Enter NMI Security Key',
+            description: 'Your NMI Security Key for server-side API calls. Found in NMI Control Panel → Settings → Security Keys. This is required for processing payments.',
+            type: 'password',
+            required: true
+        },
+        {
+            key: 'nmi_api_key',
+            label: 'API Key',
+            placeholder: 'Enter NMI API Key',
+            description: 'NMI API Key for additional authentication. This may be the same as the Security Key depending on your NMI account setup.',
+            type: 'password'
+        },
+        {
+            key: 'nmi_public_key',
+            label: 'Public Key (Tokenization Key)',
+            placeholder: 'Enter NMI Public Key',
+            description: 'NMI Public Key for Collect.js tokenization in the browser. Found in NMI Control Panel → Settings → Security Keys → Public Security Key.',
+            type: 'text'
+        },
+        {
+            key: 'nmi_base_url',
+            label: 'Base URL',
+            placeholder: 'https://secure.networkmerchants.com/api/transact.php',
+            description: 'NMI API endpoint URL. Default: https://secure.networkmerchants.com/api/transact.php. Use sandbox URL for testing if applicable.',
+            type: 'text'
+        },
     ],
     authorize_net: [
-        { key: 'authorize_net_api_login_id', label: 'API Login ID', placeholder: 'Enter API Login ID', type: 'text', required: true },
-        { key: 'authorize_net_transaction_key', label: 'Transaction Key', placeholder: 'Enter Transaction Key', type: 'password', required: true },
-        { key: 'authnet_client_key', label: 'Client Key', placeholder: 'Enter Client Key', type: 'text' },
-        { key: 'authorize_net_base_url', label: 'Base URL', placeholder: 'https://api.authorize.net/xml/v1/request.api', type: 'text' },
+        {
+            key: 'authorize_net_api_login_id',
+            label: 'API Login ID',
+            placeholder: 'Enter API Login ID',
+            description: 'Your Authorize.Net API Login ID. Found in Merchant Interface → Account → Settings → API Credentials & Keys.',
+            type: 'text',
+            required: true
+        },
+        {
+            key: 'authorize_net_transaction_key',
+            label: 'Transaction Key',
+            placeholder: 'Enter Transaction Key',
+            description: 'Your Authorize.Net Transaction Key for server-side API authentication. Found in Merchant Interface → Account → Settings → API Credentials & Keys.',
+            type: 'password',
+            required: true
+        },
+        {
+            key: 'authnet_client_key',
+            label: 'Client Key',
+            placeholder: 'Enter Client Key',
+            description: 'Authorize.Net Client Key for Accept.js tokenization in the browser. Found in Merchant Interface → Account → Settings → Manage Public Client Key.',
+            type: 'text'
+        },
+        {
+            key: 'authorize_net_base_url',
+            label: 'Base URL',
+            placeholder: 'https://api.authorize.net/xml/v1/request.api',
+            description: 'Authorize.Net API endpoint. Use https://apitest.authorize.net/xml/v1/request.api for sandbox testing.',
+            type: 'text'
+        },
         {
             key: 'authorize_net_environment',
             label: 'Environment',
             placeholder: 'Select environment',
+            description: 'Select "Sandbox" for testing with test credentials or "Production" for live payment processing.',
             type: 'select',
             options: [
                 { value: 'sandbox', label: 'Sandbox (Testing)' },
@@ -80,3 +147,4 @@ export const GATEWAY_OPTIONS: { value: PaymentGatewayType; label: string }[] = [
     { value: 'nmi', label: 'NMI' },
     { value: 'authorize_net', label: 'Authorize.Net' },
 ];
+
