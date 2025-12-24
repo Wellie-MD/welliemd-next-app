@@ -40,6 +40,7 @@ export interface Product {
   shipping_cost_to_client: string;
   shipping_cost_to_welliemd: string;
   shipping_fee_patient: string;
+  discounted_price?: string;
 
   // Prescription Details
   dose?: string;
@@ -48,13 +49,13 @@ export interface Product {
   rx_quantity_units?: string;
   rx_drug_strength?: string;
   rx_drug_form?:
-    | "tablet"
-    | "capsule"
-    | "milliliter"
-    | "injection"
-    | "cream"
-    | "patch"
-    | "each";
+  | "tablet"
+  | "capsule"
+  | "milliliter"
+  | "injection"
+  | "cream"
+  | "patch"
+  | "each";
   rx_days_supply?: number;
 
   // External Integration IDs
@@ -171,6 +172,7 @@ export interface UpdateProductPayload {
   cost_to_client?: string | number;
   shipping_cost_to_client?: string | number;
   shipping_fee_patient?: string | number;
+  discounted_price?: string | number;
 
   // Admin-only fields (will be ignored for client users)
   name?: string;
