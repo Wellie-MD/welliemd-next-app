@@ -30,7 +30,7 @@ const SignIn = () => {
       navigate("/");  // Navigate to dashboard on successful login
     } catch (err) {
       console.error('Login failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to sign in. Please check your credentials.');
+      setError('Failed to sign in. Please check your credentials.');
     }
   };
 
