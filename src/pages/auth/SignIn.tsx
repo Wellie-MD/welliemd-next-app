@@ -40,12 +40,12 @@ const SignIn = () => {
         <Logo />
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Sign in</h1>
-          <p className="text-muted-foreground">
+          {/* <p className="text-muted-foreground">
             Don't have an account?{" "}
             <Link to="/signup" className="text-primary underline hover:no-underline">
               Create now
             </Link>
-          </p>
+          </p> */}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -110,16 +110,16 @@ const SignIn = () => {
           {error && <p className="text-red-500 text-sm">{error}</p>}
         </form>
 
-        <div className="relative">
+        {/* <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-border"></div>
           </div>
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-background px-2 text-muted-foreground">OR</span>
           </div>
-        </div>
+        </div> */}
 
-        <SocialButtons />
+        {/* <SocialButtons /> */}
       </div>
     </AuthLayout>
   );
