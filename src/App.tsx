@@ -112,7 +112,7 @@ const App = () => {
                     <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
                     <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} />
                     <Route path="/analytics/reports" element={<ProtectedRoute><AnalyticsReports /></ProtectedRoute>} />
-                    <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
+                    {/* <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} /> */}
                     <Route path="/coupon-insights" element={<ProtectedRoute><CouponInsights /></ProtectedRoute>} />
                     <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
                     <Route path="/affiliates" element={<ProtectedRoute><Affiliates /></ProtectedRoute>} />
