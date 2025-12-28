@@ -16,7 +16,13 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2 } from "lucide-react"
+import { Loader2, Info, Eye, EyeOff } from "lucide-react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 // Import payment gateway API and types
 import paymentGatewayApi from "@/api/paymentGatewayApi"
@@ -126,6 +132,7 @@ export default function Payments() {
   const [gatewayConfigOpen, setGatewayConfigOpen] = useState(false)
   const [gatewayLoading, setGatewayLoading] = useState(true)
   const [gatewaySaving, setGatewaySaving] = useState(false)
+  const [passwordVisible, setPasswordVisible] = useState<Record<string, boolean>>({})
   const [gatewayConfig, setGatewayConfig] = useState<PaymentGatewayConfig>({
     payment_gateway: 'stripe',
     nmi_security_key: null,
@@ -281,10 +288,24 @@ export default function Payments() {
                   
                   {GATEWAY_FIELDS[gatewayConfig.payment_gateway]?.map((field) => (
                     <div key={field.key}>
-                      <Label className="text-sm">
-                        {field.label}
-                        {field.required && <span className="text-red-500 ml-1">*</span>}
-                      </Label>
+                      <div className="flex items-center gap-1.5">
+                        <Label className="text-sm">
+                          {field.label}
+                          {field.required && <span className="text-red-500 ml-1">*</span>}
+                        </Label>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                                <Info className="w-3.5 h-3.5" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-xs text-xs">
+                              <p>{field.description}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                       
                       {field.type === 'select' ? (
                         <Select
@@ -302,6 +323,23 @@ export default function Payments() {
                             ))}
                           </SelectContent>
                         </Select>
+                      ) : field.type === 'password' ? (
+                        <div className="relative mt-1">
+                          <Input
+                            type={passwordVisible[field.key] ? 'text' : 'password'}
+                            value={(gatewayConfig[field.key] as string) || ''}
+                            onChange={(e) => handleGatewayFieldChange(field.key, e.target.value)}
+                            placeholder={field.placeholder}
+                            className="pr-10 focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setPasswordVisible(prev => ({ ...prev, [field.key]: !prev[field.key] }))}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            {passwordVisible[field.key] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
                       ) : (
                         <Input
                           type={field.type || 'text'}
