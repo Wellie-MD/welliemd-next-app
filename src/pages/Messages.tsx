@@ -650,16 +650,16 @@ export default function Messages() {
         <h1 className="text-2xl font-bold">Messages</h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px] min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_2fr] gap-6 h-[700px] min-h-0">
         {/* LEFT: list */}
-        <div className="lg:col-span-1 bg-card rounded-lg border overflow-hidden">
-          <div className="p-4 border-b flex items-center justify-between">
+        <div className="bg-card rounded-lg border overflow-hidden">
+          <div className="p-4 border-b flex items-center justify-between gap-2">
             <h2 className="text-lg font-semibold">
               {tab === "patient" ? "Patient Chats" : "Beluga Support Chats"}
             </h2>
             <div className="inline-flex rounded-lg border overflow-hidden">
               <button
-                className={`px-4 py-1.5 text-sm font-medium ${
+                className={`px-3 py-1.5 text-sm font-medium ${
                   tab === "patient" ? "bg-indigo-600 text-white" : "bg-white text-gray-700"
                 }`}
                 onClick={() => setTab("patient")}
@@ -667,7 +667,7 @@ export default function Messages() {
                 Patient
               </button>
               <button
-                className={`px-4 py-1.5 text-sm font-medium ${
+                className={`px-3 py-1.5 text-sm font-medium ${
                   tab === "support" ? "bg-indigo-600 text-white" : "bg-white text-gray-700"
                 } border-l`}
                 onClick={() => setTab("support")}
@@ -742,7 +742,7 @@ export default function Messages() {
         </div>
 
         {/* RIGHT: chat */}
-        <div className="lg:col-span-2 bg-card rounded-lg border flex flex-col overflow-hidden">
+        <div className="bg-card rounded-lg border flex flex-col overflow-hidden">
           {activeConversation ? (
             <>
               <div className="p-4 border-b flex items-center justify-between shrink-0">

@@ -7,6 +7,8 @@ import Select from "react-select"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { useToast } from "@/hooks/use-toast"
+
 
 type Product = {
   id: string
@@ -126,6 +128,8 @@ export default function AddCouponForm({
     }
   }, [coupon, setValue])
 
+  const { toast } = useToast()
+
   const onSubmit = async (data: CouponFormValues) => {
     try {
       setLoading(true)
@@ -147,6 +151,20 @@ export default function AddCouponForm({
     } catch (err) {
       // no alerts — just log
       console.error(mode === "edit" ? "Error updating coupon" : "Error creating coupon", err)
+
+      // Toast error message
+      const message =
+    err?.response?.data?.code?.[0] ||
+    (mode === "edit"
+      ? "Error updating coupon"
+      : "Error creating coupon")
+
+  toast({
+    variant: "destructive",
+    title: "Coupon Error",
+    description: message,
+  })
+
     } finally {
       setLoading(false)
     }

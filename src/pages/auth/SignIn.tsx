@@ -10,6 +10,7 @@ import { SocialButtons } from "@/components/auth/SocialButtons";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { authService } from "@/services/authService";
+import { useToast } from "@/components/ui/useToast";
 
 const SignIn = () => {
   const [email, setEmail] = useState("");
@@ -20,6 +21,7 @@ const SignIn = () => {
   const isLoading = useAuthStore((state) => state.isLoading);
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  const { showToast, ToastComponent } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +33,11 @@ const SignIn = () => {
     } catch (err) {
       console.error('Login failed:', err);
       setError(err instanceof Error ? err.message : 'Failed to sign in. Please check your credentials.');
+      const message =
+      err?.response?.data?.message ||
+      "Failed to sign in. Please check your credentials.";
+
+    showToast(message);
     }
   };
 
@@ -40,12 +47,12 @@ const SignIn = () => {
         <Logo />
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Sign in</h1>
-          <p className="text-muted-foreground">
+          {/* <p className="text-muted-foreground">
             Don't have an account?{" "}
             <Link to="/signup" className="text-primary underline hover:no-underline">
               Create now
             </Link>
-          </p>
+          </p> */}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -107,10 +114,11 @@ const SignIn = () => {
             {isLoading ? "Signing in..." : "Sign in"}
           </Button>
 
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {/* {error && <p className="text-red-500 text-sm">{error}</p>} */}
+          {ToastComponent}
         </form>
 
-        <div className="relative">
+        {/* <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-border"></div>
           </div>
@@ -119,7 +127,7 @@ const SignIn = () => {
           </div>
         </div>
 
-        <SocialButtons />
+        <SocialButtons /> */}
       </div>
     </AuthLayout>
   );

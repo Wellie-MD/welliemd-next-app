@@ -182,7 +182,7 @@ const App = () => {
 
         {/* Auth routes */}
         <Route path="/auth/signin" element={<SignIn />} />
-        <Route path="/signup" element={<SignUp />} />
+        {/* <Route path="/signup" element={<SignUp />} /> */}
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/register" element={<RegisterInvitation />} />
@@ -247,6 +247,7 @@ const App = () => {
         <Route
           path="/dashboard/settings/*"
           element={
+          <ProtectedRoute>
             <SidebarProvider>
               <div className="min-h-screen flex w-full">
                 <div className="flex-1 flex flex-col">
@@ -257,6 +258,7 @@ const App = () => {
                 </div>
               </div>
             </SidebarProvider>
+          </ProtectedRoute>
           }
         />
 
