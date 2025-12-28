@@ -423,7 +423,7 @@ export function ProductFormModal({
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="base_price">Base Price ($)</Label>
+                <Label htmlFor="base_price">Medication Cost to Client ($)</Label>
                 <Input
                   id="base_price"
                   type="number"
