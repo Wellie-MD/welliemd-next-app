@@ -650,7 +650,8 @@ export default function Messages() {
         <h1 className="text-2xl font-bold">Messages</h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_2fr] gap-6 h-[700px] min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_2fr] gap-6"
+        style={{ height: 'calc(100vh - 11rem)' }} >
         {/* LEFT: list */}
         <div className="bg-card rounded-lg border overflow-hidden">
           <div className="p-4 border-b flex items-center justify-between gap-2">
@@ -677,7 +678,7 @@ export default function Messages() {
             </div>
           </div>
 
-          <div className="p-4 space-y-2 overflow-y-auto h-full max-h=[calc(700px-64px)]">
+          <div className="p-4 space-y-2 overflow-y-auto"  style={{ maxHeight: 'calc(100vh - 15rem)' }} >
             {loading && <div>Loading...</div>}
             {error && <div className="text-red-500">{error}</div>}
 
