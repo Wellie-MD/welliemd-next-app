@@ -364,7 +364,7 @@ async function handleSend() {
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">Messages</h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px] min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" style={{ height: 'calc(100vh - 11rem)' }} >
         {/* LEFT: Clients + Conversations */}
         <div className="lg:col-span-1 bg-card rounded-lg border flex flex-col overflow-hidden">
           <div className="p-4 border-b space-y-3 shrink-0">
