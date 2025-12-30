@@ -85,8 +85,9 @@ export const parseAuthError = (error: unknown): AuthError => {
     // Parse server error response
     if (data && typeof data === 'object') {
       const errorCode = mapServerErrorToCode(data, status);
-      const message = data.message || ERROR_MESSAGES[errorCode];
-      
+      // Prefer server's error message over default (for custom messages like "This email is not registered with us.")
+      const message = data.error || data.message || ERROR_MESSAGES[errorCode];
+
       return new AuthError(message, errorCode, status, data.details);
     }
 
@@ -249,7 +250,7 @@ export const isRecoverableError = (error: AuthError): boolean => {
     AuthErrorCode.SERVER_ERROR,
     AuthErrorCode.RATE_LIMIT_EXCEEDED,
   ];
-  
+
   return recoverableErrors.includes(error.code);
 };
 
@@ -263,7 +264,7 @@ export const requiresUserAction = (error: AuthError): boolean => {
     AuthErrorCode.PASSWORD_TOO_WEAK,
     AuthErrorCode.VALIDATION_ERROR,
   ];
-  
+
   return actionRequiredErrors.includes(error.code);
 };
 
@@ -276,7 +277,7 @@ export const shouldRedirectToLogin = (error: AuthError): boolean => {
     AuthErrorCode.TOKEN_INVALID,
     AuthErrorCode.REFRESH_TOKEN_EXPIRED,
   ];
-  
+
   return redirectErrors.includes(error.code);
 };
 
@@ -288,26 +289,26 @@ export const getErrorSeverity = (error: AuthError): 'low' | 'medium' | 'high' | 
     case AuthErrorCode.VALIDATION_ERROR:
     case AuthErrorCode.PASSWORD_TOO_WEAK:
       return 'low';
-    
+
     case AuthErrorCode.INVALID_CREDENTIALS:
     case AuthErrorCode.USER_NOT_FOUND:
     case AuthErrorCode.EMAIL_ALREADY_EXISTS:
     case AuthErrorCode.EMAIL_NOT_VERIFIED:
     case AuthErrorCode.RATE_LIMIT_EXCEEDED:
       return 'medium';
-    
+
     case AuthErrorCode.TOKEN_EXPIRED:
     case AuthErrorCode.TOKEN_INVALID:
     case AuthErrorCode.REFRESH_TOKEN_EXPIRED:
     case AuthErrorCode.NETWORK_ERROR:
       return 'high';
-    
+
     case AuthErrorCode.ACCOUNT_LOCKED:
     case AuthErrorCode.ACCOUNT_SUSPENDED:
     case AuthErrorCode.SERVER_ERROR:
     case AuthErrorCode.UNKNOWN_ERROR:
       return 'critical';
-    
+
     default:
       return 'medium';
   }
