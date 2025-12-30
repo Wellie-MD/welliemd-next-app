@@ -39,11 +39,11 @@ class RequestQueue {
 
     try {
       await tokenManager.refreshAccessToken();
-      
+
       // Process all queued requests
       while (this.queue.length > 0) {
         const { config, resolve, reject } = this.queue.shift()!;
-        
+
         try {
           const response = await axios(config);
           resolve(response);
@@ -109,7 +109,7 @@ const createApiClient = (): AxiosInstance => {
       // Add request ID for tracing
       config.headers = config.headers || {};
       config.headers['X-Request-ID'] = crypto.randomUUID();
-      
+
       debugLog('API Request:', {
         method: config.method?.toUpperCase(),
         url: config.url,
@@ -129,23 +129,23 @@ const createApiClient = (): AxiosInstance => {
     (response: AxiosResponse) => response,
     async (error: AxiosError) => {
       const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
-      
+
       // If the error is 401 and we haven't already tried to refresh the token
       if (error.response?.status === 401 && !originalRequest._retry) {
         originalRequest._retry = true;
-        
+
         try {
           // Try to refresh the token using the HTTP-only cookie
           const response = await client.post('/auth/token/refresh', {}, { skipAuth: true } as any);
           const { access } = response.data as { access: string };
-          
+
           // Update the access token in memory
           tokenManager.setAccessToken(access);
-          
+
           // Update the authorization header with the new token
           originalRequest.headers = originalRequest.headers || {};
           originalRequest.headers.Authorization = `Bearer ${access}`;
-          
+
           // Retry the original request with the new token
           return client(originalRequest);
         } catch (refreshError) {
@@ -155,7 +155,7 @@ const createApiClient = (): AxiosInstance => {
           return Promise.reject(transformAxiosError(refreshError as AxiosError));
         }
       }
-      
+
       return Promise.reject(transformAxiosError(error));
     }
   );
@@ -166,14 +166,53 @@ const createApiClient = (): AxiosInstance => {
 // Transform axios error to standardized API error
 function transformAxiosError(error: AxiosError): ApiResponse {
   const status = error.response?.status ?? 0;
-  const responseData = error.response?.data as ApiResponse | undefined;
+  const responseData = error.response?.data as any;
 
-  // If response has our API error format, use it
-  if (responseData?.error) {
-    return responseData;
+  // If response has our API error format with string error, use it directly
+  if (responseData?.error && typeof responseData.error === 'string') {
+    return {
+      success: false,
+      error: responseData.error, // Keep as string for simple extraction
+      timestamp: new Date().toISOString(),
+    };
   }
 
-  // Otherwise, create standardized error
+  // If response has nested error object with message
+  if (responseData?.error?.message) {
+    return responseData as ApiResponse;
+  }
+
+  // Handle Django serializer errors (e.g., {"email": ["Enter a valid email"]})
+  // Convert to a readable message
+  if (responseData && typeof responseData === 'object' && !responseData.error) {
+    const fieldErrors = Object.entries(responseData)
+      .filter(([key]) => key !== 'detail' && key !== 'non_field_errors')
+      .map(([field, errors]) => {
+        const errorList = Array.isArray(errors) ? errors : [errors];
+        return `${field}: ${errorList.join(', ')}`;
+      });
+
+    // Check for non_field_errors (Django's catch-all)
+    const nonFieldErrors = responseData.non_field_errors || responseData.detail;
+    if (nonFieldErrors) {
+      const errorMsg = Array.isArray(nonFieldErrors) ? nonFieldErrors.join(', ') : nonFieldErrors;
+      return {
+        success: false,
+        error: errorMsg,
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    if (fieldErrors.length > 0) {
+      return {
+        success: false,
+        error: fieldErrors.join('; '),
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  // Otherwise, create standardized error with appropriate message
   let errorCode = ApiErrorCode.INTERNAL_ERROR;
   let message = 'An unexpected error occurred';
 
@@ -185,7 +224,10 @@ function transformAxiosError(error: AxiosError): ApiResponse {
     message = 'Network error';
   } else if (status === HttpStatus.UNAUTHORIZED) {
     errorCode = ApiErrorCode.AUTHENTICATION_ERROR;
-    message = 'Authentication failed';
+    message = 'Invalid credentials';
+  } else if (status === HttpStatus.BAD_REQUEST) {
+    errorCode = ApiErrorCode.VALIDATION_ERROR;
+    message = 'Invalid request. Please check your input.';
   } else if (status === HttpStatus.FORBIDDEN) {
     errorCode = ApiErrorCode.AUTHORIZATION_ERROR;
     message = 'Access forbidden';
@@ -234,7 +276,7 @@ export async function withRetry<T>(
       return await fn();
     } catch (error) {
       lastError = error;
-      
+
       if (attempt === maxRetries) {
         break;
       }
