@@ -88,13 +88,7 @@ export const GATEWAY_FIELDS: Record<PaymentGatewayType, GatewayFieldConfig[]> = 
             description: 'NMI Public Key for Collect.js tokenization in the browser. Found in NMI Control Panel → Settings → Security Keys → Public Security Key.',
             type: 'text'
         },
-        {
-            key: 'nmi_base_url',
-            label: 'Base URL',
-            placeholder: 'https://secure.networkmerchants.com/api/transact.php',
-            description: 'NMI API endpoint URL. Default: https://secure.networkmerchants.com/api/transact.php. Use sandbox URL for testing if applicable.',
-            type: 'text'
-        },
+        // Base URL is hardcoded in backend (default: https://secure.networkmerchants.com/api/transact.php)
     ],
     authorize_net: [
         {
@@ -120,13 +114,7 @@ export const GATEWAY_FIELDS: Record<PaymentGatewayType, GatewayFieldConfig[]> = 
             description: 'Authorize.Net Client Key for Accept.js tokenization in the browser. Found in Merchant Interface → Account → Settings → Manage Public Client Key.',
             type: 'text'
         },
-        {
-            key: 'authorize_net_base_url',
-            label: 'Base URL',
-            placeholder: 'https://api.authorize.net/xml/v1/request.api',
-            description: 'Authorize.Net API endpoint. Use https://apitest.authorize.net/xml/v1/request.api for sandbox testing.',
-            type: 'text'
-        },
+        // Base URL is hardcoded in backend based on environment selection
         {
             key: 'authorize_net_environment',
             label: 'Environment',
