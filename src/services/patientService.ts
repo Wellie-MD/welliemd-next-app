@@ -27,21 +27,29 @@ export interface PatientListResponse {
     results: Patient[];
 }
 
+export interface PatientListParams {
+    page?: number;
+    page_size?: number;
+    search?: string;
+    ordering?: string;
+}
+
 export const patientService = {
     /**
-     * Fetch all patients from the backend
+     * Fetch patients with server-side pagination
      */
-    getPatients: async (): Promise<Patient[]> => {
+    getPatients: async (params: PatientListParams = {}): Promise<PatientListResponse> => {
         try {
-            const response = await api.get<PatientListResponse>('/medical/patients/');
+            const { page = 1, page_size = 20, search, ordering } = params;
 
-            // If the response is paginated, return the results array
-            if (response.data.results) {
-                return response.data.results;
-            }
+            const queryParams = new URLSearchParams();
+            queryParams.append('page', page.toString());
+            queryParams.append('page_size', page_size.toString());
+            if (search) queryParams.append('search', search);
+            if (ordering) queryParams.append('ordering', ordering);
 
-            // If it's a direct array, return it
-            return response.data as unknown as Patient[];
+            const response = await api.get<PatientListResponse>(`/medical/patients/?${queryParams.toString()}`);
+            return response.data;
         } catch (error: any) {
             console.error('Failed to fetch patients:', error);
             throw new Error(

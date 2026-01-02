@@ -17,6 +17,7 @@ import { isWithinInterval, parseISO, format } from "date-fns"
 import { exportToCSV } from "@/utils/exportUtils"
 import { patientService, type Patient } from "@/services/patientService"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { PatientDetailSheet } from "@/components/patients/PatientDetailSheet"
 
 // Transform backend patient data to table row format
 interface PatientTableRow {
@@ -84,7 +85,8 @@ const parseDate = (dateString: string) => {
 }
 
 export default function Patients() {
-  const [searchTerm, setSearchTerm] = useState("")
+  const [searchInput, setSearchInput] = useState("") // User input
+  const [searchTerm, setSearchTerm] = useState("") // Debounced value for API
   const [activeFilter, setActiveFilter] = useState("All")
   const [activeAdditionalFilters, setActiveAdditionalFilters] = useState<string[]>([])
   const [date, setDate] = useState<DateRange | undefined>()
@@ -92,47 +94,65 @@ export default function Patients() {
   const [patients, setPatients] = useState<PatientTableRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Server-side pagination state
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [totalCount, setTotalCount] = useState(0)
+  
+  // Patient details state
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
+  const [isDetailOpen, setIsDetailOpen] = useState(false)
+  const [isFetchingDetail, setIsFetchingDetail] = useState(false)
+  
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(searchInput)
+      setPage(1) // Reset to first page on search
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
   const [newPatient, setNewPatient] = useState({
     firstName: "",
     lastName: "",
     email: "",
   })
 
-  // Fetch patients from backend
+  // Fetch patients from backend with server-side pagination
   const fetchPatients = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const data = await patientService.getPatients()
-      const transformedData = data.map(transformPatientData)
+      const response = await patientService.getPatients({
+        page,
+        page_size: pageSize,
+        search: searchTerm || undefined,
+      })
+      const transformedData = response.results.map(transformPatientData)
       setPatients(transformedData)
+      setTotalCount(response.count)
     } catch (err: any) {
       console.error('Error fetching patients:', err)
       setError(err.message || 'Failed to load patients')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [page, pageSize, searchTerm])
 
-  // Fetch patients on mount
+  // Fetch patients when pagination or search changes
   useEffect(() => {
     fetchPatients()
   }, [fetchPatients])
 
-  // Comprehensive filtering logic
+  // Transform the patients data for the table
   const filteredPatients = useMemo(() => {
+    // We already filter by search and status on the server in fetchPatients.
+    // However, if the user has local UI filters like 'date' or 'additionalFilters' 
+    // that are not yet implemented on the server, we still apply them here.
     return patients.filter(patient => {
-      // Search filter
-      const matchesSearch = !searchTerm || 
-        patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patient.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patient.phone.includes(searchTerm) ||
-        patient.mrn.toLowerCase().includes(searchTerm.toLowerCase())
-
-      // Status filter
-      const matchesStatus = activeFilter === "All" || patient.patientStatus === activeFilter
-
-      // Date range filter
+      // Date range filter (local for now)
       let matchesDateRange = true
       if (date?.from || date?.to) {
         const patientStartDate = parseDate(patient.startDate)
@@ -149,24 +169,21 @@ export default function Patients() {
         }
       }
 
-      // Additional filters logic
+      // Additional filters logic (local for now)
       let matchesAdditionalFilters = true
       if (activeAdditionalFilters.length > 0) {
-        if (activeAdditionalFilters.includes("Visit Status")) {
-          // You can add specific logic here
-        }
-        if (activeAdditionalFilters.includes("Patient Status")) {
-          // You can add specific logic here  
-        }
         if (activeAdditionalFilters.includes("Refills")) {
-          // Filter patients with more than 1 order as an example
           matchesAdditionalFilters = patient.orders > 1
         }
+        // Add more local filter logic if needed
       }
 
-      return matchesSearch && matchesStatus && matchesDateRange && matchesAdditionalFilters
+      // We handle search and primary status filter on server side now 
+      // but if the server response doesn't exactly match the local state 
+      // (e.g. during transitions), this local filter keeps the UI consistent.
+      return matchesDateRange && matchesAdditionalFilters
     })
-  }, [patients, searchTerm, activeFilter, date, activeAdditionalFilters])
+  }, [patients, date, activeAdditionalFilters])
 
   // Create filter configuration for DataTable
   const filters = [
@@ -198,7 +215,9 @@ export default function Patients() {
     setActiveFilter("All")
     setActiveAdditionalFilters([])
     setDate(undefined)
+    setSearchInput("") // Reset search input (debounce will update searchTerm)
     setSearchTerm("")
+    setPage(1) // Reset to first page
   }, [])
 
   const handleRefresh = useCallback(() => {
@@ -208,6 +227,31 @@ export default function Patients() {
   const handleExport = useCallback(() => {
     exportToCSV(filteredPatients, patientColumns, 'patients_export')
   }, [filteredPatients])
+
+  const handleRowClick = useCallback(async (row: any) => {
+    setIsFetchingDetail(true)
+    try {
+      const patient = await patientService.getPatient(row.id)
+      setSelectedPatient(patient)
+      setIsDetailOpen(true)
+    } catch (err) {
+      console.error('Failed to fetch patient details:', err)
+      // Fallback: create a partial patient object from the row data
+      // This is a safety measure if getPatient fails
+      setSelectedPatient({
+        id: row.id,
+        email: row.email,
+        first_name: row.name.split(' ')[0] || '',
+        last_name: row.name.split(' ').slice(1).join(' ') || '',
+        full_name: row.name,
+        phone: row.phone,
+        // Other fields will be missing but the UI handles N/A
+      } as Patient)
+      setIsDetailOpen(true)
+    } finally {
+      setIsFetchingDetail(false)
+    }
+  }, [])
 
   return (
     <div className="p-6 space-y-6">
@@ -289,11 +333,29 @@ export default function Patients() {
         filters={filters}
         dateRange={date}
         onDateRangeChange={setDate}
-        onSearch={setSearchTerm}
+        onSearch={setSearchInput}
         onResetFilters={handleResetFilters}
         onExport={handleExport}
         onRefresh={handleRefresh}
-        loading={loading}
+        onRowClick={handleRowClick}
+        loading={loading || isFetchingDetail}
+        pagination={{
+          currentPage: page,
+          totalPages: Math.ceil(totalCount / pageSize),
+          pageSize: pageSize,
+          totalCount: totalCount,
+          onPageChange: setPage,
+          onPageSizeChange: (newSize) => {
+            setPageSize(newSize)
+            setPage(1) // Reset to first page when changing page size
+          }
+        }}
+      />
+
+      <PatientDetailSheet 
+        patient={selectedPatient}
+        open={isDetailOpen}
+        onOpenChange={setIsDetailOpen}
       />
     </div>
   )

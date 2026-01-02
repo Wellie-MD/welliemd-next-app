@@ -85,6 +85,7 @@ interface DataTableProps {
   onResetFilters?: () => void;
   onRefresh?: () => void;
   getRowClassName?: (row: unknown) => string;
+  onRowClick?: (row: unknown) => void;
   loading?: boolean;
   pagination?: PaginationConfig; // External pagination config
 }
@@ -107,6 +108,7 @@ export function DataTable({
   onResetFilters,
   onRefresh,
   getRowClassName,
+  onRowClick,
   loading,
   pagination,
 }: DataTableProps) {
@@ -356,7 +358,10 @@ export function DataTable({
                 visibleData.map((row, index) => (
                   <TableRow
                     key={index}
+                    onClick={() => onRowClick?.(row)}
                     className={`border-b border-gray-100 dark:border-gray-800 hover:bg-gradient-to-r hover:from-gray-50 hover:to-transparent dark:hover:from-gray-800/50 dark:hover:to-transparent transition-all duration-200 group ${
+                      onRowClick ? "cursor-pointer" : ""
+                    } ${
                       getRowClassName ? getRowClassName(row) : ""
                     }`}
                   >

@@ -481,7 +481,9 @@ export default function TemplateManagement() {
     ? filteredTemplates.map((template) => {
         const hasVisitType = !!template.beluga_visit_type;
         const hasQuestionnaireUrl = !!effectiveClient?.questionnaire_url;
-        const isLinkDisabled = !hasVisitType || !hasQuestionnaireUrl;
+        const isFollowUp = template.questionnaire_type === 'follow_up';
+        // Follow-up questionnaires should NOT have public links - they require secure tokens
+        const isLinkDisabled = !hasVisitType || !hasQuestionnaireUrl || isFollowUp;
 
         return {
           ...template,
@@ -497,7 +499,9 @@ export default function TemplateManagement() {
                 }}
                 title={
                   isLinkDisabled
-                    ? !hasVisitType
+                    ? isFollowUp
+                      ? "Follow-ups must be sent from Patient details"
+                      : !hasVisitType
                       ? "Visit type not set"
                       : "Questionnaire URL not configured"
                     : "Copy Questionnaire Link"
