@@ -1,8 +1,9 @@
-import { Calendar, AlertCircle, X, MessageSquare, FileText } from "lucide-react";
+import { Calendar, AlertCircle, X, MessageSquare, FileText, ClipboardList } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Alert, AlertDescription } from "./ui/alert";
 import { useNavigate } from "react-router-dom";
+import { FollowUpList } from "@/features/followups";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -27,6 +28,19 @@ export default function Dashboard() {
           <X className="h-4 w-4" />
         </Button>
       </Alert>
+
+      {/* Follow-Up Questionnaires Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <ClipboardList className="h-5 w-5 text-blue-600" />
+            <CardTitle className="text-lg font-medium text-gray-900">Follow-Up Questionnaires</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <FollowUpList />
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Upcoming Dates */}

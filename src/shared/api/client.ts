@@ -135,16 +135,12 @@ const createApiClient = (): AxiosInstance => {
         originalRequest._retry = true;
 
         try {
-          // Try to refresh the token using the HTTP-only cookie
-          const response = await client.post('/auth/token/refresh', {}, { skipAuth: true } as any);
-          const { access } = response.data as { access: string };
-
-          // Update the access token in memory
-          tokenManager.setAccessToken(access);
+          // Use tokenManager for deduplication - prevents concurrent refresh floods
+          const newAccessToken = await tokenManager.refreshAccessToken();
 
           // Update the authorization header with the new token
           originalRequest.headers = originalRequest.headers || {};
-          originalRequest.headers.Authorization = `Bearer ${access}`;
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
 
           // Retry the original request with the new token
           return client(originalRequest);
