@@ -5,7 +5,14 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { useClients } from "@/hooks/useClients"
 import { templateApi, type QuestionnaireTemplate } from "@/api/questionnaires"
-import { ExternalLink } from "lucide-react"   // ⬅️ new
+import { ExternalLink } from "lucide-react"   
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 const USE_VISIT_ROUTES = true
 
@@ -92,33 +99,24 @@ function inferFrontendPath(t: QuestionnaireTemplate): string {
   return `/questionnaires/${t.id}`
 }
 
-function resolveVisitType(
-  t: QuestionnaireTemplate
-): "GLP" | "ED" | "weight_loss" | null {
-  const hay = [
-    t.name,
-    t.questionnaire_type,
-    (t as any)?.beluga_visit_type,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase()
-  if (/\bglp\b|\bglp-?1\b|\bindividualized glp\b/.test(hay)) return "GLP"
-  if (/\bed\b|\berectile dysfunction\b/.test(hay)) return "ED"
-  if (/\bstandard weight loss\b/.test(hay)) return "weight_loss"
-  if (/\bweight\s*loss\b/.test(hay)) return "weight_loss"
+function getVisitType(t: QuestionnaireTemplate): string | null {
+  // Use beluga_visit_type field from the template (matches the VISIT TYPE column)
+  const anyT = t as any
+  if (anyT.beluga_visit_type && typeof anyT.beluga_visit_type === 'string' && anyT.beluga_visit_type.trim()) {
+    return anyT.beluga_visit_type.trim()
+  }
   return null
 }
 
-function visitTypeToPathSegment(v: "GLP" | "ED" | "weight_loss") {
-  if (v === "GLP") return "glp"
-  if (v === "ED") return "ed"
-  return "weight_loss"
+function visitTypeToPathSegment(visitType: string): string {
+  // Use the visit type as-is (it's already the correct format from backend)
+  return visitType
 }
 
 type Coupon = {
   id: string
   code: string
+  name?: string
   promo_link?: string
 }
 
@@ -126,16 +124,33 @@ type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   coupon: Coupon | null
+  coupons?: Coupon[]  // Optional list for coupon selector
 }
 
-export default function CouponLinksModal({ open, onOpenChange, coupon }: Props) {
+export default function CouponLinksModal({ open, onOpenChange, coupon, coupons = [] }: Props) {
   const { currentClient } = useClients()
   const questionnaireDomain = ensureHttpsBase(currentClient?.questionnaire_url)
 
+  // Selected coupon (from prop or user selection)
+  const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(coupon)
+
+  // Update selected coupon when prop changes
+  useEffect(() => {
+    // If we have a coupon with a code, use it
+    if (coupon && coupon.code) {
+      setSelectedCoupon(coupon)
+    } 
+    // If we have a list of coupons but no selected coupon (or empty one), pick the first
+    else if (coupons.length > 0 && (!selectedCoupon || !selectedCoupon.code)) {
+      setSelectedCoupon(coupons[0])
+    }
+  }, [coupon, coupons, open])
+
+  // Build query string from selected coupon
   const qs = useMemo(() => {
-    if (!coupon) return ""
-    return coupon.promo_link || `?promo=${encodeURIComponent(coupon.code)}&promo-source=coupon`
-  }, [coupon])
+    if (!selectedCoupon || !selectedCoupon.code) return ""
+    return selectedCoupon.promo_link || `?promo=${encodeURIComponent(selectedCoupon.code)}&promo-source=coupon`
+  }, [selectedCoupon])
 
   const [copiedLink, setCopiedLink] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -150,10 +165,7 @@ export default function CouponLinksModal({ open, onOpenChange, coupon }: Props) 
       setLoading(true)
       setError(null)
       try {
-        const data = await templateApi.listTemplates(
-          { page_size: 100, ordering: "name" },
-          controller.signal
-        )
+        const data = await templateApi.listTemplates()
         const results = Array.isArray(data) ? data : (data as any)?.results ?? []
         const publishedOnly = results.filter((t: QuestionnaireTemplate) => t.is_published)
         if (!cancelled) setTemplates(publishedOnly)
@@ -179,34 +191,59 @@ export default function CouponLinksModal({ open, onOpenChange, coupon }: Props) 
     }
   }
 
-  const promoDisabled = !coupon
+  const promoDisabled = !selectedCoupon
   const manualFull = buildLink({
     base: questionnaireDomain,
     path: "",
     qs: promoDisabled ? "" : qs,
-    fallbackPromo: coupon?.code ?? "",
+    fallbackPromo: selectedCoupon?.code ?? "",
     fallbackSource: "coupon",
   })
 
   const items = useMemo(() => {
-    return templates
-      .map((t) => {
-        const vt = resolveVisitType(t)
-        const visitPath = vt ? `/visit/${visitTypeToPathSegment(vt)}` : null
-        const legacyPath = inferFrontendPath(t)
-        return { t, vt, visitPath, legacyPath }
-      })
-      .filter(i => USE_VISIT_ROUTES ? !!i.vt : true)
+    return templates.map((t) => {
+      const vt = getVisitType(t)
+      // Use visit_type if available, otherwise fall back to legacy path
+      const visitPath = vt ? `/visit/${visitTypeToPathSegment(vt)}` : null
+      const legacyPath = inferFrontendPath(t)
+      return { t, vt, visitPath, legacyPath }
+    })
+    // Show ALL published templates, not just ones with visit type
   }, [templates])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Links for Coupon{coupon ? `: ${coupon.code}` : ""}</DialogTitle>
+          <DialogTitle>Links for Coupon{selectedCoupon ? `: ${selectedCoupon.code}` : ""}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Coupon Selector (only if multiple coupons provided) */}
+          {coupons.length > 0 && (
+            <div>
+              <p className="text-sm font-medium mb-2">Select Coupon</p>
+              <Select
+                value={selectedCoupon?.id}
+                onValueChange={(val) => {
+                  const found = coupons.find(c => c.id === val)
+                  if (found) setSelectedCoupon(found)
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a coupon" />
+                </SelectTrigger>
+                <SelectContent>
+                  {coupons.map(c => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name || c.code} ({c.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Promo link */}
           <div>
             <p className="text-sm font-medium mb-2">Manual Preview</p>
@@ -220,7 +257,6 @@ export default function CouponLinksModal({ open, onOpenChange, coupon }: Props) 
               >
                 {copiedLink === manualFull ? "Copied" : "Copy Link"}
               </Button>
-
             </div>
           </div>
 
@@ -253,7 +289,7 @@ export default function CouponLinksModal({ open, onOpenChange, coupon }: Props) 
                     base: questionnaireDomain,
                     path,
                     qs: promoDisabled ? "" : qs,
-                    fallbackPromo: coupon?.code ?? "",
+                    fallbackPromo: selectedCoupon?.code ?? "",
                     fallbackSource: "coupon",
                   })
 

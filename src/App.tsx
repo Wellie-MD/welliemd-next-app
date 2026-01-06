@@ -37,6 +37,7 @@ import TemplateQuestions from "./pages/TemplateQuestions";
 import FlowBuilder from "./pages/FlowBuilder";
 import ManageAccount from "./pages/ManageAccount";
 import CouponCodes from "./pages/CouponCodes";
+import CreateCouponPage from "./pages/CreateCouponPage";
 import AcceptInvitation from "./pages/AcceptInvitation";
 import RegisterInvitation from "./pages/auth/RegisterInvitation";
 import Forbidden from "./pages/Forbidden";
@@ -227,6 +228,8 @@ const App = () => {
                       <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} />
                       <Route path="/analytics/reports" element={<ProtectedRoute><AnalyticsReports /></ProtectedRoute>} />
                       <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
+                      <Route path="/coupon-codes/new" element={<ProtectedRoute><CreateCouponPage /></ProtectedRoute>} />
+                      <Route path="/coupon-codes/:id/edit" element={<ProtectedRoute><CreateCouponPage /></ProtectedRoute>} />
                       <Route path="/coupon-insights" element={<ProtectedRoute><CouponInsights /></ProtectedRoute>} />
                       <Route path="/finances/invoices" element={<ProtectedRoute><FinancesInvoices /></ProtectedRoute>} />
                       <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />

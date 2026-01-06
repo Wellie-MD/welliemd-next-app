@@ -21,14 +21,7 @@ type CouponFormValues = {
   value: number
   applicable_products: string[]
   is_active: boolean
-  max_usage?: number | null
-  max_usage_per_user?: number | null
-  min_spend?: number | null
   expires_at?: string | null
-  // ---- NEW FIELDS (frontend form) ----
-  purchase_applicability: "both" | "first_only" | "followup_only"
-  catalog_applicability: "medical_only" | "labs_only" | "both"
-  subscription_applicability: "first_cycle_only" | "every_cycle"
 }
 
 type Props = {
@@ -40,14 +33,7 @@ type Props = {
     value: number | string
     applicable_products: string[]
     is_active: boolean
-    max_usage?: number | null
-    max_usage_per_user?: number | null
-    min_spend?: number | string | null
     expires_at?: string | null
-    // ---- NEW (for edit mode defaults) ----
-    purchase_applicability: "both" | "first_only" | "followup_only"
-    catalog_applicability: "medical_only" | "labs_only" | "both"
-    subscription_applicability: "first_cycle_only" | "every_cycle"
   }
   open?: boolean
   onOpenChange?: (open: boolean) => void
@@ -89,19 +75,7 @@ export default function AddCouponForm({
           : 0,
       applicable_products: coupon?.applicable_products ?? [],
       is_active: coupon?.is_active ?? true,
-      max_usage: coupon?.max_usage ?? null,
-      max_usage_per_user: coupon?.max_usage_per_user ?? null,
-      min_spend:
-        coupon?.min_spend === null || coupon?.min_spend === undefined
-          ? null
-          : typeof coupon?.min_spend === "string"
-          ? parseFloat(coupon.min_spend as string)
-          : (coupon?.min_spend as number),
       expires_at: toLocalDatetimeInputValue(coupon?.expires_at ?? null),
-      // ---- NEW defaults (mirror backend defaults) ----
-      purchase_applicability: coupon?.purchase_applicability ?? "both",
-      catalog_applicability: coupon?.catalog_applicability ?? "medical_only",
-      subscription_applicability: coupon?.subscription_applicability ?? "first_cycle_only",
     },
   })
 
@@ -273,61 +247,16 @@ export default function AddCouponForm({
                       )
                     }}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">Leave empty to apply the coupon to all products.</p>
                 </div>
               </div>
             </div>
 
-            {/* === Applicability === */}
+            {/* === Status & Scheduling === */}
             <div className="md:col-span-2">
-              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Applicability</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Coupon Applicable To */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">Coupon Applicable To</label>
-                  <select
-                    {...register("purchase_applicability")}
-                    className="border px-3 py-2 rounded w-full bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
-                  >
-                    <option value="both">For Both First and Followup Purchase</option>
-                    <option value="first_only">First Purchase Only</option>
-                    <option value="followup_only">Follow-up Purchase Only</option>
-                  </select>
-                </div>
-
-                {/* Apply To Subscription Products */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">Apply To Subscription Products</label>
-                  <select
-                    {...register("subscription_applicability")}
-                    className="border px-3 py-2 rounded w-full bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
-                  >
-                    <option value="first_cycle_only">Apply Only to First Billing Cycle</option>
-                    <option value="every_cycle">Apply to Every Billing Cycle</option>
-                  </select>
-                </div>
-
-                {/* Coupon Applicable To Meds/Lab Panel (full width on md) */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium mb-1">Coupon Applicable To Meds/Lab Panel</label>
-                  <select
-                    {...register("catalog_applicability")}
-                    className="border px-3 py-2 rounded w-full bg-white focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
-                  >
-                    <option value="medical_only">Apply Only to Medical Products</option>
-                    <option value="labs_only">Apply Only to Lab Panels</option>
-                    <option value="both">Apply to both Medical Products/Lab Panels</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* === Limits & Rules === */}
-            <div className="md:col-span-2">
-              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Limits &amp; Rules</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Status & Scheduling</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                 {/* Active */}
-                <div className="flex items-center gap-2 md:col-span-1">
+                <div className="flex items-center gap-2">
                   <input 
                     type="checkbox" 
                     {...register("is_active")} 
@@ -339,46 +268,7 @@ export default function AddCouponForm({
                   </label>
                 </div>
 
-                {/* Max usage */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">Max Usage</label>
-                  <Input
-                    type="number"
-                    {...register("max_usage")}
-                    placeholder="e.g. 100"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Total number of times this coupon can be used.</p>
-                </div>
-
-                {/* Max per user */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">Max per User</label>
-                  <Input
-                    type="number"
-                    {...register("max_usage_per_user")}
-                    placeholder="e.g. 1"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Limit usage for each customer.</p>
-                </div>
-
-                {/* Minimum spend */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">Minimum Spend</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    {...register("min_spend")}
-                    placeholder="e.g. 50.00"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Order subtotal must be at least this amount.</p>
-                </div>
-              </div>
-            </div>
-
-            {/* === Scheduling === */}
-            <div className="md:col-span-2">
-              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Scheduling</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Expiry Date */}
                 <div>
                   <label className="block text-sm font-medium mb-1">Expiry Date</label>
                   <Input
