@@ -27,6 +27,7 @@ export interface Order {
   address?: string | null
   orderStatus?: string | null
   orderTotal?: string | null
+  tracking_number?: string | null
 }
 
 export interface PaginatedOrdersResponse {

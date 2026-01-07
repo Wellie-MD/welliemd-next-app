@@ -24,8 +24,9 @@ const orderColumns = [
   { key: "visitStatus", label: "Visit Status" },
   { key: "address", label: "Address" },
   { key: "orderStatus", label: "Order Status" },
-  { key: "orderTotal", label: "Order Total" }
-  ,{ key: "actions", label: "Actions", render: (_: any, row: any) => null }
+  { key: "orderTotal", label: "Order Total" },
+  { key: "tracking_number", label: "Tracking #" },
+  { key: "actions", label: "Actions", render: (_: any, row: any) => null }
 ]
 
 // Meaningful filters based on the orders data structure
@@ -91,6 +92,7 @@ export default function Orders() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [editedStatuses, setEditedStatuses] = useState<Record<string, string>>({})
+  const [editedTrackingNumbers, setEditedTrackingNumbers] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
 
   // Comprehensive filtering logic based on actual order data
@@ -238,17 +240,33 @@ export default function Orders() {
     setEditedStatuses(prev => ({ ...prev, [id]: value }))
   }
 
+  const handleTrackingNumberChange = (id: string, value: string) => {
+    setEditedTrackingNumbers(prev => ({ ...prev, [id]: value }))
+  }
+
   const handleSaveOrder = async (id: string) => {
     const newStatus = editedStatuses[id]
-    if (newStatus == null) return
+    const newTrackingNumber = editedTrackingNumbers[id]
+    
+    if (newStatus == null && newTrackingNumber == null) return
+    
     setSavingId(id)
     setError(null)
     setSuccess(null)
     try {
-      await ordersApi.updateOrder(id, { status: newStatus })
+      const payload: Partial<Order> = {}
+      if (newStatus != null) payload.status = newStatus
+      if (newTrackingNumber != null) payload.tracking_number = newTrackingNumber
+
+      await ordersApi.updateOrder(id, payload)
       setSuccess('Order updated')
-      // clear local edited value for this row
+      // clear local edited values for this row
       setEditedStatuses(prev => {
+        const copy = { ...prev }
+        delete copy[id]
+        return copy
+      })
+      setEditedTrackingNumbers(prev => {
         const copy = { ...prev }
         delete copy[id]
         return copy
@@ -335,7 +353,11 @@ export default function Orders() {
                     size="sm"
                     variant="outline"
                     onClick={() => handleSaveOrder(row.id)}
-                    disabled={!(editedStatuses[row.id] && editedStatuses[row.id] !== (row.orderStatus || '')) || savingId === row.id}
+                    disabled={
+                      savingId === row.id || 
+                      (!(editedStatuses[row.id] && editedStatuses[row.id] !== (row.orderStatus || '')) &&
+                       !(editedTrackingNumbers[row.id] !== undefined && editedTrackingNumbers[row.id] !== (row.tracking_number || '')))
+                    }
                   >
                     {savingId === row.id ? 'Saving...' : 'Save'}
                   </Button>
@@ -366,6 +388,32 @@ export default function Orders() {
                   </Select>
                 </div>
               ),
+            }
+          }
+
+          if (col.key === 'tracking_number') {
+            return {
+              ...col,
+              render: (_: any, row: any) => {
+                const currentStatus = editedStatuses[row.id] ?? (row.orderStatus ?? 'created')
+                const isShipped = currentStatus === 'shipped'
+                
+                return (
+                  <div>
+                    {isShipped ? (
+                      <input
+                        type="text"
+                        className="w-32 px-2 py-1 text-sm border rounded"
+                        placeholder="Tracking #"
+                        value={editedTrackingNumbers[row.id] ?? (row.tracking_number ?? '')}
+                        onChange={(e) => handleTrackingNumberChange(row.id, e.target.value)}
+                      />
+                    ) : (
+                      <span className="text-sm text-muted-foreground italic">N/A</span>
+                    )}
+                  </div>
+                )
+              }
             }
           }
 
