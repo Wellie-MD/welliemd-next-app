@@ -40,7 +40,9 @@ function buildLink({
   qs?: string | null | undefined
 }) {
   try {
-    const baseWithSlash = ensureHttpsBase(base) + "/"
+    const processedBase = ensureHttpsBase(base)
+    if (!processedBase) return "" // Return empty if no valid base URL
+    const baseWithSlash = processedBase + "/"
     const cleanPath = (path || "").replace(/^\/+/, "")
     const u = new URL(cleanPath, baseWithSlash)
     const params = parseQueryParams(qs)
@@ -235,19 +237,6 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate, aff
               </Select>
             </div>
           )}
-
-          {/* Referral Link */}
-          <div>
-            <p className="text-sm font-medium mb-2">Referral Link</p>
-            <div className="flex items-center gap-2">
-              <Input readOnly value={referralLink} />
-              <Button variant="secondary" onClick={() => copy(referralLink)} disabled={!referralLink}>
-                {copiedLink === referralLink ? "Copied" : "Copy"}
-              </Button>
-            </div>
-          </div>
-
-          <Separator />
 
           {/* Questionnaires */}
           <div className="space-y-2">

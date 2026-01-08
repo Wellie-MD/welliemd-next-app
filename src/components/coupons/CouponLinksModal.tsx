@@ -42,7 +42,9 @@ function buildLink({
   fallbackPromo: string
   fallbackSource?: string
 }) {
-  const baseWithSlash = ensureHttpsBase(base) + "/"
+  const processedBase = ensureHttpsBase(base)
+  if (!processedBase) return "" // Return empty if no valid base URL
+  const baseWithSlash = processedBase + "/"
   const cleanPath = (path || "").replace(/^\/+/, "")
   const u = new URL(cleanPath, baseWithSlash)
   const params = parseQueryParams(qs)
@@ -243,25 +245,7 @@ export default function CouponLinksModal({ open, onOpenChange, coupon, coupons =
             </div>
           )}
 
-          {/* Promo link */}
-          <div>
-            <p className="text-sm font-medium mb-2">Manual Preview</p>
-            <div className="flex items-center gap-2">
-              <Input readOnly value={promoDisabled ? "" : `${qs}`} className="bg-muted" />
-              <Button
-                variant="secondary"
-                onClick={() => copy(manualFull)}
-                disabled={promoDisabled}
-                title={promoDisabled ? "No coupon selected" : "Copy full URL"}
-              >
-                {copiedLink === manualFull ? "Copied" : "Copy Link"}
-              </Button>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Dynamic Links */}
+          {/* Questionnaires */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">Questionnaires</p>
