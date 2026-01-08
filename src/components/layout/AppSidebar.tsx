@@ -30,6 +30,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -186,8 +187,26 @@ export function AppSidebar() {
     return <>{children}</>
   }
 
+   function SidebarLogo() {
+  const { state } = useSidebar()
+
+  if (state === "collapsed") return null
+
+  return (
+    <img
+      src="/welliemd_logo.png"
+      alt="Welliemd"
+      className="h-8 w-auto"
+    />
+  )
+}
+
   return (
     <Sidebar collapsible="icon" className="border-r">
+      <div className="flex w-full justify-between p-4">
+        <SidebarLogo />
+        <SidebarTrigger className="text-gray-600 hover:bg-white/50 rounded-md p-1" />
+      </div>
       <SidebarContent className="overflow-y-auto overflow-x-hidden scrollbar-hide pb-4">
         {menuSections.map((section, sectionIndex) => (
           <SidebarGroup key={section.label} className={collapsed ? "mb-2" : "mb-6"}>
