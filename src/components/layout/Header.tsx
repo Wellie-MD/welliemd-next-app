@@ -13,7 +13,8 @@ import {
 import { useAuthStore } from "@/store/useAuthStore"
 import { authService } from "@/services/authService"
 import { useNavigate } from "react-router-dom"
-import { SidebarTrigger } from "../ui/sidebar"
+import { useSidebar } from "../ui/sidebar"
+// import { SidebarTrigger } from "../ui/sidebar"
 
 export function Header() {
   const user = useAuthStore((state) => state.user)
@@ -23,18 +24,23 @@ export function Header() {
     await authService.logout()
     navigate('/auth/signin')
   }
+  const { state } = useSidebar()
+
 
   return (
     <header className="h-16 bg-blue-100 border-b border-gray-200 flex items-center justify-between px-4">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
+          {state === "collapsed" && (
+
           <img 
             src="/welliemd_logo.png" 
             alt="Welliemd" 
             className="h-8 w-auto"
           />
+             )}
         </div>
-        <SidebarTrigger className="text-gray-600 hover:bg-white/50 rounded-md p-1" />
+        {/* <SidebarTrigger className="text-gray-600 hover:bg-white/50 rounded-md p-1" /> // button moved to sidebar */}
       </div>
 
       <div className="flex-1 max-w-md mx-4">

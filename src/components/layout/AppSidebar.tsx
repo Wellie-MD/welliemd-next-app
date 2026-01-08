@@ -27,6 +27,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
 import {
@@ -71,7 +72,7 @@ const menuSections = [
         icon: MessageSquare,
         permission: Permissions.MESSAGE_LIST, // All roles
       },
-      
+
       /* Analytics section removed on request: https://telehealthknysys.atlassian.net/browse/KAN-3 */
 
       // {
@@ -213,11 +214,29 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
     return <>{children}</>;
   };
 
+  function SidebarLogo() {
+  const { state } = useSidebar()
+
+  if (state === "collapsed") return null
+
+  return (
+    <img
+      src="/welliemd_logo.png"
+      alt="Welliemd"
+      className="h-8 w-auto"
+    />
+  )
+}
+
   return (
     <Sidebar
       collapsible="icon"
       className="border-r flex flex-col h-full overflow-hidden"
     >
+      <div className="flex w-full justify-between p-4">
+        <SidebarLogo />
+        <SidebarTrigger className="text-gray-600 hover:bg-white/50 rounded-md p-1" />
+      </div>
       <SidebarContent className="overflow-y-auto overflow-x-hidden flex-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <div className="flex flex-col h-full">
           {menuSections.map((section, sectionIndex) => (
