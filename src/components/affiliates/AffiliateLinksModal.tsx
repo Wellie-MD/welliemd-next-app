@@ -18,8 +18,7 @@ const USE_VISIT_ROUTES = true
 
 // ---------- helpers ----------
 function ensureHttpsBase(urlLike?: string): string {
-  const fallback = "https://my.welliemd.com"
-  if (!urlLike) return fallback
+  if (!urlLike) return ""
   const trimmed = urlLike.trim().replace(/\/+$/, "")
   if (/^https?:\/\//i.test(trimmed)) return trimmed
   return `https://${trimmed}`
