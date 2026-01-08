@@ -56,11 +56,12 @@ const menuSections = [
       // },
       {
         title: "Orders",
+        url: "/dashboard/orders",
         icon: ShoppingBag,
-        children: [
-          { title: "Orders", url: "/dashboard/orders" },
-          { title: "Payments", url: "/dashboard/orders/payments" },
-        ]
+        // children: [
+        //   { title: "Orders", url: "/dashboard/orders" },
+        //   { title: "Payments", url: "/dashboard/orders/payments" },
+        // ]
       },
       { title: "Messenger", url: "/dashboard/messages", icon: MessageSquare },
       // { 
