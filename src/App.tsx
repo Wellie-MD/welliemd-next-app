@@ -224,9 +224,9 @@ const App = () => {
                           </ProtectedRoute>
                         } 
                       />
-                      <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-                      <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} />
-                      <Route path="/analytics/reports" element={<ProtectedRoute><AnalyticsReports /></ProtectedRoute>} />
+                      {/* <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />  // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-3 */}
+                      {/* <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} /> // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-3  */}
+                      {/* <Route path="/analytics/reports" element={<ProtectedRoute><AnalyticsReports /></ProtectedRoute>} /> // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-3 */}
                       <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
                       <Route path="/coupon-codes/new" element={<ProtectedRoute><CreateCouponPage /></ProtectedRoute>} />
                       <Route path="/coupon-codes/:id/edit" element={<ProtectedRoute><CreateCouponPage /></ProtectedRoute>} />

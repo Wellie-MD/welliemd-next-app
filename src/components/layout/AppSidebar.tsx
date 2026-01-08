@@ -71,15 +71,18 @@ const menuSections = [
         icon: MessageSquare,
         permission: Permissions.MESSAGE_LIST, // All roles
       },
-      {
-        title: "Analytics",
-        icon: TrendingUp,
-        children: [
-          { title: "Live View", url: "/dashboard/analytics/live" },
-          { title: "Reports", url: "/dashboard/analytics/reports" },
-          { title: "Cohorts", url: "/dashboard/analytics/cohorts" },
-        ],
-      },
+      
+      /* Analytics section removed on request: https://telehealthknysys.atlassian.net/browse/KAN-3 */
+
+      // {
+      //   title: "Analytics",
+      //   icon: TrendingUp,
+      //   children: [
+      //     { title: "Live View", url: "/dashboard/analytics/live" },
+      //     { title: "Reports", url: "/dashboard/analytics/reports" },
+      //     { title: "Cohorts", url: "/dashboard/analytics/cohorts" },
+      //   ],
+      // },
     ],
   },
   {
