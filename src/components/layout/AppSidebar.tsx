@@ -72,7 +72,7 @@ const menuSections = [
       //     { title: "Cohorts", url: "/dashboard/analytics/cohorts" }
       //   ]
       // },
-      { title: "Prescriptions", url: "/dashboard/prescriptions", icon: ScrollText }
+      // { title: "Prescriptions", url: "/dashboard/prescriptions", icon: ScrollText } // --- Removed on request: https://telehealthknysys.atlassian.net/browse/KAN-3 --
     ]
   },
   {
