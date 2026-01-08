@@ -102,27 +102,30 @@ const menuSections = [
       },
     ]
   },
-  {
-    label: "SALES & CHANNELS", 
-    items: [
-{
-        title: "Finances",
-        icon: CreditCard,
-        children: [
-          { title: "Billing", url: "/dashboard/billing" },
-        ]
-      },
-      // {
-      //   title: "Discounts",
-      //   icon: Gift,
-      //   children: [
-      //     { title: "Coupon Codes", url: "/dashboard/coupon-codes" },
-      //     { title: "Insights", url: "/dashboard/coupon-insights" }
-      //   ]
-      // },
-      // { title: "Affiliates", url: "/dashboard/affiliates", icon: Users }
-    ]
-  }
+
+  // --- Removed "SALES & CHANNELS" on request: https://telehealthknysys.atlassian.net/browse/KAN-3 --
+
+//   {
+//     label: "SALES & CHANNELS", 
+//     items: [
+// {
+//         title: "Finances",
+//         icon: CreditCard,
+//         children: [
+//           { title: "Billing", url: "/dashboard/billing" },
+//         ]
+//       },
+//       // {
+//       //   title: "Discounts",
+//       //   icon: Gift,
+//       //   children: [
+//       //     { title: "Coupon Codes", url: "/dashboard/coupon-codes" },
+//       //     { title: "Insights", url: "/dashboard/coupon-insights" }
+//       //   ]
+//       // },
+//       // { title: "Affiliates", url: "/dashboard/affiliates", icon: Users }
+//     ]
+//   }
 ]
 
 export function AppSidebar() {
