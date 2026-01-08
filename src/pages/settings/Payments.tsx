@@ -406,7 +406,9 @@ export default function Payments() {
         </CardContent>
       </Card>
 
-      <Card>
+      {/* WellieMD Payments card removed on request: https://telehealthknysys.atlassian.net/browse/KAN-3 */}
+          
+      {/* <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-lg font-medium">WellieMD Payments</CardTitle>
@@ -423,9 +425,9 @@ export default function Payments() {
                 </p>
               </DialogHeader>
               
-              <div className="space-y-6">
+              <div className="space-y-6"> */}
                 {/* Payment Methods Selection */}
-                <div>
+                {/* <div>
                   <h3 className="font-medium mb-3">Payment Methods</h3>
                   <div className="space-y-3">
                     {paymentMethods.map((method) => (
@@ -446,10 +448,10 @@ export default function Payments() {
                       </div>
                     ))}
                   </div>
-                </div>
+                </div> */}
 
                 {/* Payout Details */}
-                <div>
+                {/* <div>
                   <h3 className="font-medium mb-2">Payout Details</h3>
                   <p className="text-sm text-muted-foreground mb-4">
                     Your earnings are deposited into this bank account. Choose the frequency of your payouts and edit the way they're described on your bank statements.
@@ -556,10 +558,10 @@ export default function Payments() {
                       />
                     </div>
                   </div>
-                </div>
+                </div> */}
 
                 {/* Test Mode */}
-                <div className="space-y-3 p-4 bg-blue-50 rounded-lg">
+                {/* <div className="space-y-3 p-4 bg-blue-50 rounded-lg">
                   <h3 className="font-medium">Test Mode</h3>
                   <p className="text-sm text-muted-foreground">
                     Test WellieMD Payments setup and configuration to simulate successful and failed transactions.{" "}
@@ -572,10 +574,10 @@ export default function Payments() {
                     />
                     <Label>Turn Test Mode on</Label>
                   </div>
-                </div>
+                </div> */}
 
                 {/* Action Buttons */}
-                <div className="flex justify-end">
+                {/* <div className="flex justify-end">
                   <Button onClick={handleSave} className="bg-sky-500 hover:bg-sky-600">
                     Save
                   </Button>
@@ -592,10 +594,10 @@ export default function Payments() {
             <Button variant="link" className="h-auto p-0 text-xs text-sky-600 hover:text-sky-700">
               Manage
             </Button>
-          </div>
+          </div> */}
 
           {/* Payment Method Icons */}
-          <div className="flex flex-wrap gap-2 items-center">
+          {/* <div className="flex flex-wrap gap-2 items-center">
             {paymentIcons.slice(0, 6).map((payment, index) => (
               <div key={index} className="flex items-center justify-center w-12 h-8 bg-white border rounded shadow-sm">
                 <img 
@@ -630,10 +632,12 @@ export default function Payments() {
             </Badge>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
+
+      {/* Payment Statuses card removed on request: https://telehealthknysys.atlassian.net/browse/KAN-3 */}
 
       {/* Payment Statuses */}
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle className="text-lg font-medium">Payment Statuses</CardTitle>
         </CardHeader>
@@ -656,7 +660,7 @@ export default function Payments() {
             </div>
           ))}
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   )
 }
