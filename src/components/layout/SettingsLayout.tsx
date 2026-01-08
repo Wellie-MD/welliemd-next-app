@@ -16,6 +16,7 @@ import Brand from "@/pages/settings/Brand"
 import AnalyticsSeo from "@/pages/settings/AnalyticsSeo"
 import SmtpSettings from "@/pages/settings/SmtpSettings"
 import SmtpDomainSettings from "@/pages/settings/SmtpDomainSettings"
+import NotificationTemplates from "@/pages/settings/NotificationTemplates"
 
 export function SettingsLayout() {
   return (
@@ -38,6 +39,7 @@ export function SettingsLayout() {
               <Route path="users-permissions" element={<UsersPermissions />} />
               <Route path="payments" element={<Payments />} />
               <Route path="notifications" element={<Notifications />} />
+              <Route path="notification-templates" element={<NotificationTemplates />} />
               <Route path="webhooks-apis" element={<WebhooksApis />} />
               <Route path="files" element={<Files />} />
               <Route path="policies" element={<Policies />} />

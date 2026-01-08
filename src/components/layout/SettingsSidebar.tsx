@@ -15,7 +15,8 @@ import {
   Globe,
   Palette,
   TrendingUp,
-  Settings2
+  Settings2,
+  Mail
 } from "lucide-react"
 import {
   Sidebar,
@@ -41,6 +42,7 @@ const settingsMenuItems = [
   { title: "Users and Permissions", url: "/dashboard/settings/users-permissions", icon: Users },
   { title: "Payments", url: "/dashboard/settings/payments", icon: CreditCard },
   { title: "Notifications", url: "/dashboard/settings/notifications", icon: Bell },
+  { title: "Notification Templates", url: "/dashboard/settings/notification-templates", icon: Mail },
   { title: "Policies", url: "/dashboard/settings/policies", icon: Shield },
   { title: "Metafields", url: "/dashboard/settings/metafields", icon: Tag },
   { title: "Domains", url: "/dashboard/settings/domains", icon: Globe },
