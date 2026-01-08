@@ -44,7 +44,7 @@ export function SettingsLayout() {
               <Route path="files" element={<Files />} />
               <Route path="policies" element={<Policies />} />
               <Route path="metafields" element={<Metafields />} />
-              <Route path="domains" element={<Domains />} />
+              {/* <Route path="domains" element={<Domains />} />  */} {/* Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-3 */}
               <Route path="brand" element={<Brand />} />
               <Route path="analytics-seo" element={<AnalyticsSeo />} />
               <Route path="smtp-settings" element={<SmtpSettings />} />
