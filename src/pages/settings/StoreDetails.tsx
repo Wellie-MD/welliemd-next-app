@@ -75,7 +75,7 @@ export default function StoreDetails() {
 
   if (!settings) {
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="mx-auto">
         <Card className="border-destructive">
           <CardContent className="p-6">
             <p className="text-destructive">Failed to load store settings</p>
@@ -86,7 +86,7 @@ export default function StoreDetails() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="mx-auto space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-foreground">Store details</h1>
         <Button onClick={handleSave} disabled={saving}>

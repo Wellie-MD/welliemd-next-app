@@ -17,19 +17,30 @@ import AnalyticsSeo from "@/pages/settings/AnalyticsSeo"
 import SmtpSettings from "@/pages/settings/SmtpSettings"
 import SmtpDomainSettings from "@/pages/settings/SmtpDomainSettings"
 import NotificationTemplates from "@/pages/settings/NotificationTemplates"
+import { useState } from "react"
 
 export function SettingsLayout() {
+  const [collapsed, setCollapsed] = useState(false)
+
   return (
     <div className="flex w-full bg-background">
       {/* Fixed Sidebar */}
-      <div className="w-64 fixed left-0 top-0 h-full z-30">
-        <SettingsSidebar />
-      </div>
+      {/* <div className="w-64 fixed left-0 top-0 h-full z-30"> */}
+        <SettingsSidebar 
+        collapsed={collapsed}
+        onToggle={() => setCollapsed((v) => !v)}
+        />
+      {/* </div> */}
       
       {/* Main Content with Left Margin */}
-      <div className="flex-1 ml-64 flex flex-col">
+      {/* <div className="flex-1 ml-64 flex flex-col"> */}
         {/* Scrollable Content Area */}
-        <main className="flex-1 overflow-y-auto">
+        <main
+        className={`flex-1 overflow-y-auto transition-all duration-200 ${
+          collapsed ? "ml-16" : "ml-64"
+        }`}
+      >
+
           <div className="p-6">
             <Routes>
               <Route path="store-details" element={<StoreDetails />} />
@@ -53,7 +64,7 @@ export function SettingsLayout() {
             </Routes>
           </div>
         </main>
-      </div>
+      {/* </div> */}
     </div>
   )
 }

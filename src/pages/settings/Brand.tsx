@@ -206,7 +206,7 @@ export default function Brand() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 p-6">
+    <div className="mx-auto space-y-8 p-6">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Brand</h1>
       </div>
