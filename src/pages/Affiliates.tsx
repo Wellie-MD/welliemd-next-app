@@ -6,6 +6,8 @@ import { Plus, Pencil, Trash2, Link2 } from "lucide-react"
 import axiosInstance from "@/api/axiosInstance"
 import AffiliateForm from "@/components/affiliates/AffiliateForm"
 import AffiliateLinksModal from "@/components/affiliates/AffiliateLinksModal"
+import { AffiliateInsightsSheet } from "@/components/affiliates/AffiliateInsightsSheet"
+import { Affiliate as AffiliateType } from "@/api/affiliatesApi"
 
 // NEW: shadcn confirm modal
 import {
@@ -38,6 +40,7 @@ export default function Affiliates() {
   const [showCreate, setShowCreate] = useState(false)
   const [editingAffiliate, setEditingAffiliate] = useState<Affiliate | null>(null)
   const [linkAffiliate, setLinkAffiliate] = useState<Affiliate | null>(null)
+  const [insightsAffiliate, setInsightsAffiliate] = useState<Affiliate | null>(null)
 
   // NEW: delete modal state
   const [pendingDelete, setPendingDelete] = useState<Affiliate | null>(null)
@@ -102,16 +105,11 @@ export default function Affiliates() {
           <button
             type="button"
             className="hover:opacity-80"
-            title="Links"
-            onClick={() => setLinkAffiliate(row)}
-          >
-            <Link2 className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            className="hover:opacity-80"
             title="Edit"
-            onClick={() => setEditingAffiliate(row)}
+            onClick={(e) => {
+              e.stopPropagation()
+              setEditingAffiliate(row)
+            }}
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -119,7 +117,10 @@ export default function Affiliates() {
             type="button"
             className="text-red-600 hover:opacity-80"
             title="Delete"
-            onClick={() => requestDelete(row)}
+            onClick={(e) => {
+              e.stopPropagation()
+              requestDelete(row)
+            }}
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -132,10 +133,16 @@ export default function Affiliates() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Affiliate Programs</h1>
-        <Button className="gap-2" onClick={() => setShowCreate(true)}>
-          <Plus className="h-4 w-4" />
-          Add New
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => setShowCreate(true)}>
+            <Plus className="h-4 w-4" />
+            Add New
+          </Button>
+          <Button className="gap-2" onClick={() => setLinkAffiliate({ id: '', slug: '', name: '', referral_link: '' } as Affiliate)}>
+            <Link2 className="h-4 w-4" />
+            Links
+          </Button>
+        </div>
       </div>
 
       {showCreate && (
@@ -168,12 +175,20 @@ export default function Affiliates() {
         columns={columns}
         searchPlaceholder="Search by affiliate name, slug, or ID"
         loading={loading}
+        onRowClick={(row) => setInsightsAffiliate(row as Affiliate)}
       />
 
       <AffiliateLinksModal
         open={!!linkAffiliate}
         onOpenChange={(v) => !v && setLinkAffiliate(null)}
         affiliate={linkAffiliate}
+        affiliates={affiliates}
+      />
+
+      <AffiliateInsightsSheet
+        open={!!insightsAffiliate}
+        onOpenChange={(v) => !v && setInsightsAffiliate(null)}
+        affiliate={insightsAffiliate as any}
       />
 
       {/* Delete confirmation modal */}

@@ -3,10 +3,105 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { smtpApi, ClientEmailConfiguration, deleteMailgunCredentials, createMailgunCredentials } from "@/api/smtpApi"
-import { AlertCircle, CheckCircle, Loader } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { smtpApi, ClientEmailConfiguration } from "@/api/smtpApi"
+import { 
+  AlertCircle, 
+  CheckCircle, 
+  Loader, 
+  ArrowLeft, 
+  Settings, 
+  Globe, 
+  Shield, 
+  Key, 
+  BarChart3, 
+  MoreVertical, 
+  Copy, 
+  Plus,
+  Check
+} from "lucide-react"
 
+// DNS Record Card Component
+interface DnsRecordCardProps {
+  type: string
+  name: string
+  value: string
+  priority?: string
+  valid?: string
+}
+
+function DnsRecordCard({ type, name, value, priority, valid }: DnsRecordCardProps) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(value)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="bg-muted/50 border border-border rounded-lg p-4 mb-3">
+      <div className="grid grid-cols-12 gap-4 items-start">
+        <div className="col-span-2">
+          <p className="text-xs text-muted-foreground mb-1">Type</p>
+          <p className="font-medium text-sm">{type}</p>
+          {priority && <p className="text-xs text-muted-foreground mt-1">Priority: {priority}</p>}
+        </div>
+        <div className="col-span-4">
+          <p className="text-xs text-muted-foreground mb-1">Name</p>
+          <p className="font-medium text-sm break-all">{name || "@"}</p>
+        </div>
+        <div className="col-span-5">
+          <p className="text-xs text-muted-foreground mb-1">Value</p>
+          <p className="font-mono text-xs break-all text-muted-foreground">{value}</p>
+        </div>
+        <div className="col-span-1 flex justify-end">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8"
+            onClick={handleCopy}
+          >
+            {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+          </Button>
+        </div>
+      </div>
+      {valid && (
+        <div className="mt-2">
+          <Badge variant={valid === "valid" ? "default" : "destructive"} className="text-xs">
+            {valid === "valid" ? "✓ Verified" : "⚠ Not Verified"}
+          </Badge>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Stat Card Component
+interface StatCardProps {
+  title: string
+  value: string | number
+  subtext?: string
+  colorClass?: string
+}
+
+function StatCard({ title, value, subtext, colorClass = "bg-primary/20" }: StatCardProps) {
+  return (
+    <div className={`${colorClass} rounded-lg p-4 min-w-[140px]`}>
+      <p className="text-xs text-muted-foreground mb-1">{title}</p>
+      <p className="text-2xl font-bold">{value}</p>
+      {subtext && <p className="text-xs text-muted-foreground mt-1">{subtext}</p>}
+    </div>
+  )
+}
 
 export default function SmtpDomainSettings() {
   const [formData, setFormData] = useState<ClientEmailConfiguration>({
@@ -24,6 +119,18 @@ export default function SmtpDomainSettings() {
   const [credError, setCredError] = useState<string | null>(null)
   const [credSuccess, setCredSuccess] = useState<string | null>(null)
   const [isExist, setIsExist] = useState(false)
+  const [activeTab, setActiveTab] = useState("settings")
+  const [isDefaultDomain, setIsDefaultDomain] = useState(false)
+  const [fromName, setFromName] = useState("")
+  const [showAddDomain, setShowAddDomain] = useState(false)
+  const [newDomainName, setNewDomainName] = useState("")
+
+  // Mailgun Domain Status
+  const [mgStatus, setMgStatus] = useState<any>(null);
+  const [mgLoading, setMgLoading] = useState(false);
+  const [mgError, setMgError] = useState<string | null>(null);
+  const [mgSuccess, setMgSuccess] = useState<string | null>(null);
+
   // Fetch existing configuration on mount
   useEffect(() => {
     loadConfiguration()
@@ -40,6 +147,13 @@ export default function SmtpDomainSettings() {
         setMgDomain(config.smtp_domain_name)
         if (config.smtp_domain_name) {
           setIsExist(true)
+          // Also fetch domain status
+          try {
+            const domainStatus = await smtpApi.getMailgunDomain(config.smtp_domain_name)
+            setMgStatus(domainStatus)
+          } catch (e) {
+            console.log("Could not fetch domain status")
+          }
         }
         setFormData({
           email_host_user: config.email_host_user,
@@ -57,19 +171,21 @@ export default function SmtpDomainSettings() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!mgDomain) {
-      setCredError('Domain name is required')
-      return
-    }
     setError(null)
     setSuccess(null)
     setIsSaving(true)
     setCredError(null)
     setCredSuccess(null)
     try {
-      const response = await smtpApi.createMailgunCredentials(mgDomain, formData.email_host_user)
-      setCredSuccess('Crdentials created and saved successfully!')
-    } catch (err) {
+      if (configId) {
+        await smtpApi.updateEmailConfiguration(configId, formData)
+        setCredSuccess('Email configuration updated successfully!')
+      } else {
+        const response = await smtpApi.createEmailConfiguration(formData)
+        setConfigId(response.id)
+        setCredSuccess('Email configuration created successfully!')
+      }
+    } catch (err: any) {
       const data = err.response?.data;
       let message = "Something went wrong";
       if (typeof data?.error === "string") {
@@ -106,11 +222,11 @@ export default function SmtpDomainSettings() {
         email_host_password: "",
         default_from_email: "",
       })
-      setCredSuccess('Credentials deleted successfully!')
+      setCredSuccess('Email configuration deleted successfully!')
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to delete credentials'
+      const errorMsg = err instanceof Error ? err.message : 'Failed to delete configuration'
       setCredError(errorMsg)
-      console.error('Error deleting email credentials:', err)
+      console.error('Error deleting email configuration:', err)
     } finally {
       setIsSaving(false)
     }
@@ -120,50 +236,50 @@ export default function SmtpDomainSettings() {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  // --- Mailgun Domain Management State ---
-  const [mgStatus, setMgStatus] = useState<any>(null);
-  const [mgLoading, setMgLoading] = useState(false);
-  const [mgError, setMgError] = useState<string | null>(null);
-  const [mgSuccess, setMgSuccess] = useState<string | null>(null);
-
   // Mailgun: Create Domain
   const handleCreateDomain = async () => {
+    if (!newDomainName) {
+      setMgError("Domain name is required")
+      return
+    }
     setMgError(null);
     setMgSuccess(null);
     setMgLoading(true);
     try {
-      const res = await smtpApi.createMailgunDomain({ name: mgDomain });
+      const res = await smtpApi.createMailgunDomain({ name: newDomainName });
       setMgStatus(res);
+      setMgDomain(newDomainName);
       setIsExist(true);
-      setMgSuccess("Domain created. Check DNS records below. And Add these records in your DNS settings.");
+      setShowAddDomain(false);
+      setNewDomainName("");
+      setMgSuccess("Domain created successfully! Check DNS records below.");
     } catch (err: any) {
       setMgError(err?.response?.data?.error || err.message || "Failed to create domain");
     } finally {
       setMgLoading(false);
     }
   };
-  // Mailgun: Get Domain Status
-  const handleGetDomain = async () => {
+
+  // Mailgun: Get Domain Status (refresh)
+  const handleRefreshStatus = async () => {
+    if (!mgDomain) return;
     setMgError(null);
     setMgSuccess(null);
     setMgLoading(true);
     try {
       const res = await smtpApi.getMailgunDomain(mgDomain);
       setMgStatus(res);
-      if (res.domain?.state === "unverified") {
-        setMgSuccess("Domain status fetched. Please verify the domain. Check DNS records below.");
-      } else {
-        setMgSuccess("Domain status fetched.");
-      }
+      setMgSuccess("Domain status refreshed.");
     } catch (err: any) {
       setMgError(err?.response?.data?.error || err.message || "Failed to fetch domain");
     } finally {
       setMgLoading(false);
     }
   };
+
   // Mailgun: Delete Domain
   const handleDeleteDomain = async () => {
-    if (!window.confirm('Are you sure you want to delete this Mailgun domain? This cannot be undone.')) return;
+    if (!window.confirm('Are you sure you want to delete this domain? This cannot be undone.')) return;
     setMgError(null);
     setMgSuccess(null);
     setMgLoading(true);
@@ -172,7 +288,7 @@ export default function SmtpDomainSettings() {
       setMgStatus(null);
       setMgDomain("");
       setIsExist(false);
-      setMgSuccess("Domain deleted.");
+      setMgSuccess("Domain deleted successfully.");
     } catch (err: any) {
       setMgError(err?.response?.data?.error || err.message || "Failed to delete domain");
     } finally {
@@ -180,140 +296,296 @@ export default function SmtpDomainSettings() {
     }
   };
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-8 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">SMTP Domain Settings</h1>
-      </div>
-      {/* Error Alert */}
-      {error && (
-        <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          <p className="text-sm">{error}</p>
-        </div>
-      )}
-      {/* Success Alert */}
-      {success && (
-        <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
-          <CheckCircle className="w-5 h-5 flex-shrink-0" />
-          <p className="text-sm">{success}</p>
-        </div>
-      )}
-      {/* --- Mailgun Domain Management UI --- */}
-      <Card>
-        <CardContent className="p-6 space-y-6">
-          <div>
-            <h2 className="text-lg font-medium mb-1">Mailgun Domain Management</h2>
-            <p className="text-sm text-muted-foreground">
-              Use these controls to create, check, or delete a Mailgun domain. See DNS records below after creation.
-            </p>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <Label className="text-sm font-medium">Name</Label>
-              <Input
-                value={mgDomain}
-                onChange={e => setMgDomain(e.target.value)}
-                className="mt-1"
-                placeholder="e.g. mail.example.com"
-                disabled={mgLoading}
-              />
-            </div>
-            <div className="flex gap-3">
-              <Button 
-                onClick={handleCreateDomain} 
-                disabled={mgLoading || isExist}
-                variant="outline" 
-                size="sm"
-              >
-                {mgLoading ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : null}
-                Create Domain
-              </Button>
-              <Button onClick={handleGetDomain} disabled={mgLoading || !mgDomain} variant="outline" size="sm">
-                {mgLoading ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : null}
-                Get Status
-              </Button>
-              <Button onClick={handleDeleteDomain} disabled={mgLoading || !mgDomain} variant="outline" size="sm" className="text-red-600 border-red-600 hover:bg-red-50">
-                {mgLoading ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : null}
-                Delete Domain
-              </Button>
-            </div>
-            {mgError && (
-              <div className="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800">
-                <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                <p className="text-sm">{mgError}</p>
-              </div>
-            )}
-            {mgSuccess && (
-              <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800">
-                <CheckCircle className="w-5 h-5 flex-shrink-0" />
-                <p className="text-sm">{mgSuccess}</p>
-              </div>
-            )}
-            {mgStatus && (
-              <div className="mt-4 space-y-2">
-                <h3 className="font-semibold">Domain Status: <span className="font-normal">{mgStatus.domain?.state || 'Unknown'}</span></h3>
-                <div>
-                  <h4 className="font-medium">Receiving DNS Records</h4>
-                  <ul className="text-xs bg-gray-50 rounded p-2">
-                    {mgStatus.receiving_dns_records?.map((rec: any, i: number) => (
-                      <li key={i} className="mb-1">
-                        <b>{rec.record_type}</b> {rec.value} {rec.name ? <span>({rec.name})</span> : null} {rec.priority ? <span>Priority: {rec.priority}</span> : null} <span>Status: {rec.valid}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-medium">Sending DNS Records</h4>
-                  <ul className="text-xs bg-gray-50 rounded p-2">
-                    {mgStatus.sending_dns_records?.map((rec: any, i: number) => (
-                      <li key={i} className="mb-1">
-                        <b>{rec.record_type}</b> {rec.value} {rec.name ? <span>({rec.name})</span> : null} <span>Status: {rec.valid}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-      {/* --- Existing App SMTP config form --- */}
-      {isLoading ? (
+  // Get verification status badges
+  const getDnsStatus = () => {
+    if (!mgStatus?.receiving_dns_records) return "unknown"
+    return mgStatus.receiving_dns_records.every((r: any) => r.valid === "valid") ? "valid" : "invalid"
+  }
+
+  const getSpfStatus = () => {
+    if (!mgStatus?.sending_dns_records) return "unknown"
+    const spfRecord = mgStatus.sending_dns_records.find((r: any) => r.value?.includes("spf"))
+    return spfRecord?.valid === "valid" ? "valid" : "invalid"
+  }
+
+  const getDkimStatus = () => {
+    if (!mgStatus?.sending_dns_records) return "unknown"
+    const dkimRecord = mgStatus.sending_dns_records.find((r: any) => r.name?.includes("_domainkey"))
+    return dkimRecord?.valid === "valid" ? "valid" : "invalid"
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="max-w-5xl mx-auto p-6">
         <Card>
           <CardContent className="p-6 flex items-center justify-center gap-2">
             <Loader className="w-5 h-5 animate-spin" />
             <p className="text-muted-foreground">Loading email domain configuration...</p>
           </CardContent>
         </Card>
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Email settings Section */}
+      </div>
+    )
+  }
+
+  // No domain configured - show add domain UI
+  if (!isExist && !showAddDomain) {
+    return (
+      <div className="mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold text-foreground">Email Domains</h1>
+          <Button onClick={() => setShowAddDomain(true)} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Add Domain
+          </Button>
+        </div>
+        
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Globe className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <h2 className="text-xl font-medium mb-2">No Domain Configured</h2>
+            <p className="text-muted-foreground mb-6">
+              Add a custom email domain to start sending emails from your own domain.
+            </p>
+            <Button onClick={() => setShowAddDomain(true)} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Add Your First Domain
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Show Add Domain Form
+  if (showAddDomain) {
+    return (
+      <div className="max-w-5xl mx-auto p-6 space-y-6">
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setShowAddDomain(false)}
+            className="gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </Button>
+          <h1 className="text-2xl font-semibold text-foreground">Add New Domain</h1>
+        </div>
+
+        <Card>
+          <CardContent className="p-6 space-y-6">
+            <div>
+              <Label className="text-sm font-medium">Domain Name</Label>
+              <Input
+                value={newDomainName}
+                onChange={e => setNewDomainName(e.target.value)}
+                className="mt-1"
+                placeholder="e.g. mail.example.com"
+                disabled={mgLoading}
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                Enter the subdomain you want to use for sending emails (e.g., mail.yourdomain.com)
+              </p>
+            </div>
+
+            {mgError && (
+              <div className="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <p className="text-sm">{mgError}</p>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <Button 
+                onClick={handleCreateDomain} 
+                disabled={mgLoading || !newDomainName}
+              >
+                {mgLoading ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : null}
+                Create Domain
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowAddDomain(false)}
+                disabled={mgLoading}
+              >
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Main domain settings view
+  return (
+    <div className="max-w-5xl mx-auto p-6 space-y-6">
+      {/* Header */}
+
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground mb-3">{mgDomain}</h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            {mgStatus?.domain?.state === "active" && (
+              <Badge className="bg-green-500 text-white">Verified</Badge>
+            )}
+            {mgStatus?.domain?.state === "unverified" && (
+              <Badge variant="outline" className="border-yellow-500 text-yellow-600">Pending Verification</Badge>
+            )}
+            <Badge 
+              variant="outline" 
+              className={getDnsStatus() === "valid" ? "border-green-500 text-green-600" : "border-muted-foreground"}
+            >
+              {getDnsStatus() === "valid" ? "✓" : "○"} DNS
+            </Badge>
+            <Badge 
+              variant="outline" 
+              className={getDkimStatus() === "valid" ? "border-green-500 text-green-600" : "border-muted-foreground"}
+            >
+              {getDkimStatus() === "valid" ? "✓" : "○"} DKIM
+            </Badge>
+            <Badge 
+              variant="outline" 
+              className={getSpfStatus() === "valid" ? "border-green-500 text-green-600" : "border-muted-foreground"}
+            >
+              {getSpfStatus() === "valid" ? "✓" : "○"} SPF
+            </Badge>
+          </div>
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <MoreVertical className="w-5 h-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleRefreshStatus}>
+              <Settings className="w-4 h-4 mr-2" />
+              Refresh Status
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setIsDefaultDomain(!isDefaultDomain)}>
+              <Check className="w-4 h-4 mr-2" />
+              Make it Default
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={handleDeleteDomain}
+              className="text-red-600 focus:text-red-600"
+            >
+              <AlertCircle className="w-4 h-4 mr-2" />
+              Delete Domain
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Alerts */}
+      {(mgError || credError) && (
+        <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <p className="text-sm">{mgError || credError}</p>
+        </div>
+      )}
+      {(mgSuccess || credSuccess) && (
+        <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
+          <CheckCircle className="w-5 h-5 flex-shrink-0" />
+          <p className="text-sm">{mgSuccess || credSuccess}</p>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="w-full justify-start bg-muted/50 border-b rounded-none h-auto p-0">
+          <TabsTrigger 
+            value="settings" 
+            className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-4"
+          >
+            <Settings className="w-4 h-4" />
+            Settings
+          </TabsTrigger>
+          <TabsTrigger 
+            value="dns" 
+            className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-4"
+          >
+            <Globe className="w-4 h-4" />
+            DNS
+          </TabsTrigger>
+          <TabsTrigger 
+            value="spf" 
+            className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-4"
+          >
+            <Shield className="w-4 h-4" />
+            SPF
+          </TabsTrigger>
+          <TabsTrigger 
+            value="dkim" 
+            className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-4"
+          >
+            <Key className="w-4 h-4" />
+            DKIM
+          </TabsTrigger>
+          <TabsTrigger 
+            value="stats" 
+            className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-4"
+          >
+            <BarChart3 className="w-4 h-4" />
+            Stats
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Settings Tab */}
+        <TabsContent value="settings" className="mt-6">
           <Card>
             <CardContent className="p-6 space-y-6">
               <div>
-                <h2 className="text-lg font-medium mb-1">Credentials</h2>
+                <h2 className="text-lg font-medium mb-1">Email Settings</h2>
                 <p className="text-sm text-muted-foreground">
-                  Click button below to create the credentials.
+                  Configure how emails are sent from this domain
                 </p>
               </div>
-              <div>
-                <Label className="text-sm font-medium">Login</Label>
-                <Input
-                  value={formData.email_host_user}
-                  onChange={e => handleInputChange('email_host_user', e.target.value)}
-                  className="mt-1"
-                  placeholder="e.g. mail.example.com"
-                  disabled={isSaving}
-                />
-              </div>
-              <div className="flex gap-3">
+
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                  <Label className="text-sm font-medium">From Email Address</Label>
+                  <Input
+                    value={formData.default_from_email}
+                    onChange={e => handleInputChange('default_from_email', e.target.value)}
+                    className="mt-1"
+                    placeholder={`noreply@${mgDomain}`}
+                    disabled={isSaving}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium">From Name</Label>
+                  <Input
+                    value={fromName}
+                    onChange={e => setFromName(e.target.value)}
+                    className="mt-1"
+                    placeholder="Your Company Name"
+                    disabled={isSaving}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between py-4 border-t">
+                  <div>
+                    <Label className="text-sm font-medium">Set as Default Domain</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Use this domain as the default for sending emails
+                    </p>
+                  </div>
+                  <Switch 
+                    checked={isDefaultDomain} 
+                    onCheckedChange={setIsDefaultDomain}
+                  />
+                </div>
+
                 <Button 
                   type="submit" 
-                  variant="outline" 
-                  size="sm" 
-                  className="text-sky-600 border-sky-600 hover:bg-sky-50"
                   disabled={isSaving}
+                  className="bg-primary hover:bg-primary/90"
                 >
                   {isSaving ? (
                     <>
@@ -321,45 +593,217 @@ export default function SmtpDomainSettings() {
                       Saving...
                     </>
                   ) : (
-                    'Create Credentials'
+                    'Save Changes'
                   )}
                 </Button>
-                {configId && (
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm" 
-                    className="text-red-600 border-red-600 hover:bg-red-50"
-                    onClick={handleDelete}
-                    disabled={isSaving}
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader className="w-4 h-4 mr-2 animate-spin" />
-                        Deleting...
-                      </>
-                    ) : (
-                      'Delete Credentials'
-                    )}
-                  </Button>
-                )}
-              </div>
+              </form>
             </CardContent>
           </Card>
-        </form>
-      )}
-          {credError && (
-      <div className="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800">
-        <AlertCircle className="w-5 h-5 flex-shrink-0" />
-        <p className="text-sm">{credError}</p>
-      </div>
-    )}
-    {credSuccess && (
-      <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800">
-        <CheckCircle className="w-5 h-5 flex-shrink-0" />
-        <p className="text-sm">{credSuccess}</p>
-      </div>
-    )}
+        </TabsContent>
+
+        {/* DNS Tab */}
+        <TabsContent value="dns" className="mt-6">
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-medium mb-1">DNS Records</h2>
+              <p className="text-sm text-muted-foreground">
+                Add these DNS records to your domain's DNS settings
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {mgStatus?.receiving_dns_records?.map((rec: any, i: number) => (
+                <DnsRecordCard
+                  key={`receiving-${i}`}
+                  type={rec.record_type}
+                  name={rec.name || mgDomain}
+                  value={rec.value}
+                  priority={rec.priority}
+                  valid={rec.valid}
+                />
+              ))}
+            </div>
+
+            <Button 
+              variant="outline" 
+              onClick={handleRefreshStatus}
+              disabled={mgLoading}
+              className="mt-4"
+            >
+              {mgLoading ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : null}
+              Verify DNS Records
+            </Button>
+          </div>
+        </TabsContent>
+
+        {/* SPF Tab */}
+        <TabsContent value="spf" className="mt-6">
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-medium mb-1">SPF Record</h2>
+              <p className="text-sm text-muted-foreground">
+                Add this SPF record to authorize email sending
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {mgStatus?.sending_dns_records
+                ?.filter((rec: any) => rec.value?.includes("spf"))
+                .map((rec: any, i: number) => (
+                  <DnsRecordCard
+                    key={`spf-${i}`}
+                    type={rec.record_type}
+                    name={rec.name || mgDomain}
+                    value={rec.value}
+                    valid={rec.valid}
+                  />
+                ))}
+            </div>
+
+            <Button 
+              variant="outline" 
+              onClick={handleRefreshStatus}
+              disabled={mgLoading}
+              className="mt-4"
+            >
+              {mgLoading ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : null}
+              Verify SPF Record
+            </Button>
+          </div>
+        </TabsContent>
+
+        {/* DKIM Tab */}
+        <TabsContent value="dkim" className="mt-6">
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-medium mb-1">DKIM Records</h2>
+              <p className="text-sm text-muted-foreground">
+                Add these DKIM records to enable email authentication
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {mgStatus?.sending_dns_records
+                ?.filter((rec: any) => rec.name?.includes("_domainkey") || rec.value?.includes("k=rsa"))
+                .map((rec: any, i: number) => (
+                  <DnsRecordCard
+                    key={`dkim-${i}`}
+                    type={rec.record_type}
+                    name={rec.name}
+                    value={rec.value}
+                    valid={rec.valid}
+                  />
+                ))}
+              
+              {/* Also show CNAME record */}
+              {mgStatus?.sending_dns_records
+                ?.filter((rec: any) => rec.record_type === "CNAME")
+                .map((rec: any, i: number) => (
+                  <DnsRecordCard
+                    key={`cname-${i}`}
+                    type={rec.record_type}
+                    name={rec.name}
+                    value={rec.value}
+                    valid={rec.valid}
+                  />
+                ))}
+            </div>
+
+            <Button 
+              variant="outline" 
+              onClick={handleRefreshStatus}
+              disabled={mgLoading}
+              className="mt-4"
+            >
+              {mgLoading ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : null}
+              Verify DKIM Records
+            </Button>
+          </div>
+        </TabsContent>
+
+        {/* Stats Tab */}
+        <TabsContent value="stats" className="mt-6">
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-lg font-medium mb-1">Email Statistics</h2>
+              <p className="text-sm text-muted-foreground">
+                Track email sending performance for this domain
+              </p>
+            </div>
+
+            {/* Time Filter */}
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm">Today</Button>
+              <Button variant="default" size="sm">This Week</Button>
+              <Button variant="outline" size="sm">This Month</Button>
+              <Button variant="outline" size="sm">All Time</Button>
+            </div>
+
+            {/* Stat Cards Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <StatCard 
+                title="Total Emails" 
+                value="0" 
+                colorClass="bg-cyan-500/20 dark:bg-cyan-900/30"
+              />
+              <StatCard 
+                title="Sent Successfully" 
+                value="0" 
+                colorClass="bg-green-500/20 dark:bg-green-900/30"
+              />
+              <StatCard 
+                title="Failed" 
+                value="0" 
+                colorClass="bg-purple-500/20 dark:bg-purple-900/30"
+              />
+              <div className="rounded-lg p-4">
+                <p className="text-xs text-muted-foreground mb-1">Success Rate</p>
+                <p className="text-2xl font-bold">0%</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <StatCard 
+                title="Opened" 
+                value="0" 
+                subtext="0% open rate"
+                colorClass="bg-orange-500/20 dark:bg-orange-900/30"
+              />
+              <StatCard 
+                title="Clicked" 
+                value="0" 
+                subtext="0% click rate"
+                colorClass="bg-amber-500/20 dark:bg-amber-900/30"
+              />
+              <div className="rounded-lg p-4">
+                <p className="text-xs text-muted-foreground mb-1">Last Used</p>
+                <p className="text-lg font-medium">Never</p>
+              </div>
+            </div>
+
+            {/* Domain Information */}
+            <Card className="mt-6">
+              <CardContent className="p-6">
+                <h3 className="font-medium mb-4">Domain Information</h3>
+                <div className="space-y-2 text-sm">
+                  <p>
+                    <span className="text-muted-foreground">Domain added:</span>{" "}
+                    {mgStatus?.domain?.created_at ? new Date(mgStatus.domain.created_at).toLocaleDateString() : "N/A"}
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Last verification check:</span>{" "}
+                    {new Date().toLocaleString()}
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Domain state:</span>{" "}
+                    {mgStatus?.domain?.state || "Unknown"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

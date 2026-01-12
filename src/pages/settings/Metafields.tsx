@@ -29,7 +29,7 @@ export default function Metafields() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-foreground">Metafields</h1>
       </div>

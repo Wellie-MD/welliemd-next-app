@@ -13,6 +13,8 @@ export interface QuestionnaireTemplate {
   description?: string;
   questionnaire_type: string;
   beluga_visit_type?: string;
+  treatment_type?: string;
+  question_count?: number;
   requires_photo_upload: boolean;
   requires_identity_verification: boolean;
   is_published: boolean;
@@ -44,21 +46,21 @@ export interface Question {
   id: string;
   question_text: string;
   question_type:
-    | "text"
-    | "textarea"
-    | "single_choice"
-    | "multiple_choice"
-    | "number"
-    | "date"
-    | "height_weight"
-    | "consent"
-    | "file_upload"
-    | "checkout"
-    | "product_selection"
-    | "sex"
-    | "self_reported_meds"
-    | "allergies"
-    | "medical_conditions";
+  | "text"
+  | "textarea"
+  | "single_choice"
+  | "multiple_choice"
+  | "number"
+  | "date"
+  | "height_weight"
+  | "consent"
+  | "file_upload"
+  | "checkout"
+  | "product_selection"
+  | "sex"
+  | "self_reported_meds"
+  | "allergies"
+  | "medical_conditions";
   is_required: boolean;
   order_index: number;
   answer_choices: (string | ProductChoice)[];

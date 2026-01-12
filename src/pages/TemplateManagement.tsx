@@ -409,21 +409,68 @@ export default function TemplateManagement() {
   }, []);
 
   const handleExport = useCallback(() => {
-    const exportData = filteredTemplates.map((template) => ({
-      ...template,
-      is_published: template.is_published ? "Approved" : "Draft",
-      updated_at: format(
-        parseISO(template.updated_at || template.created_at),
-        "MM/dd/yyyy"
-      ),
-    }));
-    // Create export columns without the Review column and actions
+    const exportData = filteredTemplates.map((template) => {
+      // Compute question count properly
+      const questionCount =
+        template.question_count !== undefined && template.question_count !== null
+          ? template.question_count
+          : template.questions && Array.isArray(template.questions)
+          ? template.questions.length
+          : 0;
+
+      // Determine review status
+      const isArchivedByAdmin = template.archived_by_admin || false;
+      const isArchived = template.is_archived || false;
+      let reviewStatus = "";
+      if (isArchivedByAdmin) {
+        reviewStatus = "Archived by Admin";
+      } else if (isArchived) {
+        reviewStatus = "Archived";
+      } else if (template.is_published) {
+        reviewStatus = "Unpublish";
+      } else {
+        reviewStatus = "Publish";
+      }
+
+      // Determine display status
+      let displayStatus = "";
+      if (isArchived || isArchivedByAdmin) {
+        displayStatus = "Archived";
+      } else {
+        displayStatus = template.is_published ? "Approved" : "Draft";
+      }
+
+      // Format questionnaire type for display
+      const questionnaireTypeMap: Record<string, string> = {
+        onboarding: "Onboarding",
+        follow_up: "Follow-up",
+      };
+      const questionnaireTypeDisplay =
+        questionnaireTypeMap[template.questionnaire_type] || template.questionnaire_type;
+
+      return {
+        name: template.name,
+        questionnaire_type: questionnaireTypeDisplay,
+        treatment_type: template.treatment_type || "-",
+        beluga_visit_type: template.beluga_visit_type || "-",
+        question_count: questionCount,
+        review: reviewStatus,
+        status: displayStatus,
+        updated_at: format(
+          parseISO(template.updated_at || template.created_at),
+          "MM/dd/yyyy"
+        ),
+      };
+    });
+    // Create export columns matching the table display
     const exportColumns = [
       { key: "name", label: "Name" },
-      { key: "questionnaire_type", label: "Treatment Type" },
+      { key: "questionnaire_type", label: "Questionnaire Type" },
+      { key: "treatment_type", label: "Treatment Type" },
       { key: "beluga_visit_type", label: "Visit Type" },
       { key: "question_count", label: "Questions" },
-      { key: "is_published", label: "Status" },
+      { key: "review", label: "Review" },
+      { key: "status", label: "Status" },
       { key: "updated_at", label: "Last Updated" },
     ];
     exportToCSV(exportData, exportColumns, "templates_export");
@@ -434,7 +481,9 @@ export default function TemplateManagement() {
     ? filteredTemplates.map((template) => {
         const hasVisitType = !!template.beluga_visit_type;
         const hasQuestionnaireUrl = !!effectiveClient?.questionnaire_url;
-        const isLinkDisabled = !hasVisitType || !hasQuestionnaireUrl;
+        const isFollowUp = template.questionnaire_type === 'follow_up';
+        // Follow-up questionnaires should NOT have public links - they require secure tokens
+        const isLinkDisabled = !hasVisitType || !hasQuestionnaireUrl || isFollowUp;
 
         return {
           ...template,
@@ -450,7 +499,9 @@ export default function TemplateManagement() {
                 }}
                 title={
                   isLinkDisabled
-                    ? !hasVisitType
+                    ? isFollowUp
+                      ? "Follow-ups must be sent from Patient details"
+                      : !hasVisitType
                       ? "Visit type not set"
                       : "Questionnaire URL not configured"
                     : "Copy Questionnaire Link"

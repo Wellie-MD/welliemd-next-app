@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from "react"
+import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Plus, Pencil, Trash2, Link2 } from "lucide-react"
 import { DataTable } from "@/components/ui/data-table"
@@ -23,9 +24,12 @@ import {
 
 type Coupon = {
   id: string
+  name?: string
   code: string
   type: "fixed" | "percent"
   value: string | number
+  max_discount_threshold?: number | null
+  frequency_based?: boolean
   promo_link?: string
   is_active: boolean
   max_usage?: number | null
@@ -34,7 +38,11 @@ type Coupon = {
   expires_at?: string | null
   total_used: number
   created_at?: string | null
+  updated_at?: string | null
+  archived_at?: string | null
   applicable_products: string[]
+  usage_type?: string
+  eligible_patients?: string
   purchase_applicability: "both" | "first_only" | "followup_only"
   catalog_applicability: "medical_only" | "labs_only" | "both"
   subscription_applicability: "first_cycle_only" | "every_cycle"
@@ -82,6 +90,7 @@ const getRow = <T,>(...args: any[]): T => (args.length >= 2 ? args[1] : args[0])
 
 export default function CouponCodes() {
   const [showCreate, setShowCreate] = useState(false)
+  const navigate = useNavigate()
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null)
   const [coupons, setCoupons] = useState<Coupon[]>([])
   const [products, setProducts] = useState<Product[]>([])
@@ -234,17 +243,9 @@ export default function CouponCodes() {
   }
 
   const columns = [
-    { key: "code", label: "Coupon" },
-    {
-      key: "is_active",
-      label: "Active",
-      render: (...args: any[]) => (getRow<Coupon>(...args).is_active ? "Active" : "Inactive"),
-    },
-    {
-      key: "type",
-      label: "Type",
-      render: (...args: any[]) => (getRow<Coupon>(...args).type === "fixed" ? "fixed amount" : "percentage"),
-    },
+    { key: "id", label: "ID", render: (...a: any[]) => getRow<Coupon>(...a).id.slice(0, 8) },
+    { key: "name", label: "Name", render: (...a: any[]) => getRow<Coupon>(...a).name || "---" },
+    { key: "code", label: "Code" },
     {
       key: "value",
       label: "Discount",
@@ -255,39 +256,64 @@ export default function CouponCodes() {
           : formatMoney(row.value)
       },
     },
-    { key: "min_spend", label: "Min Spend", render: (...a: any[]) => formatMoney(getRow<Coupon>(...a).min_spend ?? null) },
-    { key: "max_usage", label: "Max Usage", render: (...a: any[]) => getRow<Coupon>(...a).max_usage ?? "-" },
-    { key: "max_usage_per_user", label: "Max/User", render: (...a: any[]) => getRow<Coupon>(...a).max_usage_per_user ?? "-" },
+    { 
+      key: "max_discount_threshold", 
+      label: "Max. threshold", 
+      render: (...a: any[]) => formatMoney(getRow<Coupon>(...a).max_discount_threshold ?? null) 
+    },
+    { 
+      key: "applicable_products", 
+      label: "Products", 
+      render: (...a: any[]) => {
+        const products = getRow<Coupon>(...a).applicable_products || []
+        return products.length === 0 ? "All" : `${products.length} products`
+      }
+    },
     {
-      key: "applicable_products",
-      label: "Applies To",
+      key: "type",
+      label: "Type",
       render: (...args: any[]) => {
         const row = getRow<Coupon>(...args)
-        const ids = row.applicable_products || []
-        if (!ids.length) return "All products"
-        const names = ids.map((id) => productMap[id]).filter(Boolean)
-        const text = names.join(", ")
-        return text.length > 60 ? text.slice(0, 60) + "…" : text || `${ids.length} product(s)`
+        const usageLabel: Record<string, string> = {
+          "one_time": "One Time",
+          "first_order": "First Order",
+          "all_orders": "All Orders",
+          "n_orders": "N Orders",
+          "first_payment": "First Payment"
+        }
+        return usageLabel[row.usage_type || "one_time"] || row.usage_type || "One Time"
       },
     },
-    {
-      key: "purchase_applicability",
-      label: "Coupon Applicable To",
-      render: (...a: any[]) => purchaseLabel[getRow<Coupon>(...a).purchase_applicability],
+    { 
+      key: "max_usage", 
+      label: "Max redemptions", 
+      render: (...a: any[]) => getRow<Coupon>(...a).max_usage ?? "Infinite" 
+    },
+    { key: "total_used", label: "Used Count" },
+    { 
+      key: "eligible_patients", 
+      label: "Eligibility", 
+      render: (...a: any[]) => {
+        const eligibility = getRow<Coupon>(...a).eligible_patients
+        return eligibility === "all" || !eligibility ? "All patients" : "Specific patients"
+      }
+    },
+    { 
+      key: "expires_at", 
+      label: "Expire at", 
+      render: (...a: any[]) => {
+        const expires = getRow<Coupon>(...a).expires_at
+        return expires ? formatDate(expires) : "Never"
+      } 
     },
     {
-      key: "catalog_applicability",
-      label: "Coupon Applicable To Meds/Lab Panel",
-      render: (...a: any[]) => catalogLabel[getRow<Coupon>(...a).catalog_applicability],
+      key: "is_active",
+      label: "Status",
+      render: (...args: any[]) => (getRow<Coupon>(...args).is_active ? "Active" : "Inactive"),
     },
-    {
-      key: "subscription_applicability",
-      label: "Apply To Subscription Products",
-      render: (...a: any[]) => subLabel[getRow<Coupon>(...a).subscription_applicability],
-    },
-    { key: "expires_at", label: "Expiry Date", render: (...a: any[]) => formatDate(getRow<Coupon>(...a).expires_at) },
-    { key: "total_used", label: "Total Used" },
     { key: "created_at", label: "Created At", render: (...a: any[]) => formatDate(getRow<Coupon>(...a).created_at ?? null) },
+    { key: "updated_at", label: "Updated At", render: (...a: any[]) => formatDate(getRow<Coupon>(...a).updated_at ?? null) },
+    { key: "archived_at", label: "Archived at", render: (...a: any[]) => formatDate(getRow<Coupon>(...a).archived_at ?? null) },
     {
       key: "__actions",
       label: "",
@@ -295,10 +321,7 @@ export default function CouponCodes() {
         const row = getRow<Coupon>(...args)
         return (
           <div className="flex items-center justify-end gap-3">
-            <button type="button" className="hover:opacity-80" title="Links" onClick={() => setLinkCoupon(row)}>
-              <Link2 className="h-4 w-4" />
-            </button>
-            <button type="button" className="hover:opacity-80" title="Edit" onClick={() => setEditingCoupon(row)}>
+            <button type="button" className="hover:opacity-80" title="Edit" onClick={() => navigate(`/dashboard/coupon-codes/${row.id}/edit`)}>
               <Pencil className="h-4 w-4" />
             </button>
             <button
@@ -319,10 +342,16 @@ export default function CouponCodes() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Coupon Codes</h1>
-        <Button className="gap-2" onClick={() => setShowCreate(true)}>
-          <Plus className="h-4 w-4" />
-          Add New
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => navigate("/dashboard/coupon-codes/new")}>
+            <Plus className="h-4 w-4" />
+            Add new
+          </Button>
+          <Button className="gap-2" onClick={() => setLinkCoupon({ id: '', code: '' } as Coupon)}>
+            <Link2 className="h-4 w-4" />
+            Links
+          </Button>
+        </div>
       </div>
 
       {showCreate && (
@@ -376,6 +405,7 @@ export default function CouponCodes() {
         open={!!linkCoupon}
         onOpenChange={(v) => !v && setLinkCoupon(null)}
         coupon={linkCoupon}
+        coupons={coupons}
       />
 
       {/* ✨ Delete confirmation modal */}

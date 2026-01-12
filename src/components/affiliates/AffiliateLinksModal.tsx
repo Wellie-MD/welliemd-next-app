@@ -6,13 +6,19 @@ import { Separator } from "@/components/ui/separator"
 import { useClients } from "@/hooks/useClients"
 import { ExternalLink } from "lucide-react"
 import { templateApi, type QuestionnaireTemplate } from "@/api/questionnaires"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 const USE_VISIT_ROUTES = true
 
 // ---------- helpers ----------
 function ensureHttpsBase(urlLike?: string): string {
-  const fallback = "https://my.welliemd.com"
-  if (!urlLike) return fallback
+  if (!urlLike) return ""
   const trimmed = urlLike.trim().replace(/\/+$/, "")
   if (/^https?:\/\//i.test(trimmed)) return trimmed
   return `https://${trimmed}`
@@ -34,7 +40,9 @@ function buildLink({
   qs?: string | null | undefined
 }) {
   try {
-    const baseWithSlash = ensureHttpsBase(base) + "/"
+    const processedBase = ensureHttpsBase(base)
+    if (!processedBase) return "" // Return empty if no valid base URL
+    const baseWithSlash = processedBase + "/"
     const cleanPath = (path || "").replace(/^\/+/, "")
     const u = new URL(cleanPath, baseWithSlash)
     const params = parseQueryParams(qs)
@@ -93,27 +101,17 @@ function inferFrontendPath(t: QuestionnaireTemplate): string {
 }
 
 // ---------- visit detection ----------
-function resolveVisitType(t: QuestionnaireTemplate): "GLP" | "ED" | "weight_loss" | null {
-  const hay = [
-    t.name,
-    t.questionnaire_type,
-    (t as any)?.beluga_visit_type,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase()
-
-  if (/\bglp\b|\bglp-?1\b|\bindividualized glp\b/.test(hay)) return "GLP"
-  if (/\bed\b|\berectile dysfunction\b/.test(hay)) return "ED"
-  if (/\bstandard weight loss\b/.test(hay)) return "weight_loss"
-  if (/\bweight\s*loss\b/.test(hay)) return "weight_loss"
+function getVisitType(t: QuestionnaireTemplate): string | null {
+  // Use beluga_visit_type field from the template (matches the VISIT TYPE column in questionnaires table)
+  if (t.beluga_visit_type && typeof t.beluga_visit_type === 'string' && t.beluga_visit_type.trim()) {
+    return t.beluga_visit_type.trim()
+  }
   return null
 }
 
-function visitTypeToPathSegment(v: "GLP" | "ED" | "weight_loss") {
-  if (v === "GLP") return "glp"
-  if (v === "ED") return "ed"
-  return "weight_loss"
+function visitTypeToPathSegment(visitType: string): string {
+  // Use the visit type as-is (it's already the correct format from backend)
+  return visitType
 }
 
 // ---------- types ----------
@@ -128,19 +126,30 @@ type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   affiliate: Affiliate | null
+  affiliates?: Affiliate[]
 }
 
-export default function AffiliateLinksModal({ open, onOpenChange, affiliate }: Props) {
+export default function AffiliateLinksModal({ open, onOpenChange, affiliate, affiliates = [] }: Props) {
   const { currentClient } = useClients()
   const questionnaireDomain = ensureHttpsBase(currentClient?.questionnaire_url)
 
+  const [selectedAffiliate, setSelectedAffiliate] = useState<Affiliate | null>(affiliate)
+
+  useEffect(() => {
+    if (affiliate && affiliate.id) {
+      setSelectedAffiliate(affiliate)
+    } else if (affiliates.length > 0 && (!selectedAffiliate || !selectedAffiliate.id)) {
+      setSelectedAffiliate(affiliates[0])
+    }
+  }, [affiliate, affiliates, open])
+
   const qs = useMemo(() => {
-    if (!affiliate) return ""
+    if (!selectedAffiliate) return ""
     const p = new URLSearchParams()
-    p.set("referral-campaign", affiliate.slug)
+    p.set("referral-campaign", selectedAffiliate.slug)
     p.set("referral-source", "affiliate")
     return `?${p.toString()}`
-  }, [affiliate])
+  }, [selectedAffiliate])
 
   const [copiedLink, setCopiedLink] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -157,7 +166,7 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate }: P
       setLoading(true)
       setError(null)
       try {
-        const data = await templateApi.listTemplates({ page_size: 100, ordering: "name" }, controller.signal)
+        const data = await templateApi.listTemplates()
         const results = Array.isArray(data) ? data : (data as any)?.results ?? []
         const publishedOnly = results.filter((t: QuestionnaireTemplate) => t.is_published)
         if (!cancelled) setTemplates(publishedOnly)
@@ -184,38 +193,50 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate }: P
 
   // ✅ Always run hooks before conditional returns
   const items = useMemo(() => {
-    return templates
-      .map((t) => {
-        const vt = resolveVisitType(t)
-        const visitPath = vt ? `/visit/${visitTypeToPathSegment(vt)}` : null
-        const legacyPath = inferFrontendPath(t)
-        return { t, vt, visitPath, legacyPath }
-      })
-      .filter((i) => (USE_VISIT_ROUTES ? !!i.vt : true))
+    return templates.map((t) => {
+      const vt = getVisitType(t)
+      // Use visit_type if available, otherwise fall back to legacy path
+      const visitPath = vt ? `/visit/${visitTypeToPathSegment(vt)}` : null
+      const legacyPath = inferFrontendPath(t)
+      return { t, vt, visitPath, legacyPath }
+    })
+    // Show ALL published templates, not just ones with visit type
   }, [templates])
 
-  if (!affiliate) return null
+  const referralLink = selectedAffiliate?.referral_link || ""
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Links for {affiliate.name}</DialogTitle>
+          <DialogTitle>Links for {selectedAffiliate?.name || "Influencers"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Referral Link */}
-          <div>
-            <p className="text-sm font-medium mb-2">Referral Link</p>
-            <div className="flex items-center gap-2">
-              <Input readOnly value={affiliate.referral_link} />
-              <Button variant="secondary" onClick={() => copy(affiliate.referral_link)}>
-                {copiedLink === affiliate.referral_link ? "Copied" : "Copy"}
-              </Button>
+          {/* Affiliate Selector */}
+          {affiliates.length > 0 && (
+            <div>
+              <p className="text-sm font-medium mb-2">Select Influencer</p>
+              <Select
+                value={selectedAffiliate?.id}
+                onValueChange={(val) => {
+                  const found = affiliates.find(a => a.id === val)
+                  if (found) setSelectedAffiliate(found)
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an influencer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {affiliates.map(a => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name} ({a.slug})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </div>
-
-          <Separator />
+          )}
 
           {/* Questionnaires */}
           <div className="space-y-2">

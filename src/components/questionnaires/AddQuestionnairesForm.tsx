@@ -94,6 +94,13 @@ export function AddQuestionnairesForm({
   >("");
   const [triggerValues, setTriggerValues] = useState<string[]>([]);
 
+  // State for BMI eligibility config
+  const [bmiMax, setBmiMax] = useState<number | "">(27);
+
+  // State for Date of Birth age eligibility config
+  const [dobMinAge, setDobMinAge] = useState<number | "">(18);
+  const [dobMaxAge, setDobMaxAge] = useState<number | "">(65);
+
   // Fetch template and existing questions when modal opens
   useEffect(() => {
     const fetchTemplateData = async () => {
@@ -166,6 +173,26 @@ export function AddQuestionnairesForm({
         } else if (validationRules.equals !== undefined) {
           setNumberValidationOperator("eq");
           setNumberValidationValue(validationRules.equals);
+        }
+      }
+
+      // Extract BMI eligibility config
+      const qType = question.question_type as string;
+      const valRules = validationRules as Record<string, unknown>;
+      if (qType === "bmi" && valRules?.bmi_max !== undefined) {
+        setBmiMax(valRules.bmi_max as number);
+      }
+
+      // Extract DOB age eligibility config
+      if (
+        question.question_type === "date" &&
+        question.beluga_field_mapping === "date_of_birth"
+      ) {
+        if (valRules?.min_age !== undefined) {
+          setDobMinAge(valRules.min_age as number);
+        }
+        if (valRules?.max_age !== undefined) {
+          setDobMaxAge(valRules.max_age as number);
         }
       }
 
@@ -384,6 +411,20 @@ export function AddQuestionnairesForm({
         validationRules = {
           max_file_size: formData.max_file_size,
           allowed_extensions: formData.allowed_extensions,
+        };
+      } else if (formData.question_type === "bmi" || formData.question_type === "height_weight") {
+        // Add BMI eligibility config (supports both "bmi" and "height_weight" types)
+        validationRules = {
+          bmi_max: bmiMax !== "" ? bmiMax : undefined,
+        };
+      } else if (
+        formData.question_type === "date" &&
+        formData.beluga_field_mapping === "date_of_birth"
+      ) {
+        // Add DOB age eligibility config
+        validationRules = {
+          min_age: dobMinAge !== "" ? dobMinAge : undefined,
+          max_age: dobMaxAge !== "" ? dobMaxAge : undefined,
         };
       } else if (
         formData.question_type === "number" &&
@@ -641,9 +682,84 @@ export function AddQuestionnairesForm({
                 <SelectItem value="self_reported_meds">Self Reported Medications (Beluga Mapped)</SelectItem>
                 <SelectItem value="allergies">Allergies (Beluga Mapped)</SelectItem>
                 <SelectItem value="medical_conditions">Medical Conditions (Beluga Mapped)</SelectItem>
+                <SelectItem value="medication_dose_selector">Medication & Dose Selector</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {/* BMI Eligibility Settings */}
+          {(formData.question_type === "height_weight" || (formData.question_type as string) === "bmi") && (
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+              <h3 className="font-semibold text-sm">BMI Eligibility Settings</h3>
+              <p className="text-xs text-muted-foreground">
+                Set the maximum BMI threshold. Patients with BMI exceeding this limit will be disqualified.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="bmi_max">
+                  Maximum BMI Limit <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="bmi_max"
+                  type="number"
+                  step="0.1"
+                  min="15"
+                  max="100"
+                  value={bmiMax}
+                  onChange={(e) =>
+                    setBmiMax(e.target.value === "" ? "" : Number(e.target.value))
+                  }
+                  placeholder="e.g., 27"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Common settings: 27 for treatment-naive, 25 for treatment-experienced
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Date of Birth Age Eligibility Settings */}
+          {formData.question_type === "date" &&
+            formData.beluga_field_mapping === "date_of_birth" && (
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+              <h3 className="font-semibold text-sm">Age Eligibility Settings</h3>
+              <p className="text-xs text-muted-foreground">
+                Set age constraints for eligibility. Patients outside these limits will be disqualified.
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="min_age">Minimum Age</Label>
+                  <Input
+                    id="min_age"
+                    type="number"
+                    min="0"
+                    max="120"
+                    value={dobMinAge}
+                    onChange={(e) =>
+                      setDobMinAge(e.target.value === "" ? "" : Number(e.target.value))
+                    }
+                    placeholder="e.g., 18"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="max_age">Maximum Age</Label>
+                  <Input
+                    id="max_age"
+                    type="number"
+                    min="0"
+                    max="120"
+                    value={dobMaxAge}
+                    onChange={(e) =>
+                      setDobMaxAge(e.target.value === "" ? "" : Number(e.target.value))
+                    }
+                    placeholder="e.g., 65"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Leave empty if no constraint. Common: min 18, max 65
+              </p>
+            </div>
+          )}
 
           {/* Answer Choices */}
           {showAnswerChoices && (

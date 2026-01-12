@@ -37,6 +37,7 @@ import TemplateQuestions from "./pages/TemplateQuestions";
 import FlowBuilder from "./pages/FlowBuilder";
 import ManageAccount from "./pages/ManageAccount";
 import CouponCodes from "./pages/CouponCodes";
+import CreateCouponPage from "./pages/CreateCouponPage";
 import AcceptInvitation from "./pages/AcceptInvitation";
 import RegisterInvitation from "./pages/auth/RegisterInvitation";
 import Forbidden from "./pages/Forbidden";
@@ -182,7 +183,7 @@ const App = () => {
 
         {/* Auth routes */}
         <Route path="/auth/signin" element={<SignIn />} />
-        <Route path="/signup" element={<SignUp />} />
+        {/* <Route path="/signup" element={<SignUp />} /> */}
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/register" element={<RegisterInvitation />} />
@@ -223,10 +224,12 @@ const App = () => {
                           </ProtectedRoute>
                         } 
                       />
-                      <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-                      <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} />
-                      <Route path="/analytics/reports" element={<ProtectedRoute><AnalyticsReports /></ProtectedRoute>} />
+                      {/* <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />  // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-3 */}
+                      {/* <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} /> // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-3  */}
+                      {/* <Route path="/analytics/reports" element={<ProtectedRoute><AnalyticsReports /></ProtectedRoute>} /> // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-3 */}
                       <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
+                      <Route path="/coupon-codes/new" element={<ProtectedRoute><CreateCouponPage /></ProtectedRoute>} />
+                      <Route path="/coupon-codes/:id/edit" element={<ProtectedRoute><CreateCouponPage /></ProtectedRoute>} />
                       <Route path="/coupon-insights" element={<ProtectedRoute><CouponInsights /></ProtectedRoute>} />
                       <Route path="/finances/invoices" element={<ProtectedRoute><FinancesInvoices /></ProtectedRoute>} />
                       <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
@@ -247,6 +250,7 @@ const App = () => {
         <Route
           path="/dashboard/settings/*"
           element={
+          <ProtectedRoute>
             <SidebarProvider>
               <div className="min-h-screen flex w-full">
                 <div className="flex-1 flex flex-col">
@@ -257,6 +261,7 @@ const App = () => {
                 </div>
               </div>
             </SidebarProvider>
+          </ProtectedRoute>
           }
         />
 

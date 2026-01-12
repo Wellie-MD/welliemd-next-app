@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,19 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useToast } from "@/hooks/use-toast"
+import { Loader2, Info, Eye, EyeOff } from "lucide-react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+
+// Import payment gateway API and types
+import paymentGatewayApi from "@/api/paymentGatewayApi"
+import type { PaymentGatewayConfig, PaymentGatewayType } from "@/types/paymentGateway"
+import { GATEWAY_FIELDS, GATEWAY_OPTIONS } from "@/types/paymentGateway"
 
 // Import payment method icons
 import visaIcon from "@/assets/icons/payment-methods/visa.svg"
@@ -102,6 +115,7 @@ const subscriptionStatuses = [
 ]
 
 export default function Payments() {
+  const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [selectedMethods, setSelectedMethods] = useState<string[]>(["visa", "mastercard", "amex", "apple", "google"])
   const [formData, setFormData] = useState({
@@ -113,6 +127,46 @@ export default function Payments() {
     shortenedDescriptor: "PauseRX",
     testMode: false
   })
+
+  // Payment Gateway Configuration State
+  const [gatewayConfigOpen, setGatewayConfigOpen] = useState(false)
+  const [gatewayLoading, setGatewayLoading] = useState(true)
+  const [gatewaySaving, setGatewaySaving] = useState(false)
+  const [passwordVisible, setPasswordVisible] = useState<Record<string, boolean>>({})
+  const [gatewayConfig, setGatewayConfig] = useState<PaymentGatewayConfig>({
+    payment_gateway: 'stripe',
+    nmi_security_key: null,
+    nmi_api_key: null,
+    nmi_base_url: null,
+    nmi_public_key: null,
+    stripe_secret_key: null,
+    stripe_publishable_key: null,
+    stripe_subscription_id: null,
+    authorize_net_api_login_id: null,
+    authorize_net_transaction_key: null,
+    authorize_net_base_url: null,
+    authorize_net_environment: null,
+    authnet_client_key: null,
+  })
+
+  // Fetch payment gateway configuration on mount
+  useEffect(() => {
+    const fetchGatewayConfig = async () => {
+      try {
+        setGatewayLoading(true)
+        const response = await paymentGatewayApi.getConfig()
+        if (response.success && response.payment_config) {
+          setGatewayConfig(response.payment_config)
+        }
+      } catch (error: any) {
+        console.error('Failed to fetch payment gateway config:', error)
+        // Don't show error toast on initial load - config may not exist yet
+      } finally {
+        setGatewayLoading(false)
+      }
+    }
+    fetchGatewayConfig()
+  }, [])
 
   const togglePaymentMethod = (methodId: string) => {
     setSelectedMethods(prev =>
@@ -128,13 +182,233 @@ export default function Payments() {
     setOpen(false)
   }
 
+  const handleGatewayChange = (gateway: PaymentGatewayType) => {
+    setGatewayConfig(prev => ({ ...prev, payment_gateway: gateway }))
+  }
+
+  const handleGatewayFieldChange = (key: keyof PaymentGatewayConfig, value: string) => {
+    setGatewayConfig(prev => ({ ...prev, [key]: value || null }))
+  }
+
+  const handleGatewayConfigSave = async () => {
+    try {
+      setGatewaySaving(true)
+      const response = await paymentGatewayApi.updateConfig(gatewayConfig)
+      if (response.success) {
+        setGatewayConfig(response.payment_config)
+        toast({
+          title: "Success",
+          description: "Payment gateway configuration saved successfully",
+        })
+        setGatewayConfigOpen(false)
+      }
+    } catch (error: any) {
+      console.error('Failed to save payment gateway config:', error)
+      toast({
+        title: "Error",
+        description: error.response?.data?.detail || "Failed to save payment gateway configuration",
+        variant: "destructive",
+      })
+    } finally {
+      setGatewaySaving(false)
+    }
+  }
+
+  const getGatewayLabel = (gateway: PaymentGatewayType): string => {
+    return GATEWAY_OPTIONS.find(opt => opt.value === gateway)?.label || gateway
+  }
+
+  const isGatewayConfigured = (): boolean => {
+    const { payment_gateway } = gatewayConfig
+    if (payment_gateway === 'stripe') {
+      return !!(gatewayConfig.stripe_secret_key && gatewayConfig.stripe_publishable_key)
+    }
+    if (payment_gateway === 'nmi') {
+      return !!(gatewayConfig.nmi_security_key)
+    }
+    if (payment_gateway === 'authorize_net') {
+      return !!(gatewayConfig.authorize_net_api_login_id && gatewayConfig.authorize_net_transaction_key)
+    }
+    return false
+  }
+
   return (
-    <div className="max-w-4xl mx-auto space-y-8 p-6">
+    <div className="mx-auto space-y-8 p-6">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Payments</h1>
       </div>
 
+      {/* Payment Gateway Configuration Card */}
       <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-lg font-medium">Payment Gateway</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Configure how you receive payments from patients
+            </p>
+          </div>
+          <Dialog open={gatewayConfigOpen} onOpenChange={setGatewayConfigOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">Configure</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-xl">
+              <DialogHeader>
+                <DialogTitle>Payment Gateway Configuration</DialogTitle>
+                <p className="text-sm text-muted-foreground">
+                  Select your payment gateway and enter your credentials
+                </p>
+              </DialogHeader>
+              
+              <div className="space-y-6">
+                {/* Gateway Selection */}
+                <div>
+                  <Label className="text-sm font-medium">Payment Gateway</Label>
+                  <Select 
+                    value={gatewayConfig.payment_gateway} 
+                    onValueChange={(value) => handleGatewayChange(value as PaymentGatewayType)}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Select a payment gateway" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {GATEWAY_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Dynamic Gateway Fields */}
+                <div className="space-y-4">
+                  <h3 className="font-medium text-sm">
+                    {getGatewayLabel(gatewayConfig.payment_gateway)} Credentials
+                  </h3>
+                  
+                  {GATEWAY_FIELDS[gatewayConfig.payment_gateway]?.map((field) => (
+                    <div key={field.key}>
+                      <div className="flex items-center gap-1.5">
+                        <Label className="text-sm">
+                          {field.label}
+                          {field.required && <span className="text-red-500 ml-1">*</span>}
+                        </Label>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                                <Info className="w-3.5 h-3.5" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-xs text-xs">
+                              <p>{field.description}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                      
+                      {field.type === 'select' ? (
+                        <Select
+                          value={(gatewayConfig[field.key] as string) || ''}
+                          onValueChange={(value) => handleGatewayFieldChange(field.key, value)}
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder={field.placeholder} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {field.options?.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : field.type === 'password' ? (
+                        <div className="relative mt-1">
+                          <Input
+                            type={passwordVisible[field.key] ? 'text' : 'password'}
+                            value={(gatewayConfig[field.key] as string) || ''}
+                            onChange={(e) => handleGatewayFieldChange(field.key, e.target.value)}
+                            placeholder={field.placeholder}
+                            className="pr-10 focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setPasswordVisible(prev => ({ ...prev, [field.key]: !prev[field.key] }))}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            {passwordVisible[field.key] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      ) : (
+                        <Input
+                          type={field.type || 'text'}
+                          value={(gatewayConfig[field.key] as string) || ''}
+                          onChange={(e) => handleGatewayFieldChange(field.key, e.target.value)}
+                          placeholder={field.placeholder}
+                          className="mt-1 focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setGatewayConfigOpen(false)} disabled={gatewaySaving}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleGatewayConfigSave} 
+                    className="bg-sky-500 hover:bg-sky-600"
+                    disabled={gatewaySaving}
+                  >
+                    {gatewaySaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    {gatewaySaving ? 'Saving...' : 'Save Configuration'}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </CardHeader>
+        
+        <CardContent className="space-y-4">
+          {gatewayLoading ? (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm">Loading configuration...</span>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <div className="text-muted-foreground">Selected Gateway</div>
+                  <div className="font-medium">{getGatewayLabel(gatewayConfig.payment_gateway)}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Status</div>
+                  <Badge 
+                    variant="secondary" 
+                    className={`${isGatewayConfigured() ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'} border-0 mt-1`}
+                  >
+                    {isGatewayConfigured() ? 'Configured' : 'Not Configured'}
+                  </Badge>
+                </div>
+              </div>
+              
+              {!isGatewayConfigured() && (
+                <p className="text-sm text-muted-foreground">
+                  Click "Configure" to set up your payment gateway credentials.
+                </p>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* WellieMD Payments card removed on request: https://telehealthknysys.atlassian.net/browse/KAN-3 */}
+          
+      {/* <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-lg font-medium">WellieMD Payments</CardTitle>
@@ -151,9 +425,9 @@ export default function Payments() {
                 </p>
               </DialogHeader>
               
-              <div className="space-y-6">
+              <div className="space-y-6"> */}
                 {/* Payment Methods Selection */}
-                <div>
+                {/* <div>
                   <h3 className="font-medium mb-3">Payment Methods</h3>
                   <div className="space-y-3">
                     {paymentMethods.map((method) => (
@@ -174,10 +448,10 @@ export default function Payments() {
                       </div>
                     ))}
                   </div>
-                </div>
+                </div> */}
 
                 {/* Payout Details */}
-                <div>
+                {/* <div>
                   <h3 className="font-medium mb-2">Payout Details</h3>
                   <p className="text-sm text-muted-foreground mb-4">
                     Your earnings are deposited into this bank account. Choose the frequency of your payouts and edit the way they're described on your bank statements.
@@ -284,10 +558,10 @@ export default function Payments() {
                       />
                     </div>
                   </div>
-                </div>
+                </div> */}
 
                 {/* Test Mode */}
-                <div className="space-y-3 p-4 bg-blue-50 rounded-lg">
+                {/* <div className="space-y-3 p-4 bg-blue-50 rounded-lg">
                   <h3 className="font-medium">Test Mode</h3>
                   <p className="text-sm text-muted-foreground">
                     Test WellieMD Payments setup and configuration to simulate successful and failed transactions.{" "}
@@ -300,10 +574,10 @@ export default function Payments() {
                     />
                     <Label>Turn Test Mode on</Label>
                   </div>
-                </div>
+                </div> */}
 
                 {/* Action Buttons */}
-                <div className="flex justify-end">
+                {/* <div className="flex justify-end">
                   <Button onClick={handleSave} className="bg-sky-500 hover:bg-sky-600">
                     Save
                   </Button>
@@ -320,10 +594,10 @@ export default function Payments() {
             <Button variant="link" className="h-auto p-0 text-xs text-sky-600 hover:text-sky-700">
               Manage
             </Button>
-          </div>
+          </div> */}
 
           {/* Payment Method Icons */}
-          <div className="flex flex-wrap gap-2 items-center">
+          {/* <div className="flex flex-wrap gap-2 items-center">
             {paymentIcons.slice(0, 6).map((payment, index) => (
               <div key={index} className="flex items-center justify-center w-12 h-8 bg-white border rounded shadow-sm">
                 <img 
@@ -358,10 +632,12 @@ export default function Payments() {
             </Badge>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
+
+      {/* Payment Statuses card removed on request: https://telehealthknysys.atlassian.net/browse/KAN-3 */}
 
       {/* Payment Statuses */}
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle className="text-lg font-medium">Payment Statuses</CardTitle>
         </CardHeader>
@@ -384,7 +660,7 @@ export default function Payments() {
             </div>
           ))}
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   )
 }

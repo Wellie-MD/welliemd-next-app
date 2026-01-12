@@ -65,11 +65,30 @@ const billingService = {
     }
   },
 
-  async getPaymentMethodStatus(): Promise<{ status: string; text: string } | null> {
+  async getPaymentMethodStatus(): Promise<{
+    status: string;
+    payment_method?: {
+      id?: string;
+      brand?: string;
+      last4?: string;
+      exp_month?: number;
+      exp_year?: number;
+      is_expired?: boolean;
+    } | null;
+    billing_details?: {
+      name?: string;
+      email?: string;
+      address?: string;
+    } | null;
+  } | null> {
     try {
       const { data } = await api.get<any>("/billing/payment-method/");
-      if (data && data.status && data.text) {
-        return { status: data.status, text: data.text };
+      if (data && data.status) {
+        return {
+          status: data.status,
+          payment_method: data.payment_method || null,
+          billing_details: data.billing_details || null,
+        };
       }
       return null;
     } catch (err) {
