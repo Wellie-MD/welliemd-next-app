@@ -22,6 +22,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -37,7 +45,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Loader2, Plus, Pencil, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, ChevronDown, ChevronUp, Mail, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   notificationTemplatesApi,
@@ -46,6 +54,7 @@ import {
   type TemplateTypeInfo,
   type CreateNotificationTemplatePayload,
   type UpdateNotificationTemplatePayload,
+  type TestAllTemplatesResponse,
 } from "@/api/notificationTemplatesApi";
 
 export default function NotificationTemplates() {
@@ -59,6 +68,14 @@ export default function NotificationTemplates() {
   const [templateToDelete, setTemplateToDelete] = useState<NotificationTemplateListItem | null>(null);
   const [variablesOpen, setVariablesOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Test Templates state
+  const [isTestDialogOpen, setIsTestDialogOpen] = useState(false);
+  const [testEmail, setTestEmail] = useState("");
+  const [testingAll, setTestingAll] = useState(false);
+  const [testResults, setTestResults] = useState<TestAllTemplatesResponse | null>(null);
+  const [selectedTestTemplates, setSelectedTestTemplates] = useState<string[]>([]);
+  
   const { toast } = useToast();
 
   // Form state
@@ -110,6 +127,19 @@ export default function NotificationTemplates() {
     const type = templateTypes.find((t) => t.value === templateType);
     return type?.variables || [];
   };
+
+  // Get template types that are already used (have active templates)
+  const usedTemplateTypes = useMemo(() => {
+    return new Set(templates.filter(t => t.is_active).map(t => t.template_type));
+  }, [templates]);
+
+  // Get available template types for creation (not yet used)
+  const availableTemplateTypes = useMemo(() => {
+    return templateTypes.filter(t => !usedTemplateTypes.has(t.value));
+  }, [templateTypes, usedTemplateTypes]);
+
+  // Check if all template types are used
+  const allTypesUsed = availableTemplateTypes.length === 0 && templateTypes.length > 0;
 
   // Handle toggle active
   const handleToggleActive = async (e: React.MouseEvent, template: NotificationTemplateListItem) => {
@@ -321,6 +351,68 @@ export default function NotificationTemplates() {
     }
   };
 
+  // Handle test templates
+  const handleTestTemplates = async () => {
+    if (!testEmail) {
+      toast({
+        title: "Error",
+        description: "Please enter an email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (selectedTestTemplates.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one template to test",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setTestingAll(true);
+      setTestResults(null);
+      const results = await notificationTemplatesApi.testTemplates(
+        testEmail, 
+        selectedTestTemplates
+      );
+      setTestResults(results);
+      toast({
+        title: "Test Complete",
+        description: results.summary,
+      });
+    } catch (error) {
+      console.error("Failed to test templates:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send test emails",
+        variant: "destructive",
+      });
+    } finally {
+      setTestingAll(false);
+    }
+  };
+
+  // Toggle template selection
+  const handleToggleTestTemplate = (templateType: string) => {
+    setSelectedTestTemplates(prev => 
+      prev.includes(templateType)
+        ? prev.filter(t => t !== templateType)
+        : [...prev, templateType]
+    );
+  };
+
+  // Select/deselect all templates
+  const handleSelectAllTemplates = () => {
+    if (selectedTestTemplates.length === templates.length) {
+      setSelectedTestTemplates([]);
+    } else {
+      setSelectedTestTemplates(templates.map(t => t.template_type));
+    }
+  };
+
   // Format date
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -430,11 +522,33 @@ export default function NotificationTemplates() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Notification Templates</h1>
-        <Button className="gap-2" onClick={handleCreate}>
-          <Plus className="h-4 w-4" />
-          Create Template
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline"
+            className="gap-2" 
+            onClick={() => {
+              setTestEmail("");
+              setTestResults(null);
+              setIsTestDialogOpen(true);
+            }}
+          >
+            <Mail className="h-4 w-4" />
+            Test All Templates
+          </Button>
+          <Button 
+            className="gap-2" 
+            onClick={handleCreate}
+            disabled={allTypesUsed}
+            title={allTypesUsed ? "All template types are already in use" : "Create a new template"}
+          >
+            <Plus className="h-4 w-4" />
+            Create Template
+          </Button>
+        </div>
       </div>
+      {allTypesUsed && (
+        <p className="text-sm text-muted-foreground">All 20 template types are in use</p>
+      )}
 
       <DataTable
         data={filteredTemplates}
@@ -492,7 +606,7 @@ export default function NotificationTemplates() {
                         <SelectValue placeholder="Select a template type" />
                       </SelectTrigger>
                       <SelectContent>
-                        {templateTypes.map((type) => (
+                        {(selectedTemplate ? templateTypes : availableTemplateTypes).map((type) => (
                           <SelectItem key={type.value} value={type.value}>
                             {type.label}
                           </SelectItem>
@@ -657,6 +771,122 @@ export default function NotificationTemplates() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Test Templates Dialog */}
+      <Dialog open={isTestDialogOpen} onOpenChange={setIsTestDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Test Notification Templates</DialogTitle>
+            <DialogDescription>
+              Select templates to test and enter an email address to receive test emails.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Email Input */}
+            <div className="space-y-2">
+              <Label htmlFor="test-email">Test Email Address</Label>
+              <Input
+                id="test-email"
+                type="email"
+                placeholder="test@example.com"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                disabled={testingAll}
+              />
+            </div>
+
+            {/* Template Selection */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Select Templates to Test</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSelectAllTemplates}
+                  disabled={testingAll}
+                >
+                  {selectedTestTemplates.length === templates.length ? "Deselect All" : "Select All"}
+                </Button>
+              </div>
+              <div className="border rounded-lg max-h-48 overflow-y-auto">
+                {templates.map((template) => (
+                  <div
+                    key={template.id}
+                    className="flex items-center gap-3 px-3 py-2 border-b last:border-b-0 hover:bg-muted/50 cursor-pointer"
+                    onClick={() => !testingAll && handleToggleTestTemplate(template.template_type)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedTestTemplates.includes(template.template_type)}
+                      onChange={() => handleToggleTestTemplate(template.template_type)}
+                      disabled={testingAll}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium">{template.name}</span>
+                      <p className="text-xs text-muted-foreground">{template.template_type}</p>
+                    </div>
+                    {template.is_active ? (
+                      <Badge variant="secondary" className="text-xs">Active</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs">Inactive</Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {selectedTestTemplates.length} of {templates.length} templates selected
+              </p>
+            </div>
+
+            {/* Test Results */}
+            {testResults && (
+              <div className="space-y-3">
+                <div className={`p-3 rounded-lg ${testResults.failed === 0 ? 'bg-green-50 dark:bg-green-950' : 'bg-yellow-50 dark:bg-yellow-950'}`}>
+                  <p className="font-semibold">{testResults.summary}</p>
+                  <p className="text-sm text-muted-foreground">Sent to: {testResults.recipient}</p>
+                </div>
+                
+                <div className="border rounded-lg max-h-32 overflow-y-auto">
+                  {Object.entries(testResults.results).map(([template, result]) => (
+                    <div key={template} className="flex items-center justify-between px-3 py-2 border-b last:border-b-0">
+                      <span className="text-sm font-mono">{template}</span>
+                      {result.success ? (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-600" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsTestDialogOpen(false)}>
+              Close
+            </Button>
+            <Button 
+              onClick={handleTestTemplates} 
+              disabled={testingAll || !testEmail || selectedTestTemplates.length === 0}
+            >
+              {testingAll ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Mail className="mr-2 h-4 w-4" />
+                  Send Test ({selectedTestTemplates.length})
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
