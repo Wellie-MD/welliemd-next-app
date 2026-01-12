@@ -123,6 +123,36 @@ export const fetchTemplateTypes = async (): Promise<TemplateTypeInfo[]> => {
     return data;
 };
 
+/**
+ * Test all templates by sending to a test email
+ */
+export interface TestAllTemplatesResponse {
+    success: boolean;
+    summary: string;
+    total: number;
+    successful: number;
+    failed: number;
+    recipient: string;
+    results: Record<string, { status: string; success: boolean; error?: string }>;
+}
+
+export const testTemplates = async (
+    recipientEmail: string,
+    templateTypes?: string[]
+): Promise<TestAllTemplatesResponse> => {
+    const { data } = await api.post<TestAllTemplatesResponse>(
+        `${ENDPOINT}test-all-templates/`,
+        {
+            recipient_email: recipientEmail,
+            template_types: templateTypes
+        }
+    );
+    return data;
+};
+
+// Keep for backwards compatibility
+export const testAllTemplates = testTemplates;
+
 // Export default object for convenience
 export const notificationTemplatesApi = {
     fetchAll: fetchNotificationTemplates,
@@ -132,6 +162,8 @@ export const notificationTemplatesApi = {
     delete: deleteNotificationTemplate,
     toggleActive: toggleTemplateActive,
     fetchTemplateTypes: fetchTemplateTypes,
+    testTemplates: testTemplates,
+    testAllTemplates: testAllTemplates,
 };
 
 export default notificationTemplatesApi;
