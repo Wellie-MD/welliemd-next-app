@@ -97,8 +97,24 @@ export const useAuthStore = create<AuthState>()(
               });
 
               debugLog('Login successful:', { userId: response.user.id });
-            } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : 'Login failed';
+            } catch (error: any) {
+              // The apiClient transforms errors - extract message from different formats:
+              // 1. {error: "message"} - string error from server
+              // 2. {error: {message: "..."}} - nested error object
+              // 3. Axios error with response.data
+              let errorMessage = 'Login failed';
+              
+              if (typeof error?.error === 'string') {
+                errorMessage = error.error;
+              } else if (typeof error?.error?.message === 'string') {
+                errorMessage = error.error.message;
+              } else if (error?.response?.data?.error) {
+                errorMessage = typeof error.response.data.error === 'string'
+                  ? error.response.data.error
+                  : error.response.data.error.message || errorMessage;
+              } else if (error?.message) {
+                errorMessage = error.message;
+              }
               
               set((state) => {
                 state.isLoading = false;
@@ -288,8 +304,24 @@ export const useAuthStore = create<AuthState>()(
               });
 
               debugLog('Password reset email sent');
-            } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : 'Failed to send reset email';
+            } catch (error: any) {
+              // The apiClient transforms errors - extract message from different formats:
+              // 1. {error: "message"} - string error from server
+              // 2. {error: {message: "..."}} - nested error object
+              // 3. Axios error with response.data
+              let errorMessage = 'An unexpected error occurred. Please try again.';
+              
+              if (typeof error?.error === 'string') {
+                errorMessage = error.error;
+              } else if (typeof error?.error?.message === 'string') {
+                errorMessage = error.error.message;
+              } else if (error?.response?.data?.error) {
+                errorMessage = typeof error.response.data.error === 'string'
+                  ? error.response.data.error
+                  : error.response.data.error.message || errorMessage;
+              } else if (error?.message) {
+                errorMessage = error.message;
+              }
               
               set((state) => {
                 state.isLoading = false;
