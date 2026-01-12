@@ -30,6 +30,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -56,11 +57,12 @@ const menuSections = [
       // },
       {
         title: "Orders",
+        url: "/dashboard/orders",
         icon: ShoppingBag,
-        children: [
-          { title: "Orders", url: "/dashboard/orders" },
-          { title: "Payments", url: "/dashboard/orders/payments" },
-        ]
+        // children: [
+        //   { title: "Orders", url: "/dashboard/orders" },
+        //   { title: "Payments", url: "/dashboard/orders/payments" },
+        // ]
       },
       { title: "Messenger", url: "/dashboard/messages", icon: MessageSquare },
       // { 
@@ -72,7 +74,7 @@ const menuSections = [
       //     { title: "Cohorts", url: "/dashboard/analytics/cohorts" }
       //   ]
       // },
-      { title: "Prescriptions", url: "/dashboard/prescriptions", icon: ScrollText }
+      // { title: "Prescriptions", url: "/dashboard/prescriptions", icon: ScrollText } // --- Removed on request: https://telehealthknysys.atlassian.net/browse/KAN-3 --
     ]
   },
   {
@@ -102,27 +104,30 @@ const menuSections = [
       },
     ]
   },
-  {
-    label: "SALES & CHANNELS", 
-    items: [
-{
-        title: "Finances",
-        icon: CreditCard,
-        children: [
-          { title: "Billing", url: "/dashboard/billing" },
-        ]
-      },
-      // {
-      //   title: "Discounts",
-      //   icon: Gift,
-      //   children: [
-      //     { title: "Coupon Codes", url: "/dashboard/coupon-codes" },
-      //     { title: "Insights", url: "/dashboard/coupon-insights" }
-      //   ]
-      // },
-      // { title: "Affiliates", url: "/dashboard/affiliates", icon: Users }
-    ]
-  }
+
+  // --- Removed "SALES & CHANNELS" on request: https://telehealthknysys.atlassian.net/browse/KAN-3 --
+
+//   {
+//     label: "SALES & CHANNELS", 
+//     items: [
+// {
+//         title: "Finances",
+//         icon: CreditCard,
+//         children: [
+//           { title: "Billing", url: "/dashboard/billing" },
+//         ]
+//       },
+//       // {
+//       //   title: "Discounts",
+//       //   icon: Gift,
+//       //   children: [
+//       //     { title: "Coupon Codes", url: "/dashboard/coupon-codes" },
+//       //     { title: "Insights", url: "/dashboard/coupon-insights" }
+//       //   ]
+//       // },
+//       // { title: "Affiliates", url: "/dashboard/affiliates", icon: Users }
+//     ]
+//   }
 ]
 
 export function AppSidebar() {
@@ -182,8 +187,26 @@ export function AppSidebar() {
     return <>{children}</>
   }
 
+   function SidebarLogo() {
+  const { state } = useSidebar()
+
+  if (state === "collapsed") return null
+
+  return (
+    <img
+      src="/welliemd_logo.png"
+      alt="Welliemd"
+      className="h-8 w-auto"
+    />
+  )
+}
+
   return (
     <Sidebar collapsible="icon" className="border-r">
+      <div className="flex w-full justify-between p-4">
+        <SidebarLogo />
+        <SidebarTrigger className="text-gray-600 hover:bg-white/50 rounded-md p-1" />
+      </div>
       <SidebarContent className="overflow-y-auto overflow-x-hidden scrollbar-hide pb-4">
         {menuSections.map((section, sectionIndex) => (
           <SidebarGroup key={section.label} className={collapsed ? "mb-2" : "mb-6"}>

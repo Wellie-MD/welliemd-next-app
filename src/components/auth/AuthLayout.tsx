@@ -6,7 +6,7 @@ interface AuthLayoutProps {
 
 export const AuthLayout = ({ children }: AuthLayoutProps) => {
   return (
-    <div className="min-h-screen flex flex-row items-stretch">
+    <div className="h-screen flex flex-row items-stretch">
       {/* Left side - Form */}
       <div className="flex-1 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md">
@@ -20,7 +20,7 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
           <img 
             src={authIllustration} 
             alt="Healthcare illustration" 
-            className="max-w-full max-h-full object-contain"
+            className="w-full h-full object-cover"
           />
         </div>
       </div>

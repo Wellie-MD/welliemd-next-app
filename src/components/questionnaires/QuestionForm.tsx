@@ -131,6 +131,23 @@ export function QuestionForm({
     []
   );
 
+  interface MedicationConfigInput {
+    code: string;
+    display: string;
+    aliasesRaw: string;
+    dosesRaw: string;
+  }
+  const [medicationConfig, setMedicationConfig] = useState<{
+    medications: MedicationConfigInput[];
+    note: string;
+  }>({
+    medications: [],
+    note: "",
+  });
+  const [bmiMax, setBmiMax] = useState<number | "">(27);
+  const [dobMinAge, setDobMinAge] = useState<number | "">(18);
+  const [dobMaxAge, setDobMaxAge] = useState<number | "">(65);
+
   // Fetch template and existing questions when modal opens
   useEffect(() => {
     const fetchTemplateData = async () => {
@@ -232,6 +249,41 @@ export function QuestionForm({
         setCheckoutConfig(validationRules.checkout_config);
       }
 
+      // Extract medication config for medication_dose_selector questions
+      if (
+        question.question_type === "medication_dose_selector" &&
+        validationRules?.medications
+      ) {
+        // Convert arrays back to raw strings for editing
+        setMedicationConfig({
+          medications: validationRules.medications.map((med: { code: string; display: string; aliases: string[]; doses: string[] }) => ({
+            code: med.code,
+            display: med.display,
+            aliasesRaw: Array.isArray(med.aliases) ? med.aliases.join(', ') : '',
+            dosesRaw: Array.isArray(med.doses) ? med.doses.join(', ') : '',
+          })),
+          note: validationRules.note || "",
+        });
+      }
+
+      // Extract BMI eligibility config
+      if (question.question_type === "bmi" && validationRules?.bmi_max !== undefined) {
+        setBmiMax(validationRules.bmi_max);
+      }
+
+      // Extract DOB age eligibility config
+      if (
+        question.question_type === "date" &&
+        question.beluga_field_mapping === "date_of_birth"
+      ) {
+        if (validationRules?.min_age !== undefined) {
+          setDobMinAge(validationRules.min_age);
+        }
+        if (validationRules?.max_age !== undefined) {
+          setDobMaxAge(validationRules.max_age);
+        }
+      }
+
       // Extract sub-questions for grouped questions
       if (
         question.sub_questions &&
@@ -319,6 +371,7 @@ export function QuestionForm({
       setEnableNumberValidation(false);
       setNumberValidationOperator("gt");
       setNumberValidationValue("");
+      setMedicationConfig({ medications: [], note: "" });
       setFormData({
         template_id: templateId,
         question_text: "",
@@ -533,6 +586,38 @@ export function QuestionForm({
         return;
       }
 
+      // Validate medication_dose_selector question type
+      if (formData.question_type === "medication_dose_selector") {
+        if (medicationConfig.medications.length === 0) {
+          toast({
+            title: "Validation Error",
+            description: "At least one medication is required",
+            variant: "destructive",
+          });
+          return;
+        }
+        for (const med of medicationConfig.medications) {
+          if (!med.display.trim()) {
+            toast({
+              title: "Validation Error",
+              description: "All medications must have a display name",
+              variant: "destructive",
+            });
+            return;
+          }
+          // Parse doses from raw string
+          const doses = med.dosesRaw.split(',').map(d => d.trim()).filter(d => d);
+          if (doses.length === 0) {
+            toast({
+              title: "Validation Error",
+              description: `Medication "${med.display}" must have at least one dose`,
+              variant: "destructive",
+            });
+            return;
+          }
+        }
+      }
+
       // Build validation_rules
       let validationRules: unknown = {};
 
@@ -544,6 +629,32 @@ export function QuestionForm({
       } else if (formData.question_type === "checkout") {
         validationRules = {
           checkout_config: checkoutConfig,
+        };
+      } else if (formData.question_type === "medication_dose_selector") {
+        // Convert raw strings to arrays when saving
+        const medications = medicationConfig.medications.map(med => ({
+          code: med.code || med.display.toLowerCase().replace(/\s+/g, '_'),
+          display: med.display,
+          aliases: med.aliasesRaw.split(',').map(a => a.trim()).filter(a => a),
+          doses: med.dosesRaw.split(',').map(d => d.trim()).filter(d => d),
+        }));
+        validationRules = {
+          medications,
+          note: medicationConfig.note,
+        };
+      } else if (formData.question_type === "bmi") {
+        // Add BMI eligibility config
+        validationRules = {
+          bmi_max: bmiMax !== "" ? bmiMax : undefined,
+        };
+      } else if (
+        formData.question_type === "date" &&
+        formData.beluga_field_mapping === "date_of_birth"
+      ) {
+        // Add DOB age eligibility config
+        validationRules = {
+          min_age: dobMinAge !== "" ? dobMinAge : undefined,
+          max_age: dobMaxAge !== "" ? dobMaxAge : undefined,
         };
       } else if (
         formData.question_type === "number" &&
@@ -566,7 +677,7 @@ export function QuestionForm({
 
       // Handle disqualifying answers for choice-based questions
       if (
-        ["single_choice", "multiple_choice", "consent"].includes(
+        ["single_choice", "multiple_choice", "consent", "sex"].includes(
           formData.question_type
         )
       ) {
@@ -827,7 +938,7 @@ export function QuestionForm({
                 </SelectItem>
                 <SelectItem value="number">Number</SelectItem>
                 <SelectItem value="date">Date</SelectItem>
-                <SelectItem value="height_weight">Height & Weight</SelectItem>
+                <SelectItem value="bmi">BMI (Height, Weight & Auto-Calculate)</SelectItem>
                 <SelectItem value="consent">Consent Checkbox</SelectItem>
                 <SelectItem value="file_upload">File Upload</SelectItem>
                 <SelectItem value="checkout">
@@ -849,18 +960,96 @@ export function QuestionForm({
                 <SelectItem value="medical_conditions">
                   Medical Conditions (Beluga Mapped)
                 </SelectItem>
+                <SelectItem value="medication_dose_selector">
+                  Medication & Dose Selector (Two-Step)
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {/* Grouped Question Builder */}
           {(formData.question_type === "personal_details" ||
-            formData.question_type === "shipping_address") && (
+            formData.question_type === "shipping_address" ||
+            formData.question_type === "bmi") && (
             <GroupedQuestionBuilder
               groupType={formData.question_type}
               subQuestions={subQuestions}
               onChange={setSubQuestions}
             />
+          )}
+
+          {/* BMI Eligibility Settings */}
+          {formData.question_type === "bmi" && (
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+              <h3 className="font-semibold text-sm">BMI Eligibility Settings</h3>
+              <p className="text-xs text-muted-foreground">
+                Set the maximum BMI threshold. Patients with BMI exceeding this limit will be disqualified.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="bmi_max">
+                  Maximum BMI Limit <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="bmi_max"
+                  type="number"
+                  step="0.1"
+                  min="15"
+                  max="100"
+                  value={bmiMax}
+                  onChange={(e) =>
+                    setBmiMax(e.target.value === "" ? "" : Number(e.target.value))
+                  }
+                  placeholder="e.g., 27"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Common settings: 27 for treatment-naive, 25 for treatment-experienced
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Date of Birth Age Eligibility Settings */}
+          {formData.question_type === "date" &&
+            formData.beluga_field_mapping === "date_of_birth" && (
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+              <h3 className="font-semibold text-sm">Age Eligibility Settings</h3>
+              <p className="text-xs text-muted-foreground">
+                Set age constraints for eligibility. Patients outside these limits will be disqualified.
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="min_age">Minimum Age</Label>
+                  <Input
+                    id="min_age"
+                    type="number"
+                    min="0"
+                    max="120"
+                    value={dobMinAge}
+                    onChange={(e) =>
+                      setDobMinAge(e.target.value === "" ? "" : Number(e.target.value))
+                    }
+                    placeholder="e.g., 18"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="max_age">Maximum Age</Label>
+                  <Input
+                    id="max_age"
+                    type="number"
+                    min="0"
+                    max="120"
+                    value={dobMaxAge}
+                    onChange={(e) =>
+                      setDobMaxAge(e.target.value === "" ? "" : Number(e.target.value))
+                    }
+                    placeholder="e.g., 65"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Leave empty if no constraint. Common: min 18, max 65
+              </p>
+            </div>
           )}
 
           {/* Checkout Product Selection */}
@@ -880,6 +1069,128 @@ export function QuestionForm({
                   The product's Beluga Med ID and pharmacy will be automatically
                   included.
                 </p>
+              </div>
+            </div>
+          )}
+
+          {/* Medication & Dose Selector Configuration */}
+          {formData.question_type === "medication_dose_selector" && (
+            <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+              <h3 className="font-semibold text-sm">Medication & Dose Configuration</h3>
+              
+              {/* Helper Note */}
+              <div className="space-y-2">
+                <Label htmlFor="medication_note">Helper Note (shown to patients)</Label>
+                <Input
+                  id="medication_note"
+                  value={medicationConfig.note}
+                  onChange={(e) => setMedicationConfig({
+                    ...medicationConfig,
+                    note: e.target.value
+                  })}
+                  placeholder="e.g., Tirzepatide = Mounjaro, Zepbound"
+                />
+              </div>
+
+              {/* Medications List */}
+              <div className="space-y-3">
+                <Label>Medications <span className="text-red-500">*</span></Label>
+                
+                {medicationConfig.medications.map((med, medIndex) => (
+                  <div key={medIndex} className="p-3 border rounded-lg bg-white space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-sm">Medication {medIndex + 1}</h4>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const newMeds = medicationConfig.medications.filter((_, i) => i !== medIndex);
+                          setMedicationConfig({ ...medicationConfig, medications: newMeds });
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </div>
+                    
+                    {/* Medication Name */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Display Name</Label>
+                        <Input
+                          value={med.display}
+                          onChange={(e) => {
+                            const newMeds = [...medicationConfig.medications];
+                            newMeds[medIndex] = {
+                              ...newMeds[medIndex],
+                              display: e.target.value,
+                              code: e.target.value.toLowerCase().replace(/\s+/g, '_')
+                            };
+                            setMedicationConfig({ ...medicationConfig, medications: newMeds });
+                          }}
+                          placeholder="e.g., Tirzepatide"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Aliases (comma-separated)</Label>
+                        <Input
+                          value={med.aliasesRaw}
+                          onChange={(e) => {
+                            const newMeds = [...medicationConfig.medications];
+                            newMeds[medIndex] = {
+                              ...newMeds[medIndex],
+                              aliasesRaw: e.target.value
+                            };
+                            setMedicationConfig({ ...medicationConfig, medications: newMeds });
+                          }}
+                          placeholder="e.g., Mounjaro, Zepbound"
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Doses */}
+                    <div>
+                      <Label className="text-xs">Doses (comma-separated)</Label>
+                      <Input
+                        value={med.dosesRaw}
+                        onChange={(e) => {
+                          const newMeds = [...medicationConfig.medications];
+                          newMeds[medIndex] = {
+                            ...newMeds[medIndex],
+                            dosesRaw: e.target.value
+                          };
+                          setMedicationConfig({ ...medicationConfig, medications: newMeds });
+                        }}
+                        placeholder="e.g., 1.5mg, 3mg, 6mg, 9mg"
+                      />
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Add Medication Button */}
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setMedicationConfig({
+                      ...medicationConfig,
+                      medications: [
+                        ...medicationConfig.medications,
+                        { code: '', display: '', aliasesRaw: '', dosesRaw: '' }
+                      ]
+                    });
+                  }}
+                  variant="outline"
+                  className="w-full"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Medication
+                </Button>
+                
+                {medicationConfig.medications.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    Add at least one medication with its available doses.
+                  </p>
+                )}
               </div>
             </div>
           )}
