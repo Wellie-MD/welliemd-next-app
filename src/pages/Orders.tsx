@@ -250,6 +250,19 @@ export default function Orders() {
     
     if (newStatus == null && newTrackingNumber == null) return
     
+    // Find the current order to get existing tracking number
+    const currentOrder = orders.find(o => o.id === id)
+    const existingTrackingNumber = currentOrder?.tracking_number
+    
+    // Validate: tracking number required when setting status to 'shipped'
+    if (newStatus === 'shipped') {
+      const trackingToUse = newTrackingNumber ?? existingTrackingNumber
+      if (!trackingToUse || !trackingToUse.trim()) {
+        setError('Tracking number is required when setting status to Shipped. Please enter a tracking number first.')
+        return
+      }
+    }
+    
     setSavingId(id)
     setError(null)
     setSuccess(null)
@@ -279,6 +292,7 @@ export default function Orders() {
       setSavingId(null)
     }
   }
+
 
   const handleCreateOrder = async () => {
     const name = window.prompt('Patient name')
@@ -369,53 +383,70 @@ export default function Orders() {
           if (col.key === 'orderStatus') {
             return {
               ...col,
-              render: (_: any, row: any) => (
-                <div>
-                  <Select
-                    value={editedStatuses[row.id] ?? (row.orderStatus ?? 'created')}
-                    onValueChange={(v) => handleStatusChange(row.id, v)}
-                  >
-                    <SelectTrigger className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ORDER_STATUS_CHOICES.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ),
+              render: (_: any, row: any) => {
+                const currentStatus = row.orderStatus ?? 'created'
+                const isLocked = currentStatus === 'shipped' || currentStatus === 'canceled'
+                
+                return (
+                  <div className="relative">
+                    <Select
+                      value={editedStatuses[row.id] ?? currentStatus}
+                      onValueChange={(v) => handleStatusChange(row.id, v)}
+                      disabled={isLocked}
+                    >
+                      <SelectTrigger className={`w-40 ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ORDER_STATUS_CHOICES.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )
+              },
             }
           }
+
 
           if (col.key === 'tracking_number') {
             return {
               ...col,
               render: (_: any, row: any) => {
-                const currentStatus = editedStatuses[row.id] ?? (row.orderStatus ?? 'created')
-                const isShipped = currentStatus === 'shipped'
+                const originalStatus = row.orderStatus ?? 'created'
+                const editedStatus = editedStatuses[row.id]
+                const isAlreadyShipped = originalStatus === 'shipped'  // Already shipped in DB
+                const isChangingToShipped = editedStatus === 'shipped' && !isAlreadyShipped  // User is changing TO shipped
+                const showTrackingInput = isAlreadyShipped || isChangingToShipped
                 
+                if (!showTrackingInput) {
+                  return <span className="text-sm text-muted-foreground italic">N/A</span>
+                }
+                
+                // Already shipped - show as read-only
+                if (isAlreadyShipped) {
+                  return (
+                    <span className="text-sm font-medium">{row.tracking_number || '-'}</span>
+                  )
+                }
+                
+                // Changing to shipped - show editable input
                 return (
-                  <div>
-                    {isShipped ? (
-                      <input
-                        type="text"
-                        className="w-32 px-2 py-1 text-sm border rounded"
-                        placeholder="Tracking #"
-                        value={editedTrackingNumbers[row.id] ?? (row.tracking_number ?? '')}
-                        onChange={(e) => handleTrackingNumberChange(row.id, e.target.value)}
-                      />
-                    ) : (
-                      <span className="text-sm text-muted-foreground italic">N/A</span>
-                    )}
-                  </div>
+                  <input
+                    type="text"
+                    className="w-32 px-2 py-1 text-sm border rounded"
+                    placeholder="Tracking # (required)"
+                    value={editedTrackingNumbers[row.id] ?? (row.tracking_number ?? '')}
+                    onChange={(e) => handleTrackingNumberChange(row.id, e.target.value)}
+                  />
                 )
               }
             }
           }
+
 
           return col
         })}
