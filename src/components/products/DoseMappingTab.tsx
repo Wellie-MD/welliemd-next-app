@@ -195,9 +195,10 @@ export function DoseMappingTab() {
     {
       key: "actions",
       label: "Actions",
+      width: "100px",
       className: "text-right",
       render: (_: any, row: any) => (
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-center gap-2">
           <Button
             variant="ghost"
             size="sm"
