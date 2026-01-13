@@ -79,6 +79,7 @@ export default function ClientForm() {
     domain: "",
     subdomain: "",
     master_id_prefix: "welliemd",
+    beluga_company: "",
     admin_panel_domain: "",
     patient_portal_domain: "",
     api_endpoint: "",
@@ -164,6 +165,7 @@ export default function ClientForm() {
         domain: existingClient.domain || "",
         subdomain: existingClient.subdomain || "",
         master_id_prefix: existingClient.master_id_prefix || "welliemd",
+        beluga_company: existingClient.beluga_company || "",
         admin_panel_domain: existingClient.admin_panel_domain,
         patient_portal_domain: existingClient.patient_portal_domain || "",
         api_endpoint: existingClient.api_endpoint || "",
@@ -374,6 +376,7 @@ export default function ClientForm() {
           domain: formData.domain,
           subdomain: formData.subdomain,
           master_id_prefix: formData.master_id_prefix,
+          beluga_company: formData.beluga_company,
           admin_panel_domain: formData.admin_panel_domain,
           patient_portal_domain: formData.patient_portal_domain,
           api_endpoint: formData.api_endpoint,
@@ -566,6 +569,21 @@ export default function ClientForm() {
                       placeholder="welliemd"
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="beluga_company">
+                    Beluga Company Name
+                    <FieldInfo content="This is the company name that will be sent to Beluga when a visit is created." />
+                  </Label>
+                  <Input
+                    id="beluga_company"
+                    value={formData.beluga_company}
+                    onChange={(e) =>
+                      setFormData({ ...formData, beluga_company: e.target.value })
+                    }
+                    placeholder="e.g., wellieMDKinMeds"
+                  />
                 </div>
 
                 <div className="flex items-center justify-between py-2">
