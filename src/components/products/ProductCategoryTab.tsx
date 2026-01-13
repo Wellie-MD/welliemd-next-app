@@ -198,7 +198,7 @@ export function ProductCategoryTab() {
       label: "Actions",
       className: "text-right",
       render: (_: any, row: any) => (
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-start gap-2">
           <Button
             variant="ghost"
             size="sm"
