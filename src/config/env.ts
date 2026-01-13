@@ -3,6 +3,7 @@ import { z } from 'zod';
 // Environment variables schema with validation
 const envSchema = z.object({
   VITE_API_BASE_URL: z.string().min(1),
+  VITE_WS_BASE_URL: z.string().optional(), // WebSocket URL (defaults to derived from API URL)
   VITE_API_TIMEOUT: z.coerce.number().positive().default(10000),
   VITE_AUTH_TOKEN_KEY: z.string().default('welliemd_auth_token'),
   VITE_REFRESH_TOKEN_KEY: z.string().default('welliemd_refresh_token'),
@@ -20,12 +21,12 @@ const envSchema = z.object({
 // Parse and validate environment variables
 function validateEnv() {
   const result = envSchema.safeParse(import.meta.env);
-  
+
   if (!result.success) {
     console.error('❌ Invalid environment variables:', result.error.format());
     throw new Error('Invalid environment variables. Check your .env file.');
   }
-  
+
   return result.data;
 }
 

@@ -549,6 +549,16 @@ export const useAuthStore = create<AuthState>()(
           features: state.features,
           isAuthenticated: state.isAuthenticated,
         }),
+        // Sync persisted token to tokenManager when store is rehydrated
+        onRehydrateStorage: () => (state) => {
+          if (state?.tokens?.accessToken) {
+            // Import tokenManager dynamically to avoid circular dependencies
+            import('../services/token-manager').then(({ tokenManager }) => {
+              tokenManager.setAccessToken(state.tokens!.accessToken);
+              debugLog('Token synced to tokenManager from persisted state');
+            });
+          }
+        },
         // Don't persist loading states and errors
         version: 1,
       }
