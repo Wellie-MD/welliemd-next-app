@@ -332,10 +332,11 @@ export default function Products() {
   );
 
   const columns = [
-    { key: "name", label: "Name" },
+    { key: "name", label: "Name", width: "140px" },
     {
       key: "category_name",
       label: "Category",
+      width: "140px",
       render: (...args: unknown[]) => {
         const row = getRow<Product>(...args);
         const categoryId = (row as unknown).category;
@@ -352,16 +353,19 @@ export default function Products() {
     {
       key: "manufacturer_name",
       label: "Manufacturer",
+      width: "140px",
       render: (v: string) => v || "-",
     },
     {
       key: "rx_drug_form",
       label: "Drug Form",
+      width: "140px",
       render: (v: string) => v || "-",
     },
     {
       key: "purchase_type",
       label: "Purchase Type",
+      width: "140px",
       render: (v: string) => {
         const formatted =
           v === "one_time"
@@ -375,11 +379,13 @@ export default function Products() {
     {
       key: "price",
       label: "Price",
+      width: "140px",
       render: (v: number | string) => money(v),
     },
     {
       key: "created_at",
       label: "Created At",
+      width: "100px",
       render: (...args: unknown[]) => {
         const row = getRow<Product>(...args);
         try {
@@ -393,6 +399,7 @@ export default function Products() {
     {
       key: "__actions",
       label: "",
+      width: "80px",
       render: (...args: unknown[]) => {
         const row = getRow<Product>(...args);
         return (
