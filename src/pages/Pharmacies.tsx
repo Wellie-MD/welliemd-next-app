@@ -107,36 +107,41 @@ export default function Pharmacies() {
   };
 
   const columns = [
-    { key: "store_name", label: "Pharmacy" },
-    { key: "city", label: "City" },
-    { key: "state", label: "State" },
-    { key: "zip_code", label: "Zip" },
-    { key: "primary_phone", label: "Phone" },
-    { key: "email", label: "Email" },
-    { key: "ncpdp_id", label: "NCPDP" },
+    { key: "store_name", label: "Pharmacy", width: "200px"},
+    { key: "city", label: "City", width: "120px" },
+    { key: "state", label: "State", width: "100px" },
+    { key: "zip_code", label: "Zip", width: "100px" },
+    { key: "primary_phone", label: "Phone", width: "130px" },
+    { key: "email", label: "Email", width: "200px" },
+    { key: "ncpdp_id", label: "NCPDP", width: "140px" },
     {
       key: "api_vendor",
       label: "API",
+      width: "150px",
       render: (...a: any[]) => getRow<Pharmacy>(...a).api_vendor || "-"
     },
     {
       key: "integration_status",
       label: "Integration",
+      width: "130px",
       render: (...a: any[]) => <StatusBadge status={getRow<Pharmacy>(...a).integration_status} />,
     },
     {
       key: "integration_last_validated_at",
       label: "Last Checked",
+      width: "130px",
       render: (...a: any[]) => formatDate(getRow<Pharmacy>(...a).integration_last_validated_at),
     },
     {
       key: "updated_at",
       label: "Updated",
+      width: "200px",
       render: (...a: any[]) => formatDate(getRow<Pharmacy>(...a).updated_at),
     },
     {
       key: "__actions",
       label: "",
+      width: "150px",
       render: (...a: any[]) => {
         const row = getRow<Pharmacy>(...a);
         return (
