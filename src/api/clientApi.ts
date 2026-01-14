@@ -239,11 +239,13 @@ export const clientApi = {
     return data;
   },
 
-  createSubscription: async (clientId: string, priceId: string, paymentMethodId: string): Promise<unknown> => {
+  createSubscription: async (
+    clientId: string,
+    payload: { price_id?: string; base_price_id?: string; metered_price_id?: string; payment_method_id: string }
+  ): Promise<unknown> => {
     const { data } = await axiosInstance.post('/stripe/admin/subscriptions/', {
       client_id: clientId,
-      price_id: priceId,
-      payment_method_id: paymentMethodId,
+      ...payload,
     });
     return data;
   },
@@ -285,6 +287,15 @@ export const clientApi = {
   ): Promise<import('../types/b2bBilling').B2BInvoiceListResponse> => {
     const type = invoiceType || 'reimbursement';
     const { data } = await axiosInstance.get(`/internal/clients/${clientId}/invoices/${type}/`, {
+      params: params || {}
+    });
+    return data;
+  },
+
+  getAllB2BInvoices: async (
+    params?: Record<string, unknown>
+  ): Promise<import('../types/b2bBilling').B2BInvoiceListResponse> => {
+    const { data } = await axiosInstance.get(`/internal/invoices/`, {
       params: params || {}
     });
     return data;

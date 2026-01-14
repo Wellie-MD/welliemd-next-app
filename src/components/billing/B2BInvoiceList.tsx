@@ -117,7 +117,6 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="reimbursement">Reimbursement</SelectItem>
                 <SelectItem value="saas_fee">SaaS Fee</SelectItem>
-                <SelectItem value="aggregated_snapshot">Aggregated</SelectItem>
               </SelectContent>
             </Select>
           </div>

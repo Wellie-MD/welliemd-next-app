@@ -54,6 +54,16 @@ export function B2BBillingDisplay({
   });
 
   const hasSubscription = client?.stripe_subscription_id;
+  const priceList = Array.isArray(prices) ? prices : (prices as any)?.prices || [];
+  const monthlyPrices = priceList.filter(
+    (price: any) => price.recurring?.interval === "month" && price.active
+  );
+  const basePrice = monthlyPrices.find(
+    (price: any) => price.recurring?.usage_type !== "metered"
+  );
+  const meteredPrice = monthlyPrices.find(
+    (price: any) => price.recurring?.usage_type === "metered"
+  );
 
   // Mutation for creating subscription
   const createSubscriptionMutation = useMutation({
@@ -64,18 +74,16 @@ export function B2BBillingDisplay({
         throw new Error("No payment method found");
       }
 
-      // Get the first available monthly price
-      const monthlyPrice = prices?.find(
-        (price) => price.recurring?.interval === "month" && price.active
-      );
-      if (!monthlyPrice) {
-        throw new Error("No active monthly plan found");
+      if (!basePrice) {
+        throw new Error("No active monthly base plan found");
       }
 
       return subscriptionApi.create({
         client_id: clientId,
-        price_id: monthlyPrice.id,
         payment_method_id: paymentMethodId,
+        ...(meteredPrice
+          ? { base_price_id: basePrice.id, metered_price_id: meteredPrice.id }
+          : { price_id: basePrice.id }),
       });
     },
     onSuccess: () => {
