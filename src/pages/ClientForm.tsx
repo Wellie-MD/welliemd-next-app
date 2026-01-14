@@ -171,6 +171,7 @@ export default function ClientForm() {
         first_name: existingClient.user?.first_name || "",
         last_name: existingClient.user?.last_name || "",
         phone: existingClient.user?.phone || "",
+        password: existingClient.deployment_password || "",
         name: existingClient.name,
         domain: existingClient.domain || "",
         subdomain: existingClient.subdomain || "",

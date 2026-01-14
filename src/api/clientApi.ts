@@ -42,6 +42,7 @@ export interface Client {
   card_holder_name: string;
   card_last_four: string;
   stripe_subscription_id: string | null;
+  deployment_password?: string;
 }
 
 export interface ClientCreatePayload {
