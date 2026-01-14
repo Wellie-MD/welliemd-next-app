@@ -261,9 +261,12 @@ export default function MyBillingProfile() {
             <div>
               <p className="font-medium mb-2">Update Payment Method</p>
               <div>
-                <StripeSetupForm
+                  <StripeSetupForm
                   clientSecret={modalContent.client_secret}
-                  onSuccess={async () => {
+                  onSuccess={async (setupIntentId: string) => {
+                    if (setupIntentId) {
+                      await billingService.confirmSetupIntent(setupIntentId);
+                    }
                     const pmData =
                       await billingService.getPaymentMethodStatus();
                     if (pmData) {
@@ -314,7 +317,7 @@ function StripeSetupForm({
   onError,
 }: {
   clientSecret: string;
-  onSuccess: () => void;
+  onSuccess: (setupIntentId: string) => void;
   onError: (msg: string) => void;
 }) {
   const publishable = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
@@ -408,7 +411,7 @@ function DynamicInnerForm({
   PaymentElem: any;
   useStripeHook: any;
   useElementsHook: unknown;
-  onSuccess: () => void;
+  onSuccess: (setupIntentId: string) => void;
   onError: (msg: string) => void;
 }) {
   const stripe = useStripeHook();
@@ -434,10 +437,11 @@ function DynamicInnerForm({
         res.setupIntent &&
         (res.setupIntent.status === "succeeded" ||
           res.setupIntent.status === "requires_capture" ||
-          res.setupIntent.status === "requires_confirmation")
+          res.setupIntent.status === "requires_confirmation" ||
+          res.setupIntent.status === "processing")
       ) {
-        // Success - call callback
-        onSuccess();
+        // Success - call callback with setup intent id
+        onSuccess(res.setupIntent?.id || "");
       } else {
         onError("Unexpected setup intent result");
       }

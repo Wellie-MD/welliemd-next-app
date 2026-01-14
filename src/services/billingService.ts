@@ -54,6 +54,18 @@ const billingService = {
     }
   },
 
+  async confirmSetupIntent(setupIntentId: string): Promise<boolean> {
+    try {
+      await api.post("/billing/setup-intent/confirm/", {
+        setup_intent_id: setupIntentId,
+      });
+      return true;
+    } catch (err) {
+      console.warn("confirmSetupIntent failed", err);
+      return false;
+    }
+  },
+
   async getPaymentMethodText(): Promise<string | null> {
     try {
       const { data } = await api.get<any>("/billing/payment-method/");
@@ -98,13 +110,16 @@ const billingService = {
   },
 
   async getInvoices(
-    type: "reimbursement" | "saas",
+    type: "reimbursement" | "saas" | "all",
     page = 1,
-    pageSize = 25
+    pageSize = 25,
+    paramsOverride?: Record<string, unknown>
   ): Promise<InvoiceListResponse> {
     try {
-      const params = { page, page_size: pageSize } as any;
-      const { data } = await api.get<unknown>(`/billing/invoices/${type}/`, { params });
+      const params = { page, page_size: pageSize, ...(paramsOverride || {}) } as any;
+      const path =
+        type === "all" ? "/billing/invoices/" : `/billing/invoices/${type}/`;
+      const { data } = await api.get<unknown>(path, { params });
       // API returns paginated shape: { count, next, previous, results: [...] }
       if (data && Array.isArray(data.results)) return data as InvoiceListResponse;
       // If backend returns array directly, map into paginated shape
