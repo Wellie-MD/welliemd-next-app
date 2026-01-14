@@ -49,6 +49,7 @@ export interface ClientCreatePayload {
   first_name: string;
   last_name: string;
   phone?: string;
+  password?: string;
   
   // Client Basic Information
   name: string;
