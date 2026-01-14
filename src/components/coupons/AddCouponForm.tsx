@@ -6,6 +6,8 @@ import { useForm, Controller } from "react-hook-form"
 import axiosInstance from "@/api/axiosInstance"
 import Select from "react-select"
 import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog"
+import { useToast } from "@/hooks/use-toast"
+
 
 type Product = {
   id: string
@@ -113,6 +115,8 @@ export default function AddCouponForm({
     }
   }, [coupon, setValue])
 
+  const { toast } = useToast()
+
   const onSubmit = async (data: CouponFormValues) => {
     try {
       setLoading(true)
@@ -133,8 +137,22 @@ export default function AddCouponForm({
       onOpenChange?.(false)
       onSuccess?.()
     } catch (err) {
-      alert(mode === "edit" ? "Error updating coupon" : "Error creating coupon")
+      // alert(mode === "edit" ? "Error updating coupon" : "Error creating coupon")
       console.error(err)
+
+      // Toast error message
+      const message =
+    err?.response?.data?.code?.[0] ||
+    (mode === "edit"
+      ? "Error updating coupon"
+      : "Error creating coupon")
+
+  toast({
+    variant: "destructive",
+    title: "Coupon Error",
+    description: message,
+  })
+
     } finally {
       setLoading(false)
     }
