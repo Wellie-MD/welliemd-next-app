@@ -376,7 +376,7 @@ export function DataTable({
                     {columns.map((column) => (
                       <TableCell
                         key={column.key}
-                        className={`py-4 px-3 ${column.className || ""}`}
+                        className={`py-4 px-3 overflow-hidden ${column.className || ""}`}
                       >
                         {column.render
                           ? column.render(row[column.key], row)
