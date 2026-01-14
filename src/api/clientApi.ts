@@ -11,6 +11,7 @@ export interface Client {
   domain?: string;
   subdomain?: string;
   master_id_prefix?: string;
+  beluga_company?: string;
   database_name: string;
   database_host?: string;
   default_template_id?: string;
@@ -49,27 +50,29 @@ export interface ClientCreatePayload {
   first_name: string;
   last_name: string;
   phone?: string;
+  password?: string;
   
   // Client Basic Information
   name: string;
   domain?: string;
   subdomain?: string;
   master_id_prefix?: string;
+  beluga_company?: string;
   admin_panel_domain: string;
   patient_portal_domain?: string;
   api_endpoint?: string;
   questionnaire_url?: string;
-  
+
   // Configuration
   allowed_iframe_domains?: string[];
   default_template_id?: string;
   branding_config?: Record<string, unknown>;
   token_expiry_minutes?: number;
-  
+
   // Database Configuration (optional - backend will auto-generate)
   database_host?: string;
   database_name?: string;
-  
+
   // Billing Settings
   patient_fee?: number;
   async_consult_fee_to_client?: number;
@@ -78,10 +81,10 @@ export interface ClientCreatePayload {
   sync_consult_cost?: number;
   monthly_saas_fee?: number;
   first_next_saas_fees_billing_date?: string;
-  
+
   // Payment Gateway
   payment_gateway?: string;
-  
+
   // Status
   is_active?: boolean;
 }
@@ -91,27 +94,28 @@ export interface ClientUpdatePayload {
   first_name?: string;
   last_name?: string;
   phone?: string;
-  
+
   // Client Information
   name?: string;
   domain?: string;
   subdomain?: string;
   master_id_prefix?: string;
+  beluga_company?: string;
   admin_panel_domain?: string;
   patient_portal_domain?: string;
   api_endpoint?: string;
   questionnaire_url?: string;
-  
+
   // Configuration
   allowed_iframe_domains?: string[];
   default_template_id?: string;
   branding_config?: Record<string, unknown>;
   token_expiry_minutes?: number;
-  
+
   // Database Configuration
   database_host?: string;
   database_name?: string;
-  
+
   // Billing Settings
   patient_fee?: number;
   async_consult_fee_to_client?: number;
@@ -120,10 +124,10 @@ export interface ClientUpdatePayload {
   sync_consult_cost?: number;
   monthly_saas_fee?: number;
   first_next_saas_fees_billing_date?: string;
-  
+
   // Payment Gateway
   payment_gateway?: string;
-  
+
   // Status
   is_active?: boolean;
 }
@@ -194,8 +198,8 @@ export const clientApi = {
     const results = Array.isArray(data?.results)
       ? data.results
       : Array.isArray(data)
-      ? data
-      : [];
+        ? data
+        : [];
 
     // ensure `user` is either an object or null
     return results.map((c: unknown) => ({
@@ -265,7 +269,7 @@ export const clientApi = {
 
     const paymentMethodStatus = paymentMethodRes.data.status || 'no_customer';
     const hasPaymentMethod = paymentMethodStatus === 'active';
-    
+
     // Backend now returns structured payment_method object
     const paymentMethod = paymentMethodRes.data.payment_method || undefined;
 
@@ -279,7 +283,7 @@ export const clientApi = {
   },
 
   getB2BInvoices: async (
-    clientId: string, 
+    clientId: string,
     invoiceType?: 'reimbursement' | 'saas_fee' | 'aggregated_snapshot',
     params?: Record<string, unknown>
   ): Promise<import('../types/b2bBilling').B2BInvoiceListResponse> => {

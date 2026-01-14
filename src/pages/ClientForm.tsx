@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Save, Loader2, Info, AlertCircle } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Info, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,6 +65,7 @@ export default function ClientForm() {
   const [clientName, setClientName] = useState("");
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [hasPaymentMethod, setHasPaymentMethod] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState<ClientCreatePayload>({
@@ -73,12 +74,14 @@ export default function ClientForm() {
     first_name: "",
     last_name: "",
     phone: "",
+    password: "",
 
     // Client Basic Information
     name: "",
     domain: "",
     subdomain: "",
     master_id_prefix: "welliemd",
+    beluga_company: "",
     admin_panel_domain: "",
     patient_portal_domain: "",
     api_endpoint: "",
@@ -152,6 +155,14 @@ export default function ClientForm() {
     }
   }, [paymentMethodData]);
 
+  // Auto-generate password when first_name or last_name changes
+  useEffect(() => {
+    if (!isEditMode && formData.first_name && formData.last_name) {
+      const generatedPassword = `${formData.first_name}${formData.last_name}@123`;
+      setFormData((prev) => ({ ...prev, password: generatedPassword }));
+    }
+  }, [formData.first_name, formData.last_name, isEditMode]);
+
   // Populate form with existing data
   useEffect(() => {
     if (existingClient) {
@@ -164,6 +175,7 @@ export default function ClientForm() {
         domain: existingClient.domain || "",
         subdomain: existingClient.subdomain || "",
         master_id_prefix: existingClient.master_id_prefix || "welliemd",
+        beluga_company: existingClient.beluga_company || "",
         admin_panel_domain: existingClient.admin_panel_domain,
         patient_portal_domain: existingClient.patient_portal_domain || "",
         api_endpoint: existingClient.api_endpoint || "",
@@ -374,6 +386,7 @@ export default function ClientForm() {
           domain: formData.domain,
           subdomain: formData.subdomain,
           master_id_prefix: formData.master_id_prefix,
+          beluga_company: formData.beluga_company,
           admin_panel_domain: formData.admin_panel_domain,
           patient_portal_domain: formData.patient_portal_domain,
           api_endpoint: formData.api_endpoint,
@@ -568,6 +581,21 @@ export default function ClientForm() {
                   </div>
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="beluga_company">
+                    Beluga Company Name
+                    <FieldInfo content="This is the company name that will be sent to Beluga when a visit is created." />
+                  </Label>
+                  <Input
+                    id="beluga_company"
+                    value={formData.beluga_company}
+                    onChange={(e) =>
+                      setFormData({ ...formData, beluga_company: e.target.value })
+                    }
+                    placeholder="e.g., wellieMDKinMeds"
+                  />
+                </div>
+
                 <div className="flex items-center justify-between py-2">
                   <div>
                     <Label htmlFor="is_active">Active Status</Label>
@@ -699,6 +727,43 @@ export default function ClientForm() {
                     )}
                   </div>
                 </div>
+
+                {!isEditMode && (
+                  <div className="space-y-2">
+                    <Label htmlFor="password">
+                      Password <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        value={formData.password || ""}
+                        onChange={(e) =>
+                          setFormData({ ...formData, password: e.target.value })
+                        }
+                        placeholder="Password"
+                        required
+                        className={validationErrors.password ? "border-red-500 pr-10" : "pr-10"}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </div>
+                    {validationErrors.password && (
+                      <p className="text-xs text-red-500">{validationErrors.password}</p>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
