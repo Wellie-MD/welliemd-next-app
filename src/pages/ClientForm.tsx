@@ -409,6 +409,10 @@ export default function ClientForm() {
           payment_gateway: formData.payment_gateway,
           is_active: formData.is_active,
         };
+        // Include password only if provided (not empty)
+        if (formData.password && formData.password.trim()) {
+          updatePayload.password = formData.password;
+        }
         updateMutation.mutate(updatePayload);
       }
     } else {
@@ -728,42 +732,45 @@ export default function ClientForm() {
                   </div>
                 </div>
 
-                {!isEditMode && (
-                  <div className="space-y-2">
-                    <Label htmlFor="password">
-                      Password <span className="text-red-500">*</span>
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        value={formData.password || ""}
-                        onChange={(e) =>
-                          setFormData({ ...formData, password: e.target.value })
-                        }
-                        placeholder="Password"
-                        required
-                        className={validationErrors.password ? "border-red-500 pr-10" : "pr-10"}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <Eye className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </Button>
-                    </div>
-                    {validationErrors.password && (
-                      <p className="text-xs text-red-500">{validationErrors.password}</p>
-                    )}
+                <div className="space-y-2">
+                  <Label htmlFor="password">
+                    Password {!isEditMode && <span className="text-red-500">*</span>}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={formData.password || ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
+                      placeholder={isEditMode ? "Leave blank to keep current password" : "Password"}
+                      required={!isEditMode}
+                      className={validationErrors.password ? "border-red-500 pr-10" : "pr-10"}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
                   </div>
-                )}
+                  {validationErrors.password && (
+                    <p className="text-xs text-red-500">{validationErrors.password}</p>
+                  )}
+                  {isEditMode && (
+                    <p className="text-xs text-muted-foreground">
+                      Leave blank to keep the current password unchanged
+                    </p>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
