@@ -158,7 +158,7 @@ export default function ClientForm() {
   // Auto-generate password when first_name or last_name changes
   useEffect(() => {
     if (!isEditMode && formData.first_name && formData.last_name) {
-      const generatedPassword = `${formData.first_name}${formData.last_name}@123`;
+      const generatedPassword = `${formData.first_name}${formData.last_name}@123`.replace(/\s+/g, '');
       setFormData((prev) => ({ ...prev, password: generatedPassword }));
     }
   }, [formData.first_name, formData.last_name, isEditMode]);
@@ -743,7 +743,7 @@ export default function ClientForm() {
                       type={showPassword ? "text" : "password"}
                       value={formData.password || ""}
                       onChange={(e) =>
-                        setFormData({ ...formData, password: e.target.value })
+                        setFormData({ ...formData, password: e.target.value.replace(/\s+/g, '') })
                       }
                       placeholder={isEditMode ? "Leave blank to keep current password" : "Password"}
                       required={!isEditMode}
