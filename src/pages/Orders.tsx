@@ -3,18 +3,19 @@ import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { CalendarDays, RotateCcw, TrendingUp, Download, RefreshCw, Grid3X3 } from "lucide-react"
+import { CalendarDays, RotateCcw, TrendingUp, Download, RefreshCw, Grid3X3, Eye } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { isWithinInterval } from "date-fns"
 import mockData from "@/data/mockData.json"
 import { ordersApi, Order } from "@/api/ordersApi"
 import { exportToCSV } from "@/utils/exportUtils"
+import { OrderDetailsSheet } from "@/components/orders/OrderDetailsSheet"
 
 const orderColumns = [
   { key: "name", label: "Name" },
   { key: "email", label: "Email" },
   { key: "phone", label: "Phone" },
-  { key: "pharmacy", label: "Pharmacy" },
+  { key: "pharmacy_display", label: "Pharmacy" },
   { key: "orderDate", label: "Order Date" },
   { key: "datePrescribed", label: "Date Prescribed" },
   { key: "datePrintedShipped", label: "Date Printed/Shipped" },
@@ -86,7 +87,7 @@ export default function Orders() {
   const [activeAdditionalFilters, setActiveAdditionalFilters] = useState<string[]>([])
   const [date, setDate] = useState<DateRange | undefined>()
   const [refreshKey, setRefreshKey] = useState(0)
-  const [orders, setOrders] = useState<Order[]>(mockData.orders || [])
+  const [orders, setOrders] = useState<Order[]>([])
   const [isLoadingOrders, setIsLoadingOrders] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -94,6 +95,10 @@ export default function Orders() {
   const [editedStatuses, setEditedStatuses] = useState<Record<string, string>>({})
   const [editedTrackingNumbers, setEditedTrackingNumbers] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
+  
+  // Order Details Sheet state
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   // Comprehensive filtering logic based on actual order data
   const filteredOrders = useMemo(() => {
@@ -104,7 +109,7 @@ export default function Orders() {
         (order.email ?? '').toLowerCase().includes(lowerSearch) ||
         (order.phone ?? '').includes(searchTerm) ||
         (order.mrn ?? '').toLowerCase().includes(lowerSearch) ||
-        (order.pharmacy ?? '').toLowerCase().includes(lowerSearch)
+        (order.pharmacy_display ?? '').toLowerCase().includes(lowerSearch)
 
       // Payment Status filter
       const matchesPaymentStatus = activePaymentStatusFilter === "All" || order.paymentStatus === activePaymentStatusFilter
@@ -358,11 +363,39 @@ export default function Orders() {
       <DataTable
         data={filteredOrders.map(o => ({ ...o }))}
         columns={orderColumns.map(col => {
+          // Make the name column clickable to open order details
+          if (col.key === 'name') {
+            return {
+              ...col,
+              render: (_: any, row: any) => (
+                <button
+                  onClick={() => {
+                    setSelectedOrder(row)
+                    setSheetOpen(true)
+                  }}
+                  className="text-primary hover:underline font-medium text-left"
+                >
+                  {row.name || '-'}
+                </button>
+              ),
+            }
+          }
+
           if (col.key === 'actions') {
             return {
               ...col,
               render: (_: any, row: any) => (
                 <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setSelectedOrder(row)
+                      setSheetOpen(true)
+                    }}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -462,6 +495,13 @@ export default function Orders() {
         onExport={handleExport}
         onRefresh={handleRefresh}
         loading={isLoadingOrders || isSaving}
+      />
+
+      {/* Order Details Sheet */}
+      <OrderDetailsSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        order={selectedOrder}
       />
     </div>
   )
