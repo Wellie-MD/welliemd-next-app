@@ -12,22 +12,22 @@ import { exportToCSV } from "@/utils/exportUtils"
 import { OrderDetailsSheet } from "@/components/orders/OrderDetailsSheet"
 
 const orderColumns = [
-  { key: "name", label: "Name" },
-  { key: "email", label: "Email" },
-  { key: "phone", label: "Phone" },
-  { key: "pharmacy_display", label: "Pharmacy" },
-  { key: "orderDate", label: "Order Date" },
-  { key: "datePrescribed", label: "Date Prescribed" },
-  { key: "datePrintedShipped", label: "Date Printed/Shipped" },
-  { key: "paymentDate", label: "Payment Date" },
-  { key: "mrn", label: "MRN#" },
-  { key: "paymentStatus", label: "Payment Status" },
-  { key: "visitStatus", label: "Visit Status" },
-  { key: "address", label: "Address" },
-  { key: "orderStatus", label: "Order Status" },
-  { key: "orderTotal", label: "Order Total" },
-  { key: "tracking_number", label: "Tracking #" },
-  { key: "actions", label: "Actions", render: (_: any, row: any) => null }
+  { key: "name", label: "Name", width: "150px" },
+  { key: "email", label: "Email", width: "200px" },
+  { key: "phone", label: "Phone", width: "130px" },
+  { key: "pharmacy_display", label: "Pharmacy", width: "150px" },
+  { key: "orderDate", label: "Order Date", width: "100px" },
+  { key: "datePrescribed", label: "Date Prescribed", width: "100px" },
+  { key: "datePrintedShipped", label: "Date Printed / Shipped", width: "100px" },
+  { key: "paymentDate", label: "Payment Date", width: "100px" },
+  { key: "mrn", label: "MRN#", width: "120px" },
+  { key: "paymentStatus", label: "Payment Status", width: "100px" },
+  { key: "visitStatus", label: "Visit Status", width: "100px" },
+  { key: "address", label: "Address", width: "150px" },
+  { key: "orderStatus", label: "Order Status", width: "100px" },
+  { key: "orderTotal", label: "Order Total", width: "100px" },
+  { key: "tracking_number", label: "Tracking #", width: "100px" },
+  { key: "actions", label: "Actions", width: "100px", render: (_: any, row: any) => null }
 ]
 
 // Meaningful filters based on the orders data structure

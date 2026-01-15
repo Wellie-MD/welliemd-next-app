@@ -238,6 +238,7 @@ export default function Products() {
     { 
       key: "name", 
       label: "Product Name",
+      width: "150px",
       render: (value: unknown, row: Product) => {
         return (
           <div className="flex flex-col">
@@ -252,6 +253,7 @@ export default function Products() {
     {
       key: "treatment",
       label: "Treatment",
+      width: "100px",
       render: (value: unknown, row: Product) => {
         return <Badge variant="outline">{getTreatmentLabel(row.treatment)}</Badge>
       },
@@ -259,16 +261,19 @@ export default function Products() {
     {
       key: "manufacturer_name",
       label: "Manufacturer",
+      width: "150px",
       render: (v: string) => v || "-",
     },
     {
       key: "rx_drug_form",
       label: "Form",
+      width: "100px",
       render: (v: string) => v ? v.charAt(0).toUpperCase() + v.slice(1) : "-",
     },
     {
       key: "purchase_type",
       label: "Type",
+      width: "100px",
       render: (value: unknown, row: Product) => {
         return <Badge variant="secondary">{getPurchaseTypeLabel(row.purchase_type)}</Badge>
       },
@@ -276,6 +281,7 @@ export default function Products() {
     {
       key: "cost_to_client",
       label: "Price",
+      width: "100px",
       render: (value: unknown, row: Product) => {
         return money(row.cost_to_client ?? row.base_price)
       },
@@ -283,11 +289,13 @@ export default function Products() {
     {
       key: "quantity",
       label: "Qty",
+      width: "100px",
       render: (v: string) => v || "-",
     },
     {
       key: "is_active",
       label: "Status",
+      width: "100px",
       render: (value: unknown, row: Product) => {
         return (
           <Badge variant={row.is_active ? "default" : "secondary"}>
@@ -299,12 +307,13 @@ export default function Products() {
     {
       key: "__actions",
       label: "",
+      width: "50px",
       render: (value: unknown, row: Product) => {
         return (
           <div className="flex items-center justify-end gap-3">
             <button
               type="button"
-              className="hover:opacity-80 text-blue-600"
+              className="hover:opacity-80 text-blue-600 px-2"
               title="Edit"
               onClick={() => setEditing(row)}
             >
