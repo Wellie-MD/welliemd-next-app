@@ -40,6 +40,9 @@ interface Column {
   sortable?: boolean;
   headerClassName?: string;
   className?: string;
+  width?: string;
+  minWidth?: string;
+  maxWidth?: string;
   render?: (value: unknown, row: unknown) => React.ReactNode;
 }
 
@@ -338,7 +341,7 @@ export function DataTable({
       {/* Table - Enhanced Design */}
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
-          <Table className="min-w-full">
+          <Table className="min-w-full table-fixed">
             <TableHeader>
               <TableRow className="bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-800 dark:to-gray-800/50 border-b border-gray-200 dark:border-gray-700">
                 {columns.map((column) => (
@@ -347,6 +350,11 @@ export function DataTable({
                     className={`font-medium text-gray-700 dark:text-gray-300 text-xs uppercase tracking-wider py-3 px-3 ${
                       column.headerClassName || ""
                     }`}
+                      style={{
+                        width: column.width,
+                        minWidth: column.minWidth,
+                        maxWidth: column.maxWidth,
+                      }}
                   >
                     {column.label}
                   </TableHead>
@@ -368,7 +376,7 @@ export function DataTable({
                     {columns.map((column) => (
                       <TableCell
                         key={column.key}
-                        className={`py-4 px-4 ${column.className || ""}`}
+                        className={`py-4 px-3 overflow-hidden ${column.className || ""}`}
                       >
                         {column.render
                           ? column.render(row[column.key], row)

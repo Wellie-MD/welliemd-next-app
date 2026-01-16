@@ -323,21 +323,6 @@ export default function AddProductForm({
               </div>
               
               <div>
-                <label className="text-sm font-medium">Base Shipping Cost</label>
-                <div className="flex items-center mt-1">
-                  <span className="border px-3 py-2 rounded-l bg-gray-50">$</span>
-                  <input 
-                    type="number"
-                    step="0.01"
-                    {...register("shipping_cost_to_client")} 
-                    className="border border-l-0 px-3 py-2 rounded-r w-full" 
-                    placeholder="0.00"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Your shipping cost</p>
-              </div>
-              
-              <div>
                 <label className="text-sm font-medium">Shipping Fee (Patient)</label>
                 <div className="flex items-center mt-1">
                   <span className="border px-3 py-2 rounded-l bg-gray-50">$</span>
