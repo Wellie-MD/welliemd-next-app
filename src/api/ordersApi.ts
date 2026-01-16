@@ -5,6 +5,44 @@ export interface OrderPatientSummary {
   full_name: string
 }
 
+// Patient information from beluga payload
+export interface PatientInfo {
+  firstName?: string
+  lastName?: string
+  email?: string
+  dateOfBirth?: string
+  sex?: string
+  phone?: string
+  address?: string
+  city?: string
+  state?: string
+  zip?: string
+  allergies?: string
+  medicalConditions?: string
+  currentMedications?: string
+  height?: string
+  weight?: string
+  bmi?: string | number
+}
+
+// Questionnaire item structure
+export interface QuestionnaireItem {
+  question?: string
+  answer?: string
+  [key: string]: unknown
+}
+
+// Beluga payload structure
+export interface PatientResponses {
+  company?: string
+  formObj?: Record<string, unknown>  // Q1/A1, Q2/A2 format from Beluga
+  patientInfo?: PatientInfo
+  questionnaireItems?: QuestionnaireItem[] | Record<string, unknown>
+  medications?: unknown[]
+  photos?: unknown[]
+  [key: string]: unknown
+}
+
 export interface Order {
   id: string
   display_id?: string
@@ -28,6 +66,7 @@ export interface Order {
   orderStatus?: string | null
   orderTotal?: string | null
   tracking_number?: string | null
+  patient_responses?: PatientResponses | null
 }
 
 export interface PaginatedOrdersResponse {

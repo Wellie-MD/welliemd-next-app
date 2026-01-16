@@ -17,6 +17,7 @@ import AnalyticsSeo from "@/pages/settings/AnalyticsSeo"
 import SmtpSettings from "@/pages/settings/SmtpSettings"
 import SmtpDomainSettings from "@/pages/settings/SmtpDomainSettings"
 import NotificationTemplates from "@/pages/settings/NotificationTemplates"
+import BelugaSettings from "@/pages/settings/BelugaSettings"
 import { useState } from "react"
 
 export function SettingsLayout() {
@@ -60,6 +61,7 @@ export function SettingsLayout() {
               <Route path="analytics-seo" element={<AnalyticsSeo />} />
               <Route path="smtp-settings" element={<SmtpSettings />} />
               <Route path="email-domain" element={<SmtpDomainSettings />} />
+              <Route path="beluga-settings" element={<BelugaSettings />} />
               <Route path="" element={<StoreDetails />} />
             </Routes>
           </div>

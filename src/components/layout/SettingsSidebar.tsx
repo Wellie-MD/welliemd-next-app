@@ -16,7 +16,8 @@ import {
   Palette,
   TrendingUp,
   Settings2,
-  Mail
+  Mail,
+  Cloud
 } from "lucide-react"
 import {
   // Sidebar,
@@ -50,6 +51,7 @@ const settingsMenuItems = [
   { title: "Brand", url: "/dashboard/settings/brand", icon: Palette },
   { title: "Analytics and SEO", url: "/dashboard/settings/analytics-seo", icon: TrendingUp },
   { title: "Email and Sending Domain", url: "/dashboard/settings/email-domain", icon: Globe },
+  { title: "Beluga Settings", url: "/dashboard/settings/beluga-settings", icon: Cloud },
 ]
 
 export function SettingsSidebar({

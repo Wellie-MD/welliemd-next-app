@@ -55,24 +55,25 @@ const transformPatientData = (patient: Patient): PatientTableRow => {
 }
 
 const patientColumns = [
-  { key: "name", label: "Name" },
-  { key: "startDate", label: "Start Date" },
-  { key: "mrn", label: "MRN #" },
-  { key: "subscription", label: "Subscription" },
-  { key: "productName", label: "Product Name" },
-  { key: "email", label: "Email" },
+  { key: "name", label: "Name", width: "150px" },
+  { key: "startDate", label: "Start Date", width: "100px" },
+  { key: "mrn", label: "MRN #", width: "120px" },
+  { key: "subscription", label: "Subscription", width: "120px" },
+  { key: "productName", label: "Product Name", width: "120px" },
+  { key: "email", label: "Email", width: "200px" },
   { 
     key: "phone", 
     label: "Phone Number",
+    width: "130px",
     render: (value: string) => (
       <span className="font-mono text-sm">{value}</span>
     )
   },
-  { key: "orders", label: "Order(s)" },
-  { key: "location", label: "Location" },
-  { key: "patientStatus", label: "Patient Status" },
-  { key: "visitStatus", label: "Visit Status" },
-  { key: "lastOrder", label: "Last Order" }
+  { key: "orders", label: "Order(s)", width: "120px" },
+  { key: "location", label: "Location", width: "120px" },
+  { key: "patientStatus", label: "Patient Status", width: "100px" },
+  { key: "visitStatus", label: "Visit Status", width: "100px" },
+  { key: "lastOrder", label: "Last Order", width: "100px" }
 ]
 
 const statusFilters = ["All", "Active", "Pending", "Abandon", "Canceled"]

@@ -3,30 +3,31 @@ import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { CalendarDays, RotateCcw, TrendingUp, Download, RefreshCw, Grid3X3 } from "lucide-react"
+import { CalendarDays, RotateCcw, TrendingUp, Download, RefreshCw, Grid3X3, Eye } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { isWithinInterval } from "date-fns"
 import mockData from "@/data/mockData.json"
 import { ordersApi, Order } from "@/api/ordersApi"
 import { exportToCSV } from "@/utils/exportUtils"
+import { OrderDetailsSheet } from "@/components/orders/OrderDetailsSheet"
 
 const orderColumns = [
-  { key: "name", label: "Name" },
-  { key: "email", label: "Email" },
-  { key: "phone", label: "Phone" },
-  { key: "pharmacy", label: "Pharmacy" },
-  { key: "orderDate", label: "Order Date" },
-  { key: "datePrescribed", label: "Date Prescribed" },
-  { key: "datePrintedShipped", label: "Date Printed/Shipped" },
-  { key: "paymentDate", label: "Payment Date" },
-  { key: "mrn", label: "MRN#" },
-  { key: "paymentStatus", label: "Payment Status" },
-  { key: "visitStatus", label: "Visit Status" },
-  { key: "address", label: "Address" },
-  { key: "orderStatus", label: "Order Status" },
-  { key: "orderTotal", label: "Order Total" },
-  { key: "tracking_number", label: "Tracking #" },
-  { key: "actions", label: "Actions", render: (_: any, row: any) => null }
+  { key: "name", label: "Name", width: "150px" },
+  { key: "email", label: "Email", width: "200px" },
+  { key: "phone", label: "Phone", width: "130px" },
+  { key: "pharmacy_display", label: "Pharmacy", width: "150px" },
+  { key: "orderDate", label: "Order Date", width: "100px" },
+  { key: "datePrescribed", label: "Date Prescribed", width: "100px" },
+  { key: "datePrintedShipped", label: "Date Printed / Shipped", width: "100px" },
+  { key: "paymentDate", label: "Payment Date", width: "100px" },
+  { key: "mrn", label: "MRN#", width: "120px" },
+  { key: "paymentStatus", label: "Payment Status", width: "100px" },
+  { key: "visitStatus", label: "Visit Status", width: "100px" },
+  { key: "address", label: "Address", width: "150px" },
+  { key: "orderStatus", label: "Order Status", width: "100px" },
+  { key: "orderTotal", label: "Order Total", width: "100px" },
+  { key: "tracking_number", label: "Tracking #", width: "100px" },
+  { key: "actions", label: "Actions", width: "100px", render: (_: any, row: any) => null }
 ]
 
 // Meaningful filters based on the orders data structure
@@ -86,7 +87,7 @@ export default function Orders() {
   const [activeAdditionalFilters, setActiveAdditionalFilters] = useState<string[]>([])
   const [date, setDate] = useState<DateRange | undefined>()
   const [refreshKey, setRefreshKey] = useState(0)
-  const [orders, setOrders] = useState<Order[]>(mockData.orders || [])
+  const [orders, setOrders] = useState<Order[]>([])
   const [isLoadingOrders, setIsLoadingOrders] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -94,6 +95,10 @@ export default function Orders() {
   const [editedStatuses, setEditedStatuses] = useState<Record<string, string>>({})
   const [editedTrackingNumbers, setEditedTrackingNumbers] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
+  
+  // Order Details Sheet state
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   // Comprehensive filtering logic based on actual order data
   const filteredOrders = useMemo(() => {
@@ -104,7 +109,7 @@ export default function Orders() {
         (order.email ?? '').toLowerCase().includes(lowerSearch) ||
         (order.phone ?? '').includes(searchTerm) ||
         (order.mrn ?? '').toLowerCase().includes(lowerSearch) ||
-        (order.pharmacy ?? '').toLowerCase().includes(lowerSearch)
+        (order.pharmacy_display ?? '').toLowerCase().includes(lowerSearch)
 
       // Payment Status filter
       const matchesPaymentStatus = activePaymentStatusFilter === "All" || order.paymentStatus === activePaymentStatusFilter
@@ -250,6 +255,19 @@ export default function Orders() {
     
     if (newStatus == null && newTrackingNumber == null) return
     
+    // Find the current order to get existing tracking number
+    const currentOrder = orders.find(o => o.id === id)
+    const existingTrackingNumber = currentOrder?.tracking_number
+    
+    // Validate: tracking number required when setting status to 'shipped'
+    if (newStatus === 'shipped') {
+      const trackingToUse = newTrackingNumber ?? existingTrackingNumber
+      if (!trackingToUse || !trackingToUse.trim()) {
+        setError('Tracking number is required when setting status to Shipped. Please enter a tracking number first.')
+        return
+      }
+    }
+    
     setSavingId(id)
     setError(null)
     setSuccess(null)
@@ -279,6 +297,7 @@ export default function Orders() {
       setSavingId(null)
     }
   }
+
 
   const handleCreateOrder = async () => {
     const name = window.prompt('Patient name')
@@ -344,11 +363,39 @@ export default function Orders() {
       <DataTable
         data={filteredOrders.map(o => ({ ...o }))}
         columns={orderColumns.map(col => {
+          // Make the name column clickable to open order details
+          if (col.key === 'name') {
+            return {
+              ...col,
+              render: (_: any, row: any) => (
+                <button
+                  onClick={() => {
+                    setSelectedOrder(row)
+                    setSheetOpen(true)
+                  }}
+                  className="text-primary hover:underline font-medium text-left"
+                >
+                  {row.name || '-'}
+                </button>
+              ),
+            }
+          }
+
           if (col.key === 'actions') {
             return {
               ...col,
               render: (_: any, row: any) => (
                 <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setSelectedOrder(row)
+                      setSheetOpen(true)
+                    }}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -369,53 +416,70 @@ export default function Orders() {
           if (col.key === 'orderStatus') {
             return {
               ...col,
-              render: (_: any, row: any) => (
-                <div>
-                  <Select
-                    value={editedStatuses[row.id] ?? (row.orderStatus ?? 'created')}
-                    onValueChange={(v) => handleStatusChange(row.id, v)}
-                  >
-                    <SelectTrigger className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ORDER_STATUS_CHOICES.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ),
+              render: (_: any, row: any) => {
+                const currentStatus = row.orderStatus ?? 'created'
+                const isLocked = currentStatus === 'shipped' || currentStatus === 'canceled'
+                
+                return (
+                  <div className="relative">
+                    <Select
+                      value={editedStatuses[row.id] ?? currentStatus}
+                      onValueChange={(v) => handleStatusChange(row.id, v)}
+                      disabled={isLocked}
+                    >
+                      <SelectTrigger className={`w-40 ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ORDER_STATUS_CHOICES.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )
+              },
             }
           }
+
 
           if (col.key === 'tracking_number') {
             return {
               ...col,
               render: (_: any, row: any) => {
-                const currentStatus = editedStatuses[row.id] ?? (row.orderStatus ?? 'created')
-                const isShipped = currentStatus === 'shipped'
+                const originalStatus = row.orderStatus ?? 'created'
+                const editedStatus = editedStatuses[row.id]
+                const isAlreadyShipped = originalStatus === 'shipped'  // Already shipped in DB
+                const isChangingToShipped = editedStatus === 'shipped' && !isAlreadyShipped  // User is changing TO shipped
+                const showTrackingInput = isAlreadyShipped || isChangingToShipped
                 
+                if (!showTrackingInput) {
+                  return <span className="text-sm text-muted-foreground italic">N/A</span>
+                }
+                
+                // Already shipped - show as read-only
+                if (isAlreadyShipped) {
+                  return (
+                    <span className="text-sm font-medium">{row.tracking_number || '-'}</span>
+                  )
+                }
+                
+                // Changing to shipped - show editable input
                 return (
-                  <div>
-                    {isShipped ? (
-                      <input
-                        type="text"
-                        className="w-32 px-2 py-1 text-sm border rounded"
-                        placeholder="Tracking #"
-                        value={editedTrackingNumbers[row.id] ?? (row.tracking_number ?? '')}
-                        onChange={(e) => handleTrackingNumberChange(row.id, e.target.value)}
-                      />
-                    ) : (
-                      <span className="text-sm text-muted-foreground italic">N/A</span>
-                    )}
-                  </div>
+                  <input
+                    type="text"
+                    className="w-32 px-2 py-1 text-sm border rounded"
+                    placeholder="Tracking # (required)"
+                    value={editedTrackingNumbers[row.id] ?? (row.tracking_number ?? '')}
+                    onChange={(e) => handleTrackingNumberChange(row.id, e.target.value)}
+                  />
                 )
               }
             }
           }
+
 
           return col
         })}
@@ -431,6 +495,13 @@ export default function Orders() {
         onExport={handleExport}
         onRefresh={handleRefresh}
         loading={isLoadingOrders || isSaving}
+      />
+
+      {/* Order Details Sheet */}
+      <OrderDetailsSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        order={selectedOrder}
       />
     </div>
   )

@@ -243,12 +243,12 @@ export default function CouponCodes() {
   }
 
   const columns = [
-    { key: "id", label: "ID", render: (...a: any[]) => getRow<Coupon>(...a).id.slice(0, 8) },
-    { key: "name", label: "Name", render: (...a: any[]) => getRow<Coupon>(...a).name || "---" },
-    { key: "code", label: "Code" },
+    { key: "id", label: "ID", width: "100px", render: (...a: any[]) => getRow<Coupon>(...a).id.slice(0, 8) },
+    { key: "name", label: "Name", width: "150px", render: (...a: any[]) => getRow<Coupon>(...a).name || "---" },
+    { key: "code", label: "Code", width: "100px" },
     {
       key: "value",
-      label: "Discount",
+      label: "Discount", width: "100px",
       render: (...args: any[]) => {
         const row = getRow<Coupon>(...args)
         return row.type === "percent"
@@ -258,12 +258,12 @@ export default function CouponCodes() {
     },
     { 
       key: "max_discount_threshold", 
-      label: "Max. threshold", 
+      label: "Max. threshold", width: "100px", 
       render: (...a: any[]) => formatMoney(getRow<Coupon>(...a).max_discount_threshold ?? null) 
     },
     { 
       key: "applicable_products", 
-      label: "Products", 
+      label: "Products", width: "100px", 
       render: (...a: any[]) => {
         const products = getRow<Coupon>(...a).applicable_products || []
         return products.length === 0 ? "All" : `${products.length} products`
@@ -271,7 +271,7 @@ export default function CouponCodes() {
     },
     {
       key: "type",
-      label: "Type",
+      label: "Type", width: "100px",
       render: (...args: any[]) => {
         const row = getRow<Coupon>(...args)
         const usageLabel: Record<string, string> = {
@@ -286,13 +286,13 @@ export default function CouponCodes() {
     },
     { 
       key: "max_usage", 
-      label: "Max redemptions", 
+      label: "Max redemptions", width: "100px", 
       render: (...a: any[]) => getRow<Coupon>(...a).max_usage ?? "Infinite" 
     },
-    { key: "total_used", label: "Used Count" },
+    { key: "total_used", label: "Used Count", width: "100px" },
     { 
       key: "eligible_patients", 
-      label: "Eligibility", 
+      label: "Eligibility", width: "100px", 
       render: (...a: any[]) => {
         const eligibility = getRow<Coupon>(...a).eligible_patients
         return eligibility === "all" || !eligibility ? "All patients" : "Specific patients"
@@ -300,7 +300,7 @@ export default function CouponCodes() {
     },
     { 
       key: "expires_at", 
-      label: "Expire at", 
+      label: "Expire at", width: "100px", 
       render: (...a: any[]) => {
         const expires = getRow<Coupon>(...a).expires_at
         return expires ? formatDate(expires) : "Never"
@@ -308,19 +308,19 @@ export default function CouponCodes() {
     },
     {
       key: "is_active",
-      label: "Status",
+      label: "Status", width: "100px",
       render: (...args: any[]) => (getRow<Coupon>(...args).is_active ? "Active" : "Inactive"),
     },
-    { key: "created_at", label: "Created At", render: (...a: any[]) => formatDate(getRow<Coupon>(...a).created_at ?? null) },
-    { key: "updated_at", label: "Updated At", render: (...a: any[]) => formatDate(getRow<Coupon>(...a).updated_at ?? null) },
-    { key: "archived_at", label: "Archived at", render: (...a: any[]) => formatDate(getRow<Coupon>(...a).archived_at ?? null) },
+    { key: "created_at", label: "Created At", width: "100px", render: (...a: any[]) => formatDate(getRow<Coupon>(...a).created_at ?? null) },
+    { key: "updated_at", label: "Updated At", width: "100px", render: (...a: any[]) => formatDate(getRow<Coupon>(...a).updated_at ?? null) },
+    { key: "archived_at", label: "Archived at", width: "100px", render: (...a: any[]) => formatDate(getRow<Coupon>(...a).archived_at ?? null) },
     {
       key: "__actions",
-      label: "",
+      label: "", width: "100px",
       render: (...args: any[]) => {
         const row = getRow<Coupon>(...args)
         return (
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex items-center justify-center gap-3">
             <button type="button" className="hover:opacity-80" title="Edit" onClick={() => navigate(`/dashboard/coupon-codes/${row.id}/edit`)}>
               <Pencil className="h-4 w-4" />
             </button>
