@@ -361,61 +361,37 @@ export default function ClientForm() {
     }
 
     if (isEditMode) {
-      // Check if email has changed
-      const emailChanged = existingClient?.user?.email && formData.email !== existingClient.user.email;
-      
-      // If email changed, update it first
-      if (emailChanged) {
-        emailUpdateMutation.mutate(formData.email, {
-          onSuccess: () => {
-            // After email update succeeds, proceed with regular update
-            performRegularUpdate();
-          },
-        });
-      } else {
-        // No email change, just do regular update
-        performRegularUpdate();
-      }
-      
-      function performRegularUpdate() {
-        // For update, only send changed fields
-        const updatePayload: ClientUpdatePayload = {
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          phone: formData.phone,
-          name: formData.name,
-          domain: formData.domain,
-          subdomain: formData.subdomain,
-          master_id_prefix: formData.master_id_prefix,
-          beluga_company: formData.beluga_company,
-          admin_panel_domain: formData.admin_panel_domain,
-          patient_portal_domain: formData.patient_portal_domain,
-          api_endpoint: formData.api_endpoint,
-          questionnaire_url: formData.questionnaire_url,
-          allowed_iframe_domains: formData.allowed_iframe_domains,
-          default_template_id: formData.default_template_id,
-          branding_config: formData.branding_config,
-          token_expiry_minutes: formData.token_expiry_minutes,
-          database_host: formData.database_host,
-          database_name: formData.database_name,
-          patient_fee: formData.patient_fee,
-          async_consult_fee_to_client: formData.async_consult_fee_to_client,
-          async_consult_cost: formData.async_consult_cost,
-          sync_video_consult_fee_to_client:
-            formData.sync_video_consult_fee_to_client,
-          sync_consult_cost: formData.sync_consult_cost,
-          monthly_saas_fee: formData.monthly_saas_fee,
-          first_next_saas_fees_billing_date:
-            formData.first_next_saas_fees_billing_date || undefined,
-          payment_gateway: formData.payment_gateway,
-          is_active: formData.is_active,
-        };
-        // Include password only if provided (not empty)
-        if (formData.password && formData.password.trim()) {
-          updatePayload.password = formData.password;
-        }
-        updateMutation.mutate(updatePayload);
-      }
+      // In edit mode, user-related fields (email, phone, first_name, last_name, password) are disabled
+      // so we only update client-related fields
+      const updatePayload: ClientUpdatePayload = {
+        name: formData.name,
+        domain: formData.domain,
+        subdomain: formData.subdomain,
+        master_id_prefix: formData.master_id_prefix,
+        beluga_company: formData.beluga_company,
+        admin_panel_domain: formData.admin_panel_domain,
+        patient_portal_domain: formData.patient_portal_domain,
+        api_endpoint: formData.api_endpoint,
+        questionnaire_url: formData.questionnaire_url,
+        allowed_iframe_domains: formData.allowed_iframe_domains,
+        default_template_id: formData.default_template_id,
+        branding_config: formData.branding_config,
+        token_expiry_minutes: formData.token_expiry_minutes,
+        database_host: formData.database_host,
+        database_name: formData.database_name,
+        patient_fee: formData.patient_fee,
+        async_consult_fee_to_client: formData.async_consult_fee_to_client,
+        async_consult_cost: formData.async_consult_cost,
+        sync_video_consult_fee_to_client:
+          formData.sync_video_consult_fee_to_client,
+        sync_consult_cost: formData.sync_consult_cost,
+        monthly_saas_fee: formData.monthly_saas_fee,
+        first_next_saas_fees_billing_date:
+          formData.first_next_saas_fees_billing_date || undefined,
+        payment_gateway: formData.payment_gateway,
+        is_active: formData.is_active,
+      };
+      updateMutation.mutate(updatePayload);
     } else {
       // Clean up empty date fields for create
       const createPayload = {
@@ -624,7 +600,7 @@ export default function ClientForm() {
                 <CardTitle>Admin User Information</CardTitle>
                 <CardDescription>
                   {isEditMode
-                    ? "Update admin user details (email cannot be changed)"
+                    ? "Admin user details (cannot be changed)"
                     : "This user will be created with Admin role and can login to the client portal"}
                 </CardDescription>
               </CardHeader>
@@ -652,16 +628,11 @@ export default function ClientForm() {
                       onFocus={() => setEmailTouched(true)}
                       placeholder="admin@acme.com"
                       required
+                      disabled={isEditMode}
                       className={validationErrors.email ? "border-red-500" : ""}
                     />
                     {validationErrors.email && (
                       <p className="text-xs text-red-500">{validationErrors.email}</p>
-                    )}
-                    {isEditMode && !validationErrors.email && (
-                      <p className="text-xs text-amber-600 flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        Changing email will update login credentials
-                      </p>
                     )}
                   </div>
                   <div className="space-y-2">
@@ -674,6 +645,7 @@ export default function ClientForm() {
                         setFormData({ ...formData, phone: e.target.value })
                       }
                       placeholder="+1 (555) 123-4567"
+                      disabled={isEditMode}
                     />
                   </div>
                 </div>
@@ -699,6 +671,7 @@ export default function ClientForm() {
                       }}
                       placeholder="John"
                       required
+                      disabled={isEditMode}
                       className={validationErrors.first_name ? "border-red-500" : ""}
                     />
                     {validationErrors.first_name && (
@@ -725,6 +698,7 @@ export default function ClientForm() {
                       }}
                       placeholder="Doe"
                       required
+                      disabled={isEditMode}
                       className={validationErrors.last_name ? "border-red-500" : ""}
                     />
                     {validationErrors.last_name && (
@@ -747,6 +721,7 @@ export default function ClientForm() {
                       }
                       placeholder={isEditMode ? "Leave blank to keep current password" : "Password"}
                       required={!isEditMode}
+                      disabled={isEditMode}
                       className={validationErrors.password ? "border-red-500 pr-10" : "pr-10"}
                     />
                     <Button
@@ -765,11 +740,6 @@ export default function ClientForm() {
                   </div>
                   {validationErrors.password && (
                     <p className="text-xs text-red-500">{validationErrors.password}</p>
-                  )}
-                  {isEditMode && (
-                    <p className="text-xs text-muted-foreground">
-                      Leave blank to keep the current password unchanged
-                    </p>
                   )}
                 </div>
               </CardContent>
