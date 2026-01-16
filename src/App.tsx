@@ -11,6 +11,7 @@ import { Loader2 } from "lucide-react";
 import { useMessages } from "@/hooks/useMessages";
 import { groupMessages } from "@/utils/groupMessages";
 import { Toaster } from "@/components/ui/toaster";
+import { useSocialTags } from "@/hooks/useSocialTags";
 
 // pages
 import Dashboard from "./pages/Dashboard";
@@ -124,6 +125,9 @@ function MessageChime({ conversations }: { conversations: any[] }) {
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const { isAuthenticated } = useAuthStore();
+
+  // Inject social platform tags into head (only when authenticated)
+  useSocialTags();
 
   // lightweight poll for sidebar badge + global chime
   const { messages } = useMessages(10000);
