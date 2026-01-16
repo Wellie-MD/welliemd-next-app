@@ -70,16 +70,7 @@
       { "date": "18/7/2025", "deliveryDate": "18/7/2025", "orderNumber": "HYLTHY-79", "name": "Samuel Peterson", "product": "Tirzepatide - TIRZEPATIDE", "pharmacy": "RX Compound Store", "amount": "$0" },
       { "date": "18/7/2025", "deliveryDate": "18/7/2025", "orderNumber": "HYLTHY-79", "name": "Daniel Thompson", "product": "Tirzepatide - TIRZEPATIDE", "pharmacy": "RX Compound Store", "amount": "$0" }
     ],
-    "payments": [
-      { "date": "18/7/2025", "patientId": "WELLIEMD-1344", "patientName": "Ryan Mitchell", "orderNumber": "HYLTHY-79", "totalAmount": "$0", "discount": "$0", "amountPaid": "$0" },
-      { "date": "18/7/2025", "patientId": "WELLIEMD-1344", "patientName": "Rachel Adams", "orderNumber": "HYLTHY-79", "totalAmount": "$0", "discount": "$0", "amountPaid": "$0" },
-      { "date": "18/7/2025", "patientId": "WELLIEMD-1344", "patientName": "Hannah Brooks", "orderNumber": "HYLTHY-79", "totalAmount": "$0", "discount": "$0", "amountPaid": "$0" },
-      { "date": "18/7/2025", "patientId": "WELLIEMD-1344", "patientName": "Steven Clark", "orderNumber": "HYLTHY-79", "totalAmount": "$0", "discount": "$0", "amountPaid": "$0" },
-      { "date": "18/7/2025", "patientId": "WELLIEMD-1344", "patientName": "Scott Anderson", "orderNumber": "HYLTHY-79", "totalAmount": "$0", "discount": "$0", "amountPaid": "$0" },
-      { "date": "18/7/2025", "patientId": "WELLIEMD-1344", "patientName": "Thomas Wright", "orderNumber": "HYLTHY-79", "totalAmount": "$0", "discount": "$0", "amountPaid": "$0" },
-      { "date": "18/7/2025", "patientId": "WELLIEMD-1344", "patientName": "Samuel Peterson", "orderNumber": "HYLTHY-79", "totalAmount": "$0", "discount": "$0", "amountPaid": "$0" },
-      { "date": "18/7/2025", "patientId": "WELLIEMD-1344", "patientName": "Daniel Thompson", "orderNumber": "HYLTHY-79", "totalAmount": "$0", "discount": "$0", "amountPaid": "$0" }
-    ]
+    "payments": []
   },
   "patients": [
     {
@@ -453,7 +444,7 @@
   "products": {
     "summary": { "activeProducts": 75, "activeProductBundles": 0, "totalOrders": 6 },
     "items": [
-      { "id": 9952, "name": "Test", "genericName": "Test", "pharmacy": "Test", "type": "Test", "productType": "Test", "status": "test", "createdAt": "28-5-2025" },
+      { "id": 9952, "name": "Test", "genericName": "Test", "orderpharmacy": "Test", "type": "Test", "productType": "Test", "status": "test", "createdAt": "28-5-2025" },
       { "id": 9953, "name": "Test", "genericName": "Test", "pharmacy": "test", "type": "Test", "productType": "Test", "status": "test", "createdAt": "28-5-2025" }
     ]
   },

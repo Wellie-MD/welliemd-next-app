@@ -47,6 +47,7 @@ export interface Order {
   id: string
   display_id?: string
   patient?: OrderPatientSummary | null
+  product_name?: string | null
   amount?: string
   status?: string
   created_at?: string
