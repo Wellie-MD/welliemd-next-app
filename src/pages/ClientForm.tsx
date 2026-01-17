@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Save, Loader2, Info, AlertCircle } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Info, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,6 +65,7 @@ export default function ClientForm() {
   const [clientName, setClientName] = useState("");
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [hasPaymentMethod, setHasPaymentMethod] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState<ClientCreatePayload>({
@@ -73,6 +74,7 @@ export default function ClientForm() {
     first_name: "",
     last_name: "",
     phone: "",
+    password: "",
 
     // Client Basic Information
     name: "",
@@ -153,6 +155,14 @@ export default function ClientForm() {
     }
   }, [paymentMethodData]);
 
+  // Auto-generate password when first_name or last_name changes
+  useEffect(() => {
+    if (!isEditMode && formData.first_name && formData.last_name) {
+      const generatedPassword = `${formData.first_name}${formData.last_name}@123`.replace(/\s+/g, '');
+      setFormData((prev) => ({ ...prev, password: generatedPassword }));
+    }
+  }, [formData.first_name, formData.last_name, isEditMode]);
+
   // Populate form with existing data
   useEffect(() => {
     if (existingClient) {
@@ -161,6 +171,7 @@ export default function ClientForm() {
         first_name: existingClient.user?.first_name || "",
         last_name: existingClient.user?.last_name || "",
         phone: existingClient.user?.phone || "",
+        password: existingClient.deployment_password || "",
         name: existingClient.name,
         domain: existingClient.domain || "",
         subdomain: existingClient.subdomain || "",
@@ -350,57 +361,37 @@ export default function ClientForm() {
     }
 
     if (isEditMode) {
-      // Check if email has changed
-      const emailChanged = existingClient?.user?.email && formData.email !== existingClient.user.email;
-      
-      // If email changed, update it first
-      if (emailChanged) {
-        emailUpdateMutation.mutate(formData.email, {
-          onSuccess: () => {
-            // After email update succeeds, proceed with regular update
-            performRegularUpdate();
-          },
-        });
-      } else {
-        // No email change, just do regular update
-        performRegularUpdate();
-      }
-      
-      function performRegularUpdate() {
-        // For update, only send changed fields
-        const updatePayload: ClientUpdatePayload = {
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          phone: formData.phone,
-          name: formData.name,
-          domain: formData.domain,
-          subdomain: formData.subdomain,
-          master_id_prefix: formData.master_id_prefix,
-          beluga_company: formData.beluga_company,
-          admin_panel_domain: formData.admin_panel_domain,
-          patient_portal_domain: formData.patient_portal_domain,
-          api_endpoint: formData.api_endpoint,
-          questionnaire_url: formData.questionnaire_url,
-          allowed_iframe_domains: formData.allowed_iframe_domains,
-          default_template_id: formData.default_template_id,
-          branding_config: formData.branding_config,
-          token_expiry_minutes: formData.token_expiry_minutes,
-          database_host: formData.database_host,
-          database_name: formData.database_name,
-          patient_fee: formData.patient_fee,
-          async_consult_fee_to_client: formData.async_consult_fee_to_client,
-          async_consult_cost: formData.async_consult_cost,
-          sync_video_consult_fee_to_client:
-            formData.sync_video_consult_fee_to_client,
-          sync_consult_cost: formData.sync_consult_cost,
-          monthly_saas_fee: formData.monthly_saas_fee,
-          first_next_saas_fees_billing_date:
-            formData.first_next_saas_fees_billing_date || undefined,
-          payment_gateway: formData.payment_gateway,
-          is_active: formData.is_active,
-        };
-        updateMutation.mutate(updatePayload);
-      }
+      // In edit mode, user-related fields (email, phone, first_name, last_name, password) are disabled
+      // so we only update client-related fields
+      const updatePayload: ClientUpdatePayload = {
+        name: formData.name,
+        domain: formData.domain,
+        subdomain: formData.subdomain,
+        master_id_prefix: formData.master_id_prefix,
+        beluga_company: formData.beluga_company,
+        admin_panel_domain: formData.admin_panel_domain,
+        patient_portal_domain: formData.patient_portal_domain,
+        api_endpoint: formData.api_endpoint,
+        questionnaire_url: formData.questionnaire_url,
+        allowed_iframe_domains: formData.allowed_iframe_domains,
+        default_template_id: formData.default_template_id,
+        branding_config: formData.branding_config,
+        token_expiry_minutes: formData.token_expiry_minutes,
+        database_host: formData.database_host,
+        database_name: formData.database_name,
+        patient_fee: formData.patient_fee,
+        async_consult_fee_to_client: formData.async_consult_fee_to_client,
+        async_consult_cost: formData.async_consult_cost,
+        sync_video_consult_fee_to_client:
+          formData.sync_video_consult_fee_to_client,
+        sync_consult_cost: formData.sync_consult_cost,
+        monthly_saas_fee: formData.monthly_saas_fee,
+        first_next_saas_fees_billing_date:
+          formData.first_next_saas_fees_billing_date || undefined,
+        payment_gateway: formData.payment_gateway,
+        is_active: formData.is_active,
+      };
+      updateMutation.mutate(updatePayload);
     } else {
       // Clean up empty date fields for create
       const createPayload = {
@@ -609,7 +600,7 @@ export default function ClientForm() {
                 <CardTitle>Admin User Information</CardTitle>
                 <CardDescription>
                   {isEditMode
-                    ? "Update admin user details (email cannot be changed)"
+                    ? "Admin user details (cannot be changed)"
                     : "This user will be created with Admin role and can login to the client portal"}
                 </CardDescription>
               </CardHeader>
@@ -637,16 +628,11 @@ export default function ClientForm() {
                       onFocus={() => setEmailTouched(true)}
                       placeholder="admin@acme.com"
                       required
+                      disabled={isEditMode}
                       className={validationErrors.email ? "border-red-500" : ""}
                     />
                     {validationErrors.email && (
                       <p className="text-xs text-red-500">{validationErrors.email}</p>
-                    )}
-                    {isEditMode && !validationErrors.email && (
-                      <p className="text-xs text-amber-600 flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        Changing email will update login credentials
-                      </p>
                     )}
                   </div>
                   <div className="space-y-2">
@@ -659,6 +645,7 @@ export default function ClientForm() {
                         setFormData({ ...formData, phone: e.target.value })
                       }
                       placeholder="+1 (555) 123-4567"
+                      disabled={isEditMode}
                     />
                   </div>
                 </div>
@@ -684,6 +671,7 @@ export default function ClientForm() {
                       }}
                       placeholder="John"
                       required
+                      disabled={isEditMode}
                       className={validationErrors.first_name ? "border-red-500" : ""}
                     />
                     {validationErrors.first_name && (
@@ -710,12 +698,49 @@ export default function ClientForm() {
                       }}
                       placeholder="Doe"
                       required
+                      disabled={isEditMode}
                       className={validationErrors.last_name ? "border-red-500" : ""}
                     />
                     {validationErrors.last_name && (
                       <p className="text-xs text-red-500">{validationErrors.last_name}</p>
                     )}
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password">
+                    Password {!isEditMode && <span className="text-red-500">*</span>}
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={formData.password || ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value.replace(/\s+/g, '') })
+                      }
+                      placeholder={isEditMode ? "Leave blank to keep current password" : "Password"}
+                      required={!isEditMode}
+                      disabled={isEditMode}
+                      className={validationErrors.password ? "border-red-500 pr-10" : "pr-10"}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </div>
+                  {validationErrors.password && (
+                    <p className="text-xs text-red-500">{validationErrors.password}</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
