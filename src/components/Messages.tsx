@@ -279,7 +279,7 @@ export default function Messages() {
 
       const latest = newestFirst?.[0];
       if (latest) lastSeenLatestIdRef.current[selected.id] = latest.id;
-    }, 2000);
+    }, 30000);  // Changed from 2000ms to 30000ms (30 seconds) to reduce API calls
 
     return () => clearInterval(timer);
   }, [selected]);
@@ -323,7 +323,7 @@ export default function Messages() {
           lastSeenLatestIdRef.current[conv.id] = latest.id;
         }
       }
-    }, 2500);
+    }, 60000);  // Changed from 2500ms to 60000ms (60 seconds) to reduce API calls
 
     return () => clearInterval(timer);
   }, [conversations, selected]);
