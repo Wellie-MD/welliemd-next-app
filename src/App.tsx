@@ -126,7 +126,9 @@ const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const { isAuthenticated } = useAuthStore();
 
-  // Inject social platform tags into head (only when authenticated)
+  // Inject social platform tags (GTM, Facebook, TikTok) into <head> section
+  // Fetches tags from API and injects them on app load
+  // Scripts will be available on all pages once injected
   useSocialTags();
 
   // lightweight poll for sidebar badge + global chime

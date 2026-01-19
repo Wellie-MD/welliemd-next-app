@@ -1,12 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { socialTagsApi } from '@/api/socialTagsApi';
+import { useAuthStore } from '@/store/useAuthStore';
 
 /**
  * Helper function to inject HTML content into head, properly handling script tags
+ * Scripts are injected directly into head to ensure they execute
  */
 function injectHtmlIntoHead(html: string, containerId: string): void {
-  // Check if already injected
-  if (document.getElementById(containerId)) {
+  // Check if already injected by looking for a marker
+  if (document.head.querySelector(`[data-tag-container="${containerId}"]`)) {
     return;
   }
 
@@ -14,18 +16,13 @@ function injectHtmlIntoHead(html: string, containerId: string): void {
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = html;
 
-  // Create a container in head to hold the injected content
-  const container = document.createElement('div');
-  container.id = containerId;
-  container.style.display = 'none'; // Hide the container
-
-  // Process each node from the parsed HTML
+  // Process each node from the parsed HTML and inject directly into head
   const nodes = Array.from(tempDiv.childNodes);
-  nodes.forEach((node) => {
+  nodes.forEach((node, index) => {
     if (node.nodeType === Node.ELEMENT_NODE) {
       const element = node as Element;
       
-      // Handle script tags specially - they need to be recreated to execute
+      // Handle script tags specially - they need to be recreated and appended directly to head
       if (element.tagName === 'SCRIPT') {
         const script = document.createElement('script');
         
@@ -34,31 +31,48 @@ function injectHtmlIntoHead(html: string, containerId: string): void {
           script.setAttribute(attr.name, attr.value);
         });
         
-        // Copy text content
-        script.textContent = element.textContent;
+        // Copy text content or src
+        if (element.textContent) {
+          script.textContent = element.textContent;
+        }
         
-        container.appendChild(script);
+        // Add marker to identify this script
+        script.setAttribute('data-tag-container', containerId);
+        script.setAttribute('data-tag-index', index.toString());
+        
+        // Append directly to head - this ensures the script executes
+        document.head.appendChild(script);
+      } else if (element.tagName === 'NOSCRIPT') {
+        // Handle noscript tags (common in GTM)
+        const noscript = document.createElement('noscript');
+        noscript.innerHTML = element.innerHTML;
+        noscript.setAttribute('data-tag-container', containerId);
+        noscript.setAttribute('data-tag-index', index.toString());
+        document.head.appendChild(noscript);
       } else {
-        // For other elements, clone them
-        container.appendChild(element.cloneNode(true));
+        // For other elements (meta, link, etc.), clone and append directly
+        const cloned = element.cloneNode(true) as Element;
+        cloned.setAttribute('data-tag-container', containerId);
+        cloned.setAttribute('data-tag-index', index.toString());
+        document.head.appendChild(cloned);
       }
-    } else if (node.nodeType === Node.TEXT_NODE) {
-      // Handle text nodes
-      container.appendChild(node.cloneNode(true));
+    } else if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
+      // Handle text nodes (comments, etc.) - create a comment node
+      const comment = document.createComment(node.textContent);
+      document.head.appendChild(comment);
     }
   });
-
-  document.head.appendChild(container);
 }
 
 /**
  * Helper function to remove injected tags
+ * Removes all elements with the data-tag-container attribute matching containerId
  */
 function removeInjectedTag(containerId: string): void {
-  const container = document.getElementById(containerId);
-  if (container) {
-    container.remove();
-  }
+  const elements = document.head.querySelectorAll(`[data-tag-container="${containerId}"]`);
+  elements.forEach((element) => {
+    element.remove();
+  });
 }
 
 /**
@@ -66,6 +80,7 @@ function removeInjectedTag(containerId: string): void {
  * Fetches tags from API and injects them as scripts on mount
  */
 export function useSocialTags() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const injectedRef = useRef<{
     gtm: boolean;
     facebook: boolean;
@@ -77,6 +92,11 @@ export function useSocialTags() {
   });
 
   useEffect(() => {
+    // Only try to inject tags if user is authenticated
+    if (!isAuthenticated) {
+      return;
+    }
+
     let isMounted = true;
 
     const injectTags = async () => {
@@ -138,7 +158,7 @@ export function useSocialTags() {
       
       injectedRef.current = { gtm: false, facebook: false, tiktok: false };
     };
-  }, []);
+  }, [isAuthenticated]); // Re-run when authentication state changes
 
   // Function to refresh tags (can be called after saving)
   const refreshTags = async () => {
