@@ -279,11 +279,11 @@ export default function Products() {
       },
     },
     {
-      key: "cost_to_client",
+      key: "base_price",
       label: "Price",
       width: "100px",
       render: (value: unknown, row: Product) => {
-        return money(row.cost_to_client ?? row.base_price)
+        return money(row.base_price)
       },
     },
     {
