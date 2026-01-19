@@ -62,6 +62,7 @@ export function ProductFormModal({
     treatment: "general",
     rx_or_otc: "rx",
     base_price: "0.00",
+    cost_to_client: "0.00",
     cost_to_welliemd: "0.00",
     shipping_cost_to_client: "0.00",
     shipping_cost_to_welliemd: "0.00",
@@ -150,6 +151,7 @@ export function ProductFormModal({
         treatment: product.treatment || "general",
         rx_or_otc: product.rx_or_otc || "rx",
         base_price: product.base_price?.toString() || "0.00",
+        cost_to_client: product.cost_to_client?.toString() || "0.00",
         cost_to_welliemd: product.cost_to_welliemd?.toString() || "0.00",
         shipping_cost_to_client: product.shipping_cost_to_client?.toString() || "0.00",
         shipping_cost_to_welliemd: product.shipping_cost_to_welliemd?.toString() || "0.00",
@@ -184,6 +186,7 @@ export function ProductFormModal({
         treatment: "general",
         rx_or_otc: "rx",
         base_price: "0.00",
+        cost_to_client: "0.00",
         cost_to_welliemd: "0.00",
         shipping_cost_to_client: "0.00",
         shipping_cost_to_welliemd: "0.00",
@@ -233,6 +236,7 @@ export function ProductFormModal({
       const payload = {
         ...formData,
         base_price: parseFloat(formData.base_price),
+        cost_to_client: parseFloat(formData.cost_to_client),
         cost_to_welliemd: parseFloat(formData.cost_to_welliemd),
         shipping_cost_to_client: parseFloat(formData.shipping_cost_to_client),
         shipping_cost_to_welliemd: parseFloat(formData.shipping_cost_to_welliemd),
@@ -423,14 +427,14 @@ export function ProductFormModal({
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="base_price">Medication Cost to Client ($)</Label>
+                <Label htmlFor="cost_to_client">Medication Cost to Client ($)</Label>
                 <Input
-                  id="base_price"
+                  id="cost_to_client"
                   type="number"
                   step="0.01"
                   min="0"
-                  value={formData.base_price}
-                  onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
+                  value={formData.cost_to_client}
+                  onChange={(e) => setFormData({ ...formData, cost_to_client: e.target.value })}
                 />
               </div>
 
@@ -455,6 +459,18 @@ export function ProductFormModal({
                   min="0"
                   value={formData.shipping_cost_to_client}
                   onChange={(e) => setFormData({ ...formData, shipping_cost_to_client: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="base_price">Client Retail Price (Base Price) ($)</Label>
+                <Input
+                  id="base_price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.base_price}
+                  onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
                 />
               </div>
 
