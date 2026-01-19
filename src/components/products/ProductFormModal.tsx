@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -49,6 +49,10 @@ export function ProductFormModal({
   const [pharmacies, setPharmacies] = useState<any[]>([]);
   const [doseMappings, setDoseMappings] = useState<ProductDoseMapping[]>([]);
   const [loadingDoseMappings, setLoadingDoseMappings] = useState(false);
+  // Track the category for which dose mappings were loaded
+  const doseMappingsLoadedForCategoryRef = useRef<number | null>(null);
+  // Track if we're in initial form load (to prevent premature validation)
+  const isInitialLoadRef = useRef(true);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -100,22 +104,32 @@ export function ProductFormModal({
 
   // Fetch dose mappings when category changes
   useEffect(() => {
+    // Set loading state synchronously BEFORE the async call
+    // This ensures the validation useEffect sees this state change in the same render
+    if (open && formData.category) {
+      setLoadingDoseMappings(true);
+    }
+    
     const fetchDoseMappings = async () => {
       if (!formData.category) {
         setDoseMappings([]);
+        setLoadingDoseMappings(false);
+        doseMappingsLoadedForCategoryRef.current = null;
         return;
       }
-      
       try {
-        setLoadingDoseMappings(true);
         const response = await listDoseMappings({
           category: formData.category,
           page_size: 100,
         });
-        setDoseMappings(response.results || []);
+        const fetchedMappings = response.results || [];
+        setDoseMappings(fetchedMappings);
+        // Track which category we loaded dose mappings for
+        doseMappingsLoadedForCategoryRef.current = formData.category;
       } catch (error) {
         console.error("Failed to fetch dose mappings:", error);
         setDoseMappings([]);
+        doseMappingsLoadedForCategoryRef.current = formData.category;
       } finally {
         setLoadingDoseMappings(false);
       }
@@ -127,16 +141,54 @@ export function ProductFormModal({
   }, [formData.category, open]);
 
   // Reset dose_mapping when category changes if it doesn't belong to new category
+  // Only validate after dose mappings have been fully loaded for the CURRENT category
   useEffect(() => {
+    // Skip validation if we're still loading dose mappings
+    if (loadingDoseMappings) {
+      return;
+    }
+    
+    // Skip validation during initial form load
+    if (isInitialLoadRef.current) {
+      return;
+    }
+    
+    // Only validate when dose mappings are loaded for the current category
+    // This prevents premature validation while waiting for API response
+    if (doseMappingsLoadedForCategoryRef.current !== formData.category) {
+      return;
+    }
+    
+    // Only reset if we have a dose_mapping selected and dose mappings have been loaded
     if (formData.dose_mapping && doseMappings.length > 0) {
       const isValid = doseMappings.some(dm => dm.id === formData.dose_mapping);
       if (!isValid) {
         setFormData(prev => ({ ...prev, dose_mapping: null }));
       }
     }
-  }, [doseMappings, formData.dose_mapping]);
+    // If category is set but no dose mappings exist for it, and we have a dose_mapping selected, reset it
+    else if (formData.dose_mapping && formData.category && doseMappings.length === 0) {
+      setFormData(prev => ({ ...prev, dose_mapping: null }));
+    }
+  }, [doseMappings, formData.dose_mapping, formData.category, loadingDoseMappings]);
+
+  // Mark initial load as complete once dose mappings are loaded for the product's category
+  useEffect(() => {
+    if (isInitialLoadRef.current && 
+        !loadingDoseMappings && 
+        product && 
+        doseMappingsLoadedForCategoryRef.current === formData.category) {
+      isInitialLoadRef.current = false;
+    }
+  }, [loadingDoseMappings, formData.category, product]);
 
   useEffect(() => {
+    // Reset refs when modal opens/closes
+    if (!open) {
+      isInitialLoadRef.current = true;
+      doseMappingsLoadedForCategoryRef.current = null;
+    }
+    
     if (product) {
       setFormData({
         name: product.name || "",
@@ -650,7 +702,8 @@ export function ProductFormModal({
               <div className="col-span-2">
                 <Label htmlFor="dose_mapping">Dose Level</Label>
                 <Select
-                  value={formData.dose_mapping?.toString() || "none"}
+                  key={`dose-select-${doseMappings.length}-${formData.category}`}
+                  value={formData.dose_mapping !== null ? formData.dose_mapping.toString() : "none"}
                   onValueChange={(value) => setFormData({ ...formData, dose_mapping: value === "none" ? null : parseInt(value) })}
                   disabled={!formData.category || loadingDoseMappings}
                 >

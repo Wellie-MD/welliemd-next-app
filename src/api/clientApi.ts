@@ -42,6 +42,7 @@ export interface Client {
   card_holder_name: string;
   card_last_four: string;
   stripe_subscription_id: string | null;
+  deployment_password?: string;
 }
 
 export interface ClientCreatePayload {
@@ -50,7 +51,8 @@ export interface ClientCreatePayload {
   first_name: string;
   last_name: string;
   phone?: string;
-
+  password?: string;
+  
   // Client Basic Information
   name: string;
   domain?: string;
@@ -93,6 +95,7 @@ export interface ClientUpdatePayload {
   first_name?: string;
   last_name?: string;
   phone?: string;
+  password?: string;
 
   // Client Information
   name?: string;

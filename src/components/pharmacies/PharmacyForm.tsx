@@ -74,6 +74,7 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
         website: data.website,
         ncpdp_id: data.ncpdp_id,
         is_active: data.is_active,
+        beluga_pharmacy_id: data.beluga_pharmacy_id,
       };
 
       const integrationPayload: Partial<Pharmacy> = {
