@@ -6,20 +6,48 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CalendarDays, RotateCcw, TrendingUp, Download, RefreshCw, Grid3X3, Eye } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { isWithinInterval } from "date-fns"
+import { format } from "date-fns"
 import mockData from "@/data/mockData.json"
 import { ordersApi, Order } from "@/api/ordersApi"
 import { exportToCSV } from "@/utils/exportUtils"
 import { OrderDetailsSheet } from "@/components/orders/OrderDetailsSheet"
+
+// Helper function to parse date strings. Handles ISO timestamps and DD/MM/YYYY.
+const parseDate = (dateString?: string | null) => {
+  if (!dateString) return new Date()
+
+  // If it's an ISO-like string with a 'T' or '-' assume Date can parse it
+  if (dateString.includes('T') || /\d{4}-\d{2}-\d{2}/.test(dateString)) {
+    const d = new Date(dateString)
+    if (!isNaN(d.getTime())) return d
+  }
+
+  // Fallback: try DD/MM/YYYY format
+  const parts = dateString.split('/')
+  if (parts.length === 3) {
+    const [day, month, year] = parts
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+  }
+
+  // Final fallback
+  return new Date(dateString)
+}
+
+const formatDate = (dateString?: string | null) => {
+  if (!dateString) return '-'
+  const date = parseDate(dateString)
+  return isNaN(date.getTime()) ? '-' : format(date, 'dd/MM/yyyy')
+}
 
 const orderColumns = [
   { key: "name", label: "Name", width: "150px" },
   { key: "email", label: "Email", width: "200px" },
   { key: "phone", label: "Phone", width: "130px" },
   { key: "pharmacy_display", label: "Pharmacy", width: "150px" },
-  { key: "orderDate", label: "Order Date", width: "100px" },
-  { key: "datePrescribed", label: "Date Prescribed", width: "100px" },
-  { key: "datePrintedShipped", label: "Date Printed / Shipped", width: "100px" },
-  { key: "paymentDate", label: "Payment Date", width: "100px" },
+  { key: "orderDate", label: "Order Date", width: "100px", render: (_: any, row: any) => formatDate(row.orderDate) },
+  { key: "datePrescribed", label: "Date Prescribed", width: "100px", render: (_: any, row: any) => formatDate(row.datePrescribed) },
+  { key: "datePrintedShipped", label: "Date Printed / Shipped", width: "100px", render: (_: any, row: any) => formatDate(row.datePrintedShipped) },
+  { key: "paymentDate", label: "Payment Date", width: "100px", render: (_: any, row: any) => formatDate(row.paymentDate) },
   { key: "mrn", label: "MRN#", width: "120px" },
   { key: "paymentStatus", label: "Payment Status", width: "100px" },
   { key: "visitStatus", label: "Visit Status", width: "100px" },
@@ -51,33 +79,14 @@ const ORDER_STATUS_CHOICES = [
 
 // Additional filter buttons (keeping the original ones from your design)
 const additionalFilters = [
-  "Sort", 
-  "Product", 
-  "Pharmacies", 
-  "Pharmacy Status", 
+  "Sort",
+  "Product",
+  "Pharmacies",
+  "Pharmacy Status",
   "Extra Filters"
 ]
 
-// Helper function to parse date strings. Handles ISO timestamps and DD/MM/YYYY.
-const parseDate = (dateString?: string | null) => {
-  if (!dateString) return new Date()
 
-  // If it's an ISO-like string with a 'T' or '-' assume Date can parse it
-  if (dateString.includes('T') || /\d{4}-\d{2}-\d{2}/.test(dateString)) {
-    const d = new Date(dateString)
-    if (!isNaN(d.getTime())) return d
-  }
-
-  // Fallback: try DD/MM/YYYY format
-  const parts = dateString.split('/')
-  if (parts.length === 3) {
-    const [day, month, year] = parts
-    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
-  }
-
-  // Final fallback
-  return new Date(dateString)
-}
 
 export default function Orders() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -95,7 +104,7 @@ export default function Orders() {
   const [editedStatuses, setEditedStatuses] = useState<Record<string, string>>({})
   const [editedTrackingNumbers, setEditedTrackingNumbers] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
-  
+
   // Order Details Sheet state
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -123,8 +132,8 @@ export default function Orders() {
       // Date range filter based on orderDate
       let matchesDateRange = true
       if (date?.from || date?.to) {
-          const orderDate = parseDate(order.orderDate as string)
-        
+        const orderDate = parseDate(order.orderDate as string)
+
         if (date.from && date.to) {
           matchesDateRange = isWithinInterval(orderDate, {
             start: date.from,
@@ -182,8 +191,8 @@ export default function Orders() {
       type: 'button' as const,
       value: activeAdditionalFilters.includes(filter) ? filter : undefined,
       onClick: () => {
-        setActiveAdditionalFilters(prev => 
-          prev.includes(filter) 
+        setActiveAdditionalFilters(prev =>
+          prev.includes(filter)
             ? prev.filter(f => f !== filter)
             : [...prev, filter]
         )
@@ -191,9 +200,11 @@ export default function Orders() {
     }))
   ]
 
+
+
   const handleResetFilters = useCallback(() => {
     setActivePaymentStatusFilter("All")
-    setActiveOrderStatusFilter("All") 
+    setActiveOrderStatusFilter("All")
     setActiveVisitStatusFilter("All")
     setActiveAdditionalFilters([])
     setDate(undefined)
@@ -252,13 +263,13 @@ export default function Orders() {
   const handleSaveOrder = async (id: string) => {
     const newStatus = editedStatuses[id]
     const newTrackingNumber = editedTrackingNumbers[id]
-    
+
     if (newStatus == null && newTrackingNumber == null) return
-    
+
     // Find the current order to get existing tracking number
     const currentOrder = orders.find(o => o.id === id)
     const existingTrackingNumber = currentOrder?.tracking_number
-    
+
     // Validate: tracking number required when setting status to 'shipped'
     if (newStatus === 'shipped') {
       const trackingToUse = newTrackingNumber ?? existingTrackingNumber
@@ -267,7 +278,7 @@ export default function Orders() {
         return
       }
     }
-    
+
     setSavingId(id)
     setError(null)
     setSuccess(null)
@@ -329,7 +340,7 @@ export default function Orders() {
   }
 
   const handleGridView = () => {
-    console.log("Grid view clicked") 
+    console.log("Grid view clicked")
     // Implement grid view toggle logic
   }
 
@@ -401,9 +412,9 @@ export default function Orders() {
                     variant="outline"
                     onClick={() => handleSaveOrder(row.id)}
                     disabled={
-                      savingId === row.id || 
+                      savingId === row.id ||
                       (!(editedStatuses[row.id] && editedStatuses[row.id] !== (row.orderStatus || '')) &&
-                       !(editedTrackingNumbers[row.id] !== undefined && editedTrackingNumbers[row.id] !== (row.tracking_number || '')))
+                        !(editedTrackingNumbers[row.id] !== undefined && editedTrackingNumbers[row.id] !== (row.tracking_number || '')))
                     }
                   >
                     {savingId === row.id ? 'Saving...' : 'Save'}
@@ -419,7 +430,7 @@ export default function Orders() {
               render: (_: any, row: any) => {
                 const currentStatus = row.orderStatus ?? 'created'
                 const isLocked = currentStatus === 'shipped' || currentStatus === 'canceled'
-                
+
                 return (
                   <div className="relative">
                     <Select
@@ -454,18 +465,18 @@ export default function Orders() {
                 const isAlreadyShipped = originalStatus === 'shipped'  // Already shipped in DB
                 const isChangingToShipped = editedStatus === 'shipped' && !isAlreadyShipped  // User is changing TO shipped
                 const showTrackingInput = isAlreadyShipped || isChangingToShipped
-                
+
                 if (!showTrackingInput) {
                   return <span className="text-sm text-muted-foreground italic">N/A</span>
                 }
-                
+
                 // Already shipped - show as read-only
                 if (isAlreadyShipped) {
                   return (
                     <span className="text-sm font-medium">{row.tracking_number || '-'}</span>
                   )
                 }
-                
+
                 // Changing to shipped - show editable input
                 return (
                   <input
