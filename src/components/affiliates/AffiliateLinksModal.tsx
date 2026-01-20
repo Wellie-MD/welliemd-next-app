@@ -260,7 +260,6 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate, aff
                 {items.map(({ t, visitPath, legacyPath }) => {
                   const path = USE_VISIT_ROUTES && visitPath ? visitPath : legacyPath
                   const full = buildLink({ base: questionnaireDomain, path, qs })
-                  const openDisabled = !full
 
                   return (
                     <div key={t.id} className="flex items-center justify-between p-3">
@@ -268,20 +267,15 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate, aff
                         <div className="font-medium">{t.name}</div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button variant="outline" onClick={() => copy(full)} disabled={openDisabled}>
+                        <Button variant="outline" onClick={() => copy(full)}>
                           {copiedLink === full ? "Copied" : "Copy Link"}
                         </Button>
                         <a
                           href={full || undefined}
                           target="_blank"
                           rel="noopener noreferrer"
-                          title={openDisabled ? "Invalid URL" : "Open in new tab"}
-                          className={`inline-flex h-8 w-8 items-center justify-center rounded-md ${
-                            openDisabled ? "opacity-50 cursor-not-allowed" : "hover:bg-muted"
-                          }`}
-                          onClick={(e) => {
-                            if (openDisabled) e.preventDefault()
-                          }}
+                          title="Open in new tab"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
                         >
                           <ExternalLink className="h-4 w-4" />
                         </a>
