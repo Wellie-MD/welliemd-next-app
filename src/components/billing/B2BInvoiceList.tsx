@@ -48,6 +48,25 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
   });
 
   const invoices = data?.results || [];
+  const formatBreakdown = (inv: any) => {
+    const items = inv.line_items ?? [];
+    const pharmacy = items
+      .filter((li: any) => li.item_type === "medication_reimbursement")
+      .reduce(
+        (sum: number, li: any) =>
+          sum + parseFloat(li.total_amount || li.unit_price || 0),
+        0
+      );
+    const consult = items
+      .filter((li: any) => li.item_type === "consultation")
+      .reduce(
+        (sum: number, li: any) =>
+          sum + parseFloat(li.total_amount || li.unit_price || 0),
+        0
+      );
+    if (!pharmacy && !consult) return "-";
+    return `Pharmacy: $${pharmacy.toFixed(2)} · Consult: $${consult.toFixed(2)}`;
+  };
   const totalCount = data?.count || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -151,6 +170,7 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                     <TableHead>Invoice Number</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Amount</TableHead>
+                    <TableHead>Breakdown</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Issued Date</TableHead>
                     <TableHead>Due Date</TableHead>
@@ -169,6 +189,9 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                       </TableCell>
                       <TableCell className="font-medium">
                         ${parseFloat(invoice.total_amount).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatBreakdown(invoice)}
                       </TableCell>
                       <TableCell>
                         <Badge variant={getStatusBadgeVariant(invoice.status)}>

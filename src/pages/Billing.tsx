@@ -33,6 +33,26 @@ export default function Billing() {
   });
 
   const invoices: B2BInvoice[] = data?.results || [];
+
+  const formatBreakdown = (inv: B2BInvoice) => {
+    const items = (inv as any).line_items ?? [];
+    const pharmacy = items
+      .filter((li: any) => li.item_type === "medication_reimbursement")
+      .reduce(
+        (sum: number, li: any) =>
+          sum + parseFloat(li.total_amount || li.unit_price || 0),
+        0
+      );
+    const consult = items
+      .filter((li: any) => li.item_type === "consultation")
+      .reduce(
+        (sum: number, li: any) =>
+          sum + parseFloat(li.total_amount || li.unit_price || 0),
+        0
+      );
+    if (!pharmacy && !consult) return "-";
+    return `Pharmacy: $${pharmacy.toFixed(2)} · Consult: $${consult.toFixed(2)}`;
+  };
   const groupedInvoices = useMemo(() => {
     const buckets = new Map<string, { invoice: B2BInvoice; line_items: any[]; total_amount: number }>();
     for (const inv of invoices) {
@@ -175,6 +195,7 @@ export default function Billing() {
                     <th className="px-6 py-3 font-semibold tracking-wider">Invoice</th>
                     <th className="px-6 py-3 font-semibold tracking-wider">Client</th>
                     <th className="px-6 py-3 font-semibold tracking-wider">Type</th>
+                    <th className="px-6 py-3 font-semibold tracking-wider">Breakdown</th>
                     <th className="px-6 py-3 font-semibold tracking-wider">Status</th>
                     <th className="px-6 py-3 font-semibold tracking-wider">Amount</th>
                   </tr>
@@ -205,6 +226,9 @@ export default function Billing() {
                         </td>
                         <td className="px-6 py-4">
                           {inv.invoice_type?.replace("_", " ")}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-muted-foreground">
+                          {formatBreakdown(inv)}
                         </td>
                         <td className="px-6 py-4">
                           <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-primary/10 text-primary">
