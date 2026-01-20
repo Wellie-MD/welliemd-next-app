@@ -46,6 +46,26 @@ export default function InvoicesPage() {
     })) as Invoice[];
   }, [invoices]);
 
+  const formatBreakdown = (inv: any) => {
+    const items = inv.line_items ?? [];
+    const pharmacy = items
+      .filter((li: any) => li.item_type === "medication_reimbursement")
+      .reduce(
+        (sum: number, li: any) =>
+          sum + parseFloat(li.total_amount || li.unit_price || 0),
+        0
+      );
+    const consult = items
+      .filter((li: any) => li.item_type === "consultation")
+      .reduce(
+        (sum: number, li: any) =>
+          sum + parseFloat(li.total_amount || li.unit_price || 0),
+        0
+      );
+    if (!pharmacy && !consult) return "-";
+    return `Pharmacy: $${pharmacy.toFixed(2)} · Consult: $${consult.toFixed(2)}`;
+  };
+
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -193,13 +213,14 @@ export default function InvoicesPage() {
                 )}
                 <th className="px-6 py-3 font-semibold tracking-wider">Type</th>
                 <th className="px-6 py-3 font-semibold tracking-wider">Status</th>
+                <th className="px-6 py-3 font-semibold tracking-wider">Breakdown</th>
                 <th className="px-6 py-3 font-semibold tracking-wider">Amount</th>
               </tr>
             </thead>
             <tbody>
       {groupedInvoices.length === 0 && (
         <tr className="border-b border-border-light dark:border-border-dark">
-          <td className="px-6 py-4" colSpan={6}>No invoices found</td>
+          <td className="px-6 py-4" colSpan={7}>No invoices found</td>
         </tr>
       )}
       {groupedInvoices.map((inv) => (
@@ -225,6 +246,9 @@ export default function InvoicesPage() {
                   </td>
                   <td className="px-6 py-4">
                     <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-primary/10 text-primary dark:bg-primary/20">{inv.status}</span>
+                  </td>
+                  <td className="px-6 py-4 text-text-secondary-light dark:text-text-secondary-dark">
+                    {formatBreakdown(inv)}
                   </td>
                   <td className="px-6 py-4">
                     <div className="font-medium text-text-primary-light dark:text-text-primary-dark">
