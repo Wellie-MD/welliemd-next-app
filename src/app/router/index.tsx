@@ -17,6 +17,7 @@ const Messages = React.lazy(() => import('@/components/Messages'));
 const MedicalRecords = React.lazy(() => import('@/components/MedicalRecords'));
 const Appointments = React.lazy(() => import('@/components/Appointments'));
 const Orders = React.lazy(() => import('@/components/Orders'));
+const Settings = React.lazy(() => import('@/components/Settings'));
 // Resources pages disabled
 // const Blog = React.lazy(() => import('@/components/Blog'));
 // const BlogPost = React.lazy(() => import('@/components/BlogPost'));
@@ -63,12 +64,7 @@ export const AppRouter: React.FC = () => {
             {/* <Route path="blog/:id" element={<BlogPost />} /> */}
             
             {/* Settings and Help pages */}
-            <Route path="settings" element={
-              <div className="p-6">
-                <h1 className="text-2xl font-semibold">Settings</h1>
-                <p className="text-muted-foreground">Manage your account settings and preferences.</p>
-              </div>
-            } />
+            <Route path="settings" element={<Settings />} />
             
             <Route path="help" element={
               <div className="p-6">
