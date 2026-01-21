@@ -18,6 +18,9 @@ export interface Patient {
     self_reported_meds: string;
     created_at: string;
     updated_at: string;
+    orders_count?: number;
+    last_order_at?: string | null;
+    last_order_display_id?: string | null;
 }
 
 export interface PatientListResponse {

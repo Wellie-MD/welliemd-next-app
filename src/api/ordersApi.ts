@@ -106,6 +106,16 @@ export const fetchOrders = async (params?: Record<string, unknown>): Promise<Pag
   }
 }
 
+export const fetchOrdersByPatient = async (patientId: string, params?: Record<string, unknown>): Promise<PaginatedOrdersResponse> => {
+  try {
+    const { data } = await api.get<PaginatedOrdersResponse>(ENDPOINT, { params: { ...params, patient_id: patientId } })
+    return data
+  } catch (error) {
+    console.error(`Failed to fetch orders for patient ${patientId}:`, error)
+    throw error
+  }
+}
+
 export const fetchOrder = async (id: string): Promise<Order> => {
   try {
     const { data } = await api.get<Order>(`${ENDPOINT}${id}/`)
@@ -167,6 +177,7 @@ export const refundOrder = async (id: string, payload: OrderRefundRequest): Prom
 
 export const ordersApi = {
   fetchOrders,
+  fetchOrdersByPatient,
   fetchOrder,
   createOrder,
   updateOrder,
