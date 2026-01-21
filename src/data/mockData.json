@@ -19,8 +19,8 @@
       { "id": 3, "name": "Amanda Roberts", "time": "Yesterday 4:18pm", "avatar": "/avatars/amanda.jpg" }
     ],
     "liveSummary": {
-      "activeCarts": 0,
-      "checkingOut": 0,
+      "active_carts": 0,
+      "checking_out": 0,
       "purchased": 0
     },
     "salesChartData": [
