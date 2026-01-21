@@ -5,12 +5,16 @@ import billingService, { BillingProfile } from "@/services/billingService";
 // so a normal dev environment should install them.
 import mockData from "@/data/mockData.json";
 import visaIcon from "@/assets/icons/payment-methods/visa.svg";
+import mastercardIcon from "@/assets/icons/payment-methods/mastercard.svg";
+import amexIcon from "@/assets/icons/payment-methods/american-express.svg";
+import discoverIcon from "@/assets/icons/payment-methods/discover.svg";
+import dinersIcon from "@/assets/icons/payment-methods/diners-club.svg";
 import { Button } from "@/components/ui/button";
 
 function Modal({ children, onClose }: { children: any; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded shadow-lg w-[90%] max-w-lg p-4">
+      <div className="bg-white rounded shadow-lg w-[90%] max-w-lg max-h-[90vh] overflow-y-auto p-4">
         {children}
         <div className="mt-4 text-right">
           <Button variant="outline" onClick={onClose}>
@@ -42,6 +46,19 @@ export default function MyBillingProfile() {
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalContent, setModalContent] = useState<any | null>(null);
+  const [modalMode, setModalMode] = useState<"add" | "update">("add");
+
+  const resolveCardIcon = (brand?: string) => {
+    const normalized = (brand || "").toLowerCase().trim();
+    if (normalized.includes("visa")) return visaIcon;
+    if (normalized.includes("mastercard") || normalized.includes("master card"))
+      return mastercardIcon;
+    if (normalized.includes("amex") || normalized.includes("american express"))
+      return amexIcon;
+    if (normalized.includes("discover")) return discoverIcon;
+    if (normalized.includes("diners")) return dinersIcon;
+    return visaIcon;
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -149,6 +166,7 @@ export default function MyBillingProfile() {
                 </p>
                 <Button
                   onClick={async () => {
+                    setModalMode("add");
                     setShowModal(true);
                     setModalContent({ loading: true });
                     const res = await billingService.postSetupIntent();
@@ -173,7 +191,11 @@ export default function MyBillingProfile() {
           </div>
         ) : (
           <div className="flex items-center gap-4 bg-slate-50 px-4 min-h-[72px] py-2">
-            <img src={visaIcon} alt="card" className="h-10 w-auto shrink-0" />
+            <img
+              src={resolveCardIcon(paymentMethod?.brand || profile?.payment_method?.brand)}
+              alt={paymentMethod?.brand || profile?.payment_method?.brand || "card"}
+              className="h-10 w-auto shrink-0"
+            />
             <div className="flex flex-col justify-center">
               <p className="text-[#0d171b] text-base font-medium leading-normal line-clamp-1">
                 {paymentMethod
@@ -226,6 +248,7 @@ export default function MyBillingProfile() {
           <div className="flex px-4 py-3 justify-start">
             <button
               onClick={async () => {
+                setModalMode("update");
                 setShowModal(true);
                 setModalContent({ loading: true });
                 const res = await billingService.postSetupIntent();
@@ -256,10 +279,18 @@ export default function MyBillingProfile() {
           }}
         >
           {modalContent?.loading ? (
-            <div>Preparing update flow…</div>
+            <div>
+              {modalMode === "add"
+                ? "Preparing payment method…"
+                : "Preparing update…"}
+            </div>
           ) : modalContent?.client_secret ? (
             <div>
-              <p className="font-medium mb-2">Update Payment Method</p>
+              <p className="font-medium mb-2">
+                {modalMode === "add"
+                  ? "Add Payment Method"
+                  : "Update Payment Method"}
+              </p>
               <div>
                   <StripeSetupForm
                   clientSecret={modalContent.client_secret}
