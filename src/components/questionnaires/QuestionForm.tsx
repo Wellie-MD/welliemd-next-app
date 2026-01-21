@@ -928,7 +928,7 @@ export function QuestionForm({
                 </SelectItem>
                 <SelectItem value="email">Email Address</SelectItem>
                 <SelectItem value="phone">Phone Number</SelectItem>
-                <SelectItem value="state">State</SelectItem>
+                <SelectItem value="state_routing">State Routing (Service Area Check)</SelectItem>
                 <SelectItem value="zip">ZIP Code</SelectItem>
                 <SelectItem value="single_choice">
                   Single Choice (Radio)
