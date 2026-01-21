@@ -37,6 +37,9 @@ export const Permissions = {
     PRODUCT_ASSIGN: 'product:assign',
     PRODUCT_ARCHIVE: 'product:archive',
 
+    // Refunds
+    REFUND_CREATE: 'refund:create',
+
     // Templates
     TEMPLATE_MANAGE: 'template:manage',
     TEMPLATE_ASSIGN: 'template:assign',

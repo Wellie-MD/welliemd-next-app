@@ -40,6 +40,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
         Permissions.COUPON_UPDATE,
         Permissions.COUPON_DELETE,
 
+        // Refunds
+        Permissions.REFUND_CREATE,
+
         // Templates
         Permissions.TEMPLATE_MANAGE,
         Permissions.TEMPLATE_ASSIGN,

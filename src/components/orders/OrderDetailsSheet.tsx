@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import {
   Sheet,
   SheetContent,
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Order } from "@/api/ordersApi"
+import { Order, ordersApi } from "@/api/ordersApi"
 import { PatientResponsesModal } from "./PatientResponsesModal"
 import { 
   User, 
@@ -25,6 +25,25 @@ import {
   ClipboardList
 } from "lucide-react"
 import { format } from "date-fns"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { useToast } from "@/hooks/use-toast"
+import { PermissionGate } from "@/components/auth/PermissionGate"
+import { Permissions } from "@/constants/permissions"
 
 interface OrderDetailsSheetProps {
   open: boolean
@@ -68,8 +87,13 @@ export function OrderDetailsSheet({
   order
 }: OrderDetailsSheetProps) {
   const [showPatientResponses, setShowPatientResponses] = useState(false)
-
-  if (!order) return null
+  const [showRefundDialog, setShowRefundDialog] = useState(false)
+  const [refundAmount, setRefundAmount] = useState("")
+  const [refundReason, setRefundReason] = useState("customer_request")
+  const [refundReasonDescription, setRefundReasonDescription] = useState("")
+  const [refundNotes, setRefundNotes] = useState("")
+  const [refundLoading, setRefundLoading] = useState(false)
+  const { toast } = useToast()
 
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return "-"
@@ -80,7 +104,73 @@ export function OrderDetailsSheet({
     }
   }
 
-  const status = order.orderStatus || order.status || "created"
+  const status = order?.orderStatus || order?.status || "created"
+  const paymentStatus = order?.paymentStatus || ""
+  const isAuthorized = paymentStatus === "authorized"
+  const isRefundable = paymentStatus === "captured" || paymentStatus === "approved"
+  const canRefundOrVoid = isAuthorized || isRefundable
+  const remainingRefundable = useMemo(() => {
+    const amount = order?.refundableAmount ? parseFloat(order.refundableAmount) : 0
+    return Number.isNaN(amount) ? 0 : amount
+  }, [order?.refundableAmount])
+
+  const refundReasonOptions = [
+    { value: "customer_request", label: "Customer Request" },
+    { value: "duplicate_charge", label: "Duplicate Charge" },
+    { value: "fraud", label: "Fraud" },
+    { value: "product_not_received", label: "Product Not Received" },
+    { value: "product_defective", label: "Product Defective" },
+    { value: "service_not_rendered", label: "Service Not Rendered" },
+    { value: "other", label: "Other" },
+  ]
+
+  const handleRefundSubmit = async () => {
+    if (!order?.id) return
+    if (!refundReason) {
+      toast({ title: "Refund reason required", variant: "destructive" })
+      return
+    }
+
+    if (isRefundable) {
+      if (!refundAmount) {
+        toast({ title: "Refund amount required", variant: "destructive" })
+        return
+      }
+      const amountNum = parseFloat(refundAmount)
+      if (Number.isNaN(amountNum) || amountNum <= 0) {
+        toast({ title: "Enter a valid refund amount", variant: "destructive" })
+        return
+      }
+      if (amountNum > remainingRefundable) {
+        toast({ title: "Refund amount exceeds remaining refundable amount", variant: "destructive" })
+        return
+      }
+    }
+
+    try {
+      setRefundLoading(true)
+      await ordersApi.refundOrder(order.id, {
+        amount: isRefundable ? refundAmount : undefined,
+        reason: refundReason,
+        reason_description: refundReasonDescription,
+        notes: refundNotes,
+      })
+      setShowRefundDialog(false)
+      setRefundAmount("")
+      setRefundReasonDescription("")
+      setRefundNotes("")
+      toast({
+        title: isAuthorized ? "Authorization voided" : "Refund processed",
+      })
+    } catch (error: any) {
+      const message = error?.response?.data?.detail || "Failed to process refund"
+      toast({ title: message, variant: "destructive" })
+    } finally {
+      setRefundLoading(false)
+    }
+  }
+
+  if (!order) return null
 
   return (
     <>
@@ -195,7 +285,25 @@ export function OrderDetailsSheet({
                     label="Visit Status" 
                     value={order.visitStatus} 
                   />
+                  {isRefundable && (
+                    <InfoItem
+                      icon={<CreditCard className="h-4 w-4" />}
+                      label="Remaining Refundable"
+                      value={`$${remainingRefundable.toFixed(2)}`}
+                    />
+                  )}
                 </div>
+                {canRefundOrVoid && (
+                  <PermissionGate permission={Permissions.REFUND_CREATE}>
+                    <Button
+                      className="w-full mt-4"
+                      variant="outline"
+                      onClick={() => setShowRefundDialog(true)}
+                    >
+                      {isAuthorized ? "Void Authorization" : "Refund Payment"}
+                    </Button>
+                  </PermissionGate>
+                )}
               </section>
 
               <Separator />
@@ -251,6 +359,85 @@ export function OrderDetailsSheet({
         patientResponses={order.patient_responses}
         patientName={order.name || "Patient"}
       />
+
+      {/* Refund / Void Dialog */}
+      <Dialog open={showRefundDialog} onOpenChange={setShowRefundDialog}>
+        <DialogContent className="max-w-lg w-full">
+          <DialogHeader>
+            <DialogTitle>{isAuthorized ? "Void Authorization" : "Refund Payment"}</DialogTitle>
+            <DialogDescription>
+              {isAuthorized
+                ? "This will cancel the authorization before funds are captured."
+                : "Refunds can be partial. The remaining refundable amount will update after processing."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {isRefundable && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Refund Amount</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={remainingRefundable}
+                  placeholder="0.00"
+                  value={refundAmount}
+                  onChange={(e) => setRefundAmount(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Remaining refundable: ${remainingRefundable.toFixed(2)}
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Reason</label>
+              <Select value={refundReason} onValueChange={setRefundReason}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  {refundReasonOptions.map((reason) => (
+                    <SelectItem key={reason.value} value={reason.value}>
+                      {reason.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Reason Description</label>
+              <Textarea
+                rows={3}
+                placeholder="Add details (optional)"
+                value={refundReasonDescription}
+                onChange={(e) => setRefundReasonDescription(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Internal Notes</label>
+              <Textarea
+                rows={3}
+                placeholder="Internal notes (optional)"
+                value={refundNotes}
+                onChange={(e) => setRefundNotes(e.target.value)}
+              />
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowRefundDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleRefundSubmit} disabled={refundLoading}>
+                {refundLoading ? "Processing..." : isAuthorized ? "Void Authorization" : "Process Refund"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
