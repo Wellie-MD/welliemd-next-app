@@ -95,6 +95,7 @@ export const ForgotPasswordRequestSchema = z.object({
 
 // Reset password request schema
 export const ResetPasswordRequestSchema = z.object({
+  uid: z.string().min(1, 'User ID is required'),
   token: z.string().min(1, 'Reset token is required'),
   password: z
     .string()
