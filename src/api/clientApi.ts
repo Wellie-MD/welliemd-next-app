@@ -25,6 +25,8 @@ export interface Client {
   sync_consult_cost?: number;
   monthly_saas_fee?: number;
   first_next_saas_fees_billing_date?: string;
+  include_cost_to_client_in_reimbursement?: boolean;
+  include_shipping_cost_to_client_in_reimbursement?: boolean;
   payment_gateway: string;
   is_active: boolean;
   created_at: string;
@@ -82,6 +84,8 @@ export interface ClientCreatePayload {
   sync_consult_cost?: number;
   monthly_saas_fee?: number;
   first_next_saas_fees_billing_date?: string;
+  include_cost_to_client_in_reimbursement?: boolean;
+  include_shipping_cost_to_client_in_reimbursement?: boolean;
 
   // Payment Gateway
   payment_gateway?: string;
@@ -126,6 +130,8 @@ export interface ClientUpdatePayload {
   sync_consult_cost?: number;
   monthly_saas_fee?: number;
   first_next_saas_fees_billing_date?: string;
+  include_cost_to_client_in_reimbursement?: boolean;
+  include_shipping_cost_to_client_in_reimbursement?: boolean;
 
   // Payment Gateway
   payment_gateway?: string;

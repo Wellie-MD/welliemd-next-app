@@ -95,6 +95,8 @@ export default function ClientForm() {
     sync_consult_cost: 50.0,
     monthly_saas_fee: 500.0,
     first_next_saas_fees_billing_date: "",
+    include_cost_to_client_in_reimbursement: true,
+    include_shipping_cost_to_client_in_reimbursement: true,
 
     // Payment Gateway
     payment_gateway: "nmi",
@@ -197,6 +199,10 @@ export default function ClientForm() {
         monthly_saas_fee: existingClient.monthly_saas_fee || 500.0,
         first_next_saas_fees_billing_date:
           existingClient.first_next_saas_fees_billing_date || "",
+        include_cost_to_client_in_reimbursement:
+          existingClient.include_cost_to_client_in_reimbursement ?? true,
+        include_shipping_cost_to_client_in_reimbursement:
+          existingClient.include_shipping_cost_to_client_in_reimbursement ?? true,
         payment_gateway: existingClient.payment_gateway || "nmi",
         is_active: existingClient.is_active,
       });
@@ -986,6 +992,65 @@ export default function ClientForm() {
                       })
                     }
                   />
+                </div>
+
+                <div className="border-t pt-4 space-y-4">
+                  <div className="space-y-1">
+                    <Label className="text-sm font-medium">
+                      Reimbursement Charge Options
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Control which costs are included when charging the client
+                      for reimbursements. Consult fees are always included.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <div>
+                      <p className="text-sm font-medium">
+                        Include medication cost to client
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Charges the client for product cost on reimbursement
+                        invoices.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={
+                        formData.include_cost_to_client_in_reimbursement ?? true
+                      }
+                      onCheckedChange={(checked) =>
+                        setFormData({
+                          ...formData,
+                          include_cost_to_client_in_reimbursement: checked,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <div>
+                      <p className="text-sm font-medium">
+                        Include shipping cost to client
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Charges the client for shipping cost on reimbursement
+                        invoices.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={
+                        formData.include_shipping_cost_to_client_in_reimbursement ??
+                        true
+                      }
+                      onCheckedChange={(checked) =>
+                        setFormData({
+                          ...formData,
+                          include_shipping_cost_to_client_in_reimbursement: checked,
+                        })
+                      }
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>

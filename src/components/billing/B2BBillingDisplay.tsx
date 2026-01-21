@@ -16,6 +16,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import visaIcon from "@/assets/icons/payment-methods/visa.svg";
+import mastercardIcon from "@/assets/icons/payment-methods/mastercard.svg";
+import amexIcon from "@/assets/icons/payment-methods/american-express.svg";
+import discoverIcon from "@/assets/icons/payment-methods/discover.svg";
+import dinersIcon from "@/assets/icons/payment-methods/diners-club.svg";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -34,6 +39,17 @@ export function B2BBillingDisplay({
   clientId,
   client,
 }: B2BBillingDisplayProps) {
+  const resolveCardIcon = (brand?: string) => {
+    const normalized = (brand || "").toLowerCase().trim();
+    if (normalized.includes("visa")) return visaIcon;
+    if (normalized.includes("mastercard") || normalized.includes("master card"))
+      return mastercardIcon;
+    if (normalized.includes("amex") || normalized.includes("american express"))
+      return amexIcon;
+    if (normalized.includes("discover")) return discoverIcon;
+    if (normalized.includes("diners")) return dinersIcon;
+    return visaIcon;
+  };
   const [manageModalOpen, setManageModalOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -274,15 +290,11 @@ export function B2BBillingDisplay({
               <div className="bg-slate-50 rounded-lg p-4 space-y-3">
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-12 h-8 bg-white rounded border border-slate-200 flex items-center justify-center">
-                    <span className="text-xs font-semibold text-slate-600 uppercase">
-                      {paymentMethod.brand === "visa"
-                        ? "VISA"
-                        : paymentMethod.brand === "mastercard"
-                        ? "MC"
-                        : paymentMethod.brand === "amex"
-                        ? "AMEX"
-                        : paymentMethod.brand.substring(0, 4).toUpperCase()}
-                    </span>
+                    <img
+                      src={resolveCardIcon(paymentMethod.brand)}
+                      alt={paymentMethod.brand}
+                      className="h-5 w-auto"
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
