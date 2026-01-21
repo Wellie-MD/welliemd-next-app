@@ -41,15 +41,21 @@ function buildLink({
 }) {
   try {
     const processedBase = ensureHttpsBase(base)
-    if (!processedBase) return "" // Return empty if no valid base URL
+    if (!processedBase) {
+      console.warn("[AffiliateLinksModal] buildLink: Missing base URL", { base, path, qs })
+      return "" // Return empty if no valid base URL
+    }
     const baseWithSlash = processedBase + "/"
     const cleanPath = (path || "").replace(/^\/+/, "")
     const u = new URL(cleanPath, baseWithSlash)
     const params = parseQueryParams(qs)
     u.search = ""
     params.forEach((v, k) => u.searchParams.set(k, v))
-    return u.toString()
-  } catch {
+    const finalUrl = u.toString()
+    console.log("[AffiliateLinksModal] buildLink: Generated link", { base, processedBase, path, cleanPath, qs, finalUrl })
+    return finalUrl
+  } catch (error) {
+    console.error("[AffiliateLinksModal] buildLink: Error building link", { base, path, qs, error })
     return "" // invalid URL
   }
 }
@@ -129,9 +135,86 @@ type Props = {
   affiliates?: Affiliate[]
 }
 
+// Helper function to get questionnaire domain with fallbacks
+function getQuestionnaireDomain(currentClient: any): string {
+  // Primary: Use questionnaire_url if available
+  if (currentClient?.questionnaire_url) {
+    return ensureHttpsBase(currentClient.questionnaire_url)
+  }
+
+  // Fallback 1: Try to construct from admin_panel_domain
+  if (currentClient?.admin_panel_domain) {
+    try {
+      const adminUrl = new URL(currentClient.admin_panel_domain)
+      // Replace admin subdomain with questionnaire subdomain if pattern exists
+      // e.g., admin.client.com -> client.com or questionnaire.client.com
+      const hostname = adminUrl.hostname
+      const parts = hostname.split('.')
+      
+      // Try common patterns
+      const patterns = [
+        hostname.replace(/^admin\./, ''), // Remove 'admin.' prefix
+        hostname.replace(/^admin-/, ''), // Remove 'admin-' prefix
+        hostname.replace(/admin/, 'questionnaire'), // Replace 'admin' with 'questionnaire'
+      ]
+      
+      for (const pattern of patterns) {
+        if (pattern !== hostname) {
+          const fallbackUrl = `${adminUrl.protocol}//${pattern}${adminUrl.port ? `:${adminUrl.port}` : ''}`
+          console.log("[AffiliateLinksModal] Using fallback URL from admin_panel_domain:", fallbackUrl)
+          return ensureHttpsBase(fallbackUrl)
+        }
+      }
+      
+      // If no pattern match, use the same domain
+      const sameDomainUrl = `${adminUrl.protocol}//${hostname}${adminUrl.port ? `:${adminUrl.port}` : ''}`
+      console.log("[AffiliateLinksModal] Using same domain as fallback:", sameDomainUrl)
+      return ensureHttpsBase(sameDomainUrl)
+    } catch (e) {
+      console.warn("[AffiliateLinksModal] Failed to parse admin_panel_domain for fallback:", e)
+    }
+  }
+
+  // Fallback 2: Use window.location.origin as last resort
+  if (typeof window !== 'undefined') {
+    console.log("[AffiliateLinksModal] Using window.location.origin as last resort fallback")
+    return ensureHttpsBase(window.location.origin)
+  }
+
+  return ""
+}
+
 export default function AffiliateLinksModal({ open, onOpenChange, affiliate, affiliates = [] }: Props) {
   const { currentClient } = useClients()
-  const questionnaireDomain = ensureHttpsBase(currentClient?.questionnaire_url)
+  const questionnaireDomain = useMemo(() => {
+    const domain = getQuestionnaireDomain(currentClient)
+    if (!domain && currentClient) {
+      console.warn("[AffiliateLinksModal] No questionnaire domain found. Client info:", {
+        id: currentClient.id,
+        name: currentClient.name,
+        questionnaire_url: currentClient.questionnaire_url,
+        admin_panel_domain: currentClient.admin_panel_domain,
+      })
+    }
+    return domain
+  }, [currentClient])
+
+  // Debug logging for client and questionnaire URL
+  useEffect(() => {
+    if (open) {
+      console.log("[AffiliateLinksModal] Modal opened - Client Debug Info:", {
+        currentClient: currentClient ? {
+          id: currentClient.id,
+          name: currentClient.name,
+          admin_panel_domain: currentClient.admin_panel_domain,
+          questionnaire_url: currentClient.questionnaire_url,
+        } : null,
+        questionnaireDomain,
+        windowLocationOrigin: window.location.origin,
+        hasQuestionnaireUrl: !!currentClient?.questionnaire_url,
+      })
+    }
+  }, [open, currentClient, questionnaireDomain])
 
   const [selectedAffiliate, setSelectedAffiliate] = useState<Affiliate | null>(affiliate)
 
@@ -203,7 +286,41 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate, aff
     // Show ALL published templates, not just ones with visit type
   }, [templates])
 
+  // Debug logging for generated links
+  useEffect(() => {
+    if (open && items.length > 0 && selectedAffiliate) {
+      const generatedLinks = items.map(({ t, visitPath, legacyPath }) => {
+        const path = USE_VISIT_ROUTES && visitPath ? visitPath : legacyPath
+        const full = buildLink({ base: questionnaireDomain, path, qs })
+        return { templateId: t.id, templateName: t.name, path, fullLink: full }
+      })
+      console.log("[AffiliateLinksModal] Generated links for all questionnaires:", {
+        questionnaireDomain,
+        hasQuestionnaireDomain: !!questionnaireDomain,
+        selectedAffiliate: selectedAffiliate.name,
+        queryString: qs,
+        links: generatedLinks,
+        emptyLinks: generatedLinks.filter(l => !l.fullLink),
+      })
+    }
+  }, [open, items, questionnaireDomain, qs, selectedAffiliate])
+
   const referralLink = selectedAffiliate?.referral_link || ""
+
+  // Check if we have a valid questionnaire domain
+  const hasQuestionnaireDomain = !!questionnaireDomain
+  const hasCurrentClient = !!currentClient
+  const missingQuestionnaireUrl = hasCurrentClient && !currentClient?.questionnaire_url
+
+  // Check if any links are empty
+  const emptyLinksCount = useMemo(() => {
+    if (!open || items.length === 0) return 0
+    return items.filter(({ t, visitPath, legacyPath }) => {
+      const path = USE_VISIT_ROUTES && visitPath ? visitPath : legacyPath
+      const full = buildLink({ base: questionnaireDomain, path, qs })
+      return !full
+    }).length
+  }, [open, items, questionnaireDomain, qs])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -213,6 +330,57 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate, aff
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Warning: Missing questionnaire URL */}
+          {missingQuestionnaireUrl && (
+            <div className="rounded-md border border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 p-3 text-sm">
+              <div className="font-medium text-yellow-800 dark:text-yellow-200 mb-1">
+                ⚠️ Questionnaire URL Not Configured
+              </div>
+              <div className="text-yellow-700 dark:text-yellow-300">
+                The questionnaire URL is missing for this client. Links are being generated using a fallback method.
+                Please configure the questionnaire URL in client settings to ensure links work correctly.
+              </div>
+            </div>
+          )}
+
+          {/* Warning: No client matched */}
+          {!hasCurrentClient && (
+            <div className="rounded-md border border-orange-500 bg-orange-50 dark:bg-orange-900/20 p-3 text-sm">
+              <div className="font-medium text-orange-800 dark:text-orange-200 mb-1">
+                ⚠️ Client Not Detected
+              </div>
+              <div className="text-orange-700 dark:text-orange-300">
+                Unable to match the current domain to a client. This may cause issues with link generation.
+                Please check that the admin_panel_domain is correctly configured in the database.
+              </div>
+            </div>
+          )}
+
+          {/* Warning: Empty links detected */}
+          {!loading && !error && items.length > 0 && emptyLinksCount > 0 && (
+            <div className="rounded-md border border-red-500 bg-red-50 dark:bg-red-900/20 p-3 text-sm">
+              <div className="font-medium text-red-800 dark:text-red-200 mb-1">
+                ❌ Unable to Generate {emptyLinksCount} Link{emptyLinksCount > 1 ? 's' : ''}
+              </div>
+              <div className="text-red-700 dark:text-red-300">
+                {emptyLinksCount === items.length ? (
+                  <>
+                    No links could be generated because the questionnaire URL is missing or invalid.
+                    {hasCurrentClient ? (
+                      <> Please configure the questionnaire URL for client "{currentClient.name}" in the settings.</>
+                    ) : (
+                      <> Please ensure the client is properly configured in the database.</>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    Some links could not be generated. This usually means the questionnaire URL is missing or invalid.
+                    Please check the client configuration.
+                  </>
+                )}
+              </div>
+            </div>
+          )}
           {/* Affiliate Selector */}
           {affiliates.length > 0 && (
             <div>
@@ -260,25 +428,43 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate, aff
                 {items.map(({ t, visitPath, legacyPath }) => {
                   const path = USE_VISIT_ROUTES && visitPath ? visitPath : legacyPath
                   const full = buildLink({ base: questionnaireDomain, path, qs })
+                  const isEmpty = !full
 
                   return (
-                    <div key={t.id} className="flex items-center justify-between p-3">
-                      <div className="min-w-0">
+                    <div key={t.id} className={`flex items-center justify-between p-3 ${isEmpty ? 'opacity-60' : ''}`}>
+                      <div className="min-w-0 flex-1">
                         <div className="font-medium">{t.name}</div>
+                        {isEmpty && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Link unavailable - questionnaire URL missing
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button variant="outline" onClick={() => copy(full)}>
+                        <Button 
+                          variant="outline" 
+                          onClick={() => copy(full)} 
+                          disabled={isEmpty}
+                          title={isEmpty ? "Link unavailable - questionnaire URL is missing" : "Copy link to clipboard"}
+                        >
                           {copiedLink === full ? "Copied" : "Copy Link"}
                         </Button>
-                        <a
-                          href={full || undefined}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Open in new tab"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
+                        {!isEmpty && (
+                          <a
+                            href={full}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Open in new tab"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        )}
+                        {isEmpty && (
+                          <div className="inline-flex h-8 w-8 items-center justify-center rounded-md opacity-50 cursor-not-allowed" title="Link unavailable">
+                            <ExternalLink className="h-4 w-4" />
+                          </div>
+                        )}
                       </div>
                     </div>
                   )

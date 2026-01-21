@@ -20,6 +20,22 @@ function ensureTrailingSlash(url?: string) {
   return url.endsWith("/") ? url : url + "/";
 }
 
+// Normalize URL for comparison (remove trailing slashes, convert to lowercase, remove protocol)
+function normalizeUrlForComparison(url?: string): string {
+  if (!url) return "";
+  try {
+    // Remove protocol if present
+    let normalized = url.replace(/^https?:\/\//i, "");
+    // Remove trailing slashes
+    normalized = normalized.replace(/\/+$/, "");
+    // Convert to lowercase for case-insensitive comparison
+    normalized = normalized.toLowerCase();
+    return normalized;
+  } catch {
+    return url.toLowerCase().replace(/\/+$/, "");
+  }
+}
+
 export function useClients(search: string = "") {
   const [clients, setClients] = useState<Client[]>([]);
   const [currentClient, setCurrentClient] = useState<Client | null>(null);
@@ -50,17 +66,87 @@ export function useClients(search: string = "") {
 
       setClients(normalized);
 
-      // 🔎 Debugging
-      const origin = window.location.origin.replace(/\/+$/, "");
-      console.log("🔎 Current origin:", origin);
-
-      const matched = normalized.find((c) => {
-        const candidate = c.admin_panel_domain?.replace(/\/+$/, "");
-        console.log("👉 Checking client:", c.name, "| Admin domain:", candidate);
-        return candidate === origin;
+      // Enhanced client matching with better logging and fallbacks
+      const origin = window.location.origin;
+      const normalizedOrigin = normalizeUrlForComparison(origin);
+      
+      console.log("[useClients] Client Matching Debug:", {
+        windowOrigin: origin,
+        normalizedOrigin,
+        totalClients: normalized.length,
+        clientsList: normalized.map(c => ({
+          id: c.id,
+          name: c.name,
+          admin_panel_domain: c.admin_panel_domain,
+          questionnaire_url: c.questionnaire_url,
+          normalizedDomain: normalizeUrlForComparison(c.admin_panel_domain),
+        })),
       });
 
-      console.log("✅ Matched client:", matched);
+      // Try exact match first (case-insensitive, ignoring trailing slashes)
+      let matched = normalized.find((c) => {
+        const candidate = normalizeUrlForComparison(c.admin_panel_domain);
+        const isMatch = candidate === normalizedOrigin;
+        if (isMatch) {
+          console.log("[useClients] ✅ Exact match found:", {
+            clientName: c.name,
+            clientId: c.id,
+            adminDomain: c.admin_panel_domain,
+            normalizedCandidate: candidate,
+            normalizedOrigin,
+          });
+        }
+        return isMatch;
+      });
+
+      // Fallback: Try matching without protocol
+      if (!matched) {
+        console.log("[useClients] No exact match, trying fallback matching...");
+        matched = normalized.find((c) => {
+          if (!c.admin_panel_domain) return false;
+          const candidate = normalizeUrlForComparison(c.admin_panel_domain);
+          // Try matching just the hostname part
+          const originHostname = normalizeUrlForComparison(origin.split('://')[1] || origin);
+          const candidateHostname = normalizeUrlForComparison(c.admin_panel_domain.split('://')[1] || c.admin_panel_domain);
+          const isMatch = candidateHostname === originHostname || candidate === originHostname;
+          if (isMatch) {
+            console.log("[useClients] ✅ Fallback match found:", {
+              clientName: c.name,
+              clientId: c.id,
+              adminDomain: c.admin_panel_domain,
+              candidateHostname,
+              originHostname,
+            });
+          }
+          return isMatch;
+        });
+      }
+
+      // Last resort: Use first client if only one exists
+      if (!matched && normalized.length === 1) {
+        console.log("[useClients] ⚠️ No match found, using first (and only) client as fallback");
+        matched = normalized[0];
+      }
+
+      if (matched) {
+        console.log("[useClients] ✅ Final matched client:", {
+          id: matched.id,
+          name: matched.name,
+          admin_panel_domain: matched.admin_panel_domain,
+          questionnaire_url: matched.questionnaire_url,
+          hasQuestionnaireUrl: !!matched.questionnaire_url,
+        });
+      } else {
+        console.warn("[useClients] ❌ No client matched! This may cause issues with affiliate links.", {
+          origin,
+          normalizedOrigin,
+          availableClients: normalized.map(c => ({
+            name: c.name,
+            admin_panel_domain: c.admin_panel_domain,
+          })),
+        });
+      }
+
       setCurrentClient(matched || null);
     } catch (e: any) {
       setError(e?.message || "Failed to load clients");
