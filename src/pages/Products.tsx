@@ -47,7 +47,7 @@ export default function Products() {
       const currentPageSize = customPageSize !== undefined ? customPageSize : pageSize
       
       // Build filter params
-      const params: unknown = {
+      const params: any = {
         page,
         page_size: currentPageSize,
       }
@@ -92,7 +92,7 @@ export default function Products() {
         params.rx_or_otc = rxOtcMapping[activeRxOtcFilter]
       }
       
-      const response = await productApi.listProducts(params)
+      const response = (await productApi.listProducts(params)) as any
       
       // Handle paginated response
       if (response && typeof response === "object" && "results" in response) {
@@ -257,6 +257,12 @@ export default function Products() {
       render: (value: unknown, row: Product) => {
         return <Badge variant="outline">{getTreatmentLabel(row.treatment)}</Badge>
       },
+    },
+    {
+      key: "category_name",
+      label: "Category",
+      width: "120px",
+      render: (v: string) => v || "-",
     },
     {
       key: "manufacturer_name",

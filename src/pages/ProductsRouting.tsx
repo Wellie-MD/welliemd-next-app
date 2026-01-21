@@ -57,7 +57,7 @@ export default function ProductsRouting() {
       const transformed = response.data.map((config: any) => ({
         id: config.id,
         name: config.name,
-        medication_group: config.medication_group,
+        category_group: config.category_group,
         createdAt: new Date(config.created_at).toLocaleDateString('en-GB'),
         rawData: config // Store raw data for editing
       }))
@@ -185,7 +185,7 @@ export default function ProductsRouting() {
   const routingColumns = useMemo(() => [
     { key: "id", label: "ID" },
     { key: "name", label: "Name" },
-    { key: "medication_group", label: "Medication Group" },
+    { key: "category_group", label: "Category Group" },
     { key: "createdAt", label: "Created At" },
     { 
       key: "actions", 

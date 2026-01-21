@@ -92,8 +92,8 @@ interface RoutingModalProps {
 
 export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingModalProps) {
   const [name, setName] = useState('')
-  const [medication, setMedication] = useState('')
-  const [medications, setMedications] = useState<string[]>([])
+  const [category, setCategory] = useState('')
+  const [categories, setCategories] = useState<string[]>([])
   const [pharmacies, setPharmacies] = useState<any[]>([])
   const [globalStates, setGlobalStates] = useState<string[]>([])
   const [stateCondition, setStateCondition] = useState<'in' | 'not_in'>('in')
@@ -106,14 +106,14 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
 
   useEffect(() => {
     if (open) {
-      fetchMedications()
+      fetchCategories()
       fetchPharmacies()
       fetchServableStates()
       
       // Pre-fill data if editing
       if (initialData) {
         setName(initialData.name || '')
-        setMedication(initialData.medication_group || '')
+        setCategory(initialData.category_group || '')
         
         // Transform matches from backend format
         if (initialData.matches && Array.isArray(initialData.matches)) {
@@ -143,7 +143,7 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
       } else {
         // Reset form if creating new
         setName('')
-        setMedication('')
+        setCategory('')
         setGlobalStates([])
         setMatches([])
         setElseCondition(null)
@@ -151,15 +151,15 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
     }
   }, [open, initialData])
 
-  const fetchMedications = async () => {
+  const fetchCategories = async () => {
     try {
       const response = await axiosInstance.get('/products/medications/')
-      setMedications(response.data.medications || [])
+      setCategories(response.data.categories || [])
     } catch (error) {
-      console.error('Error fetching medications:', error)
+      console.error('Error fetching categories:', error)
       toast({
         title: 'Error',
-        description: 'Failed to load medications',
+        description: 'Failed to load categories',
         variant: 'destructive'
       })
     }
@@ -289,10 +289,10 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
       setLoading(true)
 
       // Validate basic fields
-      if (!name || !medication) {
+      if (!name || !category) {
         toast({
           title: 'Validation Error',
-          description: 'Please fill in Name and Medication',
+          description: 'Please fill in Name and Category',
           variant: 'destructive'
         })
         setLoading(false)
@@ -353,7 +353,7 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
 
       const payload = {
         name,
-        group_id: medication,
+        category_group: category,
         matches: matchesPayload,
         else_match: elseMatchPayload
       }
@@ -390,7 +390,7 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
 
   const handleClose = () => {
     setName('')
-    setMedication('')
+    setCategory('')
     setGlobalStates([])
     setMatches([])
     setElseCondition(null)
@@ -425,19 +425,19 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
             />
           </div>
 
-          {/* Medication */}
+          {/* Category */}
           <div className="space-y-2">
-            <Label htmlFor="medication">
-              Medication <span className="text-red-500">*</span>
+            <Label htmlFor="category">
+              Category <span className="text-red-500">*</span>
             </Label>
-            <Select value={medication} onValueChange={setMedication}>
+            <Select value={category} onValueChange={setCategory}>
               <SelectTrigger>
-                <SelectValue placeholder="Select medication" />
+                <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
-                {medications.map((med) => (
-                  <SelectItem key={med} value={med}>
-                    {med}
+                {categories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
                   </SelectItem>
                 ))}
               </SelectContent>

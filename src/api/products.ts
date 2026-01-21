@@ -79,6 +79,7 @@ export interface Product {
   pharmacy_api: "inherit" | "life_file" | "dispense_pro";
   generic_name?: string;
   generic_group?: string;
+  category_name?: string;
 
   // Questionnaires
   onboarding_questionnaire?: string;
