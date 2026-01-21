@@ -12,7 +12,7 @@ import { formatDate } from '@/shared/lib/utils';
 
 export default function Settings() {
   const { userProfile, patientProfile, isLoading: profileLoading } = useProfile();
-  const { changePassword } = useAuth();
+  const { changePassword, logout } = useAuth();
 
   // Password reset state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -92,13 +92,16 @@ export default function Settings() {
         confirmPassword,
       });
 
-      // Success - user will be logged out and redirected by authService
+      // Success - show message and logout user
       toast.success('Password changed successfully. Please login with your new password.');
       
       // Clear form
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
+
+      // Logout and redirect to login page
+      await logout();
     } catch (error: any) {
       // Error handling - extract message from error
       const errorMessage = error.message || error.response?.data?.detail || 'Failed to change password. Please try again.';
