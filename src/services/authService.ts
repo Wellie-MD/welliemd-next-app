@@ -216,4 +216,35 @@ export const authService = {
       new_password: newPassword,
     });
   },
+
+  changePassword: async (currentPassword: string, newPassword: string, confirmPassword: string): Promise<void> => {
+    try {
+      await api.post('/auth/change-password/', {
+        current_password: currentPassword,
+        new_password: newPassword,
+        confirm_password: confirmPassword,
+      });
+      
+      // On success, logout and redirect to login
+      await authService.logout();
+      window.location.href = '/auth/signin';
+    } catch (error: any) {
+      // Extract error message from response
+      if (error.response?.data) {
+        const data = error.response.data;
+        if (data.current_password && Array.isArray(data.current_password) && data.current_password.length > 0) {
+          throw new Error(data.current_password[0]);
+        } else if (data.new_password && Array.isArray(data.new_password) && data.new_password.length > 0) {
+          throw new Error(data.new_password[0]);
+        } else if (data.non_field_errors && Array.isArray(data.non_field_errors) && data.non_field_errors.length > 0) {
+          throw new Error(data.non_field_errors[0]);
+        } else if (data.detail) {
+          throw new Error(data.detail);
+        } else if (data.message) {
+          throw new Error(data.message);
+        }
+      }
+      throw new Error('Failed to change password. Please try again.');
+    }
+  },
 };
