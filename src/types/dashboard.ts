@@ -5,19 +5,6 @@ export interface Metric {
   trend: "up" | "down" | "neutral"
 }
 
-export interface DashboardMetrics {
-  total_patients: number;
-  total_orders: number;
-  total_revenue: number;
-  total_sales: number;
-  total_expenses: number;
-  total_profit: number;
-  growth_percentage: number;
-  currency: string;
-  live_summary: LiveSummary;
-}
-
-
 export interface Message {
   id: number
   name: string
@@ -55,6 +42,17 @@ export interface PaymentItem {
   totalAmount: string
   discount: string
   amountPaid: string
+}
+
+export interface DashboardMetrics {
+  total_patients: number
+  total_revenue: number
+  total_profit: number
+  total_expenses: number
+  total_sales: number
+  total_orders: number
+  growth_percentage: number
+  live_summary: LiveSummary
 }
 
 export interface DashboardData {

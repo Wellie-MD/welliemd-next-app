@@ -168,7 +168,7 @@ export default function Dashboard() {
           {kpiData.map((kpi, index) => (
             <div
               key={index}
-              onClick={() => handleKPIClick(kpi)}
+              // onClick={() => handleKPIClick(kpi)}
               className="cursor-pointer"
             >
               <MetricCard metric={kpi} />
@@ -249,17 +249,17 @@ export default function Dashboard() {
       {/* Bottom Tables */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 w-full min-w-0">
         <div className="w-full min-w-0">
-          <DataTable
-            title="Order History"
-            data={loadingOrders ? [] : ordersData}
-            columns={orderHistoryColumns}
+          <DataTable 
+            title="Order History" 
+            data={ordersData || dashboard.orderHistory} 
+            columns={orderHistoryColumns} 
           />
         </div>
         <div className="w-full min-w-0">
-          <PaymentTable
-            title="Payment"
-            data={loadingPayments ? [] : paymentData}
-            columns={paymentColumns}
+          <PaymentTable 
+            title="Payment" 
+            data={paymentData || dashboard.payments} 
+            columns={paymentColumns} 
           />
         </div>
       </div>

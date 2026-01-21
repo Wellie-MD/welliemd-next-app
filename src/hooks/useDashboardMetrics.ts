@@ -17,6 +17,7 @@ export const useDashboardMetrics = ({ fallbackKpis }: UseDashboardMetricsProps) 
             try {
                 setLoading(true);
                 const data = await fetchDashboardMetrics();
+                console.log({data});
                 setMetrics(data);
                 setError(null);
             } catch (err) {
