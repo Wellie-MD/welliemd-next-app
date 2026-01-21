@@ -16,7 +16,10 @@ import { DashboardData } from "@/types/dashboard";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { fetchClientPaymentHistory } from "@/api/paymentTransactionsApi";
+
 import { fetchOrders } from "@/api/ordersApi";
+import { fetchDashboardCharts } from "@/api/dashboardApi";
+import { useDashboardMetrics } from "@/hooks/useDashboardMetrics";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -27,6 +30,12 @@ export default function Dashboard() {
   const [loadingPayments, setLoadingPayments] = useState(true);
   const [ordersData, setOrdersData] = useState<any[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [loadingCharts, setLoadingCharts] = useState(true);
+
+  const { kpiData, liveSummary, loading: loadingMetrics } = useDashboardMetrics({
+    fallbackKpis: dashboard.kpis
+  });
 
   useEffect(() => {
     // fetchOrders
@@ -76,9 +85,31 @@ export default function Dashboard() {
         setLoadingOrders(false);
       }
     };
+
+    const loadChartData = async () => {
+      try {
+        const response = await fetchDashboardCharts();
+        setChartData(response);
+      } catch (error) {
+        console.error("Failed to load chart data:", error);
+        // Create fallback data from mock data structure
+        const fallbackData = dashboard.salesChartData.map((item, index) => ({
+          month: item.month,
+          total_sales: item['2025'] || 0,
+          net_revenue: dashboard.revenueChartData[index]?.['2022'] || 0,
+          new_patients: dashboard.newPatientChartData[index]?.lastWeek || 0
+        }));
+        setChartData(fallbackData);
+      } finally {
+        setLoadingCharts(false);
+      }
+    };
+
     loadPaymentHistory();
     loadOrderHistory();
-  }, [dashboard.payments]);
+    loadChartData();
+  }, [dashboard.payments, dashboard.salesChartData, dashboard.revenueChartData, dashboard.newPatientChartData]);
+
 
   const handleViewMore = (section: string) => {
     console.log(`View more clicked for ${section}`);
@@ -134,7 +165,7 @@ export default function Dashboard() {
       {/* KPI Cards - Horizontally Scrollable */}
       <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide">
         <div className="flex gap-4 min-w-max">
-          {dashboard.kpis.map((kpi, index) => (
+          {kpiData.map((kpi, index) => (
             <div
               key={index}
               onClick={() => handleKPIClick(kpi)}
@@ -149,7 +180,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 w-full min-w-0">
         {/* Total Sales Chart */}
         <div className="w-full min-w-0">
-          <SalesChart data={dashboard.salesChartData} />
+          <SalesChart data={loadingCharts ? [] : chartData} />
         </div>
 
         {/* Live Summary */}
@@ -173,7 +204,7 @@ export default function Dashboard() {
                     <ShoppingCart className="h-6 w-6 text-gray-600" />
                   </div>
                   <p className="text-2xl font-bold text-gray-800">
-                    {dashboard.liveSummary.activeCarts}
+                    {liveSummary.active_carts}
                   </p>
                   <p className="text-sm text-gray-600">Active Carts</p>
                 </div>
@@ -182,7 +213,7 @@ export default function Dashboard() {
                     <Eye className="h-6 w-6 text-gray-600" />
                   </div>
                   <p className="text-2xl font-bold text-gray-800">
-                    {dashboard.liveSummary.checkingOut}
+                    {liveSummary.checking_out}
                   </p>
                   <p className="text-sm text-gray-600">Checking Out</p>
                 </div>
@@ -191,7 +222,7 @@ export default function Dashboard() {
                     <DollarSign className="h-6 w-6 text-gray-600" />
                   </div>
                   <p className="text-2xl font-bold text-gray-800">
-                    {dashboard.liveSummary.purchased}
+                    {liveSummary.purchased}
                   </p>
                   <p className="text-sm text-gray-600">Purchased</p>
                 </div>
@@ -204,13 +235,13 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 w-full min-w-0">
         {/* Net Revenue Chart */}
         <div className="w-full min-w-0">
-          <RevenueChart data={dashboard.revenueChartData} />
+          <RevenueChart data={loadingCharts ? [] : chartData} />
         </div>
 
         {/* Messages and New Patient */}
-        <div className="space-y-4 w-full min-w-0">
+        <div className="w-full min-w-0">
           {/* Messages */}
-          <Card className="rounded-2xl shadow-md bg-white">
+          {/* <Card className="rounded-2xl shadow-md bg-white">
             <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl p-4">
               <CardTitle className="text-gray-800">Messages</CardTitle>
               <Button
@@ -288,10 +319,10 @@ export default function Dashboard() {
                 </TabsContent>
               </Tabs>
             </CardContent>
-          </Card>
+          </Card> */}
 
           {/* New Patient Chart */}
-          <NewPatientChart data={dashboard.newPatientChartData} />
+          <NewPatientChart data={loadingCharts ? [] : chartData} />
         </div>
       </div>
 
