@@ -45,8 +45,6 @@ export interface Product {
   // Deprecated fields (use dose_mapping instead)
   /** @deprecated Use dose_mapping instead */
   dose?: string;
-  /** @deprecated Use dose_mapping instead */
-  base_medication_name?: string;
 
   refills?: number;
   rx_quantity?: string | number;
