@@ -9,6 +9,7 @@ import { useAuth } from '@/features/auth';
 import { VisitService, type Visit } from '@/features/visits/services/visit.service';
 import { toast } from 'sonner';
 import { formatDate } from '@/shared/lib/utils';
+import { Link } from 'react-router-dom';
 
 export default function Settings() {
   const { userProfile, patientProfile, isLoading: profileLoading } = useProfile();
@@ -263,6 +264,20 @@ export default function Settings() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg font-medium text-primary">Payment Methods</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Manage the card used for your treatment and subscription payments.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="default">
+            <Link to="/dashboard/settings/payment-methods">Manage payment methods</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Reset Password */}
       <Card>
         <CardHeader>
@@ -423,4 +438,3 @@ export default function Settings() {
     </div>
   );
 }
-

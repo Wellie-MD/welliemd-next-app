@@ -14,6 +14,7 @@ import {
   ChangePasswordRequest,
   UpdateProfileRequest,
   Permission,
+  UserRole,
   ROLE_PERMISSIONS,
 } from '../types/auth.types';
 
@@ -520,18 +521,42 @@ export const useAuthStore = create<AuthState>()(
 
           // Selectors
           hasPermission: (permission: Permission) => {
-            const { permissions } = get();
-            return permissions.includes(permission);
+            const { permissions, user } = get();
+            const effectivePermissions =
+              permissions.length > 0
+                ? permissions
+                : user?.role
+                  ? ROLE_PERMISSIONS[user.role]
+                  : user
+                    ? ROLE_PERMISSIONS[UserRole.PATIENT]
+                    : [];
+            return effectivePermissions.includes(permission);
           },
 
           hasAnyPermission: (requiredPermissions: Permission[]) => {
-            const { permissions } = get();
-            return requiredPermissions.some(permission => permissions.includes(permission));
+            const { permissions, user } = get();
+            const effectivePermissions =
+              permissions.length > 0
+                ? permissions
+                : user?.role
+                  ? ROLE_PERMISSIONS[user.role]
+                  : user
+                    ? ROLE_PERMISSIONS[UserRole.PATIENT]
+                    : [];
+            return requiredPermissions.some(permission => effectivePermissions.includes(permission));
           },
 
           hasAllPermissions: (requiredPermissions: Permission[]) => {
-            const { permissions } = get();
-            return requiredPermissions.every(permission => permissions.includes(permission));
+            const { permissions, user } = get();
+            const effectivePermissions =
+              permissions.length > 0
+                ? permissions
+                : user?.role
+                  ? ROLE_PERMISSIONS[user.role]
+                  : user
+                    ? ROLE_PERMISSIONS[UserRole.PATIENT]
+                    : [];
+            return requiredPermissions.every(permission => effectivePermissions.includes(permission));
           },
 
           isFeatureEnabled: (feature: string) => {
@@ -597,4 +622,3 @@ export const authSelectors = {
 //     }
 //   }
 // );
-
