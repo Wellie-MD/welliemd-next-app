@@ -66,6 +66,8 @@ const US_STATES = [
   { code: 'WV', name: 'West Virginia' },
   { code: 'WI', name: 'Wisconsin' },
   { code: 'WY', name: 'Wyoming' },
+  { code: 'DC', name: 'District of Columbia' },
+  { code: 'PR', name: 'Puerto Rico' },
 ]
 
 interface Match {
@@ -90,25 +92,28 @@ interface RoutingModalProps {
 
 export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingModalProps) {
   const [name, setName] = useState('')
-  const [medication, setMedication] = useState('')
-  const [medications, setMedications] = useState<string[]>([])
+  const [category, setCategory] = useState('')
+  const [categories, setCategories] = useState<string[]>([])
   const [pharmacies, setPharmacies] = useState<any[]>([])
   const [globalStates, setGlobalStates] = useState<string[]>([])
   const [stateCondition, setStateCondition] = useState<'in' | 'not_in'>('in')
   const [matches, setMatches] = useState<Match[]>([])
   const [elseCondition, setElseCondition] = useState<ElseCondition | null>(null)
   const [loading, setLoading] = useState(false)
+  const [servableStates, setServableStates] = useState<string[]>([])
+  const [loadingStates, setLoadingStates] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
     if (open) {
-      fetchMedications()
+      fetchCategories()
       fetchPharmacies()
+      fetchServableStates()
       
       // Pre-fill data if editing
       if (initialData) {
         setName(initialData.name || '')
-        setMedication(initialData.medication_group || '')
+        setCategory(initialData.category_group || '')
         
         // Transform matches from backend format
         if (initialData.matches && Array.isArray(initialData.matches)) {
@@ -138,7 +143,7 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
       } else {
         // Reset form if creating new
         setName('')
-        setMedication('')
+        setCategory('')
         setGlobalStates([])
         setMatches([])
         setElseCondition(null)
@@ -146,15 +151,15 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
     }
   }, [open, initialData])
 
-  const fetchMedications = async () => {
+  const fetchCategories = async () => {
     try {
       const response = await axiosInstance.get('/products/medications/')
-      setMedications(response.data.medications || [])
+      setCategories(response.data.categories || [])
     } catch (error) {
-      console.error('Error fetching medications:', error)
+      console.error('Error fetching categories:', error)
       toast({
         title: 'Error',
-        description: 'Failed to load medications',
+        description: 'Failed to load categories',
         variant: 'destructive'
       })
     }
@@ -185,20 +190,55 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
     }
   }
 
-  const addGlobalState = (stateCode: string) => {
-    if (!globalStates.includes(stateCode)) {
-      const newStates = [...globalStates, stateCode]
-      setGlobalStates(newStates)
-      // Update all matches to include this state (simplified logic for this UI)
-      setMatches(matches.map(m => ({ ...m, states: newStates })))
+  const fetchServableStates = async () => {
+    try {
+      setLoadingStates(true)
+      console.log('Fetching servable states...');
+      // Note: baseURL already has trailing /api/v1/, so don't use leading slash
+      const response = await axiosInstance.get('routing-configurations/available-states/')
+      console.log('Servable states response:', response.data);
+      const servable = response.data.servable_states || [];
+      console.log('Setting servable states:', servable);
+      setServableStates(servable)
+    } catch (error) {
+      console.error('Error fetching servable states:', error)
+      // Do NOT fallback to all states - leave servableStates empty
+      // This will cause all states to appear as unservable
+      toast({
+        title: 'Warning',
+        description: 'Could not load pharmacy coverage. Please refresh the page.',
+        variant: 'destructive'
+      })
+    } finally {
+      setLoadingStates(false)
     }
   }
 
-  const removeGlobalState = (stateCode: string) => {
-    const newStates = globalStates.filter(s => s !== stateCode)
-    setGlobalStates(newStates)
-    // Update all matches to remove this state
-    setMatches(matches.map(m => ({ ...m, states: newStates })))
+  const toggleGlobalState = (stateCode: string) => {
+    setGlobalStates((prev) => {
+      const isSelected = prev.includes(stateCode)
+      const newStates = isSelected 
+        ? prev.filter(s => s !== stateCode)
+        : [...prev, stateCode]
+      
+      // Update all matches to sync with global states
+      setMatches(matches.map(m => ({ ...m, states: newStates })))
+      return newStates
+    })
+  }
+
+  const selectAllStates = () => {
+    // Only select states that are servable
+    const selectableCodes = servableStates.length > 0 
+      ? servableStates 
+      : US_STATES.map(s => s.code)
+    setGlobalStates(selectableCodes)
+    setMatches(matches.map(m => ({ ...m, states: selectableCodes })))
+  }
+
+  const clearAllStates = () => {
+    setGlobalStates([])
+    setMatches(matches.map(m => ({ ...m, states: [] })))
   }
 
   const addMatch = () => {
@@ -220,6 +260,23 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
     setMatches(matches.map(m => m.id === id ? { ...m, [field]: value } : m))
   }
 
+  // Helper to check if pharmacy serves the selected states
+  const getStateMismatches = (pharmacyId: string, selectedStates: string[]): string[] => {
+    if (!pharmacyId || selectedStates.length === 0) return [];
+    const pharmacy = pharmacies.find(p => p.id.toString() === pharmacyId);
+    if (!pharmacy) return [];
+    const serviceStates = pharmacy.service_states || [];
+    // Empty service_states means serves all states
+    if (serviceStates.length === 0) return [];
+    return selectedStates.filter(s => !serviceStates.includes(s));
+  }
+
+  // Check if ANY pharmacy serves the selected states (uses backend data)
+  const getUnservableStates = (selectedStates: string[]): string[] => {
+    if (selectedStates.length === 0 || servableStates.length === 0) return [];
+    return selectedStates.filter(s => !servableStates.includes(s));
+  };
+
   const addElseCondition = () => {
     setElseCondition({
       pharmacy_id: '',
@@ -232,14 +289,28 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
       setLoading(true)
 
       // Validate basic fields
-      if (!name || !medication) {
+      if (!name || !category) {
         toast({
           title: 'Validation Error',
-          description: 'Please fill in Name and Medication',
+          description: 'Please fill in Name and Category',
           variant: 'destructive'
         })
         setLoading(false)
         return
+      }
+
+      // Check if any states are completely unservable
+      if (globalStates.length > 0) {
+        const unservableStates = getUnservableStates(globalStates);
+        if (unservableStates.length > 0) {
+          toast({
+            title: "Configuration Error",
+            description: `None of your pharmacies serve ${unservableStates.join(", ")}. Please update pharmacy service states or remove these states from the routing rule.`,
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
       }
 
       // Validate matches
@@ -282,7 +353,7 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
 
       const payload = {
         name,
-        group_id: medication,
+        category_group: category,
         matches: matchesPayload,
         else_match: elseMatchPayload
       }
@@ -319,7 +390,7 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
 
   const handleClose = () => {
     setName('')
-    setMedication('')
+    setCategory('')
     setGlobalStates([])
     setMatches([])
     setElseCondition(null)
@@ -354,19 +425,19 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
             />
           </div>
 
-          {/* Medication */}
+          {/* Category */}
           <div className="space-y-2">
-            <Label htmlFor="medication">
-              Medication <span className="text-red-500">*</span>
+            <Label htmlFor="category">
+              Category <span className="text-red-500">*</span>
             </Label>
-            <Select value={medication} onValueChange={setMedication}>
+            <Select value={category} onValueChange={setCategory}>
               <SelectTrigger>
-                <SelectValue placeholder="Select medication" />
+                <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
-                {medications.map((med) => (
-                  <SelectItem key={med} value={med}>
-                    {med}
+                {categories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -374,54 +445,124 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
           </div>
 
           {/* State Selection */}
-          <div className="space-y-3 pt-4 border-t">
-            <div className="flex items-center gap-3 text-sm">
-              <span className="font-medium">If</span>
-              <span className="font-medium">State</span>
-              <Select value={stateCondition} onValueChange={(value: 'in' | 'not_in') => setStateCondition(value)}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="in">In</SelectItem>
-                  <SelectItem value="not_in">Not In</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select onValueChange={addGlobalState}>
-                <SelectTrigger className="w-64">
-                  <SelectValue placeholder="Select an item" />
-                </SelectTrigger>
-                <SelectContent className="max-h-64">
-                  {US_STATES.filter(s => !globalStates.includes(s.code)).map((state) => (
-                    <SelectItem key={state.code} value={state.code}>
-                      {state.code} - {state.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="space-y-4 pt-4 border-t">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 text-sm">
+                <span className="font-medium text-base">If</span>
+                <span className="font-medium text-base">State</span>
+                <Select value={stateCondition} onValueChange={(value: 'in' | 'not_in') => setStateCondition(value)}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="in">In</SelectItem>
+                    <SelectItem value="not_in">Not In</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={selectAllStates}
+                  className="text-xs h-8 bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100"
+                >
+                  Select All
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={clearAllStates}
+                  className="text-xs h-8"
+                >
+                  Clear All
+                </Button>
+              </div>
             </div>
 
-            {/* Selected States Badges */}
-            {globalStates.length > 0 && (
-              <div className="flex flex-wrap gap-2 pl-32">
-                {globalStates.map((stateCode) => (
-                  <Badge 
-                    key={stateCode} 
-                    variant="secondary"
-                    className="px-3 py-1"
-                  >
-                    {stateCode}
-                    <button
-                      onClick={() => removeGlobalState(stateCode)}
-                      className="ml-2 hover:text-red-600"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
+            {/* Global unservable states warning */}
+            {globalStates.length > 0 && (() => {
+              const unservable = getUnservableStates(globalStates);
+              if (unservable.length === 0) return null;
+              
+              return (
+                <div className="bg-red-50 border border-red-200 rounded p-3">
+                  <p className="text-sm text-red-800">
+                    <strong>⚠️ Configuration Error:</strong> None of your pharmacies serve{" "}
+                    <strong>{unservable.join(", ")}</strong>. 
+                    You must update pharmacy service states before saving this rule.
+                  </p>
+                  <p className="text-xs text-red-700 mt-1">
+                    Go to Admin Portal → Pharmacies → Edit pharmacy → Service States
+                  </p>
+                </div>
+              );
+            })()}
+
+
+            <div className="border rounded-lg p-4 bg-gray-50/50">
+              {loadingStates ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Loading pharmacy coverage...
+                </div>
+              ) : (
+                <>
+                  {/* Info about unservable states */}
+                  {servableStates.length > 0 && servableStates.length < US_STATES.length && (
+                    <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-3">
+                      <p className="text-sm text-blue-800">
+                        <strong>ℹ️ Note:</strong> {US_STATES.length - servableStates.length} states 
+                        are disabled because no pharmacy serves them. 
+                        Contact admin to add pharmacy coverage.
+                      </p>
+                    </div>
+                  )}
+                  
+                  <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1">
+                    {US_STATES.map((state) => {
+                      const isServable = servableStates.includes(state.code);
+                      const isSelected = globalStates.includes(state.code);
+                      
+                      return (
+                        <button
+                          key={state.code}
+                          type="button"
+                          onClick={() => isServable && toggleGlobalState(state.code)}
+                          disabled={!isServable}
+                          title={
+                            isServable 
+                              ? state.name 
+                              : `${state.name} - No pharmacy serves this state`
+                          }
+                          className={`
+                            flex items-center justify-center px-1 py-1.5 rounded text-xs 
+                            transition border
+                            ${isSelected 
+                              ? 'bg-sky-500 text-white border-sky-500 font-medium' 
+                              : isServable
+                                ? 'bg-white text-gray-700 border-gray-300 hover:border-sky-300 shadow-sm'
+                                : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-50 line-through'
+                            }
+                          `}
+                        >
+                          {state.code}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  
+                  <div className="mt-3 flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground italic">
+                      {globalStates.length === 0 
+                        ? "No states selected — rule will apply to ALL states." 
+                        : `${globalStates.length} state${globalStates.length !== 1 ? 's' : ''} selected.`}
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Matches Section */}
@@ -454,6 +595,20 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
                     {!match.pharmacy_id && (
                       <p className="text-xs text-red-500">Please select a pharmacy</p>
                     )}
+                    {/* State mismatch warning */}
+                    {match.pharmacy_id && globalStates.length > 0 && (() => {
+                      const mismatches = getStateMismatches(match.pharmacy_id, globalStates);
+                      if (mismatches.length === 0) return null;
+                      const pharmacy = pharmacies.find(p => p.id.toString() === match.pharmacy_id);
+                      return (
+                        <div className="bg-amber-50 border border-amber-200 rounded p-2 mt-2">
+                          <p className="text-xs text-amber-800">
+                            ⚠️ <strong>{pharmacy?.store_name}</strong> does not serve {mismatches.join(', ')}.
+                            Patients from these states will be routed to another pharmacy.
+                          </p>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div className="space-y-2">
