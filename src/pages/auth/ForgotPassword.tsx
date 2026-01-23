@@ -35,7 +35,15 @@ const ForgotPassword = () => {
       }, 2000); // Show success message for 2 seconds before redirecting
     } catch (err: any) {
       console.error('Password reset request error:', err);
-      setError(err.response?.data?.message || "Failed to send reset email. Please try again.");
+      // Handle 404 - email not registered
+      if (err.response?.status === 404) {
+        setError(err.response?.data?.error || "This email is not registered with us.");
+      } else if (err.response?.status === 403) {
+        // Handle 403 - Patient role users cannot use admin/client portal
+        setError(err.response?.data?.error || err.response?.data?.message || "You don't have the right to use this portal.");
+      } else {
+        setError(err.response?.data?.error || err.response?.data?.message || "Failed to send reset email. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
