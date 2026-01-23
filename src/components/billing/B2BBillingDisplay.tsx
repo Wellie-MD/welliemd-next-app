@@ -21,6 +21,7 @@ import mastercardIcon from "@/assets/icons/payment-methods/mastercard.svg";
 import amexIcon from "@/assets/icons/payment-methods/american-express.svg";
 import discoverIcon from "@/assets/icons/payment-methods/discover.svg";
 import dinersIcon from "@/assets/icons/payment-methods/diners-club.svg";
+import genericCardIcon from "@/assets/icons/payment-methods/generic-card.svg";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -48,7 +49,10 @@ export function B2BBillingDisplay({
       return amexIcon;
     if (normalized.includes("discover")) return discoverIcon;
     if (normalized.includes("diners")) return dinersIcon;
-    return visaIcon;
+    if (normalized.includes("jcb")) return genericCardIcon;
+    if (normalized.includes("unionpay") || normalized.includes("union pay"))
+      return genericCardIcon;
+    return genericCardIcon;
   };
   const [manageModalOpen, setManageModalOpen] = useState(false);
   const queryClient = useQueryClient();
