@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PaymentFieldFrame } from './PaymentFieldFrame';
 
 export interface StripeCardFormHandle {
   getPaymentData: () => Promise<{ payment_method_id: string; postal_code?: string }>;
@@ -153,17 +154,23 @@ export const StripeCardForm = forwardRef<StripeCardFormHandle, StripeCardFormPro
 
       <div>
         <Label className="text-sm">Card number</Label>
-        <div ref={cardNumberMountRef} className="mt-1 rounded-md border border-border bg-background px-3 py-2" />
+        <PaymentFieldFrame className="stripe-card-number">
+          <div ref={cardNumberMountRef} />
+        </PaymentFieldFrame>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label className="text-sm">Expiry</Label>
-          <div ref={cardExpiryMountRef} className="mt-1 rounded-md border border-border bg-background px-3 py-2" />
+          <PaymentFieldFrame className="stripe-card-expiry">
+            <div ref={cardExpiryMountRef} />
+          </PaymentFieldFrame>
         </div>
         <div>
           <Label className="text-sm">CVC</Label>
-          <div ref={cardCvcMountRef} className="mt-1 rounded-md border border-border bg-background px-3 py-2" />
+          <PaymentFieldFrame className="stripe-card-cvc">
+            <div ref={cardCvcMountRef} />
+          </PaymentFieldFrame>
         </div>
       </div>
 

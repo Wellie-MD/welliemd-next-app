@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PaymentFieldFrame } from './PaymentFieldFrame';
 
 export interface NmiCollectFormHandle {
   getPaymentData: () => Promise<{ payment_token: string; postal_code?: string }>;
@@ -142,23 +143,23 @@ export const NmiCollectForm = forwardRef<NmiCollectFormHandle, NmiCollectFormPro
           value={cardholderName}
           onChange={(e) => setCardholderName(e.target.value)}
           placeholder="Jane Doe"
-          className="mt-1 bg-background"
+          className="mt-1 bg-background border border-input shadow-sm"
         />
       </div>
 
       <div>
         <Label className="text-sm">Card number</Label>
-        <div id="nmi-ccnumber" className="mt-1 rounded-md border border-border bg-background px-3 py-2" />
+        <PaymentFieldFrame id="nmi-ccnumber" />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label className="text-sm">Expiry</Label>
-          <div id="nmi-ccexp" className="mt-1 rounded-md border border-border bg-background px-3 py-2" />
+          <PaymentFieldFrame id="nmi-ccexp" />
         </div>
         <div>
           <Label className="text-sm">CVV</Label>
-          <div id="nmi-cvv" className="mt-1 rounded-md border border-border bg-background px-3 py-2" />
+          <PaymentFieldFrame id="nmi-cvv" />
         </div>
       </div>
 
@@ -168,7 +169,7 @@ export const NmiCollectForm = forwardRef<NmiCollectFormHandle, NmiCollectFormPro
           value={postalCode}
           onChange={(e) => setPostalCode(e.target.value)}
           placeholder="12345"
-          className="mt-1 bg-background"
+          className="mt-1 bg-background border border-input shadow-sm"
         />
       </div>
 

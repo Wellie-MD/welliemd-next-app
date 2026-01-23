@@ -25,6 +25,7 @@ import mastercardLogo from '@/assets/icons/payment-methods/mastercard.svg';
 import amexLogo from '@/assets/icons/payment-methods/american-express.svg';
 import discoverLogo from '@/assets/icons/payment-methods/discover.svg';
 import dinersLogo from '@/assets/icons/payment-methods/diners-club.svg';
+import genericCardLogo from '@/assets/icons/payment-methods/generic-card.svg';
 
 const resolveCardIcon = (brand?: string) => {
   const normalized = (brand || '').toLowerCase().trim();
@@ -33,7 +34,9 @@ const resolveCardIcon = (brand?: string) => {
   if (normalized.includes('amex') || normalized.includes('american express')) return amexLogo;
   if (normalized.includes('discover')) return discoverLogo;
   if (normalized.includes('diners')) return dinersLogo;
-  return visaLogo;
+  if (normalized.includes('jcb')) return genericCardLogo;
+  if (normalized.includes('unionpay') || normalized.includes('union pay')) return genericCardLogo;
+  return genericCardLogo;
 };
 
 export default function PaymentMethodsPage() {
@@ -166,7 +169,8 @@ export default function PaymentMethodsPage() {
       toast.success('Payment method removed');
       await loadMethods(activeGateway);
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to remove payment method');
+      const detail = error?.response?.data?.detail || error?.error || error?.message;
+      toast.error(detail || 'Failed to remove payment method');
     }
   };
 
@@ -293,12 +297,23 @@ export default function PaymentMethodsPage() {
                           </Button>
                         )}
                         {canDelete && (
-                          <Button variant="destructive" size="sm" onClick={() => handleDelete(method.id)}>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            disabled={methods.length <= 1}
+                            title={methods.length <= 1 ? 'Add another card before removing this one.' : 'Remove payment method'}
+                            onClick={() => handleDelete(method.id)}
+                          >
                             Remove
                           </Button>
                         )}
                       </div>
                     </div>
+                    {methods.length <= 1 && (
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        Add a new payment method before removing this one.
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>

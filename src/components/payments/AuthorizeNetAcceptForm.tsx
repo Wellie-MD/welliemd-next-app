@@ -146,28 +146,28 @@ export const AuthorizeNetAcceptForm = forwardRef<AuthorizeNetAcceptFormHandle, A
     <div className="space-y-4">
       <div>
         <Label className="text-sm">Cardholder name</Label>
-        <Input value={cardholderName} onChange={(e) => setCardholderName(e.target.value)} className="mt-1 bg-background" />
+        <Input value={cardholderName} onChange={(e) => setCardholderName(e.target.value)} className="mt-1 bg-background border border-input shadow-sm" />
       </div>
 
       <div>
         <Label className="text-sm">Card number</Label>
-        <Input value={cardNumber} onChange={(e) => setCardNumber(formatCardNumber(e.target.value))} className="mt-1 bg-background" />
+        <Input value={cardNumber} onChange={(e) => setCardNumber(formatCardNumber(e.target.value))} className="mt-1 bg-background border border-input shadow-sm" />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label className="text-sm">Expiry</Label>
-          <Input value={expiry} onChange={(e) => setExpiry(formatExpiry(e.target.value))} className="mt-1 bg-background" placeholder="MM/YY" />
+          <Input value={expiry} onChange={(e) => setExpiry(formatExpiry(e.target.value))} className="mt-1 bg-background border border-input shadow-sm" placeholder="MM/YY" />
         </div>
         <div>
           <Label className="text-sm">CVC</Label>
-          <Input value={cvc} onChange={(e) => setCvc(e.target.value.replace(/\D/g, '').slice(0, 4))} className="mt-1 bg-background" />
+          <Input value={cvc} onChange={(e) => setCvc(e.target.value.replace(/\D/g, '').slice(0, 4))} className="mt-1 bg-background border border-input shadow-sm" />
         </div>
       </div>
 
       <div>
         <Label className="text-sm">Billing ZIP</Label>
-        <Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className="mt-1 bg-background" />
+        <Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className="mt-1 bg-background border border-input shadow-sm" />
       </div>
 
       {loading && <p className="text-xs text-muted-foreground">Loading Authorize.Net…</p>}
