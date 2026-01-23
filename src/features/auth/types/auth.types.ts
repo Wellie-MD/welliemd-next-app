@@ -95,6 +95,7 @@ export const ForgotPasswordRequestSchema = z.object({
 
 // Reset password request schema
 export const ResetPasswordRequestSchema = z.object({
+  uid: z.string().min(1, 'User ID is required'),
   token: z.string().min(1, 'Reset token is required'),
   password: z
     .string()
@@ -211,6 +212,12 @@ export const PERMISSIONS = {
   PATIENT_VIEW_MEDICAL_RECORDS: 'patient:view:medical_records',
   PATIENT_VIEW_PRESCRIPTIONS: 'patient:view:prescriptions',
   PATIENT_SEND_MESSAGES: 'patient:send:messages',
+
+  // Payment method permissions
+  PAYMENT_METHOD_LIST: 'payment_method:list',
+  PAYMENT_METHOD_CREATE: 'payment_method:create',
+  PAYMENT_METHOD_UPDATE: 'payment_method:update',
+  PAYMENT_METHOD_DELETE: 'payment_method:delete',
   
   // Provider permissions
   PROVIDER_VIEW_PATIENTS: 'provider:view:patients',
@@ -247,6 +254,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     PERMISSIONS.PATIENT_VIEW_MEDICAL_RECORDS,
     PERMISSIONS.PATIENT_VIEW_PRESCRIPTIONS,
     PERMISSIONS.PATIENT_SEND_MESSAGES,
+    PERMISSIONS.PAYMENT_METHOD_LIST,
+    PERMISSIONS.PAYMENT_METHOD_CREATE,
+    PERMISSIONS.PAYMENT_METHOD_UPDATE,
+    PERMISSIONS.PAYMENT_METHOD_DELETE,
   ],
   [UserRole.PROVIDER]: [
     ...PROVIDER_BASE_PERMISSIONS,
@@ -256,8 +267,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     PERMISSIONS.ADMIN_MANAGE_PROVIDERS,
     PERMISSIONS.ADMIN_VIEW_SYSTEM_LOGS,
     PERMISSIONS.ADMIN_MANAGE_SETTINGS,
+    PERMISSIONS.PAYMENT_METHOD_LIST,
+    PERMISSIONS.PAYMENT_METHOD_CREATE,
+    PERMISSIONS.PAYMENT_METHOD_UPDATE,
+    PERMISSIONS.PAYMENT_METHOD_DELETE,
     // Admins also have all provider permissions
     ...PROVIDER_BASE_PERMISSIONS,
   ],
 };
-

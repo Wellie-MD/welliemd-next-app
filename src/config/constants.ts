@@ -54,6 +54,12 @@ export const API_ENDPOINTS = {
     SEND: "/messages/send/",
     LIST: "/messages/",
   },
+  PAYMENTS: {
+    CONFIG: "/questionnaires/frontend/payment-config/",
+    STRIPE_PAYMENT_METHODS: "/stripe/payment-methods/",
+    NMI_PAYMENT_METHODS: "/nmi/payment-methods/",
+    AUTHNET_PAYMENT_METHODS: "/authorizenet/payment-methods/",
+  },
 } as const;
 
 // Authentication constants

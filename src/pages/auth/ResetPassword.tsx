@@ -40,6 +40,7 @@ const ResetPassword = () => {
     resolver: zodResolver(resetPasswordFormSchema),
     mode: 'onChange',
     defaultValues: {
+      uid: '',
       token: '',
       password: '',
       confirmPassword: '',
@@ -49,11 +50,12 @@ const ResetPassword = () => {
   const watchedPassword = watch('password');
   const watchedConfirmPassword = watch('confirmPassword');
 
-  // Set token from URL params
+  // Set uid and token from URL params
   useEffect(() => {
-    if (token && uid) {
-      setValue('token', `${uid}:${token}`); // Combine uid and token as expected by API
-    } else if (token) {
+    if (uid) {
+      setValue('uid', uid);
+    }
+    if (token) {
       setValue('token', token);
     }
   }, [token, uid, setValue]);
@@ -87,8 +89,8 @@ const ResetPassword = () => {
     validateConfirmPassword(watchedPassword, watchedConfirmPassword) : null;
   const passwordStrength = watchedPassword ? getPasswordStrength(watchedPassword) : null;
 
-  // If no token, show error state
-  if (!token) {
+  // If no token or uid, show error state
+  if (!token || !uid) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="w-full max-w-md space-y-6 text-center">
@@ -175,6 +177,7 @@ const ResetPassword = () => {
         )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <input type="hidden" {...register('uid')} />
           <input type="hidden" {...register('token')} />
 
           <div className="space-y-2">
