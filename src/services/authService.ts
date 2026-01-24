@@ -142,8 +142,15 @@ export const authService = {
         
         return newAccessToken;
       } catch (error: any) {
-        console.error('Token refresh failed:', error.response?.data || error.message);
-        useAuthStore.getState().logout();
+        // Only log out if the refresh token is invalid (401) or expired
+        // Don't log out for network errors or other transient issues
+        const status = error.response?.status;
+        if (status === 401 || status === 403) {
+          console.error('Refresh token is invalid or expired, logging out');
+          useAuthStore.getState().logout();
+        } else {
+          console.error('Token refresh failed (non-auth error):', error.response?.data || error.message);
+        }
         throw error;
       } finally {
         refreshPromise = null;
@@ -179,7 +186,8 @@ export const authService = {
     authStore.setLoading(true);
     
     try {
-      // Try to refresh token on page load
+      // Always try to refresh token on page load using the refresh token cookie
+      // On page refresh, access token in memory is lost, but refresh token cookie persists
       const newAccessToken = await authService.refreshAccessToken();
       
       if (newAccessToken) {
@@ -198,14 +206,21 @@ export const authService = {
         return;
       }
     } catch (error: any) {
-      console.log('Session restoration failed:', error.message);
+      // refreshAccessToken already handles logout for 401/403 (invalid refresh token)
+      // For other errors (network, etc.), we don't log out to avoid false logouts
+      const status = error.response?.status;
+      if (status === 401 || status === 403) {
+        console.log('Session restoration failed: refresh token invalid or expired');
+        // refreshAccessToken already called logout() for 401/403, no need to call it again
+      } else {
+        console.log('Session restoration failed (non-auth error, will retry on next request):', error.message);
+        // Don't log out for transient errors - user might still have a valid session
+        // The user will remain unauthenticated but won't be forcefully logged out
+      }
     } finally {
       setHydratingState(false);
       authStore.setLoading(false);
     }
-    
-    // If refresh failed, ensure clean logout
-    authStore.logout();
   },
 
   requestPasswordReset: async (email: string): Promise<void> => {

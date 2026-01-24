@@ -198,6 +198,8 @@ const App = () => {
         {/* Error pages */}
         <Route path="/forbidden" element={<Forbidden />} />
 
+        {/* Trailing slash normalization - redirect /dashboard/ to /dashboard */}
+        <Route path="/dashboard/" element={<Navigate to="/dashboard" replace />} />
 
         {/* Dashboard routes */}
         <Route
