@@ -214,7 +214,7 @@ const App = () => {
                   <Header />
                   <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
                     <Routes>
-                      <Route index element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                      <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                       <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
                       <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
                       <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
