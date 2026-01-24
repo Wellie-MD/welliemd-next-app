@@ -5,6 +5,7 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import { Header } from "@/components/layout/Header";
 import { SettingsLayout } from "./components/layout/SettingsLayout";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { TrailingSlashRedirect } from "./components/routing/TrailingSlashRedirect";
 import { authService } from "./services/authService";
 import { useAuthStore } from "./store/useAuthStore";
 import { Loader2 } from "lucide-react";
@@ -183,6 +184,7 @@ const App = () => {
 
   return (
     <BrowserRouter>
+      <TrailingSlashRedirect />
       <Toaster />
       <Routes>
         <Route path="/" element={<ProtectedRoute><Navigate to="/dashboard" replace /></ProtectedRoute>} />
