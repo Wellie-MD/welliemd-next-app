@@ -4,7 +4,8 @@
  * Client users can:
  * - View products assigned to them
  * - Edit specific fields (description, images, safety info, etc.)
- * - Cannot edit pricing or core configuration
+ * - Can edit patient-facing pricing (base price, shipping fee, discounts)
+ * - Cannot edit admin costs or core configuration
  *
  * Admin users can:
  * - Create/update/delete products
@@ -37,8 +38,8 @@ export interface Product {
   base_price: string;
   cost_to_client?: string;
   cost_to_welliemd?: string;
-  shipping_cost_to_client: string;
-  shipping_cost_to_welliemd: string;
+  shipping_cost_to_client?: string;
+  shipping_cost_to_welliemd?: string;
   shipping_fee_patient: string;
   discounted_price?: string;
 
@@ -79,6 +80,7 @@ export interface Product {
   pharmacy_api: "inherit" | "life_file" | "dispense_pro";
   generic_name?: string;
   generic_group?: string;
+  category_name?: string;
 
   // Questionnaires
   onboarding_questionnaire?: string;
@@ -169,8 +171,6 @@ export interface UpdateProductPayload {
 
   // Client-editable pricing fields
   base_price?: string | number;
-  cost_to_client?: string | number;
-  shipping_cost_to_client?: string | number;
   shipping_fee_patient?: string | number;
   discounted_price?: string | number;
 

@@ -18,6 +18,9 @@ export interface Patient {
     self_reported_meds: string;
     created_at: string;
     updated_at: string;
+    orders_count?: number;
+    last_order_at?: string | null;
+    last_order_display_id?: string | null;
 }
 
 export interface PatientListResponse {
@@ -73,6 +76,39 @@ export const patientService = {
                 error.response?.data?.detail ||
                 error.response?.data?.message ||
                 'Failed to fetch patient details'
+            );
+        }
+    },
+
+    /**
+     * Update a patient (partial update)
+     */
+    updatePatient: async (id: string, payload: Partial<Patient>): Promise<Patient> => {
+        try {
+            const response = await api.patch<Patient>(`/medical/patients/${id}/`, payload);
+            return response.data;
+        } catch (error: any) {
+            console.error(`Failed to update patient ${id}:`, error);
+            throw new Error(
+                error.response?.data?.detail ||
+                error.response?.data?.message ||
+                'Failed to update patient'
+            );
+        }
+    },
+
+    /**
+     * Delete a patient
+     */
+    deletePatient: async (id: string): Promise<void> => {
+        try {
+            await api.delete(`/medical/patients/${id}/`);
+        } catch (error: any) {
+            console.error(`Failed to delete patient ${id}:`, error);
+            throw new Error(
+                error.response?.data?.detail ||
+                error.response?.data?.message ||
+                'Failed to delete patient'
             );
         }
     },

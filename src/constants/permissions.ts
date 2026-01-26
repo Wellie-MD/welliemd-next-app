@@ -21,6 +21,10 @@ export const Permissions = {
     ORDER_UPDATE: 'order:update',
     ORDER_DELETE: 'order:delete',
 
+    // Patients
+    USER_UPDATE: 'user:update',
+    USER_DELETE: 'user:delete',
+
     // Messages
     MESSAGE_LIST: 'message:list',
     MESSAGE_VIEW: 'message:view',
@@ -36,6 +40,9 @@ export const Permissions = {
     PRODUCT_MANAGE: 'product:manage',
     PRODUCT_ASSIGN: 'product:assign',
     PRODUCT_ARCHIVE: 'product:archive',
+
+    // Refunds
+    REFUND_CREATE: 'refund:create',
 
     // Templates
     TEMPLATE_MANAGE: 'template:manage',

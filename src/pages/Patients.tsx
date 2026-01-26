@@ -37,6 +37,10 @@ interface PatientTableRow {
 }
 
 const transformPatientData = (patient: Patient): PatientTableRow => {
+  const lastOrderDate = patient.last_order_at ? format(new Date(patient.last_order_at), 'dd/MM/yyyy') : '-'
+  const lastOrderDisplay = patient.last_order_display_id ? `#${patient.last_order_display_id}` : ''
+  const lastOrderLabel = lastOrderDisplay && lastOrderDate !== '-' ? `${lastOrderDisplay} • ${lastOrderDate}` : (lastOrderDate !== '-' ? lastOrderDate : lastOrderDisplay || '-')
+
   return {
     id: patient.id,
     name: patient.full_name || `${patient.first_name} ${patient.last_name}`.trim() || patient.email,
@@ -46,11 +50,11 @@ const transformPatientData = (patient: Patient): PatientTableRow => {
     productName: "-", // TODO: Get from actual product/order data
     email: patient.email,
     phone: patient.phone,
-    orders: 0, // TODO: Get from actual order count
+    orders: patient.orders_count ?? 0,
     location: patient.city && patient.state ? `${patient.city}, ${patient.state}` : patient.state || "-",
     patientStatus: "Active", // TODO: Determine from actual patient status
     visitStatus: "-", // TODO: Get from visits data
-    lastOrder: "-", // TODO: Get from last order date
+    lastOrder: lastOrderLabel,
   }
 }
 
@@ -254,6 +258,18 @@ export default function Patients() {
     }
   }, [])
 
+  const handlePatientUpdated = useCallback((updated: Patient) => {
+    setSelectedPatient(updated)
+    setPatients(prev => prev.map((row) => row.id === updated.id ? transformPatientData(updated) : row))
+  }, [])
+
+  const handlePatientDeleted = useCallback((patientId: string) => {
+    setSelectedPatient(null)
+    setIsDetailOpen(false)
+    setPatients(prev => prev.filter((row) => row.id !== patientId))
+    setTotalCount(prev => Math.max(prev - 1, 0))
+  }, [])
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -357,6 +373,8 @@ export default function Patients() {
         patient={selectedPatient}
         open={isDetailOpen}
         onOpenChange={setIsDetailOpen}
+        onPatientUpdated={handlePatientUpdated}
+        onPatientDeleted={handlePatientDeleted}
       />
     </div>
   )
