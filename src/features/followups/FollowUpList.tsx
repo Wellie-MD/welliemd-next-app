@@ -157,7 +157,7 @@ export function FollowUpList({ questionnaireAppUrl, onStartFollowUp }: FollowUpL
           <h3 className="text-lg font-semibold text-gray-900 mb-3">
             Action Required ({pendingFollowUps.length})
           </h3>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {pendingFollowUps.map((followUp) => (
               <FollowUpCard
                 key={followUp.id}
@@ -177,7 +177,7 @@ export function FollowUpList({ questionnaireAppUrl, onStartFollowUp }: FollowUpL
           <h3 className="text-lg font-semibold text-gray-900 mb-3">
             Completed ({completedFollowUps.length})
           </h3>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {completedFollowUps.map((followUp) => (
               <FollowUpCard
                 key={followUp.id}
@@ -195,7 +195,7 @@ export function FollowUpList({ questionnaireAppUrl, onStartFollowUp }: FollowUpL
           <h3 className="text-sm font-medium text-gray-500 mb-2">
             Expired ({expiredFollowUps.length})
           </h3>
-          <div className="space-y-2 opacity-60">
+          <div className="space-y-3 opacity-60">
             {expiredFollowUps.map((followUp) => (
               <FollowUpCard
                 key={followUp.id}
