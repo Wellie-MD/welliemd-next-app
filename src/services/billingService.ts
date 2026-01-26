@@ -28,6 +28,8 @@ export interface Invoice {
   invoice_type?: string;
   amount?: string | number;
   status?: string;
+  is_overdue?: boolean;
+  external_invoice_link?: string;
   period_start?: string;
   period_end?: string;
   line_items?: InvoiceItem[];
@@ -117,8 +119,9 @@ const billingService = {
   ): Promise<InvoiceListResponse> {
     try {
       const params = { page, page_size: pageSize, ...(paramsOverride || {}) } as any;
-      const path =
-        type === "all" ? "/billing/invoices/" : `/billing/invoices/${type}/`;
+      if (type === "reimbursement") params.invoice_type = "reimbursement";
+      if (type === "saas") params.invoice_type = "saas_fee";
+      const path = "/billing/invoices/";
       const { data } = await api.get<unknown>(path, { params });
       // API returns paginated shape: { count, next, previous, results: [...] }
       if (data && Array.isArray(data.results)) return data as InvoiceListResponse;
