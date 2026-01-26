@@ -17,6 +17,8 @@ const Messages = React.lazy(() => import('@/components/Messages'));
 const MedicalRecords = React.lazy(() => import('@/components/MedicalRecords'));
 const Appointments = React.lazy(() => import('@/components/Appointments'));
 const Orders = React.lazy(() => import('@/components/Orders'));
+const Settings = React.lazy(() => import('@/components/Settings'));
+const PaymentMethodsPage = React.lazy(() => import('@/components/payments/PaymentMethodsPage'));
 // Resources pages disabled
 // const Blog = React.lazy(() => import('@/components/Blog'));
 // const BlogPost = React.lazy(() => import('@/components/BlogPost'));
@@ -39,6 +41,9 @@ export const AppRouter: React.FC = () => {
           <Route path="/auth/signin" element={<SignIn />} />
           <Route path="/auth/forgot-password" element={<ForgotPassword />} />
           <Route path="/auth/reset-password" element={<ResetPassword />} />
+
+          {/* Trailing slash normalization - redirect /dashboard/ to /dashboard */}
+          <Route path="/dashboard/" element={<Navigate to="/dashboard" replace />} />
 
           {/* Protected routes - Dashboard with proper nesting */}
           <Route
@@ -63,12 +68,8 @@ export const AppRouter: React.FC = () => {
             {/* <Route path="blog/:id" element={<BlogPost />} /> */}
             
             {/* Settings and Help pages */}
-            <Route path="settings" element={
-              <div className="p-6">
-                <h1 className="text-2xl font-semibold">Settings</h1>
-                <p className="text-muted-foreground">Manage your account settings and preferences.</p>
-              </div>
-            } />
+            <Route path="settings" element={<Settings />} />
+            <Route path="settings/payment-methods" element={<PaymentMethodsPage />} />
             
             <Route path="help" element={
               <div className="p-6">

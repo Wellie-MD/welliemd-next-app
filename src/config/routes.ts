@@ -55,6 +55,7 @@ export const ROUTES = {
   SETTINGS_SECURITY: '/settings/security',
   SETTINGS_NOTIFICATIONS: '/settings/notifications',
   SETTINGS_PRIVACY: '/settings/privacy',
+  SETTINGS_PAYMENT_METHODS: '/settings/payment-methods',
 
   // Error pages
   NOT_FOUND: '/404',
@@ -290,6 +291,16 @@ export const ROUTE_CONFIGS: Record<string, RouteConfig> = {
     icon: 'Settings',
     order: 100,
   },
+
+  [ROUTES.SETTINGS_PAYMENT_METHODS]: {
+    path: ROUTES.SETTINGS_PAYMENT_METHODS,
+    title: 'Payment Methods',
+    description: 'Manage payment methods',
+    requiresAuth: true,
+    requiredPermissions: ['payment_method:list'],
+    showInNavigation: false,
+    parent: ROUTES.SETTINGS,
+  },
 };
 
 // Helper functions for route utilities
@@ -330,4 +341,3 @@ export const buildRoute = (template: string, params: Record<string, string>): st
 // Examples:
 // buildRoute(ROUTES.APPOINTMENTS_DETAIL, { id: '123' }) => '/appointments/123'
 // buildRoute(ROUTES.PATIENTS_DETAIL, { id: 'patient-456' }) => '/patients/patient-456'
-
