@@ -258,6 +258,18 @@ export default function Patients() {
     }
   }, [])
 
+  const handlePatientUpdated = useCallback((updated: Patient) => {
+    setSelectedPatient(updated)
+    setPatients(prev => prev.map((row) => row.id === updated.id ? transformPatientData(updated) : row))
+  }, [])
+
+  const handlePatientDeleted = useCallback((patientId: string) => {
+    setSelectedPatient(null)
+    setIsDetailOpen(false)
+    setPatients(prev => prev.filter((row) => row.id !== patientId))
+    setTotalCount(prev => Math.max(prev - 1, 0))
+  }, [])
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -361,6 +373,8 @@ export default function Patients() {
         patient={selectedPatient}
         open={isDetailOpen}
         onOpenChange={setIsDetailOpen}
+        onPatientUpdated={handlePatientUpdated}
+        onPatientDeleted={handlePatientDeleted}
       />
     </div>
   )

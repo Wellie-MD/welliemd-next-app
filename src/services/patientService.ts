@@ -79,4 +79,37 @@ export const patientService = {
             );
         }
     },
+
+    /**
+     * Update a patient (partial update)
+     */
+    updatePatient: async (id: string, payload: Partial<Patient>): Promise<Patient> => {
+        try {
+            const response = await api.patch<Patient>(`/medical/patients/${id}/`, payload);
+            return response.data;
+        } catch (error: any) {
+            console.error(`Failed to update patient ${id}:`, error);
+            throw new Error(
+                error.response?.data?.detail ||
+                error.response?.data?.message ||
+                'Failed to update patient'
+            );
+        }
+    },
+
+    /**
+     * Delete a patient
+     */
+    deletePatient: async (id: string): Promise<void> => {
+        try {
+            await api.delete(`/medical/patients/${id}/`);
+        } catch (error: any) {
+            console.error(`Failed to delete patient ${id}:`, error);
+            throw new Error(
+                error.response?.data?.detail ||
+                error.response?.data?.message ||
+                'Failed to delete patient'
+            );
+        }
+    },
 };

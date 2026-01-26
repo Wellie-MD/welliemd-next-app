@@ -10,6 +10,18 @@ import mockData from "@/data/mockData.json"
 import { ordersApi, Order } from "@/api/ordersApi"
 import { exportToCSV } from "@/utils/exportUtils"
 import { OrderDetailsSheet } from "@/components/orders/OrderDetailsSheet"
+import { PermissionGate } from "@/components/auth/PermissionGate"
+import { Permissions } from "@/constants/permissions"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 const orderColumns = [
   { key: "patient_name", label: "Patient", minWidth: "160px", className: "max-w-[220px]" },
@@ -93,6 +105,7 @@ export default function Orders() {
   const [editedStatuses, setEditedStatuses] = useState<Record<string, string>>({})
   const [editedTrackingNumbers, setEditedTrackingNumbers] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Order | null>(null)
   
   // Order Details Sheet state
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
@@ -224,7 +237,6 @@ export default function Orders() {
   }, [])
 
   const handleDeleteOrder = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this order?')) return
     setIsSaving(true)
     setError(null)
     setSuccess(null)
@@ -235,6 +247,7 @@ export default function Orders() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete order')
       console.error('Delete order error:', err)
+      throw err
     } finally {
       setIsSaving(false)
     }
@@ -410,6 +423,15 @@ export default function Orders() {
                   >
                     {savingId === row.id ? 'Saving...' : 'Save'}
                   </Button>
+                  <PermissionGate permission={Permissions.ORDER_DELETE}>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => setDeleteTarget(row)}
+                    >
+                      Delete
+                    </Button>
+                  </PermissionGate>
                 </div>
               ),
             }
@@ -504,7 +526,35 @@ export default function Orders() {
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         order={selectedOrder}
+        onDelete={handleDeleteOrder}
       />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this order?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action permanently deletes the order and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!deleteTarget) return
+                try {
+                  await handleDeleteOrder(deleteTarget.id)
+                } finally {
+                  setDeleteTarget(null)
+                }
+              }}
+              disabled={isSaving}
+            >
+              {isSaving ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

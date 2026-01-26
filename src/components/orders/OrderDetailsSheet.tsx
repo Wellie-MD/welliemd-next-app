@@ -44,11 +44,22 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { PermissionGate } from "@/components/auth/PermissionGate"
 import { Permissions } from "@/constants/permissions"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface OrderDetailsSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   order: Order | null
+  onDelete?: (orderId: string) => Promise<void> | void
 }
 
 // Status badge color mapping
@@ -88,6 +99,8 @@ export function OrderDetailsSheet({
 }: OrderDetailsSheetProps) {
   const [showPatientResponses, setShowPatientResponses] = useState(false)
   const [showRefundDialog, setShowRefundDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const [refundAmount, setRefundAmount] = useState("")
   const [refundReason, setRefundReason] = useState("customer_request")
   const [refundReasonDescription, setRefundReasonDescription] = useState("")
@@ -170,28 +183,53 @@ export function OrderDetailsSheet({
     }
   }
 
+  const handleDelete = async () => {
+    if (!order?.id || !onDelete) return
+    setDeleteLoading(true)
+    try {
+      await onDelete(order.id)
+      setShowDeleteDialog(false)
+      onOpenChange(false)
+      toast({ title: "Order deleted" })
+    } catch (error: any) {
+      const message = error?.message || "Failed to delete order"
+      toast({ title: message, variant: "destructive" })
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
   if (!order) return null
 
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent side="right" className="w-full sm:max-w-xl p-0">
-          <SheetHeader className="p-6 pb-4 border-b">
-            <div className="flex items-center justify-between">
-              <SheetTitle className="text-xl">Order Details</SheetTitle>
-              <Badge className={statusColors[status] || "bg-gray-100 text-gray-800"}>
-                {statusLabels[status] || status}
-              </Badge>
+          <SheetHeader className="p-4 sm:p-6 pb-4 border-b pr-12">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-2">
+                <SheetTitle className="text-lg sm:text-xl">Order Details</SheetTitle>
+                {order.display_id && (
+                  <p className="text-sm text-muted-foreground">
+                    Order #{order.display_id}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className={statusColors[status] || "bg-gray-100 text-gray-800"}>
+                  {statusLabels[status] || status}
+                </Badge>
+                <PermissionGate permission={Permissions.ORDER_DELETE}>
+                  <Button size="sm" variant="destructive" onClick={() => setShowDeleteDialog(true)}>
+                    Delete
+                  </Button>
+                </PermissionGate>
+              </div>
             </div>
-            {order.display_id && (
-              <p className="text-sm text-muted-foreground">
-                Order #{order.display_id}
-              </p>
-            )}
           </SheetHeader>
 
           <ScrollArea className="h-[calc(100vh-140px)]">
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-6">
               {/* Patient Information */}
               <section>
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -218,6 +256,7 @@ export function OrderDetailsSheet({
                     icon={<MapPin className="h-4 w-4" />} 
                     label="Address" 
                     value={order.address} 
+                    allowWrap
                   />
                   {order.mrn && (
                     <InfoItem 
@@ -319,6 +358,7 @@ export function OrderDetailsSheet({
                     icon={<Building2 className="h-4 w-4" />} 
                     label="Pharmacy" 
                     value={order.pharmacy_display} 
+                    allowWrap
                   />
                   <InfoItem 
                     icon={<Truck className="h-4 w-4" />} 
@@ -351,6 +391,23 @@ export function OrderDetailsSheet({
           </ScrollArea>
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this order?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action permanently deletes the order and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={deleteLoading}>
+              {deleteLoading ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Patient Responses Modal */}
       <PatientResponsesModal
@@ -446,18 +503,22 @@ export function OrderDetailsSheet({
 function InfoItem({ 
   icon, 
   label, 
-  value 
+  value,
+  allowWrap = false,
 }: { 
   icon: React.ReactNode
   label: string
   value?: string | null
+  allowWrap?: boolean
 }) {
   return (
     <div className="flex items-start gap-3">
       <div className="text-muted-foreground mt-0.5">{icon}</div>
       <div className="flex-1 min-w-0">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-sm font-medium truncate">{value || "-"}</p>
+        <p className={`text-sm font-medium ${allowWrap ? 'break-words' : 'truncate sm:break-words'}`}>
+          {value || "-"}
+        </p>
       </div>
     </div>
   )
