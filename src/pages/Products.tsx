@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Pencil, Trash2, Plus } from "lucide-react"
 import { DataTable } from "@/components/ui/data-table"
 import axiosInstance from "@/api/axiosInstance"
-import AddProductForm from "@/components/products/AddProductForm"
 import { ProductFormModal } from "@/components/products/ProductFormModal"
 import { StatCard } from "@/components/ui/stat-card"
 import { DateRange } from "react-day-picker"
@@ -14,7 +13,8 @@ import {
   TREATMENT_OPTIONS,
   PURCHASE_TYPE_OPTIONS,
   RX_OTC_OPTIONS,
-  PRODUCT_TYPE_OPTIONS
+  PRODUCT_TYPE_OPTIONS,
+  Product,
 } from "@/api/products"
 import { productCategoryApi, ProductCategory } from "@/api/productCategories"
 import {
@@ -25,37 +25,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-
-type Product = {
-  id: number | string
-  name: string
-  description?: string | null
-  application_directions?: string | null
-  product_image?: string | null
-
-  // Pricing
-  price: string | number
-  cost: string | number
-  base_shipping_cost: string | number
-  shipping_fee: string | number
-
-  // Dosage / Quantity
-  dose?: string | null
-  quantity: number
-  refills: number
-  rx_quantity: number
-  rx_days_supply: number
-  rx_drug_form?: string | null
-
-  // Extra Info
-  ndic_number?: string | null
-  manufacturer_name?: string | null
-  purchase_type: string
-  safety_info?: string | null
-  side_effects?: string | null
-
-  created_at: string
-}
 
 function money(n: number | string | undefined | null) {
   if (n === undefined || n === null) return "-"
@@ -373,8 +342,8 @@ export default function Products() {
       },
     },
     {
-      key: "price",
-      label: "Price",
+      key: "base_price",
+      label: "Base Price (Patient)",
       render: (v: number | string) => money(v),
     },
     {

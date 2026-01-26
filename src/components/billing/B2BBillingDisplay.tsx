@@ -16,6 +16,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import visaIcon from "@/assets/icons/payment-methods/visa.svg";
+import mastercardIcon from "@/assets/icons/payment-methods/mastercard.svg";
+import amexIcon from "@/assets/icons/payment-methods/american-express.svg";
+import discoverIcon from "@/assets/icons/payment-methods/discover.svg";
+import dinersIcon from "@/assets/icons/payment-methods/diners-club.svg";
+import genericCardIcon from "@/assets/icons/payment-methods/generic-card.svg";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -34,6 +40,20 @@ export function B2BBillingDisplay({
   clientId,
   client,
 }: B2BBillingDisplayProps) {
+  const resolveCardIcon = (brand?: string) => {
+    const normalized = (brand || "").toLowerCase().trim();
+    if (normalized.includes("visa")) return visaIcon;
+    if (normalized.includes("mastercard") || normalized.includes("master card"))
+      return mastercardIcon;
+    if (normalized.includes("amex") || normalized.includes("american express"))
+      return amexIcon;
+    if (normalized.includes("discover")) return discoverIcon;
+    if (normalized.includes("diners")) return dinersIcon;
+    if (normalized.includes("jcb")) return genericCardIcon;
+    if (normalized.includes("unionpay") || normalized.includes("union pay"))
+      return genericCardIcon;
+    return genericCardIcon;
+  };
   const [manageModalOpen, setManageModalOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -54,6 +74,16 @@ export function B2BBillingDisplay({
   });
 
   const hasSubscription = client?.stripe_subscription_id;
+  const priceList = Array.isArray(prices) ? prices : (prices as any)?.prices || [];
+  const monthlyPrices = priceList.filter(
+    (price: any) => price.recurring?.interval === "month" && price.active
+  );
+  const basePrice = monthlyPrices.find(
+    (price: any) => price.recurring?.usage_type !== "metered"
+  );
+  const meteredPrice = monthlyPrices.find(
+    (price: any) => price.recurring?.usage_type === "metered"
+  );
 
   // Mutation for creating subscription
   const createSubscriptionMutation = useMutation({
@@ -64,18 +94,16 @@ export function B2BBillingDisplay({
         throw new Error("No payment method found");
       }
 
-      // Get the first available monthly price
-      const monthlyPrice = prices?.find(
-        (price) => price.recurring?.interval === "month" && price.active
-      );
-      if (!monthlyPrice) {
-        throw new Error("No active monthly plan found");
+      if (!basePrice) {
+        throw new Error("No active monthly base plan found");
       }
 
       return subscriptionApi.create({
         client_id: clientId,
-        price_id: monthlyPrice.id,
         payment_method_id: paymentMethodId,
+        ...(meteredPrice
+          ? { base_price_id: basePrice.id, metered_price_id: meteredPrice.id }
+          : { price_id: basePrice.id }),
       });
     },
     onSuccess: () => {
@@ -266,15 +294,11 @@ export function B2BBillingDisplay({
               <div className="bg-slate-50 rounded-lg p-4 space-y-3">
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 w-12 h-8 bg-white rounded border border-slate-200 flex items-center justify-center">
-                    <span className="text-xs font-semibold text-slate-600 uppercase">
-                      {paymentMethod.brand === "visa"
-                        ? "VISA"
-                        : paymentMethod.brand === "mastercard"
-                        ? "MC"
-                        : paymentMethod.brand === "amex"
-                        ? "AMEX"
-                        : paymentMethod.brand.substring(0, 4).toUpperCase()}
-                    </span>
+                    <img
+                      src={resolveCardIcon(paymentMethod.brand)}
+                      alt={paymentMethod.brand}
+                      className="h-5 w-auto"
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">

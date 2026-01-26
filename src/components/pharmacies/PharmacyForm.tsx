@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
+import { 
+  Dialog, 
+  DialogTrigger, 
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription
+} from "@/components/ui/dialog";
 import { pharmacyApi, Pharmacy } from "@/api/pharmacyApi";
 import { toast } from "@/components/ui/use-toast";
 
@@ -13,6 +20,15 @@ type Props = {
   onOpenChange?: (open: boolean) => void;
   onSuccess?: () => void;
 };
+
+// All US states for multi-select
+const US_STATES = [
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+  "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+  "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+  "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+  "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC", "PR"
+];
 
 export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange, onSuccess }: Props) {
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<Pharmacy>({
@@ -45,17 +61,37 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
 
   const [loading, setLoading] = useState(false);
   const [vendorOptions, setVendorOptions] = useState<{ value: string; label: string }[]>([]);
+  const [serviceStates, setServiceStates] = useState<string[]>([]);
 
   useEffect(() => {
     pharmacyApi.vendors().then(setVendorOptions).catch(() => setVendorOptions([]));
   }, []);
 
+  // Initialize and sync form when pharmacy changes
   useEffect(() => {
     if (pharmacy) {
-      Object.entries(pharmacy).forEach(([k, v]) => setValue(k as any, v as any));
-      setValue("api_password", ""); // keep blank on edit
+      Object.entries(pharmacy).forEach(([k, v]) => {
+        if (k !== "api_password") setValue(k as any, v as any);
+      });
+      setValue("api_password", ""); 
+      const states = Array.isArray(pharmacy.service_states) ? pharmacy.service_states : [];
+      setServiceStates(states);
+    } else {
+      reset();
+      setServiceStates([]);
     }
-  }, [pharmacy, setValue]);
+  }, [pharmacy?.id, setValue, reset]);
+
+  const toggleState = (st: string) => {
+    setServiceStates((prev) => {
+      const current = Array.isArray(prev) ? prev : [];
+      if (current.includes(st)) {
+        return current.filter((s) => s !== st);
+      } else {
+        return [...current, st];
+      }
+    });
+  };
 
   const onSubmit = async (data: Pharmacy) => {
     try {
@@ -74,6 +110,8 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
         website: data.website,
         ncpdp_id: data.ncpdp_id,
         is_active: data.is_active,
+        beluga_pharmacy_id: data.beluga_pharmacy_id,
+        service_states: serviceStates,
       };
 
       const integrationPayload: Partial<Pharmacy> = {
@@ -125,18 +163,18 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
   return (
     <Dialog open={open} onOpenChange={(v) => onOpenChange?.(v)}>
       <DialogTrigger className="hidden" />
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
-        <div className="px-6 pt-6">
-          <h2 className="text-2xl font-semibold">
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-2">
+          <DialogTitle className="text-2xl font-semibold">
             {mode === "edit" ? `Edit Pharmacy${pharmacy?.store_name ? `: ${pharmacy.store_name}` : ""}` : "Create New Pharmacy"}
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1 mb-4">
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground mt-1">
             Manage pharmacy info and integration credentials.
-          </p>
-        </div>
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="px-6 max-h-[calc(90vh-180px)] overflow-y-auto scrollbar-hide">
-          <form id="pharmacy-form" onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-5 pb-24">
+        <div className="flex-1 overflow-y-auto px-6 py-4 scrollbar-hide">
+          <form id="pharmacy-form" onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-5 pb-10">
             {/* Basic Info */}
             <div className="md:col-span-2">
               <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Pharmacy Information</h3>
@@ -315,6 +353,65 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
               </div>
             </div>
 
+            {/* Service States */}
+            <div className="md:col-span-2">
+              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Service States</h3>
+              <div className="border rounded-lg p-4 bg-white shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-muted-foreground">
+                    Select which states this pharmacy can ship to. Leave empty to serve all states.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setServiceStates([...US_STATES])}
+                      className="text-xs px-2 py-1 bg-sky-100 text-sky-700 rounded hover:bg-sky-200 transition"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setServiceStates([])}
+                      className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                </div>
+                
+                {serviceStates.length === 0 && (
+                  <div className="bg-amber-50 border border-amber-200 rounded p-3 mb-3">
+                    <p className="text-sm text-amber-800">
+                      ⚠️ No states selected — this pharmacy will receive orders from <strong>ALL states</strong>.
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-1">
+                  {US_STATES.map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => toggleState(st)}
+                      className={`flex items-center justify-center px-1.5 py-1.5 rounded text-xs transition border ${
+                        (Array.isArray(serviceStates) && serviceStates.includes(st))
+                          ? "bg-sky-500 text-white border-sky-500 font-medium"
+                          : "bg-white text-gray-700 border-gray-300 hover:border-sky-300"
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
+                
+                {serviceStates.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-3">
+                    {serviceStates.length} state{serviceStates.length !== 1 ? "s" : ""} selected
+                  </p>
+                )}
+              </div>
+            </div>
+
             {/* API Integration */}
             <div className="md:col-span-2">
               <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Prescription Push Pharmacy API Integration</h3>
@@ -331,8 +428,8 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
                   >
                     <option value="">— Not configured —</option>
                     {vendorOptions.map((v) => (
-                    <option key={v.value} value={v.value}>{v.label}</option>
-))}
+                      <option key={v.value} value={v.value}>{v.label}</option>
+                    ))}
                   </select>
                   {errors.api_vendor && (
                     <p className="text-red-500 text-xs mt-1">{errors.api_vendor.message}</p>
@@ -458,13 +555,12 @@ export default function PharmacyForm({ mode, pharmacy, open = true, onOpenChange
           </form>
         </div>
 
-        {/* Sticky footer */}
-        <div className="sticky bottom-0 left-0 right-0 bg-white border-t px-6 py-4 flex justify-end">
+        <div className="border-t px-6 py-4 flex justify-end bg-gray-50">
           <button
             type="submit"
             form="pharmacy-form"
             disabled={loading}
-            className="bg-sky-500 hover:bg-sky-600 text-white px-6 py-2 rounded-md transition"
+            className="bg-sky-500 hover:bg-sky-600 text-white px-8 py-2.5 rounded-md font-medium transition shadow-sm disabled:opacity-50"
           >
             {loading ? (mode === "edit" ? "Saving..." : "Creating...") : mode === "edit" ? "Save changes" : "Create Pharmacy"}
           </button>

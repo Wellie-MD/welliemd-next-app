@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2, RefreshCw, Link as LinkIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, RefreshCw, Link as LinkIcon, Upload } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import PharmacyForm from "@/components/pharmacies/PharmacyForm";
 import { pharmacyApi, Pharmacy } from "@/api/pharmacyApi";
@@ -37,6 +37,8 @@ export default function Pharmacies() {
   const [editing, setEditing] = useState<Pharmacy | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<Pharmacy | null>(null);
+  const [syncToClientsLoading, setSyncToClientsLoading] = useState(false);
+  const [confirmSyncToClients, setConfirmSyncToClients] = useState(false);
 
   const fetchList = async () => {
     try {
@@ -106,6 +108,36 @@ export default function Pharmacies() {
     }
   };
 
+  const handleSyncToClients = async () => {
+    setSyncToClientsLoading(true);
+    setConfirmSyncToClients(false);
+    try {
+      const result = await pharmacyApi.syncToClients();
+      if (result.success) {
+        toast({
+          title: "Sync Complete",
+          description: `Successfully synced ${result.pharmacies_count} pharmacies to ${result.successful} clients.`,
+        });
+      } else {
+        const failedClients = result.results.filter(r => !r.success).map(r => r.client_name).join(", ");
+        toast({
+          title: "Sync Partial",
+          description: `Synced to ${result.successful}/${result.total_clients} clients. Failed: ${failedClients}`,
+          variant: "destructive",
+        });
+      }
+    } catch (e: any) {
+      console.error(e);
+      toast({
+        title: "Sync Failed",
+        description: e?.response?.data?.error || "Failed to sync pharmacies to clients",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncToClientsLoading(false);
+    }
+  };
+
   const columns = [
     { key: "store_name", label: "Pharmacy" },
     { key: "city", label: "City" },
@@ -114,6 +146,17 @@ export default function Pharmacies() {
     { key: "primary_phone", label: "Phone" },
     { key: "email", label: "Email" },
     { key: "ncpdp_id", label: "NCPDP" },
+    {
+      key: "service_states",
+      label: "Serving",
+      render: (...a: any[]) => {
+        const states = getRow<Pharmacy>(...a).service_states || [];
+        if (!states.length) return <span className="text-muted-foreground text-xs">All States</span>;
+        const preview = states.slice(0, 3).join(", ");
+        const more = states.length > 3 ? ` +${states.length - 3}` : "";
+        return <span className="text-xs">{preview}{more}</span>;
+      }
+    },
     {
       key: "api_vendor",
       label: "API",
@@ -175,6 +218,14 @@ export default function Pharmacies() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Pharmacies</h1>
         <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => setConfirmSyncToClients(true)}
+            disabled={syncToClientsLoading}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            {syncToClientsLoading ? "Syncing..." : "Push to Clients"}
+          </Button>
           <Button variant="outline" onClick={() => setRefreshKey(v => v + 1)}>
             <RefreshCw className="h-4 w-4 mr-2" /> Refresh
           </Button>
@@ -242,6 +293,25 @@ export default function Pharmacies() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Sync to Clients Confirmation Modal */}
+      <AlertDialog open={confirmSyncToClients} onOpenChange={setConfirmSyncToClients}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Push Pharmacies to All Clients</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will sync all pharmacy data (including service states) to all configured client databases. 
+              This action will update existing pharmacies and create new ones as needed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSyncToClients}>
+              Push to Clients
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
