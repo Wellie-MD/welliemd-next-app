@@ -27,6 +27,9 @@ export interface Client {
   first_next_saas_fees_billing_date?: string;
   include_cost_to_client_in_reimbursement?: boolean;
   include_shipping_cost_to_client_in_reimbursement?: boolean;
+  b2b_dunning_enabled?: boolean;
+  b2b_grace_period_days?: number;
+  b2b_manual_pay_enabled?: boolean;
   payment_gateway: string;
   is_active: boolean;
   created_at: string;
@@ -86,6 +89,9 @@ export interface ClientCreatePayload {
   first_next_saas_fees_billing_date?: string;
   include_cost_to_client_in_reimbursement?: boolean;
   include_shipping_cost_to_client_in_reimbursement?: boolean;
+  b2b_dunning_enabled?: boolean;
+  b2b_grace_period_days?: number;
+  b2b_manual_pay_enabled?: boolean;
 
   // Payment Gateway
   payment_gateway?: string;
@@ -132,6 +138,9 @@ export interface ClientUpdatePayload {
   first_next_saas_fees_billing_date?: string;
   include_cost_to_client_in_reimbursement?: boolean;
   include_shipping_cost_to_client_in_reimbursement?: boolean;
+  b2b_dunning_enabled?: boolean;
+  b2b_grace_period_days?: number;
+  b2b_manual_pay_enabled?: boolean;
 
   // Payment Gateway
   payment_gateway?: string;
@@ -272,8 +281,8 @@ export const clientApi = {
     // Fetch payment method and recent invoices
     const [paymentMethodRes, invoicesRes] = await Promise.all([
       axiosInstance.get(`/internal/clients/${clientId}/payment-method/`),
-      axiosInstance.get(`/internal/clients/${clientId}/invoices/reimbursement/`, {
-        params: { page_size: 5, ordering: '-issued_at' }
+      axiosInstance.get(`/internal/invoices/`, {
+        params: { page_size: 5, ordering: '-issued_at', client_id: clientId, invoice_type: 'reimbursement' }
       })
     ]);
 
@@ -297,9 +306,10 @@ export const clientApi = {
     invoiceType?: 'reimbursement' | 'saas_fee' | 'aggregated_snapshot',
     params?: Record<string, unknown>
   ): Promise<import('../types/b2bBilling').B2BInvoiceListResponse> => {
-    const type = invoiceType || 'reimbursement';
-    const { data } = await axiosInstance.get(`/internal/clients/${clientId}/invoices/${type}/`, {
-      params: params || {}
+    const mergedParams = { ...(params || {}), client_id: clientId } as Record<string, unknown>;
+    if (invoiceType) mergedParams.invoice_type = invoiceType;
+    const { data } = await axiosInstance.get(`/internal/invoices/`, {
+      params: mergedParams
     });
     return data;
   },

@@ -37,7 +37,7 @@ export default function Billing() {
   const formatBreakdown = (inv: B2BInvoice) => {
     const items = (inv as any).line_items ?? [];
     const pharmacy = items
-      .filter((li: any) => li.item_type === "medication_reimbursement")
+      .filter((li: any) => ["medication_reimbursement", "shipping_cost"].includes(li.item_type))
       .reduce(
         (sum: number, li: any) =>
           sum + parseFloat(li.total_amount || li.unit_price || 0),
@@ -53,31 +53,7 @@ export default function Billing() {
     if (!pharmacy && !consult) return "-";
     return `Pharmacy: $${pharmacy.toFixed(2)} · Consult: $${consult.toFixed(2)}`;
   };
-  const groupedInvoices = useMemo(() => {
-    const buckets = new Map<string, { invoice: B2BInvoice; line_items: any[]; total_amount: number }>();
-    for (const inv of invoices) {
-      const periodStart = (inv as any).billing_period_start || "";
-      const periodEnd = (inv as any).billing_period_end || "";
-      const key = `${(inv as any).client_id || (inv as any).client?.id || ""}|${inv.invoice_type}|${periodStart}|${periodEnd}`;
-      const amount = parseFloat((inv as any).total_amount ?? inv.amount ?? "0");
-      if (!buckets.has(key)) {
-        buckets.set(key, {
-          invoice: inv,
-          line_items: [...(inv.line_items ?? [])],
-          total_amount: amount,
-        });
-      } else {
-        const bucket = buckets.get(key)!;
-        bucket.total_amount += amount;
-        bucket.line_items.push(...(inv.line_items ?? []));
-      }
-    }
-    return Array.from(buckets.values()).map((b) => ({
-      ...b.invoice,
-      line_items: b.line_items,
-      total_amount: b.total_amount.toFixed(2),
-    })) as B2BInvoice[];
-  }, [invoices]);
+  const groupedInvoices = invoices;
 
   return (
     <div className="p-6 space-y-6">
@@ -205,7 +181,9 @@ export default function Billing() {
                     const amount = parseFloat(
                       (inv as any).total_amount ?? inv.amount ?? "0"
                     ).toFixed(2);
-                    const status = (inv.status || "-").toString();
+                    const status = ((inv as any).is_overdue && inv.status !== "paid"
+                      ? "overdue"
+                      : inv.status || "-").toString();
                     return (
                       <tr
                         key={inv.id}

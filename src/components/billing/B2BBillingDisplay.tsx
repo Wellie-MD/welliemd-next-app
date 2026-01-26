@@ -45,7 +45,7 @@ export function B2BBillingDisplay({
     if (normalized.includes("visa")) return visaIcon;
     if (normalized.includes("mastercard") || normalized.includes("master card"))
       return mastercardIcon;
-    if (normalized.includes("amex") || normalized.includes("american express"))
+    if (normalized.includes("amex") || normalized.includes("american express") || normalized.includes("americanexpress"))
       return amexIcon;
     if (normalized.includes("discover")) return discoverIcon;
     if (normalized.includes("diners")) return dinersIcon;

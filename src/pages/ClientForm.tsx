@@ -97,6 +97,9 @@ export default function ClientForm() {
     first_next_saas_fees_billing_date: "",
     include_cost_to_client_in_reimbursement: true,
     include_shipping_cost_to_client_in_reimbursement: true,
+    b2b_dunning_enabled: true,
+    b2b_grace_period_days: 7,
+    b2b_manual_pay_enabled: true,
 
     // Payment Gateway
     payment_gateway: "nmi",
@@ -203,6 +206,9 @@ export default function ClientForm() {
           existingClient.include_cost_to_client_in_reimbursement ?? true,
         include_shipping_cost_to_client_in_reimbursement:
           existingClient.include_shipping_cost_to_client_in_reimbursement ?? true,
+        b2b_dunning_enabled: existingClient.b2b_dunning_enabled ?? true,
+        b2b_grace_period_days: existingClient.b2b_grace_period_days ?? 7,
+        b2b_manual_pay_enabled: existingClient.b2b_manual_pay_enabled ?? true,
         payment_gateway: existingClient.payment_gateway || "nmi",
         is_active: existingClient.is_active,
       });
@@ -394,6 +400,13 @@ export default function ClientForm() {
         monthly_saas_fee: formData.monthly_saas_fee,
         first_next_saas_fees_billing_date:
           formData.first_next_saas_fees_billing_date || undefined,
+        include_cost_to_client_in_reimbursement:
+          formData.include_cost_to_client_in_reimbursement,
+        include_shipping_cost_to_client_in_reimbursement:
+          formData.include_shipping_cost_to_client_in_reimbursement,
+        b2b_dunning_enabled: formData.b2b_dunning_enabled,
+        b2b_grace_period_days: formData.b2b_grace_period_days,
+        b2b_manual_pay_enabled: formData.b2b_manual_pay_enabled,
         payment_gateway: formData.payment_gateway,
         is_active: formData.is_active,
       };
@@ -1028,11 +1041,11 @@ export default function ClientForm() {
                     />
                   </div>
 
-                  <div className="flex items-center justify-between rounded-lg border p-3">
-                    <div>
-                      <p className="text-sm font-medium">
-                        Include shipping cost to client
-                      </p>
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <p className="text-sm font-medium">
+                      Include shipping cost to client
+                    </p>
                       <p className="text-xs text-muted-foreground">
                         Charges the client for shipping cost on reimbursement
                         invoices.
@@ -1050,6 +1063,73 @@ export default function ClientForm() {
                         })
                       }
                     />
+                  </div>
+                </div>
+
+                <div className="border-t pt-4 space-y-4">
+                  <div className="space-y-1">
+                    <Label className="text-sm font-medium">
+                      Subscription Dunning
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Configure grace period handling for failed SaaS subscription renewals.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <div>
+                      <p className="text-sm font-medium">Enable grace period</p>
+                      <p className="text-xs text-muted-foreground">
+                        Keep subscription active while invoice is due.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={formData.b2b_dunning_enabled ?? true}
+                      onCheckedChange={(checked) =>
+                        setFormData({
+                          ...formData,
+                          b2b_dunning_enabled: checked,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="b2b_grace_period_days">Grace period (days)</Label>
+                      <Input
+                        id="b2b_grace_period_days"
+                        type="number"
+                        min={0}
+                        max={60}
+                        value={formData.b2b_grace_period_days ?? 7}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            b2b_grace_period_days: Number(e.target.value),
+                          })
+                        }
+                        disabled={!formData.b2b_dunning_enabled}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                      <div>
+                        <p className="text-sm font-medium">Allow manual pay</p>
+                        <p className="text-xs text-muted-foreground">
+                          Let clients manually pay overdue invoices.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={formData.b2b_manual_pay_enabled ?? true}
+                        onCheckedChange={(checked) =>
+                          setFormData({
+                            ...formData,
+                            b2b_manual_pay_enabled: checked,
+                          })
+                        }
+                        disabled={!formData.b2b_dunning_enabled}
+                      />
+                    </div>
                   </div>
                 </div>
               </CardContent>

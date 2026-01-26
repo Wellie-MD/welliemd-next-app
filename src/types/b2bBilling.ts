@@ -51,6 +51,7 @@ export interface B2BInvoice {
   client: string; // Client UUID
   invoice_type: InvoiceType;
   status: InvoiceStatus;
+  is_overdue?: boolean;
   total_amount: string;
   
   // Breakdown for aggregated snapshots
