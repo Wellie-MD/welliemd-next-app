@@ -32,6 +32,8 @@ export function PaymentMethodsSection({ userId }: PaymentMethodsSectionProps) {
   const canDelete = can(PERMISSIONS.PAYMENT_METHOD_DELETE);
 
   const activeGateway: PaymentGateway | null = config?.active_gateway ?? null;
+  const paymentMethodLimit = config?.payment_method_limit ?? null;
+  const limitReached = paymentMethodLimit !== null && methods.length >= paymentMethodLimit;
 
   const activeGatewayLabel = useMemo(() => {
     switch (activeGateway) {
@@ -87,6 +89,10 @@ export function PaymentMethodsSection({ userId }: PaymentMethodsSectionProps) {
     if (!activeGateway) return;
     if (!userId) {
       toast.error('User profile not loaded');
+      return;
+    }
+    if (limitReached) {
+      toast.error(`Card limit reached (${paymentMethodLimit}). Remove a card before adding another.`);
       return;
     }
 
@@ -174,6 +180,11 @@ export function PaymentMethodsSection({ userId }: PaymentMethodsSectionProps) {
           <p className="text-sm text-muted-foreground">Loading payment methods…</p>
         ) : (
           <>
+            {limitReached && (
+              <p className="text-xs text-muted-foreground">
+                You have reached the maximum of {paymentMethodLimit} saved cards. Remove a card before adding another.
+              </p>
+            )}
             <div className="space-y-3">
               {methods.length === 0 && (
                 <p className="text-sm text-muted-foreground">No payment methods on file.</p>
@@ -235,7 +246,7 @@ export function PaymentMethodsSection({ userId }: PaymentMethodsSectionProps) {
               )}
 
               <div className="mt-4">
-                <Button disabled={!canCreate || saving || !activeGateway} onClick={handleSave}>
+                <Button disabled={!canCreate || saving || !activeGateway || limitReached} onClick={handleSave}>
                   {saving ? 'Saving…' : 'Save payment method'}
                 </Button>
               </div>

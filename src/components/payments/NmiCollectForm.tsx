@@ -145,21 +145,25 @@ export const NmiCollectForm = forwardRef<NmiCollectFormHandle, NmiCollectFormPro
           placeholder="Jane Doe"
           className="mt-1 bg-background border border-input shadow-sm"
         />
+        <p className="mt-1 text-xs text-muted-foreground">Name as it appears on the card.</p>
       </div>
 
       <div>
         <Label className="text-sm">Card number</Label>
         <PaymentFieldFrame id="nmi-ccnumber" />
+        <p className="mt-1 text-xs text-muted-foreground">Enter the 16-digit card number.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label className="text-sm">Expiry</Label>
           <PaymentFieldFrame id="nmi-ccexp" />
+          <p className="mt-1 text-xs text-muted-foreground">MM / YY</p>
         </div>
         <div>
           <Label className="text-sm">CVV</Label>
           <PaymentFieldFrame id="nmi-cvv" />
+          <p className="mt-1 text-xs text-muted-foreground">3 or 4 digits.</p>
         </div>
       </div>
 
@@ -171,6 +175,7 @@ export const NmiCollectForm = forwardRef<NmiCollectFormHandle, NmiCollectFormPro
           placeholder="12345"
           className="mt-1 bg-background border border-input shadow-sm"
         />
+        <p className="mt-1 text-xs text-muted-foreground">Used for address verification.</p>
       </div>
 
       {loading && <p className="text-xs text-muted-foreground">Loading NMI…</p>}

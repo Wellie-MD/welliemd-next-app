@@ -146,28 +146,58 @@ export const AuthorizeNetAcceptForm = forwardRef<AuthorizeNetAcceptFormHandle, A
     <div className="space-y-4">
       <div>
         <Label className="text-sm">Cardholder name</Label>
-        <Input value={cardholderName} onChange={(e) => setCardholderName(e.target.value)} className="mt-1 bg-background border border-input shadow-sm" />
+        <Input
+          value={cardholderName}
+          onChange={(e) => setCardholderName(e.target.value)}
+          placeholder="Jane Doe"
+          className="mt-1 bg-background border border-input shadow-sm"
+        />
+        <p className="mt-1 text-xs text-muted-foreground">Name as it appears on the card.</p>
       </div>
 
       <div>
         <Label className="text-sm">Card number</Label>
-        <Input value={cardNumber} onChange={(e) => setCardNumber(formatCardNumber(e.target.value))} className="mt-1 bg-background border border-input shadow-sm" />
+        <Input
+          value={cardNumber}
+          onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+          placeholder="1234 5678 9012 3456"
+          className="mt-1 bg-background border border-input shadow-sm"
+        />
+        <p className="mt-1 text-xs text-muted-foreground">Enter the 16-digit card number.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label className="text-sm">Expiry</Label>
-          <Input value={expiry} onChange={(e) => setExpiry(formatExpiry(e.target.value))} className="mt-1 bg-background border border-input shadow-sm" placeholder="MM/YY" />
+          <Input
+            value={expiry}
+            onChange={(e) => setExpiry(formatExpiry(e.target.value))}
+            className="mt-1 bg-background border border-input shadow-sm"
+            placeholder="MM/YY"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">MM / YY</p>
         </div>
         <div>
           <Label className="text-sm">CVC</Label>
-          <Input value={cvc} onChange={(e) => setCvc(e.target.value.replace(/\D/g, '').slice(0, 4))} className="mt-1 bg-background border border-input shadow-sm" />
+          <Input
+            value={cvc}
+            onChange={(e) => setCvc(e.target.value.replace(/\D/g, '').slice(0, 4))}
+            className="mt-1 bg-background border border-input shadow-sm"
+            placeholder="123"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">3 or 4 digits.</p>
         </div>
       </div>
 
       <div>
         <Label className="text-sm">Billing ZIP</Label>
-        <Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className="mt-1 bg-background border border-input shadow-sm" />
+        <Input
+          value={postalCode}
+          onChange={(e) => setPostalCode(e.target.value)}
+          placeholder="12345"
+          className="mt-1 bg-background border border-input shadow-sm"
+        />
+        <p className="mt-1 text-xs text-muted-foreground">Used for address verification.</p>
       </div>
 
       {loading && <p className="text-xs text-muted-foreground">Loading Authorize.Net…</p>}

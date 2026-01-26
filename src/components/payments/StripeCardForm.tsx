@@ -119,7 +119,10 @@ export const StripeCardForm = forwardRef<StripeCardFormHandle, StripeCardFormPro
       }
 
       const normalizedZip = postalCode.trim();
-      if (normalizedZip && !/^\d{5}(-\d{4})?$/.test(normalizedZip)) {
+      if (!normalizedZip) {
+        throw new Error('Billing ZIP code is required');
+      }
+      if (!/^\d{5}(-\d{4})?$/.test(normalizedZip)) {
         throw new Error('Please enter a valid ZIP code');
       }
 
@@ -136,7 +139,7 @@ export const StripeCardForm = forwardRef<StripeCardFormHandle, StripeCardFormPro
         throw new Error(result.error.message || 'Stripe failed to create payment method');
       }
 
-      return { payment_method_id: result.paymentMethod.id, postal_code: normalizedZip || undefined };
+      return { payment_method_id: result.paymentMethod.id, postal_code: normalizedZip };
     },
   }));
 
@@ -150,6 +153,7 @@ export const StripeCardForm = forwardRef<StripeCardFormHandle, StripeCardFormPro
           placeholder="Jane Doe"
           className="mt-1 bg-background"
         />
+        <p className="mt-1 text-xs text-muted-foreground">Name as it appears on the card.</p>
       </div>
 
       <div>
@@ -157,6 +161,7 @@ export const StripeCardForm = forwardRef<StripeCardFormHandle, StripeCardFormPro
         <PaymentFieldFrame className="stripe-card-number">
           <div ref={cardNumberMountRef} />
         </PaymentFieldFrame>
+        <p className="mt-1 text-xs text-muted-foreground">Enter the 16-digit card number.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -165,12 +170,14 @@ export const StripeCardForm = forwardRef<StripeCardFormHandle, StripeCardFormPro
           <PaymentFieldFrame className="stripe-card-expiry">
             <div ref={cardExpiryMountRef} />
           </PaymentFieldFrame>
+          <p className="mt-1 text-xs text-muted-foreground">MM / YY</p>
         </div>
         <div>
           <Label className="text-sm">CVC</Label>
           <PaymentFieldFrame className="stripe-card-cvc">
             <div ref={cardCvcMountRef} />
           </PaymentFieldFrame>
+          <p className="mt-1 text-xs text-muted-foreground">3 or 4 digits.</p>
         </div>
       </div>
 
@@ -182,6 +189,7 @@ export const StripeCardForm = forwardRef<StripeCardFormHandle, StripeCardFormPro
           placeholder="12345"
           className="mt-1 bg-background"
         />
+        <p className="mt-1 text-xs text-muted-foreground">Used for address verification.</p>
       </div>
 
       {loading && <p className="text-xs text-muted-foreground">Loading Stripe…</p>}

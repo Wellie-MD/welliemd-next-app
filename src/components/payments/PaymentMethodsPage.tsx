@@ -31,7 +31,7 @@ const resolveCardIcon = (brand?: string) => {
   const normalized = (brand || '').toLowerCase().trim();
   if (normalized.includes('visa')) return visaLogo;
   if (normalized.includes('mastercard') || normalized.includes('master card')) return mastercardLogo;
-  if (normalized.includes('amex') || normalized.includes('american express')) return amexLogo;
+  if (normalized.includes('amex') || normalized.includes('american express') || normalized.includes('americanexpress')) return amexLogo;
   if (normalized.includes('discover')) return discoverLogo;
   if (normalized.includes('diners')) return dinersLogo;
   if (normalized.includes('jcb')) return genericCardLogo;
@@ -59,6 +59,8 @@ export default function PaymentMethodsPage() {
   const canDelete = can(PERMISSIONS.PAYMENT_METHOD_DELETE);
 
   const activeGateway: PaymentGateway | null = config?.active_gateway ?? null;
+  const paymentMethodLimit = config?.payment_method_limit ?? null;
+  const limitReached = paymentMethodLimit !== null && methods.length >= paymentMethodLimit;
 
   const gatewayLabel = useMemo(() => {
     if (activeGateway === 'stripe') return 'Stripe';
@@ -66,6 +68,9 @@ export default function PaymentMethodsPage() {
     if (activeGateway === 'authorize_net') return 'Authorize.Net';
     return 'Unknown';
   }, [activeGateway]);
+
+  const defaultMethods = methods.filter((m) => m.is_default);
+  const otherMethods = methods.filter((m) => !m.is_default);
 
   const loadConfig = async () => {
     try {
@@ -222,14 +227,14 @@ export default function PaymentMethodsPage() {
               {canCreate && (
                 <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="gap-2">
+                    <Button className="gap-2" disabled={limitReached}>
                       <Pencil className="h-4 w-4" />
-                      {methods.length > 0 ? 'Update payment method' : 'Add payment method'}
+                      Add another card
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-xl">
                     <DialogHeader>
-                      <DialogTitle className="text-2xl">{methods.length > 0 ? 'Update payment method' : 'Add a new card'}</DialogTitle>
+                      <DialogTitle className="text-2xl">Add a new card</DialogTitle>
                       <DialogDescription>
                         We use {gatewayLabel} to safely store your payment method.
                       </DialogDescription>
@@ -246,76 +251,143 @@ export default function PaymentMethodsPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
+            {limitReached && (
+              <div className="rounded-lg border border-dashed border-border bg-background p-3 text-xs text-muted-foreground">
+                You have reached the maximum of {paymentMethodLimit} saved cards. Remove a card before adding another.
+              </div>
+            )}
             {!canList ? (
-              <div className="rounded-xl border border-border bg-background p-6 text-sm text-muted-foreground">
+              <div className="rounded-lg border border-border bg-background p-6 text-sm text-muted-foreground">
                 You do not have permission to manage payment methods.
               </div>
             ) : loading ? (
-              <div className="rounded-xl border border-dashed border-border bg-background p-6 text-sm text-muted-foreground">
+              <div className="rounded-lg border border-dashed border-border bg-background p-6 text-sm text-muted-foreground">
                 Loading payment methods…
               </div>
             ) : methods.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border bg-background p-6 text-sm text-muted-foreground">
+              <div className="rounded-lg border border-dashed border-border bg-background p-6 text-sm text-muted-foreground">
                 No payment methods on file. Add a card to get started.
               </div>
             ) : (
-              <div className="space-y-4">
-                {methods.map((method) => (
-                  <div key={method.id} className="rounded-2xl border border-border bg-background p-4 shadow-sm">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-background">
-                          <img
-                            src={resolveCardIcon(method.card_brand)}
-                            alt={method.card_brand || 'card'}
-                            className="h-6 w-auto object-contain"
-                          />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold">
-                            {(method.card_brand || 'Card').replace(/\b\w/g, (c) => c.toUpperCase())}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {method.masked_card_number || '••••'}
-                            {method.card_expiry_month && method.card_expiry_year
-                              ? ` • Exp ${method.card_expiry_month}/${method.card_expiry_year}`
-                              : ''}
-                            {method.billing_postal_code ? ` • ZIP ${method.billing_postal_code}` : ''}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2">
-                        {method.is_default && (
-                          <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
-                            Default
-                          </span>
-                        )}
-                        {!method.is_default && canUpdate && (
-                          <Button variant="outline" size="sm" onClick={() => handleSetDefault(method.id)}>
-                            Make Default
-                          </Button>
-                        )}
-                        {canDelete && (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            disabled={methods.length <= 1}
-                            title={methods.length <= 1 ? 'Add another card before removing this one.' : 'Remove payment method'}
-                            onClick={() => handleDelete(method.id)}
-                          >
-                            Remove
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                    {methods.length <= 1 && (
-                      <p className="mt-3 text-xs text-muted-foreground">
-                        Add a new payment method before removing this one.
-                      </p>
-                    )}
+              <div className="space-y-8">
+                <section className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-foreground">Default card</p>
+                    <span className="text-xs text-muted-foreground">Used for automatic payments</span>
                   </div>
-                ))}
+                  {defaultMethods.length === 0 ? (
+                    <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                      No default card set.
+                    </div>
+                  ) : (
+                    defaultMethods.map((method) => (
+                      <div key={method.id} className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                          <div className="flex items-center gap-4">
+                            <div className="flex h-10 w-14 items-center justify-center rounded-lg border border-primary/30 bg-background px-2">
+                              <img
+                                src={resolveCardIcon(method.card_brand)}
+                                alt={method.card_brand || 'card'}
+                                className="h-6 w-full object-contain"
+                              />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold">
+                                {(method.card_brand || 'Card').replace(/\b\w/g, (c) => c.toUpperCase())}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {method.masked_card_number || '••••'}
+                                {method.card_expiry_month && method.card_expiry_year
+                                  ? ` • Exp ${method.card_expiry_month}/${method.card_expiry_year}`
+                                  : ''}
+                                {method.billing_postal_code ? ` • ZIP ${method.billing_postal_code}` : ''}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                              Default
+                            </span>
+                            {canDelete && (
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                disabled={methods.length <= 1}
+                                title={methods.length <= 1 ? 'Add another card before removing this one.' : 'Remove payment method'}
+                                onClick={() => handleDelete(method.id)}
+                              >
+                                Remove
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        {methods.length <= 1 && (
+                          <p className="mt-3 text-xs text-muted-foreground">
+                            Add a new payment method before removing this one.
+                          </p>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </section>
+
+                <section className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-foreground">Other cards</p>
+                    <span className="text-xs text-muted-foreground">Available for manual selection</span>
+                  </div>
+                  {otherMethods.length === 0 ? (
+                    <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                      No additional cards.
+                    </div>
+                  ) : (
+                    otherMethods.map((method) => (
+                      <div key={method.id} className="rounded-xl border border-border bg-background p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                          <div className="flex items-center gap-4">
+                            <div className="flex h-10 w-14 items-center justify-center rounded-lg border border-border bg-background px-2">
+                              <img
+                                src={resolveCardIcon(method.card_brand)}
+                                alt={method.card_brand || 'card'}
+                                className="h-6 w-full object-contain"
+                              />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold">
+                                {(method.card_brand || 'Card').replace(/\b\w/g, (c) => c.toUpperCase())}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {method.masked_card_number || '••••'}
+                                {method.card_expiry_month && method.card_expiry_year
+                                  ? ` • Exp ${method.card_expiry_month}/${method.card_expiry_year}`
+                                  : ''}
+                                {method.billing_postal_code ? ` • ZIP ${method.billing_postal_code}` : ''}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {canUpdate && (
+                              <Button variant="outline" size="sm" onClick={() => handleSetDefault(method.id)}>
+                                Make Default
+                              </Button>
+                            )}
+                            {canDelete && (
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                disabled={methods.length <= 1}
+                                title={methods.length <= 1 ? 'Add another card before removing this one.' : 'Remove payment method'}
+                                onClick={() => handleDelete(method.id)}
+                              >
+                                Remove
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </section>
               </div>
             )}
           </CardContent>
