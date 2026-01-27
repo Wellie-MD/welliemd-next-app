@@ -47,15 +47,6 @@ export default function Profile() {
     allergies: '',
     medical_conditions: '',
     self_reported_meds: '',
-    // Fields that don't exist in backend but keeping for now
-    mrn: '',
-    address_line_2: '',
-    height_feet: '',
-    height_inches: '',
-    weight: '',
-    blood_type: '',
-    timezone: '',
-    driver_license: '',
   });
 
   // Loading states for each section
@@ -124,6 +115,13 @@ export default function Profile() {
     }));
   };
 
+  const formatHeight = (inches?: number | null) => {
+    if (!inches && inches !== 0) return null;
+    const feet = Math.floor(inches / 12);
+    const remaining = inches % 12;
+    return `${feet}' ${remaining}"`;
+  };
+
   // Save handlers
   const handleSaveBasicInfo = async () => {
     setSavingBasic(true);
@@ -172,6 +170,10 @@ export default function Profile() {
   };
   
   const handleSaveProfileInfo = async () => {
+    if (!profileInfo.phone || !profileInfo.date_of_birth || !profileInfo.address || !profileInfo.city || !profileInfo.state || !profileInfo.zip_code || !profileInfo.sex) {
+      toast.error('Please complete all required profile fields.');
+      return;
+    }
     setSavingProfile(true);
     try {
       // Only send backend fields
@@ -360,8 +362,51 @@ export default function Profile() {
       <Card>
         <CardHeader>
           <CardTitle>Profile Information</CardTitle>
+          <p className="text-sm text-gray-600">
+            Keep your medical and contact details current so your care team can reach you quickly.
+          </p>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Latest vitals</p>
+                <p className="text-xs text-gray-500">Recorded from your most recent questionnaire</p>
+              </div>
+              {patientProfile?.latest_vitals?.measured_at ? (
+                <span className="text-xs text-gray-500">
+                  {new Date(patientProfile.latest_vitals.measured_at).toLocaleDateString()}
+                </span>
+              ) : null}
+            </div>
+            {patientProfile?.latest_vitals ? (
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="rounded-lg bg-white px-4 py-3 shadow-sm">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">Height</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">
+                    {formatHeight(patientProfile.latest_vitals.height_inches) || 'Not recorded'}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-white px-4 py-3 shadow-sm">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">Weight</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">
+                    {patientProfile.latest_vitals.weight_lbs
+                      ? `${patientProfile.latest_vitals.weight_lbs} lbs`
+                      : 'Not recorded'}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-white px-4 py-3 shadow-sm">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">BMI</p>
+                  <p className="mt-1 text-sm font-semibold text-gray-900">
+                    {patientProfile.latest_vitals.bmi || 'Not recorded'}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-gray-500">No vitals recorded yet.</p>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
               <Label htmlFor="phone">Phone<span className="text-red-500">*</span></Label>
@@ -369,17 +414,6 @@ export default function Profile() {
                 id="phone" 
                 value={profileInfo.phone}
                 onChange={(e) => handleProfileInfoChange('phone', e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="mrn">MRN Number</Label>
-              <Input 
-                id="mrn" 
-                value={profileInfo.mrn}
-                onChange={(e) => handleProfileInfoChange('mrn', e.target.value)}
-                disabled
-                className="bg-gray-50"
-                placeholder="Not implemented yet"
               />
             </div>
             <div className="space-y-2">
@@ -393,17 +427,6 @@ export default function Profile() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="address2">Address Line 2</Label>
-              <Input 
-                id="address2" 
-                value={profileInfo.address_line_2}
-                onChange={(e) => handleProfileInfoChange('address_line_2', e.target.value)}
-                disabled
-                className="bg-gray-50"
-                placeholder="Not implemented yet"
-              />
-            </div>
             <div className="space-y-2">
               <Label htmlFor="city">City<span className="text-red-500">*</span></Label>
               <Input 
@@ -442,42 +465,6 @@ export default function Profile() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="heightFeet">Height (Feet)<span className="text-red-500">*</span></Label>
-              <Input 
-                id="heightFeet" 
-                value={profileInfo.height_feet}
-                onChange={(e) => handleProfileInfoChange('height_feet', e.target.value)}
-                disabled
-                className="bg-gray-50"
-                placeholder="Not implemented yet"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="heightInches">Height (Inches)<span className="text-red-500">*</span></Label>
-              <Input 
-                id="heightInches" 
-                value={profileInfo.height_inches}
-                onChange={(e) => handleProfileInfoChange('height_inches', e.target.value)}
-                disabled
-                className="bg-gray-50"
-                placeholder="Not implemented yet"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="weight">Weight (lbs)<span className="text-red-500">*</span></Label>
-              <Input 
-                id="weight" 
-                value={profileInfo.weight}
-                onChange={(e) => handleProfileInfoChange('weight', e.target.value)}
-                disabled
-                className="bg-gray-50"
-                placeholder="Not implemented yet"
-              />
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="sex">Sex<span className="text-red-500">*</span></Label>
               <Select 
                 value={profileInfo.sex} 
@@ -502,57 +489,6 @@ export default function Profile() {
                 type="date" 
                 value={profileInfo.date_of_birth}
                 onChange={(e) => handleProfileInfoChange('date_of_birth', e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="bloodType">Blood Type<span className="text-red-500">*</span></Label>
-              <Select 
-                value={profileInfo.blood_type} 
-                onValueChange={(value) => handleProfileInfoChange('blood_type', value)}
-                disabled
-              >
-                <SelectTrigger className="bg-gray-50">
-                  <SelectValue placeholder="Not implemented yet" />
-                </SelectTrigger>
-                <SelectContent>
-                  {MEDICAL.BLOOD_TYPES.map((type) => (
-                    <SelectItem key={type} value={type.toLowerCase().replace('+', '-positive').replace('-', '-negative')}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="timezone">Timezone</Label>
-              <Select 
-                value={profileInfo.timezone} 
-                onValueChange={(value) => handleProfileInfoChange('timezone', value)}
-                disabled
-              >
-                <SelectTrigger className="bg-gray-50">
-                  <SelectValue placeholder="Not implemented yet" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="eastern">Eastern Time</SelectItem>
-                  <SelectItem value="central">Central Time</SelectItem>
-                  <SelectItem value="mountain">Mountain Time</SelectItem>
-                  <SelectItem value="pacific">Pacific Time</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="driverLicense">Driver License Number</Label>
-              <Input 
-                id="driverLicense" 
-                value={profileInfo.driver_license}
-                onChange={(e) => handleProfileInfoChange('driver_license', e.target.value)}
-                disabled
-                className="bg-gray-50"
-                placeholder="Not implemented yet"
               />
             </div>
           </div>

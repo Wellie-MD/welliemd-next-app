@@ -15,21 +15,34 @@ export type UserProfile = z.infer<typeof UserProfileSchema>;
 // Patient Profile Schema  
 export const PatientProfileSchema = z.object({
   id: z.string().uuid(),
-  user: z.string().uuid(),
-  user_email: z.string().email(),
-  user_name: z.string(),
-  phone: z.string(),
-  date_of_birth: z.string(),
-  address: z.string(),
-  city: z.string(),
-  state: z.string(),
-  zip_code: z.string(),
-  sex: z.enum(['Male', 'Female', 'Other']),
-  allergies: z.string().optional(),
-  medical_conditions: z.string().optional(),
-  self_reported_meds: z.string().optional(),
-  created_at: z.string(),
-  updated_at: z.string(),
+  email: z.string().email().optional(),
+  first_name: z.string().optional(),
+  last_name: z.string().optional(),
+  full_name: z.string().optional(),
+  phone: z.string().nullish(),
+  date_of_birth: z.string().nullish(),
+  address: z.string().nullish(),
+  city: z.string().nullish(),
+  state: z.string().nullish(),
+  zip_code: z.string().nullish(),
+  sex: z.enum(['Male', 'Female', 'Other']).nullish(),
+  allergies: z.string().nullish(),
+  medical_conditions: z.string().nullish(),
+  self_reported_meds: z.string().nullish(),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
+  orders_count: z.number().optional(),
+  last_order_at: z.string().nullable().optional(),
+  last_order_display_id: z.string().optional(),
+  latest_vitals: z
+    .object({
+      height_inches: z.number().nullable().optional(),
+      weight_lbs: z.string().nullable().optional(),
+      bmi: z.string().nullable().optional(),
+      measured_at: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export type PatientProfile = z.infer<typeof PatientProfileSchema>;
