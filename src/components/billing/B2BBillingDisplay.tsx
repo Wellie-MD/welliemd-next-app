@@ -185,7 +185,7 @@ export function B2BBillingDisplay({
     <>
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <CreditCard className="h-5 w-5" />
@@ -196,7 +196,7 @@ export function B2BBillingDisplay({
               </CardDescription>
             </div>
             {client && (
-              <div>
+              <div className="flex flex-wrap gap-2">
                 {hasSubscription ? (
                   <Button
                     type="button"
@@ -240,7 +240,7 @@ export function B2BBillingDisplay({
         <CardContent className="space-y-4">
           {/* Subscription Status */}
           {subscriptionStatus && (
-            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-3 bg-muted rounded-lg">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Subscription Status</span>
@@ -292,7 +292,7 @@ export function B2BBillingDisplay({
             hasPaymentMethod &&
             paymentMethod ? (
               <div className="bg-slate-50 rounded-lg p-4 space-y-3">
-                <div className="flex items-start gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-3">
                   <div className="flex-shrink-0 w-12 h-8 bg-white rounded border border-slate-200 flex items-center justify-center">
                     <img
                       src={resolveCardIcon(paymentMethod.brand)}
@@ -301,18 +301,18 @@ export function B2BBillingDisplay({
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-sm font-medium text-slate-900">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-1">
+                      <p className="text-sm font-medium text-slate-900 break-words">
                         {paymentMethod.brand.charAt(0).toUpperCase() +
                           paymentMethod.brand.slice(1)}{" "}
                         •••• •••• •••• {paymentMethod.last4}
                       </p>
                       {paymentMethod.is_expired ? (
-                        <Badge variant="destructive" className="ml-2">
+                        <Badge variant="destructive" className="sm:ml-2">
                           Expired
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="ml-2">
+                        <Badge variant="outline" className="sm:ml-2">
                           <CheckCircle className="h-3 w-3 mr-1" />
                           Active
                         </Badge>
@@ -357,9 +357,9 @@ export function B2BBillingDisplay({
                   {billingStatus.recent_invoices.slice(0, 3).map((invoice) => (
                     <div
                       key={invoice.id}
-                      className="flex items-center justify-between p-2 bg-muted rounded text-sm"
+                      className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-2 bg-muted rounded text-sm"
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <FileText className="h-3 w-3 text-muted-foreground" />
                         <span className="font-mono text-xs">
                           {invoice.invoice_number}

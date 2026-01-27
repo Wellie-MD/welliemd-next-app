@@ -879,8 +879,15 @@ export default function ClientForm() {
                   Configure fees and billing settings
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
+              <CardContent className="space-y-6">
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Core Fees</p>
+                    <p className="text-xs text-muted-foreground">
+                      These fees define your base pricing model for patients and consults.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="patient_fee">Patient Fee ($)</Label>
                     <Input
@@ -891,7 +898,7 @@ export default function ClientForm() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          patient_fee: parseFloat(e.target.value),
+                          patient_fee: e.target.value === "" ? 0 : parseFloat(e.target.value),
                         })
                       }
                     />
@@ -908,7 +915,7 @@ export default function ClientForm() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          async_consult_fee_to_client: parseFloat(
+                          async_consult_fee_to_client: e.target.value === "" ? 0 : parseFloat(
                             e.target.value
                           ),
                         })
@@ -927,14 +934,21 @@ export default function ClientForm() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          async_consult_cost: parseFloat(e.target.value),
+                          async_consult_cost: e.target.value === "" ? 0 : parseFloat(e.target.value),
                         })
                       }
                     />
                   </div>
                 </div>
-
-                <div className="grid grid-cols-3 gap-4">
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Sync & SaaS Fees</p>
+                    <p className="text-xs text-muted-foreground">
+                      Sync consult rates and the monthly SaaS base fee.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="sync_video_consult_fee_to_client">
                       Sync Consult Fee ($)
@@ -947,7 +961,7 @@ export default function ClientForm() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          sync_video_consult_fee_to_client: parseFloat(
+                          sync_video_consult_fee_to_client: e.target.value === "" ? 0 : parseFloat(
                             e.target.value
                           ),
                         })
@@ -966,7 +980,7 @@ export default function ClientForm() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          sync_consult_cost: parseFloat(e.target.value),
+                          sync_consult_cost: e.target.value === "" ? 0 : parseFloat(e.target.value),
                         })
                       }
                     />
@@ -983,31 +997,33 @@ export default function ClientForm() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          monthly_saas_fee: parseFloat(e.target.value),
+                          monthly_saas_fee: e.target.value === "" ? 0 : parseFloat(e.target.value),
                         })
                       }
                     />
                   </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="first_next_saas_fees_billing_date">
+                        First/Next SaaS Billing Date
+                      </Label>
+                      <Input
+                        id="first_next_saas_fees_billing_date"
+                        type="date"
+                        value={formData.first_next_saas_fees_billing_date}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            first_next_saas_fees_billing_date: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="first_next_saas_fees_billing_date">
-                    First/Next SaaS Billing Date
-                  </Label>
-                  <Input
-                    id="first_next_saas_fees_billing_date"
-                    type="date"
-                    value={formData.first_next_saas_fees_billing_date}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        first_next_saas_fees_billing_date: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="border-t pt-4 space-y-4">
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
                   <div className="space-y-1">
                     <Label className="text-sm font-medium">
                       Reimbursement Charge Options
@@ -1018,7 +1034,7 @@ export default function ClientForm() {
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-background p-3">
                     <div>
                       <p className="text-sm font-medium">
                         Include medication cost to client
@@ -1041,11 +1057,11 @@ export default function ClientForm() {
                     />
                   </div>
 
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <div>
-                    <p className="text-sm font-medium">
-                      Include shipping cost to client
-                    </p>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-background p-3">
+                    <div>
+                      <p className="text-sm font-medium">
+                        Include shipping cost to client
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         Charges the client for shipping cost on reimbursement
                         invoices.
@@ -1066,7 +1082,7 @@ export default function ClientForm() {
                   </div>
                 </div>
 
-                <div className="border-t pt-4 space-y-4">
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
                   <div className="space-y-1">
                     <Label className="text-sm font-medium">
                       Subscription Dunning
@@ -1076,7 +1092,7 @@ export default function ClientForm() {
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-background p-3">
                     <div>
                       <p className="text-sm font-medium">Enable grace period</p>
                       <p className="text-xs text-muted-foreground">
@@ -1112,7 +1128,7 @@ export default function ClientForm() {
                         disabled={!formData.b2b_dunning_enabled}
                       />
                     </div>
-                    <div className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-background p-3">
                       <div>
                         <p className="text-sm font-medium">Allow manual pay</p>
                         <p className="text-xs text-muted-foreground">
