@@ -25,6 +25,13 @@ import genericCardIcon from "@/assets/icons/payment-methods/generic-card.svg";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { clientApi, Client } from "@/api/clientApi";
 import { subscriptionApi } from "@/api/subscriptionApi";
 import type { B2BBillingStatus } from "@/types/b2bBilling";
@@ -55,6 +62,7 @@ export function B2BBillingDisplay({
     return genericCardIcon;
   };
   const [manageModalOpen, setManageModalOpen] = useState(false);
+  const [createConfirmOpen, setCreateConfirmOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const {
@@ -134,7 +142,7 @@ export function B2BBillingDisplay({
       return;
     }
 
-    createSubscriptionMutation.mutate();
+    setCreateConfirmOpen(true);
   };
 
   if (isLoading) {
@@ -412,6 +420,103 @@ export function B2BBillingDisplay({
           client={client}
         />
       )}
+
+      <Dialog open={createConfirmOpen} onOpenChange={setCreateConfirmOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Confirm Subscription Creation</DialogTitle>
+            <DialogDescription>
+              Review the plan and payment method before creating the subscription.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+              <p className="text-sm font-medium">Plan Summary</p>
+              {basePrice ? (
+                <div className="space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-md border bg-background px-3 py-2">
+                    <div>
+                      <p className="text-sm font-medium">Base Monthly Fee</p>
+                      <p className="text-xs text-muted-foreground">
+                        Price ID: {basePrice.id}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold">
+                        ${Number(basePrice.unit_amount || 0).toFixed(2)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">/month</p>
+                    </div>
+                  </div>
+                  {meteredPrice ? (
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-md border bg-background px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium">Metered Usage</p>
+                        <p className="text-xs text-muted-foreground">
+                          Price ID: {meteredPrice.id}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold">
+                          ${Number(meteredPrice.unit_amount || 0).toFixed(2)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">/patient</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-md border border-dashed bg-background px-3 py-2 text-xs text-muted-foreground">
+                      No metered usage price found. Subscription will be base-only.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    No active monthly base price found. Please configure pricing in Stripe.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+
+            <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
+              <p className="text-sm font-medium">Payment Method on File</p>
+              {paymentMethod ? (
+                <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium capitalize">{paymentMethod.brand}</p>
+                    <p className="text-xs text-muted-foreground">•••• {paymentMethod.last4}</p>
+                  </div>
+                  <Badge variant={paymentMethod.is_expired ? "destructive" : "outline"}>
+                    {paymentMethod.is_expired ? "Expired" : "Active"}
+                  </Badge>
+                </div>
+              ) : (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>No payment method on file.</AlertDescription>
+                </Alert>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setCreateConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setCreateConfirmOpen(false);
+                createSubscriptionMutation.mutate();
+              }}
+              disabled={!basePrice || createSubscriptionMutation.isPending || paymentMethodStatus !== "active"}
+            >
+              {createSubscriptionMutation.isPending ? "Creating..." : "Confirm & Create"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
