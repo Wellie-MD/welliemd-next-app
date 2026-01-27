@@ -342,11 +342,6 @@ export default function Products() {
       },
     },
     {
-      key: "base_price",
-      label: "Base Price (Patient)",
-      render: (v: number | string) => money(v),
-    },
-    {
       key: "created_at",
       label: "Created At",
       render: (...args: unknown[]) => {

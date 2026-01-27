@@ -515,18 +515,6 @@ export function ProductFormModal({
               </div>
 
               <div>
-                <Label htmlFor="base_price">Client Retail Price (Base Price) ($)</Label>
-                <Input
-                  id="base_price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.base_price}
-                  onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
-                />
-              </div>
-
-              <div>
                 <Label htmlFor="shipping_cost_to_welliemd">Shipping Cost to WellieMD ($)</Label>
                 <Input
                   id="shipping_cost_to_welliemd"
