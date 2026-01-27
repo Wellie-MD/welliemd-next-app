@@ -1,9 +1,10 @@
-import { Calendar, AlertCircle, X, MessageSquare, FileText, ClipboardList } from "lucide-react";
+import { Calendar, AlertCircle, X, MessageSquare, FileText, ClipboardList, Pill } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Alert, AlertDescription } from "./ui/alert";
 import { useNavigate } from "react-router-dom";
 import { FollowUpList } from "@/features/followups";
+import { AvailableTreatmentsList } from "@/features/treatments";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -39,6 +40,19 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           <FollowUpList />
+        </CardContent>
+      </Card>
+
+      {/* Start New Treatment Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Pill className="h-5 w-5 text-green-600" />
+            <CardTitle className="text-lg font-medium text-gray-900">Start New Treatment</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <AvailableTreatmentsList />
         </CardContent>
       </Card>
 
