@@ -21,6 +21,10 @@ export const Permissions = {
     ORDER_UPDATE: 'order:update',
     ORDER_DELETE: 'order:delete',
 
+    // Patients
+    USER_UPDATE: 'user:update',
+    USER_DELETE: 'user:delete',
+
     // Messages
     MESSAGE_LIST: 'message:list',
     MESSAGE_VIEW: 'message:view',

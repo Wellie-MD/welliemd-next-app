@@ -6,7 +6,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Patient } from '@/services/patientService';
+import { Patient, patientService } from '@/services/patientService';
 import { PatientFollowUpStatus } from '@/components/followups/PatientFollowUpStatus';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -24,16 +24,88 @@ import {
 import { ordersApi, Order } from '@/api/ordersApi';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PermissionGate } from '@/components/auth/PermissionGate';
+import { Permissions } from '@/constants/permissions';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface PatientDetailSheetProps {
   patient: Patient | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onPatientUpdated?: (patient: Patient) => void;
+  onPatientDeleted?: (patientId: string) => void;
 }
 
-export function PatientDetailSheet({ patient, open, onOpenChange }: PatientDetailSheetProps) {
+const buildInitialForm = (patient: Patient) => ({
+  phone: patient.phone || '',
+  sex: patient.sex || 'Other',
+  address: patient.address || '',
+  city: patient.city || '',
+  state: patient.state || '',
+  zip_code: patient.zip_code || '',
+  allergies: patient.allergies || '',
+  medical_conditions: patient.medical_conditions || '',
+  self_reported_meds: patient.self_reported_meds || '',
+});
+
+export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdated, onPatientDeleted }: PatientDetailSheetProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formState, setFormState] = useState(() => patient ? buildInitialForm(patient) : buildInitialForm({
+    id: '',
+    email: '',
+    first_name: '',
+    last_name: '',
+    full_name: '',
+    phone: '',
+    date_of_birth: '',
+    sex: 'Other',
+    address: '',
+    city: '',
+    state: '',
+    zip_code: '',
+    allergies: '',
+    medical_conditions: '',
+    self_reported_meds: '',
+    created_at: '',
+    updated_at: '',
+  } as Patient));
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (patient) {
+      setFormState(buildInitialForm(patient));
+    }
+  }, [patient?.id]);
 
   useEffect(() => {
     let isMounted = true;
@@ -57,17 +129,65 @@ export function PatientDetailSheet({ patient, open, onOpenChange }: PatientDetai
 
   if (!patient) return null;
 
+  const handleUpdate = async () => {
+    if (!patient?.id) return;
+    setSaving(true);
+    try {
+      await patientService.updatePatient(patient.id, formState);
+      const updated = await patientService.getPatient(patient.id);
+      toast({ title: 'Patient updated' });
+      onPatientUpdated?.(updated);
+      setEditOpen(false);
+    } catch (err: any) {
+      toast({ title: err?.message || 'Failed to update patient', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!patient?.id) return;
+    setSaving(true);
+    try {
+      await patientService.deletePatient(patient.id);
+      toast({ title: 'Patient deleted' });
+      setDeleteOpen(false);
+      onOpenChange(false);
+      onPatientDeleted?.(patient.id);
+    } catch (err: any) {
+      toast({ title: err?.message || 'Failed to delete patient', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-md md:max-w-lg lg:max-w-xl w-full">
-        <SheetHeader>
-          <SheetTitle>Patient Details</SheetTitle>
-          <SheetDescription>
-            View and manage patient information and assessments.
-          </SheetDescription>
+      <SheetContent className="w-full sm:max-w-md md:max-w-lg lg:max-w-xl">
+        <SheetHeader className="pr-12">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <SheetTitle>Patient Details</SheetTitle>
+              <SheetDescription>
+                View and manage patient information and assessments.
+              </SheetDescription>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <PermissionGate permission={Permissions.USER_UPDATE}>
+                <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+                  Edit
+                </Button>
+              </PermissionGate>
+              <PermissionGate permission={Permissions.USER_DELETE}>
+                <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)}>
+                  Delete
+                </Button>
+              </PermissionGate>
+            </div>
+          </div>
         </SheetHeader>
 
-        <ScrollArea className="h-[calc(100vh-120px)] mt-6 pr-4">
+        <ScrollArea className="h-[calc(100vh-120px)] mt-4 sm:mt-6 pr-2 sm:pr-4">
           <div className="space-y-6">
             {/* Basic Info Section */}
             <div className="space-y-4">
@@ -85,7 +205,7 @@ export function PatientDetailSheet({ patient, open, onOpenChange }: PatientDetai
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase font-semibold">
                     <Mail size={12} /> Email
@@ -116,7 +236,7 @@ export function PatientDetailSheet({ patient, open, onOpenChange }: PatientDetai
                 <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase font-semibold">
                   <MapPin size={12} /> Address
                 </div>
-                <p className="text-sm">
+                <p className="text-sm break-words">
                   {patient.address ? (
                     <>
                       {patient.address}<br />
@@ -185,7 +305,7 @@ export function PatientDetailSheet({ patient, open, onOpenChange }: PatientDetai
               ) : (
                 <div className="space-y-2">
                   {orders.map((order) => (
-                    <div key={order.id} className="flex items-center justify-between rounded-md border border-border p-3">
+                    <div key={order.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-md border border-border p-3">
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">
                           {order.display_id ? `Order #${order.display_id}` : `Order ${order.id}`}
@@ -210,6 +330,142 @@ export function PatientDetailSheet({ patient, open, onOpenChange }: PatientDetai
             </div>
           </div>
         </ScrollArea>
+
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Patient</DialogTitle>
+            <DialogDescription>
+              Update contact and medical details for this patient.
+            </DialogDescription>
+          </DialogHeader>
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-3 scrollbar-hide overscroll-contain">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">First Name</label>
+                  <Input value={patient.first_name} disabled />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">Last Name</label>
+                  <Input value={patient.last_name} disabled />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Email</label>
+                <Input value={patient.email} disabled />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">Phone</label>
+                  <Input
+                    placeholder="e.g. (555) 123-4567"
+                    value={formState.phone}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, phone: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">Sex</label>
+                  <Select
+                    value={formState.sex}
+                    onValueChange={(value) => setFormState((prev) => ({ ...prev, sex: value as Patient['sex'] }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Address</label>
+                <Input
+                  placeholder="Street address"
+                  value={formState.address}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, address: e.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">City</label>
+                  <Input
+                    placeholder="City"
+                    value={formState.city}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, city: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">State</label>
+                  <Input
+                    placeholder="State"
+                    value={formState.state}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, state: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">Zip Code</label>
+                  <Input
+                    placeholder="Zip"
+                    value={formState.zip_code}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, zip_code: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Allergies</label>
+                <Textarea
+                  placeholder="List allergies or note none"
+                  value={formState.allergies}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, allergies: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Medical Conditions</label>
+                <Textarea
+                  placeholder="Relevant conditions"
+                  value={formState.medical_conditions}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, medical_conditions: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Current Medications</label>
+                <Textarea
+                  placeholder="Current medications"
+                  value={formState.self_reported_meds}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, self_reported_meds: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>
+                Cancel
+              </Button>
+              <Button onClick={handleUpdate} disabled={saving}>
+                {saving ? 'Saving...' : 'Save changes'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete patient?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action permanently deletes the patient record and cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={saving}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} disabled={saving}>
+                {saving ? 'Deleting...' : 'Delete'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </SheetContent>
     </Sheet>
   );
