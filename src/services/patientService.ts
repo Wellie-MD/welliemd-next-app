@@ -105,11 +105,16 @@ export const patientService = {
             await api.delete(`/medical/patients/${id}/`);
         } catch (error: any) {
             console.error(`Failed to delete patient ${id}:`, error);
-            throw new Error(
-                error.response?.data?.detail ||
-                error.response?.data?.message ||
-                'Failed to delete patient'
-            );
+            const data = error.response?.data;
+            if (data?.code === 'patient_has_orders') {
+                const count = data?.orders_count ?? 0;
+                throw new Error(
+                    count
+                        ? `Cannot delete patient because ${count} order(s) exist. Please delete orders associated with this patient first.`
+                        : 'Cannot delete patient because orders exist. Please delete orders associated with this patient first.'
+                );
+            }
+            throw new Error(data?.detail || data?.message || 'Failed to delete patient');
         }
     },
 };
