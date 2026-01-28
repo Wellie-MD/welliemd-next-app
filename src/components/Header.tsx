@@ -8,10 +8,26 @@ import { useDropdown } from "@/contexts/DropdownContext";
 import { MessagesDropdown } from "@/components/common/messages-dropdown";
 import { env } from "@/config/env";
 
+const formatAppName = (rawName: string) => {
+  const cleaned = rawName
+    .trim()
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+  if (!cleaned) {
+    return "WellieMD";
+  }
+  return cleaned
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
+
 export default function Header() {
   const { isAuthenticated } = useAuth();
   const { closeAll } = useDropdown();
   const headerRef = useRef<HTMLDivElement>(null);
+  const appName = formatAppName(env.VITE_APP_NAME);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -32,7 +48,7 @@ export default function Header() {
         <div className="flex items-center space-x-4">
           <div>
             <h1 className="text-white text-2xl font-semibold truncate max-w-[240px]">
-              {env.VITE_APP_NAME}
+              {appName} Patient Portal
             </h1>
           </div>
         </div>
