@@ -14,8 +14,8 @@ export const billingApi = {
    * Get reimbursement invoices (pharmacy/consult costs)
    */
   getReimbursementInvoices: async (params?: Record<string, any>): Promise<B2BInvoiceListResponse> => {
-    const { data } = await axiosInstance.get('/billing/invoices/reimbursement/', {
-      params: params || {}
+    const { data } = await axiosInstance.get('/billing/invoices/', {
+      params: { ...(params || {}), invoice_type: 'reimbursement' }
     });
     return data;
   },
@@ -24,8 +24,8 @@ export const billingApi = {
    * Get SaaS fee invoices (monthly subscription costs)
    */
   getSaaSInvoices: async (params?: Record<string, any>): Promise<B2BInvoiceListResponse> => {
-    const { data } = await axiosInstance.get('/billing/invoices/saas/', {
-      params: params || {}
+    const { data } = await axiosInstance.get('/billing/invoices/', {
+      params: { ...(params || {}), invoice_type: 'saas_fee' }
     });
     return data;
   },

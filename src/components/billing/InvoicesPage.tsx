@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import billingService, { Invoice, InvoiceListResponse } from "@/services/billingService";
 import mockData from "@/data/mockData.json";
 import { Link } from "react-router-dom";
@@ -20,36 +20,10 @@ export default function InvoicesPage() {
   const [ordering, setOrdering] = useState("-issued_at");
   const [hasNext, setHasNext] = useState(false);
   const [hasPrev, setHasPrev] = useState(false);
-  const groupedInvoices = useMemo(() => {
-    const buckets = new Map<string, { invoice: Invoice; line_items: any[]; total_amount: number }>();
-    for (const inv of invoices) {
-      const periodStart = (inv as any).billing_period_start || "";
-      const periodEnd = (inv as any).billing_period_end || "";
-      const key = `${inv.invoice_type}|${periodStart}|${periodEnd}`;
-      const amount = parseFloat((inv as any).total_amount ?? inv.amount ?? "0");
-      if (!buckets.has(key)) {
-        buckets.set(key, {
-          invoice: inv,
-          line_items: [...(inv.line_items ?? [])],
-          total_amount: amount,
-        });
-      } else {
-        const bucket = buckets.get(key)!;
-        bucket.total_amount += amount;
-        bucket.line_items.push(...(inv.line_items ?? []));
-      }
-    }
-    return Array.from(buckets.values()).map((b) => ({
-      ...b.invoice,
-      line_items: b.line_items,
-      total_amount: b.total_amount.toFixed(2),
-    })) as Invoice[];
-  }, [invoices]);
-
   const formatBreakdown = (inv: any) => {
     const items = inv.line_items ?? [];
     const pharmacy = items
-      .filter((li: any) => li.item_type === "medication_reimbursement")
+      .filter((li: any) => ["medication_reimbursement", "shipping_cost"].includes(li.item_type))
       .reduce(
         (sum: number, li: any) =>
           sum + parseFloat(li.total_amount || li.unit_price || 0),
@@ -218,12 +192,12 @@ export default function InvoicesPage() {
               </tr>
             </thead>
             <tbody>
-      {groupedInvoices.length === 0 && (
+      {invoices.length === 0 && (
         <tr className="border-b border-border-light dark:border-border-dark">
           <td className="px-6 py-4" colSpan={7}>No invoices found</td>
         </tr>
       )}
-      {groupedInvoices.map((inv) => (
+      {invoices.map((inv) => (
         <tr key={inv.id} className="border-b border-border-light dark:border-border-dark hover:bg-background-light/50 dark:hover:bg-background-dark/50 transition-colors duration-150 cursor-pointer" onClick={() => setSelected(inv)}>
           <td className="px-6 py-4">{inv.created_at ? new Date(inv.created_at).toLocaleDateString() : '-'}</td>
                   {activeTab === "reimbursement" && (
@@ -246,6 +220,18 @@ export default function InvoicesPage() {
                   </td>
                   <td className="px-6 py-4">
                     <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-primary/10 text-primary dark:bg-primary/20">{inv.status}</span>
+                    {(inv as any).external_invoice_link && (inv.status === "due" || inv.status === "overdue" || (inv as any).is_overdue) && (
+                      <div className="mt-2">
+                        <a
+                          href={(inv as any).external_invoice_link}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-medium text-primary hover:underline"
+                        >
+                          Pay now
+                        </a>
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-text-secondary-light dark:text-text-secondary-dark">
                     {formatBreakdown(inv)}

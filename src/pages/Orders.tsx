@@ -89,6 +89,17 @@ const parseDate = (dateString?: string | null) => {
   return new Date(dateString)
 }
 
+const formatDateLabel = (dateString?: string | null) => {
+  if (!dateString) return "-"
+  const date = parseDate(dateString)
+  if (isNaN(date.getTime())) return "-"
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  })
+}
+
 export default function Orders() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activePaymentStatusFilter, setActivePaymentStatusFilter] = useState("All")
@@ -434,6 +445,13 @@ export default function Orders() {
                   </PermissionGate>
                 </div>
               ),
+            }
+          }
+
+          if (['orderDate', 'datePrescribed', 'paymentDate'].includes(col.key)) {
+            return {
+              ...col,
+              render: (_: any, row: any) => formatDateLabel(row[col.key]),
             }
           }
 

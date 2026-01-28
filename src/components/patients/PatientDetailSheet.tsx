@@ -63,6 +63,9 @@ interface PatientDetailSheetProps {
 }
 
 const buildInitialForm = (patient: Patient) => ({
+  first_name: patient.first_name || '',
+  last_name: patient.last_name || '',
+  email: patient.email || '',
   phone: patient.phone || '',
   sex: patient.sex || 'Other',
   address: patient.address || '',
@@ -133,7 +136,21 @@ export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdat
     if (!patient?.id) return;
     setSaving(true);
     try {
-      await patientService.updatePatient(patient.id, formState);
+      const payload: Partial<Patient> = {
+        first_name: formState.first_name,
+        last_name: formState.last_name,
+        email: formState.email,
+        phone: formState.phone,
+        sex: formState.sex,
+        address: formState.address,
+        city: formState.city,
+        state: formState.state,
+        zip_code: formState.zip_code,
+        allergies: formState.allergies,
+        medical_conditions: formState.medical_conditions,
+        self_reported_meds: formState.self_reported_meds,
+      };
+      await patientService.updatePatient(patient.id, payload);
       const updated = await patientService.getPatient(patient.id);
       toast({ title: 'Patient updated' });
       onPatientUpdated?.(updated);
@@ -341,19 +358,31 @@ export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdat
           </DialogHeader>
             <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-3 scrollbar-hide overscroll-contain">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase">First Name</label>
-                  <Input value={patient.first_name} disabled />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase">Last Name</label>
-                  <Input value={patient.last_name} disabled />
-                </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">First Name</label>
+                <Input
+                  placeholder="First name"
+                  value={formState.first_name}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, first_name: e.target.value }))}
+                />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground uppercase">Email</label>
-                <Input value={patient.email} disabled />
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Last Name</label>
+                <Input
+                  placeholder="Last name"
+                  value={formState.last_name}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, last_name: e.target.value }))}
+                />
               </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground uppercase">Email</label>
+              <Input
+                placeholder="Email address"
+                value={formState.email}
+                onChange={(e) => setFormState((prev) => ({ ...prev, email: e.target.value }))}
+              />
+            </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-muted-foreground uppercase">Phone</label>
