@@ -38,12 +38,13 @@ export default defineConfig(({ mode }) => {
       // Proxy only works in development
       proxy: mode === 'development' ? {
         '/api': {
-          // target: 'http://127.0.0.1:8000',
+          // target: 'http://127.0.0.1:8100',
           target: 'https://welliemdapi.welliemd.com',
           changeOrigin: true,
           secure: false,
         },
       } : undefined,
+      allowedHosts: ['2c752aff7f92.ngrok-free.app'],
     },
     define: {
       __APP_VERSION__: JSON.stringify(process.env.npm_package_version),

@@ -2,6 +2,7 @@ export type PaymentGateway = 'stripe' | 'nmi' | 'authorize_net';
 
 export interface PaymentConfig {
   active_gateway: PaymentGateway;
+  payment_method_limit?: number;
   stripe_publishable_key?: string;
   nmi_client_key?: string;
   nmi_script_url?: string;

@@ -6,6 +6,7 @@ import { NotificationsDropdown } from "./common/notifications-dropdown";
 import { useAuth } from "@/features/auth";
 import { useDropdown } from "@/contexts/DropdownContext";
 import { MessagesDropdown } from "@/components/common/messages-dropdown";
+import { env } from "@/config/env";
 
 export default function Header() {
   const { isAuthenticated } = useAuth();
@@ -30,7 +31,9 @@ export default function Header() {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <div>
-            <h1 className="text-white text-2xl font-semibold">WellieMD</h1>
+            <h1 className="text-white text-2xl font-semibold truncate max-w-[240px]">
+              {env.VITE_APP_NAME}
+            </h1>
           </div>
         </div>
         
