@@ -48,7 +48,7 @@ export default function Header() {
         <div className="flex items-center space-x-4">
           <div>
             <h1 className="text-white text-2xl font-semibold truncate max-w-[240px]">
-              {appName} Patient Portal
+              {appName}
             </h1>
           </div>
         </div>
