@@ -63,11 +63,14 @@ export interface Question {
   | "sex"
   | "self_reported_meds"
   | "allergies"
-  | "medical_conditions";
+  | "medical_conditions"
+  | "product_selection"
+  | "medication_dose_selector"
+  | "state_routing";
   is_required: boolean;
   is_read_only: boolean;
   order_index: number;
-  answer_choices: string[];
+  answer_choices: Array<string | Record<string, unknown>>;
   conditional_logic: Record<string, unknown>;
   validation_rules: Record<string, unknown>;
   beluga_field_mapping: string;
