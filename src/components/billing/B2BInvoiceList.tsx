@@ -48,6 +48,25 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
   });
 
   const invoices = data?.results || [];
+  const formatBreakdown = (inv: any) => {
+    const items = inv.line_items ?? [];
+    const pharmacy = items
+      .filter((li: any) => ["medication_reimbursement", "shipping_cost"].includes(li.item_type))
+      .reduce(
+        (sum: number, li: any) =>
+          sum + parseFloat(li.total_amount || li.unit_price || 0),
+        0
+      );
+    const consult = items
+      .filter((li: any) => li.item_type === "consultation")
+      .reduce(
+        (sum: number, li: any) =>
+          sum + parseFloat(li.total_amount || li.unit_price || 0),
+        0
+      );
+    if (!pharmacy && !consult) return "-";
+    return `Pharmacy: $${pharmacy.toFixed(2)} · Consult: $${consult.toFixed(2)}`;
+  };
   const totalCount = data?.count || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -117,7 +136,6 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="reimbursement">Reimbursement</SelectItem>
                 <SelectItem value="saas_fee">SaaS Fee</SelectItem>
-                <SelectItem value="aggregated_snapshot">Aggregated</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -152,13 +170,19 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                     <TableHead>Invoice Number</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Amount</TableHead>
+                    <TableHead>Breakdown</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Issued Date</TableHead>
                     <TableHead>Due Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {invoices.map((invoice) => (
+                  {invoices.map((invoice) => {
+                    const statusLabel =
+                      (invoice as any).is_overdue && invoice.status !== "paid"
+                        ? "overdue"
+                        : invoice.status;
+                    return (
                     <TableRow key={invoice.id}>
                       <TableCell className="font-mono text-sm">
                         {invoice.invoice_number}
@@ -171,9 +195,12 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                       <TableCell className="font-medium">
                         ${parseFloat(invoice.total_amount).toFixed(2)}
                       </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatBreakdown(invoice)}
+                      </TableCell>
                       <TableCell>
-                        <Badge variant={getStatusBadgeVariant(invoice.status)}>
-                          {invoice.status}
+                        <Badge variant={getStatusBadgeVariant(statusLabel)}>
+                          {statusLabel}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
@@ -183,7 +210,8 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                         {formatDate(invoice.due_date)}
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

@@ -48,7 +48,7 @@ export interface Question {
   | "textarea"
   | "email"
   | "phone"
-  | "state"
+  | "state_routing"
   | "zip"
   | "single_choice"
   | "multiple_choice"
@@ -90,7 +90,7 @@ export interface Question {
 export interface SubQuestion {
   id: string;
   question_text: string;
-  question_type: "text" | "email" | "phone" | "state" | "zip" | "number" | "date";
+  question_type: "text" | "email" | "phone" | "state_routing" | "zip" | "number" | "date";
   is_required: boolean;
   order_index: number;
   validation_rules: Record<string, unknown>;

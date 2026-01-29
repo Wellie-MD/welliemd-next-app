@@ -7,6 +7,7 @@ export interface StripePrice {
   unit_amount: number;
   recurring: {
     interval: string;
+    usage_type?: string;
     [key: string]: unknown;
   };
   active: boolean;
@@ -19,7 +20,7 @@ export const subscriptionApi = {
     const response = await axiosInstance.get('/stripe/admin/prices/');
     return response.data;
   },
-  create: async (payload: { client_id: string; price_id: string; payment_method_id: string }): Promise<{ id: string; name: string; stripe_subscription_id: string }> => {
+  create: async (payload: { client_id: string; price_id?: string; base_price_id?: string; metered_price_id?: string; payment_method_id: string }): Promise<{ id: string; name: string; stripe_subscription_id: string }> => {
     const response = await axiosInstance.post('/stripe/admin/subscriptions/', payload);
     return response.data;
   },

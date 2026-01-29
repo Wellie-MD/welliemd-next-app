@@ -19,6 +19,7 @@ export type Pharmacy = {
   latitude?: number | string | null;
   longitude?: number | string | null;
   is_active: boolean;
+  service_states?: string[];  // States where pharmacy provides service (empty = all states)
   last_synced_at?: string | null;
 
   // integration block (unchanged)
@@ -95,6 +96,27 @@ export const pharmacyApi = {
 
   completeVisit: async (payload: any) => {
     const { data } = await axiosInstance.post(`${base}/complete_visit_with_beluga/`, payload);
+    return data;
+  },
+
+  // Sync pharmacies to all client databases
+  syncToClients: async () => {
+    const { data } = await axiosInstance.post<{
+      success: boolean;
+      total_clients: number;
+      successful: number;
+      failed: number;
+      pharmacies_count: number;
+      results: Array<{
+        client_id: string;
+        client_name: string;
+        success: boolean;
+        message?: string;
+        error?: string;
+        created?: number;
+        updated?: number;
+      }>;
+    }>(`${base}/sync-to-clients/`);
     return data;
   },
 };

@@ -11,6 +11,7 @@ export interface Client {
   domain?: string;
   subdomain?: string;
   master_id_prefix?: string;
+  beluga_company?: string;
   database_name: string;
   database_host?: string;
   default_template_id?: string;
@@ -24,6 +25,11 @@ export interface Client {
   sync_consult_cost?: number;
   monthly_saas_fee?: number;
   first_next_saas_fees_billing_date?: string;
+  include_cost_to_client_in_reimbursement?: boolean;
+  include_shipping_cost_to_client_in_reimbursement?: boolean;
+  b2b_dunning_enabled?: boolean;
+  b2b_grace_period_days?: number;
+  b2b_manual_pay_enabled?: boolean;
   payment_gateway: string;
   is_active: boolean;
   created_at: string;
@@ -41,6 +47,7 @@ export interface Client {
   card_holder_name: string;
   card_last_four: string;
   stripe_subscription_id: string | null;
+  deployment_password?: string;
 }
 
 export interface ClientCreatePayload {
@@ -49,27 +56,29 @@ export interface ClientCreatePayload {
   first_name: string;
   last_name: string;
   phone?: string;
+  password?: string;
   
   // Client Basic Information
   name: string;
   domain?: string;
   subdomain?: string;
   master_id_prefix?: string;
+  beluga_company?: string;
   admin_panel_domain: string;
   patient_portal_domain?: string;
   api_endpoint?: string;
   questionnaire_url?: string;
-  
+
   // Configuration
   allowed_iframe_domains?: string[];
   default_template_id?: string;
   branding_config?: Record<string, unknown>;
   token_expiry_minutes?: number;
-  
+
   // Database Configuration (optional - backend will auto-generate)
   database_host?: string;
   database_name?: string;
-  
+
   // Billing Settings
   patient_fee?: number;
   async_consult_fee_to_client?: number;
@@ -78,10 +87,15 @@ export interface ClientCreatePayload {
   sync_consult_cost?: number;
   monthly_saas_fee?: number;
   first_next_saas_fees_billing_date?: string;
-  
+  include_cost_to_client_in_reimbursement?: boolean;
+  include_shipping_cost_to_client_in_reimbursement?: boolean;
+  b2b_dunning_enabled?: boolean;
+  b2b_grace_period_days?: number;
+  b2b_manual_pay_enabled?: boolean;
+
   // Payment Gateway
   payment_gateway?: string;
-  
+
   // Status
   is_active?: boolean;
 }
@@ -91,27 +105,29 @@ export interface ClientUpdatePayload {
   first_name?: string;
   last_name?: string;
   phone?: string;
-  
+  password?: string;
+
   // Client Information
   name?: string;
   domain?: string;
   subdomain?: string;
   master_id_prefix?: string;
+  beluga_company?: string;
   admin_panel_domain?: string;
   patient_portal_domain?: string;
   api_endpoint?: string;
   questionnaire_url?: string;
-  
+
   // Configuration
   allowed_iframe_domains?: string[];
   default_template_id?: string;
   branding_config?: Record<string, unknown>;
   token_expiry_minutes?: number;
-  
+
   // Database Configuration
   database_host?: string;
   database_name?: string;
-  
+
   // Billing Settings
   patient_fee?: number;
   async_consult_fee_to_client?: number;
@@ -120,10 +136,15 @@ export interface ClientUpdatePayload {
   sync_consult_cost?: number;
   monthly_saas_fee?: number;
   first_next_saas_fees_billing_date?: string;
-  
+  include_cost_to_client_in_reimbursement?: boolean;
+  include_shipping_cost_to_client_in_reimbursement?: boolean;
+  b2b_dunning_enabled?: boolean;
+  b2b_grace_period_days?: number;
+  b2b_manual_pay_enabled?: boolean;
+
   // Payment Gateway
   payment_gateway?: string;
-  
+
   // Status
   is_active?: boolean;
 }
@@ -194,8 +215,8 @@ export const clientApi = {
     const results = Array.isArray(data?.results)
       ? data.results
       : Array.isArray(data)
-      ? data
-      : [];
+        ? data
+        : [];
 
     // ensure `user` is either an object or null
     return results.map((c: unknown) => ({
@@ -239,11 +260,13 @@ export const clientApi = {
     return data;
   },
 
-  createSubscription: async (clientId: string, priceId: string, paymentMethodId: string): Promise<unknown> => {
+  createSubscription: async (
+    clientId: string,
+    payload: { price_id?: string; base_price_id?: string; metered_price_id?: string; payment_method_id: string }
+  ): Promise<unknown> => {
     const { data } = await axiosInstance.post('/stripe/admin/subscriptions/', {
       client_id: clientId,
-      price_id: priceId,
-      payment_method_id: paymentMethodId,
+      ...payload,
     });
     return data;
   },
@@ -258,14 +281,14 @@ export const clientApi = {
     // Fetch payment method and recent invoices
     const [paymentMethodRes, invoicesRes] = await Promise.all([
       axiosInstance.get(`/internal/clients/${clientId}/payment-method/`),
-      axiosInstance.get(`/internal/clients/${clientId}/invoices/reimbursement/`, {
-        params: { page_size: 5, ordering: '-issued_at' }
+      axiosInstance.get(`/internal/invoices/`, {
+        params: { page_size: 5, ordering: '-issued_at', client_id: clientId, invoice_type: 'reimbursement' }
       })
     ]);
 
     const paymentMethodStatus = paymentMethodRes.data.status || 'no_customer';
     const hasPaymentMethod = paymentMethodStatus === 'active';
-    
+
     // Backend now returns structured payment_method object
     const paymentMethod = paymentMethodRes.data.payment_method || undefined;
 
@@ -279,12 +302,22 @@ export const clientApi = {
   },
 
   getB2BInvoices: async (
-    clientId: string, 
+    clientId: string,
     invoiceType?: 'reimbursement' | 'saas_fee' | 'aggregated_snapshot',
     params?: Record<string, unknown>
   ): Promise<import('../types/b2bBilling').B2BInvoiceListResponse> => {
-    const type = invoiceType || 'reimbursement';
-    const { data } = await axiosInstance.get(`/internal/clients/${clientId}/invoices/${type}/`, {
+    const mergedParams = { ...(params || {}), client_id: clientId } as Record<string, unknown>;
+    if (invoiceType) mergedParams.invoice_type = invoiceType;
+    const { data } = await axiosInstance.get(`/internal/invoices/`, {
+      params: mergedParams
+    });
+    return data;
+  },
+
+  getAllB2BInvoices: async (
+    params?: Record<string, unknown>
+  ): Promise<import('../types/b2bBilling').B2BInvoiceListResponse> => {
+    const { data } = await axiosInstance.get(`/internal/invoices/`, {
       params: params || {}
     });
     return data;
