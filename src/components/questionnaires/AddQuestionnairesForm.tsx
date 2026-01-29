@@ -94,6 +94,13 @@ export function AddQuestionnairesForm({
   >("");
   const [triggerValues, setTriggerValues] = useState<string[]>([]);
 
+  // Prefill config
+  const [prefillEnabled, setPrefillEnabled] = useState(false);
+  const [prefillSource, setPrefillSource] = useState<
+    "onboarding" | "latest_completed" | "clinical"
+  >("onboarding");
+  const [prefillSourceQuestionId, setPrefillSourceQuestionId] = useState("");
+
   // State for BMI eligibility config
   const [bmiMax, setBmiMax] = useState<number | "">(27);
 
@@ -146,6 +153,17 @@ export function AddQuestionnairesForm({
         disqualifyingAnswersList = validationRules.disqualifying_answers;
       }
       setDisqualifyingAnswers(disqualifyingAnswersList);
+
+      // Extract prefill config
+      const prefillConfig = (validationRules as Record<string, unknown>)?.prefill as
+        | { enabled?: boolean; source?: string; source_question_id?: string }
+        | undefined;
+      setPrefillEnabled(!!prefillConfig?.enabled);
+      setPrefillSource(
+        (prefillConfig?.source as "onboarding" | "latest_completed" | "clinical") ||
+          "onboarding"
+      );
+      setPrefillSourceQuestionId(prefillConfig?.source_question_id || "");
 
       // Extract number validation rules
       if (question.question_type === "number" && validationRules) {
@@ -463,6 +481,18 @@ export function AddQuestionnairesForm({
             validationRules.disqualifying_answers = disqualifyingAnswers;
           }
         }
+      }
+
+      // Apply prefill config
+      if (prefillEnabled) {
+        validationRules.prefill = {
+          enabled: true,
+          source: prefillSource,
+          source_question_id: prefillSourceQuestionId || undefined,
+          match_strategy: prefillSourceQuestionId ? "by_id" : "by_text",
+        };
+      } else {
+        delete validationRules.prefill;
       }
 
       // Build consent_form for consent questions
@@ -1334,6 +1364,48 @@ export function AddQuestionnairesForm({
 
           {/* Toggles */}
           <div className="space-y-4">
+            {/* Prefill config */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="prefill_enabled">Prefill from previous answers</Label>
+                <Switch
+                  id="prefill_enabled"
+                  checked={prefillEnabled}
+                  onCheckedChange={(checked) => setPrefillEnabled(checked)}
+                />
+              </div>
+              {prefillEnabled && (
+                <div className="space-y-2">
+                  <Label>Prefill Source</Label>
+                  <Select
+                    value={prefillSource}
+                    onValueChange={(value) =>
+                      setPrefillSource(value as "onboarding" | "latest_completed" | "clinical")
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="onboarding">Onboarding</SelectItem>
+                      <SelectItem value="latest_completed">Latest Completed</SelectItem>
+                      <SelectItem value="clinical">Clinical</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Label>Source Question ID (optional)</Label>
+                  <Input
+                    value={prefillSourceQuestionId}
+                    onChange={(e) => setPrefillSourceQuestionId(e.target.value)}
+                    placeholder="UUID of source question"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Leave blank to auto-match by question text when possible.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center justify-between">
               <Label htmlFor="is_required">Required Question</Label>
               <Switch

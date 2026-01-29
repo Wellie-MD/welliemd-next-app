@@ -32,15 +32,41 @@ const FIELD_MAPPINGS = [
 
 export function NodePropertiesPanel({ node, onUpdate, onDelete, onClose }: NodePropertiesPanelProps) {
   const [question, setQuestion] = useState<Question>(node.data.question);
+  const [prefillEnabled, setPrefillEnabled] = useState(false);
+  const [prefillSource, setPrefillSource] = useState<"onboarding" | "latest_completed" | "clinical">("onboarding");
+  const [prefillSourceQuestionId, setPrefillSourceQuestionId] = useState("");
 
   useEffect(() => {
     setQuestion(node.data.question);
+    const prefillConfig = (node.data.question.validation_rules as Record<string, unknown>)?.prefill as
+      | { enabled?: boolean; source?: string; source_question_id?: string }
+      | undefined;
+    setPrefillEnabled(!!prefillConfig?.enabled);
+    setPrefillSource(
+      (prefillConfig?.source as "onboarding" | "latest_completed" | "clinical") || "onboarding"
+    );
+    setPrefillSourceQuestionId(prefillConfig?.source_question_id || "");
   }, [node]);
 
   const handleUpdate = (field: keyof Question, value: any) => {
     const updated = { ...question, [field]: value };
     setQuestion(updated);
     onUpdate(node.id, { question: updated });
+  };
+
+  const applyPrefillConfig = (enabled: boolean, source: string, sourceQuestionId: string) => {
+    const validationRules = { ...(question.validation_rules || {}) } as Record<string, unknown>;
+    if (enabled) {
+      validationRules.prefill = {
+        enabled: true,
+        source,
+        source_question_id: sourceQuestionId || undefined,
+        match_strategy: sourceQuestionId ? "by_id" : "by_text",
+      };
+    } else {
+      delete validationRules.prefill;
+    }
+    handleUpdate("validation_rules", validationRules);
   };
 
   const handleAddChoice = () => {
@@ -136,6 +162,53 @@ export function NodePropertiesPanel({ node, onUpdate, onDelete, onClose }: NodeP
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Prefill config */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Prefill from previous answers</Label>
+                <Switch
+                  checked={prefillEnabled}
+                  onCheckedChange={(checked) => {
+                    setPrefillEnabled(checked);
+                    applyPrefillConfig(checked, prefillSource, prefillSourceQuestionId);
+                  }}
+                />
+              </div>
+              {prefillEnabled && (
+                <div className="space-y-2">
+                  <Label>Prefill Source</Label>
+                  <Select
+                    value={prefillSource}
+                    onValueChange={(value) => {
+                      const next = value as "onboarding" | "latest_completed" | "clinical";
+                      setPrefillSource(next);
+                      applyPrefillConfig(true, next, prefillSourceQuestionId);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="onboarding">Onboarding</SelectItem>
+                      <SelectItem value="latest_completed">Latest Completed</SelectItem>
+                      <SelectItem value="clinical">Clinical</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Label>Source Question ID (optional)</Label>
+                  <Input
+                    value={prefillSourceQuestionId}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setPrefillSourceQuestionId(next);
+                      applyPrefillConfig(true, prefillSource, next);
+                    }}
+                    placeholder="UUID of source question"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Toggles */}
