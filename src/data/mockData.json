@@ -1,22 +1,20 @@
 {
   "dashboard": {
+    "period": {
+      "start": "2025-01-01",
+      "end": "2025-01-30",
+      "previous_start": "2024-12-02",
+      "previous_end": "2024-12-31"
+    },
+    "partial": false,
     "kpis": [
       { "title": "Total Patients", "value": "0", "change": "+0%", "trend": "up" },
-      { "title": "Total Growth", "value": "0.0%", "change": "+0%", "trend": "up" },
+      { "title": "Total Growth By Revenue", "value": "0.0%", "change": "+0%", "trend": "neutral" },
       { "title": "Total Revenue", "value": "$0", "change": "+0%", "trend": "up" },
-      { "title": "Total Profit", "value": "$0", "change": "+0%", "trend": "up" },
+      { "title": "Net Profit", "value": "$0", "change": "+0%", "trend": "up" },
+      { "title": "Profit Ratio", "value": "0.0%", "change": "+0%", "trend": "neutral" },
       { "title": "Total Expense", "value": "$0", "change": "+0%", "trend": "up" },
-      { "title": "Total Sales", "value": "0$", "change": "-0%", "trend": "down" },
-      { "title": "Total Orders", "value": "0", "change": "+0%", "trend": "up" },
-      { "title": "Total Online Sessions", "value": "0", "change": "+0%", "trend": "up" },
-      { "title": "Conversion Rate", "value": "0.0%", "change": "+0%", "trend": "up" },
-      { "title": "Full Refunds", "value": "0", "change": "-0%", "trend": "down" },
-      { "title": "Partial Refunds", "value": "0", "change": "-0%", "trend": "down" }
-    ],
-    "messages": [
-      { "id": 1, "name": "Kevin Mitchell", "time": "Today 10:08am", "avatar": "/avatars/kevin.jpg" },
-      { "id": 2, "name": "Jessica Williams", "time": "Today 7:08am", "avatar": "/avatars/jessica.jpg" },
-      { "id": 3, "name": "Amanda Roberts", "time": "Yesterday 4:18pm", "avatar": "/avatars/amanda.jpg" }
+      { "title": "Total Orders", "value": "0", "change": "+0%", "trend": "up" }
     ],
     "liveSummary": {
       "activeCarts": 0,
@@ -52,13 +50,18 @@
       { "month": "Dec", "2022": 20, "2021": 50, "2020": 95 }
     ],
     "newPatientChartData": [
-      { "day": "Sun", "lastWeek": 45, "currentWeek": 85 },
-      { "day": "Mon", "lastWeek": 10, "currentWeek": 25 },
-      { "day": "Tue", "lastWeek": 55, "currentWeek": 85 },
-      { "day": "Wed", "lastWeek": 25, "currentWeek": 15 },
-      { "day": "Thu", "lastWeek": 50, "currentWeek": 20 },
-      { "day": "Fri", "lastWeek": 85, "currentWeek": 95 },
-      { "day": "Sat", "lastWeek": 25, "currentWeek": 95 }
+      { "month": "2025-02", "value": 45 },
+      { "month": "2025-03", "value": 55 },
+      { "month": "2025-04", "value": 65 },
+      { "month": "2025-05", "value": 50 },
+      { "month": "2025-06", "value": 70 },
+      { "month": "2025-07", "value": 85 },
+      { "month": "2025-08", "value": 90 },
+      { "month": "2025-09", "value": 75 },
+      { "month": "2025-10", "value": 80 },
+      { "month": "2025-11", "value": 95 },
+      { "month": "2025-12", "value": 100 },
+      { "month": "2026-01", "value": 110 }
     ],
     "orderHistory": [
       { "date": "18/7/2025", "deliveryDate": "18/7/2025", "orderNumber": "HYLTHY-79", "name": "Ryan Mitchell", "product": "Tirzepatide - TIRZEPATIDE", "pharmacy": "RX Compound Store", "amount": "$0" },
