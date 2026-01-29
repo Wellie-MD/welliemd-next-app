@@ -95,7 +95,8 @@ const statusLabels: Record<string, string> = {
 export function OrderDetailsSheet({
   open,
   onOpenChange,
-  order
+  order,
+  onDelete
 }: OrderDetailsSheetProps) {
   const [showPatientResponses, setShowPatientResponses] = useState(false)
   const [showRefundDialog, setShowRefundDialog] = useState(false)
