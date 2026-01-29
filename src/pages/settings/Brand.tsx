@@ -155,10 +155,12 @@ const FileUploadField = ({
 const ColorPaletteSection = ({
   title,
   colors,
+  activeColor, // Add this
   onColorChange,
 }: {
   title: string;
   colors: string[];
+  activeColor: string; // Add this
   onColorChange?: (color: string) => void;
 }) => {
   const [selectedColor, setSelectedColor] = useState(colors[0]);
@@ -177,10 +179,13 @@ const ColorPaletteSection = ({
             key={index}
             type="button"
             className={`w-8 h-8 rounded border-2 ${
-              selectedColor === color ? "border-gray-400" : "border-gray-200"
-            } hover:border-gray-300 transition-colors`}
+              // Compare against the color from parent state
+              activeColor === color
+                ? "border-sky-500 scale-110 shadow-sm"
+                : "border-gray-200"
+            } hover:border-gray-300 transition-all`}
             style={{ backgroundColor: color }}
-            onClick={() => handleColorSelect(color)}
+            onClick={() => onColorChange?.(color)}
           />
         ))}
       </div>
@@ -246,6 +251,10 @@ export default function Brand() {
     helpPageSlug: "welliemd.com/help",
     logos: { square: "", round: "", transparent: "", favicon: "" },
     loginPageImage: "",
+    primaryColor: "#3B82F6", // Default value
+    secondaryColor: "#10B981",
+    accentColor: "#F59E0B",
+    neutralColor: "#F3F4F6",
     support: {
       phone: "(833) 937-7363",
       email: "support@welliemd.com",
@@ -336,7 +345,11 @@ export default function Brand() {
       // alert("Brand assets updated!");
       setFilesToUpload({});
     } catch (err) {
-      alert("Save failed");
+      toast({
+        title: "Error",
+        description: "Save failed!",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -452,6 +465,8 @@ export default function Brand() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <ColorPaletteSection
                 title="Primary Colors"
+                activeColor={formData.primaryColor}
+                onColorChange={(color) => setFormData({ ...formData, primaryColor: color })}
                 colors={[
                   "#3B82F6",
                   "#1E40AF",
@@ -465,6 +480,8 @@ export default function Brand() {
               />
               <ColorPaletteSection
                 title="Secondary Colors"
+                onColorChange={(color) => setFormData({ ...formData, secondaryColor: color })}
+                activeColor={formData.secondaryColor}
                 colors={[
                   "#10B981",
                   "#059669",
@@ -478,6 +495,8 @@ export default function Brand() {
               />
               <ColorPaletteSection
                 title="Accent Colors"
+                activeColor={formData.accentColor}
+                onColorChange={(color) => setFormData({ ...formData, accentColor: color })}
                 colors={[
                   "#F59E0B",
                   "#D97706",
@@ -491,6 +510,10 @@ export default function Brand() {
               />
               <ColorPaletteSection
                 title="Neutral Colors"
+                activeColor={formData.neutralColor}
+                onColorChange={(color) =>
+                  setFormData({ ...formData, neutralColor: color })
+                }
                 colors={[
                   "#F3F4F6",
                   "#E5E7EB",
@@ -778,4 +801,3 @@ export default function Brand() {
     </div>
   );
 }
-
