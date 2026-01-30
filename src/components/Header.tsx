@@ -82,7 +82,7 @@ export default function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
         
         {/* Right side - Icons */}
         <div ref={headerRef} className="flex items-center space-x-1 md:space-x-2">
-          <MessagesDropdown className="text-white hover:bg-white/10" />
+          <MessagesDropdown className="text-white hover:bg-white/10 hidden md:block" />
           
           <NotificationsDropdown className="text-white hover:bg-white/10" />
           
