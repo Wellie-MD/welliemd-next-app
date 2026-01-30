@@ -96,7 +96,7 @@ export default function Appointments() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Appointments</h1>
           <p className="text-gray-600">Manage your healthcare appointments</p>
