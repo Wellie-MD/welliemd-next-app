@@ -53,14 +53,15 @@ export default function Sidebar({ isMobileOpen, onMobileClose }: SidebarProps) {
   const NavItem = ({ item }: { item: NavigationItem }) => {
     const Icon = item.icon;
     
-    const isActive = item.path === '/dashboard' 
-      ? location.pathname === '/dashboard'
-      : location.pathname.startsWith(item.path);
+  // Improved active logic: sirf current page highlight ho
+    const isActive = location.pathname === item.path ||
+                     (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
 
     return (
       <li className="relative group">
         <NavLink
           to={item.path}
+          end={item.path === '/dashboard'}
           className={({ isActive: navIsActive }) =>
             cn(
               "flex items-center w-full text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md text-sm font-medium transition-colors duration-200",
@@ -116,7 +117,7 @@ export default function Sidebar({ isMobileOpen, onMobileClose }: SidebarProps) {
      
       <div 
         className={cn(
-          "bg-white border-r border-gray-200 flex flex-col z-50 transition-all duration-300 ease-in-out",
+          "bg-white border-r border-gray-200 flex flex-col z-50 transition-all duration-300 ease-in-out min-h-screen",
 
           // Mobile drawer behavior
             isMobileOpen ? "fixed inset-y-0 left-0 w-64 translate-x-0 " : "inset-y-0 left-0 w-64 -translate-x-full md:static md:translate-x-0 sidebar",
