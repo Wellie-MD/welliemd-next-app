@@ -69,8 +69,8 @@ export default function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
           </div>
         </div>
         
-        {/* Search bar - hidden on mobile */}
-        <div className="hidden md:flex items-center space-x-4 flex-1 max-w-md mx-8">
+        {/* Search bar  */}
+        {/* <div className="hidden md:flex items-center space-x-4 flex-1 max-w-md mx-8">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60 h-4 w-4" />
             <Input
@@ -78,7 +78,7 @@ export default function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
               className="pl-10 bg-white/10 border-white/20 text-white placeholder-white/60 focus:bg-white/20"
             />
           </div>
-        </div>
+        </div> */}
         
         {/* Right side - Icons */}
         <div ref={headerRef} className="flex items-center space-x-1 md:space-x-2">
