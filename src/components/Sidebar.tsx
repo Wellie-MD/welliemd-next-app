@@ -99,8 +99,8 @@ export default function Sidebar({ isMobileOpen, onMobileClose }: SidebarProps) {
     );
   };
 
-  const mainItems = navigationItems.slice(0, -2);
-  const bottomItems = navigationItems.slice(-2);
+  const mainItems = navigationItems.slice(0, -1);
+  const bottomItems = navigationItems.slice(-1);
 
   return (
     <>
@@ -175,13 +175,13 @@ export default function Sidebar({ isMobileOpen, onMobileClose }: SidebarProps) {
           </ul>
         </nav>
         
-        <div className="p-4 border-t border-gray-200">
+        {/* <div className="p-4 border-t border-gray-200">
           <ul className="space-y-1">
             {bottomItems.map((item) => (
               <NavItem key={item.path} item={item} />
             ))}
           </ul>
-        </div>
+        </div> */}
       </div>
     </>
   );
