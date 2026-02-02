@@ -71,6 +71,7 @@ export interface Order {
   orderTotal?: string | null
   tracking_number?: string | null
   patient_responses?: PatientResponses | null
+  checkout_url?: string | null
 }
 
 export interface PaginatedOrdersResponse {
