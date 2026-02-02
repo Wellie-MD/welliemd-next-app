@@ -49,6 +49,10 @@ export interface Order {
   patient?: OrderPatientSummary | null
   amount?: string
   status?: string
+  paymentProcessor?: string | null
+  paymentTransactionId?: string | null
+  totalRefunded?: string | null
+  refundableAmount?: string | null
   created_at?: string
   updated_at?: string
   name?: string
@@ -76,6 +80,20 @@ export interface PaginatedOrdersResponse {
   results: Order[]
 }
 
+export interface OrderRefundRequest {
+  amount?: string | number
+  reason: string
+  reason_description?: string
+  notes?: string
+}
+
+export interface OrderRefundResponse {
+  action: 'voided' | 'refunded'
+  transaction?: Record<string, unknown>
+  refund?: Record<string, unknown> | null
+  remaining_refundable?: string
+}
+
 const ENDPOINT = '/orders/'
 
 export const fetchOrders = async (params?: Record<string, unknown>): Promise<PaginatedOrdersResponse> => {
@@ -84,6 +102,16 @@ export const fetchOrders = async (params?: Record<string, unknown>): Promise<Pag
     return data
   } catch (error) {
     console.error('Failed to fetch orders:', error)
+    throw error
+  }
+}
+
+export const fetchOrdersByPatient = async (patientId: string, params?: Record<string, unknown>): Promise<PaginatedOrdersResponse> => {
+  try {
+    const { data } = await api.get<PaginatedOrdersResponse>(ENDPOINT, { params: { ...params, patient_id: patientId } })
+    return data
+  } catch (error) {
+    console.error(`Failed to fetch orders for patient ${patientId}:`, error)
     throw error
   }
 }
@@ -137,11 +165,23 @@ export const searchOrders = async (query: string): Promise<PaginatedOrdersRespon
   }
 }
 
+export const refundOrder = async (id: string, payload: OrderRefundRequest): Promise<OrderRefundResponse> => {
+  try {
+    const { data } = await api.post<OrderRefundResponse>(`${ENDPOINT}${id}/refund/`, payload)
+    return data
+  } catch (error) {
+    console.error(`Failed to refund order ${id}:`, error)
+    throw error
+  }
+}
+
 export const ordersApi = {
   fetchOrders,
+  fetchOrdersByPatient,
   fetchOrder,
   createOrder,
   updateOrder,
   deleteOrder,
   searchOrders,
+  refundOrder,
 }

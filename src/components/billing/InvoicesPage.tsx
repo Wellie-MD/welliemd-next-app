@@ -5,29 +5,78 @@ import { Link } from "react-router-dom";
 import { Search, Calendar } from "lucide-react";
 
 export default function InvoicesPage() {
-  const [activeTab, setActiveTab] = useState<"reimbursement" | "saas">("reimbursement");
+  const [activeTab, setActiveTab] = useState<
+    "all" | "reimbursement" | "saas"
+  >("all");
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [selected, setSelected] = useState<Invoice | null>(null);
+  const [search, setSearch] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [status, setStatus] = useState("");
+  const [ordering, setOrdering] = useState("-issued_at");
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrev, setHasPrev] = useState(false);
+  const formatBreakdown = (inv: any) => {
+    const items = inv.line_items ?? [];
+    const pharmacy = items
+      .filter((li: any) => ["medication_reimbursement", "shipping_cost"].includes(li.item_type))
+      .reduce(
+        (sum: number, li: any) =>
+          sum + parseFloat(li.total_amount || li.unit_price || 0),
+        0
+      );
+    const consult = items
+      .filter((li: any) => li.item_type === "consultation")
+      .reduce(
+        (sum: number, li: any) =>
+          sum + parseFloat(li.total_amount || li.unit_price || 0),
+        0
+      );
+    if (!pharmacy && !consult) return "-";
+    return `Pharmacy: $${pharmacy.toFixed(2)} · Consult: $${consult.toFixed(2)}`;
+  };
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       setLoading(true);
-      const res: InvoiceListResponse = await billingService.getInvoices(activeTab, page, 25);
+      const params: Record<string, unknown> = { ordering };
+      if (search.trim()) params.invoice_number = search.trim();
+      if (fromDate) params.issued_at_after = fromDate;
+      if (toDate) params.issued_at_before = toDate;
+      if (status) params.status = status;
+      const res: InvoiceListResponse = await billingService.getInvoices(activeTab, page, 25, params);
       if (mounted) {
         if (res && res.results && res.results.length) {
           setInvoices(res.results);
           setTotal(res.count ?? res.results.length);
+          setHasNext(!!res.next);
+          setHasPrev(!!res.previous);
         } else {
           // fallback to mock
           const md: any = mockData as any;
           const mockInvoices = md?.billingInvoices ?? [];
-          const filtered = mockInvoices.filter((i: any) => i.invoice_type === activeTab || activeTab === "reimbursement");
-          setInvoices(filtered);
-          setTotal(filtered.length);
+          const filtered =
+            activeTab === "all"
+              ? mockInvoices
+              : mockInvoices.filter((i: any) => {
+                  if (i.invoice_type === activeTab) return true;
+                  if (activeTab === "saas" && i.invoice_type === "saas_fee") return true;
+                  return false;
+                });
+          const filteredBySearch = search.trim()
+            ? filtered.filter((i: any) =>
+                `${i.invoice_number || ""}`.toLowerCase().includes(search.trim().toLowerCase())
+              )
+            : filtered;
+          setInvoices(filteredBySearch);
+          setTotal(filteredBySearch.length);
+          setHasNext(false);
+          setHasPrev(page > 1);
         }
       }
       setLoading(false);
@@ -36,11 +85,17 @@ export default function InvoicesPage() {
     return () => {
       mounted = false;
     };
-  }, [activeTab, page]);
+  }, [activeTab, page, search, fromDate, toDate, status, ordering]);
 
   return (
     <div className="p-4">
       <div className="flex items-center gap-3 mb-4">
+        <button
+          className={`px-3 py-1 rounded ${activeTab === "all" ? "bg-slate-100" : ""}`}
+          onClick={() => { setActiveTab("all"); setPage(1); }}
+        >
+          All Invoices
+        </button>
         <button
           className={`px-3 py-1 rounded ${activeTab === "reimbursement" ? "bg-slate-100" : ""}`}
           onClick={() => { setActiveTab("reimbursement"); setPage(1); }}
@@ -58,29 +113,58 @@ export default function InvoicesPage() {
 
       <div className="bg-content-light dark:bg-content-dark p-4 rounded-lg shadow-md mb-8 border border-border-light dark:border-border-dark">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {activeTab === "reimbursement" && (
-            <>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
-                <input
-                  className="form-input w-full pl-10 pr-4 py-2 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark focus:ring-primary focus:border-primary transition-all duration-200"
-                  placeholder="Order Identifier"
-                />
-              </div>
-              <select className="form-select w-full py-2 px-4 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark focus:ring-primary focus:border-primary transition-all duration-200">
-                <option>All Statuses</option>
-              </select>
-              <select className="form-select w-full py-2 px-4 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark focus:ring-primary focus:border-primary transition-all duration-200">
-                <option>All Pharmacies</option>
-              </select>
-            </>
-          )}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
+            <input
+              className="form-input w-full pl-10 pr-4 py-2 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark focus:ring-primary focus:border-primary transition-all duration-200"
+              placeholder={activeTab === "reimbursement" ? "Order Identifier" : "Invoice Number"}
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            />
+          </div>
+          <select
+            className="form-select w-full py-2 px-4 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark focus:ring-primary focus:border-primary transition-all duration-200"
+            value={status}
+            onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+          >
+            <option value="">All Statuses</option>
+            <option value="draft">Draft</option>
+            <option value="pending">Pending</option>
+            <option value="due">Due</option>
+            <option value="paid">Paid</option>
+            <option value="overdue">Overdue</option>
+            <option value="failed">Failed</option>
+            <option value="canceled">Canceled</option>
+            <option value="refunded">Refunded</option>
+          </select>
+          <select
+            className="form-select w-full py-2 px-4 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark focus:ring-primary focus:border-primary transition-all duration-200"
+            value={ordering}
+            onChange={(e) => { setOrdering(e.target.value); setPage(1); }}
+          >
+            <option value="-issued_at">Newest first</option>
+            <option value="issued_at">Oldest first</option>
+            <option value="-amount">Amount high → low</option>
+            <option value="amount">Amount low → high</option>
+          </select>
           <div className={`grid grid-cols-2 gap-2 ${activeTab === "reimbursement" ? "lg:col-span-1" : "sm:col-span-2 lg:col-span-4"}`}>
             <div className="relative">
-              <input className="form-input w-full py-2 px-4 pr-8 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark focus:ring-primary focus:border-primary transition-all duration-200" placeholder="mm/dd/yyyy" type="date"/>
+              <input
+                className="form-input w-full py-2 px-4 pr-8 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark focus:ring-primary focus:border-primary transition-all duration-200"
+                placeholder="mm/dd/yyyy"
+                type="date"
+                value={fromDate}
+                onChange={(e) => { setFromDate(e.target.value); setPage(1); }}
+              />
             </div>
             <div className="relative">
-              <input className="form-input w-full py-2 px-4 pr-8 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark focus:ring-primary focus:border-primary transition-all duration-200" placeholder="mm/dd/yyyy" type="date"/>
+              <input
+                className="form-input w-full py-2 px-4 pr-8 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark focus:ring-primary focus:border-primary transition-all duration-200"
+                placeholder="mm/dd/yyyy"
+                type="date"
+                value={toDate}
+                onChange={(e) => { setToDate(e.target.value); setPage(1); }}
+              />
             </div>
           </div>
         </div>
@@ -95,22 +179,27 @@ export default function InvoicesPage() {
             <thead className="text-xs text-text-secondary-light dark:text-text-secondary-dark uppercase bg-background-light dark:bg-background-dark border-b border-border-light dark:border-border-dark">
               <tr>
                 <th className="px-6 py-3 font-semibold tracking-wider">Date</th>
-                {activeTab === "reimbursement" && <th className="px-6 py-3 font-semibold tracking-wider">Order</th>}
+                {activeTab === "reimbursement" && (
+                  <th className="px-6 py-3 font-semibold tracking-wider">Order</th>
+                )}
+                {activeTab !== "reimbursement" && (
+                  <th className="px-6 py-3 font-semibold tracking-wider">Invoice</th>
+                )}
+                <th className="px-6 py-3 font-semibold tracking-wider">Type</th>
                 <th className="px-6 py-3 font-semibold tracking-wider">Status</th>
-                <th className="px-6 py-3 font-semibold tracking-wider">Reimbursement Amount</th>
-                <th className="px-6 py-3 font-semibold tracking-wider">Paid</th>
-                <th className="px-6 py-3 font-semibold tracking-wider">Product</th>
+                <th className="px-6 py-3 font-semibold tracking-wider">Breakdown</th>
+                <th className="px-6 py-3 font-semibold tracking-wider">Amount</th>
               </tr>
             </thead>
             <tbody>
-              {invoices.length === 0 && (
-                <tr className="border-b border-border-light dark:border-border-dark">
-                  <td className="px-6 py-4" colSpan={activeTab === "reimbursement" ? 6 : 5}>No invoices found</td>
-                </tr>
-              )}
-              {invoices.map((inv) => (
-                <tr key={inv.id} className="border-b border-border-light dark:border-border-dark hover:bg-background-light/50 dark:hover:bg-background-dark/50 transition-colors duration-150 cursor-pointer" onClick={() => setSelected(inv)}>
-                  <td className="px-6 py-4">{inv.created_at ? new Date(inv.created_at).toLocaleDateString() : '-'}</td>
+      {invoices.length === 0 && (
+        <tr className="border-b border-border-light dark:border-border-dark">
+          <td className="px-6 py-4" colSpan={7}>No invoices found</td>
+        </tr>
+      )}
+      {invoices.map((inv) => (
+        <tr key={inv.id} className="border-b border-border-light dark:border-border-dark hover:bg-background-light/50 dark:hover:bg-background-dark/50 transition-colors duration-150 cursor-pointer" onClick={() => setSelected(inv)}>
+          <td className="px-6 py-4">{inv.created_at ? new Date(inv.created_at).toLocaleDateString() : '-'}</td>
                   {activeTab === "reimbursement" && (
                     <td className="px-6 py-4">
                       <Link to="/dashboard/orders" className="block">
@@ -119,22 +208,64 @@ export default function InvoicesPage() {
                       </Link>
                     </td>
                   )}
+                  {activeTab !== "reimbursement" && (
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-text-primary-light dark:text-text-primary-dark">
+                        {inv.invoice_number || "-"}
+                      </div>
+                    </td>
+                  )}
+                  <td className="px-6 py-4">
+                    {(inv.invoice_type || "-").replace("_", " ")}
+                  </td>
                   <td className="px-6 py-4">
                     <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-primary/10 text-primary dark:bg-primary/20">{inv.status}</span>
+                    {(inv as any).external_invoice_link && (inv.status === "due" || inv.status === "overdue" || (inv as any).is_overdue) && (
+                      <div className="mt-2">
+                        <a
+                          href={(inv as any).external_invoice_link}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-medium text-primary hover:underline"
+                        >
+                          Pay now
+                        </a>
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-text-secondary-light dark:text-text-secondary-dark">
+                    {formatBreakdown(inv)}
                   </td>
                   <td className="px-6 py-4">
-                    <div className="font-medium text-text-primary-light dark:text-text-primary-dark">Total: ${( (inv as any).total_amount ?? inv.amount )}</div>
-                    <div className="text-text-secondary-light dark:text-text-secondary-dark text-xs">{(inv.line_items ?? []).length > 0 ? `Product: ${(inv.line_items ?? [])[0].description}` : ''}</div>
+                    <div className="font-medium text-text-primary-light dark:text-text-primary-dark">
+                      ${( (inv as any).total_amount ?? inv.amount ?? 0 )}
+                    </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">{inv.status === 'paid' ? 'Paid' : inv.status}</span>
-                  </td>
-                  <td className="px-6 py-4 max-w-xs truncate text-text-secondary-light dark:text-text-secondary-dark">{(inv.line_items ?? []).map(li=> li.description).join(' | ')}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="flex items-center justify-between mt-4 text-sm">
+        <button
+          className="px-3 py-1 rounded border disabled:opacity-50"
+          disabled={!hasPrev}
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
+        >
+          Previous
+        </button>
+        <span className="text-text-secondary-light dark:text-text-secondary-dark">
+          Page {page} · {invoices.length} of {total}
+        </span>
+        <button
+          className="px-3 py-1 rounded border disabled:opacity-50"
+          disabled={!hasNext}
+          onClick={() => setPage((p) => p + 1)}
+        >
+          Next
+        </button>
       </div>
 
       {selected && (

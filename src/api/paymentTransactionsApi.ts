@@ -25,6 +25,10 @@ export interface PaymentTransaction {
     created_at: string;
     updated_at: string;
     processor_transaction_id: string;
+    total_refunded?: string;
+    refundable_amount?: string;
+    refund_status?: 'none' | 'pending' | 'partial' | 'refunded';
+    refund_count?: number;
 }
 
 export interface TransactionListResponse {
@@ -39,6 +43,7 @@ export interface TransactionListParams {
     page_size?: number;
     status?: string;
     processor?: string;
+    refund_status?: string;
     date_from?: string;
     date_to?: string;
     search?: string;
@@ -54,6 +59,7 @@ export async function fetchTransactions(params: TransactionListParams = {}): Pro
     if (params.page_size) queryParams.append('page_size', params.page_size.toString());
     if (params.status && params.status !== 'All') queryParams.append('status', params.status.toLowerCase());
     if (params.processor && params.processor !== 'All') queryParams.append('processor', params.processor.toLowerCase());
+    if (params.refund_status && params.refund_status !== 'All') queryParams.append('refund_status', params.refund_status.toLowerCase());
     if (params.date_from) queryParams.append('date_from', params.date_from);
     if (params.date_to) queryParams.append('date_to', params.date_to);
     if (params.search) queryParams.append('search', params.search);
