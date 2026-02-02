@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog"
 
 const orderColumns = [
+  { key: "order_id", label: "Order ID", minWidth: "120px", className: "font-medium" },
   { key: "patient_name", label: "Patient", minWidth: "160px", className: "max-w-[220px]" },
   { key: "email", label: "Email", minWidth: "200px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell max-w-[220px]" },
   { key: "phone", label: "Phone", minWidth: "130px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell max-w-[140px]" },
@@ -127,6 +128,7 @@ export default function Orders() {
     const lowerSearch = searchTerm.trim().toLowerCase()
     return orders.filter(order => {
       const matchesSearch = !lowerSearch ||
+        (order.order_id ?? '').toLowerCase().includes(lowerSearch) ||
         (order.patient?.full_name ?? '').toLowerCase().includes(lowerSearch) ||
         (order.name ?? '').toLowerCase().includes(lowerSearch) ||
         (order.email ?? '').toLowerCase().includes(lowerSearch) ||
@@ -389,6 +391,16 @@ export default function Orders() {
           patient_name: o.patient?.full_name || o.name || o.email || '-',
         }))}
         columns={orderColumns.map(col => {
+          // Order ID: show value or "—" for old orders not backfilled
+          if (col.key === 'order_id') {
+            return {
+              ...col,
+              render: (_: any, row: any) => (
+                <span className="text-sm font-medium">{row.order_id ?? '—'}</span>
+              ),
+            }
+          }
+
           // Make the patient column clickable to open order details
           if (col.key === 'patient_name') {
             return {
@@ -525,7 +537,7 @@ export default function Orders() {
 
           return col
         })}
-        searchPlaceholder="Search by Order#, affiliate order #, MRN#, patient name, phone number"
+        searchPlaceholder="Search by Order ID, Order#, affiliate order #, MRN#, patient name, phone number"
         showDatePicker={true}
         showExport={true}
         showResetFilters={false}

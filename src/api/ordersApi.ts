@@ -46,6 +46,7 @@ export interface PatientResponses {
 export interface Order {
   id: string
   display_id?: string
+  order_id?: string | null
   patient?: OrderPatientSummary | null
   amount?: string
   status?: string
