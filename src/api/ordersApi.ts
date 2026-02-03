@@ -43,6 +43,16 @@ export interface PatientResponses {
   [key: string]: unknown
 }
 
+// Prescribed medication from RX_WRITTEN webhook (PrescriptionEvent.medications)
+export interface PrescriptionMedication {
+  name?: string
+  strength?: string
+  refills?: string
+  quantity?: string
+  medId?: string
+  rxId?: string
+}
+
 export interface Order {
   id: string
   display_id?: string
@@ -73,6 +83,13 @@ export interface Order {
   tracking_number?: string | null
   patient_responses?: PatientResponses | null
   checkout_url?: string | null
+  provider_network?: string | null
+  notes?: string | null
+  // Detail page: from PrescriptionEvent / Visit
+  product_name?: string | null
+  treatment_type?: string | null
+  doctor_name?: string | null
+  prescription_medications?: PrescriptionMedication[]
 }
 
 export interface PaginatedOrdersResponse {
@@ -124,6 +141,16 @@ export const fetchOrder = async (id: string): Promise<Order> => {
     return data
   } catch (error) {
     console.error(`Failed to fetch order ${id}:`, error)
+    throw error
+  }
+}
+
+export const fetchOrderByOrderId = async (orderId: string): Promise<Order> => {
+  try {
+    const { data } = await api.get<Order>(`${ENDPOINT}by_order_id/${encodeURIComponent(orderId)}/`)
+    return data
+  } catch (error) {
+    console.error(`Failed to fetch order by order_id ${orderId}:`, error)
     throw error
   }
 }
@@ -181,6 +208,7 @@ export const ordersApi = {
   fetchOrders,
   fetchOrdersByPatient,
   fetchOrder,
+  fetchOrderByOrderId,
   createOrder,
   updateOrder,
   deleteOrder,
