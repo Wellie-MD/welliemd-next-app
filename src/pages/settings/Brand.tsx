@@ -1,132 +1,174 @@
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
-import { X, Upload, Image as ImageIcon, Plus, Trash2, Facebook, Twitter } from "lucide-react"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  X,
+  Upload,
+  Image as ImageIcon,
+  Trash2,
+  Plus,
+  Facebook,
+} from "lucide-react";
+import {
+  fetchBrandSettings,
+  updateBrandSettings,
+} from "@/api/brandSettingsApi";
+import { messageService } from "@/services/messageService";
+import { toast } from "@/hooks/use-toast";
+import { Switch } from "@/components/ui/switch";
+// import { messageService } from "@/services/messageService"
+// import api from "@/services/api"
 
 interface UploadFieldProps {
-  label: string
-  description?: string
-  accept?: string
-  maxSize?: string
-  onFileSelect?: (file: File | null) => void
+  label: string;
+  accept?: string;
+  maxSize?: string;
+  currentUrl?: string;
+  onFileSelect?: (file: File | null) => void;
 }
 
-const FileUploadField = ({ label, description, accept, maxSize, onFileSelect }: UploadFieldProps) => {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [dragOver, setDragOver] = useState(false)
+const FileUploadField = ({
+  label,
+  accept,
+  maxSize,
+  currentUrl,
+  onFileSelect,
+}: UploadFieldProps) => {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  // Helper to fix LocalStack URLs for the browser
+  const getDisplayUrl = () => {
+    if (selectedFile) {
+      return URL.createObjectURL(selectedFile);
+    }
+    if (currentUrl && currentUrl.includes("localstack")) {
+      return currentUrl.replace("localstack", "localhost");
+    }
+    return currentUrl;
+  };
 
   const handleFileSelect = (file: File | null) => {
-    setSelectedFile(file)
-    onFileSelect?.(file)
-  }
+    setSelectedFile(file);
+    onFileSelect?.(file);
+  };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    setDragOver(true)
-  }
+  const displayUrl = getDisplayUrl();
 
-  const handleDragLeave = () => {
-    setDragOver(false)
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    setDragOver(false)
-    const files = e.dataTransfer.files
-    if (files.length > 0) {
-      handleFileSelect(files[0])
-    }
-  }
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null
-    handleFileSelect(file)
-  }
-
-  const removeFile = () => {
-    handleFileSelect(null)
-  }
+  useEffect(() => {
+    // If we have a local file, we create a URL.
+    // This cleanup ensures we "free" that memory when the component changes.
+    return () => {
+      if (displayUrl && displayUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(displayUrl);
+      }
+    };
+  }, [displayUrl]);
 
   return (
     <div className="space-y-2">
       <Label className="text-sm font-medium">{label}</Label>
-      {description && <p className="text-xs text-muted-foreground">{description}</p>}
-      
       <div
-        className={`
-          relative border-2 border-dashed rounded-lg p-6 text-center transition-colors
-          ${dragOver 
-            ? 'border-sky-400 bg-sky-50' 
-            : selectedFile 
-              ? 'border-green-300 bg-green-50' 
-              : 'border-gray-300 hover:border-gray-400'
-          }
-        `}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
+        className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+          dragOver
+            ? "border-sky-400 bg-sky-50"
+            : selectedFile || currentUrl
+              ? "border-green-300 bg-green-50"
+              : "border-gray-300 hover:border-gray-400"
+        }`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          if (e.dataTransfer.files[0])
+            handleFileSelect(e.dataTransfer.files[0]);
+        }}
       >
-        {selectedFile ? (
-          <div className="flex items-center justify-between p-2 bg-white rounded border">
-            <div className="flex items-center gap-2">
-              <ImageIcon className="w-4 h-4 text-gray-500" />
-              <span className="text-sm text-gray-700 truncate">{selectedFile.name}</span>
+        {selectedFile || currentUrl ? (
+          <div className="flex flex-col items-center gap-3">
+            {/* Image Preview Container */}
+            <div className="relative w-24 h-24 border rounded bg-white overflow-hidden shadow-sm flex items-center justify-center">
+              <img
+                src={displayUrl}
+                alt="Preview"
+                className="max-w-full max-h-full object-contain"
+                // This prevents the alt text from showing if the image fails
+                onError={(e) => (e.currentTarget.style.display = "none")}
+              />
             </div>
-            <button
-              type="button"
-              onClick={removeFile}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
+
+            <div className="flex items-center justify-between w-full p-2 bg-white rounded border">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <ImageIcon className="w-4 h-4 text-gray-500 shrink-0" />
+                <span className="text-sm text-gray-700 truncate">
+                  {selectedFile ? selectedFile.name : "File currently saved"}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleFileSelect(null)}
+                className="text-gray-400 hover:text-gray-600 ml-2"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         ) : (
-          <>
-            <div className="space-y-2">
-              <Upload className="w-6 h-6 text-gray-400 mx-auto" />
-              <div className="text-sm text-gray-600">
-                <button
-                  type="button"
-                  className="text-sky-600 hover:text-sky-700 font-medium"
-                  onClick={() => document.getElementById(`file-${label.replace(/\s+/g, '-').toLowerCase()}`)?.click()}
-                >
-                  Choose a file
-                </button>
-                <span> or drag it here</span>
-              </div>
-              {maxSize && (
-                <p className="text-xs text-muted-foreground">
-                  File size limit: {maxSize}
-                </p>
-              )}
+          <div className="space-y-2">
+            <Upload className="w-6 h-6 text-gray-400 mx-auto" />
+            <div className="text-sm text-gray-600">
+              <button
+                type="button"
+                className="text-sky-600 font-medium"
+                onClick={() =>
+                  document.getElementById(`file-${label}`)?.click()
+                }
+              >
+                Choose a file
+              </button>
             </div>
-          </>
+            {maxSize && (
+              <p className="text-xs text-muted-foreground">Max: {maxSize}</p>
+            )}
+          </div>
         )}
-        
         <input
-          id={`file-${label.replace(/\s+/g, '-').toLowerCase()}`}
+          id={`file-${label}`}
           type="file"
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          className="hidden"
           accept={accept}
-          onChange={handleInputChange}
+          onChange={(e) => handleFileSelect(e.target.files?.[0] || null)}
         />
       </div>
     </div>
-  )
-}
+  );
+};
 
 // Color Palette Component
-const ColorPaletteSection = ({ title, colors, onColorChange }: { title: string, colors: string[], onColorChange?: (color: string) => void }) => {
-  const [selectedColor, setSelectedColor] = useState(colors[0])
+const ColorPaletteSection = ({
+  title,
+  colors,
+  activeColor, // Add this
+  onColorChange,
+}: {
+  title: string;
+  colors: string[];
+  activeColor: string; // Add this
+  onColorChange?: (color: string) => void;
+}) => {
+  const [selectedColor, setSelectedColor] = useState(colors[0]);
 
   const handleColorSelect = (color: string) => {
-    setSelectedColor(color)
-    onColorChange?.(color)
-  }
+    setSelectedColor(color);
+    onColorChange?.(color);
+  };
 
   return (
     <div className="space-y-3">
@@ -137,120 +179,210 @@ const ColorPaletteSection = ({ title, colors, onColorChange }: { title: string, 
             key={index}
             type="button"
             className={`w-8 h-8 rounded border-2 ${
-              selectedColor === color ? 'border-gray-400' : 'border-gray-200'
-            } hover:border-gray-300 transition-colors`}
+              // Compare against the color from parent state
+              activeColor === color
+                ? "border-sky-500 scale-110 shadow-sm"
+                : "border-gray-200"
+            } hover:border-gray-300 transition-all`}
             style={{ backgroundColor: color }}
-            onClick={() => handleColorSelect(color)}
+            onClick={() => onColorChange?.(color)}
           />
         ))}
       </div>
     </div>
-  )
-}
+  );
+};
 
 export default function Brand() {
+  const [loading, setLoading] = useState(false);
+  const [socialLinks, setSocialLinks] = useState([
+    {
+      platform: "Facebook",
+      url: "https://facebook.com/welliemd",
+      enabled: true,
+    },
+    {
+      platform: "Twitter",
+      url: "https://twitter.com/welliemd",
+      enabled: false,
+    },
+  ]);
+
+  const [customAds, setCustomAds] = useState([
+    { title: "Ad 1", content: "Your custom ad content here" },
+  ]);
+
+  const addSocialLink = () => {
+    setSocialLinks([...socialLinks, { platform: "", url: "", enabled: false }]);
+  };
+
+  const removeSocialLink = (index: number) => {
+    setSocialLinks(socialLinks.filter((_, i) => i !== index));
+  };
+
+  const updateSocialLink = (
+    index: number,
+    field: string,
+    value: string | boolean,
+  ) => {
+    setSocialLinks(
+      socialLinks.map((link, i) =>
+        i === index ? { ...link, [field]: value } : link,
+      ),
+    );
+  };
+
+  const addCustomAd = () => {
+    setCustomAds([...customAds, { title: "", content: "" }]);
+  };
+
+  const removeCustomAd = (index: number) => {
+    setCustomAds(customAds.filter((_, i) => i !== index));
+  };
+
+  const updateCustomAd = (index: number, field: string, value: string) => {
+    setCustomAds(
+      customAds.map((ad, i) => (i === index ? { ...ad, [field]: value } : ad)),
+    );
+  };
+
   const [formData, setFormData] = useState({
     homePageUrl: "patients.com",
     helpPageSlug: "welliemd.com/help",
+    logos: { square: "", round: "", transparent: "", favicon: "" },
+    loginPageImage: "",
+    primaryColor: "#3B82F6", // Default value
+    secondaryColor: "#10B981",
+    accentColor: "#F59E0B",
+    neutralColor: "#F3F4F6",
+    support: {
+      phone: "(833) 937-7363",
+      email: "support@welliemd.com",
+      hours: "",
+    },
     enabledNotifications: {
       smsCompleted: true,
       smsNoShow: false,
       smsNoTreatment: true,
+    },
+  });
+
+  const [filesToUpload, setFilesToUpload] = useState<Record<string, File>>({});
+
+  useEffect(() => {
+    const fetchBrand = async () => {
+      try {
+        const brandData = await fetchBrandSettings();
+        console.log({ brandData });
+
+        if (brandData) setFormData((prev) => ({ ...prev, ...brandData }));
+      } catch (err) {
+        console.error("Load error", err);
+      }
+    };
+    fetchBrand();
+  }, []);
+
+  const handleFileChange = (path: string, file: File | null) => {
+    // 1. Manage the files pending for upload
+    if (file) {
+      setFilesToUpload((prev) => ({ ...prev, [path]: file }));
+    } else {
+      setFilesToUpload((prev) => {
+        const updated = { ...prev };
+        delete updated[path];
+        return updated;
+      });
+
+      // 2. Clear the current URL in formData so the UI resets
+      setFormData((prev) => {
+        if (path.startsWith("logos.")) {
+          const logoKey = path.split(".")[1];
+          return {
+            ...prev,
+            logos: {
+              ...prev.logos,
+              [logoKey]: "", // Clear the saved URL
+            },
+          };
+        }
+        // Handle top-level fields like loginPageImage
+        return {
+          ...prev,
+          [path]: "",
+        };
+      });
     }
-  })
+  };
 
-  const [socialLinks, setSocialLinks] = useState([
-    { platform: "Facebook", url: "https://facebook.com/welliemd", enabled: true },
-    { platform: "Twitter", url: "https://twitter.com/welliemd", enabled: false }
-  ])
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const updatedLogos = { ...formData.logos };
+      let updatedLoginImg = formData.loginPageImage;
 
-  const [customAds, setCustomAds] = useState([
-    { title: "Ad 1", content: "Your custom ad content here" }
-  ])
+      // Upload pending files using messageService
+      for (const [path, file] of Object.entries(filesToUpload)) {
+        console.log({ path, file });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log("Brand settings saved:", formData)
-  }
+        const { url } = await messageService.uploadAttachment(file);
+        if (path.startsWith("logos."))
+          (updatedLogos as any)[path.split(".")[1]] = url;
+        if (path === "loginPageImage") updatedLoginImg = url;
+      }
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-  }
-
-  const addSocialLink = () => {
-    setSocialLinks([...socialLinks, { platform: "", url: "", enabled: false }])
-  }
-
-  const removeSocialLink = (index: number) => {
-    setSocialLinks(socialLinks.filter((_, i) => i !== index))
-  }
-
-  const updateSocialLink = (index: number, field: string, value: string | boolean) => {
-    setSocialLinks(socialLinks.map((link, i) => 
-      i === index ? { ...link, [field]: value } : link
-    ))
-  }
-
-  const addCustomAd = () => {
-    setCustomAds([...customAds, { title: "", content: "" }])
-  }
-
-  const removeCustomAd = (index: number) => {
-    setCustomAds(customAds.filter((_, i) => i !== index))
-  }
-
-  const updateCustomAd = (index: number, field: string, value: string) => {
-    setCustomAds(customAds.map((ad, i) => 
-      i === index ? { ...ad, [field]: value } : ad
-    ))
-  }
+      await updateBrandSettings({
+        ...formData,
+        logos: updatedLogos,
+        loginPageImage: updatedLoginImg,
+      });
+      toast({
+        title: "Success",
+        description: "Brand assets updated!",
+        variant: "default",
+      });
+      // alert("Brand assets updated!");
+      setFilesToUpload({});
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Save failed!",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="mx-auto space-y-8 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Brand</h1>
-      </div>
-
+      <h1 className="text-2xl font-semibold">Brand Configuration</h1>
       <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Configure Your Brand Section */}
+        {/* Logo Section */}
         <Card>
           <CardContent className="p-6 space-y-6">
             <div>
               <h2 className="text-lg font-medium mb-1">Configure Your Brand</h2>
               <p className="text-sm text-muted-foreground">
-                Customize what your patients see when they receive a prescription.
+                Customize what your patients see when they receive a
+                prescription.
               </p>
             </div>
-
-            {/* Logo Section */}
-            <div>
-              <h3 className="text-base font-medium mb-4">Logo</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <h2 className="text-lg font-medium">Logos</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {["square", "round", "transparent", "favicon"].map((key) => (
                 <FileUploadField
-                  label="Square Logo"
+                  key={key}
+                  label={`${key.charAt(0).toUpperCase() + key.slice(1)} Logo`}
                   accept="image/*"
-                  maxSize="10 MB"
+                  currentUrl={(formData.logos as any)[key]}
+                  onFileSelect={(f) => handleFileChange(`logos.${key}`, f)}
                 />
-                <FileUploadField
-                  label="Round Logo"
-                  accept="image/*"
-                  maxSize="10 MB"
-                />
-                <FileUploadField
-                  label="Transparent Logo"
-                  accept="image/*"
-                  maxSize="10 MB"
-                />
-                <FileUploadField
-                  label="Favicon"
-                  accept="image/*"
-                  maxSize="10 MB"
-                />
-              </div>
+              ))}
+              {/* Pages Section */}
             </div>
-
-            {/* Pages Section */}
-            <div>
+            <div className="hidden">
               <h3 className="text-base font-medium mb-4">Pages</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FileUploadField
@@ -278,7 +410,7 @@ export default function Brand() {
           </CardContent>
         </Card>
 
-        {/* Get Account Link Section */}
+        {/* Support & Links (Simple Text) */}
         <Card>
           <CardContent className="p-6 space-y-4">
             <div>
@@ -287,52 +419,42 @@ export default function Brand() {
                 Links to various pages that be shared for created or account.
               </p>
             </div>
-
-            <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="home-page-url" className="text-sm font-medium">
-                  Home page url
-                </Label>
+                <Label>Home URL</Label>
                 <Input
-                  id="home-page-url"
                   value={formData.homePageUrl}
-                  onChange={(e) => handleInputChange('homePageUrl', e.target.value)}
-                  className="mt-1 focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
+                  onChange={(e) =>
+                    setFormData({ ...formData, homePageUrl: e.target.value })
+                  }
+                  className="mt-1"
                 />
               </div>
-
               <div>
-                <Label htmlFor="help-page-slug" className="text-sm font-medium">
-                  Help page slug
-                </Label>
+                <Label>Help Slug</Label>
                 <Input
-                  id="help-page-slug"
                   value={formData.helpPageSlug}
-                  onChange={(e) => handleInputChange('helpPageSlug', e.target.value)}
-                  className="mt-1 focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
+                  onChange={(e) =>
+                    setFormData({ ...formData, helpPageSlug: e.target.value })
+                  }
+                  className="mt-1"
                 />
               </div>
             </div>
           </CardContent>
         </Card>
-
-        {/* Login Page Image Section */}
+        {/* Login Page Image */}
         <Card>
           <CardContent className="p-6 space-y-4">
-            <div>
-              <h2 className="text-lg font-medium">Login Page Image</h2>
-            </div>
-
-            <div className="max-w-lg">
-              <FileUploadField
-                label="Drag and drop an image file here or Browse"
-                accept="image/*"
-                maxSize="10 MB"
-              />
-            </div>
+            <h2 className="text-lg font-medium">Login Page Image</h2>
+            <FileUploadField
+              label="Main Login Image"
+              accept="image/*"
+              currentUrl={formData.loginPageImage}
+              onFileSelect={(f) => handleFileChange("loginPageImage", f)}
+            />
           </CardContent>
         </Card>
-
         {/* Color Palette Section */}
         <Card>
           <CardContent className="p-6 space-y-6">
@@ -341,21 +463,67 @@ export default function Brand() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <ColorPaletteSection 
-                title="Primary Colors" 
-                colors={['#3B82F6', '#1E40AF', '#1D4ED8', '#2563EB', '#3730A3', '#4338CA', '#5B21B6', '#7C3AED']} 
+              <ColorPaletteSection
+                title="Primary Colors"
+                activeColor={formData.primaryColor}
+                onColorChange={(color) => setFormData({ ...formData, primaryColor: color })}
+                colors={[
+                  "#3B82F6",
+                  "#1E40AF",
+                  "#1D4ED8",
+                  "#2563EB",
+                  "#3730A3",
+                  "#4338CA",
+                  "#5B21B6",
+                  "#7C3AED",
+                ]}
               />
-              <ColorPaletteSection 
-                title="Secondary Colors" 
-                colors={['#10B981', '#059669', '#047857', '#065F46', '#064E3B', '#6B7280', '#4B5563', '#374151']} 
+              <ColorPaletteSection
+                title="Secondary Colors"
+                onColorChange={(color) => setFormData({ ...formData, secondaryColor: color })}
+                activeColor={formData.secondaryColor}
+                colors={[
+                  "#10B981",
+                  "#059669",
+                  "#047857",
+                  "#065F46",
+                  "#064E3B",
+                  "#6B7280",
+                  "#4B5563",
+                  "#374151",
+                ]}
               />
-              <ColorPaletteSection 
-                title="Accent Colors" 
-                colors={['#F59E0B', '#D97706', '#B45309', '#92400E', '#78350F', '#EF4444', '#DC2626', '#B91C1C']} 
+              <ColorPaletteSection
+                title="Accent Colors"
+                activeColor={formData.accentColor}
+                onColorChange={(color) => setFormData({ ...formData, accentColor: color })}
+                colors={[
+                  "#F59E0B",
+                  "#D97706",
+                  "#B45309",
+                  "#92400E",
+                  "#78350F",
+                  "#EF4444",
+                  "#DC2626",
+                  "#B91C1C",
+                ]}
               />
-              <ColorPaletteSection 
-                title="Neutral Colors" 
-                colors={['#F3F4F6', '#E5E7EB', '#D1D5DB', '#9CA3AF', '#6B7280', '#4B5563', '#374151', '#111827']} 
+              <ColorPaletteSection
+                title="Neutral Colors"
+                activeColor={formData.neutralColor}
+                onColorChange={(color) =>
+                  setFormData({ ...formData, neutralColor: color })
+                }
+                colors={[
+                  "#F3F4F6",
+                  "#E5E7EB",
+                  "#D1D5DB",
+                  "#9CA3AF",
+                  "#6B7280",
+                  "#4B5563",
+                  "#374151",
+                  "#111827",
+                ]}
               />
             </div>
           </CardContent>
@@ -365,7 +533,9 @@ export default function Brand() {
         <Card>
           <CardContent className="p-6 space-y-4">
             <div>
-              <h2 className="text-lg font-medium mb-1">Patient Portal Experience</h2>
+              <h2 className="text-lg font-medium mb-1">
+                Patient Portal Experience
+              </h2>
               <p className="text-sm text-muted-foreground">
                 Have your patients have better experience.
               </p>
@@ -373,52 +543,64 @@ export default function Brand() {
 
             <div className="flex gap-4">
               <div className="flex items-center gap-2">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   id="sms-completed"
                   checked={formData.enabledNotifications.smsCompleted}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    enabledNotifications: {
-                      ...prev.enabledNotifications,
-                      smsCompleted: e.target.checked
-                    }
-                  }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      enabledNotifications: {
+                        ...prev.enabledNotifications,
+                        smsCompleted: e.target.checked,
+                      },
+                    }))
+                  }
                   className="w-4 h-4 text-sky-600 border-gray-300 rounded focus:ring-sky-500"
                 />
-                <Label htmlFor="sms-completed" className="text-sm">SMS - Completed telehealth</Label>
+                <Label htmlFor="sms-completed" className="text-sm">
+                  SMS - Completed telehealth
+                </Label>
               </div>
               <div className="flex items-center gap-2">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   id="sms-no-show"
                   checked={formData.enabledNotifications.smsNoShow}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    enabledNotifications: {
-                      ...prev.enabledNotifications,
-                      smsNoShow: e.target.checked
-                    }
-                  }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      enabledNotifications: {
+                        ...prev.enabledNotifications,
+                        smsNoShow: e.target.checked,
+                      },
+                    }))
+                  }
                   className="w-4 h-4 text-sky-600 border-gray-300 rounded focus:ring-sky-500"
                 />
-                <Label htmlFor="sms-no-show" className="text-sm">SMS - No show telehealth</Label>
+                <Label htmlFor="sms-no-show" className="text-sm">
+                  SMS - No show telehealth
+                </Label>
               </div>
               <div className="flex items-center gap-2">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   id="sms-no-treatment"
                   checked={formData.enabledNotifications.smsNoTreatment}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    enabledNotifications: {
-                      ...prev.enabledNotifications,
-                      smsNoTreatment: e.target.checked
-                    }
-                  }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      enabledNotifications: {
+                        ...prev.enabledNotifications,
+                        smsNoTreatment: e.target.checked,
+                      },
+                    }))
+                  }
                   className="w-4 h-4 text-sky-600 border-gray-300 rounded focus:ring-sky-500"
                 />
-                <Label htmlFor="sms-no-treatment" className="text-sm">SMS - Patient finished from treatment</Label>
+                <Label htmlFor="sms-no-treatment" className="text-sm">
+                  SMS - Patient finished from treatment
+                </Label>
               </div>
             </div>
           </CardContent>
@@ -469,10 +651,16 @@ export default function Brand() {
               <div>
                 <h2 className="text-lg font-medium">Social Links</h2>
                 <p className="text-sm text-muted-foreground">
-                  Redirect links to the different social media via Patient Portal.
+                  Redirect links to the different social media via Patient
+                  Portal.
                 </p>
               </div>
-              <Button type="button" onClick={addSocialLink} size="sm" className="bg-sky-500 hover:bg-sky-600">
+              <Button
+                type="button"
+                onClick={addSocialLink}
+                size="sm"
+                className="bg-sky-500 hover:bg-sky-600"
+              >
                 <Plus className="w-4 h-4 mr-1" />
                 Add Link
               </Button>
@@ -480,31 +668,40 @@ export default function Brand() {
 
             <div className="space-y-4">
               {socialLinks.map((link, index) => (
-                <div key={index} className="flex items-center gap-4 p-4 border rounded-lg">
+                <div
+                  key={index}
+                  className="flex items-center gap-4 p-4 border rounded-lg"
+                >
                   <div className="flex items-center gap-2">
                     <Facebook className="w-5 h-5 text-blue-600" />
-                    <Switch 
+                    <Switch
                       checked={link.enabled}
-                      onCheckedChange={(checked) => updateSocialLink(index, 'enabled', checked)}
+                      onCheckedChange={(checked) =>
+                        updateSocialLink(index, "enabled", checked)
+                      }
                     />
                   </div>
                   <div className="flex-1 grid grid-cols-2 gap-4">
                     <Input
                       placeholder="Platform name"
                       value={link.platform}
-                      onChange={(e) => updateSocialLink(index, 'platform', e.target.value)}
+                      onChange={(e) =>
+                        updateSocialLink(index, "platform", e.target.value)
+                      }
                       className="focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
                     />
                     <Input
                       placeholder="https://..."
                       value={link.url}
-                      onChange={(e) => updateSocialLink(index, 'url', e.target.value)}
+                      onChange={(e) =>
+                        updateSocialLink(index, "url", e.target.value)
+                      }
                       className="focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
                     />
                   </div>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+                  <Button
+                    type="button"
+                    variant="outline"
                     size="sm"
                     onClick={() => removeSocialLink(index)}
                   >
@@ -516,7 +713,6 @@ export default function Brand() {
           </CardContent>
         </Card>
 
-        {/* Help Page Section */}
         <Card>
           <CardContent className="p-6 space-y-4">
             <div>
@@ -530,7 +726,7 @@ export default function Brand() {
         </Card>
 
         {/* Custom Ads Section */}
-        <Card>
+        <Card className="hidden">
           <CardContent className="p-6 space-y-4">
             <div className="flex justify-between items-center">
               <div>
@@ -539,7 +735,12 @@ export default function Brand() {
                   Reach users with the your Patients.
                 </p>
               </div>
-              <Button type="button" onClick={addCustomAd} size="sm" className="bg-sky-500 hover:bg-sky-600">
+              <Button
+                type="button"
+                onClick={addCustomAd}
+                size="sm"
+                className="bg-sky-500 hover:bg-sky-600"
+              >
                 <Plus className="w-4 h-4 mr-1" />
                 Add Ad
               </Button>
@@ -552,12 +753,14 @@ export default function Brand() {
                     <Input
                       placeholder="Ad Title"
                       value={ad.title}
-                      onChange={(e) => updateCustomAd(index, 'title', e.target.value)}
+                      onChange={(e) =>
+                        updateCustomAd(index, "title", e.target.value)
+                      }
                       className="flex-1 mr-4 focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
                     />
-                    <Button 
-                      type="button" 
-                      variant="outline" 
+                    <Button
+                      type="button"
+                      variant="outline"
                       size="sm"
                       onClick={() => removeCustomAd(index)}
                     >
@@ -567,7 +770,9 @@ export default function Brand() {
                   <Textarea
                     placeholder="Ad content..."
                     value={ad.content}
-                    onChange={(e) => updateCustomAd(index, 'content', e.target.value)}
+                    onChange={(e) =>
+                      updateCustomAd(index, "content", e.target.value)
+                    }
                     rows={3}
                     className="focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
                   />
@@ -584,14 +789,15 @@ export default function Brand() {
 
         {/* Save Button */}
         <div className="flex justify-end">
-          <Button 
+          <Button
             type="submit"
-            className="bg-sky-500 hover:bg-sky-600 text-white px-8"
+            disabled={loading}
+            className="bg-sky-500 text-white px-10"
           >
-            Save Changes
+            {loading ? "Uploading Images..." : "Save Brand Assets"}
           </Button>
         </div>
       </form>
     </div>
-  )
+  );
 }
