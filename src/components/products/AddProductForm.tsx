@@ -26,8 +26,6 @@ type ProductFormValues = {
   
   // Client-editable pricing fields
   base_price?: string
-  cost_to_client?: string
-  shipping_cost_to_client?: string
   shipping_fee_patient?: string
   discounted_price?: string
   
@@ -76,8 +74,6 @@ export default function AddProductForm({
         
         // Client-editable pricing fields
         base_price: product.base_price ?? "0.00",
-        cost_to_client: product.cost_to_client ?? "",
-        shipping_cost_to_client: product.shipping_cost_to_client ?? "0.00",
         shipping_fee_patient: product.shipping_fee_patient ?? "0.00",
         discounted_price: product.discounted_price ?? "",
         
@@ -118,8 +114,6 @@ export default function AddProductForm({
       
       // Client-editable pricing fields
       if (data.base_price !== undefined) fd.append("base_price", data.base_price)
-      if (data.cost_to_client !== undefined) fd.append("cost_to_client", data.cost_to_client)
-      if (data.shipping_cost_to_client !== undefined) fd.append("shipping_cost_to_client", data.shipping_cost_to_client)
       if (data.shipping_fee_patient !== undefined) fd.append("shipping_fee_patient", data.shipping_fee_patient)
       if (data.discounted_price !== undefined) fd.append("discounted_price", data.discounted_price)
       
@@ -257,54 +251,54 @@ export default function AddProductForm({
             </div>
           </div>
 
-          {/* Pharmacy Costs (Read-only) - What WellieMD charges the Client */}
+          {/* Admin Costs (Read-only) - What WellieMD charges the Client */}
           <div className="border rounded-lg p-4 bg-muted/30">
-            <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Pharmacy Costs (Read-only)</h3>
+            <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Admin Costs (Read-only)</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Cost from Pharmacy</label>
+                <label className="text-xs font-medium text-muted-foreground">Cost to Client (Admin)</label>
                 <div className="flex items-center mt-1">
                   <span className="border px-3 py-2 rounded-l bg-muted text-muted-foreground">$</span>
                   <input 
-                    {...register("base_price")} 
+                    value={product?.cost_to_client ?? ""}
                     disabled 
                     className="border border-l-0 px-3 py-2 rounded-r w-full bg-muted text-muted-foreground cursor-not-allowed" 
                   />
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Medication cost charged by pharmacy</p>
+                <p className="text-xs text-muted-foreground mt-1">Admin-set cost used for reimbursement</p>
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Pharmacy Shipping Cost</label>
+                <label className="text-xs font-medium text-muted-foreground">Shipping Cost to Client (Admin)</label>
                 <div className="flex items-center mt-1">
                   <span className="border px-3 py-2 rounded-l bg-muted text-muted-foreground">$</span>
                   <input 
-                    {...register("shipping_cost_to_client")} 
+                    value={product?.shipping_cost_to_client ?? ""}
                     disabled 
                     className="border border-l-0 px-3 py-2 rounded-r w-full bg-muted text-muted-foreground cursor-not-allowed" 
                   />
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Shipping cost charged by pharmacy</p>
+                <p className="text-xs text-muted-foreground mt-1">Admin-set shipping cost used for reimbursement</p>
               </div>
             </div>
           </div>
 
-          {/* Editable Pricing Fields - Client sets their own patient pricing */}
+          {/* Editable Pricing Fields - Client sets patient pricing */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold">Your Pricing (Editable)</h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <label className="text-sm font-medium">Your Price (Patient)</label>
+                <label className="text-sm font-medium">Base Price (Patient)</label>
                 <div className="flex items-center mt-1">
                   <span className="border px-3 py-2 rounded-l bg-gray-50">$</span>
                   <input 
                     type="number"
                     step="0.01"
-                    {...register("cost_to_client")} 
+                    {...register("base_price")} 
                     className="border border-l-0 px-3 py-2 rounded-r w-full" 
                     placeholder="0.00"
                   />
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Standard price for patients</p>
+                <p className="text-xs text-muted-foreground mt-1">Retail price shown to patients</p>
               </div>
               
               <div>

@@ -28,6 +28,8 @@ export interface Invoice {
   invoice_type?: string;
   amount?: string | number;
   status?: string;
+  is_overdue?: boolean;
+  external_invoice_link?: string;
   period_start?: string;
   period_end?: string;
   line_items?: InvoiceItem[];
@@ -51,6 +53,18 @@ const billingService = {
     } catch (err) {
       console.warn("postSetupIntent failed", err);
       return null;
+    }
+  },
+
+  async confirmSetupIntent(setupIntentId: string): Promise<boolean> {
+    try {
+      await api.post("/billing/setup-intent/confirm/", {
+        setup_intent_id: setupIntentId,
+      });
+      return true;
+    } catch (err) {
+      console.warn("confirmSetupIntent failed", err);
+      return false;
     }
   },
 
@@ -98,13 +112,17 @@ const billingService = {
   },
 
   async getInvoices(
-    type: "reimbursement" | "saas",
+    type: "reimbursement" | "saas" | "all",
     page = 1,
-    pageSize = 25
+    pageSize = 25,
+    paramsOverride?: Record<string, unknown>
   ): Promise<InvoiceListResponse> {
     try {
-      const params = { page, page_size: pageSize } as any;
-      const { data } = await api.get<unknown>(`/billing/invoices/${type}/`, { params });
+      const params = { page, page_size: pageSize, ...(paramsOverride || {}) } as any;
+      if (type === "reimbursement") params.invoice_type = "reimbursement";
+      if (type === "saas") params.invoice_type = "saas_fee";
+      const path = "/billing/invoices/";
+      const { data } = await api.get<unknown>(path, { params });
       // API returns paginated shape: { count, next, previous, results: [...] }
       if (data && Array.isArray(data.results)) return data as InvoiceListResponse;
       // If backend returns array directly, map into paginated shape
