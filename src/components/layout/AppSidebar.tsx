@@ -104,6 +104,16 @@ const menuSections = [
       },
     ]
   },
+  {
+    label: "INVOICES",
+    items: [
+      {
+        title: "Invoices",
+        url: "/dashboard/billing",
+        icon: CreditCard,
+      },
+    ],
+  },
 
   // --- Removed "SALES & CHANNELS" on request: https://telehealthknysys.atlassian.net/browse/KAN-3 --
 

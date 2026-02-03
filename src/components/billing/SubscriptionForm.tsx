@@ -41,18 +41,19 @@ export function SubscriptionForm({ clientId, onSuccess, onCancel }: Subscription
 
   // Extract payment method ID when data is available
   useEffect(() => {
-    if (paymentMethodData?.payment_method) {
-      // For Stripe, we need the stripe_payment_method_id
-      // This would need to be added to the PaymentMethodInfo interface
-      // For now, we'll use a placeholder
-      setPaymentMethodId("pm_placeholder");
+    if (paymentMethodData?.payment_method?.id) {
+      setPaymentMethodId(paymentMethodData.payment_method.id);
     }
   }, [paymentMethodData]);
 
-  const prices = pricesData?.prices || [];
+  const prices = Array.isArray(pricesData) ? pricesData : pricesData?.prices || [];
+  const monthlyPrices = prices.filter((price: any) => price.recurring?.interval === "month" && price.active);
+  const basePrices = monthlyPrices.filter((price: any) => price.recurring?.usage_type !== "metered");
+  const meteredPrices = monthlyPrices.filter((price: any) => price.recurring?.usage_type === "metered");
   
   // Get selected price details
-  const selectedPrice = prices.find((price: any) => price.id === selectedPriceId);
+  const selectedPrice = basePrices.find((price: any) => price.id === selectedPriceId);
+  const selectedMeteredPrice = meteredPrices[0];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,8 +72,19 @@ export function SubscriptionForm({ clientId, onSuccess, onCancel }: Subscription
     setIsSubmitting(true);
 
     try {
+      const payload = selectedMeteredPrice
+        ? {
+            base_price_id: selectedPriceId,
+            metered_price_id: selectedMeteredPrice.id,
+            payment_method_id: paymentMethodId,
+          }
+        : {
+            price_id: selectedPriceId,
+            payment_method_id: paymentMethodId,
+          };
+
       // Call the actual subscription creation API
-      await clientApi.createSubscription(clientId, selectedPriceId, paymentMethodId);
+      await clientApi.createSubscription(clientId, payload);
 
       toast({
         title: "Subscription Created",
@@ -118,15 +130,15 @@ export function SubscriptionForm({ clientId, onSuccess, onCancel }: Subscription
             <SelectValue placeholder="Select a plan" />
           </SelectTrigger>
           <SelectContent>
-            {prices.length === 0 ? (
+            {basePrices.length === 0 ? (
               <SelectItem value="none" disabled>
                 No plans available
               </SelectItem>
             ) : (
-              prices.map((price: any) => (
+              basePrices.map((price: any) => (
                 <SelectItem key={price.id} value={price.id}>
                   {price.product?.name || "Subscription"} - $
-                  {(price.unit_amount / 100).toFixed(2)}/
+                  {Number(price.unit_amount).toFixed(2)}/
                   {price.recurring?.interval || "month"}
                 </SelectItem>
               ))
@@ -147,10 +159,15 @@ export function SubscriptionForm({ clientId, onSuccess, onCancel }: Subscription
               <p className="text-sm text-muted-foreground">
                 Billed {selectedPrice.recurring?.interval || "monthly"}
               </p>
+              {selectedMeteredPrice && (
+                <p className="text-xs text-muted-foreground">
+                  Usage price: ${Number(selectedMeteredPrice.unit_amount).toFixed(2)} per active patient
+                </p>
+              )}
             </div>
             <div className="text-right">
               <p className="text-2xl font-bold">
-                ${(selectedPrice.unit_amount / 100).toFixed(2)}
+                ${Number(selectedPrice.unit_amount).toFixed(2)}
               </p>
               <p className="text-xs text-muted-foreground">
                 per {selectedPrice.recurring?.interval || "month"}

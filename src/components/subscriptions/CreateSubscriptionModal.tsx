@@ -47,9 +47,15 @@ const SubscriptionForm: React.FC<{
     }
   }, [client?.name]);
 
-  // Get the first available monthly price
-  const monthlyPrice = prices?.find(price =>
-    price.recurring?.interval === 'month' && price.active
+  // Resolve base + metered monthly prices
+  const monthlyPrices = prices?.filter(
+    (price) => price.recurring?.interval === 'month' && price.active
+  ) || [];
+  const basePrice = monthlyPrices.find(
+    (price) => price.recurring?.usage_type !== 'metered'
+  );
+  const meteredPrice = monthlyPrices.find(
+    (price) => price.recurring?.usage_type === 'metered'
   );
 
   const mutation = useMutation({
@@ -82,7 +88,8 @@ const SubscriptionForm: React.FC<{
     console.log('Stripe loaded:', !!stripe);
     console.log('Elements loaded:', !!elements);
     console.log('Cardholder name:', formData.cardholderName);
-    console.log('Monthly price:', monthlyPrice);
+    console.log('Base price:', basePrice);
+    console.log('Metered price:', meteredPrice);
 
     // Check if Stripe is properly loaded
     if (!stripe) {
@@ -126,15 +133,17 @@ const SubscriptionForm: React.FC<{
       return;
     }
 
-    if (!monthlyPrice) {
-      toast.error('No pricing plan available');
+    if (!basePrice) {
+      toast.error('No base monthly plan available');
       return;
     }
 
     const payload = {
       client_id: client.id,
-      price_id: monthlyPrice.id,
       payment_method_id: paymentMethod.id,
+      ...(meteredPrice
+        ? { base_price_id: basePrice.id, metered_price_id: meteredPrice.id }
+        : { price_id: basePrice.id }),
     };
 
     mutation.mutate(payload);
@@ -173,19 +182,58 @@ const SubscriptionForm: React.FC<{
               <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
             </div>
           </div>
-        ) : monthlyPrice ? (
-          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3">
-            <div className="flex justify-between items-center">
+        ) : basePrice ? (
+          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-3 space-y-3">
+            <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
-                <h2 className="font-medium text-gray-800 dark:text-white text-sm truncate">Welliemd Monthly Plan</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Healthcare Subscription</p>
-              </div>
-              <div className="text-right flex-shrink-0 ml-3">
-                <p className="text-lg font-bold text-gray-900 dark:text-white">
-                  ${monthlyPrice.unit_amount.toFixed(2)}
+                <h2 className="font-medium text-gray-800 dark:text-white text-sm truncate">
+                  Subscription Plan Summary
+                </h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Base plan + metered usage (if configured)
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">/{monthlyPrice.recurring.interval}</p>
               </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    Base Monthly Fee
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Price: {basePrice.id}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    ${Number(basePrice.unit_amount || 0).toFixed(2)}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">/month</p>
+                </div>
+              </div>
+
+              {meteredPrice ? (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      Metered Usage (Per Active Patient)
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Price: {meteredPrice.id}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                      ${Number(meteredPrice.unit_amount || 0).toFixed(2)}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">/patient</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-md border border-dashed border-gray-300 dark:border-gray-700 px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+                  No metered usage price found. This subscription will be base-only.
+                </div>
+              )}
             </div>
           </div>
         ) : (
