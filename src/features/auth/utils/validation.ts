@@ -81,6 +81,7 @@ export const forgotPasswordFormSchema = z.object({
 
 // Reset password form
 export const resetPasswordFormSchema = z.object({
+  uid: z.string().min(1, 'User ID is required'),
   token: tokenSchema,
   password: passwordSchema,
   confirmPassword: z.string(),

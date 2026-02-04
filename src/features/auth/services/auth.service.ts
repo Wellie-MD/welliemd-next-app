@@ -199,11 +199,11 @@ export class AuthService {
    * Reset password with token
    */
   async resetPassword(data: ResetPasswordRequest): Promise<void> {
-    debugLog('AuthService.resetPassword');
+    debugLog('AuthService.resetPassword', { uid: data.uid, hasToken: !!data.token });
 
     // Map client schema to API schema
     await apiClient.post(API_ENDPOINTS.AUTH.PASSWORD_RESET_CONFIRM, {
-      uid: data.token, // Assuming token contains UID
+      uid: data.uid,
       token: data.token,
       new_password: data.password,
     });

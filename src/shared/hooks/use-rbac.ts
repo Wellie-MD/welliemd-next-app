@@ -177,6 +177,26 @@ export function useRBAC() {
           description: 'Communicate with healthcare providers',
           category: 'Patient',
         },
+        [PERMISSIONS.PAYMENT_METHOD_LIST]: {
+          name: 'List Payment Methods',
+          description: 'View saved payment methods',
+          category: 'Payments',
+        },
+        [PERMISSIONS.PAYMENT_METHOD_CREATE]: {
+          name: 'Add Payment Method',
+          description: 'Add a new payment method',
+          category: 'Payments',
+        },
+        [PERMISSIONS.PAYMENT_METHOD_UPDATE]: {
+          name: 'Update Payment Method',
+          description: 'Set or update a payment method',
+          category: 'Payments',
+        },
+        [PERMISSIONS.PAYMENT_METHOD_DELETE]: {
+          name: 'Delete Payment Method',
+          description: 'Remove a saved payment method',
+          category: 'Payments',
+        },
         [PERMISSIONS.PROVIDER_VIEW_PATIENTS]: {
           name: 'View Patients',
           description: 'Access patient information',

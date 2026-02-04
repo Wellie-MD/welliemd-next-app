@@ -1,0 +1,10 @@
+@media (min-width: 768px) {
+  header .navbar{
+    display: none !important;    
+  }
+}
+@media (max-width: 768px) {
+  .sidebar{
+    display: none ;    
+  }
+}

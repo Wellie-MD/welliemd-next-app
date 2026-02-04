@@ -14,6 +14,7 @@ import {
   ChangePasswordRequest,
   UpdateProfileRequest,
   Permission,
+  UserRole,
   ROLE_PERMISSIONS,
 } from '../types/auth.types';
 
@@ -203,7 +204,7 @@ export const useAuthStore = create<AuthState>()(
             });
 
             try {
-              const user = await authService.getProfile();
+              const user = await authService.getCurrentUser();
               
               set((state) => {
                 state.user = user;
@@ -429,12 +430,6 @@ export const useAuthStore = create<AuthState>()(
           
             debugLog('AuthStore.initializeAuth');
             
-            // Check if we have stored tokens
-            if (!authService.isAuthenticated()) {
-              debugLog('No stored tokens found');
-              return;
-            }
-          
             isInitializing = true;
           
             set((state) => {
@@ -443,12 +438,24 @@ export const useAuthStore = create<AuthState>()(
             });
           
             try {
-              // Your existing initialization logic...
-              const isTokenValid = await authService.verifyToken();
+              // On page refresh, access token in memory is lost, but refresh token cookie persists
+              // Always try to refresh first using the cookie, then verify if we have a token
+              const hasAccessToken = authService.isAuthenticated();
+              let shouldRefresh = false;
               
-              if (!isTokenValid) {
-                debugLog('Stored token is invalid, trying to refresh');
-                
+              if (!hasAccessToken) {
+                debugLog('No access token in memory, attempting to refresh from cookie');
+                shouldRefresh = true;
+              } else {
+                // Verify if existing token is still valid
+                const isTokenValid = await authService.verifyToken();
+                if (!isTokenValid) {
+                  debugLog('Stored token is invalid, trying to refresh');
+                  shouldRefresh = true;
+                }
+              }
+              
+              if (shouldRefresh) {
                 if (isRefreshing) {
                   debugLog('Token refresh already in progress');
                   return;
@@ -457,8 +464,9 @@ export const useAuthStore = create<AuthState>()(
                 isRefreshing = true;
                 try {
                   await authService.refreshToken();
+                  debugLog('Token refreshed successfully');
                 } catch (refreshError) {
-                  debugLog('Token refresh failed, clearing auth state');
+                  debugLog('Token refresh failed, clearing auth state:', refreshError);
                   authService.clearAuthData();
                   set((state) => {
                     state.user = null;
@@ -476,13 +484,13 @@ export const useAuthStore = create<AuthState>()(
               }
           
               // Get current user profile
-              const user = await authService.getProfile();
+              const user = await authService.getCurrentUser();
               
               set((state) => {
                 state.user = user;
                 state.tokens = {
                   accessToken: authService.getAccessToken() || '',
-                  refreshToken: authService.getRefreshToken() || '',
+                  refreshToken: '', // Refresh token is in HTTP-only cookie, not stored in state
                   expiresIn: 3600,
                   tokenType: 'Bearer' as const,
                 };
@@ -520,18 +528,42 @@ export const useAuthStore = create<AuthState>()(
 
           // Selectors
           hasPermission: (permission: Permission) => {
-            const { permissions } = get();
-            return permissions.includes(permission);
+            const { permissions, user } = get();
+            const effectivePermissions =
+              permissions.length > 0
+                ? permissions
+                : user?.role
+                  ? ROLE_PERMISSIONS[user.role]
+                  : user
+                    ? ROLE_PERMISSIONS[UserRole.PATIENT]
+                    : [];
+            return effectivePermissions.includes(permission);
           },
 
           hasAnyPermission: (requiredPermissions: Permission[]) => {
-            const { permissions } = get();
-            return requiredPermissions.some(permission => permissions.includes(permission));
+            const { permissions, user } = get();
+            const effectivePermissions =
+              permissions.length > 0
+                ? permissions
+                : user?.role
+                  ? ROLE_PERMISSIONS[user.role]
+                  : user
+                    ? ROLE_PERMISSIONS[UserRole.PATIENT]
+                    : [];
+            return requiredPermissions.some(permission => effectivePermissions.includes(permission));
           },
 
           hasAllPermissions: (requiredPermissions: Permission[]) => {
-            const { permissions } = get();
-            return requiredPermissions.every(permission => permissions.includes(permission));
+            const { permissions, user } = get();
+            const effectivePermissions =
+              permissions.length > 0
+                ? permissions
+                : user?.role
+                  ? ROLE_PERMISSIONS[user.role]
+                  : user
+                    ? ROLE_PERMISSIONS[UserRole.PATIENT]
+                    : [];
+            return requiredPermissions.every(permission => effectivePermissions.includes(permission));
           },
 
           isFeatureEnabled: (feature: string) => {
@@ -549,6 +581,16 @@ export const useAuthStore = create<AuthState>()(
           features: state.features,
           isAuthenticated: state.isAuthenticated,
         }),
+        // Sync persisted token to tokenManager when store is rehydrated
+        onRehydrateStorage: () => (state) => {
+          if (state?.tokens?.accessToken) {
+            // Import tokenManager dynamically to avoid circular dependencies
+            import('../services/token-manager').then(({ tokenManager }) => {
+              tokenManager.setAccessToken(state.tokens!.accessToken);
+              debugLog('Token synced to tokenManager from persisted state');
+            });
+          }
+        },
         // Don't persist loading states and errors
         version: 1,
       }
@@ -587,4 +629,3 @@ export const authSelectors = {
 //     }
 //   }
 // );
-

@@ -1,7 +1,7 @@
 // src/components/Messages.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Send,
   Search,
@@ -93,6 +93,56 @@ function routeLabel(m: RawMessage) {
 }
 
 const isImage = (mime?: string) => (mime ?? "").startsWith("image/");
+
+// Helper function to detect URLs and make them clickable
+function linkifyText(text: string): React.ReactNode {
+  if (!text) return null;
+  
+  // URL regex pattern
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = urlRegex.exec(text)) !== null) {
+    // Add text before the URL
+    if (match.index > lastIndex) {
+      parts.push(text.substring(lastIndex, match.index));
+    }
+    
+    // Add clickable link
+    const url = match[0];
+    const isBookingLink = url.includes('bookingstaging.belugahealth.com') || url.includes('booking.belugahealth.com');
+    
+    parts.push(
+      <a
+        key={match.index}
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-600 hover:text-blue-800 underline break-all"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {url}
+        <ExternalLink className="inline-block ml-1 w-3 h-3" />
+      </a>
+    );
+    
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex));
+  }
+  
+  // If no URLs found, return original text
+  if (parts.length === 0) {
+    return text;
+  }
+  
+  return <>{parts}</>;
+}
 
 // ---- NEW: tiny helpers for doc UI (non-images) ----
 const getExt = (name?: string) => {
@@ -279,7 +329,7 @@ export default function Messages() {
 
       const latest = newestFirst?.[0];
       if (latest) lastSeenLatestIdRef.current[selected.id] = latest.id;
-    }, 2000);
+    }, 30000);  // Changed from 2000ms to 30000ms (30 seconds) to reduce API calls
 
     return () => clearInterval(timer);
   }, [selected]);
@@ -323,7 +373,7 @@ export default function Messages() {
           lastSeenLatestIdRef.current[conv.id] = latest.id;
         }
       }
-    }, 2500);
+    }, 60000);  // Changed from 2500ms to 60000ms (60 seconds) to reduce API calls
 
     return () => clearInterval(timer);
   }, [conversations, selected]);
@@ -652,7 +702,7 @@ export default function Messages() {
                                 <div className="space-y-2">
                                   {m.content && (
                                     <p className="text-sm whitespace-pre-wrap break-words">
-                                      {m.content}
+                                      {linkifyText(m.content)}
                                     </p>
                                   )}
                                   {m.is_media && m.media_url && (

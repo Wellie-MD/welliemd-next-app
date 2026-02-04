@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Home, 
@@ -12,7 +12,8 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  // BookOpen, // Unused - Resources page disabled
+  Package,
+  X,
 } from "lucide-react";
 import { cn } from "./ui/utils";
 
@@ -28,50 +29,67 @@ const navigationItems: NavigationItem[] = [
   { icon: Calendar, label: "Appointments", path: "/dashboard/appointments" },
   { icon: FileText, label: "Medical Records", path: "/dashboard/medical-records" },
   { icon: Pill, label: "Prescriptions", path: "/dashboard/prescriptions" },
+  { icon: Package, label: "Orders", path: "/dashboard/orders" },
   { icon: TestTube, label: "Treatments", path: "/dashboard/treatments" },
   { icon: MessageSquare, label: "Messages", path: "/dashboard/messages" },
-  // { icon: BookOpen, label: "Resources", path: "/dashboard/blog" }, // Hidden - Resources page disabled
   { icon: Settings, label: "Settings", path: "/dashboard/settings" },
   { icon: HelpCircle, label: "Help", path: "/dashboard/help" },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  isMobileOpen: boolean;
+  onMobileClose: () => void;
+}
+
+export default function Sidebar({ isMobileOpen, onMobileClose }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
+
+  // Close mobile sidebar when route changes
+  useEffect(() => {
+    onMobileClose();
+  }, [location.pathname]);
 
   const NavItem = ({ item }: { item: NavigationItem }) => {
     const Icon = item.icon;
     
-    const isActive = item.path === '/dashboard' 
-      ? location.pathname === '/dashboard'
-      : location.pathname.startsWith(item.path);
+  // Improved active logic: sirf current page highlight ho
+    const isActive = location.pathname === item.path ||
+                     (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
 
     return (
       <li className="relative group">
         <NavLink
           to={item.path}
-          className={() =>
+          end={item.path === '/dashboard'}
+          className={({ isActive: navIsActive }) =>
             cn(
               "flex items-center w-full text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md text-sm font-medium transition-colors duration-200",
-              isCollapsed ? "justify-center px-3 py-3" : "justify-start px-3 py-2",
-              isActive && "text-blue-600 bg-blue-50"
+              isCollapsed && !isMobileOpen ? "justify-center px-3 py-3" : "justify-start px-3 py-2",
+              (isActive || navIsActive) && "text-blue-600 bg-blue-50"
             )
           }
+          onClick={() => {
+            // Close mobile sidebar on click
+            if (window.innerWidth < 768) {
+              onMobileClose();
+            }
+          }}
         >
           <Icon 
-            size={isCollapsed ? 24 : 18}
-            className={cn("flex-none", !isCollapsed && "mr-3")}
+            size={isCollapsed && !isMobileOpen ? 24 : 18}
+            className={cn("flex-none", !isCollapsed || isMobileOpen ? "mr-3" : "")}
             style={{
-              minWidth: isCollapsed ? '24px' : '18px',
-              minHeight: isCollapsed ? '24px' : '18px',
-              width: isCollapsed ? '24px' : '18px',
-              height: isCollapsed ? '24px' : '18px'
-          }}
-        />
-          {!isCollapsed && <span className="truncate">{item.label}</span>}
+              minWidth: isCollapsed && !isMobileOpen ? '24px' : '18px',
+              minHeight: isCollapsed && !isMobileOpen ? '24px' : '18px',
+              width: isCollapsed && !isMobileOpen ? '24px' : '18px',
+              height: isCollapsed && !isMobileOpen ? '24px' : '18px'
+            }}
+          />
+          {(!isCollapsed || isMobileOpen) && <span className="truncate">{item.label}</span>}
         </NavLink>
 
-        {isCollapsed && (
+        {isCollapsed && !isMobileOpen && (
           <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none whitespace-nowrap z-50">
             {item.label}
             <div className="absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1 w-0 h-0 border-r-4 border-r-gray-900 border-t-2 border-b-2 border-t-transparent border-b-transparent"></div>
@@ -81,51 +99,90 @@ export default function Sidebar() {
     );
   };
 
-  const mainItems = navigationItems.slice(0, -2);
-  const bottomItems = navigationItems.slice(-2);
+  const mainItems = navigationItems.slice(0, -1);
+  const bottomItems = navigationItems.slice(-1);
 
   return (
-    <div 
-      className={cn(
-        "bg-white border-r border-gray-200 min-h-screen flex flex-col transition-all duration-300 ease-in-out",
-        isCollapsed ? "w-16" : "w-64"
+    <>
+      {/* Mobile sidebar overlay */}
+      {isMobileOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black/50 z-40 transition-opacity duration-300"
+          onClick={onMobileClose}
+        />
       )}
-    >
-      <div className={cn("p-4 flex items-center", isCollapsed ? "justify-center" : "justify-between")}>
-        {!isCollapsed && (
-          <p className="text-sm text-gray-500 uppercase tracking-wide">MENU</p>
+
+      {/* Sidebar */}
+
+     
+      <div 
+        className={cn(
+          "bg-white border-r border-gray-200 flex flex-col z-50 transition-all duration-300 ease-in-out min-h-screen",
+
+          // Mobile drawer behavior
+            isMobileOpen ? "fixed inset-y-0 left-0 w-64 translate-x-0 " : "inset-y-0 left-0 w-64 -translate-x-full md:static md:translate-x-0 sidebar",
+            isCollapsed && !isMobileOpen ? "w-16" : "w-64",
+          // Desktop collapse only
+          !isMobileOpen && isCollapsed 
+            ? "md:w-16" 
+            : "md:w-64"
         )}
-        <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className={cn(
-            "p-1.5 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors duration-200",
-            isCollapsed && "w-full flex justify-center"
+      >
+        {/* Mobile header for sidebar */}
+        <div className={cn(
+          "p-4 flex items-center",
+          isCollapsed && !isMobileOpen ? "justify-center" : "justify-between"
+        )}>
+          {(!isCollapsed || isMobileOpen) && (
+            <p className="text-sm text-gray-500 uppercase tracking-wide">MENU</p>
           )}
-          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {isCollapsed ? (
-            <ChevronRight size={20} />
-          ) : (
-            <ChevronLeft size={20} />
-          )}
-        </button>
+          
+          {/* Close button for mobile, collapse/expand for desktop */}
+          <div className="flex items-center">
+            {isMobileOpen ? (
+              <button
+                onClick={onMobileClose}
+                className="p-1.5 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors duration-200"
+                aria-label="Close menu"
+              >
+                <X size={20} />
+              </button>
+            ) : (
+              <button
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className={cn(
+                  "p-1.5 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors duration-200",
+                  isCollapsed && !isMobileOpen ? "flex justify-center" : "block",
+                  "hidden md:flex"
+                )}
+                aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              >
+                {isCollapsed ? (
+                  <ChevronRight size={20} />
+                ) : (
+                  <ChevronLeft size={20} />
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+        
+        <nav className="flex-1 px-4">
+          <ul className="space-y-1">
+            {mainItems.map((item) => (
+              <NavItem key={item.path} item={item} />
+            ))}
+          </ul>
+        </nav>
+        
+        {/* <div className="p-4 border-t border-gray-200">
+          <ul className="space-y-1">
+            {bottomItems.map((item) => (
+              <NavItem key={item.path} item={item} />
+            ))}
+          </ul>
+        </div> */}
       </div>
-      
-      <nav className="flex-1 px-4">
-        <ul className="space-y-1">
-          {mainItems.map((item) => (
-            <NavItem key={item.path} item={item} />
-          ))}
-        </ul>
-      </nav>
-      
-      <div className="p-4 border-t border-gray-200">
-        <ul className="space-y-1">
-          {bottomItems.map((item) => (
-            <NavItem key={item.path} item={item} />
-          ))}
-        </ul>
-      </div>
-    </div>
+    </>
   );
 }

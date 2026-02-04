@@ -7,33 +7,36 @@ export const ROUTES = {
   FORGOT_PASSWORD: '/auth/forgot-password',
   RESET_PASSWORD: '/auth/reset-password',
   VERIFY_EMAIL: '/auth/verify-email',
-  
+
   // Protected routes
   DASHBOARD: '/dashboard',
   PROFILE: '/profile',
-  
+
   // Patient routes
   APPOINTMENTS: '/appointments',
   APPOINTMENTS_NEW: '/appointments/new',
   APPOINTMENTS_DETAIL: '/appointments/:id',
-  
+
   MEDICAL_RECORDS: '/medical-records',
   MEDICAL_RECORDS_DETAIL: '/medical-records/:id',
-  
+
   PRESCRIPTIONS: '/prescriptions',
   PRESCRIPTIONS_DETAIL: '/prescriptions/:id',
-  
+
   MESSAGES: '/messages',
   MESSAGES_CONVERSATION: '/messages/:conversationId',
-  
+
   LAB_RESULTS: '/lab-results',
   LAB_RESULTS_DETAIL: '/lab-results/:id',
-  
+
+  ORDERS: '/orders',
+  ORDERS_DETAIL: '/orders/:id',
+
   // Provider routes (if user has provider role)
   PATIENTS: '/patients',
   PATIENTS_DETAIL: '/patients/:id',
   PATIENTS_NEW: '/patients/new',
-  
+
   PROVIDER_APPOINTMENTS: '/provider/appointments',
   PROVIDER_SCHEDULE: '/provider/schedule',
   PROVIDER_ANALYTICS: '/provider/analytics',
@@ -45,14 +48,15 @@ export const ROUTES = {
   ADMIN_PROVIDERS: '/admin/providers',
   ADMIN_SETTINGS: '/admin/settings',
   ADMIN_LOGS: '/admin/logs',
-  
+
   // Settings
   SETTINGS: '/settings',
   SETTINGS_ACCOUNT: '/settings/account',
   SETTINGS_SECURITY: '/settings/security',
   SETTINGS_NOTIFICATIONS: '/settings/notifications',
   SETTINGS_PRIVACY: '/settings/privacy',
-  
+  SETTINGS_PAYMENT_METHODS: '/settings/payment-methods',
+
   // Error pages
   NOT_FOUND: '/404',
   UNAUTHORIZED: '/401',
@@ -85,21 +89,21 @@ export const ROUTE_CONFIGS: Record<string, RouteConfig> = {
     requiresAuth: false,
     showInNavigation: false,
   },
-  
+
   [ROUTES.LOGIN]: {
     path: ROUTES.LOGIN,
     title: 'Sign In',
     requiresAuth: false,
     showInNavigation: false,
   },
-  
+
   [ROUTES.REGISTER]: {
     path: ROUTES.REGISTER,
     title: 'Sign Up',
     requiresAuth: false,
     showInNavigation: false,
   },
-  
+
   [ROUTES.DASHBOARD]: {
     path: ROUTES.DASHBOARD,
     title: 'Dashboard',
@@ -109,7 +113,7 @@ export const ROUTE_CONFIGS: Record<string, RouteConfig> = {
     icon: 'LayoutDashboard',
     order: 1,
   },
-  
+
   [ROUTES.APPOINTMENTS]: {
     path: ROUTES.APPOINTMENTS,
     title: 'Appointments',
@@ -120,7 +124,7 @@ export const ROUTE_CONFIGS: Record<string, RouteConfig> = {
     icon: 'Calendar',
     order: 2,
   },
-  
+
   [ROUTES.MEDICAL_RECORDS]: {
     path: ROUTES.MEDICAL_RECORDS,
     title: 'Medical Records',
@@ -131,7 +135,7 @@ export const ROUTE_CONFIGS: Record<string, RouteConfig> = {
     icon: 'FileText',
     order: 3,
   },
-  
+
   [ROUTES.PRESCRIPTIONS]: {
     path: ROUTES.PRESCRIPTIONS,
     title: 'Prescriptions',
@@ -142,7 +146,7 @@ export const ROUTE_CONFIGS: Record<string, RouteConfig> = {
     icon: 'Pill',
     order: 4,
   },
-  
+
   [ROUTES.MESSAGES]: {
     path: ROUTES.MESSAGES,
     title: 'Messages',
@@ -153,7 +157,7 @@ export const ROUTE_CONFIGS: Record<string, RouteConfig> = {
     icon: 'MessageSquare',
     order: 5,
   },
-  
+
   [ROUTES.LAB_RESULTS]: {
     path: ROUTES.LAB_RESULTS,
     title: 'Lab Results',
@@ -164,7 +168,17 @@ export const ROUTE_CONFIGS: Record<string, RouteConfig> = {
     icon: 'TestTube',
     order: 6,
   },
-  
+
+  [ROUTES.ORDERS]: {
+    path: ROUTES.ORDERS,
+    title: 'Orders',
+    description: 'View your order history and tracking',
+    requiresAuth: true,
+    showInNavigation: true,
+    icon: 'Package',
+    order: 5,
+  },
+
   [ROUTES.PATIENTS]: {
     path: ROUTES.PATIENTS,
     title: 'Patients',
@@ -176,7 +190,7 @@ export const ROUTE_CONFIGS: Record<string, RouteConfig> = {
     icon: 'Users',
     order: 10,
   },
-  
+
   [ROUTES.PROVIDER_APPOINTMENTS]: {
     path: ROUTES.PROVIDER_APPOINTMENTS,
     title: 'Provider Appointments',
@@ -198,7 +212,7 @@ export const ROUTE_CONFIGS: Record<string, RouteConfig> = {
     icon: 'BookOpen',
     order: 7,
   },
-  
+
   [ROUTES.PROVIDER_SCHEDULE]: {
     path: ROUTES.PROVIDER_SCHEDULE,
     title: 'Schedule',
@@ -210,7 +224,7 @@ export const ROUTE_CONFIGS: Record<string, RouteConfig> = {
     icon: 'Clock',
     order: 12,
   },
-  
+
   [ROUTES.PROVIDER_ANALYTICS]: {
     path: ROUTES.PROVIDER_ANALYTICS,
     title: 'Analytics',
@@ -222,7 +236,7 @@ export const ROUTE_CONFIGS: Record<string, RouteConfig> = {
     icon: 'BarChart3',
     order: 13,
   },
-  
+
   [ROUTES.ADMIN]: {
     path: ROUTES.ADMIN,
     title: 'Administration',
@@ -233,7 +247,7 @@ export const ROUTE_CONFIGS: Record<string, RouteConfig> = {
     icon: 'Settings2',
     order: 20,
   },
-  
+
   [ROUTES.ADMIN_USERS]: {
     path: ROUTES.ADMIN_USERS,
     title: 'Users',
@@ -246,7 +260,7 @@ export const ROUTE_CONFIGS: Record<string, RouteConfig> = {
     parent: ROUTES.ADMIN,
     order: 21,
   },
-  
+
   [ROUTES.ADMIN_PROVIDERS]: {
     path: ROUTES.ADMIN_PROVIDERS,
     title: 'Providers',
@@ -259,7 +273,7 @@ export const ROUTE_CONFIGS: Record<string, RouteConfig> = {
     parent: ROUTES.ADMIN,
     order: 22,
   },
-  
+
   [ROUTES.PROFILE]: {
     path: ROUTES.PROFILE,
     title: 'Profile',
@@ -267,7 +281,7 @@ export const ROUTE_CONFIGS: Record<string, RouteConfig> = {
     requiresAuth: true,
     showInNavigation: false,
   },
-  
+
   [ROUTES.SETTINGS]: {
     path: ROUTES.SETTINGS,
     title: 'Settings',
@@ -276,6 +290,16 @@ export const ROUTE_CONFIGS: Record<string, RouteConfig> = {
     showInNavigation: true,
     icon: 'Settings',
     order: 100,
+  },
+
+  [ROUTES.SETTINGS_PAYMENT_METHODS]: {
+    path: ROUTES.SETTINGS_PAYMENT_METHODS,
+    title: 'Payment Methods',
+    description: 'Manage payment methods',
+    requiresAuth: true,
+    requiredPermissions: ['payment_method:list'],
+    showInNavigation: false,
+    parent: ROUTES.SETTINGS,
   },
 };
 
@@ -317,4 +341,3 @@ export const buildRoute = (template: string, params: Record<string, string>): st
 // Examples:
 // buildRoute(ROUTES.APPOINTMENTS_DETAIL, { id: '123' }) => '/appointments/123'
 // buildRoute(ROUTES.PATIENTS_DETAIL, { id: 'patient-456' }) => '/patients/patient-456'
-
