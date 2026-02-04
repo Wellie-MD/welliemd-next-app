@@ -63,6 +63,21 @@
       { "month": "2025-12", "value": 100 },
       { "month": "2026-01", "value": 110 }
     ],
+    "newClientChartData": [
+      { "month": "2025-02", "value": 0 },
+      { "month": "2025-03", "value": 0 },
+      { "month": "2025-04", "value": 0 },
+      { "month": "2025-05", "value": 0 },
+      { "month": "2025-06", "value": 0 },
+      { "month": "2025-07", "value": 0 },
+      { "month": "2025-08", "value": 0 },
+      { "month": "2025-09", "value": 0 },
+      { "month": "2025-10", "value": 0 },
+      { "month": "2025-11", "value": 0 },
+      { "month": "2025-12", "value": 0 },
+      { "month": "2026-01", "value": 1 },
+      { "month": "2026-02", "value": 1 }
+    ],
     "orderHistory": [
       { "date": "18/7/2025", "deliveryDate": "18/7/2025", "orderNumber": "HYLTHY-79", "name": "Ryan Mitchell", "product": "Tirzepatide - TIRZEPATIDE", "pharmacy": "RX Compound Store", "amount": "$0" },
       { "date": "18/7/2025", "deliveryDate": "18/7/2025", "orderNumber": "HYLTHY-79", "name": "Rachel Adams", "product": "Tirzepatide - TIRZEPATIDE", "pharmacy": "RX Compound Store", "amount": "$0" },

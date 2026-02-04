@@ -62,7 +62,7 @@ export interface DashboardData {
   liveSummary: LiveSummary;
   salesChartData: ChartDataPoint[];
   revenueChartData: ChartDataPoint[];
-  newPatientChartData: ChartDataPoint[];
+  newClientChartData: ChartDataPoint[];
   orderHistory: OrderHistoryItem[];
   payments: PaymentItem[];
 }
@@ -118,4 +118,68 @@ export function formatPercentage(value: number | string): string {
 export function parseMetricValue(value: string): number {
   // Remove currency symbols, commas, and percentage signs
   return parseFloat(value.replace(/[$,%]/g, ''));
+}
+
+// ============================================================================
+// Orders API
+// ============================================================================
+
+export interface AdminOrder {
+  id: string;
+  display_id: string;
+  patient_name: string;
+  patient_email: string;
+  patient_phone: string;
+  product_name: string;
+  pharmacy_name: string;
+  status: string;
+  status_display: string;
+  amount: number;
+  discount_amount: number;
+  payment_status: 'paid' | 'pending' | 'failed';
+  created_at: string;
+  prescribed_at: string | null;
+  shipped_at: string | null;
+  tracking_number: string;
+  client_name: string;
+  client_id: string;
+}
+
+export interface OrdersListResponse {
+  page: number;
+  page_size: number;
+  total_count: number;
+  total_pages: number;
+  orders: AdminOrder[];
+}
+
+export interface OrdersQueryParams {
+  page?: number;
+  page_size?: number;
+  search?: string;
+  status?: string;
+  date_from?: string;
+  date_to?: string;
+}
+
+/**
+ * Fetch paginated orders list from all tenants.
+ * 
+ * @param params - Query parameters for filtering and pagination
+ * @returns Promise<OrdersListResponse> - Paginated orders data
+ * @throws Error if request fails
+ */
+export async function getAdminOrders(params: OrdersQueryParams = {}): Promise<OrdersListResponse> {
+  try {
+    const { data } = await axiosInstance.get<OrdersListResponse>('/admin/dashboard/orders/', {
+      params
+    });
+    return data;
+  } catch (error: any) {
+    console.error('Failed to fetch admin orders:', error);
+    throw new Error(
+      error.response?.data?.error || 
+      'Failed to load orders. Please try again.'
+    );
+  }
 }

@@ -1,176 +1,194 @@
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CalendarDays, RotateCcw, TrendingUp, Download, RefreshCw, Grid3X3 } from "lucide-react"
 import { DateRange } from "react-day-picker"
-import { isWithinInterval } from "date-fns"
-import mockData from "@/data/mockData.json"
+import { format } from "date-fns"
+import { useAdminOrders } from "@/hooks/useAdminOrders"
 import { exportToCSV } from "@/utils/exportUtils"
 
 const orderColumns = [
-  { key: "name", label: "Name" },
-  { key: "email", label: "Email" },
-  { key: "phone", label: "Phone" },
-  { key: "pharmacy", label: "Pharmacy" },
-  { key: "orderDate", label: "Order Date" },
-  { key: "datePrescribed", label: "Date Prescribed" },
-  { key: "datePrintedShipped", label: "Date Printed/Shipped" },
-  { key: "paymentDate", label: "Payment Date" },
-  { key: "mrn", label: "MRN#" },
-  { key: "paymentStatus", label: "Payment Status" },
-  { key: "visitStatus", label: "Visit Status" },
-  { key: "address", label: "Address" },
-  { key: "orderStatus", label: "Order Status" },
-  { key: "orderTotal", label: "Order Total" }
+  { key: "display_id", label: "Order #" },
+  { key: "patient_name", label: "Patient Name" },
+  { key: "patient_email", label: "Email" },
+  { key: "patient_phone", label: "Phone" },
+  { key: "client_name", label: "Client" },
+  { key: "product_name", label: "Product" },
+  { key: "pharmacy_name", label: "Pharmacy" },
+  { key: "status_display", label: "Order Status" },
+  { key: "payment_status", label: "Payment Status" },
+  { key: "amount", label: "Amount" },
+  { key: "created_at", label: "Order Date" },
+  { key: "prescribed_at", label: "Prescribed Date" },
+  { key: "shipped_at", label: "Shipped Date" },
 ]
 
-// Meaningful filters based on the orders data structure
-const paymentStatusFilters = ["All", "Paid", "Pending", "Failed", "Refunded"]
-const orderStatusFilters = ["All", "Processing", "Shipped", "Delivered", "Cancelled"]
-const visitStatusFilters = ["All", "Scheduled", "Completed", "Missed", "Rescheduled"]
-
-// Additional filter buttons (keeping the original ones from your design)
-const additionalFilters = [
-  "Sort", 
-  "Product", 
-  "Pharmacies", 
-  "Pharmacy Status", 
-  "Extra Filters"
+// Status filters based on Order model
+const orderStatusFilters = [
+  "All",
+  "Created",
+  "Processing",
+  "Visit Pending",
+  "Prescribed",
+  "Rx Sent",
+  "Shipped",
+  "Canceled"
 ]
 
-// Helper function to parse date in DD/MM/YYYY format
-const parseDate = (dateString: string) => {
-  if (!dateString) return new Date()
-  const [day, month, year] = dateString.split('/')
-  return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
-}
+const paymentStatusFilters = ["All", "Paid", "Pending", "Failed"]
 
 export default function Orders() {
   const [searchTerm, setSearchTerm] = useState("")
-  const [activePaymentStatusFilter, setActivePaymentStatusFilter] = useState("All")
   const [activeOrderStatusFilter, setActiveOrderStatusFilter] = useState("All")
-  const [activeVisitStatusFilter, setActiveVisitStatusFilter] = useState("All")
-  const [activeAdditionalFilters, setActiveAdditionalFilters] = useState<string[]>([])
+  const [activePaymentStatusFilter, setActivePaymentStatusFilter] = useState("All")
   const [date, setDate] = useState<DateRange | undefined>()
-  const [refreshKey, setRefreshKey] = useState(0)
+  
+  const {
+    orders,
+    loading,
+    error,
+    pagination,
+    setPage,
+    setFilters,
+    refetch
+  } = useAdminOrders()
 
-  // Comprehensive filtering logic based on actual order data
-  const filteredOrders = useMemo(() => {
-    return mockData.orders.filter(order => {
-      // Search filter - search across multiple fields
-      const matchesSearch = !searchTerm || 
-        order.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.phone.includes(searchTerm) ||
-        order.mrn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.pharmacy.toLowerCase().includes(searchTerm.toLowerCase())
+  // Use ref to track previous filter values to prevent unnecessary updates
+  const prevFiltersRef = useRef({
+    searchTerm: "",
+    activeOrderStatusFilter: "All",
+    date: undefined as DateRange | undefined
+  });
 
-      // Payment Status filter
-      const matchesPaymentStatus = activePaymentStatusFilter === "All" || order.paymentStatus === activePaymentStatusFilter
-
-      // Order Status filter
-      const matchesOrderStatus = activeOrderStatusFilter === "All" || order.orderStatus === activeOrderStatusFilter
-
-      // Visit Status filter
-      const matchesVisitStatus = activeVisitStatusFilter === "All" || order.visitStatus === activeVisitStatusFilter
-
-      // Date range filter based on orderDate
-      let matchesDateRange = true
-      if (date?.from || date?.to) {
-        const orderDate = parseDate(order.orderDate)
-        
-        if (date.from && date.to) {
-          matchesDateRange = isWithinInterval(orderDate, {
-            start: date.from,
-            end: date.to
-          })
-        } else if (date.from) {
-          matchesDateRange = orderDate >= date.from
-        } else if (date.to) {
-          matchesDateRange = orderDate <= date.to
+  // Apply filters when they change (with debouncing for search)
+  useEffect(() => {
+    const prev = prevFiltersRef.current;
+    
+    // Check if filters actually changed
+    const filtersChanged = 
+      prev.searchTerm !== searchTerm ||
+      prev.activeOrderStatusFilter !== activeOrderStatusFilter ||
+      prev.date !== date;
+    
+    if (!filtersChanged) {
+      return;
+    }
+    
+    // Update ref
+    prevFiltersRef.current = {
+      searchTerm,
+      activeOrderStatusFilter,
+      date
+    };
+    
+    // Debounce search input
+    const timeoutId = setTimeout(() => {
+      const filters: any = {}
+      
+      if (searchTerm) {
+        filters.search = searchTerm
+      }
+      
+      if (activeOrderStatusFilter !== "All") {
+        // Map display names to backend status values
+        const statusMap: Record<string, string> = {
+          "Created": "created",
+          "Processing": "processing",
+          "Visit Pending": "visit_pending",
+          "Prescribed": "prescribed",
+          "Rx Sent": "rx_sent",
+          "Shipped": "shipped",
+          "Canceled": "canceled"
         }
+        filters.status = statusMap[activeOrderStatusFilter]
       }
-
-      // Additional filters logic
-      let matchesAdditionalFilters = true
-      if (activeAdditionalFilters.length > 0) {
-        // Add your custom logic here based on the additional filters
-        // For now, we'll just show all results when additional filters are active
+      
+      if (date?.from) {
+        filters.date_from = format(date.from, 'yyyy-MM-dd')
       }
+      
+      if (date?.to) {
+        filters.date_to = format(date.to, 'yyyy-MM-dd')
+      }
+      
+      setFilters(filters)
+    }, searchTerm !== prev.searchTerm ? 500 : 0) // Debounce search by 500ms
+    
+    return () => clearTimeout(timeoutId)
+  }, [searchTerm, activeOrderStatusFilter, date, setFilters])
 
-      return matchesSearch && matchesPaymentStatus && matchesOrderStatus && matchesVisitStatus && matchesDateRange && matchesAdditionalFilters
-    })
-  }, [mockData.orders, searchTerm, activePaymentStatusFilter, activeOrderStatusFilter, activeVisitStatusFilter, date, activeAdditionalFilters, refreshKey])
+  // Format orders for display
+  const formattedOrders = useMemo(() => {
+    return orders
+      .filter(order => {
+        // Client-side payment status filter
+        if (activePaymentStatusFilter !== "All") {
+          return order.payment_status === activePaymentStatusFilter.toLowerCase()
+        }
+        return true
+      })
+      .map(order => ({
+        ...order,
+        amount: `$${order.amount.toFixed(2)}`,
+        created_at: order.created_at ? format(new Date(order.created_at), 'MM/dd/yyyy') : '',
+        prescribed_at: order.prescribed_at ? format(new Date(order.prescribed_at), 'MM/dd/yyyy') : '',
+        shipped_at: order.shipped_at ? format(new Date(order.shipped_at), 'MM/dd/yyyy') : '',
+        payment_status: order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1),
+      }))
+  }, [orders, activePaymentStatusFilter])
 
-  // Create filter configuration - combining all filter types
+  // Create filter configuration
   const filters = [
-    // Payment Status filters
-    ...paymentStatusFilters.map(status => ({
-      key: `payment-${status}`,
-      label: status === "All" ? "Payment status" : status,
-      type: 'button' as const,
-      value: activePaymentStatusFilter === status ? status : undefined,
-      onClick: () => setActivePaymentStatusFilter(status)
-    })),
-    // Order Status filters  
-    ...orderStatusFilters.slice(1).map(status => ({ // Skip "All" to avoid duplicate
+    // Order Status filters
+    ...orderStatusFilters.map(status => ({
       key: `order-${status}`,
-      label: status,
+      label: status === "All" ? "Order Status" : status,
       type: 'button' as const,
       value: activeOrderStatusFilter === status ? status : undefined,
       onClick: () => setActiveOrderStatusFilter(status)
     })),
-    // Visit Status filters
-    ...visitStatusFilters.slice(1).map(status => ({ // Skip "All" to avoid duplicate
-      key: `visit-${status}`,
-      label: status,
+    // Payment Status filters
+    ...paymentStatusFilters.map(status => ({
+      key: `payment-${status}`,
+      label: status === "All" ? "Payment Status" : status,
       type: 'button' as const,
-      value: activeVisitStatusFilter === status ? status : undefined,
-      onClick: () => setActiveVisitStatusFilter(status)
+      value: activePaymentStatusFilter === status ? status : undefined,
+      onClick: () => setActivePaymentStatusFilter(status)
     })),
-    // Additional filter buttons
-    ...additionalFilters.map(filter => ({
-      key: `additional-${filter}`,
-      label: filter,
-      type: 'button' as const,
-      value: activeAdditionalFilters.includes(filter) ? filter : undefined,
-      onClick: () => {
-        setActiveAdditionalFilters(prev => 
-          prev.includes(filter) 
-            ? prev.filter(f => f !== filter)
-            : [...prev, filter]
-        )
-      }
-    }))
   ]
 
   const handleResetFilters = useCallback(() => {
+    setActiveOrderStatusFilter("All")
     setActivePaymentStatusFilter("All")
-    setActiveOrderStatusFilter("All") 
-    setActiveVisitStatusFilter("All")
-    setActiveAdditionalFilters([])
     setDate(undefined)
     setSearchTerm("")
+    // Reset will trigger the useEffect which will call setFilters
   }, [])
 
   const handleRefresh = useCallback(() => {
-    setRefreshKey(prev => prev + 1)
-    console.log("Refreshing orders data...")
-  }, [])
+    refetch()
+  }, [refetch])
 
   const handleExport = useCallback(() => {
-    exportToCSV(filteredOrders, orderColumns, 'orders_export')
-  }, [filteredOrders])
+    exportToCSV(formattedOrders, orderColumns, 'admin_orders_export')
+  }, [formattedOrders])
 
   const handleUpgrade = () => {
     console.log("Upgrade clicked")
-    // Implement upgrade logic
   }
 
   const handleGridView = () => {
-    console.log("Grid view clicked") 
-    // Implement grid view toggle logic
+    console.log("Grid view clicked")
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="text-red-500">Error loading orders: {error.message}</div>
+        <Button onClick={handleRefresh} className="mt-4">Retry</Button>
+      </div>
+    )
   }
 
   return (
@@ -181,10 +199,9 @@ export default function Orders() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
             <span>Orders</span>
             <span>›</span>
-            <span>Orders</span>
+            <span>All Orders</span>
           </div>
         </div>
-        {/* Right side buttons that were originally in the top row */}
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" className="gap-2" onClick={handleUpgrade}>
             <TrendingUp className="h-4 w-4" />
@@ -197,9 +214,9 @@ export default function Orders() {
       </div>
 
       <DataTable
-        data={filteredOrders}
+        data={formattedOrders}
         columns={orderColumns}
-        searchPlaceholder="Search by Order#, affiliate order #, MRN#, patient name, phone number"
+        searchPlaceholder="Search by Order#, patient name, phone number, email"
         showDatePicker={true}
         showExport={true}
         showResetFilters={true}
@@ -210,7 +227,36 @@ export default function Orders() {
         onResetFilters={handleResetFilters}
         onExport={handleExport}
         onRefresh={handleRefresh}
+        loading={loading}
       />
+      
+      {/* Pagination Info */}
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <div>
+          Showing {formattedOrders.length} of {pagination.total_count} orders
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(pagination.page - 1)}
+            disabled={pagination.page === 1 || loading}
+          >
+            Previous
+          </Button>
+          <span>
+            Page {pagination.page} of {pagination.total_pages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(pagination.page + 1)}
+            disabled={pagination.page >= pagination.total_pages || loading}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

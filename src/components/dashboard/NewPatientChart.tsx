@@ -16,7 +16,7 @@ export function NewPatientChart({ data }: NewPatientChartProps) {
   return (
     <Card className="rounded-2xl shadow-md bg-white w-full h-full">
       <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl">
-        <CardTitle className="text-gray-800">New Patients</CardTitle>
+        <CardTitle className="text-gray-800">Total Clients</CardTitle>
         <Button
           variant="ghost"
           size="sm"
@@ -56,7 +56,7 @@ export function NewPatientChart({ data }: NewPatientChartProps) {
                 strokeWidth={3}
                 dot={{ fill: "white", stroke: "#FF928A", strokeWidth: 2, r: 4 }}
                 activeDot={{ r: 6, fill: "white", stroke: "#FF928A", strokeWidth: 2 }}
-                name="New Patients"
+                name="Total Clients"
               />
             </LineChart>
           </ResponsiveContainer>

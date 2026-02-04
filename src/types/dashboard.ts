@@ -51,7 +51,8 @@ export interface DashboardData {
   liveSummary: LiveSummary
   salesChartData: ChartDataPoint[]
   revenueChartData: ChartDataPoint[]
-  newPatientChartData: ChartDataPoint[]
+  newPatientChartData?: ChartDataPoint[]  // Optional for backward compatibility
+  newClientChartData: ChartDataPoint[]
   orderHistory: OrderHistoryItem[]
   payments: PaymentItem[]
 }
