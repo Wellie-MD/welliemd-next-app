@@ -1,6 +1,6 @@
 /**
  * Payment Transactions API
- * 
+ *
  * Fetches payment transactions from the backend with pagination and filtering.
  */
 
@@ -49,6 +49,24 @@ export interface TransactionListParams {
     search?: string;
 }
 
+export interface ClientPaymentHistory {
+    date: string;
+    patient_id: string;
+    patient_name: string;
+    order_number: string;
+    total_amount: string;
+    discount: string;
+    amount_paid: string;
+    payment_status: string;
+}
+
+export interface ClientPaymentHistoryResponse {
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: ClientPaymentHistory[];
+}
+
 /**
  * Fetch payment transactions with pagination and filtering
  */
@@ -71,6 +89,15 @@ export async function fetchTransactions(params: TransactionListParams = {}): Pro
     return response.data;
 }
 
+/**
+ * Fetch client payment history
+ */
+export async function fetchClientPaymentHistory(): Promise<ClientPaymentHistoryResponse> {
+    const response = await axiosInstance.get<ClientPaymentHistoryResponse>('/client/payment_history/');
+    return response.data;
+}
+
 export default {
     fetchTransactions,
+    fetchClientPaymentHistory,
 };

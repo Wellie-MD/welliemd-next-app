@@ -23,6 +23,7 @@ import Messages from "./pages/Messages";
 import Analytics from "./pages/Analytics";
 import Affiliates from "./pages/Affiliates";
 import Orders from "./pages/Orders";
+import OrderDetail from "./pages/OrderDetail";
 import Payments from "./pages/Payments";
 import NotFound from "./pages/NotFound";
 import SignIn from "./pages/auth/SignIn";
@@ -219,6 +220,7 @@ const App = () => {
                       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                       <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
                       <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+                      <Route path="/orders/details/:orderId" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
                       <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
                       <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
                       <Route path="/products/routing" element={<ProtectedRoute><ProductsRouting /></ProtectedRoute>} />
