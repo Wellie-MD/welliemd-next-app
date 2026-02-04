@@ -97,6 +97,9 @@ export default function ClientForm() {
     first_next_saas_fees_billing_date: "",
     include_cost_to_client_in_reimbursement: true,
     include_shipping_cost_to_client_in_reimbursement: true,
+    b2b_dunning_enabled: true,
+    b2b_grace_period_days: 7,
+    b2b_manual_pay_enabled: true,
 
     // Payment Gateway
     payment_gateway: "nmi",
@@ -203,6 +206,9 @@ export default function ClientForm() {
           existingClient.include_cost_to_client_in_reimbursement ?? true,
         include_shipping_cost_to_client_in_reimbursement:
           existingClient.include_shipping_cost_to_client_in_reimbursement ?? true,
+        b2b_dunning_enabled: existingClient.b2b_dunning_enabled ?? true,
+        b2b_grace_period_days: existingClient.b2b_grace_period_days ?? 7,
+        b2b_manual_pay_enabled: existingClient.b2b_manual_pay_enabled ?? true,
         payment_gateway: existingClient.payment_gateway || "nmi",
         is_active: existingClient.is_active,
       });
@@ -394,6 +400,13 @@ export default function ClientForm() {
         monthly_saas_fee: formData.monthly_saas_fee,
         first_next_saas_fees_billing_date:
           formData.first_next_saas_fees_billing_date || undefined,
+        include_cost_to_client_in_reimbursement:
+          formData.include_cost_to_client_in_reimbursement,
+        include_shipping_cost_to_client_in_reimbursement:
+          formData.include_shipping_cost_to_client_in_reimbursement,
+        b2b_dunning_enabled: formData.b2b_dunning_enabled,
+        b2b_grace_period_days: formData.b2b_grace_period_days,
+        b2b_manual_pay_enabled: formData.b2b_manual_pay_enabled,
         payment_gateway: formData.payment_gateway,
         is_active: formData.is_active,
       };
@@ -866,8 +879,15 @@ export default function ClientForm() {
                   Configure fees and billing settings
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
+              <CardContent className="space-y-6">
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Core Fees</p>
+                    <p className="text-xs text-muted-foreground">
+                      These fees define your base pricing model for patients and consults.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="patient_fee">Patient Fee ($)</Label>
                     <Input
@@ -878,7 +898,7 @@ export default function ClientForm() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          patient_fee: parseFloat(e.target.value),
+                          patient_fee: e.target.value === "" ? 0 : parseFloat(e.target.value),
                         })
                       }
                     />
@@ -895,7 +915,7 @@ export default function ClientForm() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          async_consult_fee_to_client: parseFloat(
+                          async_consult_fee_to_client: e.target.value === "" ? 0 : parseFloat(
                             e.target.value
                           ),
                         })
@@ -914,14 +934,21 @@ export default function ClientForm() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          async_consult_cost: parseFloat(e.target.value),
+                          async_consult_cost: e.target.value === "" ? 0 : parseFloat(e.target.value),
                         })
                       }
                     />
                   </div>
                 </div>
-
-                <div className="grid grid-cols-3 gap-4">
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Sync & SaaS Fees</p>
+                    <p className="text-xs text-muted-foreground">
+                      Sync consult rates and the monthly SaaS base fee.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="sync_video_consult_fee_to_client">
                       Sync Consult Fee ($)
@@ -934,7 +961,7 @@ export default function ClientForm() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          sync_video_consult_fee_to_client: parseFloat(
+                          sync_video_consult_fee_to_client: e.target.value === "" ? 0 : parseFloat(
                             e.target.value
                           ),
                         })
@@ -953,7 +980,7 @@ export default function ClientForm() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          sync_consult_cost: parseFloat(e.target.value),
+                          sync_consult_cost: e.target.value === "" ? 0 : parseFloat(e.target.value),
                         })
                       }
                     />
@@ -970,31 +997,33 @@ export default function ClientForm() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          monthly_saas_fee: parseFloat(e.target.value),
+                          monthly_saas_fee: e.target.value === "" ? 0 : parseFloat(e.target.value),
                         })
                       }
                     />
                   </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="first_next_saas_fees_billing_date">
+                        First/Next SaaS Billing Date
+                      </Label>
+                      <Input
+                        id="first_next_saas_fees_billing_date"
+                        type="date"
+                        value={formData.first_next_saas_fees_billing_date}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            first_next_saas_fees_billing_date: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="first_next_saas_fees_billing_date">
-                    First/Next SaaS Billing Date
-                  </Label>
-                  <Input
-                    id="first_next_saas_fees_billing_date"
-                    type="date"
-                    value={formData.first_next_saas_fees_billing_date}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        first_next_saas_fees_billing_date: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="border-t pt-4 space-y-4">
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
                   <div className="space-y-1">
                     <Label className="text-sm font-medium">
                       Reimbursement Charge Options
@@ -1005,7 +1034,7 @@ export default function ClientForm() {
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-background p-3">
                     <div>
                       <p className="text-sm font-medium">
                         Include medication cost to client
@@ -1028,7 +1057,7 @@ export default function ClientForm() {
                     />
                   </div>
 
-                  <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-background p-3">
                     <div>
                       <p className="text-sm font-medium">
                         Include shipping cost to client
@@ -1050,6 +1079,73 @@ export default function ClientForm() {
                         })
                       }
                     />
+                  </div>
+                </div>
+
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
+                  <div className="space-y-1">
+                    <Label className="text-sm font-medium">
+                      Subscription Dunning
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Configure grace period handling for failed SaaS subscription renewals.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-background p-3">
+                    <div>
+                      <p className="text-sm font-medium">Enable grace period</p>
+                      <p className="text-xs text-muted-foreground">
+                        Keep subscription active while invoice is due.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={formData.b2b_dunning_enabled ?? true}
+                      onCheckedChange={(checked) =>
+                        setFormData({
+                          ...formData,
+                          b2b_dunning_enabled: checked,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="b2b_grace_period_days">Grace period (days)</Label>
+                      <Input
+                        id="b2b_grace_period_days"
+                        type="number"
+                        min={0}
+                        max={60}
+                        value={formData.b2b_grace_period_days ?? 7}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            b2b_grace_period_days: Number(e.target.value),
+                          })
+                        }
+                        disabled={!formData.b2b_dunning_enabled}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-background p-3">
+                      <div>
+                        <p className="text-sm font-medium">Allow manual pay</p>
+                        <p className="text-xs text-muted-foreground">
+                          Let clients manually pay overdue invoices.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={formData.b2b_manual_pay_enabled ?? true}
+                        onCheckedChange={(checked) =>
+                          setFormData({
+                            ...formData,
+                            b2b_manual_pay_enabled: checked,
+                          })
+                        }
+                        disabled={!formData.b2b_dunning_enabled}
+                      />
+                    </div>
                   </div>
                 </div>
               </CardContent>

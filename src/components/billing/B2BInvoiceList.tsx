@@ -51,7 +51,7 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
   const formatBreakdown = (inv: any) => {
     const items = inv.line_items ?? [];
     const pharmacy = items
-      .filter((li: any) => li.item_type === "medication_reimbursement")
+      .filter((li: any) => ["medication_reimbursement", "shipping_cost"].includes(li.item_type))
       .reduce(
         (sum: number, li: any) =>
           sum + parseFloat(li.total_amount || li.unit_price || 0),
@@ -177,7 +177,12 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {invoices.map((invoice) => (
+                  {invoices.map((invoice) => {
+                    const statusLabel =
+                      (invoice as any).is_overdue && invoice.status !== "paid"
+                        ? "overdue"
+                        : invoice.status;
+                    return (
                     <TableRow key={invoice.id}>
                       <TableCell className="font-mono text-sm">
                         {invoice.invoice_number}
@@ -194,8 +199,8 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                         {formatBreakdown(invoice)}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getStatusBadgeVariant(invoice.status)}>
-                          {invoice.status}
+                        <Badge variant={getStatusBadgeVariant(statusLabel)}>
+                          {statusLabel}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
@@ -205,7 +210,8 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                         {formatDate(invoice.due_date)}
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

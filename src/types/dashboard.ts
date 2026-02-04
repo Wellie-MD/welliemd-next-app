@@ -1,15 +1,15 @@
+export interface DashboardPeriod {
+  start: string
+  end: string
+  previous_start: string
+  previous_end: string
+}
+
 export interface Metric {
   title: string
   value: string
   change: string
   trend: "up" | "down" | "neutral"
-}
-
-export interface Message {
-  id: number
-  name: string
-  time: string
-  avatar: string
 }
 
 export interface LiveSummary {
@@ -45,8 +45,9 @@ export interface PaymentItem {
 }
 
 export interface DashboardData {
+  period: DashboardPeriod
+  partial?: boolean
   kpis: Metric[]
-  messages: Message[]
   liveSummary: LiveSummary
   salesChartData: ChartDataPoint[]
   revenueChartData: ChartDataPoint[]
