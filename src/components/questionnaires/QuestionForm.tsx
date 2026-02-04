@@ -114,9 +114,12 @@ export function QuestionForm({
   // Prefill config
   const [prefillEnabled, setPrefillEnabled] = useState(false);
   const [prefillSource, setPrefillSource] = useState<
-    "onboarding" | "latest_completed" | "clinical"
+    "onboarding" | "latest_completed" | "clinical" | "derived"
   >("onboarding");
   const [prefillSourceQuestionId, setPrefillSourceQuestionId] = useState("");
+  const [prefillDerivedField, setPrefillDerivedField] = useState<
+    "therapy_route" | "regimen_protocol"
+  >("therapy_route");
 
   // State for checkout question type
   const [checkoutConfig, setCheckoutConfig] = useState<{
@@ -154,6 +157,7 @@ export function QuestionForm({
   const [bmiMax, setBmiMax] = useState<number | "">(27);
   const [dobMinAge, setDobMinAge] = useState<number | "">(18);
   const [dobMaxAge, setDobMaxAge] = useState<number | "">(65);
+  const [isHidden, setIsHidden] = useState(false);
 
   // Fetch template and existing questions when modal opens
   useEffect(() => {
@@ -237,6 +241,8 @@ export function QuestionForm({
 
       // Extract disqualifying answers from validation_rules
       const validationRules = question.validation_rules as unknown;
+      const hiddenFlag = (validationRules as Record<string, unknown>)?.hidden === true;
+      setIsHidden(hiddenFlag);
       let disqualifyingAnswersList: string[] = [];
       if (validationRules?.disqualifying_answer) {
         disqualifyingAnswersList = [validationRules.disqualifying_answer];
@@ -254,10 +260,15 @@ export function QuestionForm({
         | undefined;
       setPrefillEnabled(!!prefillConfig?.enabled);
       setPrefillSource(
-        (prefillConfig?.source as "onboarding" | "latest_completed" | "clinical") ||
+        (prefillConfig?.source as "onboarding" | "latest_completed" | "clinical" | "derived") ||
           "onboarding"
       );
       setPrefillSourceQuestionId(prefillConfig?.source_question_id || "");
+      if (prefillConfig?.field) {
+        setPrefillDerivedField(
+          prefillConfig.field as "therapy_route" | "regimen_protocol"
+        );
+      }
 
       // Extract checkout_config for checkout questions
       if (
@@ -718,12 +729,20 @@ export function QuestionForm({
         validationRules.prefill = {
           enabled: true,
           source: prefillSource,
-          source_question_id: prefillSourceQuestionId || undefined,
-          match_strategy: prefillSourceQuestionId ? "by_id" : "by_text",
+          source_question_id:
+            prefillSource === "derived" ? undefined : prefillSourceQuestionId || undefined,
+          field: prefillSource === "derived" ? prefillDerivedField : undefined,
+          match_strategy:
+            prefillSource === "derived"
+              ? undefined
+              : prefillSourceQuestionId
+              ? "by_id"
+              : "by_text",
         };
       } else {
         delete validationRules.prefill;
       }
+      validationRules.hidden = isHidden === true;
 
       // Build consent_form for consent questions
       const consentForm =
@@ -1931,7 +1950,9 @@ export function QuestionForm({
                   <Select
                     value={prefillSource}
                     onValueChange={(value) =>
-                      setPrefillSource(value as "onboarding" | "latest_completed" | "clinical")
+                      setPrefillSource(
+                        value as "onboarding" | "latest_completed" | "clinical" | "derived"
+                      )
                     }
                   >
                     <SelectTrigger>
@@ -1941,18 +1962,46 @@ export function QuestionForm({
                       <SelectItem value="onboarding">Onboarding</SelectItem>
                       <SelectItem value="latest_completed">Latest Completed</SelectItem>
                       <SelectItem value="clinical">Clinical</SelectItem>
+                      <SelectItem value="derived">Derived</SelectItem>
                     </SelectContent>
                   </Select>
 
-                  <Label>Source Question ID (optional)</Label>
-                  <Input
-                    value={prefillSourceQuestionId}
-                    onChange={(e) => setPrefillSourceQuestionId(e.target.value)}
-                    placeholder="UUID of source question"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Leave blank to auto-match by question text when possible.
-                  </p>
+                  {prefillSource === "derived" ? (
+                    <>
+                      <Label>Derived Field</Label>
+                      <Select
+                        value={prefillDerivedField}
+                        onValueChange={(value) =>
+                          setPrefillDerivedField(
+                            value as "therapy_route" | "regimen_protocol"
+                          )
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="therapy_route">Therapy Route</SelectItem>
+                          <SelectItem value="regimen_protocol">Regimen Protocol</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Derived values come from latest confirmed treatment data.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <Label>Source Question ID (optional)</Label>
+                      <Input
+                        value={prefillSourceQuestionId}
+                        onChange={(e) => setPrefillSourceQuestionId(e.target.value)}
+                        placeholder="UUID of source question"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Leave blank to auto-match by question text when possible.
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -1976,6 +2025,15 @@ export function QuestionForm({
                 onCheckedChange={(checked) =>
                   setFormData({ ...formData, include_in_qa_section: checked })
                 }
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="hidden_question">Hidden (Do Not Show Patient)</Label>
+              <Switch
+                id="hidden_question"
+                checked={isHidden}
+                onCheckedChange={(checked) => setIsHidden(checked)}
               />
             </div>
           </div>
