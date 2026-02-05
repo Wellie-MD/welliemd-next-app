@@ -49,6 +49,7 @@ const settingsMenuItems = [
   { title: "Metafields", url: "/dashboard/settings/metafields", icon: Tag },
   // { title: "Domains", url: "/dashboard/settings/domains", icon: Globe }, /* Domains tab removed on request: https://telehealthknysys.atlassian.net/browse/KAN-3 */
   { title: "Brand", url: "/dashboard/settings/brand", icon: Palette },
+  { title: "Webhooks", url: "/dashboard/settings/webhooks-apis", icon: Webhook },
   { title: "Analytics and SEO", url: "/dashboard/settings/analytics-seo", icon: TrendingUp },
   { title: "Email and Sending Domain", url: "/dashboard/settings/email-domain", icon: Globe },
   { title: "Beluga Settings", url: "/dashboard/settings/beluga-settings", icon: Cloud },
@@ -96,25 +97,24 @@ export function SettingsSidebar({
         collapsed ? "w-16" : "w-64"
       )}
     >
-     {/* <Sidebar collapsible="icon" className="border-r flex flex-col h-full overflow-hidden"> */}
-      <div  className={`flex w-full p-4 ${
-    collapsed ? "justify-center" : "justify-between"
-  }`}>
+      {/* <Sidebar collapsible="icon" className="border-r flex flex-col h-full overflow-hidden"> */}
+      <div className={`flex w-full p-4 ${collapsed ? "justify-center" : "justify-between"
+        }`}>
         {!collapsed && (
-  <img
-    src="/welliemd_logo.png"
-    alt="Welliemd"
-    className="h-8 w-auto"
-  />
-)}
+          <img
+            src="/welliemd_logo.png"
+            alt="Welliemd"
+            className="h-8 w-auto"
+          />
+        )}
 
         {/* <SidebarTrigger className="text-gray-600 hover:bg-white/50 rounded-md p-1" /> */}
         <button
-  onClick={onToggle}
-  className="text-gray-600 hover:bg-muted rounded-md p-1 "
->
-  {collapsed ? <ChevronsRight className="h-4 w-4" /> : <X className="h-4 w-4" />}
-</button>
+          onClick={onToggle}
+          className="text-gray-600 hover:bg-muted rounded-md p-1 "
+        >
+          {collapsed ? <ChevronsRight className="h-4 w-4" /> : <X className="h-4 w-4" />}
+        </button>
       </div>
       {/* <SidebarContent className="overflow-y-auto overflow-x-hidden flex-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"> */}
       <div className="flex-1 overflow-y-auto">
@@ -126,7 +126,7 @@ export function SettingsSidebar({
                 {/* Back Button */}
                 <SidebarMenuItem>
                   <MenuItemWrapper title="Back to App">
-                    <SidebarMenuButton 
+                    <SidebarMenuButton
                       onClick={() => navigate("/dashboard")}
                       className={`
                         group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
@@ -157,8 +157,8 @@ export function SettingsSidebar({
                         className={`
                           group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
                           ${collapsed ? "p-2 justify-center w-10 h-10 mx-auto" : "px-3 py-2.5"}
-                          ${isActive(item.url) 
-                            ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm" 
+                          ${isActive(item.url)
+                            ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm"
                             : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
                           }
                         `}
@@ -173,9 +173,9 @@ export function SettingsSidebar({
             </SidebarGroupContent>
           </SidebarGroup>
         </div>
-      {/* </SidebarContent> */}
+        {/* </SidebarContent> */}
       </div>
-    {/* </Sidebar> */}
+      {/* </Sidebar> */}
     </aside>
   )
 }
