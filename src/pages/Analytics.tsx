@@ -19,11 +19,11 @@ export default function Analytics() {
     from: undefined,
     to: undefined,
   })
-  
+
   // Additional filter states
   const [selectedTreatment, setSelectedTreatment] = useState<string>('')
   const [selectedProductGroup, setSelectedProductGroup] = useState<string>('')
-  
+
   // Show/hide filters
   const [showFilters, setShowFilters] = useState(true)
 
@@ -39,7 +39,7 @@ export default function Analytics() {
       case 'year':
         return { from: subDays(now, 365), to: now }
       case 'custom':
-        return (customDateRange.from && customDateRange.to) 
+        return (customDateRange.from && customDateRange.to)
           ? { from: customDateRange.from, to: customDateRange.to }
           : { from: subDays(now, 30), to: now } // Fallback
       default:
@@ -116,8 +116,16 @@ export default function Analytics() {
     )
   }
 
-  if (!analytics) {
-    return null
+  if (!analytics || !analytics.visitors) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="pt-6 text-center text-muted-foreground">
+            No data available for the selected period.
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -133,7 +141,7 @@ export default function Analytics() {
               <span>Live View</span>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -142,7 +150,7 @@ export default function Analytics() {
             >
               {showFilters ? 'Hide' : 'Show'} Filters
             </Button>
-            
+
             {hasActiveFilters && (
               <Button
                 variant="ghost"
@@ -165,8 +173,8 @@ export default function Analytics() {
                 {/* Date Period Selector */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Time Period</label>
-                  <Select 
-                    value={period} 
+                  <Select
+                    value={period}
                     onValueChange={(value: any) => {
                       setPeriod(value)
                       if (value !== 'custom') {
@@ -245,7 +253,7 @@ export default function Analytics() {
                             selected={customDateRange.to}
                             onSelect={(date) => setCustomDateRange(prev => ({ ...prev, to: date }))}
                             initialFocus
-                            disabled={(date) => 
+                            disabled={(date) =>
                               customDateRange.from ? date < customDateRange.from : false
                             }
                           />
@@ -397,29 +405,29 @@ export default function Analytics() {
           <VisitorChart data={analytics.chartData} />
         </div>
         <div className="space-y-4">
-          <StatCard 
-            title="Total Visitors" 
-            value={analytics.visitors.total.toLocaleString()} 
+          <StatCard
+            title="Total Visitors"
+            value={analytics.visitors.total.toLocaleString()}
             className="bg-white shadow-sm"
           />
-          <StatCard 
-            title="Unique Visitors" 
-            value={analytics.visitors.unique.toLocaleString()} 
+          <StatCard
+            title="Unique Visitors"
+            value={analytics.visitors.unique.toLocaleString()}
             className="bg-white shadow-sm"
           />
-          <StatCard 
-            title="Total Pageviews" 
-            value={analytics.visitors.totalPageviews.toLocaleString()} 
+          <StatCard
+            title="Total Pageviews"
+            value={analytics.visitors.totalPageviews.toLocaleString()}
             className="bg-white shadow-sm"
           />
-          <StatCard 
-            title="Bounce Rate" 
-            value={`${analytics.visitors.bounceRate}%`} 
+          <StatCard
+            title="Bounce Rate"
+            value={`${analytics.visitors.bounceRate}%`}
             className="bg-white shadow-sm"
           />
-          <StatCard 
-            title="Visit Duration" 
-            value={analytics.visitors.visitDuration} 
+          <StatCard
+            title="Visit Duration"
+            value={analytics.visitors.visitDuration}
             className="bg-white shadow-sm"
           />
         </div>
@@ -435,15 +443,15 @@ export default function Analytics() {
           <CardContent>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <p className="text-2xl font-bold">{analytics.customerBehavior.visitors}</p>
+                <p className="text-2xl font-bold">{analytics.visitors.total}</p>
                 <p className="text-sm text-muted-foreground">Visitors</p>
               </div>
               <div>
-                <p className="text-2xl font-bold">{analytics.customerBehavior.checking}</p>
+                <p className="text-2xl font-bold">{analytics.customerBehavior?.checking}</p>
                 <p className="text-sm text-muted-foreground">Checking Out</p>
               </div>
               <div>
-                <p className="text-2xl font-bold">{analytics.customerBehavior.purchased}</p>
+                <p className="text-2xl font-bold">{analytics.customerBehavior?.purchased}</p>
                 <p className="text-sm text-muted-foreground">Purchased</p>
               </div>
             </div>

@@ -26,6 +26,25 @@ export interface AnalyticsData {
     uniqueVisitors: number;
     totalPageviews: number;
   }>;
+  salesByTreatment: Array<{
+    name: string;
+    percentage: number;
+    total: number;
+    count: number;
+  }>;
+  salesByProductGroup: Array<{
+    name: string;
+    percentage: number;
+    total: number;
+    count: number;
+  }>;
+  customerBehavior: {
+    visitors: number;
+    checking: number;
+    purchased: number;
+  };
+  totalCheckouts: number;
+  totalSales: number;
 }
 
 export interface QueryParams {
@@ -56,7 +75,7 @@ export const getAnalytics = async (params: QueryParams): Promise<AnalyticsData> 
  */
 export const getTreatments = async (): Promise<Treatment[]> => {
   try {
-    const response = await axiosInstance.get('/medical/treatments/', {
+    const response = await axiosInstance.get('/products/treatments/', {
       params: {
         limit: 100,
       },
@@ -86,7 +105,7 @@ export const getTreatments = async (): Promise<Treatment[]> => {
  */
 export const getProductGroups = async (): Promise<ProductGroup[]> => {
   try {
-    const response = await axiosInstance.get('/products/groups/', {
+    const response = await axiosInstance.get('/products/product-groups/', {
       params: {
         limit: 100,
       },
