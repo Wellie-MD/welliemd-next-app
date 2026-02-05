@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -9,7 +10,6 @@ import { isWithinInterval } from "date-fns"
 import mockData from "@/data/mockData.json"
 import { ordersApi, Order } from "@/api/ordersApi"
 import { exportToCSV } from "@/utils/exportUtils"
-import { OrderDetailsSheet } from "@/components/orders/OrderDetailsSheet"
 import { PermissionGate } from "@/components/auth/PermissionGate"
 import { Permissions } from "@/constants/permissions"
 import {
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog"
 
 const orderColumns = [
+  { key: "order_id", label: "Order ID", minWidth: "120px", className: "font-medium" },
   { key: "patient_name", label: "Patient", minWidth: "160px", className: "max-w-[220px]" },
   { key: "email", label: "Email", minWidth: "200px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell max-w-[220px]" },
   { key: "phone", label: "Phone", minWidth: "130px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell max-w-[140px]" },
@@ -119,14 +120,14 @@ export default function Orders() {
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null)
   
   // Order Details Sheet state
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
-  const [sheetOpen, setSheetOpen] = useState(false)
+  const navigate = useNavigate()
 
   // Comprehensive filtering logic based on actual order data
   const filteredOrders = useMemo(() => {
     const lowerSearch = searchTerm.trim().toLowerCase()
     return orders.filter(order => {
       const matchesSearch = !lowerSearch ||
+        (order.order_id ?? '').toLowerCase().includes(lowerSearch) ||
         (order.patient?.full_name ?? '').toLowerCase().includes(lowerSearch) ||
         (order.name ?? '').toLowerCase().includes(lowerSearch) ||
         (order.email ?? '').toLowerCase().includes(lowerSearch) ||
@@ -389,36 +390,47 @@ export default function Orders() {
           patient_name: o.patient?.full_name || o.name || o.email || '-',
         }))}
         columns={orderColumns.map(col => {
-          // Make the patient column clickable to open order details
-          if (col.key === 'patient_name') {
+          // Order ID: show value or "—" for old orders not backfilled
+          if (col.key === 'order_id') {
             return {
               ...col,
               render: (_: any, row: any) => (
-                <button
-                  onClick={() => {
-                    setSelectedOrder(row)
-                    setSheetOpen(true)
-                  }}
-                  className="text-primary hover:underline font-medium text-left"
-                >
-                  {row.patient_name || '-'}
-                </button>
+                <span className="text-sm font-medium">{row.order_id ?? '—'}</span>
               ),
+            }
+          }
+
+          // Make the patient column clickable to open order detail page
+          if (col.key === 'patient_name') {
+            return {
+              ...col,
+              render: (_: any, row: any) => {
+                const detailId = row.order_id ?? row.id
+                return (
+                  <button
+                    onClick={() => detailId && navigate(`/dashboard/orders/details/${detailId}`)}
+                    className="text-primary hover:underline font-medium text-left"
+                    disabled={!detailId}
+                  >
+                    {row.patient_name || '-'}
+                  </button>
+                )
+              },
             }
           }
 
           if (col.key === 'actions') {
             return {
               ...col,
-              render: (_: any, row: any) => (
+              render: (_: any, row: any) => {
+                const detailId = row.order_id ?? row.id
+                return (
                 <div className="flex gap-2">
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => {
-                      setSelectedOrder(row)
-                      setSheetOpen(true)
-                    }}
+                    onClick={() => detailId && navigate(`/dashboard/orders/details/${detailId}`)}
+                    disabled={!detailId}
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
@@ -444,7 +456,8 @@ export default function Orders() {
                     </Button>
                   </PermissionGate>
                 </div>
-              ),
+              )
+              },
             }
           }
 
@@ -525,7 +538,7 @@ export default function Orders() {
 
           return col
         })}
-        searchPlaceholder="Search by Order#, affiliate order #, MRN#, patient name, phone number"
+        searchPlaceholder="Search by Order ID, Order#, affiliate order #, MRN#, patient name, phone number"
         showDatePicker={true}
         showExport={true}
         showResetFilters={false}
@@ -537,14 +550,6 @@ export default function Orders() {
         onExport={handleExport}
         onRefresh={handleRefresh}
         loading={isLoadingOrders || isSaving}
-      />
-
-      {/* Order Details Sheet */}
-      <OrderDetailsSheet
-        open={sheetOpen}
-        onOpenChange={setSheetOpen}
-        order={selectedOrder}
-        onDelete={handleDeleteOrder}
       />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>

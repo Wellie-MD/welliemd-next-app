@@ -2,29 +2,73 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { PatientResponses } from "@/api/ordersApi"
-import { User, FileText, Pill, AlertCircle } from "lucide-react"
+import { User, FileText, Pill, AlertCircle, Link2, Copy } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface PatientResponsesModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   patientResponses: PatientResponses | null | undefined
   patientName?: string
+  checkoutUrl?: string | null
 }
 
 export function PatientResponsesModal({
   open,
   onOpenChange,
   patientResponses,
-  patientName = "Patient"
+  patientName = "Patient",
+  checkoutUrl
 }: PatientResponsesModalProps) {
+  const { toast } = useToast()
+
+  const handleCopyCheckoutUrl = () => {
+    if (!checkoutUrl) return
+    navigator.clipboard.writeText(checkoutUrl)
+    toast({
+      title: "Copied",
+      description: "Checkout URL copied to clipboard.",
+    })
+  }
   if (!patientResponses) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl max-h-[80vh]">
           <DialogHeader>
-            <DialogTitle>Patient Responses</DialogTitle>
+            <DialogTitle>Patient Responses - {patientName}</DialogTitle>
           </DialogHeader>
+          {checkoutUrl && (
+            <div className="space-y-4 mt-4">
+              <div className="flex items-center gap-2">
+                <Link2 className="h-4 w-4 text-primary" />
+                <h3 className="font-semibold text-lg">Checkout page URL</h3>
+              </div>
+              <div className="bg-muted/30 rounded-lg p-4 border border-border/50">
+                <p className="text-sm text-muted-foreground mb-2 font-medium">
+                  Copy and send this link to the patient if they did not receive the checkout email.
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    readOnly
+                    value={checkoutUrl}
+                    className="font-mono text-sm flex-1 bg-background border-border/50"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    onClick={handleCopyCheckoutUrl}
+                    title="Copy URL"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground">
@@ -132,8 +176,42 @@ export function PatientResponsesModal({
             Patient Responses - {patientName}
           </DialogTitle>
         </DialogHeader>
-        
+
         <ScrollArea className="h-[calc(85vh-100px)] px-6 pb-6">
+          {/* Checkout page URL - same section style as Patient Information / Questionnaire Items */}
+          {checkoutUrl && (
+            <>
+              <div className="space-y-4 mt-4">
+                <div className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4 text-primary" />
+                  <h3 className="font-semibold text-lg">Checkout page URL</h3>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-4 border border-border/50">
+                  <p className="text-sm text-muted-foreground mb-2 font-medium">
+                    Copy and send this link to the patient if they did not receive the checkout email.
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      readOnly
+                      value={checkoutUrl}
+                      className="font-mono text-sm flex-1 bg-background border-border/50"
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="icon"
+                      onClick={handleCopyCheckoutUrl}
+                      title="Copy URL"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              <Separator className="my-6" />
+            </>
+          )}
+
           {/* Company Info */}
           {company && (
             <div className="mt-4 mb-4">
