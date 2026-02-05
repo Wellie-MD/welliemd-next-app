@@ -1,5 +1,4 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, Dot } from "recharts"
 
 interface VisitorChartProps {
@@ -25,16 +24,6 @@ export function VisitorChart({ data }: VisitorChartProps) {
     <Card className="border-0 shadow-none">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-lg font-medium">Visitors</CardTitle>
-        <Select defaultValue="today">
-          <SelectTrigger className="w-32 text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="today">Today</SelectItem>
-            <SelectItem value="week">This Week</SelectItem>
-            <SelectItem value="month">This Month</SelectItem>
-          </SelectContent>
-        </Select>
       </CardHeader>
       <CardContent>
         <div className="h-[400px]">
@@ -100,17 +89,6 @@ export function VisitorChart({ data }: VisitorChartProps) {
                 strokeWidth={2}
                 name="Total Pageviews"
                 dot={<CustomDot stroke="#3CC3DF" />}
-                activeDot={{ r: 6, strokeWidth: 2 }}
-              />
-              <Area 
-                type="monotone" 
-                dataKey="viewsPerVisit" 
-                stroke="#FFAE4C"
-                fill="#FFAE4C"
-                fillOpacity={0.1}
-                strokeWidth={2}
-                name="Views Per Visit"
-                dot={<CustomDot stroke="#FFAE4C" />}
                 activeDot={{ r: 6, strokeWidth: 2 }}
               />
             </AreaChart>
