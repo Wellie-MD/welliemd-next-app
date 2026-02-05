@@ -416,6 +416,7 @@ export function OrderDetailsSheet({
         onOpenChange={setShowPatientResponses}
         patientResponses={order.patient_responses}
         patientName={order.name || "Patient"}
+        checkoutUrl={order.checkout_url}
       />
 
       {/* Refund / Void Dialog */}
