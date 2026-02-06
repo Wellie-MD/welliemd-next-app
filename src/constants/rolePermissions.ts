@@ -24,6 +24,10 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
         Permissions.ORDER_UPDATE,
         Permissions.ORDER_DELETE,
 
+        // Patients
+        Permissions.USER_UPDATE,
+        Permissions.USER_DELETE,
+
         // Products
         Permissions.PRODUCT_MANAGE,
         Permissions.PRODUCT_ASSIGN,
@@ -39,6 +43,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
         Permissions.COUPON_CREATE,
         Permissions.COUPON_UPDATE,
         Permissions.COUPON_DELETE,
+
+        // Refunds
+        Permissions.REFUND_CREATE,
 
         // Templates
         Permissions.TEMPLATE_MANAGE,
@@ -57,6 +64,10 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
         Permissions.ORDER_VIEW,
         Permissions.ORDER_UPDATE,
         Permissions.ORDER_DELETE,
+
+        // Patients
+        Permissions.USER_UPDATE,
+        Permissions.USER_DELETE,
         Permissions.PRODUCT_MANAGE,
         Permissions.PRODUCT_ASSIGN,
         Permissions.PRODUCT_ARCHIVE,

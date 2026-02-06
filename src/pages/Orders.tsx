@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -9,25 +10,35 @@ import { isWithinInterval } from "date-fns"
 import mockData from "@/data/mockData.json"
 import { ordersApi, Order } from "@/api/ordersApi"
 import { exportToCSV } from "@/utils/exportUtils"
-import { OrderDetailsSheet } from "@/components/orders/OrderDetailsSheet"
+import { PermissionGate } from "@/components/auth/PermissionGate"
+import { Permissions } from "@/constants/permissions"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 const orderColumns = [
-  { key: "name", label: "Name", width: "150px" },
-  { key: "email", label: "Email", width: "200px" },
-  { key: "phone", label: "Phone", width: "130px" },
-  { key: "pharmacy_display", label: "Pharmacy", width: "150px" },
-  { key: "orderDate", label: "Order Date", width: "100px" },
-  { key: "datePrescribed", label: "Date Prescribed", width: "100px" },
-  { key: "datePrintedShipped", label: "Date Printed / Shipped", width: "100px" },
-  { key: "paymentDate", label: "Payment Date", width: "100px" },
-  { key: "mrn", label: "MRN#", width: "120px" },
-  { key: "paymentStatus", label: "Payment Status", width: "100px" },
-  { key: "visitStatus", label: "Visit Status", width: "100px" },
-  { key: "address", label: "Address", width: "150px" },
-  { key: "orderStatus", label: "Order Status", width: "100px" },
-  { key: "orderTotal", label: "Order Total", width: "100px" },
-  { key: "tracking_number", label: "Tracking #", width: "100px" },
-  { key: "actions", label: "Actions", width: "100px", render: (_: any, row: any) => null }
+  { key: "order_id", label: "Order ID", minWidth: "120px", className: "font-medium" },
+  { key: "patient_name", label: "Patient", minWidth: "160px", className: "max-w-[220px]" },
+  { key: "email", label: "Email", minWidth: "200px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell max-w-[220px]" },
+  { key: "phone", label: "Phone", minWidth: "130px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell max-w-[140px]" },
+  { key: "pharmacy_display", label: "Pharmacy", minWidth: "150px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell max-w-[180px]" },
+  { key: "orderDate", label: "Order Date", minWidth: "120px" },
+  { key: "datePrescribed", label: "Date Prescribed", minWidth: "130px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
+  { key: "paymentDate", label: "Payment Date", minWidth: "120px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
+  { key: "mrn", label: "MRN#", minWidth: "120px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
+  { key: "paymentStatus", label: "Payment Status", minWidth: "130px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
+  { key: "visitStatus", label: "Visit Status", minWidth: "120px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
+  { key: "orderStatus", label: "Order Status", minWidth: "120px" },
+  { key: "orderTotal", label: "Order Total", minWidth: "110px" },
+  { key: "tracking_number", label: "Tracking #", minWidth: "140px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell max-w-[160px]" },
+  { key: "actions", label: "Actions", minWidth: "110px", render: (_: any, row: any) => null }
 ]
 
 // Meaningful filters based on the orders data structure
@@ -79,6 +90,17 @@ const parseDate = (dateString?: string | null) => {
   return new Date(dateString)
 }
 
+const formatDateLabel = (dateString?: string | null) => {
+  if (!dateString) return "-"
+  const date = parseDate(dateString)
+  if (isNaN(date.getTime())) return "-"
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  })
+}
+
 export default function Orders() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activePaymentStatusFilter, setActivePaymentStatusFilter] = useState("All")
@@ -95,16 +117,18 @@ export default function Orders() {
   const [editedStatuses, setEditedStatuses] = useState<Record<string, string>>({})
   const [editedTrackingNumbers, setEditedTrackingNumbers] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Order | null>(null)
   
   // Order Details Sheet state
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
-  const [sheetOpen, setSheetOpen] = useState(false)
+  const navigate = useNavigate()
 
   // Comprehensive filtering logic based on actual order data
   const filteredOrders = useMemo(() => {
     const lowerSearch = searchTerm.trim().toLowerCase()
     return orders.filter(order => {
       const matchesSearch = !lowerSearch ||
+        (order.order_id ?? '').toLowerCase().includes(lowerSearch) ||
+        (order.patient?.full_name ?? '').toLowerCase().includes(lowerSearch) ||
         (order.name ?? '').toLowerCase().includes(lowerSearch) ||
         (order.email ?? '').toLowerCase().includes(lowerSearch) ||
         (order.phone ?? '').includes(searchTerm) ||
@@ -225,7 +249,6 @@ export default function Orders() {
   }, [])
 
   const handleDeleteOrder = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this order?')) return
     setIsSaving(true)
     setError(null)
     setSuccess(null)
@@ -236,6 +259,7 @@ export default function Orders() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete order')
       console.error('Delete order error:', err)
+      throw err
     } finally {
       setIsSaving(false)
     }
@@ -361,38 +385,52 @@ export default function Orders() {
       )}
 
       <DataTable
-        data={filteredOrders.map(o => ({ ...o }))}
+        data={filteredOrders.map(o => ({
+          ...o,
+          patient_name: o.patient?.full_name || o.name || o.email || '-',
+        }))}
         columns={orderColumns.map(col => {
-          // Make the name column clickable to open order details
-          if (col.key === 'name') {
+          // Order ID: show value or "—" for old orders not backfilled
+          if (col.key === 'order_id') {
             return {
               ...col,
               render: (_: any, row: any) => (
-                <button
-                  onClick={() => {
-                    setSelectedOrder(row)
-                    setSheetOpen(true)
-                  }}
-                  className="text-primary hover:underline font-medium text-left"
-                >
-                  {row.name || '-'}
-                </button>
+                <span className="text-sm font-medium">{row.order_id ?? '—'}</span>
               ),
+            }
+          }
+
+          // Make the patient column clickable to open order detail page
+          if (col.key === 'patient_name') {
+            return {
+              ...col,
+              render: (_: any, row: any) => {
+                const detailId = row.order_id ?? row.id
+                return (
+                  <button
+                    onClick={() => detailId && navigate(`/dashboard/orders/details/${detailId}`)}
+                    className="text-primary hover:underline font-medium text-left"
+                    disabled={!detailId}
+                  >
+                    {row.patient_name || '-'}
+                  </button>
+                )
+              },
             }
           }
 
           if (col.key === 'actions') {
             return {
               ...col,
-              render: (_: any, row: any) => (
+              render: (_: any, row: any) => {
+                const detailId = row.order_id ?? row.id
+                return (
                 <div className="flex gap-2">
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => {
-                      setSelectedOrder(row)
-                      setSheetOpen(true)
-                    }}
+                    onClick={() => detailId && navigate(`/dashboard/orders/details/${detailId}`)}
+                    disabled={!detailId}
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
@@ -408,8 +446,25 @@ export default function Orders() {
                   >
                     {savingId === row.id ? 'Saving...' : 'Save'}
                   </Button>
+                  <PermissionGate permission={Permissions.ORDER_DELETE}>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => setDeleteTarget(row)}
+                    >
+                      Delete
+                    </Button>
+                  </PermissionGate>
                 </div>
-              ),
+              )
+              },
+            }
+          }
+
+          if (['orderDate', 'datePrescribed', 'paymentDate'].includes(col.key)) {
+            return {
+              ...col,
+              render: (_: any, row: any) => formatDateLabel(row[col.key]),
             }
           }
 
@@ -483,7 +538,7 @@ export default function Orders() {
 
           return col
         })}
-        searchPlaceholder="Search by Order#, affiliate order #, MRN#, patient name, phone number"
+        searchPlaceholder="Search by Order ID, Order#, affiliate order #, MRN#, patient name, phone number"
         showDatePicker={true}
         showExport={true}
         showResetFilters={false}
@@ -497,12 +552,32 @@ export default function Orders() {
         loading={isLoadingOrders || isSaving}
       />
 
-      {/* Order Details Sheet */}
-      <OrderDetailsSheet
-        open={sheetOpen}
-        onOpenChange={setSheetOpen}
-        order={selectedOrder}
-      />
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this order?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action permanently deletes the order and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!deleteTarget) return
+                try {
+                  await handleDeleteOrder(deleteTarget.id)
+                } finally {
+                  setDeleteTarget(null)
+                }
+              }}
+              disabled={isSaving}
+            >
+              {isSaving ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
