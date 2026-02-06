@@ -48,6 +48,29 @@ interface ParentQuestionConfig {
   trigger_values: string[];
 }
 
+type CheckoutMode = "static" | "followup_derived_context";
+
+interface CheckoutConfig {
+  resolution_mode?: "followup_derived_context";
+  target_regimen_protocol?: string;
+  dose_strategy?: "same_dose" | "next_dose_if_available_else_same";
+  category?: string;
+  medication_base_name?: string;
+  regimen?: string;
+  regimen_name?: string;
+  dose_mapping?: number;
+  dose_mapping_label?: string;
+  product_id?: string | number;
+  product_name?: string;
+  has_hierarchy?: boolean;
+  duration?: string;
+  duration_name?: string;
+  pharmacy_id?: string;
+  pharmacy_name?: string;
+  beluga_medicine_id?: string;
+  price?: number;
+}
+
 interface ExtendedQuestionPayload extends CreateQuestionPayload {
   max_file_size?: number;
   allowed_extensions?: string[];
@@ -69,9 +92,18 @@ export function QuestionForm({
   question,
   onSuccess,
 }: QuestionFormProps) {
+  const FOLLOWUP_PROTOCOL_OPTIONS = [
+    { value: "alternative protocol", label: "Alternative Protocol" },
+    { value: "rapid protocol", label: "Rapid Protocol" },
+    { value: "twice weekly protocol", label: "Twice Weekly Protocol" },
+  ];
+
   const [loading, setLoading] = useState(false);
 
   const [existingQuestions, setExistingQuestions] = useState<Question[]>([]);
+  const [templateQuestionnaireType, setTemplateQuestionnaireType] = useState<
+    "onboarding" | "follow_up" | null
+  >(null);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [titrationCategories, setTitrationCategories] = useState<TitrationCategory[]>([]);
   const [doseMappings, setDoseMappings] = useState<ProductDoseMapping[]>([]);
@@ -130,19 +162,10 @@ export function QuestionForm({
   >("therapy_route");
 
   // State for checkout question type
-  const [checkoutConfig, setCheckoutConfig] = useState<{
-    product_id: string;
-    product_name: string;
-    has_hierarchy: boolean;
-    regimen?: string;
-    regimen_name?: string;
-    duration?: string;
-    duration_name?: string;
-    pharmacy_id?: string;
-    pharmacy_name?: string;
-    beluga_medicine_id: string;
-    price?: number;
-  } | null>(null);
+  const [checkoutMode, setCheckoutMode] = useState<CheckoutMode>("static");
+  const [checkoutConfig, setCheckoutConfig] = useState<CheckoutConfig | null>(
+    null
+  );
 
   // State for grouped questions
   const [subQuestions, setSubQuestions] = useState<Omit<SubQuestion, "id">[]>(
@@ -185,6 +208,7 @@ export function QuestionForm({
         try {
           const templateData = await templateApi.getTemplate(templateId);
           setExistingQuestions(templateData.questions || []);
+          setTemplateQuestionnaireType(templateData.questionnaire_type || null);
         } catch (error) {
           console.error("Failed to fetch template:", error);
         }
@@ -314,7 +338,16 @@ export function QuestionForm({
         question.question_type === "checkout" &&
         validationRules?.checkout_config
       ) {
-        setCheckoutConfig(validationRules.checkout_config);
+        const existingCheckoutConfig = validationRules.checkout_config as CheckoutConfig;
+        setCheckoutConfig(existingCheckoutConfig);
+        setCheckoutMode(
+          existingCheckoutConfig?.resolution_mode === "followup_derived_context"
+            ? "followup_derived_context"
+            : "static"
+        );
+      } else if (question.question_type === "checkout") {
+        setCheckoutConfig(null);
+        setCheckoutMode("static");
       }
 
       // Extract medication config for medication_dose_selector questions
@@ -459,6 +492,7 @@ export function QuestionForm({
       setSelectedParentForAdding("");
       setLogicOperator("OR");
       setCheckoutConfig(null);
+      setCheckoutMode("static");
       setSubQuestions([]);
       setEnableNumberValidation(false);
       setNumberValidationOperator("gt");
@@ -678,13 +712,42 @@ export function QuestionForm({
       }
 
       // Validate checkout question type
-      if (formData.question_type === "checkout" && !checkoutConfig) {
-        toast({
-          title: "Validation Error",
-          description: "Product selection is required for checkout questions",
-          variant: "destructive",
-        });
-        return;
+      if (formData.question_type === "checkout") {
+        if (!checkoutConfig) {
+          toast({
+            title: "Validation Error",
+            description:
+              checkoutMode === "followup_derived_context"
+                ? "Configure derived checkout fields before saving"
+                : "Product selection is required for checkout questions",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (checkoutMode === "followup_derived_context") {
+          if (!checkoutConfig.target_regimen_protocol) {
+            toast({
+              title: "Validation Error",
+              description:
+                "Select a regimen protocol for derived follow-up checkout questions",
+              variant: "destructive",
+            });
+            return;
+          }
+        } else if (
+          !checkoutConfig.category ||
+          !checkoutConfig.regimen ||
+          !checkoutConfig.dose_mapping
+        ) {
+          toast({
+            title: "Validation Error",
+            description:
+              "Select medication category, regimen, and dose level for checkout",
+            variant: "destructive",
+          });
+          return;
+        }
       }
 
       // Validate medication_dose_selector question type
@@ -730,8 +793,19 @@ export function QuestionForm({
           allowed_extensions: formData.allowed_extensions,
         };
       } else if (formData.question_type === "checkout") {
+        const normalizedCheckoutConfig: CheckoutConfig = { ...checkoutConfig };
+        if (checkoutMode === "followup_derived_context") {
+          normalizedCheckoutConfig.resolution_mode = "followup_derived_context";
+          normalizedCheckoutConfig.dose_strategy =
+            normalizedCheckoutConfig.dose_strategy ||
+            "next_dose_if_available_else_same";
+        } else {
+          delete normalizedCheckoutConfig.resolution_mode;
+          delete normalizedCheckoutConfig.target_regimen_protocol;
+          delete normalizedCheckoutConfig.dose_strategy;
+        }
         validationRules = {
-          checkout_config: checkoutConfig,
+          checkout_config: normalizedCheckoutConfig,
         };
       } else if (formData.question_type === "medication_dose_selector") {
         if (medicationMode === "dynamic") {
@@ -1203,17 +1277,130 @@ export function QuestionForm({
             <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
               <h3 className="font-semibold text-sm">Checkout Configuration</h3>
               <div className="space-y-2">
+                <Label>Checkout Mode</Label>
+                <Select
+                  value={checkoutMode}
+                  onValueChange={(value: CheckoutMode) => {
+                    setCheckoutMode(value);
+                    if (value === "followup_derived_context") {
+                      setCheckoutConfig((prev) => ({
+                        ...(prev || {}),
+                        resolution_mode: "followup_derived_context",
+                        dose_strategy:
+                          prev?.dose_strategy ||
+                          "next_dose_if_available_else_same",
+                      }));
+                    } else {
+                      setCheckoutConfig((prev) => {
+                        if (!prev) return null;
+                        const next = { ...prev };
+                        delete next.resolution_mode;
+                        delete next.target_regimen_protocol;
+                        delete next.dose_strategy;
+                        return next;
+                      });
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select mode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="static">
+                      Static Product (Onboarding/Basic Follow-up)
+                    </SelectItem>
+                    {templateQuestionnaireType === "follow_up" && (
+                      <SelectItem value="followup_derived_context">
+                        Dynamic Follow-up (Derived Context)
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                {templateQuestionnaireType !== "follow_up" && (
+                  <p className="text-xs text-muted-foreground">
+                    Dynamic derived mode is available only for follow-up templates.
+                  </p>
+                )}
+              </div>
+
+              {checkoutMode === "followup_derived_context" && (
+                <>
+                  <div className="space-y-2">
+                    <Label>
+                      Target Regimen Protocol{" "}
+                      <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={checkoutConfig?.target_regimen_protocol || ""}
+                      onValueChange={(value) =>
+                        setCheckoutConfig((prev) => ({
+                          ...(prev || {}),
+                          target_regimen_protocol: value,
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select protocol" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FOLLOWUP_PROTOCOL_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Dose Strategy</Label>
+                    <Select
+                      value={
+                        checkoutConfig?.dose_strategy ||
+                        "next_dose_if_available_else_same"
+                      }
+                      onValueChange={(
+                        value: "same_dose" | "next_dose_if_available_else_same"
+                      ) =>
+                        setCheckoutConfig((prev) => ({
+                          ...(prev || {}),
+                          dose_strategy: value,
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select dose strategy" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="next_dose_if_available_else_same">
+                          Move to Next Dose (fallback to same at max dose)
+                        </SelectItem>
+                        <SelectItem value="same_dose">
+                          Keep Same Dose
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+
+              <div className="space-y-2">
                 <Label>
-                  Select Product <span className="text-red-500">*</span>
+                  {checkoutMode === "followup_derived_context"
+                    ? "Fallback Product (Optional)"
+                    : "Select Product"}{" "}
+                  {checkoutMode === "static" && (
+                    <span className="text-red-500">*</span>
+                  )}
                 </Label>
                 <ProductSelector
                   value={checkoutConfig}
                   onChange={setCheckoutConfig}
                 />
                 <p className="text-xs text-muted-foreground">
-                  This product will be displayed to the patient for checkout.
-                  The product's Beluga Med ID and pharmacy will be automatically
-                  included.
+                  {checkoutMode === "followup_derived_context"
+                    ? "Products are resolved from follow-up derived context. Fallback product is used only when context cannot be derived."
+                    : "This product will be displayed to the patient for checkout. Product metadata is included automatically."}
                 </p>
               </div>
             </div>
