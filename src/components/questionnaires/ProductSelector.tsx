@@ -253,7 +253,8 @@ export function ProductSelector({
       )}
 
       <p className="text-xs text-muted-foreground">
-        Generic category name without pharmacy suffix. The questionnaire app will dynamically match products based on patient selections.
+        Checkout config is structured: Category, Regimen, and Dose Mapping.
+        Product names may remain official/messy; matching uses structured fields.
       </p>
 
       {/* Selected Configuration Display */}

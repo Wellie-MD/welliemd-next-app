@@ -196,9 +196,12 @@ export function CategorySelector({
                       id="new-category-name"
                       value={newCategoryName}
                       onChange={(e) => setNewCategoryName(e.target.value)}
-                      placeholder="e.g., Weight Loss Medications"
+                      placeholder="e.g., Semaglutide"
                       disabled={creating}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Recommended: clear patient-facing category name.
+                    </p>
                   </div>
 
                   <div className="space-y-2">

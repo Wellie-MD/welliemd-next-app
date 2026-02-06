@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Search, X, RefreshCw } from "lucide-react";
+import { ArrowLeft, Search, X, RefreshCw, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -117,6 +117,61 @@ export default function TemplateAssignment() {
     );
   }, [clients, clientSearch]);
 
+  const selectedTemplateRecords = useMemo(
+    () => templates.filter((t) => selectedTemplates.has(t.id)),
+    [templates, selectedTemplates]
+  );
+
+  const compatibilityWarnings = useMemo(() => {
+    const warnings: string[] = [];
+    const selectedFollowUps = selectedTemplateRecords.filter(
+      (t) => t.questionnaire_type === "follow_up"
+    );
+
+    if (selectedFollowUps.length === 0) {
+      return warnings;
+    }
+
+    warnings.push(
+      `You selected ${selectedFollowUps.length} follow-up template(s). Verify each selected client supports the same treatment flow before assigning.`
+    );
+
+    const glpLikeFollowUps = selectedFollowUps.filter((t) => {
+      const type = (t.treatment_type || "").toLowerCase();
+      const name = (t.name || "").toLowerCase();
+      return type.includes("glp") || name.includes("glp");
+    });
+    if (glpLikeFollowUps.length > 0) {
+      warnings.push(
+        "GLP follow-up template(s) detected. Assign only to clients with GLP products, dose mappings, and regimen setup (Alternative/Rapid/Twice Weekly as needed)."
+      );
+    }
+
+    const followUpTreatmentTypes = Array.from(
+      new Set(
+        selectedFollowUps
+          .map((t) => (t.treatment_type || "").trim().toLowerCase())
+          .filter(Boolean)
+      )
+    );
+    if (followUpTreatmentTypes.length > 1) {
+      warnings.push(
+        "Mixed follow-up treatment types selected. Confirm each client should receive each selected template."
+      );
+    }
+
+    const missingTreatmentType = selectedFollowUps.filter(
+      (t) => !t.treatment_type || !t.treatment_type.trim()
+    );
+    if (missingTreatmentType.length > 0) {
+      warnings.push(
+        "Some follow-up templates have empty treatment type. Add treatment type metadata to reduce mis-assignment risk."
+      );
+    }
+
+    return warnings;
+  }, [selectedTemplateRecords]);
+
   // Toggle template selection
   const toggleTemplate = (templateId: string) => {
     setSelectedTemplates((prev) => {
@@ -196,6 +251,14 @@ export default function TemplateAssignment() {
     try {
       setLoading(true);
 
+      if (compatibilityWarnings.length > 0) {
+        toast({
+          title: "Compatibility Warning",
+          description:
+            "Please review follow-up compatibility warnings before finalizing assignment.",
+        });
+      }
+
       const result = await assignmentApi.assignToClients({
         template_ids: selectedTemplateIds,
         client_ids: Array.from(selectedClients),
@@ -245,6 +308,14 @@ export default function TemplateAssignment() {
 
     try {
       setLoading(true);
+
+      if (compatibilityWarnings.length > 0) {
+        toast({
+          title: "Compatibility Warning",
+          description:
+            "Please review follow-up compatibility warnings before re-assignment.",
+        });
+      }
 
       const result = await assignmentApi.reAssignToClients({
         template_ids: Array.from(selectedTemplates),
@@ -386,6 +457,26 @@ export default function TemplateAssignment() {
           >
             Clear All
           </Button>
+        </div>
+      )}
+
+      {compatibilityWarnings.length > 0 && (
+        <div className="p-4 bg-amber-50 border border-amber-300 rounded-lg">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-700 mt-0.5" />
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-amber-900">
+                Follow-up Compatibility Warning (Non-Blocking)
+              </p>
+              <div className="space-y-1">
+                {compatibilityWarnings.map((warning, idx) => (
+                  <p key={idx} className="text-sm text-amber-900">
+                    • {warning}
+                  </p>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

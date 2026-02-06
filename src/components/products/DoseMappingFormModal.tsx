@@ -73,7 +73,7 @@ export function DoseMappingFormModal({
       return;
     }
 
-    if (!formData.name || !formData.patient_label) {
+    if (!formData.name.trim() || !formData.patient_label.trim()) {
       toast({
         title: "Validation Error",
         description: "Name and patient label are required",
@@ -85,13 +85,21 @@ export function DoseMappingFormModal({
     setLoading(true);
     try {
       if (doseMapping) {
-        await updateDoseMapping(doseMapping.id, formData);
+        await updateDoseMapping(doseMapping.id, {
+          ...formData,
+          name: formData.name.trim(),
+          patient_label: formData.patient_label.trim(),
+        });
         toast({
           title: "Success",
           description: "Dose mapping updated successfully",
         });
       } else {
-        await createDoseMapping(formData as any);
+        await createDoseMapping({
+          ...formData,
+          name: formData.name.trim(),
+          patient_label: formData.patient_label.trim(),
+        } as any);
         toast({
           title: "Success",
           description: "Dose mapping created successfully",
@@ -216,11 +224,12 @@ export function DoseMappingFormModal({
               onChange={(e) =>
                 setFormData({ ...formData, patient_label: e.target.value })
               }
-              placeholder="e.g., Semaglutide 0.25mg"
+              placeholder="e.g., 0.25 mg"
               required
             />
             <p className="text-xs text-muted-foreground">
-              EXACT label shown to patients in questionnaires (must be unique)
+              EXACT Step-2 dose text shown to patients. Recommended: dose-only format
+              like "0.25 mg" (must be unique).
             </p>
           </div>
 

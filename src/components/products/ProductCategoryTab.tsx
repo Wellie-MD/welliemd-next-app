@@ -226,7 +226,7 @@ export function ProductCategoryTab() {
         <div>
           <h1 className="text-3xl font-bold">Product Categories</h1>
           <p className="text-muted-foreground mt-1">
-            Manage product categories
+            Manage product categories used in dynamic selection
           </p>
         </div>
         <Button onClick={handleCreate}>
@@ -272,9 +272,12 @@ export function ProductCategoryTab() {
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                placeholder="e.g., Weight Loss"
+                placeholder="e.g., Semaglutide"
                 required
               />
+              <p className="text-xs text-muted-foreground">
+                Use clear names that users recognize.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>

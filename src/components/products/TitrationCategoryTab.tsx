@@ -253,7 +253,7 @@ export function TitrationCategoryTab() {
         <div>
           <h1 className="text-3xl font-bold">Titration Categories</h1>
           <p className="text-muted-foreground mt-1">
-            Manage titration categories
+            Regimen/protocol values used for follow-up branching and prefill
           </p>
         </div>
         <Button onClick={handleCreate}>
@@ -299,7 +299,7 @@ export function TitrationCategoryTab() {
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                placeholder="e.g., Standard Titration"
+                placeholder="e.g., Alternative Regimen"
                 required
               />
             </div>
@@ -313,10 +313,15 @@ export function TitrationCategoryTab() {
                 onChange={(e) =>
                   setFormData({ ...formData, code: e.target.value })
                 }
-                placeholder="e.g., standard"
+                placeholder="e.g., alternative"
                 required
                 disabled={!!selectedCategory}
               />
+              {!selectedCategory && (
+                <p className="text-xs text-muted-foreground">
+                  Recommended codes: `alternative`, `rapid`, `biweekly`.
+                </p>
+              )}
               {selectedCategory && (
                 <p className="text-xs text-muted-foreground">
                   Code cannot be changed after creation

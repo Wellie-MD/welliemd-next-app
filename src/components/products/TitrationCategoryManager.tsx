@@ -133,7 +133,7 @@ export function TitrationCategoryManager({
                 className="w-full justify-between"
                 disabled={disabled}
               >
-                {selectedCategory ? selectedCategory.name : "Select regimen (optional)"}
+                {selectedCategory ? selectedCategory.name : "Select regimen"}
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
@@ -230,7 +230,8 @@ export function TitrationCategoryManager({
                       disabled={creating}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Lowercase identifier used in API calls
+                      Lowercase identifier used in API calls. Recommended:
+                      `alternative`, `rapid`, `biweekly`.
                     </p>
                   </div>
 
