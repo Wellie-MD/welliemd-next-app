@@ -281,6 +281,7 @@ function PolicyEditor({
     resolver: zodResolver(policyFormSchema),
     defaultValues: { content },
   })
+  const { formState: { isDirty } } = form
 
   // Sync form when policy content changes (e.g. after create-from-template)
   useEffect(() => {
@@ -375,7 +376,7 @@ function PolicyEditor({
               <Button
                 type="submit"
                 size="sm"
-                disabled={!policy?.id || policy?.status !== "draft" || saving}
+                disabled={!policy?.id || saving || !isDirty}
               >
                 {saving ? "Saving…" : "Save"}
               </Button>
@@ -384,6 +385,7 @@ function PolicyEditor({
                   type="button"
                   size="sm"
                   variant="secondary"
+                  disabled={saving || !isDirty}
                   onClick={() => onPublish(policy.id)}
                 >
                   Publish
