@@ -371,7 +371,7 @@ export default function Brand() {
             </div>
             <h2 className="text-lg font-medium">Logos</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {["square", "round", "transparent", "favicon"].map((key) => (
+              {["square", "favicon"].map((key) => (
                 <FileUploadField
                   key={key}
                   label={`${key.charAt(0).toUpperCase() + key.slice(1)} Logo`}
@@ -478,7 +478,7 @@ export default function Brand() {
                   "#7C3AED",
                 ]}
               />
-              <ColorPaletteSection
+              {/* <ColorPaletteSection
                 title="Secondary Colors"
                 onColorChange={(color) => setFormData({ ...formData, secondaryColor: color })}
                 activeColor={formData.secondaryColor}
@@ -524,7 +524,7 @@ export default function Brand() {
                   "#374151",
                   "#111827",
                 ]}
-              />
+              /> */}
             </div>
           </CardContent>
         </Card>

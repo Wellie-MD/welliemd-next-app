@@ -33,9 +33,25 @@ export default function Dashboard() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [loadingCharts, setLoadingCharts] = useState(true);
 
-  const { kpiData, liveSummary, loading: loadingMetrics } = useDashboardMetrics({
+  const { kpiData, liveSummary, loading: loadingMetrics, metrics } = useDashboardMetrics({
     fallbackKpis: dashboard.kpis
   });
+
+  // Log metrics for validation
+  useEffect(() => {
+    if (metrics) {
+      console.log('=== Dashboard Metrics Validation ===');
+      console.log('Total Patients:', metrics.total_patients);
+      console.log('Total Revenue:', metrics.total_revenue);
+      console.log('Total Profit:', metrics.total_profit);
+      console.log('Total Expenses:', metrics.total_expenses);
+      console.log('Total Sales:', metrics.total_sales);
+      console.log('Total Orders:', metrics.total_orders);
+      console.log('Growth Percentage:', metrics.growth_percentage);
+      console.log('Live Summary:', metrics.live_summary);
+      console.log('===================================');
+    }
+  }, [metrics]);
 
   useEffect(() => {
     // fetchOrders
@@ -43,8 +59,8 @@ export default function Dashboard() {
       try {
         const response = await fetchClientPaymentHistory();
 
-        // Transform API data to match table format
-        const transformedData = response.results.map((item) => ({
+        // Transform API data to match table format and limit to 8 records
+        const transformedData = response.results.slice(0, 8).map((item) => ({
           date: new Date(item.date).toLocaleDateString(),
           patientId: item.patient_id,
           patientName: item.patient_name,
@@ -53,6 +69,7 @@ export default function Dashboard() {
           discount: `$${item.discount}`,
           amountPaid: `$${item.amount_paid}`,
         }));
+        console.log('Payment Data (max 8 records):', transformedData);
         setPaymentData(transformedData);
       } catch (error) {
         console.error("Failed to load payment history:", error);
@@ -66,8 +83,8 @@ export default function Dashboard() {
       try {
         const response = await fetchOrders();
 
-        // Transform API data to match table format
-        const transformedData = response.results.map((item) => ({
+        // Transform API data to match table format and limit to 8 records
+        const transformedData = response.results.slice(0, 8).map((item) => ({
           date: new Date(item.orderDate).toLocaleDateString(),
           deliveryDate: item.datePrescribed,
           orderNumber: item.display_id,
@@ -76,6 +93,7 @@ export default function Dashboard() {
           pharmacy: item.pharmacy_display,
           amount: item.amount,
         }));
+        console.log('Orders Data (max 8 records):', transformedData);
         setOrdersData(transformedData);
       } catch (error) {
         console.error("Failed to load payment history:", error);
@@ -187,12 +205,12 @@ export default function Dashboard() {
         <div className="w-full min-w-0">
           <Card className="rounded-2xl shadow-md bg-white">
             <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl p-4">
-              <CardTitle className="text-gray-800">Live Summary</CardTitle>
+              <CardTitle className="text-gray-800">Patient Summary</CardTitle>
               <Button
                 variant="ghost"
                 size="sm"
                 className="text-blue-600 hover:text-blue-700"
-                onClick={() => handleViewMore("liveSummary")}
+                onClick={() => handleViewMore("patientSummary")}
               >
                 View More
               </Button>
@@ -206,7 +224,7 @@ export default function Dashboard() {
                   <p className="text-2xl font-bold text-gray-800">
                     {liveSummary.active_carts}
                   </p>
-                  <p className="text-sm text-gray-600">Active Carts</p>
+                  <p className="text-sm text-gray-600">Active</p>
                 </div>
                 <div className="text-center space-y-2">
                   <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
@@ -215,7 +233,7 @@ export default function Dashboard() {
                   <p className="text-2xl font-bold text-gray-800">
                     {liveSummary.checking_out}
                   </p>
-                  <p className="text-sm text-gray-600">Checking Out</p>
+                  <p className="text-sm text-gray-600">In Active</p>
                 </div>
                 <div className="text-center space-y-2">
                   <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
@@ -224,7 +242,7 @@ export default function Dashboard() {
                   <p className="text-2xl font-bold text-gray-800">
                     {liveSummary.purchased}
                   </p>
-                  <p className="text-sm text-gray-600">Purchased</p>
+                  <p className="text-sm text-gray-600">Drop Off</p>
                 </div>
               </div>
             </CardContent>
