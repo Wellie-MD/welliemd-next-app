@@ -20,12 +20,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   questionApi,
   templateApi,
   Question,
   CreateQuestionPayload,
 } from "@/api/questionnaires";
+import { productCategoryApi, ProductCategory } from "@/api/productCategories";
+import { titrationCategoryApi, TitrationCategory } from "@/api/titrationCategories";
+import { listDoseMappings, ProductDoseMapping } from "@/api/productDoseMappings";
+import { RX_DRUG_FORM_OPTIONS } from "@/api/products";
 import { ProductSelector } from "./ProductSelector";
 import { GroupedQuestionBuilder } from "./GroupedQuestionBuilder";
 import { SubQuestion } from "@/api/questionnaires";
@@ -67,6 +72,9 @@ export function QuestionForm({
   const [loading, setLoading] = useState(false);
 
   const [existingQuestions, setExistingQuestions] = useState<Question[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [titrationCategories, setTitrationCategories] = useState<TitrationCategory[]>([]);
+  const [doseMappings, setDoseMappings] = useState<ProductDoseMapping[]>([]);
 
   const [formData, setFormData] = useState<ExtendedQuestionPayload>({
     template_id: templateId,
@@ -154,6 +162,17 @@ export function QuestionForm({
     medications: [],
     note: "",
   });
+  const [medicationMode, setMedicationMode] = useState<"static" | "dynamic">(
+    "static"
+  );
+  const [medicationFilters, setMedicationFilters] = useState({
+    categoryIds: [] as number[],
+    doseMappingIds: [] as number[],
+    titrationCategoryIds: [] as number[],
+    rxDrugForm: "",
+  });
+  const [includeNoneOption, setIncludeNoneOption] = useState(false);
+  const [includeOtherOption, setIncludeOtherOption] = useState(false);
   const [bmiMax, setBmiMax] = useState<number | "">(27);
   const [dobMinAge, setDobMinAge] = useState<number | "">(18);
   const [dobMaxAge, setDobMaxAge] = useState<number | "">(65);
@@ -173,6 +192,26 @@ export function QuestionForm({
     };
     fetchTemplateData();
   }, [open, templateId]);
+
+  // Fetch catalog metadata for dynamic medication selector
+  useEffect(() => {
+    const fetchCatalogData = async () => {
+      if (!open) return;
+      try {
+        const [cats, titrations, mappings] = await Promise.all([
+          productCategoryApi.listCategories(),
+          titrationCategoryApi.listCategories({ is_active: true, page_size: 100 }),
+          listDoseMappings({ page_size: 1000 }),
+        ]);
+        setCategories(cats || []);
+        setTitrationCategories(titrations || []);
+        setDoseMappings(mappings?.results || []);
+      } catch (error) {
+        console.error("Failed to fetch catalog metadata:", error);
+      }
+    };
+    fetchCatalogData();
+  }, [open]);
 
   useEffect(() => {
     if (question) {
@@ -294,6 +333,30 @@ export function QuestionForm({
           note: validationRules.note || "",
         });
       }
+      if (question.question_type === "medication_dose_selector") {
+        const isDynamic = validationRules?.medications_source === "catalog";
+        setMedicationMode(isDynamic ? "dynamic" : "static");
+        if (isDynamic) {
+          const filters = validationRules?.medications_filter || {};
+          setMedicationFilters({
+            categoryIds: filters.category_ids || [],
+            doseMappingIds: filters.dose_mapping_ids || [],
+            titrationCategoryIds: filters.titration_category_ids || [],
+            rxDrugForm: filters.rx_drug_form || "",
+          });
+          setIncludeNoneOption(!!validationRules?.include_none_of_these);
+          setIncludeOtherOption(!!validationRules?.include_other_option);
+        } else {
+        setMedicationFilters({
+          categoryIds: [],
+          doseMappingIds: [],
+          titrationCategoryIds: [],
+          rxDrugForm: "",
+        });
+          setIncludeNoneOption(false);
+          setIncludeOtherOption(false);
+        }
+      }
 
       // Extract BMI eligibility config
       if (question.question_type === "bmi" && validationRules?.bmi_max !== undefined) {
@@ -401,6 +464,15 @@ export function QuestionForm({
       setNumberValidationOperator("gt");
       setNumberValidationValue("");
       setMedicationConfig({ medications: [], note: "" });
+      setMedicationMode("static");
+      setMedicationFilters({
+        categoryIds: [],
+        doseMappingIds: [],
+        titrationCategoryIds: [],
+        rxDrugForm: "",
+      });
+      setIncludeNoneOption(false);
+      setIncludeOtherOption(false);
       setFormData({
         template_id: templateId,
         question_text: "",
@@ -617,7 +689,7 @@ export function QuestionForm({
 
       // Validate medication_dose_selector question type
       if (formData.question_type === "medication_dose_selector") {
-        if (medicationConfig.medications.length === 0) {
+        if (medicationMode === "static" && medicationConfig.medications.length === 0) {
           toast({
             title: "Validation Error",
             description: "At least one medication is required",
@@ -625,24 +697,26 @@ export function QuestionForm({
           });
           return;
         }
-        for (const med of medicationConfig.medications) {
-          if (!med.display.trim()) {
-            toast({
-              title: "Validation Error",
-              description: "All medications must have a display name",
-              variant: "destructive",
-            });
-            return;
-          }
-          // Parse doses from raw string
-          const doses = med.dosesRaw.split(',').map(d => d.trim()).filter(d => d);
-          if (doses.length === 0) {
-            toast({
-              title: "Validation Error",
-              description: `Medication "${med.display}" must have at least one dose`,
-              variant: "destructive",
-            });
-            return;
+        if (medicationMode === "static") {
+          for (const med of medicationConfig.medications) {
+            if (!med.display.trim()) {
+              toast({
+                title: "Validation Error",
+                description: "All medications must have a display name",
+                variant: "destructive",
+              });
+              return;
+            }
+            // Parse doses from raw string
+            const doses = med.dosesRaw.split(',').map(d => d.trim()).filter(d => d);
+            if (doses.length === 0) {
+              toast({
+                title: "Validation Error",
+                description: `Medication "${med.display}" must have at least one dose`,
+                variant: "destructive",
+              });
+              return;
+            }
           }
         }
       }
@@ -660,17 +734,40 @@ export function QuestionForm({
           checkout_config: checkoutConfig,
         };
       } else if (formData.question_type === "medication_dose_selector") {
-        // Convert raw strings to arrays when saving
-        const medications = medicationConfig.medications.map(med => ({
-          code: med.code || med.display.toLowerCase().replace(/\s+/g, '_'),
-          display: med.display,
-          aliases: med.aliasesRaw.split(',').map(a => a.trim()).filter(a => a),
-          doses: med.dosesRaw.split(',').map(d => d.trim()).filter(d => d),
-        }));
-        validationRules = {
-          medications,
-          note: medicationConfig.note,
-        };
+        if (medicationMode === "dynamic") {
+          const filterPayload: Record<string, unknown> = {};
+          if (medicationFilters.categoryIds.length > 0) {
+            filterPayload.category_ids = medicationFilters.categoryIds;
+          }
+          if (medicationFilters.doseMappingIds.length > 0) {
+            filterPayload.dose_mapping_ids = medicationFilters.doseMappingIds;
+          }
+          if (medicationFilters.titrationCategoryIds.length > 0) {
+            filterPayload.titration_category_ids = medicationFilters.titrationCategoryIds;
+          }
+          if (medicationFilters.rxDrugForm) {
+            filterPayload.rx_drug_form = medicationFilters.rxDrugForm;
+          }
+          validationRules = {
+            medications_source: "catalog",
+            medications_filter: filterPayload,
+            include_none_of_these: includeNoneOption,
+            include_other_option: includeOtherOption,
+            note: medicationConfig.note,
+          };
+        } else {
+          // Convert raw strings to arrays when saving
+          const medications = medicationConfig.medications.map(med => ({
+            code: med.code || med.display.toLowerCase().replace(/\s+/g, '_'),
+            display: med.display,
+            aliases: med.aliasesRaw.split(',').map(a => a.trim()).filter(a => a),
+            doses: med.dosesRaw.split(',').map(d => d.trim()).filter(d => d),
+          }));
+          validationRules = {
+            medications,
+            note: medicationConfig.note,
+          };
+        }
       } else if (formData.question_type === "bmi") {
         // Add BMI eligibility config
         validationRules = {
@@ -1010,7 +1107,7 @@ export function QuestionForm({
                   Medical Conditions (Beluga Mapped)
                 </SelectItem>
                 <SelectItem value="medication_dose_selector">
-                  Medication & Dose Selector (Two-Step)
+                  Medication & Dose Selector
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -1126,6 +1223,21 @@ export function QuestionForm({
           {formData.question_type === "medication_dose_selector" && (
             <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
               <h3 className="font-semibold text-sm">Medication & Dose Configuration</h3>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm">Use Dynamic Options (from Products)</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Build the two-step list from the client’s assigned products.
+                  </p>
+                </div>
+                <Switch
+                  checked={medicationMode === "dynamic"}
+                  onCheckedChange={(checked) =>
+                    setMedicationMode(checked ? "dynamic" : "static")
+                  }
+                />
+              </div>
               
               {/* Helper Note */}
               <div className="space-y-2">
@@ -1141,106 +1253,243 @@ export function QuestionForm({
                 />
               </div>
 
-              {/* Medications List */}
-              <div className="space-y-3">
-                <Label>Medications <span className="text-red-500">*</span></Label>
-                
-                {medicationConfig.medications.map((med, medIndex) => (
-                  <div key={medIndex} className="p-3 border rounded-lg bg-white space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-sm">Medication {medIndex + 1}</h4>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          const newMeds = medicationConfig.medications.filter((_, i) => i !== medIndex);
-                          setMedicationConfig({ ...medicationConfig, medications: newMeds });
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </Button>
+              {medicationMode === "dynamic" ? (
+                <div className="space-y-3">
+                  <Label className="text-sm">Dynamic Filters</Label>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs">Medication Categories</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {categories.map((category) => (
+                        <label key={category.id} className="flex items-center gap-2 text-xs">
+                          <Checkbox
+                            checked={medicationFilters.categoryIds.includes(category.id)}
+                            onCheckedChange={(checked) => {
+                              const next = checked
+                                ? [...medicationFilters.categoryIds, category.id]
+                                : medicationFilters.categoryIds.filter((id) => id !== category.id);
+                              const allowedDoseMappingIds = doseMappings
+                                .filter((dm) => next.includes(dm.category))
+                                .map((dm) => dm.id);
+                              const nextDoseMappingIds = medicationFilters.doseMappingIds.filter((id) =>
+                                allowedDoseMappingIds.includes(id)
+                              );
+                              setMedicationFilters({
+                                ...medicationFilters,
+                                categoryIds: next,
+                                doseMappingIds: nextDoseMappingIds,
+                              });
+                            }}
+                          />
+                          {category.name}
+                        </label>
+                      ))}
                     </div>
-                    
-                    {/* Medication Name */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs">Display Name</Label>
-                        <Input
-                          value={med.display}
-                          onChange={(e) => {
-                            const newMeds = [...medicationConfig.medications];
-                            newMeds[medIndex] = {
-                              ...newMeds[medIndex],
-                              display: e.target.value,
-                              code: e.target.value.toLowerCase().replace(/\s+/g, '_')
-                            };
-                            setMedicationConfig({ ...medicationConfig, medications: newMeds });
-                          }}
-                          placeholder="e.g., Tirzepatide"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Aliases (comma-separated)</Label>
-                        <Input
-                          value={med.aliasesRaw}
-                          onChange={(e) => {
-                            const newMeds = [...medicationConfig.medications];
-                            newMeds[medIndex] = {
-                              ...newMeds[medIndex],
-                              aliasesRaw: e.target.value
-                            };
-                            setMedicationConfig({ ...medicationConfig, medications: newMeds });
-                          }}
-                          placeholder="e.g., Mounjaro, Zepbound"
-                        />
-                      </div>
-                    </div>
-                    
-                    {/* Doses */}
-                    <div>
-                      <Label className="text-xs">Doses (comma-separated)</Label>
-                      <Input
-                        value={med.dosesRaw}
-                        onChange={(e) => {
-                          const newMeds = [...medicationConfig.medications];
-                          newMeds[medIndex] = {
-                            ...newMeds[medIndex],
-                            dosesRaw: e.target.value
-                          };
-                          setMedicationConfig({ ...medicationConfig, medications: newMeds });
-                        }}
-                        placeholder="e.g., 1.5mg, 3mg, 6mg, 9mg"
-                      />
+                    {categories.length === 0 && (
+                      <p className="text-xs text-muted-foreground">No categories found.</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs">Dose Mappings</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Select which dose mappings should appear for selected categories.
+                    </p>
+                    <div className="grid grid-cols-1 gap-2 max-h-48 overflow-auto border rounded-md p-2 bg-white">
+                      {doseMappings
+                        .filter((dm) =>
+                          medicationFilters.categoryIds.length === 0
+                            ? true
+                            : medicationFilters.categoryIds.includes(dm.category)
+                        )
+                        .map((dm) => (
+                          <label key={dm.id} className="flex items-center gap-2 text-xs">
+                            <Checkbox
+                              checked={medicationFilters.doseMappingIds.includes(dm.id)}
+                              onCheckedChange={(checked) => {
+                                const next = checked
+                                  ? [...medicationFilters.doseMappingIds, dm.id]
+                                  : medicationFilters.doseMappingIds.filter((id) => id !== dm.id);
+                                setMedicationFilters({ ...medicationFilters, doseMappingIds: next });
+                              }}
+                            />
+                            {dm.category_name} - {dm.patient_label}
+                          </label>
+                        ))}
+                      {doseMappings.filter((dm) =>
+                        medicationFilters.categoryIds.length === 0
+                          ? true
+                          : medicationFilters.categoryIds.includes(dm.category)
+                      ).length === 0 && (
+                        <p className="text-xs text-muted-foreground">No dose mappings found for selected categories.</p>
+                      )}
                     </div>
                   </div>
-                ))}
-                
-                {/* Add Medication Button */}
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setMedicationConfig({
-                      ...medicationConfig,
-                      medications: [
-                        ...medicationConfig.medications,
-                        { code: '', display: '', aliasesRaw: '', dosesRaw: '' }
-                      ]
-                    });
-                  }}
-                  variant="outline"
-                  className="w-full"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Medication
-                </Button>
-                
-                {medicationConfig.medications.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-2">
-                    Add at least one medication with its available doses.
-                  </p>
-                )}
-              </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs">Regimen / Protocol Filters</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {titrationCategories.map((category) => (
+                        <label key={category.id} className="flex items-center gap-2 text-xs">
+                          <Checkbox
+                            checked={medicationFilters.titrationCategoryIds.includes(category.id)}
+                            onCheckedChange={(checked) => {
+                              const next = checked
+                                ? [...medicationFilters.titrationCategoryIds, category.id]
+                                : medicationFilters.titrationCategoryIds.filter((id) => id !== category.id);
+                              setMedicationFilters({ ...medicationFilters, titrationCategoryIds: next });
+                            }}
+                          />
+                          {category.name}
+                        </label>
+                      ))}
+                    </div>
+                    {titrationCategories.length === 0 && (
+                      <p className="text-xs text-muted-foreground">No titration categories found.</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs">Therapy Route (rx_drug_form)</Label>
+                    <Select
+                      value={medicationFilters.rxDrugForm || "all"}
+                      onValueChange={(value) =>
+                        setMedicationFilters({
+                          ...medicationFilters,
+                          rxDrugForm: value === "all" ? "" : value,
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All routes" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All routes</SelectItem>
+                        {RX_DRUG_FORM_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={includeNoneOption}
+                      onCheckedChange={(checked) => setIncludeNoneOption(!!checked)}
+                    />
+                    <Label className="text-xs">Include “None of these” option</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={includeOtherOption}
+                      onCheckedChange={(checked) => setIncludeOtherOption(!!checked)}
+                    />
+                    <Label className="text-xs">Include “Not listed / Other” option</Label>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <Label>Medications <span className="text-red-500">*</span></Label>
+                  
+                  {medicationConfig.medications.map((med, medIndex) => (
+                    <div key={medIndex} className="p-3 border rounded-lg bg-white space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-sm">Medication {medIndex + 1}</h4>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const newMeds = medicationConfig.medications.filter((_, i) => i !== medIndex);
+                            setMedicationConfig({ ...medicationConfig, medications: newMeds });
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </div>
+                      
+                      {/* Medication Name */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Display Name</Label>
+                          <Input
+                            value={med.display}
+                            onChange={(e) => {
+                              const newMeds = [...medicationConfig.medications];
+                              newMeds[medIndex] = {
+                                ...newMeds[medIndex],
+                                display: e.target.value,
+                                code: e.target.value.toLowerCase().replace(/\s+/g, '_')
+                              };
+                              setMedicationConfig({ ...medicationConfig, medications: newMeds });
+                            }}
+                            placeholder="e.g., Tirzepatide"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Aliases (comma-separated)</Label>
+                          <Input
+                            value={med.aliasesRaw}
+                            onChange={(e) => {
+                              const newMeds = [...medicationConfig.medications];
+                              newMeds[medIndex] = {
+                                ...newMeds[medIndex],
+                                aliasesRaw: e.target.value
+                              };
+                              setMedicationConfig({ ...medicationConfig, medications: newMeds });
+                            }}
+                            placeholder="e.g., Mounjaro, Zepbound"
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Doses */}
+                      <div>
+                        <Label className="text-xs">Doses (comma-separated)</Label>
+                        <Input
+                          value={med.dosesRaw}
+                          onChange={(e) => {
+                            const newMeds = [...medicationConfig.medications];
+                            newMeds[medIndex] = {
+                              ...newMeds[medIndex],
+                              dosesRaw: e.target.value
+                            };
+                            setMedicationConfig({ ...medicationConfig, medications: newMeds });
+                          }}
+                          placeholder="e.g., 1.5mg, 3mg, 6mg, 9mg"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Add Medication Button */}
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setMedicationConfig({
+                        ...medicationConfig,
+                        medications: [
+                          ...medicationConfig.medications,
+                          { code: '', display: '', aliasesRaw: '', dosesRaw: '' }
+                        ]
+                      });
+                    }}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Medication
+                  </Button>
+                  
+                  {medicationConfig.medications.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-2">
+                      Add at least one medication with its available doses.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

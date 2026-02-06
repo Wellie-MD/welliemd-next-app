@@ -55,6 +55,7 @@ export function ProductFormModal({
   const isInitialLoadRef = useRef(true);
   const [formData, setFormData] = useState({
     name: "",
+    base_medication_name: "",
     description: "",
     application_directions: "",
     category: null as number | null,
@@ -192,6 +193,7 @@ export function ProductFormModal({
     if (product) {
       setFormData({
         name: product.name || "",
+        base_medication_name: (product as any).base_medication_name || "",
         description: product.description || "",
         application_directions: product.application_directions || "",
         category: (product as unknown).category || null,
@@ -227,6 +229,7 @@ export function ProductFormModal({
       // Reset form for new product
       setFormData({
         name: "",
+        base_medication_name: "",
         description: "",
         application_directions: "",
         category: null,
@@ -353,6 +356,19 @@ export function ProductFormModal({
                   placeholder="e.g., Semaglutide 2.5mg"
                   required
                 />
+              </div>
+
+              <div className="col-span-2">
+                <Label htmlFor="base_medication_name">Medication Family (Base Name)</Label>
+                <Input
+                  id="base_medication_name"
+                  value={formData.base_medication_name}
+                  onChange={(e) => setFormData({ ...formData, base_medication_name: e.target.value })}
+                  placeholder="e.g., Semaglutide/B6"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Used for grouping and prefill when applicable.
+                </p>
               </div>
 
               <div className="col-span-2">
@@ -719,7 +735,7 @@ export function ProductFormModal({
                   </SelectContent>
                 </Select>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Optional: Select a structured dose level for this product
+                  Strongly recommended for reliable prefill and option matching.
                 </p>
               </div>
             </div>
