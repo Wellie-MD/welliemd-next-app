@@ -28,6 +28,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { AlertCircle, CheckCircle2, Copy, Mail, Loader2 } from 'lucide-react';
 import { createFollowUp, getFollowUpTemplates, FollowUpTemplate, CreateFollowUpResponse } from '@/api/followUpApi';
+import { patientService, TreatmentEpisode } from '@/services/patientService';
 
 interface SendFollowUpDialogProps {
   open: boolean;
@@ -51,17 +52,28 @@ export function SendFollowUpDialog({
   const [expiryHours, setExpiryHours] = useState<number>(48);
   const [loading, setLoading] = useState(false);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const [loadingEpisodes, setLoadingEpisodes] = useState(false);
   const [result, setResult] = useState<CreateFollowUpResponse | null>(null);
   const [copied, setCopied] = useState(false);
+  const [episodes, setEpisodes] = useState<TreatmentEpisode[]>([]);
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>('');
 
   useEffect(() => {
     if (open) {
       loadTemplates();
+      setEpisodes([]);
+      setSelectedEpisodeId('');
       // Reset state when dialog opens
       setResult(null);
       setCopied(false);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (open && selectedTemplate) {
+      loadEpisodes(selectedTemplate);
+    }
+  }, [open, selectedTemplate]);
 
   const loadTemplates = async () => {
     setLoadingTemplates(true);
@@ -78,8 +90,28 @@ export function SendFollowUpDialog({
     }
   };
 
+  const loadEpisodes = async (templateId: string) => {
+    setLoadingEpisodes(true);
+    try {
+      const data = await patientService.getTreatmentEpisodes(patientId, templateId);
+      setEpisodes(data);
+      if (data.length === 1) {
+        setSelectedEpisodeId(data[0].id);
+      } else {
+        setSelectedEpisodeId('');
+      }
+    } catch (error) {
+      console.error('Failed to load treatment episodes:', error);
+      setEpisodes([]);
+      setSelectedEpisodeId('');
+    } finally {
+      setLoadingEpisodes(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!selectedTemplate) return;
+    if (episodes.length > 1 && !selectedEpisodeId) return;
 
     setLoading(true);
     try {
@@ -87,6 +119,7 @@ export function SendFollowUpDialog({
         patient_id: patientId,
         questionnaire_id: selectedTemplate,
         expiry_hours: expiryHours,
+        episode_id: selectedEpisodeId || null,
       });
 
       setResult(response);
@@ -193,6 +226,39 @@ export function SendFollowUpDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="episode">Treatment Episode</Label>
+              {loadingEpisodes ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading treatment history...
+                </div>
+              ) : episodes.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No prior treatment episode found. The follow-up will still be sent,
+                  but prefill may be limited.
+                </p>
+              ) : (
+                <Select value={selectedEpisodeId} onValueChange={setSelectedEpisodeId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select treatment episode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {episodes.map((episode) => (
+                      <SelectItem key={episode.id} value={episode.id}>
+                        {episode.current_product_name || episode.treatment_key} • {episode.status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {episodes.length > 1 && !selectedEpisodeId && (
+                <p className="text-xs text-red-600">
+                  Please select the correct treatment episode.
+                </p>
+              )}
+            </div>
           </div>
         ) : result.success ? (
           // Success state
@@ -251,7 +317,13 @@ export function SendFollowUpDialog({
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={loading || !selectedTemplate || loadingTemplates}
+                disabled={
+                  loading ||
+                  !selectedTemplate ||
+                  loadingTemplates ||
+                  loadingEpisodes ||
+                  (episodes.length > 1 && !selectedEpisodeId)
+                }
               >
                 {loading ? (
                   <>
