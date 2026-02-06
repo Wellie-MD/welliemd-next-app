@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, CSSProperties } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Home, 
@@ -13,12 +13,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Package,
+  LucideIcon,
   // BookOpen, // Unused - Resources page disabled
 } from "lucide-react";
 import { cn } from "./ui/utils";
 
 interface NavigationItem {
-  icon: React.ComponentType<{ className?: string; size?: number | string }>;
+  icon: LucideIcon;
   label: string;
   path: string;
 }
@@ -48,6 +49,16 @@ export default function Sidebar() {
       ? location.pathname === '/dashboard'
       : location.pathname.startsWith(item.path);
 
+    const iconStyle: CSSProperties = {
+      minWidth: isCollapsed ? '24px' : '18px',
+      minHeight: isCollapsed ? '24px' : '18px',
+      width: isCollapsed ? '24px' : '18px',
+      height: isCollapsed ? '24px' : '18px',
+      ...(isActive && { color: 'var(--brand-primary)' })
+    };
+
+    const linkStyle: CSSProperties | undefined = isActive ? { color: 'var(--brand-primary)' } : undefined;
+
     return (
       <li className="relative group">
         <NavLink
@@ -56,20 +67,16 @@ export default function Sidebar() {
             cn(
               "flex items-center w-full text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md text-sm font-medium transition-colors duration-200",
               isCollapsed ? "justify-center px-3 py-3" : "justify-start px-3 py-2",
-              isActive && "text-blue-600 bg-blue-50"
+              isActive && "bg-blue-50"
             )
           }
+          {...(linkStyle && { style: linkStyle })}
         >
           <Icon 
             size={isCollapsed ? 24 : 18}
             className={cn("flex-none", !isCollapsed && "mr-3")}
-            style={{
-              minWidth: isCollapsed ? '24px' : '18px',
-              minHeight: isCollapsed ? '24px' : '18px',
-              width: isCollapsed ? '24px' : '18px',
-              height: isCollapsed ? '24px' : '18px'
-          }}
-        />
+            style={iconStyle}
+          />
           {!isCollapsed && <span className="truncate">{item.label}</span>}
         </NavLink>
 

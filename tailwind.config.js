@@ -9,6 +9,20 @@ export default {
     './app/**/*.{ts,tsx}',
     './src/**/*.{ts,tsx}',
   ],
+  safelist: [
+    'bg-brand-primary',
+    'bg-brand-secondary',
+    'bg-brand-accent',
+    'bg-brand-neutral',
+    'text-brand-primary',
+    'text-brand-secondary',
+    'text-brand-accent',
+    'text-brand-neutral',
+    'border-brand-primary',
+    'border-brand-secondary',
+    'border-brand-accent',
+    'border-brand-neutral',
+  ],
   prefix: '',
   theme: {
     container: {
@@ -73,6 +87,22 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+
+        // ============================================
+        // Dynamic Brand Colors (from BrandProvider)
+        // ============================================
+        // These colors are dynamically set by the BrandProvider
+        // and can be used like: bg-brand-primary, text-brand-secondary
+        'brand-primary': 'var(--brand-primary)',
+        'brand-secondary': 'var(--brand-secondary)',
+        'brand-accent': 'var(--brand-accent)',
+        'brand-neutral': 'var(--brand-neutral)',
+        
+        // HSL format for opacity modifiers (e.g., bg-brand-primary-hsl/50)
+        'brand-primary-hsl': 'hsl(var(--brand-primary-hsl))',
+        'brand-secondary-hsl': 'hsl(var(--brand-secondary-hsl))',
+        'brand-accent-hsl': 'hsl(var(--brand-accent-hsl))',
+        'brand-neutral-hsl': 'hsl(var(--brand-neutral-hsl))',
       },
       
       // Typography from design tokens

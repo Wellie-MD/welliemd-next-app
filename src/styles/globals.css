@@ -49,6 +49,23 @@
   --medical-red: #D0021B;
   --light-blue: #E8F4FD;
   --soft-gray: #F8F9FA;
+
+  /* ============================================ */
+  /* Dynamic Brand Colors (Set by BrandProvider) */
+  /* ============================================ */
+  /* These will be overridden at runtime based on client configuration */
+  
+  /* Hex format - for direct color usage */
+  --brand-primary: #2563eb;
+  --brand-secondary: #7c3aed;
+  --brand-accent: #059669;
+  --brand-neutral: #64748b;
+  
+  /* HSL format - for Tailwind opacity modifiers (e.g., bg-brand-primary-hsl/50) */
+  --brand-primary-hsl: 221 83% 53%;
+  --brand-secondary-hsl: 271 71% 60%;
+  --brand-accent-hsl: 160 84% 39%;
+  --brand-neutral-hsl: 215 20% 65%;
 }
 
 .dark {
@@ -137,6 +154,16 @@
   --color-medical-red: var(--medical-red);
   --color-light-blue: var(--light-blue);
   --color-soft-gray: var(--soft-gray);
+
+  /* Brand Color Classes for Tailwind */
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-neutral: var(--brand-neutral);
+  --color-brand-primary-hsl: var(--brand-primary-hsl);
+  --color-brand-secondary-hsl: var(--brand-secondary-hsl);
+  --color-brand-accent-hsl: var(--brand-accent-hsl);
+  --color-brand-neutral-hsl: var(--brand-neutral-hsl);
 }
 
 @layer base {
@@ -211,20 +238,124 @@ html {
 /* Import the blog-specific styles */
 @import './blog.css';
 
-/* Ensure line-clamp utilities work properly */
+/* ============================================ */
+/* Brand Color Utility Classes */
+/* ============================================ */
+/* These custom utilities provide easy access to dynamic brand colors */
 @layer utilities {
+  /* Text colors */
+  .text-brand-primary {
+    color: var(--brand-primary);
+  }
+  
+  .text-brand-secondary {
+    color: var(--brand-secondary);
+  }
+  
+  .text-brand-accent {
+    color: var(--brand-accent);
+  }
+  
+  .text-brand-neutral {
+    color: var(--brand-neutral);
+  }
+
+  /* Background colors */
+  .bg-brand-primary {
+    background-color: var(--brand-primary);
+  }
+  
+  .bg-brand-secondary {
+    background-color: var(--brand-secondary);
+  }
+  
+  .bg-brand-accent {
+    background-color: var(--brand-accent);
+  }
+  
+  .bg-brand-neutral {
+    background-color: var(--brand-neutral);
+  }
+
+  /* Border colors */
+  .border-brand-primary {
+    border-color: var(--brand-primary);
+  }
+  
+  .border-brand-secondary {
+    border-color: var(--brand-secondary);
+  }
+  
+  .border-brand-accent {
+    border-color: var(--brand-accent);
+  }
+  
+  .border-brand-neutral {
+    border-color: var(--brand-neutral);
+  }
+
+  /* Hover states */
+  .hover\:bg-brand-primary:hover {
+    background-color: var(--brand-primary);
+  }
+  
+  .hover\:bg-brand-secondary:hover {
+    background-color: var(--brand-secondary);
+  }
+  
+  .hover\:bg-brand-accent:hover {
+    background-color: var(--brand-accent);
+  }
+  
+  .hover\:text-brand-primary:hover {
+    color: var(--brand-primary);
+  }
+  
+  .hover\:text-brand-secondary:hover {
+    color: var(--brand-secondary);
+  }
+  
+  .hover\:text-brand-accent:hover {
+    color: var(--brand-accent);
+  }
+
+  .hover\:border-brand-primary:hover {
+    border-color: var(--brand-primary);
+  }
+
+  /* Focus states */
+  .focus\:border-brand-primary:focus {
+    border-color: var(--brand-primary);
+  }
+  
+  .focus\:ring-brand-primary:focus {
+    --tw-ring-color: var(--brand-primary);
+  }
+  
+  .focus\:ring-brand-accent:focus {
+    --tw-ring-color: var(--brand-accent);
+  }
+
+  /* Active states */
+  .active\:bg-brand-primary:active {
+    background-color: var(--brand-primary);
+  }
+
+  /* Line clamp utilities */
   .line-clamp-1 {
     overflow: hidden;
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 1;
   }
+  
   .line-clamp-2 {
     overflow: hidden;
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
   }
+  
   .line-clamp-3 {
     overflow: hidden;
     display: -webkit-box;

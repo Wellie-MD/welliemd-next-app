@@ -3,6 +3,7 @@ import { Toaster } from 'sonner';
 import { AppRouter } from './app/router';
 import { AuthInitializer } from '@/components/auth/AuthInitializer';
 import { DropdownProvider } from '@/contexts/DropdownContext';
+import { BrandProvider } from './contexts/BrandingContext';
 
 export default function App() {
   return (
@@ -12,6 +13,7 @@ export default function App() {
         v7_relativeSplatPath: true,
       }}
     >
+      <BrandProvider>
       <DropdownProvider>
         <div className="min-h-screen bg-background">
           <AuthInitializer>
@@ -27,6 +29,7 @@ export default function App() {
           />
         </div>
       </DropdownProvider>
+      </BrandProvider>
     </Router>
   );
 }

@@ -7,10 +7,12 @@ import { useAuth } from "@/features/auth";
 import { useDropdown } from "@/contexts/DropdownContext";
 import { MessagesDropdown } from "@/components/common/messages-dropdown";
 import { env } from "@/config/env";
+import { useBranding } from "@/features/branding/hooks/useBranding";
 
 export default function Header() {
   const { isAuthenticated } = useAuth();
   const { closeAll } = useDropdown();
+  const { logos } = useBranding();
   const headerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,13 +29,21 @@ export default function Header() {
   }, [closeAll]);
 
   return (
-    <header style={{ backgroundColor: '#98C6DE' }} className="px-6 py-4 border-b border-white/20">
+    <header style={{ backgroundColor: 'var(--brand-primary)' }} className="px-6 py-4 border-b border-white/20">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <div>
-            <h1 className="text-white text-2xl font-semibold truncate max-w-[240px]">
-              {env.VITE_APP_NAME}
-            </h1>
+            {logos?.square ? (
+              <img 
+                src={logos.square} 
+                alt={env.VITE_APP_NAME} 
+                className="h-10 w-auto object-contain"
+              />
+            ) : (
+              <h1 className="text-white text-2xl font-semibold truncate max-w-[240px]">
+                {env.VITE_APP_NAME}
+              </h1>
+            )}
           </div>
         </div>
         
