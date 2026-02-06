@@ -147,7 +147,7 @@ export default function Settings() {
       </div>
 
       {/* Personal Information */}
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle className="text-lg font-medium text-primary">Personal Information</CardTitle>
         </CardHeader>
@@ -222,7 +222,7 @@ export default function Settings() {
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* Visits */}
       <Card>
@@ -264,6 +264,7 @@ export default function Settings() {
         </CardContent>
       </Card>
 
+      {/* Payment Methods */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg font-medium text-primary">Payment Methods</CardTitle>
@@ -279,16 +280,16 @@ export default function Settings() {
       </Card>
 
       {/* Reset Password */}
-      <Card>
-        <CardHeader>
+       {/* <Card> */}
+        {/* <CardHeader>
           <CardTitle className="text-lg font-medium text-primary">Reset Password</CardTitle>
           <p className="text-sm text-muted-foreground">
             Change your account password. You will be logged out after changing your password.
           </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        </CardHeader> */}
+        {/* <CardContent className="space-y-4"> */}
           {/* Current Password */}
-          <div>
+          {/* <div>
             <Label htmlFor="current-password" className="text-xs text-muted-foreground">
               Current Password
             </Label>
@@ -325,10 +326,10 @@ export default function Settings() {
             {passwordErrors.currentPassword && (
               <p className="text-xs text-destructive mt-1">{passwordErrors.currentPassword}</p>
             )}
-          </div>
+          </div> */}
 
           {/* New Password */}
-          <div>
+          {/* <div>
             <Label htmlFor="new-password" className="text-xs text-muted-foreground">
               New Password
             </Label>
@@ -374,10 +375,10 @@ export default function Settings() {
                 Password must be at least 8 characters long
               </p>
             )}
-          </div>
+          </div> */}
 
           {/* Confirm New Password */}
-          <div>
+          {/* <div>
             <Label htmlFor="confirm-password" className="text-xs text-muted-foreground">
               Confirm New Password
             </Label>
@@ -414,10 +415,10 @@ export default function Settings() {
             {passwordErrors.confirmPassword && (
               <p className="text-xs text-destructive mt-1">{passwordErrors.confirmPassword}</p>
             )}
-          </div>
+          </div> */}
 
           {/* Reset Password Button */}
-          <div className="pt-2">
+          {/* <div className="pt-2">
             <Button
               onClick={handlePasswordReset}
               disabled={resettingPassword}
@@ -432,9 +433,9 @@ export default function Settings() {
                 'Reset Password'
               )}
             </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </div> */}
+        {/* </CardContent> */}
+      {/* </Card>  */}
     </div>
   );
 }

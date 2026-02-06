@@ -65,7 +65,7 @@ export const NotificationsDropdown = ({ className }: { className?: string }) => 
       </Button>
 
       {isOpen("notifications") && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 py-0 z-50 max-h-[480px] overflow-hidden flex flex-col">
+        <div className="absolute w-max top-full mt-2 bg-white rounded-lg shadow-xl border border-gray-200 py-0 z-50 max-h-[480px] overflow-hidden flex flex-col" style={{right:'-100px'}}>
           {/* Header */}
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
             <h3 className="text-sm font-semibold text-gray-900">

@@ -19,7 +19,7 @@ const Appointments = React.lazy(() => import('@/components/Appointments'));
 const Orders = React.lazy(() => import('@/components/Orders'));
 const Settings = React.lazy(() => import('@/components/Settings'));
 const PaymentMethodsPage = React.lazy(() => import('@/components/payments/PaymentMethodsPage'));
-// Resources pages disabled
+// Resources pages disabl
 // const Blog = React.lazy(() => import('@/components/Blog'));
 // const BlogPost = React.lazy(() => import('@/components/BlogPost'));
 
