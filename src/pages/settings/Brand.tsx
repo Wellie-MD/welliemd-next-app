@@ -28,6 +28,8 @@ interface UploadFieldProps {
   maxSize?: string;
   currentUrl?: string;
   onFileSelect?: (file: File | null) => void;
+  recommendedResolution?: string;
+  description?: string;
 }
 
 const FileUploadField = ({
@@ -36,6 +38,8 @@ const FileUploadField = ({
   maxSize,
   currentUrl,
   onFileSelect,
+  recommendedResolution,
+  description,
 }: UploadFieldProps) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -70,7 +74,21 @@ const FileUploadField = ({
 
   return (
     <div className="space-y-2">
-      <Label className="text-sm font-medium">{label}</Label>
+      <div className="flex items-start justify-between">
+        <div>
+          <Label className="text-sm font-medium">{label}</Label>
+          {description && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {description}
+            </p>
+          )}
+        </div>
+        {recommendedResolution && (
+          <span className="text-xs font-medium text-sky-600 bg-sky-50 px-2 py-1 rounded">
+            {recommendedResolution}
+          </span>
+        )}
+      </div>
       <div
         className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
           dragOver
@@ -371,15 +389,22 @@ export default function Brand() {
             </div>
             <h2 className="text-lg font-medium">Logos</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {["square", "favicon"].map((key) => (
-                <FileUploadField
-                  key={key}
-                  label={`${key.charAt(0).toUpperCase() + key.slice(1)} Logo`}
-                  accept="image/*"
-                  currentUrl={(formData.logos as any)[key]}
-                  onFileSelect={(f) => handleFileChange(`logos.${key}`, f)}
-                />
-              ))}
+              <FileUploadField
+                label="Square Logo"
+                accept="image/*"
+                currentUrl={formData.logos.square}
+                onFileSelect={(f) => handleFileChange(`logos.square`, f)}
+                recommendedResolution="500×100px"
+                description="Used in header and sidebar. Wide horizontal format works best."
+              />
+              <FileUploadField
+                label="Favicon Logo"
+                accept="image/*"
+                currentUrl={formData.logos.favicon}
+                onFileSelect={(f) => handleFileChange(`logos.favicon`, f)}
+                recommendedResolution="32×32px or 64×64px"
+                description="Browser tab icon. Square format required."
+              />
               {/* Pages Section */}
             </div>
             <div className="hidden">
@@ -452,6 +477,8 @@ export default function Brand() {
               accept="image/*"
               currentUrl={formData.loginPageImage}
               onFileSelect={(f) => handleFileChange("loginPageImage", f)}
+              recommendedResolution="1920×1080px"
+              description="Full-screen background image for login page. Landscape format recommended."
             />
           </CardContent>
         </Card>
@@ -466,7 +493,9 @@ export default function Brand() {
               <ColorPaletteSection
                 title="Primary Colors"
                 activeColor={formData.primaryColor}
-                onColorChange={(color) => setFormData({ ...formData, primaryColor: color })}
+                onColorChange={(color) =>
+                  setFormData({ ...formData, primaryColor: color })
+                }
                 colors={[
                   "#3B82F6",
                   "#1E40AF",
@@ -476,6 +505,30 @@ export default function Brand() {
                   "#4338CA",
                   "#5B21B6",
                   "#7C3AED",
+                  "#10B981",
+                  "#059669",
+                  "#047857",
+                  "#065F46",
+                  "#064E3B",
+                  "#6B7280",
+                  "#4B5563",
+                  "#374151",
+                  "#F59E0B",
+                  "#D97706",
+                  "#B45309",
+                  "#92400E",
+                  "#78350F",
+                  "#EF4444",
+                  "#DC2626",
+                  "#B91C1C",
+                  "#F3F4F6",
+                  "#E5E7EB",
+                  "#D1D5DB",
+                  "#9CA3AF",
+                  "#6B7280",
+                  "#4B5563",
+                  "#374151",
+                  "#111827",
                 ]}
               />
               {/* <ColorPaletteSection
