@@ -59,7 +59,7 @@ export const useDashboardMetrics = ({ fallbackKpis }: UseDashboardMetricsProps) 
         },
         {
             title: "Total Sales",
-            value: `$${metrics.total_sales.toLocaleString()}`,
+            value: `${metrics.total_sales.toLocaleString()}`,
             change: "+0%", // API doesn't provide profit growth yet
             trend: "neutral"
         },

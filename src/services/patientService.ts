@@ -37,6 +37,21 @@ export interface PatientListParams {
     ordering?: string;
 }
 
+export interface TreatmentEpisode {
+    id: string;
+    treatment_key: string;
+    status: 'active' | 'paused' | 'ended';
+    started_at: string;
+    ended_at: string | null;
+    updated_at: string;
+    current_order_id?: string | null;
+    current_product_id?: number | null;
+    current_product_name?: string | null;
+    current_product_base_medication_name?: string | null;
+    current_product_rx_drug_form?: string | null;
+    current_product_titration_category?: string | null;
+}
+
 export const patientService = {
     /**
      * Fetch patients with server-side pagination
@@ -115,6 +130,26 @@ export const patientService = {
                 );
             }
             throw new Error(data?.detail || data?.message || 'Failed to delete patient');
+        }
+    },
+
+    /**
+     * Fetch treatment episodes for a patient (optionally filtered by template_id)
+     */
+    getTreatmentEpisodes: async (id: string, templateId?: string): Promise<TreatmentEpisode[]> => {
+        try {
+            const params = templateId ? `?template_id=${templateId}` : '';
+            const response = await api.get<{ patient_id: string; episodes: TreatmentEpisode[] }>(
+                `/medical/patients/${id}/treatment-episodes/${params}`
+            );
+            return response.data.episodes || [];
+        } catch (error: any) {
+            console.error(`Failed to fetch treatment episodes for patient ${id}:`, error);
+            throw new Error(
+                error.response?.data?.detail ||
+                error.response?.data?.message ||
+                'Failed to fetch treatment episodes'
+            );
         }
     },
 };
