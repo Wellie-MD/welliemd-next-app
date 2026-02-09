@@ -12,6 +12,7 @@ import { useMessages } from "@/hooks/useMessages";
 import { groupMessages } from "@/utils/groupMessages";
 import { Toaster } from "@/components/ui/toaster";
 import { useSocialTags } from "@/hooks/useSocialTags";
+import { BrandingProvider } from "@/contexts/BrandingContext";
 
 // pages
 import Dashboard from "./pages/Dashboard";
@@ -204,18 +205,19 @@ const App = () => {
         <Route
           path="/dashboard/*"
           element={
-            <SidebarProvider>
-              <div className="min-h-screen flex w-full min-w-0 overflow-x-hidden">
-                {/* sidebar with badge */}
-                <AppSidebar unseenCount={unseenCount} />
+            <BrandingProvider>
+              <SidebarProvider>
+                <div className="min-h-screen flex w-full min-w-0 overflow-x-hidden">
+                  {/* sidebar with badge */}
+                  <AppSidebar unseenCount={unseenCount} />
 
-                <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
-                  {/* global chime (outside Messages page) */}
-                  <MessageChime conversations={conversations} />
+                  <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
+                    {/* global chime (outside Messages page) */}
+                    <MessageChime conversations={conversations} />
 
-                  <Header />
-                  <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
-                    <Routes>
+                    <Header />
+                    <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
+                      <Routes>
                       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                       <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
                       <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
@@ -252,6 +254,7 @@ const App = () => {
                 </div>
               </div>
             </SidebarProvider>
+            </BrandingProvider>
           }
         />
 
@@ -259,16 +262,18 @@ const App = () => {
           path="/dashboard/settings/*"
           element={
           <ProtectedRoute>
-            <SidebarProvider>
-              <div className="min-h-screen flex w-full">
-                <div className="flex-1 flex flex-col">
-                  <Header />
-                  <div className="flex flex-1">
-                    <SettingsLayout />
+            <BrandingProvider>
+              <SidebarProvider>
+                <div className="min-h-screen flex w-full">
+                  <div className="flex-1 flex flex-col">
+                    <Header />
+                    <div className="flex flex-1">
+                      <SettingsLayout />
+                    </div>
                   </div>
                 </div>
-              </div>
-            </SidebarProvider>
+              </SidebarProvider>
+            </BrandingProvider>
           </ProtectedRoute>
           }
         />

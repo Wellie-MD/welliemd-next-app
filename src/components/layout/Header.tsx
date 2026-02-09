@@ -14,17 +14,21 @@ import { useAuthStore } from "@/store/useAuthStore"
 import { authService } from "@/services/authService"
 import { useNavigate } from "react-router-dom"
 import { useSidebar } from "../ui/sidebar"
+import { useBranding } from "@/contexts/BrandingContext"
 // import { SidebarTrigger } from "../ui/sidebar"
 
 export function Header() {
   const user = useAuthStore((state) => state.user)
   const navigate = useNavigate()
+  const { state } = useSidebar()
+  const { logos } = useBranding()
 
   const handleLogout = async () => {
     await authService.logout()
     navigate('/auth/signin')
   }
-  const { state } = useSidebar()
+
+  const logoUrl = logos?.square || "/welliemd_logo.png"
 
 
   return (
@@ -32,11 +36,14 @@ export function Header() {
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           {state === "collapsed" && (
-
           <img 
-            src="/welliemd_logo.png" 
-            alt="Welliemd" 
-            className="h-8 w-auto"
+            src={logoUrl}
+            alt="Logo" 
+            className="h-8 w-auto max-w-[200px] object-contain"
+            onError={(e) => {
+              // Fallback to default logo if brand logo fails to load
+              e.currentTarget.src = "/welliemd_logo.png"
+            }}
           />
              )}
         </div>
