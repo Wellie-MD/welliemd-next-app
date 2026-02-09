@@ -7,13 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { AlertTriangle, CalendarIcon, Download, Loader2, Search } from "lucide-react"
@@ -30,7 +30,7 @@ export default function AnalyticsReports() {
 
   // 2. Temporary date range state (For UI selection only)
   const [tempDateRange, setTempDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>(dateRange)
-  
+
   // 3. Popover open state
   const [isPopoverOpen, setIsPopoverOpen] = useState(false)
 
@@ -69,39 +69,39 @@ export default function AnalyticsReports() {
   const { data: states = [] } = useQuery({
     queryKey: ["states"],
     queryFn: getStates,
-    staleTime: 300000,
+    staleTime: 150000,
   })
 
   const { data: pharmacies = [] } = useQuery({
     queryKey: ["pharmacies"],
     queryFn: getPharmacies,
-    staleTime: 300000,
+    staleTime: 150000,
   })
 
   const { data: variants = [] } = useQuery({
     queryKey: ["variants"],
     queryFn: getVariants,
-    staleTime: 300000,
+    staleTime: 150000,
   })
 
   // Filter data based on search
   const filteredStateData = useMemo(() => {
     if (!aggregates?.byState) return []
-    return aggregates.byState.filter(item => 
+    return aggregates.byState.filter(item =>
       item.state.toLowerCase().includes(stateSearch.toLowerCase())
     )
   }, [aggregates?.byState, stateSearch])
 
   const filteredPharmacyData = useMemo(() => {
     if (!aggregates?.byPharmacy) return []
-    return aggregates.byPharmacy.filter(item => 
+    return aggregates.byPharmacy.filter(item =>
       item.pharmacy.toLowerCase().includes(pharmacySearch.toLowerCase())
     )
   }, [aggregates?.byPharmacy, pharmacySearch])
 
   const filteredVariantData = useMemo(() => {
     if (!aggregates?.byVariant) return []
-    return aggregates.byVariant.filter(item => 
+    return aggregates.byVariant.filter(item =>
       item.variant.toLowerCase().includes(variantSearch.toLowerCase())
     )
   }, [aggregates?.byVariant, variantSearch])
@@ -113,7 +113,7 @@ export default function AnalyticsReports() {
     const headers = Object.keys(data[0]).join(',')
     const rows = data.map(row => Object.values(row).join(','))
     const csv = [headers, ...rows].join('\n')
-    
+
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -172,15 +172,15 @@ export default function AnalyticsReports() {
                   </div>
                 </div>
                 <div className="flex justify-end gap-2 pt-2 border-t">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setIsPopoverOpen(false)}
                   >
                     Cancel
                   </Button>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={() => {
                       setDateRange(tempDateRange)
                       setIsPopoverOpen(false)
@@ -242,208 +242,210 @@ export default function AnalyticsReports() {
           </Card>
         </div>
       )}
-
-      <Tabs defaultValue="aggregates" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="time-metrics">Time Metrics</TabsTrigger>
-          <TabsTrigger value="retention">Retention</TabsTrigger>
-          <TabsTrigger value="aggregates">Aggregates</TabsTrigger>
-          <TabsTrigger value="segments">Segments</TabsTrigger>
-        </TabsList>
-
-        {/* Aggregates Tab */}
-        <TabsContent value="aggregates" className="space-y-6">
-          {/* Orders by State */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Orders by State</CardTitle>
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search states..."
-                      value={stateSearch}
-                      onChange={(e) => setStateSearch(e.target.value)}
-                      className="pl-8 w-64"
-                    />
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => exportToCSV(filteredStateData, 'orders_by_state')}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
-                  </Button>
-                </div>
+      {/* Orders by State */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Orders by State</CardTitle>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search states..."
+                  value={stateSearch}
+                  onChange={(e) => setStateSearch(e.target.value)}
+                  className="pl-8 w-64"
+                />
               </div>
-            </CardHeader>
-            <CardContent>
-              {filteredStateData.length > 0 ? (
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>State</TableHead>
-                        <TableHead className="text-right">Total Orders</TableHead>
-                        <TableHead className="text-right">Total Sales</TableHead>
-                        <TableHead className="text-right">Avg Order Value</TableHead>
-                        <TableHead className="text-right">Completed</TableHead>
-                        <TableHead className="text-right">Pending</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredStateData.map((item, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="font-medium">{item.state}</TableCell>
-                          <TableCell className="text-right">{item.totalOrders}</TableCell>
-                          <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
-                          <TableCell className="text-right">${item.averageOrderValue.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">{item.completedOrders}</TableCell>
-                          <TableCell className="text-right">{item.pendingOrders}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-32 text-muted-foreground">
-                  No data available
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportToCSV(filteredStateData, 'orders_by_state')}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {filteredStateData.length > 0 ? (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>State</TableHead>
+                    <TableHead className="text-right">Total Orders</TableHead>
+                    <TableHead className="text-right">Total Sales</TableHead>
+                    <TableHead className="text-right">Avg Order Value</TableHead>
+                    <TableHead className="text-right">Completed</TableHead>
+                    <TableHead className="text-right">Pending</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredStateData.map((item, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">{item.state}</TableCell>
+                      <TableCell className="text-right">{item.totalOrders}</TableCell>
+                      <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">${item.averageOrderValue.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{item.completedOrders}</TableCell>
+                      <TableCell className="text-right">{item.pendingOrders}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-32 text-muted-foreground">
+              No data available
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-          {/* Orders by Pharmacy */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Orders by Pharmacy</CardTitle>
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search pharmacies..."
-                      value={pharmacySearch}
-                      onChange={(e) => setPharmacySearch(e.target.value)}
-                      className="pl-8 w-64"
-                    />
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => exportToCSV(filteredPharmacyData, 'orders_by_pharmacy')}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
-                  </Button>
-                </div>
+      {/* Orders by Pharmacy */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Orders by Pharmacy</CardTitle>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search pharmacies..."
+                  value={pharmacySearch}
+                  onChange={(e) => setPharmacySearch(e.target.value)}
+                  className="pl-8 w-64"
+                />
               </div>
-            </CardHeader>
-            <CardContent>
-              {filteredPharmacyData.length > 0 ? (
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Pharmacy</TableHead>
-                        <TableHead className="text-right">Total Orders</TableHead>
-                        <TableHead className="text-right">Total Sales</TableHead>
-                        <TableHead className="text-right">Avg Order Value</TableHead>
-                        <TableHead className="text-right">Completed</TableHead>
-                        <TableHead className="text-right">Pending</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredPharmacyData.map((item, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="font-medium">{item.pharmacy}</TableCell>
-                          <TableCell className="text-right">{item.totalOrders}</TableCell>
-                          <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
-                          <TableCell className="text-right">${item.averageOrderValue.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">{item.completedOrders}</TableCell>
-                          <TableCell className="text-right">{item.pendingOrders}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-32 text-muted-foreground">
-                  No data available
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportToCSV(filteredPharmacyData, 'orders_by_pharmacy')}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {filteredPharmacyData.length > 0 ? (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Pharmacy</TableHead>
+                    <TableHead className="text-right">Total Orders</TableHead>
+                    <TableHead className="text-right">Total Sales</TableHead>
+                    <TableHead className="text-right">Avg Order Value</TableHead>
+                    <TableHead className="text-right">Completed</TableHead>
+                    <TableHead className="text-right">Pending</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredPharmacyData.map((item, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">{item.pharmacy}</TableCell>
+                      <TableCell className="text-right">{item.totalOrders}</TableCell>
+                      <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">${item.averageOrderValue.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{item.completedOrders}</TableCell>
+                      <TableCell className="text-right">{item.pendingOrders}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-32 text-muted-foreground">
+              No data available
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-          {/* Orders by Product Variant */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Orders by Product Variant</CardTitle>
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search variants..."
-                      value={variantSearch}
-                      onChange={(e) => setVariantSearch(e.target.value)}
-                      className="pl-8 w-64"
-                    />
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => exportToCSV(filteredVariantData, 'orders_by_variant')}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
-                  </Button>
-                </div>
+      {/* Orders by Product Variant */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Orders by Product Variant</CardTitle>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search variants..."
+                  value={variantSearch}
+                  onChange={(e) => setVariantSearch(e.target.value)}
+                  className="pl-8 w-64"
+                />
               </div>
-            </CardHeader>
-            <CardContent>
-              {filteredVariantData.length > 0 ? (
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Product Variant</TableHead>
-                        <TableHead className="text-right">Total Orders</TableHead>
-                        <TableHead className="text-right">Total Quantity</TableHead>
-                        <TableHead className="text-right">Total Sales</TableHead>
-                        <TableHead className="text-right">Avg Price</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredVariantData.map((item, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="font-medium">
-                            <div>{item.variant}</div>
-                            {item.productName && (
-                              <div className="text-xs text-muted-foreground">{item.productName}</div>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">{item.totalOrders}</TableCell>
-                          <TableCell className="text-right">{item.totalQuantity}</TableCell>
-                          <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
-                          <TableCell className="text-right">${item.averagePrice.toFixed(2)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-32 text-muted-foreground">
-                  No data available
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportToCSV(filteredVariantData, 'orders_by_variant')}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {filteredVariantData.length > 0 ? (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Product Variant</TableHead>
+                    <TableHead className="text-right">Total Orders</TableHead>
+                    <TableHead className="text-right">Total Quantity</TableHead>
+                    <TableHead className="text-right">Total Sales</TableHead>
+                    <TableHead className="text-right">Avg Price</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredVariantData.map((item, index) => {
+                    let displayVariant = item.variant;
+                    if (item.productName && item.variant.startsWith(item.productName)) {
+                      displayVariant = item.variant.replace(item.productName, '').replace(/^[\s-]+/, '');
+                    }
 
-        {/* Other Tabs (Premium Features) */}
+                    // Fallback
+                    if (!displayVariant.trim()) displayVariant = 'Default Variant';
+
+                    return (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">
+                          <div className="text-base font-semibold">
+                            {/* Top Line: Product Name (from order.product_name) */}
+                            {item.productName || item.variant}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {/* Bottom Line: Cleaned Variant Name */}
+                            {displayVariant}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">{item.totalOrders}</TableCell>
+                        <TableCell className="text-right">{item.totalQuantity}</TableCell>
+                        <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">${item.averagePrice.toFixed(2)}</TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-32 text-muted-foreground">
+              No data available
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Other Tabs (Premium Features)
         <TabsContent value="time-metrics" className="space-y-6">
           <Alert className="border-yellow-200 bg-yellow-50">
             <AlertTriangle className="h-4 w-4 text-yellow-600" />
@@ -484,8 +486,7 @@ export default function AnalyticsReports() {
               <h3 className="text-lg font-semibold mb-2">No data</h3>
             </div>
           </div>
-        </TabsContent>
-      </Tabs>
+        </TabsContent> */}
     </div>
   )
 }
