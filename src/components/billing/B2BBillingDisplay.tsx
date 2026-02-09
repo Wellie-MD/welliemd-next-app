@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -6,8 +5,7 @@ import {
   CreditCard,
   FileText,
   Loader2,
-  Plus,
-  Settings,
+  Play,
 } from "lucide-react";
 import {
   Card,
@@ -25,17 +23,8 @@ import genericCardIcon from "@/assets/icons/payment-methods/generic-card.svg";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { clientApi, Client } from "@/api/clientApi";
-import { subscriptionApi } from "@/api/subscriptionApi";
 import type { B2BBillingStatus } from "@/types/b2bBilling";
-import { ManageSubscriptionModal } from "@/components/subscriptions/ManageSubscriptionModal";
 import { toast } from "sonner";
 
 interface B2BBillingDisplayProps {
@@ -61,8 +50,6 @@ export function B2BBillingDisplay({
       return genericCardIcon;
     return genericCardIcon;
   };
-  const [manageModalOpen, setManageModalOpen] = useState(false);
-  const [createConfirmOpen, setCreateConfirmOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const {
@@ -75,44 +62,10 @@ export function B2BBillingDisplay({
     enabled: !!clientId,
   });
 
-  // Fetch available prices
-  const { data: prices } = useQuery({
-    queryKey: ["stripe-prices"],
-    queryFn: subscriptionApi.getPrices,
-  });
-
-  const hasSubscription = client?.stripe_subscription_id;
-  const priceList = Array.isArray(prices) ? prices : (prices as any)?.prices || [];
-  const monthlyPrices = priceList.filter(
-    (price: any) => price.recurring?.interval === "month" && price.active
-  );
-  const basePrice = monthlyPrices.find(
-    (price: any) => price.recurring?.usage_type !== "metered"
-  );
-  const meteredPrice = monthlyPrices.find(
-    (price: any) => price.recurring?.usage_type === "metered"
-  );
-
-  // Mutation for creating subscription
-  const createSubscriptionMutation = useMutation({
+  // Mutation for custom billing activation (initial SaaS charge)
+  const activateBillingMutation = useMutation({
     mutationFn: async () => {
-      // Get the payment method ID from billing status
-      const paymentMethodId = billingStatus?.payment_method?.id;
-      if (!paymentMethodId) {
-        throw new Error("No payment method found");
-      }
-
-      if (!basePrice) {
-        throw new Error("No active monthly base plan found");
-      }
-
-      return subscriptionApi.create({
-        client_id: clientId,
-        payment_method_id: paymentMethodId,
-        ...(meteredPrice
-          ? { base_price_id: basePrice.id, metered_price_id: meteredPrice.id }
-          : { price_id: basePrice.id }),
-      });
+      return clientApi.activateBilling(clientId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
@@ -120,30 +73,19 @@ export function B2BBillingDisplay({
       queryClient.invalidateQueries({
         queryKey: ["b2bBillingStatus", clientId],
       });
-      toast.success("Subscription created successfully!");
+      toast.success("Billing activated and initial charge processed.");
     },
     onError: (error: unknown) => {
-      console.error("Subscription creation error:", error);
+      console.error("Billing activation error:", error);
       const axiosError = error as unknown;
       const message =
         axiosError?.response?.data?.detail ||
+        axiosError?.response?.data?.error ||
         axiosError?.message ||
-        "Failed to create subscription";
+        "Failed to activate billing";
       toast.error(message);
     },
   });
-
-  const handleCreateSubscription = () => {
-    // Check if payment method exists
-    if (billingStatus?.payment_method_status !== "active") {
-      toast.error(
-        "Client must add a payment method before creating a subscription"
-      );
-      return;
-    }
-
-    setCreateConfirmOpen(true);
-  };
 
   if (isLoading) {
     return (
@@ -205,42 +147,28 @@ export function B2BBillingDisplay({
             </div>
             {client && (
               <div className="flex flex-wrap gap-2">
-                {hasSubscription ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setManageModalOpen(true)}
-                    className="flex items-center gap-2"
-                    disabled={createSubscriptionMutation.isPending}
-                  >
-                    <Settings className="w-4 h-4" />
-                    Manage Subscription
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={handleCreateSubscription}
-                    className="flex items-center gap-2"
-                    disabled={
-                      createSubscriptionMutation.isPending ||
-                      billingStatus?.payment_method_status !== "active"
-                    }
-                  >
-                    {createSubscriptionMutation.isPending ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-4 h-4" />
-                        Create Subscription
-                      </>
-                    )}
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => activateBillingMutation.mutate()}
+                  className="flex items-center gap-2"
+                  disabled={
+                    activateBillingMutation.isPending ||
+                    billingStatus?.payment_method_status !== "active"
+                  }
+                >
+                  {activateBillingMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Activating...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4" />
+                      Activate Billing
+                    </>
+                  )}
+                </Button>
               </div>
             )}
           </div>
@@ -280,7 +208,7 @@ export function B2BBillingDisplay({
                 <AlertDescription className="text-amber-800">
                   <strong>Awaiting client payment setup.</strong> The client
                   needs to add their payment method from the Client Portal
-                  before subscriptions can be created.
+                  before billing can be activated.
                 </AlertDescription>
               </Alert>
             )}
@@ -401,122 +329,16 @@ export function B2BBillingDisplay({
 
           {/* No Subscription Message */}
           {!subscriptionStatus && !hasPaymentMethod && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                No B2B subscription found. This client may not be set up for
-                platform billing yet.
-              </AlertDescription>
-            </Alert>
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                Billing is not activated yet for this client. Set billing config
+                and use <strong>Activate Billing</strong> to create the initial charge.
+                </AlertDescription>
+              </Alert>
           )}
         </CardContent>
       </Card>
-
-      {/* Subscription Modals */}
-      {client && (
-        <ManageSubscriptionModal
-          isOpen={manageModalOpen}
-          onOpenChange={setManageModalOpen}
-          client={client}
-        />
-      )}
-
-      <Dialog open={createConfirmOpen} onOpenChange={setCreateConfirmOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Confirm Subscription Creation</DialogTitle>
-            <DialogDescription>
-              Review the plan and payment method before creating the subscription.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-              <p className="text-sm font-medium">Plan Summary</p>
-              {basePrice ? (
-                <div className="space-y-2">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-md border bg-background px-3 py-2">
-                    <div>
-                      <p className="text-sm font-medium">Base Monthly Fee</p>
-                      <p className="text-xs text-muted-foreground">
-                        Price ID: {basePrice.id}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold">
-                        ${Number(basePrice.unit_amount || 0).toFixed(2)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">/month</p>
-                    </div>
-                  </div>
-                  {meteredPrice ? (
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-md border bg-background px-3 py-2">
-                      <div>
-                        <p className="text-sm font-medium">Metered Usage</p>
-                        <p className="text-xs text-muted-foreground">
-                          Price ID: {meteredPrice.id}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold">
-                          ${Number(meteredPrice.unit_amount || 0).toFixed(2)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">/patient</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="rounded-md border border-dashed bg-background px-3 py-2 text-xs text-muted-foreground">
-                      No metered usage price found. Subscription will be base-only.
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    No active monthly base price found. Please configure pricing in Stripe.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-
-            <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
-              <p className="text-sm font-medium">Payment Method on File</p>
-              {paymentMethod ? (
-                <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2">
-                  <div>
-                    <p className="text-sm font-medium capitalize">{paymentMethod.brand}</p>
-                    <p className="text-xs text-muted-foreground">•••• {paymentMethod.last4}</p>
-                  </div>
-                  <Badge variant={paymentMethod.is_expired ? "destructive" : "outline"}>
-                    {paymentMethod.is_expired ? "Expired" : "Active"}
-                  </Badge>
-                </div>
-              ) : (
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>No payment method on file.</AlertDescription>
-                </Alert>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setCreateConfirmOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                setCreateConfirmOpen(false);
-                createSubscriptionMutation.mutate();
-              }}
-              disabled={!basePrice || createSubscriptionMutation.isPending || paymentMethodStatus !== "active"}
-            >
-              {createSubscriptionMutation.isPending ? "Creating..." : "Confirm & Create"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

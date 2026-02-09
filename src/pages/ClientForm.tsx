@@ -38,6 +38,8 @@ import {
 import { PasswordDisplayModal } from "@/components/clients/PasswordDisplayModal";
 import { B2BBillingDisplay } from "@/components/billing/B2BBillingDisplay";
 import { B2BInvoiceList } from "@/components/billing/B2BInvoiceList";
+import { BillingLockStatusCard } from "@/components/billing/BillingLockStatusCard";
+import { BillingConfigEditor } from "@/components/billing/BillingConfigEditor";
 
 // Helper component for field info tooltips
 const FieldInfo = ({ content }: { content: string }) => (
@@ -520,23 +522,23 @@ export default function ClientForm() {
                           email: emailTouched
                             ? prev.email
                             : p
-                            ? `${p}@welliemd.com`
-                            : prev.email,
+                              ? `${p}@welliemd.com`
+                              : prev.email,
                           admin_panel_domain: adminDomainTouched
                             ? prev.admin_panel_domain
                             : p
-                            ? `https://${p}client.welliemd.com`
-                            : prev.admin_panel_domain,
+                              ? `https://${p}client.welliemd.com`
+                              : prev.admin_panel_domain,
                           subdomain: subdomainTouched
                             ? prev.subdomain
                             : p
-                            ? `https://${p}questionnaire.welliemd.com`
-                            : prev.subdomain,
+                              ? `https://${p}questionnaire.welliemd.com`
+                              : prev.subdomain,
                           api_endpoint: apiEndpointTouched
                             ? prev.api_endpoint
                             : p
-                            ? `https://${p}api.welliemd.com/api/v1/`
-                            : prev.api_endpoint,
+                              ? `https://${p}api.welliemd.com/api/v1/`
+                              : prev.api_endpoint,
                           first_name: firstNameTouched
                             ? prev.first_name
                             : fn || prev.first_name,
@@ -888,58 +890,58 @@ export default function ClientForm() {
                     </p>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="patient_fee">Patient Fee ($)</Label>
-                    <Input
-                      id="patient_fee"
-                      type="number"
-                      step="0.01"
-                      value={formData.patient_fee}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          patient_fee: e.target.value === "" ? 0 : parseFloat(e.target.value),
-                        })
-                      }
-                    />
+                    <div className="space-y-2">
+                      <Label htmlFor="patient_fee">Patient Fee ($)</Label>
+                      <Input
+                        id="patient_fee"
+                        type="number"
+                        step="0.01"
+                        value={formData.patient_fee}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            patient_fee: e.target.value === "" ? 0 : parseFloat(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="async_consult_fee_to_client">
+                        Async Consult Fee ($)
+                      </Label>
+                      <Input
+                        id="async_consult_fee_to_client"
+                        type="number"
+                        step="0.01"
+                        value={formData.async_consult_fee_to_client}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            async_consult_fee_to_client: e.target.value === "" ? 0 : parseFloat(
+                              e.target.value
+                            ),
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="async_consult_cost">
+                        Async Consult Cost ($)
+                      </Label>
+                      <Input
+                        id="async_consult_cost"
+                        type="number"
+                        step="0.01"
+                        value={formData.async_consult_cost}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            async_consult_cost: e.target.value === "" ? 0 : parseFloat(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="async_consult_fee_to_client">
-                      Async Consult Fee ($)
-                    </Label>
-                    <Input
-                      id="async_consult_fee_to_client"
-                      type="number"
-                      step="0.01"
-                      value={formData.async_consult_fee_to_client}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          async_consult_fee_to_client: e.target.value === "" ? 0 : parseFloat(
-                            e.target.value
-                          ),
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="async_consult_cost">
-                      Async Consult Cost ($)
-                    </Label>
-                    <Input
-                      id="async_consult_cost"
-                      type="number"
-                      step="0.01"
-                      value={formData.async_consult_cost}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          async_consult_cost: e.target.value === "" ? 0 : parseFloat(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-                </div>
                 </div>
                 <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
                   <div className="space-y-1">
@@ -949,59 +951,59 @@ export default function ClientForm() {
                     </p>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="sync_video_consult_fee_to_client">
-                      Sync Consult Fee ($)
-                    </Label>
-                    <Input
-                      id="sync_video_consult_fee_to_client"
-                      type="number"
-                      step="0.01"
-                      value={formData.sync_video_consult_fee_to_client}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          sync_video_consult_fee_to_client: e.target.value === "" ? 0 : parseFloat(
-                            e.target.value
-                          ),
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="sync_consult_cost">
-                      Sync Consult Cost ($)
-                    </Label>
-                    <Input
-                      id="sync_consult_cost"
-                      type="number"
-                      step="0.01"
-                      value={formData.sync_consult_cost}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          sync_consult_cost: e.target.value === "" ? 0 : parseFloat(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="monthly_saas_fee">
-                      Monthly SaaS Fee ($)
-                    </Label>
-                    <Input
-                      id="monthly_saas_fee"
-                      type="number"
-                      step="0.01"
-                      value={formData.monthly_saas_fee}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          monthly_saas_fee: e.target.value === "" ? 0 : parseFloat(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="sync_video_consult_fee_to_client">
+                        Sync Consult Fee ($)
+                      </Label>
+                      <Input
+                        id="sync_video_consult_fee_to_client"
+                        type="number"
+                        step="0.01"
+                        value={formData.sync_video_consult_fee_to_client}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            sync_video_consult_fee_to_client: e.target.value === "" ? 0 : parseFloat(
+                              e.target.value
+                            ),
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="sync_consult_cost">
+                        Sync Consult Cost ($)
+                      </Label>
+                      <Input
+                        id="sync_consult_cost"
+                        type="number"
+                        step="0.01"
+                        value={formData.sync_consult_cost}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            sync_consult_cost: e.target.value === "" ? 0 : parseFloat(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="monthly_saas_fee">
+                        Monthly SaaS Fee ($)
+                      </Label>
+                      <Input
+                        id="monthly_saas_fee"
+                        type="number"
+                        step="0.01"
+                        value={formData.monthly_saas_fee}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            monthly_saas_fee: e.target.value === "" ? 0 : parseFloat(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -1154,6 +1156,11 @@ export default function ClientForm() {
             {/* B2B Billing Display - Only show in edit mode */}
             {isEditMode && id && (
               <>
+                {/* Billing Lock Status & Config - Custom Billing Engine */}
+                <BillingLockStatusCard clientId={id} />
+                <BillingConfigEditor clientId={id} />
+
+                {/* Existing Billing Components */}
                 <B2BBillingDisplay clientId={id} client={existingClient} />
                 <B2BInvoiceList clientId={id} />
               </>

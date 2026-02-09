@@ -57,7 +57,7 @@ export interface ClientCreatePayload {
   last_name: string;
   phone?: string;
   password?: string;
-  
+
   // Client Basic Information
   name: string;
   domain?: string;
@@ -260,6 +260,8 @@ export const clientApi = {
     return data;
   },
 
+  // LEGACY: Stripe-managed subscription creation path.
+  // Prefer custom billing config + billing activation APIs.
   createSubscription: async (
     clientId: string,
     payload: { price_id?: string; base_price_id?: string; metered_price_id?: string; payment_method_id: string }
@@ -330,6 +332,61 @@ export const clientApi = {
 
   getB2BPaymentMethod: async (clientId: string): Promise<import('../types/b2bBilling').B2BPaymentMethodResponse> => {
     const { data } = await axiosInstance.get(`/internal/clients/${clientId}/payment-method/`);
+    return data;
+  },
+
+  // ==========================================================================
+  // NEW: Custom Billing Engine APIs
+  // ==========================================================================
+
+  /**
+   * Get billing lock status for a client.
+   */
+  getBillingLockStatus: async (clientId: string): Promise<import('../types/b2bBilling').BillingLockStatus> => {
+    const { data } = await axiosInstance.get(`/internal/clients/${clientId}/lock-status/`);
+    return data;
+  },
+
+  /**
+   * Get billing config for a client.
+   */
+  getBillingConfig: async (clientId: string): Promise<import('../types/b2bBilling').BillingConfig> => {
+    const { data } = await axiosInstance.get(`/internal/clients/${clientId}/billing/config/`);
+    return data;
+  },
+
+  /**
+   * Update billing config for a client.
+   */
+  updateBillingConfig: async (
+    clientId: string,
+    config: Partial<import('../types/b2bBilling').BillingConfig>
+  ): Promise<import('../types/b2bBilling').BillingConfig> => {
+    const { data } = await axiosInstance.patch(`/internal/clients/${clientId}/billing/config/`, config);
+    return data;
+  },
+
+  /**
+   * Admin pay a specific invoice for a client.
+   */
+  payInvoiceNow: async (clientId: string, invoiceId: string): Promise<import('../types/b2bBilling').PayNowResult> => {
+    const { data } = await axiosInstance.post(`/internal/clients/${clientId}/invoices/${invoiceId}/pay-now/`);
+    return data;
+  },
+
+  /**
+   * Admin pay all outstanding blocking invoices for a client.
+   */
+  payAllOutstanding: async (clientId: string): Promise<import('../types/b2bBilling').PayNowResult> => {
+    const { data } = await axiosInstance.post(`/internal/clients/${clientId}/pay-all/`);
+    return data;
+  },
+
+  /**
+   * Trigger initial SaaS access charge for a client (custom billing engine).
+   */
+  activateBilling: async (clientId: string): Promise<any> => {
+    const { data } = await axiosInstance.post(`/internal/clients/${clientId}/billing/activate/`);
     return data;
   },
 };
