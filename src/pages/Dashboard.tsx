@@ -80,7 +80,7 @@ export default function Dashboard() {
         // Transform API data to match table format and limit to 8 records
         const transformedData = response.results.slice(0, 8).map((item) => ({
           date: new Date(item.orderDate).toLocaleDateString(),
-          deliveryDate: item.datePrescribed,
+          deliveryDate: item.datePrescribed ? new Date(item.datePrescribed).toLocaleDateString() : 'N/A',
           orderNumber: item.display_id,
           name: item.name,
           product: item.product_name,

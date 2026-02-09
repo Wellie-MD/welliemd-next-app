@@ -48,6 +48,7 @@ const visitStatusFilters = ["All", "Scheduled", "Completed", "Missed", "Reschedu
 // Backend order status choices (value, label)
 const ORDER_STATUS_CHOICES = [
   { value: 'created', label: 'Created' },
+  { value: 'payment_pending', label: 'Payment Pending' },
   { value: 'processing', label: 'Processing' },
   { value: 'visit_failed', label: 'Visit Failed' },
   { value: 'visit_pending', label: 'Visit Pending' },

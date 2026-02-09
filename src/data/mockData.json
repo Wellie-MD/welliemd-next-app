@@ -18,10 +18,10 @@
       { "id": 2, "name": "Jessica Williams", "time": "Today 7:08am", "avatar": "/avatars/jessica.jpg" },
       { "id": 3, "name": "Amanda Roberts", "time": "Yesterday 4:18pm", "avatar": "/avatars/amanda.jpg" }
     ],
-    "liveSummary": {
-      "active_carts": 0,
-      "checking_out": 0,
-      "purchased": 0
+    "patientSummary": {
+      "active_patients": 0,
+      "inactive_patients": 0,
+      "drop_off_patients": 0
     },
     "salesChartData": [
       { "month": "Jan", "2025": 220, "2024": 120, "2022": 0 },

@@ -87,7 +87,6 @@ export interface Order {
   provider_network?: string | null;
   notes?: string | null;
   // Detail page: from PrescriptionEvent / Visit
-  product_name?: string | null;
   treatment_type?: string | null;
   doctor_name?: string | null;
   prescription_medications?: PrescriptionMedication[];
