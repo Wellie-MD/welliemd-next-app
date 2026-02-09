@@ -12,10 +12,10 @@ export interface Message {
   avatar: string
 }
 
-export interface LiveSummary {
-  active_carts: number
-  checking_out: number
-  purchased: number
+export interface PatientSummary {
+  active_patients: number
+  inactive_patients: number
+  drop_off_patients: number
 }
 
 export interface ChartDataPoint {
@@ -52,13 +52,13 @@ export interface DashboardMetrics {
   total_sales: number
   total_orders: number
   growth_percentage: number
-  live_summary: LiveSummary
+  patient_summary: PatientSummary
 }
 
 export interface DashboardData {
   kpis: Metric[]
   messages: Message[]
-  liveSummary: LiveSummary
+  patientSummary: PatientSummary
   salesChartData: ChartDataPoint[]
   revenueChartData: ChartDataPoint[]
   newPatientChartData: ChartDataPoint[]

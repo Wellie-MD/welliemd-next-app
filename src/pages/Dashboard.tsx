@@ -1,10 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, Eye, DollarSign, MoreHorizontal } from "lucide-react";
+import { ShoppingCart, Eye, DollarSign } from "lucide-react";
 import mockData from "@/data/mockData.json";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { SalesChart } from "@/components/dashboard/SalesChart";
@@ -13,7 +10,6 @@ import { NewPatientChart } from "@/components/dashboard/NewPatientChart";
 import { DataTable } from "@/components/dashboard/DataTable";
 import { PaymentTable } from "@/components/dashboard/PaymentTable";
 import { DashboardData } from "@/types/dashboard";
-import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { fetchClientPaymentHistory } from "@/api/paymentTransactionsApi";
 
@@ -22,8 +18,6 @@ import { fetchDashboardCharts } from "@/api/dashboardApi";
 import { useDashboardMetrics } from "@/hooks/useDashboardMetrics";
 
 export default function Dashboard() {
-  const navigate = useNavigate();
-
   const { dashboard } = mockData as { dashboard: DashboardData };
 
   const [paymentData, setPaymentData] = useState<any[]>([]);
@@ -33,7 +27,7 @@ export default function Dashboard() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [loadingCharts, setLoadingCharts] = useState(true);
 
-  const { kpiData, liveSummary, loading: loadingMetrics, metrics } = useDashboardMetrics({
+  const { kpiData, patientSummary, loading: loadingMetrics, metrics } = useDashboardMetrics({
     fallbackKpis: dashboard.kpis
   });
 
@@ -48,7 +42,7 @@ export default function Dashboard() {
       console.log('Total Sales:', metrics.total_sales);
       console.log('Total Orders:', metrics.total_orders);
       console.log('Growth Percentage:', metrics.growth_percentage);
-      console.log('Live Summary:', metrics.live_summary);
+      console.log('Patient Summary:', metrics.patient_summary);
       console.log('===================================');
     }
   }, [metrics]);
@@ -128,32 +122,6 @@ export default function Dashboard() {
     loadChartData();
   }, [dashboard.payments, dashboard.salesChartData, dashboard.revenueChartData, dashboard.newPatientChartData]);
 
-
-  const handleViewMore = (section: string) => {
-    console.log(`View more clicked for ${section}`);
-    // Here you would typically navigate to the detailed view
-  };
-
-  const handleKPIClick = (kpi: {
-    title: string;
-    value: string;
-    change: string;
-    trend: string;
-  }) => {
-    console.log(`KPI clicked: ${kpi.title}`);
-    // Here you would typically show a detailed modal or navigate to details
-  };
-
-  const handleMessageClick = (messageId: string) => {
-    console.log(`Message clicked: ${messageId}`);
-    // Here you would typically open the message in a modal or navigate to message details
-  };
-
-  const handleOrderClick = (orderId: string) => {
-    console.log(`Order clicked: ${orderId}`);
-    // Here you would typically navigate to order details
-  };
-
   const orderHistoryColumns = [
     { key: "date", label: "Date" },
     { key: "deliveryDate", label: "Delivery Date" },
@@ -184,11 +152,7 @@ export default function Dashboard() {
       <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide">
         <div className="flex gap-4 min-w-max">
           {kpiData.map((kpi, index) => (
-            <div
-              key={index}
-              // onClick={() => handleKPIClick(kpi)}
-              className="cursor-pointer"
-            >
+            <div key={index} className="cursor-pointer">
               <MetricCard metric={kpi} />
             </div>
           ))}
@@ -201,28 +165,28 @@ export default function Dashboard() {
           <SalesChart data={loadingCharts ? [] : chartData} />
         </div>
 
-        {/* Live Summary */}
+        {/* Patient Summary */}
         <div className="w-full min-w-0">
-          <Card className="rounded-2xl shadow-md bg-white">
-            <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl p-4">
+          <Card className="rounded-2xl shadow-md bg-white h-full flex flex-col">
+            <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl p-6">
               <CardTitle className="text-gray-800">Patient Summary</CardTitle>
-              <Button
+              {/* <Button
                 variant="ghost"
                 size="sm"
                 className="text-blue-600 hover:text-blue-700"
                 onClick={() => handleViewMore("patientSummary")}
               >
                 View More
-              </Button>
+              </Button> */}
             </CardHeader>
-            <CardContent className="p-4">
-              <div className="grid grid-cols-3 gap-4">
+            <CardContent className="p-4 flex-1 flex items-center">
+              <div className="grid grid-cols-3 gap-4 w-full">
                 <div className="text-center space-y-2">
                   <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
                     <ShoppingCart className="h-6 w-6 text-gray-600" />
                   </div>
                   <p className="text-2xl font-bold text-gray-800">
-                    {liveSummary.active_carts}
+                    {patientSummary.active_patients}
                   </p>
                   <p className="text-sm text-gray-600">Active</p>
                 </div>
@@ -231,7 +195,7 @@ export default function Dashboard() {
                     <Eye className="h-6 w-6 text-gray-600" />
                   </div>
                   <p className="text-2xl font-bold text-gray-800">
-                    {liveSummary.checking_out}
+                    {patientSummary.inactive_patients}
                   </p>
                   <p className="text-sm text-gray-600">In Active</p>
                 </div>
@@ -240,7 +204,7 @@ export default function Dashboard() {
                     <DollarSign className="h-6 w-6 text-gray-600" />
                   </div>
                   <p className="text-2xl font-bold text-gray-800">
-                    {liveSummary.purchased}
+                    {patientSummary.drop_off_patients}
                   </p>
                   <p className="text-sm text-gray-600">Drop Off</p>
                 </div>

@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/alert-dialog"
 
 const orderColumns = [
-  { key: "order_id", label: "Order ID", minWidth: "120px", className: "font-medium" },
+  { key: "display_id", label: "Order ID", minWidth: "120px", className: "font-medium" },
   { key: "patient_name", label: "Patient", minWidth: "160px", className: "max-w-[220px]" },
   { key: "email", label: "Email", minWidth: "200px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell max-w-[220px]" },
   { key: "phone", label: "Phone", minWidth: "130px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell max-w-[140px]" },
@@ -127,7 +127,7 @@ export default function Orders() {
     const lowerSearch = searchTerm.trim().toLowerCase()
     return orders.filter(order => {
       const matchesSearch = !lowerSearch ||
-        (order.order_id ?? '').toLowerCase().includes(lowerSearch) ||
+        (order.display_id ?? '').toLowerCase().includes(lowerSearch) ||
         (order.patient?.full_name ?? '').toLowerCase().includes(lowerSearch) ||
         (order.name ?? '').toLowerCase().includes(lowerSearch) ||
         (order.email ?? '').toLowerCase().includes(lowerSearch) ||
@@ -391,11 +391,11 @@ export default function Orders() {
         }))}
         columns={orderColumns.map(col => {
           // Order ID: show value or "—" for old orders not backfilled
-          if (col.key === 'order_id') {
+          if (col.key === 'display_id') {
             return {
               ...col,
               render: (_: any, row: any) => (
-                <span className="text-sm font-medium">{row.order_id ?? '—'}</span>
+                <span className="text-sm font-medium">{row.display_id ?? '—'}</span>
               ),
             }
           }
@@ -405,7 +405,7 @@ export default function Orders() {
             return {
               ...col,
               render: (_: any, row: any) => {
-                const detailId = row.order_id ?? row.id
+                const detailId = row.display_id ?? row.id
                 return (
                   <button
                     onClick={() => detailId && navigate(`/dashboard/orders/details/${detailId}`)}
@@ -423,7 +423,7 @@ export default function Orders() {
             return {
               ...col,
               render: (_: any, row: any) => {
-                const detailId = row.order_id ?? row.id
+                const detailId = row.display_id ?? row.id
                 return (
                 <div className="flex gap-2">
                   <Button
