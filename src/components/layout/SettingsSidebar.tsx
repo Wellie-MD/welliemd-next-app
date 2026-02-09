@@ -38,6 +38,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { useBranding } from "@/contexts/BrandingContext"
 
 const settingsMenuItems = [
   { title: "Store Details", url: "/dashboard/settings/store-details", icon: Store },
@@ -66,9 +67,11 @@ export function SettingsSidebar({
   const navigate = useNavigate()
   const location = useLocation()
   const currentPath = location.pathname
+  const { logos } = useBranding()
   // const collapsed = state === "collapsed"
 
   const isActive = (path: string) => currentPath === path
+  const logoUrl = logos?.square || "/welliemd_logo.png"
 
   // Wrapper for menu items with tooltip when collapsed
   const MenuItemWrapper = ({ children, title }: { children: React.ReactNode, title: string }) => {
@@ -102,9 +105,13 @@ export function SettingsSidebar({
   }`}>
         {!collapsed && (
   <img
-    src="/welliemd_logo.png"
-    alt="Welliemd"
-    className="h-8 w-auto"
+    src={logoUrl}
+    alt="Logo"
+    className="h-8 w-auto max-w-[200px] object-contain"
+    onError={(e) => {
+      // Fallback to default logo if brand logo fails to load
+      e.currentTarget.src = "/welliemd_logo.png"
+    }}
   />
 )}
 

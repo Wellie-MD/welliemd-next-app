@@ -31,14 +31,35 @@ export interface BrandSettings {
     loginPageImage: string;
     support: BrandSupport;
     enabledNotifications: BrandNotifications;
-    // colors, pages, and ads can be added here later
+    primaryColor?: string;
+    secondaryColor?: string;
+    accentColor?: string;
+    neutralColor?: string;
+}
+
+export interface PublicBrandSettings {
+    loginPageImage: string;
+    logos: BrandLogos;
+    primaryColor?: string;
+    secondaryColor?: string;
+    accentColor?: string;
+    neutralColor?: string;
 }
 
 /**
- * Fetch existing brand settings
+ * Fetch existing brand settings (requires authentication)
  */
 export async function fetchBrandSettings(): Promise<BrandSettings> {
     const response = await axiosInstance.get<BrandSettings>('/brand-settings/');
+    return response.data;
+}
+
+/**
+ * Fetch public brand settings (no authentication required)
+ * Used for login page and other public pages
+ */
+export async function fetchPublicBrandSettings(): Promise<PublicBrandSettings> {
+    const response = await axiosInstance.get<PublicBrandSettings>('/public/brand-settings/');
     return response.data;
 }
 
@@ -52,5 +73,6 @@ export async function updateBrandSettings(data: BrandSettings): Promise<{ status
 
 export default {
     fetchBrandSettings,
+    fetchPublicBrandSettings,
     updateBrandSettings,
 };

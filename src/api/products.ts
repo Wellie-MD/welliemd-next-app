@@ -25,6 +25,7 @@ export interface Product {
   application_directions?: string;
   learn_more?: string;
   product_image?: string;
+  base_medication_name?: string;
 
   // Product Configuration
   product_type: "single" | "bundle";

@@ -7,7 +7,7 @@
  * - Generate and display follow-up link
  * - Copy link or send via email
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -26,8 +26,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { AlertCircle, CheckCircle2, Copy, Mail, Loader2 } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2, Copy, Mail, Loader2 } from 'lucide-react';
 import { createFollowUp, getFollowUpTemplates, FollowUpTemplate, CreateFollowUpResponse } from '@/api/followUpApi';
+import { patientService, TreatmentEpisode } from '@/services/patientService';
 
 interface SendFollowUpDialogProps {
   open: boolean;
@@ -51,19 +52,53 @@ export function SendFollowUpDialog({
   const [expiryHours, setExpiryHours] = useState<number>(48);
   const [loading, setLoading] = useState(false);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const [loadingEpisodes, setLoadingEpisodes] = useState(false);
   const [result, setResult] = useState<CreateFollowUpResponse | null>(null);
   const [copied, setCopied] = useState(false);
+  const [episodes, setEpisodes] = useState<TreatmentEpisode[]>([]);
+  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>('');
+  const [episodesFallbackUsed, setEpisodesFallbackUsed] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      loadTemplates();
-      // Reset state when dialog opens
-      setResult(null);
-      setCopied(false);
+  const selectedTemplateRecord = useMemo(
+    () => templates.find((t) => t.id === selectedTemplate) || null,
+    [templates, selectedTemplate]
+  );
+
+  const selectedEpisodeRecord = useMemo(() => {
+    if (selectedEpisodeId) {
+      return episodes.find((e) => e.id === selectedEpisodeId) || null;
     }
-  }, [open]);
+    if (episodes.length === 1) {
+      return episodes[0];
+    }
+    return null;
+  }, [episodes, selectedEpisodeId]);
 
-  const loadTemplates = async () => {
+  const templateEpisodeWarning = useMemo(() => {
+    if (!selectedTemplateRecord || !selectedEpisodeRecord) return null;
+
+    const templateText = `${selectedTemplateRecord.name || ''} ${selectedTemplateRecord.treatment_type || ''}`.toLowerCase();
+    const episodeText = `${selectedEpisodeRecord.current_product_name || ''} ${selectedEpisodeRecord.current_product_base_medication_name || ''} ${selectedEpisodeRecord.current_product_titration_category || ''} ${selectedEpisodeRecord.treatment_key || ''}`.toLowerCase();
+
+    const glpPattern =
+      /(glp|semaglutide|tirzepatide|ozempic|wegovy|mounjaro|zepbound|individualized weight loss)/;
+    const glpTemplateLike = glpPattern.test(templateText);
+    const glpEpisodeLike = glpPattern.test(episodeText);
+
+    if (glpTemplateLike && !glpEpisodeLike) {
+      return "Selected template looks GLP-focused, but selected episode looks non-GLP. Prefill and checkout routing may be incorrect.";
+    }
+
+    const regimenText = (selectedEpisodeRecord.current_product_titration_category || '').toLowerCase();
+    const protocolRegimenPattern = /(alternative|rapid|twice weekly|biweekly)/;
+    if (glpTemplateLike && regimenText && !protocolRegimenPattern.test(regimenText)) {
+      return "Selected template expects GLP protocol branches, but episode regimen does not look like Alternative/Rapid/Twice Weekly.";
+    }
+
+    return null;
+  }, [selectedTemplateRecord, selectedEpisodeRecord]);
+
+  const loadTemplates = useCallback(async () => {
     setLoadingTemplates(true);
     try {
       const data = await getFollowUpTemplates();
@@ -76,10 +111,58 @@ export function SendFollowUpDialog({
     } finally {
       setLoadingTemplates(false);
     }
-  };
+  }, []);
+
+  const loadEpisodes = useCallback(async (templateId: string) => {
+    setLoadingEpisodes(true);
+    try {
+      // First try: episodes compatible with selected follow-up template
+      const filteredEpisodes = await patientService.getTreatmentEpisodes(patientId, templateId);
+
+      // Fallback: if template filter returns nothing, load all patient episodes
+      // to avoid false "no episode" when treatment-key mapping is strict.
+      const data =
+        filteredEpisodes.length > 0
+          ? filteredEpisodes
+          : await patientService.getTreatmentEpisodes(patientId);
+
+      setEpisodesFallbackUsed(filteredEpisodes.length === 0 && data.length > 0);
+      setEpisodes(data);
+      if (data.length === 1) {
+        setSelectedEpisodeId(data[0].id);
+      } else {
+        setSelectedEpisodeId('');
+      }
+    } catch (error) {
+      console.error('Failed to load treatment episodes:', error);
+      setEpisodes([]);
+      setSelectedEpisodeId('');
+    } finally {
+      setLoadingEpisodes(false);
+    }
+  }, [patientId]);
+
+  useEffect(() => {
+    if (open) {
+      loadTemplates();
+      setEpisodes([]);
+      setSelectedEpisodeId('');
+      setEpisodesFallbackUsed(false);
+      // Reset state when dialog opens
+      setResult(null);
+      setCopied(false);
+    }
+  }, [open, loadTemplates]);
+
+  useEffect(() => {
+    if (open && selectedTemplate) {
+      loadEpisodes(selectedTemplate);
+    }
+  }, [open, selectedTemplate, loadEpisodes]);
 
   const handleSubmit = async () => {
     if (!selectedTemplate) return;
+    if (episodes.length > 1 && !selectedEpisodeId) return;
 
     setLoading(true);
     try {
@@ -87,6 +170,7 @@ export function SendFollowUpDialog({
         patient_id: patientId,
         questionnaire_id: selectedTemplate,
         expiry_hours: expiryHours,
+        episode_id: selectedEpisodeId || null,
       });
 
       setResult(response);
@@ -193,6 +277,52 @@ export function SendFollowUpDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="episode">Treatment Episode</Label>
+              {loadingEpisodes ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading treatment history...
+                </div>
+              ) : episodes.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No prior treatment episode found. The follow-up will still be sent,
+                  but prefill may be limited.
+                </p>
+              ) : (
+                <>
+                  <Select value={selectedEpisodeId} onValueChange={setSelectedEpisodeId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select treatment episode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {episodes.map((episode) => (
+                        <SelectItem key={episode.id} value={episode.id}>
+                          {episode.current_product_name || episode.treatment_key} • {episode.status}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {episodesFallbackUsed && (
+                    <p className="text-xs text-amber-700">
+                      No template-matched episode found. Showing all patient episodes; select the correct one.
+                    </p>
+                  )}
+                </>
+              )}
+              {episodes.length > 1 && !selectedEpisodeId && (
+                <p className="text-xs text-red-600">
+                  Please select the correct treatment episode.
+                </p>
+              )}
+              {templateEpisodeWarning && (
+                <div className="mt-2 p-2 rounded border border-amber-300 bg-amber-50 text-amber-900 flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 mt-0.5" />
+                  <p className="text-xs">{templateEpisodeWarning}</p>
+                </div>
+              )}
+            </div>
           </div>
         ) : result.success ? (
           // Success state
@@ -251,7 +381,13 @@ export function SendFollowUpDialog({
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={loading || !selectedTemplate || loadingTemplates}
+                disabled={
+                  loading ||
+                  !selectedTemplate ||
+                  loadingTemplates ||
+                  loadingEpisodes ||
+                  (episodes.length > 1 && !selectedEpisodeId)
+                }
               >
                 {loading ? (
                   <>

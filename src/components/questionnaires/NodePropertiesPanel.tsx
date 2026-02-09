@@ -32,15 +32,59 @@ const FIELD_MAPPINGS = [
 
 export function NodePropertiesPanel({ node, onUpdate, onDelete, onClose }: NodePropertiesPanelProps) {
   const [question, setQuestion] = useState<Question>(node.data.question);
+  const [prefillEnabled, setPrefillEnabled] = useState(false);
+  const [prefillSource, setPrefillSource] = useState<"onboarding" | "latest_completed" | "clinical" | "derived">("onboarding");
+  const [prefillSourceQuestionId, setPrefillSourceQuestionId] = useState("");
+  const [prefillDerivedField, setPrefillDerivedField] = useState<"therapy_route" | "regimen_protocol">("therapy_route");
+  const [isHidden, setIsHidden] = useState(false);
 
   useEffect(() => {
     setQuestion(node.data.question);
+    const prefillConfig = (node.data.question.validation_rules as Record<string, unknown>)?.prefill as
+      | { enabled?: boolean; source?: string; source_question_id?: string; field?: string }
+      | undefined;
+    setPrefillEnabled(!!prefillConfig?.enabled);
+    setPrefillSource(
+      (prefillConfig?.source as "onboarding" | "latest_completed" | "clinical" | "derived") || "onboarding"
+    );
+    setPrefillSourceQuestionId(prefillConfig?.source_question_id || "");
+    if (prefillConfig?.field) {
+      setPrefillDerivedField(prefillConfig.field as "therapy_route" | "regimen_protocol");
+    }
+    const hiddenFlag = (node.data.question.validation_rules as Record<string, unknown>)?.hidden === true;
+    setIsHidden(hiddenFlag);
   }, [node]);
 
   const handleUpdate = (field: keyof Question, value: any) => {
     const updated = { ...question, [field]: value };
     setQuestion(updated);
     onUpdate(node.id, { question: updated });
+  };
+
+  const applyPrefillConfig = (
+    enabled: boolean,
+    source: string,
+    sourceQuestionId: string,
+    derivedField: "therapy_route" | "regimen_protocol"
+  ) => {
+    const validationRules = { ...(question.validation_rules || {}) } as Record<string, unknown>;
+    if (enabled) {
+      validationRules.prefill = {
+        enabled: true,
+        source,
+        source_question_id: source === "derived" ? undefined : sourceQuestionId || undefined,
+        field: source === "derived" ? derivedField : undefined,
+        match_strategy:
+          source === "derived"
+            ? undefined
+            : sourceQuestionId
+            ? "by_id"
+            : "by_text",
+      };
+    } else {
+      delete validationRules.prefill;
+    }
+    handleUpdate("validation_rules", validationRules);
   };
 
   const handleAddChoice = () => {
@@ -138,6 +182,78 @@ export function NodePropertiesPanel({ node, onUpdate, onDelete, onClose }: NodeP
               </Select>
             </div>
 
+            {/* Prefill config */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Prefill from previous answers</Label>
+                <Switch
+                  checked={prefillEnabled}
+                  onCheckedChange={(checked) => {
+                    setPrefillEnabled(checked);
+                    applyPrefillConfig(checked, prefillSource, prefillSourceQuestionId, prefillDerivedField);
+                  }}
+                />
+              </div>
+              {prefillEnabled && (
+                <div className="space-y-2">
+                  <Label>Prefill Source</Label>
+                  <Select
+                    value={prefillSource}
+                    onValueChange={(value) => {
+                      const next = value as "onboarding" | "latest_completed" | "clinical" | "derived";
+                      setPrefillSource(next);
+                      applyPrefillConfig(true, next, prefillSourceQuestionId, prefillDerivedField);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="onboarding">Onboarding</SelectItem>
+                      <SelectItem value="latest_completed">Latest Completed</SelectItem>
+                      <SelectItem value="clinical">Clinical</SelectItem>
+                      <SelectItem value="derived">Derived</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {prefillSource === "derived" ? (
+                    <>
+                      <Label>Derived Field</Label>
+                      <Select
+                        value={prefillDerivedField}
+                        onValueChange={(value) => {
+                          const next = value as "therapy_route" | "regimen_protocol";
+                          setPrefillDerivedField(next);
+                          applyPrefillConfig(true, prefillSource, prefillSourceQuestionId, next);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="therapy_route">Therapy Route</SelectItem>
+                          <SelectItem value="regimen_protocol">Regimen Protocol</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </>
+                  ) : (
+                    <>
+                      <Label>Source Question ID (optional)</Label>
+                      <Input
+                        value={prefillSourceQuestionId}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          setPrefillSourceQuestionId(next);
+                          applyPrefillConfig(true, prefillSource, next, prefillDerivedField);
+                        }}
+                        placeholder="UUID of source question"
+                      />
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Toggles */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -148,14 +264,27 @@ export function NodePropertiesPanel({ node, onUpdate, onDelete, onClose }: NodeP
                 />
               </div>
 
-              <div className="flex items-center justify-between">
-                <Label>Include in Q&A</Label>
-                <Switch
-                  checked={question.include_in_qa_section}
-                  onCheckedChange={(checked) => handleUpdate('include_in_qa_section', checked)}
-                />
-              </div>
+            <div className="flex items-center justify-between">
+              <Label>Include in Q&A</Label>
+              <Switch
+                checked={question.include_in_qa_section}
+                onCheckedChange={(checked) => handleUpdate('include_in_qa_section', checked)}
+              />
             </div>
+
+            <div className="flex items-center justify-between">
+              <Label>Hidden (Do Not Show Patient)</Label>
+              <Switch
+                checked={isHidden}
+                onCheckedChange={(checked) => {
+                  setIsHidden(checked);
+                  const validationRules = { ...(question.validation_rules || {}) } as Record<string, unknown>;
+                  validationRules.hidden = checked === true;
+                  handleUpdate('validation_rules', validationRules);
+                }}
+              />
+            </div>
+          </div>
 
             {/* Delete Button */}
             <Button

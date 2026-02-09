@@ -25,6 +25,7 @@ export interface CreateFollowUpRequest {
     questionnaire_id: string;
     parent_visit_id?: string;
     expiry_hours?: number;
+    episode_id?: string | null;
 }
 
 export interface CreateFollowUpResponse {
