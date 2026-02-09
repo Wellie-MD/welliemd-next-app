@@ -43,6 +43,39 @@ export interface InvoiceListResponse {
   previous: string | null;
 }
 
+// ============================================================================
+// NEW: Custom Billing Engine Types
+// ============================================================================
+
+export interface BlockingInvoice {
+  id: string;
+  invoice_number: string;
+  invoice_type: string;
+  total_amount: string;
+  status: string;
+  created_at: string;
+}
+
+export interface BillingLockStatus {
+  client_id: string;
+  lock_state: "unlocked" | "locked";
+  locked_at: string | null;
+  lock_reason_code: string;
+  blocking_balance: string;
+  blocking_invoice_count: number;
+  blocking_invoices: BlockingInvoice[];
+}
+
+export interface PayNowResult {
+  success: boolean;
+  invoice_id?: string;
+  processor_ref?: string;
+  lock_state?: string;
+  error?: string;
+  failure_code?: string;
+  failure_message?: string;
+}
+
 const billingService = {
   // getProfile removed: endpoint /billing/profile/ does not exist anymore.
 
@@ -132,6 +165,60 @@ const billingService = {
     } catch (err) {
       console.warn(`getInvoices(${type}) failed`, err);
       return { results: [], count: 0, next: null, previous: null };
+    }
+  },
+
+  // ==========================================================================
+  // NEW: Custom Billing Engine APIs
+  // ==========================================================================
+
+  /**
+   * Get current billing lock status for the client.
+   * Returns lock state, blocking invoices, and total balance owed.
+   */
+  async getLockStatus(): Promise<BillingLockStatus | null> {
+    try {
+      const { data } = await api.get<BillingLockStatus>("/billing/lock-status/");
+      return data;
+    } catch (err) {
+      console.warn("getLockStatus failed", err);
+      return null;
+    }
+  },
+
+  /**
+   * Pay a specific invoice manually.
+   * Used for invoice-level Pay Now buttons.
+   */
+  async payInvoiceNow(invoiceId: string): Promise<PayNowResult> {
+    try {
+      const { data } = await api.post<PayNowResult>(`/billing/invoices/${invoiceId}/pay-now/`);
+      return data;
+    } catch (err: any) {
+      console.warn("payInvoiceNow failed", err);
+      return {
+        success: false,
+        error: err?.response?.data?.error || "Payment failed",
+        failure_message: err?.response?.data?.failure_message || err?.message,
+      };
+    }
+  },
+
+  /**
+   * Pay all outstanding blocking invoices at once.
+   * Used for "Pay All" button when account is locked.
+   */
+  async payAllOutstanding(): Promise<PayNowResult> {
+    try {
+      const { data } = await api.post<PayNowResult>("/billing/pay-all/");
+      return data;
+    } catch (err: any) {
+      console.warn("payAllOutstanding failed", err);
+      return {
+        success: false,
+        error: err?.response?.data?.error || "Payment failed",
+        failure_message: err?.response?.data?.failure_message || err?.message,
+      };
     }
   },
 };
