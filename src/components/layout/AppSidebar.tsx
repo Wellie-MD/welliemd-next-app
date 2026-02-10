@@ -3,9 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   BarChart3,
   Users,
-  Stethoscope,
   ShoppingBag,
-  ScrollText,
   MessageSquare,
   Package,
   TrendingUp,
@@ -13,8 +11,6 @@ import {
   FileText,
   CreditCard,
   Settings,
-  MessageCircle,
-  MapPin,
   ChevronDown,
 } from "lucide-react";
 
@@ -46,6 +42,29 @@ import { Permissions } from "@/constants/permissions";
 import { useBranding } from "@/contexts/BrandingContext";
 
 type Props = { unseenCount?: number };
+
+// Move SidebarLogo outside to prevent recreation on every render
+function SidebarLogo() {
+  const { state } = useSidebar()
+  const { logos } = useBranding()
+
+  if (state === "collapsed") return null
+
+  const logoUrl = logos?.square || "/welliemd_logo.png"
+
+  return (
+    <img
+      key={logoUrl} // Stable key helps React identify same image across renders
+      src={logoUrl}
+      alt="Logo"
+      className="h-8 w-auto max-w-[200px] object-contain"
+      onError={(e) => {
+        // Fallback to default logo if brand logo fails to load
+        e.currentTarget.src = "/welliemd_logo.png"
+      }}
+    />
+  )
+}
 
 const menuSections = [
   {
@@ -212,27 +231,6 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
     }
     return <>{children}</>;
   };
-
-  function SidebarLogo() {
-  const { state } = useSidebar()
-  const { logos } = useBranding()
-
-  if (state === "collapsed") return null
-
-  const logoUrl = logos?.square || "/welliemd_logo.png"
-
-  return (
-    <img
-      src={logoUrl}
-      alt="Logo"
-      className="h-8 w-auto max-w-[200px] object-contain"
-      onError={(e) => {
-        // Fallback to default logo if brand logo fails to load
-        e.currentTarget.src = "/welliemd_logo.png"
-      }}
-    />
-  )
-}
 
   return (
     <Sidebar

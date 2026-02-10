@@ -32,6 +32,36 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     return url;
   };
 
+  // Preload images to prevent flicker when switching between sidebars
+  const preloadImages = (logos: BrandLogos): Promise<void[]> => {
+    const imageUrls = [
+      logos.square,
+      logos.round,
+      logos.transparent,
+      logos.favicon,
+    ].filter(Boolean); // Remove empty strings
+
+    console.log('[BrandingContext] Preloading images:', imageUrls);
+
+    const preloadPromises = imageUrls.map((url) => {
+      return new Promise<void>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          console.log('[BrandingContext] Image preloaded successfully:', url);
+          resolve();
+        };
+        img.onerror = () => {
+          console.warn('[BrandingContext] Failed to preload image:', url);
+          // Resolve anyway to not block the loading process
+          resolve();
+        };
+        img.src = url;
+      });
+    });
+
+    return Promise.all(preloadPromises);
+  };
+
   const loadBrandSettings = async () => {
     try {
       setIsLoading(true);
@@ -50,6 +80,13 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       } : undefined;
       
       console.log('[BrandingContext] Fixed logos:', fixedLogos);
+      
+      // Preload images before setting logos state
+      if (fixedLogos) {
+        await preloadImages(fixedLogos);
+        console.log('[BrandingContext] All images preloaded');
+      }
+      
       setLogos(fixedLogos);
       
       // Update favicon dynamically

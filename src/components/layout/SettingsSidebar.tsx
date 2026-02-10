@@ -2,34 +2,24 @@ import { NavLink, useNavigate, useLocation } from "react-router-dom"
 import { ChevronLeft, ChevronsRight, X } from "lucide-react"
 import {
   Store,
-  Plug2,
   Users,
-  Package,
-  Stethoscope,
   CreditCard,
   Bell,
-  Webhook,
-  FileText,
   Shield,
   Tag,
   Globe,
   Palette,
   TrendingUp,
-  Settings2,
   Mail,
   Cloud
 } from "lucide-react"
 import {
-  // Sidebar,
-  // SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  // SidebarTrigger,
-  useSidebar,
 } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
 import {
@@ -105,6 +95,7 @@ export function SettingsSidebar({
   }`}>
         {!collapsed && (
   <img
+    key={logoUrl} // Stable key helps React identify same image across renders
     src={logoUrl}
     alt="Logo"
     className="h-8 w-auto max-w-[200px] object-contain"
