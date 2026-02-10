@@ -185,27 +185,27 @@ const App = () => {
 
   return (
     <BrowserRouter>
-      <Toaster />
-      <Routes>
-        <Route path="/" element={<ProtectedRoute><Navigate to="/dashboard" replace /></ProtectedRoute>} />
+      <BrandingProvider>
+        <Toaster />
+        <Routes>
+          <Route path="/" element={<ProtectedRoute><Navigate to="/dashboard" replace /></ProtectedRoute>} />
 
-        {/* Auth routes */}
-        <Route path="/auth/signin" element={<SignIn />} />
-        {/* <Route path="/signup" element={<SignUp />} /> */}
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/register" element={<RegisterInvitation />} />
-        <Route path="/accept-invitation" element={<AcceptInvitation />} />
-        
-        {/* Error pages */}
-        <Route path="/forbidden" element={<Forbidden />} />
+          {/* Auth routes */}
+          <Route path="/auth/signin" element={<SignIn />} />
+          {/* <Route path="/signup" element={<SignUp />} /> */}
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/register" element={<RegisterInvitation />} />
+          <Route path="/accept-invitation" element={<AcceptInvitation />} />
+          
+          {/* Error pages */}
+          <Route path="/forbidden" element={<Forbidden />} />
 
 
-        {/* Dashboard routes */}
-        <Route
-          path="/dashboard/*"
-          element={
-            <BrandingProvider>
+          {/* Dashboard routes */}
+          <Route
+            path="/dashboard/*"
+            element={
               <SidebarProvider>
                 <div className="min-h-screen flex w-full min-w-0 overflow-x-hidden">
                   {/* sidebar with badge */}
@@ -254,15 +254,13 @@ const App = () => {
                 </div>
               </div>
             </SidebarProvider>
-            </BrandingProvider>
-          }
-        />
+            }
+          />
 
-        <Route
-          path="/dashboard/settings/*"
-          element={
-          <ProtectedRoute>
-            <BrandingProvider>
+          <Route
+            path="/dashboard/settings/*"
+            element={
+            <ProtectedRoute>
               <SidebarProvider>
                 <div className="min-h-screen flex w-full">
                   <div className="flex-1 flex flex-col">
@@ -273,13 +271,13 @@ const App = () => {
                   </div>
                 </div>
               </SidebarProvider>
-            </BrandingProvider>
-          </ProtectedRoute>
-          }
-        />
+            </ProtectedRoute>
+            }
+          />
 
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrandingProvider>
     </BrowserRouter>
   );
 };

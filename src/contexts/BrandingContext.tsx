@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { fetchBrandSettings, BrandSettings, BrandLogos } from '@/api/brandSettingsApi';
+import { useAuthStore } from '@/store/useAuthStore';
 
 interface BrandingContextType {
   brandSettings: BrandSettings | null;
@@ -16,6 +17,10 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
   const [logos, setLogos] = useState<BrandLogos | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Wait for auth initialization before fetching brand settings
+  const isAuthLoading = useAuthStore((state) => state.isLoading);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   // Helper to fix LocalStack URLs for the browser
   const fixLocalStackUrl = (url?: string): string | undefined => {
@@ -62,8 +67,16 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    loadBrandSettings();
-  }, []);
+    // Only fetch brand settings after auth initialization is complete
+    if (!isAuthLoading && isAuthenticated) {
+      console.log('[BrandingContext] Auth initialized, loading brand settings...');
+      loadBrandSettings();
+    } else if (!isAuthLoading && !isAuthenticated) {
+      // Auth completed but user is not authenticated - stop loading
+      console.log('[BrandingContext] User not authenticated, skipping brand settings fetch');
+      setIsLoading(false);
+    }
+  }, [isAuthLoading, isAuthenticated]);
 
   return (
     <BrandingContext.Provider 

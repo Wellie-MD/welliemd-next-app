@@ -162,7 +162,11 @@ const FileUploadField = ({
           type="file"
           className="hidden"
           accept={accept}
-          onChange={(e) => handleFileSelect(e.target.files?.[0] || null)}
+          onChange={(e) => {
+            handleFileSelect(e.target.files?.[0] || null);
+            // Reset input value to allow selecting the same file again
+            e.target.value = '';
+          }}
         />
       </div>
     </div>
@@ -436,7 +440,7 @@ export default function Brand() {
         </Card>
 
         {/* Support & Links (Simple Text) */}
-        <Card>
+        <Card className="hidden">
           <CardContent className="p-6 space-y-4">
             <div>
               <h2 className="text-lg font-medium mb-1">Get Account Link</h2>
@@ -525,9 +529,6 @@ export default function Brand() {
                   "#E5E7EB",
                   "#D1D5DB",
                   "#9CA3AF",
-                  "#6B7280",
-                  "#4B5563",
-                  "#374151",
                   "#111827",
                 ]}
               />
@@ -583,7 +584,7 @@ export default function Brand() {
         </Card>
 
         {/* Patient Portal Experience Section */}
-        <Card>
+        <Card className="hidden">
           <CardContent className="p-6 space-y-4">
             <div>
               <h2 className="text-lg font-medium mb-1">
@@ -660,7 +661,7 @@ export default function Brand() {
         </Card>
 
         {/* Support Info Section */}
-        <Card>
+        <Card className="hidden">
           <CardContent className="p-6 space-y-4">
             <div>
               <h2 className="text-lg font-medium mb-1">Support Info</h2>
@@ -698,7 +699,7 @@ export default function Brand() {
         </Card>
 
         {/* Social Links Section */}
-        <Card>
+        <Card className="hidden">
           <CardContent className="p-6 space-y-4">
             <div className="flex justify-between items-center">
               <div>
@@ -766,7 +767,7 @@ export default function Brand() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hidden">
           <CardContent className="p-6 space-y-4">
             <div>
               <h2 className="text-lg font-medium">Help page</h2>
