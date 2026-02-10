@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import billingService, { BillingProfile } from "@/services/billingService";
+import billingService, { BillingProfile, BillingSubscriptionStatus } from "@/services/billingService";
 // Stripe imports are loaded dynamically at runtime to avoid build-time errors when the
 // packages are not installed in some environments. We still list them in package.json
 // so a normal dev environment should install them.
@@ -48,6 +48,7 @@ export default function MyBillingProfile() {
   const [showModal, setShowModal] = useState(false);
   const [modalContent, setModalContent] = useState<any | null>(null);
   const [modalMode, setModalMode] = useState<"add" | "update">("add");
+  const [subscriptionStatus, setSubscriptionStatus] = useState<BillingSubscriptionStatus | null>(null);
 
   const resolveCardIcon = (brand?: string) => {
     const normalized = (brand || "").toLowerCase().trim();
@@ -69,6 +70,7 @@ export default function MyBillingProfile() {
     const load = async () => {
       setLoading(true);
       const pmData = await billingService.getPaymentMethodStatus();
+      const subStatus = await billingService.getSubscriptionStatus();
 
       if (mounted && pmData) {
         setPaymentMethodStatus(pmData.status);
@@ -112,6 +114,9 @@ export default function MyBillingProfile() {
           next_invoice_date: "2025-11-26",
         };
         if (mounted) setProfile(mock);
+      }
+      if (mounted && subStatus) {
+        setSubscriptionStatus(subStatus);
       }
       setLoading(false);
     };
@@ -274,6 +279,24 @@ export default function MyBillingProfile() {
             </button>
           </div>
         )}
+
+        <h3 className="text-[#0d171b] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">
+          Subscription Cycle
+        </h3>
+        <div className="px-4 py-3 rounded-lg border bg-slate-50">
+          <p className="text-sm text-[#0d171b]">
+            Status: <span className="font-semibold">{subscriptionStatus?.subscription_status ?? "unknown"}</span>
+          </p>
+          <p className="text-sm text-[#4c809a] mt-1">
+            Current period: {subscriptionStatus?.current_period_start ?? "N/A"} to {subscriptionStatus?.current_period_end ?? "N/A"}
+          </p>
+          <p className="text-sm text-[#4c809a]">
+            Next billing date: {subscriptionStatus?.next_billing_date ?? "N/A"}
+          </p>
+          {subscriptionStatus?.cancel_at_period_end && (
+            <p className="text-sm text-amber-700 mt-1">Cancellation is scheduled at period end.</p>
+          )}
+        </div>
       </div>
       {showModal && (
         <Modal

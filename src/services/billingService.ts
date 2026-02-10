@@ -13,6 +13,17 @@ export interface BillingProfile {
   next_invoice_date?: string | null;
 }
 
+export interface BillingSubscriptionStatus {
+  client_id: string;
+  subscription_status: "inactive" | "active" | "past_due" | "canceled";
+  cancel_at_period_end: boolean;
+  current_period_start?: string | null;
+  current_period_end?: string | null;
+  next_billing_date?: string | null;
+  lock_state?: "locked" | "unlocked";
+  lock_reason_code?: string;
+}
+
 export interface InvoiceItem {
   id: string;
   order_id?: string | null;
@@ -182,6 +193,16 @@ const billingService = {
       return data;
     } catch (err) {
       console.warn("getLockStatus failed", err);
+      return null;
+    }
+  },
+
+  async getSubscriptionStatus(): Promise<BillingSubscriptionStatus | null> {
+    try {
+      const { data } = await api.get<BillingSubscriptionStatus>("/billing/status/");
+      return data;
+    } catch (err) {
+      console.warn("getSubscriptionStatus failed", err);
       return null;
     }
   },
