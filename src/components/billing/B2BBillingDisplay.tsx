@@ -60,6 +60,40 @@ export function B2BBillingDisplay({ clientId, client }: B2BBillingDisplayProps) 
     },
   });
 
+  const cancelAtPeriodEndMutation = useMutation({
+    mutationFn: async () => clientApi.cancelBilling(clientId, "period_end"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["b2bBillingStatus", clientId] });
+      toast.success("Subscription will cancel at period end.");
+    },
+    onError: (error: unknown) => {
+      const axiosError = error as any;
+      const message =
+        axiosError?.response?.data?.detail ||
+        axiosError?.response?.data?.error ||
+        axiosError?.message ||
+        "Failed to schedule cancellation";
+      toast.error(message);
+    },
+  });
+
+  const cancelNowMutation = useMutation({
+    mutationFn: async () => clientApi.cancelBilling(clientId, "immediate"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["b2bBillingStatus", clientId] });
+      toast.success("Subscription canceled immediately.");
+    },
+    onError: (error: unknown) => {
+      const axiosError = error as any;
+      const message =
+        axiosError?.response?.data?.detail ||
+        axiosError?.response?.data?.error ||
+        axiosError?.message ||
+        "Failed to cancel subscription";
+      toast.error(message);
+    },
+  });
+
   if (isLoading) {
     return (
       <section className="bg-card rounded-2xl border shadow-sm p-8 flex items-center justify-center">
@@ -91,7 +125,18 @@ export function B2BBillingDisplay({ clientId, client }: B2BBillingDisplayProps) 
   const hasPaymentMethod = billingStatus?.has_payment_method;
   const paymentMethodStatus = billingStatus?.payment_method_status || "no_customer";
   const paymentMethod = billingStatus?.payment_method;
-  const subscriptionStatus = billingStatus?.subscription_status;
+  const subscriptionStatus = billingStatus?.subscription_status || "inactive";
+  const nextBillingDate = billingStatus?.next_billing_date;
+  const currentPeriodStart = billingStatus?.current_period_start;
+  const currentPeriodEnd = billingStatus?.current_period_end;
+  const cancelAtPeriodEnd = !!billingStatus?.cancel_at_period_end;
+
+  const canActivate =
+    billingStatus?.payment_method_status === "active" &&
+    subscriptionStatus !== "active" &&
+    subscriptionStatus !== "past_due";
+
+  const canCancel = subscriptionStatus === "active" || subscriptionStatus === "past_due";
 
   return (
     <section className="bg-card rounded-2xl border shadow-sm overflow-hidden">
@@ -112,7 +157,7 @@ export function B2BBillingDisplay({ clientId, client }: B2BBillingDisplayProps) 
             className="bg-primary hover:bg-primary/90 text-white text-xs font-medium px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-sm whitespace-nowrap"
             disabled={
               activateBillingMutation.isPending ||
-              billingStatus?.payment_method_status !== "active"
+              !canActivate
             }
           >
             {activateBillingMutation.isPending ? (
@@ -132,6 +177,46 @@ export function B2BBillingDisplay({ clientId, client }: B2BBillingDisplayProps) 
 
       {/* Content */}
       <div className="p-4">
+        <div className="mb-4 rounded-xl border bg-muted/40 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-medium">Subscription</p>
+            <Badge variant={subscriptionStatus === "active" ? "default" : subscriptionStatus === "canceled" ? "destructive" : "secondary"}>
+              {subscriptionStatus.replace("_", " ")}
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Current period: {currentPeriodStart || "N/A"} to {currentPeriodEnd || "N/A"}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Next billing date: {nextBillingDate || "N/A"}
+          </p>
+          {cancelAtPeriodEnd && (
+            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+              Cancellation is scheduled at period end.
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={!canCancel || cancelAtPeriodEnd || cancelAtPeriodEndMutation.isPending}
+              onClick={() => cancelAtPeriodEndMutation.mutate()}
+            >
+              Cancel At Period End
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={!canCancel || cancelNowMutation.isPending}
+              onClick={() => cancelNowMutation.mutate()}
+            >
+              Cancel Now
+            </Button>
+          </div>
+        </div>
+
         {/* Payment Method */}
         <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
           <CreditCard className="h-4 w-4 text-muted-foreground" />

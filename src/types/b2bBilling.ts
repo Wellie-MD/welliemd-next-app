@@ -102,6 +102,7 @@ export interface B2BInvoice {
 }
 
 export interface B2BBillingStatus {
+  client_id?: string;
   has_payment_method: boolean;
   payment_method_status?: 'no_customer' | 'no_payment_method' | 'active';
   payment_method?: {
@@ -112,10 +113,29 @@ export interface B2BBillingStatus {
     exp_year: number;
     is_expired: boolean;
   };
-  subscription_status?: 'active' | 'past_due' | 'canceled' | 'incomplete' | 'trialing';
+  subscription_status?: 'inactive' | 'active' | 'past_due' | 'canceled';
+  cancel_at_period_end?: boolean;
+  cancel_requested_at?: string | null;
+  subscription_started_at?: string | null;
+  canceled_at?: string | null;
+  current_period_start?: string | null;
+  current_period_end?: string | null;
   next_billing_date?: string;
-  recent_invoices: B2BInvoice[];
-  total_outstanding: string;
+  billing_anchor_day?: number;
+  billing_timezone?: string;
+  lock_state?: 'locked' | 'unlocked';
+  lock_reason_code?: string;
+  blocking_invoice_count?: number;
+  blocking_balance?: string;
+  last_saas_invoice?: {
+    id: string;
+    invoice_number: string;
+    status: string;
+    total_amount: string;
+    issued_at?: string | null;
+  } | null;
+  recent_invoices?: B2BInvoice[];
+  total_outstanding?: string;
 }
 
 export interface SetupIntentResponse {

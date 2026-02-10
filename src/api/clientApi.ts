@@ -262,27 +262,8 @@ export const clientApi = {
 
   // B2B Billing Methods
   getB2BBillingStatus: async (clientId: string): Promise<import('../types/b2bBilling').B2BBillingStatus> => {
-    // Fetch payment method and recent invoices
-    const [paymentMethodRes, invoicesRes] = await Promise.all([
-      axiosInstance.get(`/internal/clients/${clientId}/payment-method/`),
-      axiosInstance.get(`/internal/invoices/`, {
-        params: { page_size: 5, ordering: '-issued_at', client_id: clientId, invoice_type: 'reimbursement' }
-      })
-    ]);
-
-    const paymentMethodStatus = paymentMethodRes.data.status || 'no_customer';
-    const hasPaymentMethod = paymentMethodStatus === 'active';
-
-    // Backend now returns structured payment_method object
-    const paymentMethod = paymentMethodRes.data.payment_method || undefined;
-
-    return {
-      has_payment_method: hasPaymentMethod,
-      payment_method_status: paymentMethodStatus,
-      payment_method: paymentMethod,
-      recent_invoices: invoicesRes.data.results || [],
-      total_outstanding: '0.00' // TODO: Calculate from pending invoices
-    };
+    const { data } = await axiosInstance.get(`/internal/clients/${clientId}/billing/status/`);
+    return data;
   },
 
   getB2BInvoices: async (
@@ -369,6 +350,11 @@ export const clientApi = {
    */
   activateBilling: async (clientId: string): Promise<any> => {
     const { data } = await axiosInstance.post(`/internal/clients/${clientId}/billing/activate/`);
+    return data;
+  },
+
+  cancelBilling: async (clientId: string, mode: 'immediate' | 'period_end'): Promise<any> => {
+    const { data } = await axiosInstance.post(`/internal/clients/${clientId}/billing/cancel/`, { mode });
     return data;
   },
 };
