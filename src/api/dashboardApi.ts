@@ -23,10 +23,10 @@ export interface Metric {
   trend: 'up' | 'down' | 'neutral';
 }
 
-export interface LiveSummary {
-  activeCarts: number;
-  checkingOut: number;
-  purchased: number;
+export interface PatientSummary {
+  activePatients: number;
+  inactivePatients: number;
+  dropOffPatients: number;
 }
 
 export interface ChartDataPoint {
@@ -59,7 +59,7 @@ export interface DashboardData {
   period: DashboardPeriod;
   partial?: boolean;
   kpis: Metric[];
-  liveSummary: LiveSummary;
+  patientSummary: PatientSummary;
   salesChartData: ChartDataPoint[];
   revenueChartData: ChartDataPoint[];
   newClientChartData: ChartDataPoint[];
@@ -82,7 +82,9 @@ export interface DashboardData {
  */
 export async function getAdminDashboardOverview(): Promise<DashboardData> {
   try {
-    const { data } = await axiosInstance.get<DashboardData>('/admin/dashboard/overview/');
+    // Add cache-busting parameter
+    const timestamp = new Date().getTime();
+    const { data } = await axiosInstance.get<DashboardData>(`/admin/dashboard/overview/?_=${timestamp}`);
     return data;
   } catch (error: any) {
     console.error('Failed to fetch admin dashboard overview:', error);

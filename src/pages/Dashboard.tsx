@@ -107,59 +107,51 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1  gap-4 w-full min-w-0">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 w-full min-w-0">
         {/* Total Sales Chart */}
         <div className="w-full min-w-0">
           <SalesChart data={dashboard.salesChartData} />
         </div>
 
-        {/* Live Summary */}
-        {/* <div className="w-full min-w-0">
-          <Card className="rounded-2xl shadow-md bg-white">
-            <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl p-4">
-              <CardTitle className="text-gray-800">Live Summary</CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-blue-600 hover:text-blue-700"
-                onClick={() => handleViewMore("liveSummary")}
-              >
-                View More
-              </Button>
+        {/* Patient Summary */}
+        <div className="w-full min-w-0">
+          <Card className="rounded-2xl shadow-md bg-white h-full flex flex-col">
+            <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl p-6">
+              <CardTitle className="text-gray-800">Patient Summary</CardTitle>
             </CardHeader>
-            <CardContent className="p-4">
-              <div className="grid grid-cols-3 gap-4">
+            <CardContent className="p-4 flex-1 flex items-center">
+              <div className="grid grid-cols-3 gap-4 w-full">
                 <div className="text-center space-y-2">
                   <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
                     <ShoppingCart className="h-6 w-6 text-gray-600" />
                   </div>
                   <p className="text-2xl font-bold text-gray-800">
-                    {dashboard.liveSummary.activeCarts}
+                    {dashboardData?.patientSummary?.activePatients ?? 0}
                   </p>
-                  <p className="text-sm text-gray-600">Active Carts</p>
+                  <p className="text-sm text-gray-600">Active</p>
                 </div>
                 <div className="text-center space-y-2">
                   <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
                     <Eye className="h-6 w-6 text-gray-600" />
                   </div>
                   <p className="text-2xl font-bold text-gray-800">
-                    {dashboard.liveSummary.checkingOut}
+                    {dashboardData?.patientSummary?.inactivePatients ?? 0}
                   </p>
-                  <p className="text-sm text-gray-600">Checking Out</p>
+                  <p className="text-sm text-gray-600">Inactive</p>
                 </div>
                 <div className="text-center space-y-2">
                   <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
                     <DollarSign className="h-6 w-6 text-gray-600" />
                   </div>
                   <p className="text-2xl font-bold text-gray-800">
-                    {dashboard.liveSummary.purchased}
+                    {dashboardData?.patientSummary?.dropOffPatients ?? 0}
                   </p>
-                  <p className="text-sm text-gray-600">Purchased</p>
+                  <p className="text-sm text-gray-600">Drop Off</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-        </div> */}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 w-full min-w-0">

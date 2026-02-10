@@ -8,7 +8,7 @@
     },
     "partial": false,
     "kpis": [
-      { "title": "Total Patients", "value": "0", "change": "+0%", "trend": "up" },
+      { "title": "Total Clients", "value": "0", "change": "+0%", "trend": "up" },
       { "title": "Total Growth By Revenue", "value": "0.0%", "change": "+0%", "trend": "neutral" },
       { "title": "Total Revenue", "value": "$0", "change": "+0%", "trend": "up" },
       { "title": "Net Profit", "value": "$0", "change": "+0%", "trend": "up" },
@@ -16,10 +16,10 @@
       { "title": "Total Expense", "value": "$0", "change": "+0%", "trend": "up" },
       { "title": "Total Orders", "value": "0", "change": "+0%", "trend": "up" }
     ],
-    "liveSummary": {
-      "activeCarts": 0,
-      "checkingOut": 0,
-      "purchased": 0
+    "patientSummary": {
+      "activePatients": 0,
+      "inactivePatients": 0,
+      "dropOffPatients": 0
     },
     "salesChartData": [
       { "month": "Jan", "2025": 220, "2024": 120, "2022": 0 },
