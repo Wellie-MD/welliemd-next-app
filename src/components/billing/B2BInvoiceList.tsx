@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FileText, Loader2, AlertCircle, Filter } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -108,81 +106,82 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              B2B Invoices
-            </CardTitle>
-            <CardDescription>
-              Platform billing invoices for this client
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <Select
-              value={invoiceType}
-              onValueChange={(value) => {
-                setInvoiceType(value as InvoiceType | "all");
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="reimbursement">Reimbursement</SelectItem>
-                <SelectItem value="saas_fee">SaaS Fee</SelectItem>
-              </SelectContent>
-            </Select>
+    <section className="bg-card rounded-2xl border shadow-sm overflow-hidden mb-8">
+      {/* Header with filter */}
+      <div className="p-4 border-b flex justify-between items-center">
+        <div>
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
+            B2B Invoices
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">Platform billing invoices</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <Select
+            value={invoiceType}
+            onValueChange={(value) => {
+              setInvoiceType(value as InvoiceType | "all");
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-[140px] bg-transparent border-none shadow-none text-sm font-medium p-0 h-auto focus:ring-0">
+              <SelectValue placeholder="Filter by type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="reimbursement">Reimbursement</SelectItem>
+              <SelectItem value="saas_fee">SaaS Fee</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Content */}
+      {isLoading ? (
+        <div className="p-8 flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : error ? (
+        <div className="p-4">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+            <p className="text-sm text-red-700 dark:text-red-300">Failed to load invoices. Please try again later.</p>
           </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      ) : invoices.length === 0 ? (
+        /* Empty state matching HTML */
+        <div className="p-8 flex flex-col items-center justify-center text-center">
+          <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+            <FileText className="h-5 w-5 text-muted-foreground" />
           </div>
-        ) : error ? (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Failed to load invoices. Please try again later.
-            </AlertDescription>
-          </Alert>
-        ) : invoices.length === 0 ? (
-          <Alert>
-            <FileText className="h-4 w-4" />
-            <AlertDescription>
-              No invoices found
-              {invoiceType !== "all" && ` for type: ${invoiceType}`}.
-            </AlertDescription>
-          </Alert>
-        ) : (
-          <>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Invoice Number</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Breakdown</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Issued Date</TableHead>
-                    <TableHead>Due Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invoices.map((invoice) => {
-                    const statusLabel =
-                      (invoice as any).is_overdue && invoice.status !== "paid"
-                        ? "overdue"
-                        : invoice.status;
-                    return (
+          <p className="text-sm font-medium">No invoices found</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Invoices will appear here once generated.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Invoice Number</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Breakdown</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Issued Date</TableHead>
+                  <TableHead>Due Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invoices.map((invoice) => {
+                  const statusLabel =
+                    (invoice as any).is_overdue && invoice.status !== "paid"
+                      ? "overdue"
+                      : invoice.status;
+                  return (
                     <TableRow key={invoice.id}>
                       <TableCell className="font-mono text-sm">
                         {invoice.invoice_number}
@@ -210,45 +209,44 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                         {formatDate(invoice.due_date)}
                       </TableCell>
                     </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-4">
-                <p className="text-sm text-muted-foreground">
-                  Showing {(page - 1) * pageSize + 1} to{" "}
-                  {Math.min(page * pageSize, totalCount)} of {totalCount} invoices
-                </p>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-sm">
-                    Page {page} of {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                  >
-                    Next
-                  </Button>
-                </div>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="p-4 border-t flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Showing {(page - 1) * pageSize + 1} to{" "}
+                {Math.min(page * pageSize, totalCount)} of {totalCount} invoices
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >
+                  Next
+                </Button>
               </div>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
+            </div>
+          )}
+        </>
+      )}
+    </section>
   );
 }

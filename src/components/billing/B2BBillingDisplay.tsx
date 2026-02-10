@@ -1,19 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  AlertCircle,
-  CheckCircle,
-  CreditCard,
-  FileText,
-  Loader2,
-  Play,
-} from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { AlertCircle, CheckCircle, CreditCard, Loader2, Play } from "lucide-react";
 import visaIcon from "@/assets/icons/payment-methods/visa.svg";
 import mastercardIcon from "@/assets/icons/payment-methods/mastercard.svg";
 import amexIcon from "@/assets/icons/payment-methods/american-express.svg";
@@ -21,10 +7,8 @@ import discoverIcon from "@/assets/icons/payment-methods/discover.svg";
 import dinersIcon from "@/assets/icons/payment-methods/diners-club.svg";
 import genericCardIcon from "@/assets/icons/payment-methods/generic-card.svg";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { clientApi, Client } from "@/api/clientApi";
-import type { B2BBillingStatus } from "@/types/b2bBilling";
 import { toast } from "sonner";
 
 interface B2BBillingDisplayProps {
@@ -32,52 +16,41 @@ interface B2BBillingDisplayProps {
   client?: Client | null;
 }
 
-export function B2BBillingDisplay({
-  clientId,
-  client,
-}: B2BBillingDisplayProps) {
+export function B2BBillingDisplay({ clientId, client }: B2BBillingDisplayProps) {
+  const queryClient = useQueryClient();
+
   const resolveCardIcon = (brand?: string) => {
     const normalized = (brand || "").toLowerCase().trim();
     if (normalized.includes("visa")) return visaIcon;
-    if (normalized.includes("mastercard") || normalized.includes("master card"))
-      return mastercardIcon;
-    if (normalized.includes("amex") || normalized.includes("american express") || normalized.includes("americanexpress"))
+    if (normalized.includes("mastercard") || normalized.includes("master card")) return mastercardIcon;
+    if (
+      normalized.includes("amex") ||
+      normalized.includes("american express") ||
+      normalized.includes("americanexpress")
+    ) {
       return amexIcon;
+    }
     if (normalized.includes("discover")) return discoverIcon;
     if (normalized.includes("diners")) return dinersIcon;
-    if (normalized.includes("jcb")) return genericCardIcon;
-    if (normalized.includes("unionpay") || normalized.includes("union pay"))
-      return genericCardIcon;
     return genericCardIcon;
   };
-  const queryClient = useQueryClient();
 
-  const {
-    data: billingStatus,
-    isLoading,
-    error,
-  } = useQuery({
+  const { data: billingStatus, isLoading, error } = useQuery({
     queryKey: ["b2bBillingStatus", clientId],
     queryFn: () => clientApi.getB2BBillingStatus(clientId),
     enabled: !!clientId,
   });
 
-  // Mutation for custom billing activation (initial SaaS charge)
   const activateBillingMutation = useMutation({
-    mutationFn: async () => {
-      return clientApi.activateBilling(clientId);
-    },
+    mutationFn: async () => clientApi.activateBilling(clientId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       queryClient.invalidateQueries({ queryKey: ["client", clientId] });
-      queryClient.invalidateQueries({
-        queryKey: ["b2bBillingStatus", clientId],
-      });
+      queryClient.invalidateQueries({ queryKey: ["b2bBillingStatus", clientId] });
       toast.success("Billing activated and initial charge processed.");
     },
     onError: (error: unknown) => {
-      console.error("Billing activation error:", error);
-      const axiosError = error as unknown;
+      const axiosError = error as any;
       const message =
         axiosError?.response?.data?.detail ||
         axiosError?.response?.data?.error ||
@@ -89,256 +62,135 @@ export function B2BBillingDisplay({
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>B2B Billing Status</CardTitle>
-          <CardDescription>
-            Platform subscription and billing information
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
+      <section className="bg-card rounded-2xl border shadow-sm p-8 flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </section>
     );
   }
 
   if (error) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>B2B Billing Status</CardTitle>
-          <CardDescription>
-            Platform subscription and billing information
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Failed to load billing status. Please try again later.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+      <section className="bg-card rounded-2xl border shadow-sm overflow-hidden">
+        <div className="p-4 border-b">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-primary" />
+            B2B Billing Status
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">Platform subscription &amp; billing info</p>
+        </div>
+        <div className="p-4">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+            <p className="text-sm text-red-700 dark:text-red-300">Failed to load billing status. Please try again later.</p>
+          </div>
+        </div>
+      </section>
     );
   }
 
   const hasPaymentMethod = billingStatus?.has_payment_method;
-  const paymentMethodStatus =
-    billingStatus?.payment_method_status || "no_customer";
+  const paymentMethodStatus = billingStatus?.payment_method_status || "no_customer";
   const paymentMethod = billingStatus?.payment_method;
   const subscriptionStatus = billingStatus?.subscription_status;
-  const totalOutstanding = billingStatus?.total_outstanding || "0.00";
 
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                B2B Billing Status
-              </CardTitle>
-              <CardDescription>
-                Platform subscription and billing information
-              </CardDescription>
-            </div>
-            {client && (
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => activateBillingMutation.mutate()}
-                  className="flex items-center gap-2"
-                  disabled={
-                    activateBillingMutation.isPending ||
-                    billingStatus?.payment_method_status !== "active"
-                  }
-                >
-                  {activateBillingMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Activating...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-4 h-4" />
-                      Activate Billing
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Subscription Status */}
-          {subscriptionStatus && (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-3 bg-muted rounded-lg">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Subscription Status</span>
-              </div>
-              <Badge
-                variant={
-                  subscriptionStatus === "active"
-                    ? "default"
-                    : subscriptionStatus === "past_due"
-                    ? "destructive"
-                    : "secondary"
-                }
-              >
-                {subscriptionStatus.replace("_", " ").toUpperCase()}
-              </Badge>
-            </div>
-          )}
-
-          {/* Payment Method */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium flex items-center gap-2">
-              <CreditCard className="h-4 w-4" />
-              Payment Method
-            </h4>
-
-            {paymentMethodStatus === "no_customer" && (
-              <Alert className="bg-amber-50 border-amber-200">
-                <AlertCircle className="h-4 w-4 text-amber-600" />
-                <AlertDescription className="text-amber-800">
-                  <strong>Awaiting client payment setup.</strong> The client
-                  needs to add their payment method from the Client Portal
-                  before billing can be activated.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {paymentMethodStatus === "no_payment_method" && (
-              <Alert className="bg-blue-50 border-blue-200">
-                <AlertCircle className="h-4 w-4 text-blue-600" />
-                <AlertDescription className="text-blue-800">
-                  <strong>Payment method pending.</strong> Stripe customer
-                  created, but the client hasn't completed adding their payment
-                  method yet.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {paymentMethodStatus === "active" &&
-            hasPaymentMethod &&
-            paymentMethod ? (
-              <div className="bg-slate-50 rounded-lg p-4 space-y-3">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-3">
-                  <div className="flex-shrink-0 w-12 h-8 bg-white rounded border border-slate-200 flex items-center justify-center">
-                    <img
-                      src={resolveCardIcon(paymentMethod.brand)}
-                      alt={paymentMethod.brand}
-                      className="h-5 w-auto"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-1">
-                      <p className="text-sm font-medium text-slate-900 break-words">
-                        {paymentMethod.brand.charAt(0).toUpperCase() +
-                          paymentMethod.brand.slice(1)}{" "}
-                        •••• •••• •••• {paymentMethod.last4}
-                      </p>
-                      {paymentMethod.is_expired ? (
-                        <Badge variant="destructive" className="sm:ml-2">
-                          Expired
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="sm:ml-2">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Active
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      Expires: {paymentMethod.exp_month}/
-                      {paymentMethod.exp_year}
-                    </p>
-                  </div>
-                </div>
-              </div>
+    <section className="bg-card rounded-2xl border shadow-sm overflow-hidden">
+      {/* Header with Activate button */}
+      <div className="p-4 border-b flex justify-between items-start">
+        <div>
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-primary" />
+            B2B Billing Status
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">Platform subscription &amp; billing info</p>
+        </div>
+        {client && (
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => activateBillingMutation.mutate()}
+            className="bg-primary hover:bg-primary/90 text-white text-xs font-medium px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-sm whitespace-nowrap"
+            disabled={
+              activateBillingMutation.isPending ||
+              billingStatus?.payment_method_status !== "active"
+            }
+          >
+            {activateBillingMutation.isPending ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Activating...
+              </>
             ) : (
-              paymentMethodStatus === "active" && (
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Payment method status is active but details could not be
-                    loaded.
-                  </AlertDescription>
-                </Alert>
-              )
+              <>
+                <Play className="w-3.5 h-3.5" />
+                Activate
+              </>
+            )}
+          </Button>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="p-4">
+        {/* Payment Method */}
+        <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+          <CreditCard className="h-4 w-4 text-muted-foreground" />
+          Payment Method
+        </h3>
+
+        {paymentMethodStatus === "no_customer" && (
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <p className="text-sm text-amber-700 dark:text-amber-300">Awaiting client payment setup.</p>
+          </div>
+        )}
+
+        {paymentMethodStatus === "no_payment_method" && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <p className="text-sm text-blue-700 dark:text-blue-300">Payment method pending.</p>
+          </div>
+        )}
+
+        {paymentMethodStatus === "active" && hasPaymentMethod && paymentMethod ? (
+          <div className="bg-muted/50 border rounded-xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-7 bg-white dark:bg-gray-200 border border-gray-200 rounded flex items-center justify-center">
+                <img
+                  src={resolveCardIcon(paymentMethod.brand)}
+                  alt={paymentMethod.brand}
+                  className="h-3 object-contain opacity-80"
+                />
+              </div>
+              <div>
+                <p className="text-sm font-medium">
+                  {paymentMethod.brand.charAt(0).toUpperCase() + paymentMethod.brand.slice(1)}{" "}
+                  •••• •••• •••• {paymentMethod.last4}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Expires: {paymentMethod.exp_month}/{paymentMethod.exp_year}
+                </p>
+              </div>
+            </div>
+            {paymentMethod.is_expired ? (
+              <span className="bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-300 text-[10px] font-bold px-2 py-1 rounded-full border border-red-200 dark:border-red-600 flex items-center gap-1">
+                Expired
+              </span>
+            ) : (
+              <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[10px] font-bold px-2 py-1 rounded-full border border-gray-200 dark:border-gray-600 flex items-center gap-1">
+                <CheckCircle className="h-2.5 w-2.5" /> Active
+              </span>
             )}
           </div>
-
-          {/* Outstanding Balance */}
-          {parseFloat(totalOutstanding) > 0 && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Outstanding balance: ${parseFloat(totalOutstanding).toFixed(2)}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {/* Recent Invoices Summary */}
-          {billingStatus?.recent_invoices &&
-            billingStatus.recent_invoices.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Recent Invoices</h4>
-                <div className="space-y-2">
-                  {billingStatus.recent_invoices.slice(0, 3).map((invoice) => (
-                    <div
-                      key={invoice.id}
-                      className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-2 bg-muted rounded text-sm"
-                    >
-                      <div className="flex flex-wrap items-center gap-2">
-                        <FileText className="h-3 w-3 text-muted-foreground" />
-                        <span className="font-mono text-xs">
-                          {invoice.invoice_number}
-                        </span>
-                        <Badge variant="outline" className="text-xs">
-                          {invoice.invoice_type}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">
-                          ${parseFloat(invoice.total_amount).toFixed(2)}
-                        </span>
-                        <Badge
-                          variant={
-                            invoice.status === "paid"
-                              ? "default"
-                              : invoice.status === "overdue"
-                              ? "destructive"
-                              : "secondary"
-                          }
-                          className="text-xs"
-                        >
-                          {invoice.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-          {/* No Subscription Message */}
-          {!subscriptionStatus && !hasPaymentMethod && (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                Billing is not activated yet for this client. Set billing config
-                and use <strong>Activate Billing</strong> to create the initial charge.
-                </AlertDescription>
-              </Alert>
-          )}
-        </CardContent>
-      </Card>
-    </>
+        ) : (
+          paymentMethodStatus === "active" && (
+            <div className="bg-muted/50 border rounded-lg p-3 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Payment method details could not be loaded.</p>
+            </div>
+          )
+        )}
+      </div>
+    </section>
   );
 }

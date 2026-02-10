@@ -18,18 +18,12 @@ export interface Client {
   allowed_iframe_domains?: string[];
   branding_config?: Record<string, unknown>;
   token_expiry_minutes?: number;
-  patient_fee?: number;
   async_consult_fee_to_client?: number;
   async_consult_cost?: number;
   sync_video_consult_fee_to_client?: number;
   sync_consult_cost?: number;
-  monthly_saas_fee?: number;
-  first_next_saas_fees_billing_date?: string;
   include_cost_to_client_in_reimbursement?: boolean;
   include_shipping_cost_to_client_in_reimbursement?: boolean;
-  b2b_dunning_enabled?: boolean;
-  b2b_grace_period_days?: number;
-  b2b_manual_pay_enabled?: boolean;
   payment_gateway: string;
   is_active: boolean;
   created_at: string;
@@ -80,18 +74,12 @@ export interface ClientCreatePayload {
   database_name?: string;
 
   // Billing Settings
-  patient_fee?: number;
   async_consult_fee_to_client?: number;
   async_consult_cost?: number;
   sync_video_consult_fee_to_client?: number;
   sync_consult_cost?: number;
-  monthly_saas_fee?: number;
-  first_next_saas_fees_billing_date?: string;
   include_cost_to_client_in_reimbursement?: boolean;
   include_shipping_cost_to_client_in_reimbursement?: boolean;
-  b2b_dunning_enabled?: boolean;
-  b2b_grace_period_days?: number;
-  b2b_manual_pay_enabled?: boolean;
 
   // Payment Gateway
   payment_gateway?: string;
@@ -129,18 +117,12 @@ export interface ClientUpdatePayload {
   database_name?: string;
 
   // Billing Settings
-  patient_fee?: number;
   async_consult_fee_to_client?: number;
   async_consult_cost?: number;
   sync_video_consult_fee_to_client?: number;
   sync_consult_cost?: number;
-  monthly_saas_fee?: number;
-  first_next_saas_fees_billing_date?: string;
   include_cost_to_client_in_reimbursement?: boolean;
   include_shipping_cost_to_client_in_reimbursement?: boolean;
-  b2b_dunning_enabled?: boolean;
-  b2b_grace_period_days?: number;
-  b2b_manual_pay_enabled?: boolean;
 
   // Payment Gateway
   payment_gateway?: string;

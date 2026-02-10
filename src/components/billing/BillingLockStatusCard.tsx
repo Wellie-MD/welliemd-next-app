@@ -4,21 +4,11 @@ import {
     AlertTriangle,
     Lock,
     Unlock,
-    DollarSign,
     CreditCard,
     Loader2,
     CheckCircle,
 } from "lucide-react";
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { clientApi } from "@/api/clientApi";
 import type { BillingLockStatus, BlockingInvoice } from "@/types/b2bBilling";
 import { toast } from "sonner";
@@ -32,6 +22,8 @@ interface BillingLockStatusCardProps {
  * 
  * Admin component showing billing lock state, blocking invoices,
  * and actions to resolve account suspensions.
+ * 
+ * Styled as a colored banner matching billing_tab.html Section 2.
  */
 export function BillingLockStatusCard({ clientId }: BillingLockStatusCardProps) {
     const queryClient = useQueryClient();
@@ -101,20 +93,23 @@ export function BillingLockStatusCard({ clientId }: BillingLockStatusCardProps) 
 
     if (isLoading) {
         return (
-            <Card>
-                <CardContent className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </CardContent>
-            </Card>
+            <section className="bg-muted/50 border rounded-xl p-4 flex items-center justify-center">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </section>
         );
     }
 
     if (error) {
         return (
-            <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>Failed to load billing lock status</AlertDescription>
-            </Alert>
+            <section className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-start gap-3">
+                <div className="bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-400 p-2 rounded-full">
+                    <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                    <h3 className="text-sm font-bold text-red-700 dark:text-red-400">Error</h3>
+                    <p className="text-sm text-red-600 dark:text-red-300">Failed to load billing lock status</p>
+                </div>
+            </section>
         );
     }
 
@@ -126,110 +121,114 @@ export function BillingLockStatusCard({ clientId }: BillingLockStatusCardProps) 
         currency: "USD",
     }).format(parseFloat(lockStatus.blocking_balance || "0"));
 
-    return (
-        <Card className={isLocked ? "border-red-300 bg-red-50" : "border-green-300 bg-green-50"}>
-            <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        {isLocked ? (
-                            <Lock className="h-5 w-5 text-red-600" />
-                        ) : (
-                            <Unlock className="h-5 w-5 text-green-600" />
-                        )}
-                        <CardTitle className="text-lg">Billing Status</CardTitle>
+    if (isLocked) {
+        return (
+            <>
+                {/* Locked/Suspended Banner */}
+                <section className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-start gap-3">
+                    <div className="bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-400 p-2 rounded-full">
+                        <Lock className="h-5 w-5" />
                     </div>
-                    <Badge variant={isLocked ? "destructive" : "default"}>
-                        {isLocked ? "Suspended" : "Active"}
-                    </Badge>
-                </div>
-                {isLocked && (
-                    <CardDescription className="text-red-700">
-                        Account locked due to {lockStatus.lock_reason_code || "unpaid invoices"}.
-                        Prescriptions cannot be sent.
-                    </CardDescription>
-                )}
-            </CardHeader>
-
-            {isLocked && (
-                <CardContent className="space-y-4">
-                    {/* Summary */}
-                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
-                        <div>
-                            <p className="text-sm text-muted-foreground">Outstanding Balance</p>
-                            <p className="text-2xl font-bold text-red-600">{balanceFormatted}</p>
-                            <p className="text-xs text-muted-foreground">
-                                {lockStatus.blocking_invoice_count} blocking{" "}
-                                {lockStatus.blocking_invoice_count === 1 ? "invoice" : "invoices"}
-                            </p>
+                    <div className="flex-1">
+                        <div className="flex justify-between items-center mb-1">
+                            <h3 className="text-sm font-bold text-red-700 dark:text-red-400">Billing Status</h3>
+                            <span className="bg-red-200 dark:bg-red-900 text-red-800 dark:text-red-200 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
+                                Suspended
+                            </span>
                         </div>
-                        <Button
-                            onClick={handlePayAll}
-                            disabled={payingAll || lockStatus.blocking_invoice_count === 0}
-                            className="bg-red-600 hover:bg-red-700"
-                        >
-                            {payingAll ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Processing...
-                                </>
-                            ) : (
-                                <>
-                                    <CreditCard className="mr-2 h-4 w-4" />
-                                    Pay All Now
-                                </>
-                            )}
-                        </Button>
+                        <p className="text-sm text-red-700 dark:text-red-300">
+                            Account locked due to {lockStatus.lock_reason_code || "unpaid invoices"}. Prescriptions cannot be sent.
+                        </p>
+                    </div>
+                </section>
+
+                {/* Outstanding Balance & Blocking Invoices */}
+                <section className="bg-card rounded-2xl border shadow-sm overflow-hidden">
+                    <div className="p-4 border-b">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-muted-foreground">Outstanding Balance</p>
+                                <p className="text-2xl font-bold text-red-600">{balanceFormatted}</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {lockStatus.blocking_invoice_count} blocking{" "}
+                                    {lockStatus.blocking_invoice_count === 1 ? "invoice" : "invoices"}
+                                </p>
+                            </div>
+                            <Button
+                                onClick={handlePayAll}
+                                disabled={payingAll || lockStatus.blocking_invoice_count === 0}
+                                className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg"
+                            >
+                                {payingAll ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Processing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CreditCard className="mr-2 h-4 w-4" />
+                                        Pay All Now
+                                    </>
+                                )}
+                            </Button>
+                        </div>
                     </div>
 
                     {/* Blocking Invoices List */}
                     {lockStatus.blocking_invoices && lockStatus.blocking_invoices.length > 0 && (
-                        <div className="space-y-2">
-                            <h4 className="text-sm font-medium">Blocking Invoices</h4>
-                            <div className="space-y-2">
-                                {lockStatus.blocking_invoices.map((invoice: BlockingInvoice) => (
-                                    <div
-                                        key={invoice.id}
-                                        className="flex items-center justify-between p-2 bg-white rounded border"
-                                    >
-                                        <div>
-                                            <p className="text-sm font-medium">{invoice.invoice_number}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {invoice.invoice_type} • {invoice.status}
-                                            </p>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm font-medium">
-                                                ${invoice.total_amount}
-                                            </span>
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => handlePayInvoice(invoice.id)}
-                                                disabled={payingInvoice === invoice.id}
-                                            >
-                                                {payingInvoice === invoice.id ? (
-                                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                                ) : (
-                                                    "Pay"
-                                                )}
-                                            </Button>
-                                        </div>
+                        <div className="p-4 space-y-2">
+                            <h4 className="text-sm font-medium mb-2">Blocking Invoices</h4>
+                            {lockStatus.blocking_invoices.map((invoice: BlockingInvoice) => (
+                                <div
+                                    key={invoice.id}
+                                    className="bg-muted/50 border rounded-xl p-3 flex items-center justify-between"
+                                >
+                                    <div>
+                                        <p className="text-sm font-medium">{invoice.invoice_number}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {invoice.invoice_type} • {invoice.status}
+                                        </p>
                                     </div>
-                                ))}
-                            </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-medium">${invoice.total_amount}</span>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="text-xs"
+                                            onClick={() => handlePayInvoice(invoice.id)}
+                                            disabled={payingInvoice === invoice.id}
+                                        >
+                                            {payingInvoice === invoice.id ? (
+                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                            ) : (
+                                                "Pay"
+                                            )}
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
-                </CardContent>
-            )}
+                </section>
+            </>
+        );
+    }
 
-            {!isLocked && (
-                <CardContent>
-                    <div className="flex items-center gap-2 text-green-700">
-                        <CheckCircle className="h-4 w-4" />
-                        <span className="text-sm">Billing account is in good standing</span>
-                    </div>
-                </CardContent>
-            )}
-        </Card>
+    // Active / Good Standing Banner
+    return (
+        <section className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4 flex items-start gap-3">
+            <div className="bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400 p-2 rounded-full">
+                <CheckCircle className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+                <div className="flex justify-between items-center mb-1">
+                    <h3 className="text-sm font-bold text-green-700 dark:text-green-400">Billing Status</h3>
+                    <span className="bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-200 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
+                        Active
+                    </span>
+                </div>
+                <p className="text-sm text-green-700 dark:text-green-300">Billing account is in good standing</p>
+            </div>
+        </section>
     );
 }
