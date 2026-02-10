@@ -80,7 +80,7 @@ const menuSections = [
         children: [
           { title: "Live View", url: "/dashboard/analytics/live" },
           { title: "Reports", url: "/dashboard/analytics/reports" },
-          { title: "Cohorts", url: "/dashboard/analytics/cohorts" },
+          // { title: "Cohorts", url: "/dashboard/analytics/cohorts" },
         ],
       },
     ],
