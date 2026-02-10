@@ -33,6 +33,7 @@ export interface PatientCommission {
     display_id: string;
     patient_id: string;
     patient_name: string;
+    status: "pending" | "earned" | "cancelled";
     commission: number;
     created_at: string;
 }
