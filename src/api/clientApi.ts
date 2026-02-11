@@ -41,6 +41,8 @@ export interface Client {
   card_holder_name: string;
   card_last_four: string;
   stripe_subscription_id: string | null;
+  b2b_subscription_status?: 'inactive' | 'active' | 'past_due' | 'canceled';
+  b2b_cancel_at_period_end?: boolean;
   deployment_password?: string;
 }
 
