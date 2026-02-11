@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import billingService, { Invoice, InvoiceListResponse } from "@/services/billingService";
 import { Link } from "react-router-dom";
-import { Search, Eye } from "lucide-react";
+import { Loader2, Search, Eye } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 type InvoiceTab = "all" | "reimbursement" | "saas";
 type InvoiceStatus = "" | "draft" | "pending" | "due" | "paid" | "overdue" | "failed" | "canceled" | "refunded";
@@ -43,6 +45,24 @@ export default function InvoicesPage() {
   const [ordering, setOrdering] = useState<InvoiceOrdering>("-issued_at");
   const [hasNext, setHasNext] = useState(false);
   const [hasPrev, setHasPrev] = useState(false);
+  const [payingInvoiceId, setPayingInvoiceId] = useState<string | null>(null);
+
+  const getStatusBadgeClass = (status?: string, isOverdue?: boolean) => {
+    const normalized = (status || "").toLowerCase();
+    if (normalized === "paid") {
+      return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+    }
+    if (normalized === "failed" || normalized === "overdue" || isOverdue) {
+      return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+    }
+    if (normalized === "due" || normalized === "pending") {
+      return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300";
+    }
+    if (normalized === "canceled") {
+      return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
+    }
+    return "bg-primary/10 text-primary dark:bg-primary/20";
+  };
 
   const formatBreakdown = (inv: any) => {
     const items = inv.line_items ?? [];
@@ -65,25 +85,87 @@ export default function InvoicesPage() {
     return p;
   }, [ordering, search, fromDate, toDate, status]);
 
+  const loadInvoices = async () => {
+    setLoading(true);
+    const res: InvoiceListResponse = await billingService.getInvoices(activeTab, page, 25, params);
+    setInvoices(res?.results || []);
+    setTotal(res?.count ?? 0);
+    setHasNext(!!res?.next);
+    setHasPrev(!!res?.previous);
+    setLoading(false);
+  };
+
+  const applyFilters = async () => {
+    setPage(1);
+    await loadInvoices();
+  };
+
   useEffect(() => {
     let mounted = true;
     const load = async () => {
-      setLoading(true);
-      const res: InvoiceListResponse = await billingService.getInvoices(activeTab, page, 25, params);
       if (!mounted) return;
-      const rows = res?.results || [];
-      setInvoices(rows);
-      setTotal(res?.count ?? rows.length);
-      setHasNext(!!res?.next);
-      setHasPrev(!!res?.previous);
-      setLoading(false);
+      await loadInvoices();
     };
-
-    load();
+    void load();
     return () => {
       mounted = false;
     };
-  }, [activeTab, page, params, search]);
+  }, [activeTab, page, params]);
+
+  const handlePayNow = async (invoiceId: string) => {
+    if (payingInvoiceId) return;
+    setPayingInvoiceId(invoiceId);
+    try {
+      toast.info("Processing payment...");
+      const initial = await billingService.payInvoiceNow(invoiceId);
+      if (initial.success) {
+        toast.success("Payment successful.");
+        await loadInvoices();
+        return;
+      }
+
+      if (initial.requires_action && initial.client_secret) {
+        toast.info("Additional card authentication is required.");
+        const publishable = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+        if (!publishable) {
+          toast.error("Stripe publishable key is not configured.");
+          return;
+        }
+
+        const { loadStripe } = await import("@stripe/stripe-js");
+        const stripe = await loadStripe(publishable);
+        if (!stripe) {
+          toast.error("Failed to initialize Stripe.");
+          return;
+        }
+
+        const confirmResult = await stripe.confirmCardPayment(initial.client_secret);
+        if (confirmResult.error) {
+          toast.error(confirmResult.error.message || "Authentication failed.");
+          return;
+        }
+
+        const confirmedIntentId = confirmResult.paymentIntent?.id || initial.payment_intent_id;
+        if (!confirmedIntentId) {
+          toast.error("Payment confirmation missing payment intent id.");
+          return;
+        }
+
+        const finalized = await billingService.payInvoiceNow(invoiceId, confirmedIntentId);
+        if (finalized.success) {
+          toast.success("Payment successful.");
+          await loadInvoices();
+        } else {
+          toast.error(finalized.message || "Failed to finalize payment.");
+        }
+        return;
+      }
+
+      toast.error(initial.message || "Payment failed.");
+    } finally {
+      setPayingInvoiceId(null);
+    }
+  };
 
   return (
     <div className="p-4">
@@ -163,24 +245,41 @@ export default function InvoicesPage() {
             <option value="total_amount">Amount low to high</option>
             <option value="status">Status A to Z</option>
           </select>
-          <input
-            className="w-full py-2 px-4 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark"
-            type="date"
-            value={fromDate}
-            onChange={(e) => {
-              setFromDate(e.target.value);
-              setPage(1);
-            }}
-          />
-          <input
-            className="w-full py-2 px-4 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark"
-            type="date"
-            value={toDate}
-            onChange={(e) => {
-              setToDate(e.target.value);
-              setPage(1);
-            }}
-          />
+          <div className="grid grid-cols-2 gap-2 sm:col-span-2 lg:col-span-2">
+            <div className="relative">
+              <input
+                className="form-input w-full py-2 px-4 pr-8 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark focus:ring-primary focus:border-primary transition-all duration-200"
+                placeholder="mm/dd/yyyy"
+                type="date"
+                value={fromDate}
+                onChange={(e) => {
+                  setFromDate(e.target.value);
+                  setPage(1);
+                }}
+              />
+            </div>
+            <div className="relative">
+              <input
+                className="form-input w-full py-2 px-4 pr-8 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark focus:ring-primary focus:border-primary transition-all duration-200"
+                placeholder="mm/dd/yyyy"
+                type="date"
+                value={toDate}
+                onChange={(e) => {
+                  setToDate(e.target.value);
+                  setPage(1);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end mt-4 pt-4 border-t border-border-light dark:border-border-dark">
+          <button
+            type="button"
+            onClick={() => void applyFilters()}
+            className="bg-primary text-white font-medium py-2 px-5 rounded-md hover:bg-opacity-90 transition-colors duration-200 shadow-sm"
+          >
+            Search
+          </button>
         </div>
       </div>
 
@@ -202,13 +301,15 @@ export default function InvoicesPage() {
                   <th className="px-6 py-3 font-semibold tracking-wider">Status</th>
                   <th className="px-6 py-3 font-semibold tracking-wider">Breakdown</th>
                   <th className="px-6 py-3 font-semibold tracking-wider">Amount</th>
-                  <th className="px-6 py-3 font-semibold tracking-wider text-right">Details</th>
+                  <th className="px-6 py-3 font-semibold tracking-wider text-right">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {invoices.length === 0 && (
                   <tr className="border-b border-border-light dark:border-border-dark">
-                    <td className="px-6 py-4" colSpan={7}>No invoices found</td>
+                    <td className="px-6 py-4" colSpan={7}>
+                      No invoices found
+                    </td>
                   </tr>
                 )}
                 {invoices.map((inv: any) => {
@@ -216,7 +317,8 @@ export default function InvoicesPage() {
                   return (
                     <tr
                       key={inv.id}
-                      className="border-b border-border-light dark:border-border-dark hover:bg-background-light/50 dark:hover:bg-background-dark/50 transition-colors duration-150"
+                      className="border-b border-border-light dark:border-border-dark hover:bg-background-light/50 dark:hover:bg-background-dark/50 transition-colors duration-150 cursor-pointer"
+                      onClick={() => setSelected(inv)}
                     >
                       <td className="px-6 py-4">{formatDate(inv.issued_at || inv.created_at)}</td>
                       {activeTab === "reimbursement" ? (
@@ -239,34 +341,48 @@ export default function InvoicesPage() {
                       )}
                       <td className="px-6 py-4">{(inv.invoice_type || "-").replace("_", " ")}</td>
                       <td className="px-6 py-4">
-                        <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${statusClass(effectiveStatus)}`}>
+                        <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${getStatusBadgeClass(inv.status, inv.is_overdue)}`}>
                           {effectiveStatus}
                         </span>
-                        {inv.external_invoice_link && (effectiveStatus === "due" || effectiveStatus === "overdue") && (
-                          <div className="mt-2">
-                            <a
-                              href={inv.external_invoice_link}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-xs font-medium text-primary hover:underline"
-                            >
-                              Pay now
-                            </a>
-                          </div>
-                        )}
                       </td>
                       <td className="px-6 py-4 text-text-secondary-light dark:text-text-secondary-dark">
                         {formatBreakdown(inv)}
                       </td>
                       <td className="px-6 py-4 font-medium">{formatMoney(inv.total_amount ?? inv.amount)}</td>
                       <td className="px-6 py-4 text-right">
-                        <button
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs hover:bg-muted/50"
-                          onClick={() => setSelected(inv)}
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          View
-                        </button>
+                        {(inv.status === "due" || inv.status === "overdue" || inv.status === "failed" || inv.is_overdue) ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={payingInvoiceId === inv.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handlePayNow(inv.id);
+                            }}
+                            className="min-w-[110px]"
+                          >
+                            {payingInvoiceId === inv.id ? (
+                              <>
+                                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                Processing
+                              </>
+                            ) : (
+                              "Pay now"
+                            )}
+                          </Button>
+                        ) : (
+                          <button
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded border text-xs hover:bg-muted/50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelected(inv);
+                            }}
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            View
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -308,12 +424,25 @@ export default function InvoicesPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-4">
-              <div className="rounded border p-3"><strong>Status:</strong> {selected.status}</div>
-              <div className="rounded border p-3"><strong>Type:</strong> {(selected.invoice_type || "-").replace("_", " ")}</div>
-              <div className="rounded border p-3"><strong>Total:</strong> {formatMoney((selected as any).total_amount ?? selected.amount)}</div>
-              <div className="rounded border p-3"><strong>Issued:</strong> {formatDate((selected as any).issued_at || selected.created_at)}</div>
-              <div className="rounded border p-3"><strong>Due:</strong> {formatDate((selected as any).due_date)}</div>
-              <div className="rounded border p-3"><strong>Billing Period:</strong> {formatDate((selected as any).billing_period_start)} to {formatDate((selected as any).billing_period_end)}</div>
+              <div className="rounded border p-3">
+                <strong>Status:</strong> {selected.status}
+              </div>
+              <div className="rounded border p-3">
+                <strong>Type:</strong> {(selected.invoice_type || "-").replace("_", " ")}
+              </div>
+              <div className="rounded border p-3">
+                <strong>Total:</strong> {formatMoney((selected as any).total_amount ?? selected.amount)}
+              </div>
+              <div className="rounded border p-3">
+                <strong>Issued:</strong> {formatDate((selected as any).issued_at || selected.created_at)}
+              </div>
+              <div className="rounded border p-3">
+                <strong>Due:</strong> {formatDate((selected as any).due_date)}
+              </div>
+              <div className="rounded border p-3">
+                <strong>Billing Period:</strong> {formatDate((selected as any).billing_period_start)} to{" "}
+                {formatDate((selected as any).billing_period_end)}
+              </div>
             </div>
 
             <div className="mt-2">
@@ -341,7 +470,9 @@ export default function InvoicesPage() {
                           <td className="px-3 py-2">{li.description || "-"}</td>
                           <td className="px-3 py-2 text-right">{li.quantity ?? 0}</td>
                           <td className="px-3 py-2 text-right">{formatMoney(li.unit_price)}</td>
-                          <td className="px-3 py-2 text-right font-medium">{formatMoney((li as any).total_amount ?? li.subtotal)}</td>
+                          <td className="px-3 py-2 text-right font-medium">
+                            {formatMoney((li as any).total_amount ?? li.subtotal)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

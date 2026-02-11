@@ -55,7 +55,7 @@ export interface InvoiceListResponse {
 }
 
 // ============================================================================
-// NEW: Custom Billing Engine Types
+// Custom Billing Engine Types
 // ============================================================================
 
 export interface BlockingInvoice {
@@ -77,8 +77,24 @@ export interface BillingLockStatus {
   blocking_invoices: BlockingInvoice[];
 }
 
-export interface PayNowResult {
+export interface PayInvoiceNowResponse {
   success: boolean;
+  message?: string;
+  invoice_id?: string;
+  payment_intent_id?: string;
+  requires_action?: boolean;
+  client_secret?: string;
+  error_code?: string;
+  processor_ref?: string;
+  lock_state?: string;
+  error?: string;
+  failure_code?: string;
+  failure_message?: string;
+}
+
+export interface PayAllOutstandingResponse {
+  success: boolean;
+  message?: string;
   invoice_id?: string;
   processor_ref?: string;
   lock_state?: string;
@@ -180,7 +196,7 @@ const billingService = {
   },
 
   // ==========================================================================
-  // NEW: Custom Billing Engine APIs
+  // Custom Billing Engine APIs
   // ==========================================================================
 
   /**
@@ -210,17 +226,38 @@ const billingService = {
   /**
    * Pay a specific invoice manually.
    * Used for invoice-level Pay Now buttons.
+   * Supports 3D Secure authentication flow via payment_intent_id parameter.
    */
-  async payInvoiceNow(invoiceId: string): Promise<PayNowResult> {
+  async payInvoiceNow(invoiceId: string, paymentIntentId?: string): Promise<PayInvoiceNowResponse> {
     try {
-      const { data } = await api.post<PayNowResult>(`/billing/invoices/${invoiceId}/pay-now/`);
-      return data;
+      const payload = paymentIntentId ? { payment_intent_id: paymentIntentId } : {};
+      const { data } = await api.post(`/billing/invoices/${invoiceId}/pay-now/`, payload);
+      return data as PayInvoiceNowResponse;
     } catch (err: any) {
-      console.warn("payInvoiceNow failed", err);
+      const status = err?.response?.status;
+      const responseData = err?.response?.data || {};
+      
+      // Handle 402 Payment Required - indicates 3D Secure required
+      if (status === 402) {
+        return {
+          success: false,
+          requires_action: true,
+          message: responseData?.message || "Additional authentication required",
+          payment_intent_id: responseData?.payment_intent_id,
+          client_secret: responseData?.client_secret,
+          invoice_id: responseData?.invoice_id,
+          error_code: responseData?.error_code,
+        };
+      }
+      
+      // Handle other errors
       return {
         success: false,
-        error: err?.response?.data?.error || "Payment failed",
-        failure_message: err?.response?.data?.failure_message || err?.message,
+        message: responseData?.message || responseData?.error || "Failed to process payment",
+        invoice_id: responseData?.invoice_id,
+        error_code: responseData?.error_code,
+        error: responseData?.error || "Payment failed",
+        failure_message: responseData?.failure_message || err?.message,
       };
     }
   },
@@ -229,9 +266,9 @@ const billingService = {
    * Pay all outstanding blocking invoices at once.
    * Used for "Pay All" button when account is locked.
    */
-  async payAllOutstanding(): Promise<PayNowResult> {
+  async payAllOutstanding(): Promise<PayAllOutstandingResponse> {
     try {
-      const { data } = await api.post<PayNowResult>("/billing/pay-all/");
+      const { data } = await api.post<PayAllOutstandingResponse>("/billing/pay-all/");
       return data;
     } catch (err: any) {
       console.warn("payAllOutstanding failed", err);
