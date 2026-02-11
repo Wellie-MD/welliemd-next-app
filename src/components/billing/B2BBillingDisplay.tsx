@@ -135,6 +135,7 @@ export function B2BBillingDisplay({ clientId, client }: B2BBillingDisplayProps) 
     billingStatus?.payment_method_status === "active" &&
     subscriptionStatus !== "active" &&
     subscriptionStatus !== "past_due";
+  const activateLabel = subscriptionStatus === "canceled" ? "Reactivate" : "Activate";
 
   const canCancel = subscriptionStatus === "active" || subscriptionStatus === "past_due";
 
@@ -149,7 +150,7 @@ export function B2BBillingDisplay({ clientId, client }: B2BBillingDisplayProps) 
           </h2>
           <p className="text-xs text-muted-foreground mt-1">Platform subscription &amp; billing info</p>
         </div>
-        {client && (
+        {client && canActivate && (
           <Button
             type="button"
             size="sm"
@@ -168,7 +169,7 @@ export function B2BBillingDisplay({ clientId, client }: B2BBillingDisplayProps) 
             ) : (
               <>
                 <Play className="w-3.5 h-3.5" />
-                Activate
+                {activateLabel}
               </>
             )}
           </Button>

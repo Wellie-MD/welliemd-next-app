@@ -50,6 +50,7 @@ const TIMEZONES = [
 export function BillingConfigEditor({ clientId }: BillingConfigEditorProps) {
     const queryClient = useQueryClient();
     const [formData, setFormData] = useState<Partial<BillingConfig>>({});
+    const [initialFormData, setInitialFormData] = useState<Partial<BillingConfig>>({});
     const [isDirty, setIsDirty] = useState(false);
 
     const {
@@ -62,19 +63,41 @@ export function BillingConfigEditor({ clientId }: BillingConfigEditorProps) {
         enabled: !!clientId,
     });
 
+    const { data: billingStatus } = useQuery({
+        queryKey: ["b2bBillingStatus", clientId],
+        queryFn: () => clientApi.getB2BBillingStatus(clientId),
+        enabled: !!clientId,
+    });
+
     // Sync form data when config loads
     useEffect(() => {
         if (config) {
-            setFormData({
+            const nextFormData: Partial<BillingConfig> = {
                 b2b_base_fee: config.b2b_base_fee,
                 b2b_patient_fee_rate: config.b2b_patient_fee_rate,
                 b2b_patient_fee_enabled: config.b2b_patient_fee_enabled,
                 b2b_billing_anchor_day: config.b2b_billing_anchor_day,
                 b2b_billing_timezone: config.b2b_billing_timezone,
-            });
+            };
+            setFormData(nextFormData);
+            setInitialFormData(nextFormData);
             setIsDirty(false);
         }
     }, [config]);
+
+    const normalizeForDirtyCheck = (data: Partial<BillingConfig>) => ({
+        b2b_base_fee: String(data.b2b_base_fee ?? ""),
+        b2b_patient_fee_rate: String(data.b2b_patient_fee_rate ?? ""),
+        b2b_patient_fee_enabled: Boolean(data.b2b_patient_fee_enabled),
+        b2b_billing_anchor_day: Number(data.b2b_billing_anchor_day ?? 1),
+        b2b_billing_timezone: String(data.b2b_billing_timezone ?? "UTC"),
+    });
+
+    useEffect(() => {
+        const current = JSON.stringify(normalizeForDirtyCheck(formData));
+        const initial = JSON.stringify(normalizeForDirtyCheck(initialFormData));
+        setIsDirty(current !== initial);
+    }, [formData, initialFormData]);
 
     const updateMutation = useMutation({
         mutationFn: (data: Partial<BillingConfig>) =>
@@ -82,6 +105,7 @@ export function BillingConfigEditor({ clientId }: BillingConfigEditorProps) {
         onSuccess: () => {
             toast.success("Billing configuration saved");
             queryClient.invalidateQueries({ queryKey: ["billingConfig", clientId] });
+            queryClient.invalidateQueries({ queryKey: ["b2bBillingStatus", clientId] });
             setIsDirty(false);
         },
         onError: (err: any) => {
@@ -91,7 +115,6 @@ export function BillingConfigEditor({ clientId }: BillingConfigEditorProps) {
 
     const handleChange = (field: keyof BillingConfig, value: any) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
-        setIsDirty(true);
     };
 
     const handleSave = () => {
@@ -117,16 +140,25 @@ export function BillingConfigEditor({ clientId }: BillingConfigEditorProps) {
 
     const handleReset = () => {
         if (config) {
-            setFormData({
+            const resetData: Partial<BillingConfig> = {
                 b2b_base_fee: config.b2b_base_fee,
                 b2b_patient_fee_rate: config.b2b_patient_fee_rate,
                 b2b_patient_fee_enabled: config.b2b_patient_fee_enabled,
                 b2b_billing_anchor_day: config.b2b_billing_anchor_day,
                 b2b_billing_timezone: config.b2b_billing_timezone,
-            });
+            };
+            setFormData(resetData);
+            setInitialFormData(resetData);
             setIsDirty(false);
         }
     };
+
+    const subscriptionStatus = billingStatus?.subscription_status || "inactive";
+    const canShowActivateNow =
+        subscriptionStatus === "inactive" || subscriptionStatus === "canceled";
+    const hasActivePaymentMethod = billingStatus?.payment_method_status === "active";
+    const activationLabel =
+        subscriptionStatus === "canceled" ? "Save & Reactivate Now" : "Save & Activate Now";
 
     if (isLoading) {
         return (
@@ -290,8 +322,14 @@ export function BillingConfigEditor({ clientId }: BillingConfigEditorProps) {
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 p-3 rounded-lg text-xs text-muted-foreground">
                     <span className="font-bold text-blue-700 dark:text-blue-400">Note:</span>{" "}
                     Changes to billing configuration take effect on the next billing cycle.
-                    Mid-cycle changes do not affect the current invoice. Use{" "}
-                    <strong>Save &amp; Activate Now</strong> to run initial onboarding charge immediately.
+                    Mid-cycle changes do not affect the current invoice.
+                    {canShowActivateNow ? (
+                        <>
+                            {" "}Use <strong>{activationLabel}</strong> to run initial onboarding charge immediately.
+                        </>
+                    ) : (
+                        <> No immediate charge is run when saving while subscription is active.</>
+                    )}
                 </div>
 
                 {/* Action Buttons */}
@@ -318,25 +356,27 @@ export function BillingConfigEditor({ clientId }: BillingConfigEditorProps) {
                                 </>
                             )}
                         </Button>
-                        <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={handleSaveAndActivate}
-                            disabled={updateMutation.isPending}
-                            className="flex items-center gap-1"
-                        >
-                            {updateMutation.isPending ? (
-                                <>
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    Activating...
-                                </>
-                            ) : (
-                                <>
-                                    <Play className="h-4 w-4" />
-                                    Save &amp; Activate Now
-                                </>
-                            )}
-                        </Button>
+                        {canShowActivateNow && (
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={handleSaveAndActivate}
+                                disabled={updateMutation.isPending || !hasActivePaymentMethod}
+                                className="flex items-center gap-1"
+                            >
+                                {updateMutation.isPending ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Activating...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Play className="h-4 w-4" />
+                                        {activationLabel}
+                                    </>
+                                )}
+                            </Button>
+                        )}
                     </div>
                 )}
             </div>
