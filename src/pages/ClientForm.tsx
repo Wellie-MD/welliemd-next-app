@@ -270,7 +270,6 @@ export default function ClientForm() {
         title: "Success",
         description: response.message,
       });
-      navigate("/dashboard/clients");
     },
     onError: (error: unknown) => {
       toast({
