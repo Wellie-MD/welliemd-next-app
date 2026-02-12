@@ -354,13 +354,13 @@ export default function InvoicesPage() {
                           <Button
                             type="button"
                             size="sm"
-                            variant="outline"
+                            variant="default"
                             disabled={payingInvoiceId === inv.id}
                             onClick={(e) => {
                               e.stopPropagation();
                               void handlePayNow(inv.id);
                             }}
-                            className="min-w-[110px]"
+                            className="min-w-[130px] bg-red-600 text-white hover:bg-red-700"
                           >
                             {payingInvoiceId === inv.id ? (
                               <>
@@ -368,7 +368,7 @@ export default function InvoicesPage() {
                                 Processing
                               </>
                             ) : (
-                              "Pay now"
+                              "Pay Now"
                             )}
                           </Button>
                         ) : (

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import billingService, { BillingLockStatus } from "@/services/billingService";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+import { AlertTriangle, ArrowRight, CreditCard } from "lucide-react";
 
 /**
  * BillingSuspendedBanner
@@ -13,6 +15,7 @@ import { Button } from "@/components/ui/button";
  * Usage: Add to layout or wrap around pages that should show the warning.
  */
 export default function BillingSuspendedBanner() {
+    const navigate = useNavigate();
     const [lockStatus, setLockStatus] = useState<BillingLockStatus | null>(null);
     const [loading, setLoading] = useState(true);
     const [paying, setPaying] = useState(false);
@@ -35,9 +38,16 @@ export default function BillingSuspendedBanner() {
         };
 
         fetchLockStatus();
+        const pollId = window.setInterval(fetchLockStatus, 15000);
+        const onFocus = () => {
+            void fetchLockStatus();
+        };
+        window.addEventListener("focus", onFocus);
 
         return () => {
             mounted = false;
+            window.clearInterval(pollId);
+            window.removeEventListener("focus", onFocus);
         };
     }, []);
 
@@ -62,7 +72,12 @@ export default function BillingSuspendedBanner() {
     };
 
     // Don't render if not locked or still loading
-    if (loading || !lockStatus || lockStatus.lock_state !== "locked") {
+    if (
+        loading ||
+        !lockStatus ||
+        lockStatus.lock_state !== "locked" ||
+        lockStatus.blocking_invoice_count <= 0
+    ) {
         return null;
     }
 
@@ -72,25 +87,13 @@ export default function BillingSuspendedBanner() {
     }).format(parseFloat(lockStatus.blocking_balance));
 
     return (
-        <div className="bg-red-50 border-b border-red-200">
+        <div className="border-b border-red-200 bg-gradient-to-r from-red-50 to-rose-50">
             <div className="max-w-7xl mx-auto px-4 py-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     {/* Warning Icon and Message */}
                     <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0">
-                            <svg
-                                className="w-6 h-6 text-red-600"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                                />
-                            </svg>
+                        <div className="flex-shrink-0 rounded-full bg-red-100 p-1.5">
+                            <AlertTriangle className="h-5 w-5 text-red-600" />
                         </div>
                         <div>
                             <h3 className="text-sm font-semibold text-red-800">
@@ -106,12 +109,12 @@ export default function BillingSuspendedBanner() {
                             </p>
                             {payResult?.error && (
                                 <p className="text-sm text-red-600 mt-1 font-medium">
-                                    ⚠️ {payResult.error}
+                                    {payResult.error}
                                 </p>
                             )}
                             {payResult?.success && (
                                 <p className="text-sm text-green-600 mt-1 font-medium">
-                                    ✓ Payment successful! Your account is now unlocked.
+                                    Payment successful. Your account is now unlocking.
                                 </p>
                             )}
                         </div>
@@ -122,16 +125,17 @@ export default function BillingSuspendedBanner() {
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => window.location.href = "/dashboard/billing"}
-                            className="border-red-300 text-red-700 hover:bg-red-100"
+                            onClick={() => navigate("/dashboard/finances/invoices")}
+                            className="border-red-300 bg-white/70 text-red-700 hover:bg-red-100"
                         >
+                            <ArrowRight className="mr-1 h-4 w-4" />
                             View Invoices
                         </Button>
                         <Button
                             size="sm"
                             onClick={handlePayAll}
                             disabled={paying}
-                            className="bg-red-600 hover:bg-red-700 text-white"
+                            className="bg-red-600 hover:bg-red-700 text-white shadow-sm"
                         >
                             {paying ? (
                                 <span className="flex items-center gap-2">
@@ -158,7 +162,10 @@ export default function BillingSuspendedBanner() {
                                     Processing...
                                 </span>
                             ) : (
-                                `Pay ${balanceFormatted} Now`
+                                <>
+                                    <CreditCard className="mr-1 h-4 w-4" />
+                                    {`Pay ${balanceFormatted} Now`}
+                                </>
                             )}
                         </Button>
                     </div>
