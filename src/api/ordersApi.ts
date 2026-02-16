@@ -81,6 +81,9 @@ export interface Order {
   address?: string | null
   orderStatus?: string | null
   orderTotal?: string | null
+  original_price?: string | null
+  discount_amount?: string | null
+  shipping_fee?: string | null
   tracking_number?: string | null
   patient_responses?: PatientResponses | null
   checkout_url?: string | null
