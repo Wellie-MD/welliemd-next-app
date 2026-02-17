@@ -2,12 +2,9 @@ import { useState, useMemo, useCallback, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { CalendarDays, RotateCcw, TrendingUp, Download, RefreshCw, Grid3X3, Eye } from "lucide-react"
+import { TrendingUp, Grid3X3, Eye } from "lucide-react"
 import { DateRange } from "react-day-picker"
-import { isWithinInterval } from "date-fns"
-import mockData from "@/data/mockData.json"
 import { ordersApi, Order } from "@/api/ordersApi"
 import { exportToCSV } from "@/utils/exportUtils"
 import { PermissionGate } from "@/components/auth/PermissionGate"
@@ -103,13 +100,16 @@ const formatDateLabel = (dateString?: string | null) => {
 
 export default function Orders() {
   const [searchTerm, setSearchTerm] = useState("")
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
   const [activePaymentStatusFilter, setActivePaymentStatusFilter] = useState("All")
   const [activeOrderStatusFilter, setActiveOrderStatusFilter] = useState("All")
   const [activeVisitStatusFilter, setActiveVisitStatusFilter] = useState("All")
   const [activeAdditionalFilters, setActiveAdditionalFilters] = useState<string[]>([])
   const [date, setDate] = useState<DateRange | undefined>()
-  const [refreshKey, setRefreshKey] = useState(0)
   const [orders, setOrders] = useState<Order[]>([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [isLoadingOrders, setIsLoadingOrders] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -122,55 +122,14 @@ export default function Orders() {
   // Order Details Sheet state
   const navigate = useNavigate()
 
-  // Comprehensive filtering logic based on actual order data
-  const filteredOrders = useMemo(() => {
-    const lowerSearch = searchTerm.trim().toLowerCase()
-    return orders.filter(order => {
-      const matchesSearch = !lowerSearch ||
-        (order.order_id ?? '').toLowerCase().includes(lowerSearch) ||
-        (order.patient?.full_name ?? '').toLowerCase().includes(lowerSearch) ||
-        (order.name ?? '').toLowerCase().includes(lowerSearch) ||
-        (order.email ?? '').toLowerCase().includes(lowerSearch) ||
-        (order.phone ?? '').includes(searchTerm) ||
-        (order.mrn ?? '').toLowerCase().includes(lowerSearch) ||
-        (order.pharmacy_display ?? '').toLowerCase().includes(lowerSearch)
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim())
+    }, 350)
+    return () => clearTimeout(timeout)
+  }, [searchTerm])
 
-      // Payment Status filter
-      const matchesPaymentStatus = activePaymentStatusFilter === "All" || order.paymentStatus === activePaymentStatusFilter
-
-      // Order Status filter
-      const matchesOrderStatus = activeOrderStatusFilter === "All" || order.orderStatus === activeOrderStatusFilter
-
-      // Visit Status filter
-      const matchesVisitStatus = activeVisitStatusFilter === "All" || order.visitStatus === activeVisitStatusFilter
-
-      // Date range filter based on orderDate
-      let matchesDateRange = true
-      if (date?.from || date?.to) {
-          const orderDate = parseDate(order.orderDate as string)
-        
-        if (date.from && date.to) {
-          matchesDateRange = isWithinInterval(orderDate, {
-            start: date.from,
-            end: date.to
-          })
-        } else if (date.from) {
-          matchesDateRange = orderDate >= date.from
-        } else if (date.to) {
-          matchesDateRange = orderDate <= date.to
-        }
-      }
-
-      // Additional filters logic
-      let matchesAdditionalFilters = true
-      if (activeAdditionalFilters.length > 0) {
-        // Add your custom logic here based on the additional filters
-        // For now, we'll just show all results when additional filters are active
-      }
-
-      return matchesSearch && matchesPaymentStatus && matchesOrderStatus && matchesVisitStatus && matchesDateRange && matchesAdditionalFilters
-    })
-  }, [orders, searchTerm, activePaymentStatusFilter, activeOrderStatusFilter, activeVisitStatusFilter, date, activeAdditionalFilters, refreshKey])
+  const filteredOrders = useMemo(() => orders, [orders])
 
   // Create filter configuration - combining all filter types
   const filters = [
@@ -222,31 +181,66 @@ export default function Orders() {
     setActiveAdditionalFilters([])
     setDate(undefined)
     setSearchTerm("")
+    setCurrentPage(1)
   }, [])
 
-  const handleRefresh = useCallback(() => {
-    setRefreshKey(prev => prev + 1)
-    loadOrders()
-  }, [])
+  const normalizePaymentStatus = (status: string) => {
+    if (status === "All") return undefined
+    return status.toLowerCase()
+  }
 
-  // Load orders from API
-  const loadOrders = async () => {
+  const normalizeVisitStatus = (status: string) => {
+    if (status === "All") return undefined
+    return status.toLowerCase()
+  }
+
+  const loadOrders = useCallback(async () => {
     setIsLoadingOrders(true)
     setError(null)
     try {
-      const data = await ordersApi.fetchOrders()
+      const params: Record<string, string | number> = {
+        page: currentPage,
+        page_size: pageSize,
+      }
+      if (debouncedSearchTerm) params.search = debouncedSearchTerm
+      if (activeOrderStatusFilter !== "All") params.status = activeOrderStatusFilter
+      const paymentStatus = normalizePaymentStatus(activePaymentStatusFilter)
+      if (paymentStatus) params["transaction__status"] = paymentStatus
+      const visitStatus = normalizeVisitStatus(activeVisitStatusFilter)
+      if (visitStatus) params["visit__status"] = visitStatus
+      if (date?.from) params["created_at__gte"] = date.from.toISOString().slice(0, 10)
+      if (date?.to) params["created_at__lte"] = date.to.toISOString().slice(0, 10)
+
+      const data = await ordersApi.fetchOrders(params)
       setOrders(data.results)
+      setTotalCount(data.count ?? data.results.length)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load orders')
       console.error('Error loading orders:', err)
     } finally {
       setIsLoadingOrders(false)
     }
-  }
+  }, [
+    currentPage,
+    pageSize,
+    debouncedSearchTerm,
+    activeOrderStatusFilter,
+    activePaymentStatusFilter,
+    activeVisitStatusFilter,
+    date,
+  ])
 
   useEffect(() => {
     loadOrders()
-  }, [])
+  }, [loadOrders])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearchTerm, activePaymentStatusFilter, activeOrderStatusFilter, activeVisitStatusFilter, date])
+
+  const handleRefresh = useCallback(() => {
+    loadOrders()
+  }, [loadOrders])
 
   const handleDeleteOrder = async (id: string) => {
     setIsSaving(true)
@@ -549,6 +543,17 @@ export default function Orders() {
         onResetFilters={handleResetFilters}
         onExport={handleExport}
         onRefresh={handleRefresh}
+        pagination={{
+          currentPage,
+          totalPages: Math.max(1, Math.ceil(totalCount / pageSize)),
+          pageSize,
+          totalCount,
+          onPageChange: setCurrentPage,
+          onPageSizeChange: (nextSize) => {
+            setPageSize(nextSize)
+            setCurrentPage(1)
+          },
+        }}
         loading={isLoadingOrders || isSaving}
       />
 
