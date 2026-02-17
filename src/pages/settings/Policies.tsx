@@ -1,11 +1,6 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { Form, FormControl, FormField, FormItem } from "@/components/ui/form"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,12 +22,6 @@ import {
   type PolicyTypeSlug,
   POLICY_TYPE_SLUGS,
 } from "@/api/policiesApi"
-
-const policyFormSchema = z.object({
-  content: z.string().min(1, "Policy content is required"),
-})
-
-type PolicyFormData = z.infer<typeof policyFormSchema>
 
 const POLICY_TYPE_TO_TITLE: Record<PolicyTypeSlug, string> = {
   refund_policy: "Refund Policy",
@@ -65,6 +54,8 @@ export default function Policies() {
   const [pendingTemplateId, setPendingTemplateId] = useState<string | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [creatingType, setCreatingType] = useState<PolicyTypeSlug | null>(null)
+  // Revision counter: bump to force editors to re-render after template reload
+  const [revision, setRevision] = useState(0)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -110,6 +101,8 @@ export default function Policies() {
         const rest = list.filter((p) => p.policy_type !== policyType)
         return [...rest, created]
       })
+      // Bump revision so the editor re-renders with new content
+      setRevision((r) => r + 1)
       setReloadConfirmOpen(false)
       setPendingPolicyType(null)
       setPendingTemplateId(null)
@@ -161,8 +154,11 @@ export default function Policies() {
     }
   }
 
-  const handlePublish = async (id: string) => {
+  const handlePublish = async (id: string, content: string) => {
+    setSavingId(id)
     try {
+      // Save first, then publish
+      await updateClientPolicy(id, { final_content: content })
       const updated = await publishClientPolicy(id)
       setClientPolicies((prev) => {
         const list = Array.isArray(prev) ? prev : []
@@ -170,6 +166,8 @@ export default function Policies() {
       })
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to publish policy")
+    } finally {
+      setSavingId(null)
     }
   }
 
@@ -210,7 +208,7 @@ export default function Policies() {
         const title = POLICY_TYPE_TO_TITLE[policyType]
         return (
           <PolicyEditor
-            key={policyType}
+            key={`${policyType}-${revision}`}
             policyType={policyType}
             title={title}
             policy={policy}
@@ -218,7 +216,7 @@ export default function Policies() {
             onCreateFromTemplate={() => onCreateFromTemplateClick(policyType)}
             onSave={handleSave}
             onPublish={handlePublish}
-            saving={savingId !== null}
+            saving={savingId === policy?.id}
             creating={creatingType === policyType}
           />
         )
@@ -253,6 +251,18 @@ export default function Policies() {
   )
 }
 
+/* ------------------------------------------------------------------ */
+/*  Rich-text toolbar helpers                                          */
+/* ------------------------------------------------------------------ */
+
+function execCmd(command: string, value?: string) {
+  document.execCommand(command, false, value)
+}
+
+/* ------------------------------------------------------------------ */
+/*  PolicyEditor – one per policy type                                 */
+/* ------------------------------------------------------------------ */
+
 interface PolicyEditorProps {
   policyType: PolicyTypeSlug
   title: string
@@ -260,7 +270,7 @@ interface PolicyEditorProps {
   template: PolicyTemplate | undefined
   onCreateFromTemplate: () => void
   onSave: (id: string, content: string) => Promise<void>
-  onPublish: (id: string) => Promise<void>
+  onPublish: (id: string, content: string) => Promise<void>
   saving: boolean
   creating: boolean
 }
@@ -283,17 +293,54 @@ function PolicyEditor({
   })
 
   // Sync form when policy content changes (e.g. after create-from-template)
-  useEffect(() => {
-    form.reset({ content: policy?.final_content ?? "" })
-  }, [policy?.id, policy?.final_content, form])
+  const editorRef = useRef<HTMLDivElement>(null)
+  const [isDirty, setIsDirty] = useState(false)
 
-  const onSubmit = (data: PolicyFormData) => {
-    if (policy?.id) onSave(policy.id, data.content)
+  // Initialise / reset editor content when external content changes
+  const initialContent = policy?.final_content ?? ""
+  useEffect(() => {
+    if (editorRef.current) {
+      editorRef.current.innerHTML = initialContent
+      setIsDirty(false)
+    }
+  }, [initialContent])
+
+  const getEditorContent = (): string => {
+    return editorRef.current?.innerHTML ?? ""
+  }
+
+  const handleInput = () => {
+    setIsDirty(true)
+  }
+
+  const handleSaveClick = () => {
+    if (policy?.id) {
+      onSave(policy.id, getEditorContent())
+      setIsDirty(false)
+    }
+  }
+
+  const handlePublishClick = () => {
+    if (policy?.id) {
+      onPublish(policy.id, getEditorContent())
+      setIsDirty(false)
+    }
+  }
+
+  const handleHeadingChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value
+    if (val === "Heading 1") execCmd("formatBlock", "<h1>")
+    else if (val === "Heading 2") execCmd("formatBlock", "<h2>")
+    else execCmd("formatBlock", "<p>")
+    editorRef.current?.focus()
+    setIsDirty(true)
   }
 
   const lastEdited = policy?.updated_at
     ? formatRelativeTime(policy.updated_at)
     : "Never"
+
+  const disabled = !policy?.id
 
   return (
     <Card className="mb-6">
@@ -319,79 +366,107 @@ function PolicyEditor({
         </div>
       </CardHeader>
       <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="content"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <div className="border border-border rounded-md">
-                      <div className="border-b border-border p-2 bg-muted/30">
-                        <div className="flex items-center gap-1">
-                          <select className="text-sm border-none bg-transparent">
-                            <option>Normal</option>
-                            <option>Heading 1</option>
-                            <option>Heading 2</option>
-                          </select>
-                          <div className="h-4 w-px bg-border mx-1" />
-                          <Button type="button" variant="ghost" size="sm" className="p-1 h-8 w-8">
-                            <strong>B</strong>
-                          </Button>
-                          <Button type="button" variant="ghost" size="sm" className="p-1 h-8 w-8">
-                            <em>I</em>
-                          </Button>
-                          <Button type="button" variant="ghost" size="sm" className="p-1 h-8 w-8">
-                            <u>U</u>
-                          </Button>
-                          <Button type="button" variant="ghost" size="sm" className="p-1 h-8 w-8">
-                            S
-                          </Button>
-                          <div className="h-4 w-px bg-border mx-1" />
-                          <Button type="button" variant="ghost" size="sm" className="p-1 h-8 w-8">
-                            ≡
-                          </Button>
-                          <Button type="button" variant="ghost" size="sm" className="p-1 h-8 w-8">
-                            ≡
-                          </Button>
-                          <Button type="button" variant="ghost" size="sm" className="p-1 h-8 w-8">
-                            ≡
-                          </Button>
-                        </div>
-                      </div>
-                      <Textarea
-                        {...field}
-                        placeholder={"Enter your " + title.toLowerCase() + " content here..."}
-                        className="min-h-[200px] border-none resize-none focus-visible:ring-0"
-                        disabled={!policy?.id}
-                      />
-                    </div>
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-            <div className="flex items-center gap-2">
-              <Button
-                type="submit"
-                size="sm"
-                disabled={!policy?.id || policy?.status !== "draft" || saving}
-              >
-                {saving ? "Saving…" : "Save"}
-              </Button>
-              {policy?.id && policy?.status === "draft" && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => onPublish(policy.id)}
+        <div className="space-y-4">
+          <div className="border border-border rounded-md">
+            {/* ── Toolbar ── */}
+            <div className="border-b border-border p-2 bg-muted/30">
+              <div className="flex items-center gap-1">
+                <select
+                  className="text-sm border-none bg-transparent"
+                  onChange={handleHeadingChange}
+                  defaultValue="Normal"
+                  disabled={disabled}
                 >
-                  Publish
+                  <option>Normal</option>
+                  <option>Heading 1</option>
+                  <option>Heading 2</option>
+                </select>
+                <div className="h-4 w-px bg-border mx-1" />
+                <Button type="button" variant="ghost" size="sm" className="p-1 h-8 w-8"
+                  disabled={disabled}
+                  onMouseDown={(e) => { e.preventDefault(); execCmd("bold") }}>
+                  <strong>B</strong>
                 </Button>
-              )}
+                <Button type="button" variant="ghost" size="sm" className="p-1 h-8 w-8"
+                  disabled={disabled}
+                  onMouseDown={(e) => { e.preventDefault(); execCmd("italic") }}>
+                  <em>I</em>
+                </Button>
+                <Button type="button" variant="ghost" size="sm" className="p-1 h-8 w-8"
+                  disabled={disabled}
+                  onMouseDown={(e) => { e.preventDefault(); execCmd("underline") }}>
+                  <u>U</u>
+                </Button>
+                <Button type="button" variant="ghost" size="sm" className="p-1 h-8 w-8"
+                  disabled={disabled}
+                  onMouseDown={(e) => { e.preventDefault(); execCmd("strikeThrough") }}>
+                  <s>S</s>
+                </Button>
+                <div className="h-4 w-px bg-border mx-1" />
+                <Button type="button" variant="ghost" size="sm" className="p-1 h-8 w-8"
+                  disabled={disabled}
+                  onMouseDown={(e) => { e.preventDefault(); execCmd("justifyLeft") }}
+                  title="Align left">
+                  ≡
+                </Button>
+                <Button type="button" variant="ghost" size="sm" className="p-1 h-8 w-8"
+                  disabled={disabled}
+                  onMouseDown={(e) => { e.preventDefault(); execCmd("justifyCenter") }}
+                  title="Align center">
+                  ≡
+                </Button>
+                <Button type="button" variant="ghost" size="sm" className="p-1 h-8 w-8"
+                  disabled={disabled}
+                  onMouseDown={(e) => { e.preventDefault(); execCmd("justifyRight") }}
+                  title="Align right">
+                  ≡
+                </Button>
+              </div>
             </div>
-          </form>
-        </Form>
+
+            {/* ── Editable area ── */}
+            <style>{`
+              .policy-editor h1 { font-size: 1.75rem; font-weight: 700; line-height: 1.3; margin: 0.5em 0; }
+              .policy-editor h2 { font-size: 1.35rem; font-weight: 600; line-height: 1.35; margin: 0.4em 0; }
+              .policy-editor p { margin: 0.25em 0; }
+              .policy-editor b, .policy-editor strong { font-weight: 700; }
+              .policy-editor i, .policy-editor em { font-style: italic; }
+              .policy-editor u { text-decoration: underline; }
+              .policy-editor s, .policy-editor strike { text-decoration: line-through; }
+            `}</style>
+            <div
+              ref={editorRef}
+              contentEditable={!disabled}
+              suppressContentEditableWarning
+              onInput={handleInput}
+              data-placeholder={"Enter your " + title.toLowerCase() + " content here..."}
+              className="policy-editor min-h-[200px] p-3 outline-none text-sm leading-relaxed max-w-none focus:ring-0 [&:empty]:before:content-[attr(data-placeholder)] [&:empty]:before:text-muted-foreground"
+              style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              disabled={disabled || saving || !isDirty}
+              onClick={handleSaveClick}
+            >
+              {saving ? "Saving…" : "Save"}
+            </Button>
+            {policy?.id && policy?.status === "draft" && (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={saving}
+                onClick={handlePublishClick}
+              >
+                Publish
+              </Button>
+            )}
+          </div>
+        </div>
       </CardContent>
     </Card>
   )
