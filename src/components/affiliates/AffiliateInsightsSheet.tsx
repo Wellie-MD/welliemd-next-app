@@ -417,6 +417,12 @@ export function AffiliateInsightsSheet({
                                 </TableHead>
                                 <TableHead
                                   className="cursor-pointer hover:bg-muted/50"
+                                  onClick={() => handleSort("status")}
+                                >
+                                  Status{getSortIcon("status")}
+                                </TableHead>
+                                <TableHead
+                                  className="cursor-pointer hover:bg-muted/50"
                                   onClick={() => handleSort("created_at")}
                                 >
                                   Created At{getSortIcon("created_at")}
@@ -436,6 +442,23 @@ export function AffiliateInsightsSheet({
                                       minimumFractionDigits: 2,
                                       maximumFractionDigits: 2,
                                     })}
+                                  </TableCell>
+                                  <TableCell>
+                                    <span
+                                      className={
+                                        item.status === "earned"
+                                          ? "inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700"
+                                          : item.status === "pending"
+                                          ? "inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700"
+                                          : "inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700"
+                                      }
+                                    >
+                                      {item.status === "earned"
+                                        ? "Earned"
+                                        : item.status === "pending"
+                                        ? "Pending"
+                                        : "Cancelled"}
+                                    </span>
                                   </TableCell>
                                   <TableCell>
                                     {format(

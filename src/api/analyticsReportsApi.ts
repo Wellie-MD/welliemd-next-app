@@ -69,7 +69,7 @@ export const getAggregates = async (params?: AggregatesParams): Promise<Aggregat
     const rawOrders = ordersResponse.results || [];
 
     let orders = rawOrders;
-    
+
     if (params?.start_date && params?.end_date) {
       const filterStart = startOfDay(parseISO(params.start_date));
       const filterEnd = endOfDay(parseISO(params.end_date));
@@ -135,12 +135,12 @@ function aggregateByState(orders: any[], params?: AggregatesParams): AggregateBy
   orders.forEach(order => {
     // Extract state from shipping address or billing address
     const state = order.patient_state ||
-                  order.shipping_state || 
-                  order.billing_state || 
-                  order.state || 
-                  order.shipping_address?.state ||
-                  order.billing_address?.state ||
-                  'Unknown';
+      order.shipping_state ||
+      order.billing_state ||
+      order.state ||
+      order.shipping_address?.state ||
+      order.billing_address?.state ||
+      'Unknown';
 
     // Skip if filtering by specific state and this doesn't match
     if (params?.state && state !== params.state) {
@@ -249,14 +249,19 @@ function aggregateByVariant(orders: any[], params?: AggregatesParams): Aggregate
   }>();
 
   orders.forEach(order => {
-    // Orders might have line items/variants
-    const items = order.items || order.line_items || order.order_items || [];
-    
+    // 1. Prioritize selected_medicines
+    let items = [];
+    if (order.selected_medicines && order.selected_medicines.length > 0) {
+      items = order.selected_medicines;
+    } else {
+      items = order.items || order.line_items || order.order_items || [];
+    }
+
     if (items.length === 0) {
       // If no items array, try to get variant from order itself
       const variantId = order.variant_id || order.product_variant_id || 'unknown';
       const variantName = order.variant_name || order.product_name || `Variant ${variantId}`;
-      
+
       // Skip if filtering by specific variant and this doesn't match
       if (params?.variant_id && variantId !== params.variant_id) {
         return;
@@ -280,11 +285,10 @@ function aggregateByVariant(orders: any[], params?: AggregatesParams): Aggregate
       current.totalQuantity += quantity;
       current.totalSales += amount;
     } else {
-      // Process each line item
       items.forEach((item: any) => {
         const variantId = item.variant_id || item.product_variant_id || 'unknown';
-        const variantName = item.variant_name || item.product_name || item.name || `Variant ${variantId}`;
-        
+        const variantName = item.variant_name || item.name || `Variant ${variantId}`;
+
         // Skip if filtering by specific variant and this doesn't match
         if (params?.variant_id && variantId !== params.variant_id) {
           return;
@@ -296,7 +300,7 @@ function aggregateByVariant(orders: any[], params?: AggregatesParams): Aggregate
         if (!variantMap.has(variantName)) {
           variantMap.set(variantName, {
             id: variantId,
-            productName: item.product_name,
+            productName: order.product_name || item.name,
             totalOrders: 0,
             totalQuantity: 0,
             totalSales: 0,
@@ -331,17 +335,17 @@ export const getStates = async (): Promise<string[]> => {
   try {
     const ordersResponse = await fetchOrders({ limit: 1000 });
     const orders = ordersResponse.results || [];
-    
+
     const states = new Set<string>();
     orders.forEach((order: any) => {
-      const state = order.shipping_state || 
-                    order.billing_state || 
-                    order.state || 
-                    order.shipping_address?.state ||
-                    order.billing_address?.state;
+      const state = order.shipping_state ||
+        order.billing_state ||
+        order.state ||
+        order.shipping_address?.state ||
+        order.billing_address?.state;
       if (state) states.add(state);
     });
-    
+
     return Array.from(states).sort();
   } catch (error) {
     console.error('Failed to fetch states:', error);

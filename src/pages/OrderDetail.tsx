@@ -292,7 +292,20 @@ export default function OrderDetail() {
   timelineItems.reverse()
 
   const qty = order.prescription_medications?.[0]?.quantity ?? "1"
-  const itemPrice = order.orderTotal || "0"
+  const originalPrice = order.original_price != null ? parseFloat(order.original_price) : null
+  const shippingFee = order.shipping_fee != null ? parseFloat(order.shipping_fee) : null
+  const discountAmount = order.discount_amount != null ? parseFloat(order.discount_amount) : 0
+  const totalAmount = order.orderTotal != null ? parseFloat(order.orderTotal) : 0
+  const hasBreakdown = originalPrice != null || shippingFee != null || discountAmount > 0
+  const productSubtotalAfterDiscount =
+    originalPrice != null && discountAmount > 0
+      ? originalPrice - discountAmount
+      : originalPrice != null
+        ? originalPrice
+        : null
+  const itemPrice = productSubtotalAfterDiscount != null
+    ? productSubtotalAfterDiscount.toFixed(2)
+    : order.orderTotal || "0"
   const totalPrice = order.orderTotal || "0"
 
   const TimelineIcon = ({ name, iconBg }: { name: TimelineItem["icon"]; iconBg: string }) => {
@@ -391,14 +404,46 @@ export default function OrderDetail() {
                   </tr>
                 </tbody>
                 <tfoot className="bg-muted/30">
-                  <tr>
-                    <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                      Sub Total:
-                    </td>
-                    <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                      ${totalPrice}
-                    </td>
-                  </tr>
+                  {hasBreakdown && originalPrice != null && (
+                    <tr>
+                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                        Original price (product):
+                      </td>
+                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                        ${originalPrice.toFixed(2)}
+                      </td>
+                    </tr>
+                  )}
+                  {hasBreakdown && shippingFee != null && (
+                    <tr>
+                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                        Shipping:
+                      </td>
+                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                        ${shippingFee.toFixed(2)}
+                      </td>
+                    </tr>
+                  )}
+                  {hasBreakdown && discountAmount > 0 && (
+                    <tr>
+                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                        Discount:
+                      </td>
+                      <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
+                        −${discountAmount.toFixed(2)}
+                      </td>
+                    </tr>
+                  )}
+                  {!hasBreakdown && (
+                    <tr>
+                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                        Sub Total:
+                      </td>
+                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                        ${totalPrice}
+                      </td>
+                    </tr>
+                  )}
                   <tr>
                     <td
                       className="px-6 py-3 text-right font-bold text-slate-900 dark:text-white border-t border-border"
