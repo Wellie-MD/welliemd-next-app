@@ -3,7 +3,6 @@ import billingService, { BillingProfile, BillingSubscriptionStatus } from "@/ser
 // Stripe imports are loaded dynamically at runtime to avoid build-time errors when the
 // packages are not installed in some environments. We still list them in package.json
 // so a normal dev environment should install them.
-import mockData from "@/data/mockData.json";
 import visaIcon from "@/assets/icons/payment-methods/visa.svg";
 import mastercardIcon from "@/assets/icons/payment-methods/mastercard.svg";
 import amexIcon from "@/assets/icons/payment-methods/american-express.svg";
@@ -33,7 +32,7 @@ function Modal({ children, onClose }: { children: any; onClose: () => void }) {
 export default function MyBillingProfile() {
   const [profile, setProfile] = useState<BillingProfile | null>(null);
   const [paymentMethodStatus, setPaymentMethodStatus] =
-    useState<string>("active");
+    useState<string>("unknown");
   const [paymentMethod, setPaymentMethod] = useState<{
     id?: string;
     brand?: string;
@@ -91,6 +90,12 @@ export default function MyBillingProfile() {
               exp_year: pmData.payment_method?.exp_year,
             },
           }));
+        } else {
+          setPaymentMethod(null);
+          setProfile((prev) => ({
+            ...(prev ?? {}),
+            payment_method: null,
+          }));
         }
         
         if (pmData.billing_details) {
@@ -101,22 +106,8 @@ export default function MyBillingProfile() {
           }));
         }
       } else {
-        // fallback to mock only if API fails completely
-        const md: any = mockData as any;
-        const mock = md.billingProfile ?? {
-          client_name:
-            md?.client?.name ??
-            md?.dashboard?.payments?.[0]?.merchant ??
-            "Acme Health",
-          payment_method: {
-            brand: "Visa",
-            last4: "1383",
-            exp_month: 8,
-            exp_year: 2026,
-          },
-          next_invoice_date: "2025-11-26",
-        };
-        if (mounted) setProfile(mock);
+        setPaymentMethodStatus("no_payment_method");
+        setPaymentMethod(null);
       }
       if (mounted && subStatus) {
         setSubscriptionStatus(subStatus);
@@ -130,6 +121,11 @@ export default function MyBillingProfile() {
   }, []);
 
   const subscriptionState = (subscriptionStatus?.subscription_status || "unknown").toLowerCase();
+  const hasPaymentMethod = Boolean(paymentMethod?.last4 || profile?.payment_method?.last4);
+  const showNoPaymentMethodState =
+    paymentMethodStatus === "no_customer" ||
+    paymentMethodStatus === "no_payment_method" ||
+    !hasPaymentMethod;
   const subscriptionBadgeClass =
     subscriptionState === "active"
       ? "bg-emerald-100 text-emerald-800 border-emerald-200"
@@ -168,7 +164,7 @@ export default function MyBillingProfile() {
             <CardTitle className="text-lg">Payment Method</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {paymentMethodStatus === "no_customer" || paymentMethodStatus === "no_payment_method" ? (
+            {showNoPaymentMethodState ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
                 <p className="font-semibold text-amber-900">No payment method on file</p>
                 <p className="text-sm text-amber-700 mt-1">

@@ -292,21 +292,40 @@ export default function OrderDetail() {
   timelineItems.reverse()
 
   const qty = order.prescription_medications?.[0]?.quantity ?? "1"
-  const originalPrice = order.original_price != null ? parseFloat(order.original_price) : null
-  const shippingFee = order.shipping_fee != null ? parseFloat(order.shipping_fee) : null
-  const discountAmount = order.discount_amount != null ? parseFloat(order.discount_amount) : 0
-  const totalAmount = order.orderTotal != null ? parseFloat(order.orderTotal) : 0
-  const hasBreakdown = originalPrice != null || shippingFee != null || discountAmount > 0
+  const parseMoney = (value?: string | number | null): number | null => {
+    if (value === null || value === undefined || value === "") return null
+    const parsed = Number.parseFloat(String(value))
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  const formatMoney = (value?: number | null): string => {
+    if (value === null || value === undefined || Number.isNaN(value)) return "0.00"
+    return value.toFixed(2)
+  }
+
+  const quantityRaw = Number.parseFloat(String(qty))
+  const quantity = Number.isFinite(quantityRaw) && quantityRaw > 0 ? quantityRaw : 1
+  const originalPrice = parseMoney(order.original_price)
+  const shippingFee = parseMoney(order.shipping_fee)
+  const discountAmount = parseMoney(order.discount_amount) ?? 0
+  const totalAmount = parseMoney(order.orderTotal ?? order.amount)
   const productSubtotalAfterDiscount =
-    originalPrice != null && discountAmount > 0
-      ? originalPrice - discountAmount
-      : originalPrice != null
-        ? originalPrice
-        : null
-  const itemPrice = productSubtotalAfterDiscount != null
-    ? productSubtotalAfterDiscount.toFixed(2)
-    : order.orderTotal || "0"
-  const totalPrice = order.orderTotal || "0"
+    originalPrice != null
+      ? Math.max(0, originalPrice - discountAmount)
+      : totalAmount != null && shippingFee != null
+        ? Math.max(0, totalAmount - shippingFee)
+        : totalAmount
+  const originalUnitPrice =
+    originalPrice != null
+      ? originalPrice / quantity
+      : null
+  const itemUnitPrice =
+    productSubtotalAfterDiscount != null
+      ? productSubtotalAfterDiscount / quantity
+      : null
+  const hasBreakdown = originalPrice != null || shippingFee != null || discountAmount > 0
+  const itemPrice = formatMoney(itemUnitPrice)
+  const lineTotalPrice = formatMoney(productSubtotalAfterDiscount)
+  const totalPrice = formatMoney(totalAmount)
 
   const TimelineIcon = ({ name, iconBg }: { name: TimelineItem["icon"]; iconBg: string }) => {
     const iconMap = {
@@ -393,13 +412,25 @@ export default function OrderDetail() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right align-top text-slate-600 dark:text-slate-300">
-                      ${itemPrice}
+                      <div className="flex flex-col items-end">
+                        {discountAmount > 0 && originalUnitPrice != null && (
+                          <span className="text-xs text-slate-400 line-through">
+                            ${formatMoney(originalUnitPrice)}
+                          </span>
+                        )}
+                        <span>${itemPrice}</span>
+                        {discountAmount > 0 && (
+                          <span className="text-[11px] text-green-600 dark:text-green-400">
+                            Discount applied
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right align-top text-slate-600 dark:text-slate-300">
                       {qty}
                     </td>
                     <td className="px-6 py-4 text-right align-top font-medium text-slate-900 dark:text-white">
-                      ${totalPrice}
+                      ${lineTotalPrice}
                     </td>
                   </tr>
                 </tbody>
@@ -440,7 +471,7 @@ export default function OrderDetail() {
                         Sub Total:
                       </td>
                       <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${totalPrice}
+                        ${lineTotalPrice}
                       </td>
                     </tr>
                   )}
@@ -632,7 +663,7 @@ export default function OrderDetail() {
               <div className="pt-3 border-t border-border flex justify-between items-center mt-2">
                 <span className="text-slate-900 dark:text-white font-bold">Amount</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-900 dark:text-white font-bold">${order.orderTotal || "0"}</span>
+                  <span className="text-slate-900 dark:text-white font-bold">${totalPrice}</span>
                   {canRefundOrVoid && (
                     <PermissionGate permission={Permissions.REFUND_CREATE}>
                       <Button
