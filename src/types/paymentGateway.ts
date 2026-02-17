@@ -21,6 +21,7 @@ export interface PaymentGatewayConfig {
     stripe_secret_key?: string | null;
     stripe_publishable_key?: string | null;
     stripe_subscription_id?: string | null;
+    stripe_webhook_secret?: string | null;
 
     // Authorize.Net fields
     authorize_net_api_login_id?: string | null;
@@ -61,6 +62,14 @@ export const GATEWAY_FIELDS: Record<PaymentGatewayType, GatewayFieldConfig[]> = 
             label: 'Secret Key',
             placeholder: 'sk_live_...',
             description: 'Your Stripe secret key starts with "sk_live_" (production) or "sk_test_" (sandbox). Keep this secure and never expose it publicly.',
+            type: 'password',
+            required: true
+        },
+        {
+            key: 'stripe_webhook_secret',
+            label: 'Webhook Secret',
+            placeholder: 'whsec_...',
+            description: 'Stripe webhook signing secret from Dashboard → Developers → Webhooks → (your endpoint) → Signing secret. Used to verify incoming Stripe webhook signatures.',
             type: 'password',
             required: true
         },
@@ -135,4 +144,3 @@ export const GATEWAY_OPTIONS: { value: PaymentGatewayType; label: string }[] = [
     { value: 'nmi', label: 'NMI' },
     { value: 'authorize_net', label: 'Authorize.Net' },
 ];
-

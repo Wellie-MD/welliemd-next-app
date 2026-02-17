@@ -13,6 +13,7 @@ import { groupMessages } from "@/utils/groupMessages";
 import { Toaster } from "@/components/ui/toaster";
 import { useSocialTags } from "@/hooks/useSocialTags";
 import { BrandingProvider } from "@/contexts/BrandingContext";
+import BillingSuspendedBanner from "@/components/billing/BillingSuspendedBanner";
 
 // pages
 import Dashboard from "./pages/Dashboard";
@@ -54,7 +55,7 @@ function readSeen(): Record<string, string | number | undefined> {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch { return {}; }
 }
 function writeSeen(seen: Record<string, string | number | undefined>) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(seen)); } catch {}
+  try { localStorage.setItem(LS_KEY, JSON.stringify(seen)); } catch { }
 }
 const latestKey = (c: any) => {
   const last = c.messages[c.messages.length - 1];
@@ -76,7 +77,7 @@ async function playChime() {
     a.frequency.setValueAtTime(880, now); b.frequency.setValueAtTime(1318.51, now);
     a.connect(g); b.connect(g); a.start(now); b.start(now + 0.06);
     a.stop(now + 0.5); b.stop(now + 0.5);
-  } catch {}
+  } catch { }
 }
 function showBrowserNotification(title: string, body: string) {
   try {
@@ -196,7 +197,7 @@ const App = () => {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/register" element={<RegisterInvitation />} />
         <Route path="/accept-invitation" element={<AcceptInvitation />} />
-        
+
         {/* Error pages */}
         <Route path="/forbidden" element={<Forbidden />} />
 
@@ -216,44 +217,48 @@ const App = () => {
                     <MessageChime conversations={conversations} />
 
                     <Header />
+
+                    {/* Billing Suspended Banner - shown when account is locked */}
+                    <BillingSuspendedBanner />
+
                     <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
                       <Routes>
-                      <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-                      <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
-                      <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
-                      <Route path="/orders/details/:orderId" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
-                      <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
-                      <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
-                      <Route path="/products/routing" element={<ProtectedRoute><ProductsRouting /></ProtectedRoute>} />
-                      <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
-                      <Route 
-                        path="/billing" 
-                        element={
-                          <ProtectedRoute requiredPermission={Permissions.BILLING_VIEW}>
-                            <Billing />
-                          </ProtectedRoute>
-                        } 
-                      />
-                      <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-                      <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} />
-                      <Route path="/analytics/reports" element={<ProtectedRoute><AnalyticsReports /></ProtectedRoute>} />
-                      <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
-                      <Route path="/coupon-codes/new" element={<ProtectedRoute><CreateCouponPage /></ProtectedRoute>} />
-                      <Route path="/coupon-codes/:id/edit" element={<ProtectedRoute><CreateCouponPage /></ProtectedRoute>} />
-                      <Route path="/coupon-insights" element={<ProtectedRoute><CouponInsights /></ProtectedRoute>} />
-                      <Route path="/finances/invoices" element={<ProtectedRoute><FinancesInvoices /></ProtectedRoute>} />
-                      <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
-                      <Route path="/affiliates" element={<ProtectedRoute><Affiliates /></ProtectedRoute>} />
-                      <Route path="/questionnaires" element={<ProtectedRoute><TemplateManagement /></ProtectedRoute>} />
-                      <Route path="/templates" element={<ProtectedRoute><TemplateManagement /></ProtectedRoute>} />
-                      <Route path="/templates/:templateId" element={<ProtectedRoute><TemplateQuestions /></ProtectedRoute>} />
-                      <Route path="/templates/:templateId/flow-builder" element={<ProtectedRoute><FlowBuilder /></ProtectedRoute>} />
-                      <Route path="/manage-account" element={<ProtectedRoute><ManageAccount /></ProtectedRoute>} />
-                    </Routes>
-                  </main>
+                        <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                        <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
+                        <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+                        <Route path="/orders/details/:orderId" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
+                        <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
+                        <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
+                        <Route path="/products/routing" element={<ProtectedRoute><ProductsRouting /></ProtectedRoute>} />
+                        <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+                        <Route
+                          path="/billing"
+                          element={
+                            <ProtectedRoute requiredPermission={Permissions.BILLING_VIEW}>
+                              <Billing />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+                        <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} />
+                        <Route path="/analytics/reports" element={<ProtectedRoute><AnalyticsReports /></ProtectedRoute>} />
+                        <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
+                        <Route path="/coupon-codes/new" element={<ProtectedRoute><CreateCouponPage /></ProtectedRoute>} />
+                        <Route path="/coupon-codes/:id/edit" element={<ProtectedRoute><CreateCouponPage /></ProtectedRoute>} />
+                        <Route path="/coupon-insights" element={<ProtectedRoute><CouponInsights /></ProtectedRoute>} />
+                        <Route path="/finances/invoices" element={<ProtectedRoute><FinancesInvoices /></ProtectedRoute>} />
+                        <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} />
+                        <Route path="/affiliates" element={<ProtectedRoute><Affiliates /></ProtectedRoute>} />
+                        <Route path="/questionnaires" element={<ProtectedRoute><TemplateManagement /></ProtectedRoute>} />
+                        <Route path="/templates" element={<ProtectedRoute><TemplateManagement /></ProtectedRoute>} />
+                        <Route path="/templates/:templateId" element={<ProtectedRoute><TemplateQuestions /></ProtectedRoute>} />
+                        <Route path="/templates/:templateId/flow-builder" element={<ProtectedRoute><FlowBuilder /></ProtectedRoute>} />
+                        <Route path="/manage-account" element={<ProtectedRoute><ManageAccount /></ProtectedRoute>} />
+                      </Routes>
+                    </main>
+                  </div>
                 </div>
-              </div>
-            </SidebarProvider>
+              </SidebarProvider>
             </BrandingProvider>
           }
         />
@@ -261,20 +266,20 @@ const App = () => {
         <Route
           path="/dashboard/settings/*"
           element={
-          <ProtectedRoute>
-            <BrandingProvider>
-              <SidebarProvider>
-                <div className="min-h-screen flex w-full">
-                  <div className="flex-1 flex flex-col">
-                    <Header />
-                    <div className="flex flex-1">
-                      <SettingsLayout />
+            <ProtectedRoute>
+              <BrandingProvider>
+                <SidebarProvider>
+                  <div className="min-h-screen flex w-full">
+                    <div className="flex-1 flex flex-col">
+                      <Header />
+                      <div className="flex flex-1">
+                        <SettingsLayout />
+                      </div>
                     </div>
                   </div>
-                </div>
-              </SidebarProvider>
-            </BrandingProvider>
-          </ProtectedRoute>
+                </SidebarProvider>
+              </BrandingProvider>
+            </ProtectedRoute>
           }
         />
 
