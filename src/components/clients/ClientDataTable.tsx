@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { DataTable } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import { Client } from '@/api/clientApi';
-import { Building2, CheckCircle, XCircle, CreditCard, Pencil } from 'lucide-react';
+import { Building2, CheckCircle, XCircle, Pencil, AlertTriangle, Ban } from 'lucide-react';
 
 interface ClientDataTableProps {
   clients: Client[];
@@ -70,33 +70,47 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => 
       ),
     },
     {
-      key: 'stripe_subscription_id',
+      key: 'b2b_subscription_status',
       label: 'Subscription Status',
       headerClassName: 'w-1/4 text-center',
       className: 'text-center',
-      render: (value: string | null) => (
-        <div className="flex justify-center">
-          <span
-            className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-full ${
-              value
-                ? 'text-green-800 bg-green-100 dark:text-green-300 dark:bg-green-900/50'
-                : 'text-yellow-800 bg-yellow-100 dark:text-yellow-300 dark:bg-yellow-900/50'
-            }`}
-          >
-            {value ? (
-              <>
-                <CreditCard className="w-3 h-3 mr-1" />
-                Active Subscription
-              </>
-            ) : (
-              <>
-                <XCircle className="w-3 h-3 mr-1" />
-                No Subscription
-              </>
-            )}
-          </span>
-        </div>
-      ),
+      render: (_: unknown, row: Client) => {
+        const status = row.b2b_subscription_status ?? 'inactive';
+        const isPendingCancel = Boolean(row.b2b_cancel_at_period_end);
+
+        const statusUi = {
+          active: {
+            label: isPendingCancel ? 'Active (Cancel Scheduled)' : 'Active',
+            className: 'text-green-800 bg-green-100 dark:text-green-300 dark:bg-green-900/50',
+            icon: isPendingCancel ? AlertTriangle : CheckCircle,
+          },
+          past_due: {
+            label: 'Past Due',
+            className: 'text-red-800 bg-red-100 dark:text-red-300 dark:bg-red-900/50',
+            icon: AlertTriangle,
+          },
+          canceled: {
+            label: 'Canceled',
+            className: 'text-gray-700 bg-gray-100 dark:text-gray-300 dark:bg-gray-700/70',
+            icon: Ban,
+          },
+          inactive: {
+            label: 'No Subscription',
+            className: 'text-yellow-800 bg-yellow-100 dark:text-yellow-300 dark:bg-yellow-900/50',
+            icon: XCircle,
+          },
+        }[status as 'active' | 'past_due' | 'canceled' | 'inactive'];
+
+        const Icon = statusUi.icon;
+        return (
+          <div className="flex justify-center">
+            <span className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-full ${statusUi.className}`}>
+              <Icon className="w-3 h-3 mr-1" />
+              {statusUi.label}
+            </span>
+          </div>
+        );
+      },
     },
     {
       key: 'actions',

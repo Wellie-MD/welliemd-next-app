@@ -18,18 +18,12 @@ export interface Client {
   allowed_iframe_domains?: string[];
   branding_config?: Record<string, unknown>;
   token_expiry_minutes?: number;
-  patient_fee?: number;
   async_consult_fee_to_client?: number;
   async_consult_cost?: number;
   sync_video_consult_fee_to_client?: number;
   sync_consult_cost?: number;
-  monthly_saas_fee?: number;
-  first_next_saas_fees_billing_date?: string;
   include_cost_to_client_in_reimbursement?: boolean;
   include_shipping_cost_to_client_in_reimbursement?: boolean;
-  b2b_dunning_enabled?: boolean;
-  b2b_grace_period_days?: number;
-  b2b_manual_pay_enabled?: boolean;
   payment_gateway: string;
   is_active: boolean;
   created_at: string;
@@ -47,6 +41,8 @@ export interface Client {
   card_holder_name: string;
   card_last_four: string;
   stripe_subscription_id: string | null;
+  b2b_subscription_status?: 'inactive' | 'active' | 'past_due' | 'canceled';
+  b2b_cancel_at_period_end?: boolean;
   deployment_password?: string;
 }
 
@@ -57,7 +53,7 @@ export interface ClientCreatePayload {
   last_name: string;
   phone?: string;
   password?: string;
-  
+
   // Client Basic Information
   name: string;
   domain?: string;
@@ -80,18 +76,12 @@ export interface ClientCreatePayload {
   database_name?: string;
 
   // Billing Settings
-  patient_fee?: number;
   async_consult_fee_to_client?: number;
   async_consult_cost?: number;
   sync_video_consult_fee_to_client?: number;
   sync_consult_cost?: number;
-  monthly_saas_fee?: number;
-  first_next_saas_fees_billing_date?: string;
   include_cost_to_client_in_reimbursement?: boolean;
   include_shipping_cost_to_client_in_reimbursement?: boolean;
-  b2b_dunning_enabled?: boolean;
-  b2b_grace_period_days?: number;
-  b2b_manual_pay_enabled?: boolean;
 
   // Payment Gateway
   payment_gateway?: string;
@@ -129,18 +119,12 @@ export interface ClientUpdatePayload {
   database_name?: string;
 
   // Billing Settings
-  patient_fee?: number;
   async_consult_fee_to_client?: number;
   async_consult_cost?: number;
   sync_video_consult_fee_to_client?: number;
   sync_consult_cost?: number;
-  monthly_saas_fee?: number;
-  first_next_saas_fees_billing_date?: string;
   include_cost_to_client_in_reimbursement?: boolean;
   include_shipping_cost_to_client_in_reimbursement?: boolean;
-  b2b_dunning_enabled?: boolean;
-  b2b_grace_period_days?: number;
-  b2b_manual_pay_enabled?: boolean;
 
   // Payment Gateway
   payment_gateway?: string;
@@ -260,6 +244,8 @@ export const clientApi = {
     return data;
   },
 
+  // LEGACY: Stripe-managed subscription creation path.
+  // Prefer custom billing config + billing activation APIs.
   createSubscription: async (
     clientId: string,
     payload: { price_id?: string; base_price_id?: string; metered_price_id?: string; payment_method_id: string }
@@ -278,27 +264,8 @@ export const clientApi = {
 
   // B2B Billing Methods
   getB2BBillingStatus: async (clientId: string): Promise<import('../types/b2bBilling').B2BBillingStatus> => {
-    // Fetch payment method and recent invoices
-    const [paymentMethodRes, invoicesRes] = await Promise.all([
-      axiosInstance.get(`/internal/clients/${clientId}/payment-method/`),
-      axiosInstance.get(`/internal/invoices/`, {
-        params: { page_size: 5, ordering: '-issued_at', client_id: clientId, invoice_type: 'reimbursement' }
-      })
-    ]);
-
-    const paymentMethodStatus = paymentMethodRes.data.status || 'no_customer';
-    const hasPaymentMethod = paymentMethodStatus === 'active';
-
-    // Backend now returns structured payment_method object
-    const paymentMethod = paymentMethodRes.data.payment_method || undefined;
-
-    return {
-      has_payment_method: hasPaymentMethod,
-      payment_method_status: paymentMethodStatus,
-      payment_method: paymentMethod,
-      recent_invoices: invoicesRes.data.results || [],
-      total_outstanding: '0.00' // TODO: Calculate from pending invoices
-    };
+    const { data } = await axiosInstance.get(`/internal/clients/${clientId}/billing/status/`);
+    return data;
   },
 
   getB2BInvoices: async (
@@ -330,6 +297,66 @@ export const clientApi = {
 
   getB2BPaymentMethod: async (clientId: string): Promise<import('../types/b2bBilling').B2BPaymentMethodResponse> => {
     const { data } = await axiosInstance.get(`/internal/clients/${clientId}/payment-method/`);
+    return data;
+  },
+
+  // ==========================================================================
+  // NEW: Custom Billing Engine APIs
+  // ==========================================================================
+
+  /**
+   * Get billing lock status for a client.
+   */
+  getBillingLockStatus: async (clientId: string): Promise<import('../types/b2bBilling').BillingLockStatus> => {
+    const { data } = await axiosInstance.get(`/internal/clients/${clientId}/lock-status/`);
+    return data;
+  },
+
+  /**
+   * Get billing config for a client.
+   */
+  getBillingConfig: async (clientId: string): Promise<import('../types/b2bBilling').BillingConfig> => {
+    const { data } = await axiosInstance.get(`/internal/clients/${clientId}/billing/config/`);
+    return data;
+  },
+
+  /**
+   * Update billing config for a client.
+   */
+  updateBillingConfig: async (
+    clientId: string,
+    config: Partial<import('../types/b2bBilling').BillingConfig>
+  ): Promise<import('../types/b2bBilling').BillingConfig> => {
+    const { data } = await axiosInstance.patch(`/internal/clients/${clientId}/billing/config/`, config);
+    return data;
+  },
+
+  /**
+   * Admin pay a specific invoice for a client.
+   */
+  payInvoiceNow: async (clientId: string, invoiceId: string): Promise<import('../types/b2bBilling').PayNowResult> => {
+    const { data } = await axiosInstance.post(`/internal/clients/${clientId}/invoices/${invoiceId}/pay-now/`);
+    return data;
+  },
+
+  /**
+   * Admin pay all outstanding blocking invoices for a client.
+   */
+  payAllOutstanding: async (clientId: string): Promise<import('../types/b2bBilling').PayNowResult> => {
+    const { data } = await axiosInstance.post(`/internal/clients/${clientId}/pay-all/`);
+    return data;
+  },
+
+  /**
+   * Trigger initial SaaS access charge for a client (custom billing engine).
+   */
+  activateBilling: async (clientId: string): Promise<any> => {
+    const { data } = await axiosInstance.post(`/internal/clients/${clientId}/billing/activate/`);
+    return data;
+  },
+
+  cancelBilling: async (clientId: string, mode: 'immediate' | 'period_end'): Promise<any> => {
+    const { data } = await axiosInstance.post(`/internal/clients/${clientId}/billing/cancel/`, { mode });
     return data;
   },
 };

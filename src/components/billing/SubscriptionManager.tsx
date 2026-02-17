@@ -25,6 +25,10 @@ interface SubscriptionManagerProps {
 }
 
 export function SubscriptionManager({ clientId, hasPaymentMethod, paymentMethodStatus = 'no_customer' }: SubscriptionManagerProps) {
+  // LEGACY COMPONENT:
+  // Stripe-managed subscription creation is deprecated in favor of
+  // custom billing config + activation flow.
+  // Kept only for backward compatibility and should not be used for new tenants.
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   const handleCreateSubscription = () => {
