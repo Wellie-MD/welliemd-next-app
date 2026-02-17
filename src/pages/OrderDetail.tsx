@@ -318,6 +318,7 @@ export default function OrderDetail() {
     originalPrice != null
       ? originalPrice / quantity
       : null
+  const discountPerUnit = discountAmount > 0 ? discountAmount / quantity : 0
   const itemUnitPrice =
     productSubtotalAfterDiscount != null
       ? productSubtotalAfterDiscount / quantity
@@ -382,9 +383,24 @@ export default function OrderDetail() {
                 <thead className="bg-muted/50 text-slate-500 dark:text-slate-400 font-medium border-b">
                   <tr>
                     <th className="px-6 py-3">Product</th>
-                    <th className="px-6 py-3 text-right">Item Price</th>
-                    <th className="px-6 py-3 text-right">Quantity</th>
-                    <th className="px-6 py-3 text-right">Total</th>
+                    <th className="px-6 py-3 text-right">
+                      <div className="flex flex-col items-end leading-tight">
+                        <span>Item Price</span>
+                        <span className="text-[11px] font-normal text-slate-400">After discount</span>
+                      </div>
+                    </th>
+                    <th className="px-6 py-3 text-right">
+                      <div className="flex flex-col items-end leading-tight">
+                        <span>Quantity</span>
+                        <span className="text-[11px] font-normal text-slate-400">Items</span>
+                      </div>
+                    </th>
+                    <th className="px-6 py-3 text-right">
+                      <div className="flex flex-col items-end leading-tight">
+                        <span>Total</span>
+                        <span className="text-[11px] font-normal text-slate-400">Excl. shipping</span>
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -420,8 +436,8 @@ export default function OrderDetail() {
                         )}
                         <span>${itemPrice}</span>
                         {discountAmount > 0 && (
-                          <span className="text-[11px] text-green-600 dark:text-green-400">
-                            Discount applied
+                          <span className="text-[11px] text-green-600 dark:text-green-400 font-medium">
+                            Save ${formatMoney(discountPerUnit)} / unit
                           </span>
                         )}
                       </div>
@@ -430,7 +446,10 @@ export default function OrderDetail() {
                       {qty}
                     </td>
                     <td className="px-6 py-4 text-right align-top font-medium text-slate-900 dark:text-white">
-                      ${lineTotalPrice}
+                      <div className="flex flex-col items-end">
+                        <span>${lineTotalPrice}</span>
+                        <span className="text-[11px] font-normal text-slate-400">Excl. shipping</span>
+                      </div>
                     </td>
                   </tr>
                 </tbody>
@@ -438,10 +457,30 @@ export default function OrderDetail() {
                   {hasBreakdown && originalPrice != null && (
                     <tr>
                       <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        Original price (product):
+                        Product list price:
                       </td>
                       <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
                         ${originalPrice.toFixed(2)}
+                      </td>
+                    </tr>
+                  )}
+                  {discountAmount > 0 && (
+                    <tr>
+                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                        Product discount:
+                      </td>
+                      <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
+                        −${discountAmount.toFixed(2)}
+                      </td>
+                    </tr>
+                  )}
+                  {productSubtotalAfterDiscount != null && (
+                    <tr>
+                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                        Product subtotal:
+                      </td>
+                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                        ${lineTotalPrice}
                       </td>
                     </tr>
                   )}
@@ -455,23 +494,13 @@ export default function OrderDetail() {
                       </td>
                     </tr>
                   )}
-                  {hasBreakdown && discountAmount > 0 && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        Discount:
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
-                        −${discountAmount.toFixed(2)}
-                      </td>
-                    </tr>
-                  )}
                   {!hasBreakdown && (
                     <tr>
                       <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        Sub Total:
+                        Product subtotal:
                       </td>
                       <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${lineTotalPrice}
+                        ${totalPrice}
                       </td>
                     </tr>
                   )}
@@ -483,7 +512,12 @@ export default function OrderDetail() {
                       Total (USD):
                     </td>
                     <td className="px-6 py-3 text-right font-bold text-primary border-t border-border">
-                      ${totalPrice}
+                      <div className="flex flex-col items-end">
+                        <span>${totalPrice}</span>
+                        <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                          Product + shipping
+                        </span>
+                      </div>
                     </td>
                   </tr>
                 </tfoot>
