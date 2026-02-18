@@ -63,13 +63,17 @@ export function FlowSidebar({
   useEffect(() => {
     if (sidebarCollapsed) return;
     if (isHeavyContentReady) return;
+    if (searchQuery.trim().length > 0) {
+      setIsHeavyContentReady(true);
+      return;
+    }
     const timerId = window.setTimeout(() => {
       setIsHeavyContentReady(true);
     }, FLOWBUILDER_SIDEBAR_DEFERRED_MOUNT_MS);
     return () => {
       window.clearTimeout(timerId);
     };
-  }, [isHeavyContentReady, sidebarCollapsed]);
+  }, [isHeavyContentReady, searchQuery, sidebarCollapsed]);
 
   const deferredSearchQuery = useDeferredValue(searchQuery);
 

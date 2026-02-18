@@ -77,6 +77,7 @@ import {
   getHubNodes,
 } from "@/utils/flowVisibility";
 import { generateFlowFromTemplate } from "@/services/flowGeneratorService";
+import { AxiosError } from "axios";
 
 const nodeTypes = {
   questionNode: QuestionNode,
@@ -350,12 +351,18 @@ function FlowBuilderContent() {
 
   // Fetch template data and initialize flow
   useEffect(() => {
+    const controller = new AbortController();
+    let isActive = true;
+
     const fetchTemplate = async () => {
       if (!templateId) return;
       const loadStart = performance.now();
 
       try {
-        const data = await templateApi.getTemplate(templateId);
+        const data = await templateApi.getTemplate(templateId, {
+          signal: controller.signal,
+        });
+        if (!isActive) return;
         setTemplate(data);
 
         if (benchmarkEnabled) {
@@ -428,6 +435,7 @@ function FlowBuilderContent() {
           recordBenchmarkLoad(performance.now() - loadStart);
 
           requestAnimationFrame(() => {
+            if (!isActive) return;
             fitView({
               padding: 0.2,
               duration: shouldDeferInitialLayout ? 120 : 260,
@@ -446,6 +454,13 @@ function FlowBuilderContent() {
           console.warn("No questions found in template");
         }
       } catch (error: unknown) {
+        if (
+          error instanceof AxiosError &&
+          (error.code === "ERR_CANCELED" || error.name === "CanceledError")
+        ) {
+          return;
+        }
+        if (!isActive) return;
         logFlowbuilderError("fetch_template", error, { templateId });
         toast({
           title: "Error",
@@ -458,6 +473,8 @@ function FlowBuilderContent() {
     fetchTemplate();
 
     return () => {
+      isActive = false;
+      controller.abort();
       reset();
     };
   }, [
@@ -562,10 +579,12 @@ function FlowBuilderContent() {
   }, [complexityScore, viewMode]);
 
   const renderedEdges = useMemo(() => {
-    const baseEdges = edges.map((edge) => ({
-      ...edge,
-      animated: reduceEdgeMotion ? false : edge.animated ?? false,
-    }));
+    const baseEdges = reduceEdgeMotion
+      ? edges.map((edge) => ({
+          ...edge,
+          animated: false,
+        }))
+      : edges;
 
     if (viewMode !== "overview" || complexityScore < 700) {
       return baseEdges;
@@ -817,20 +836,21 @@ function FlowBuilderContent() {
       ? FLOWBUILDER_INTERACTION_EDGE_CAP
       : FLOWBUILDER_LOW_ZOOM_EDGE_CAP;
 
-    const prioritizedEdges = visibleEdges.filter(
-      (edge) =>
-        edge.type === "default" ||
-        edge.data?.condition?.operator === "disqualify"
-    );
-    const remainingEdges = visibleEdges.filter(
-      (edge) =>
-        edge.type !== "default" &&
-        edge.data?.condition?.operator !== "disqualify"
-    );
+    const prioritizedEdges: Edge[] = [];
+    const remainingEdges: Edge[] = [];
+    for (const edge of visibleEdges) {
+      const isPriority =
+        edge.type === "default" || edge.data?.condition?.operator === "disqualify";
+      if (isPriority) {
+        prioritizedEdges.push(edge);
+      } else {
+        remainingEdges.push(edge);
+      }
+    }
 
-    return [...prioritizedEdges, ...remainingEdges]
-      .slice(0, edgeCap)
-      .map((edge) => {
+    const merged = prioritizedEdges.concat(remainingEdges).slice(0, edgeCap);
+
+    return merged.map((edge) => {
         const isDisqualify = edge.data?.condition?.operator === "disqualify";
         return {
           ...edge,
