@@ -10,6 +10,15 @@ import { Node, Edge, MarkerType } from "reactflow";
 import { Question, QuestionnaireTemplate } from "@/api/questionnaires";
 import { getLayoutedElements } from "@/utils/flowLayout";
 
+const FLOW_DEBUG =
+  import.meta.env.DEV && import.meta.env.VITE_FLOWBUILDER_DEBUG === "true";
+
+function debugLog(message: string): void {
+  if (FLOW_DEBUG) {
+    console.debug(`[flowGeneratorService] ${message}`);
+  }
+}
+
 // ==================== TYPES ====================
 
 export interface FlowGenerationResult {
@@ -340,7 +349,7 @@ function generateEdges(
   // Key: "questionId|choiceValue", Value: true if this choice has a rule
   const choicesWithRules = new Map<string, boolean>();
 
-  console.log("=== Building choicesWithRules map ===");
+  debugLog("Building choicesWithRules map");
   questions.forEach((question) => {
     // Check for disqualifying answers
     const validationRules = question.validation_rules as unknown;
@@ -390,8 +399,8 @@ function generateEdges(
               : [parent.value];
             values.forEach((value) => {
               const key = `${question.id}|${value}`;
-              console.log(
-                `  Conditional rule: Q${question.order_index} choice "${value}" triggers Q${otherQ.order_index}`
+              debugLog(
+                `Conditional rule: Q${question.order_index} choice "${value}" triggers Q${otherQ.order_index}`
               );
               choicesWithRules.set(key, true);
             });
@@ -426,8 +435,8 @@ function generateEdges(
             : [logic.show_if.value];
           values.forEach((value) => {
             const key = `${question.id}|${value}`;
-            console.log(
-              `  Conditional rule: Q${question.order_index} choice "${value}" triggers Q${otherQ.order_index}`
+            debugLog(
+              `Conditional rule: Q${question.order_index} choice "${value}" triggers Q${otherQ.order_index}`
             );
             choicesWithRules.set(key, true);
           });
@@ -436,7 +445,7 @@ function generateEdges(
     });
   });
 
-  console.log(`Total choices with rules: ${choicesWithRules.size}`);
+  debugLog(`Total choices with rules: ${choicesWithRules.size}`);
 
   // Generate order-based edges (sequential flow)
   for (let i = 0; i < sortedQuestions.length - 1; i++) {
@@ -493,7 +502,7 @@ function generateEdges(
 
           // Only create sequential edge if this choice doesn't have a rule
           if (!hasRule) {
-            console.log(
+            debugLog(
               `Creating sequential edge: Q${currentQuestion.order_index} choice "${choice}" -> Q${targetQuestion.order_index}`
             );
             edges.push({
@@ -510,20 +519,20 @@ function generateEdges(
               },
             });
           } else {
-            console.log(
+            debugLog(
               `Skipping sequential edge for Q${currentQuestion.order_index} choice "${choice}" (has rule)`
             );
           }
         });
       } else {
-        console.log(
+        debugLog(
           `Skipping all sequential edges from Q${currentQuestion.order_index} - target Q${targetQuestion.order_index} is conditional`
         );
       }
     } else {
       // For non-choice questions, skip if next is conditional
       if (nextIsFirstConditional) {
-        console.log(
+        debugLog(
           `Skipping sequential edge from Q${currentQuestion.order_index} to Q${nextQuestion.order_index} (next is first conditional)`
         );
         continue;
