@@ -3,7 +3,6 @@ import { Node, Edge } from "reactflow";
 import { Question, QuestionnaireTemplate } from "@/api/questionnaires";
 
 export type FilterType = "all" | "archived" | "unused" | "locked";
-export type FlowViewMode = "overview" | "focus" | "edit";
 
 interface FlowState {
   // Template data
@@ -19,11 +18,6 @@ interface FlowState {
   searchQuery: string;
   activeFilter: FilterType;
   sidebarCollapsed: boolean;
-  viewMode: FlowViewMode;
-  focusDepth: number;
-  showEdgeLabels: boolean;
-  autoModeEnabled: boolean;
-  complexityScore: number;
 
   // Question metadata
   lockedQuestions: Set<string>;
@@ -38,11 +32,6 @@ interface FlowState {
   setSearchQuery: (query: string) => void;
   setActiveFilter: (filter: FilterType) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
-  setViewMode: (mode: FlowViewMode) => void;
-  setFocusDepth: (depth: number) => void;
-  setShowEdgeLabels: (show: boolean) => void;
-  setAutoModeEnabled: (enabled: boolean) => void;
-  setComplexityScore: (score: number) => void;
 
   // Question actions
   toggleLockQuestion: (questionId: string) => void;
@@ -77,11 +66,6 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   searchQuery: "",
   activeFilter: "all",
   sidebarCollapsed: false,
-  viewMode: "edit",
-  focusDepth: 2,
-  showEdgeLabels: true,
-  autoModeEnabled: true,
-  complexityScore: 0,
   lockedQuestions: new Set(),
   archivedQuestions: new Set(),
 
@@ -94,11 +78,6 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   setSearchQuery: (query) => set({ searchQuery: query }),
   setActiveFilter: (filter) => set({ activeFilter: filter }),
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
-  setViewMode: (mode) => set({ viewMode: mode }),
-  setFocusDepth: (depth) => set({ focusDepth: depth }),
-  setShowEdgeLabels: (show) => set({ showEdgeLabels: show }),
-  setAutoModeEnabled: (enabled) => set({ autoModeEnabled: enabled }),
-  setComplexityScore: (score) => set({ complexityScore: score }),
 
   // Question actions
   toggleLockQuestion: (questionId) => {
@@ -292,11 +271,6 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       searchQuery: "",
       activeFilter: "all",
       sidebarCollapsed: false,
-      viewMode: "edit",
-      focusDepth: 2,
-      showEdgeLabels: true,
-      autoModeEnabled: true,
-      complexityScore: 0,
       lockedQuestions: new Set(),
       archivedQuestions: new Set(),
     }),
