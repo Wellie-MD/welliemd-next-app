@@ -287,10 +287,6 @@ function PolicyEditor({
   creating,
 }: PolicyEditorProps) {
   const content = policy?.final_content ?? ""
-  const form = useForm<PolicyFormData>({
-    resolver: zodResolver(policyFormSchema),
-    defaultValues: { content },
-  })
 
   // Sync form when policy content changes (e.g. after create-from-template)
   const editorRef = useRef<HTMLDivElement>(null)
