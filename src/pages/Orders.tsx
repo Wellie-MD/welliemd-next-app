@@ -110,7 +110,7 @@ export default function Orders() {
   const [totalCount, setTotalCount] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
-  const [isLoadingOrders, setIsLoadingOrders] = useState(false)
+  const [isLoadingOrders, setIsLoadingOrders] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
