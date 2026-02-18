@@ -10,6 +10,7 @@ export interface Client {
   questionnaire_url?: string;
   domain?: string;
   subdomain?: string;
+  custom_domain?: string;
   master_id_prefix?: string;
   beluga_company?: string;
   database_name: string;
@@ -58,6 +59,7 @@ export interface ClientCreatePayload {
   name: string;
   domain?: string;
   subdomain?: string;
+  custom_domain?: string;
   master_id_prefix?: string;
   beluga_company?: string;
   admin_panel_domain: string;
@@ -101,6 +103,7 @@ export interface ClientUpdatePayload {
   name?: string;
   domain?: string;
   subdomain?: string;
+  custom_domain?: string;
   master_id_prefix?: string;
   beluga_company?: string;
   admin_panel_domain?: string;
@@ -203,9 +206,9 @@ export const clientApi = {
         : [];
 
     // ensure `user` is either an object or null
-    return results.map((c: unknown) => ({
+    return results.map((c: Record<string, unknown>) => ({
       ...c,
-      user: c?.user ?? null,
+      user: (c?.user as Record<string, unknown> | null) ?? null,
     })) as Client[];
   },
 
@@ -241,6 +244,13 @@ export const clientApi = {
 
   getPaymentMethod: async (id: string): Promise<PaymentMethodResponse> => {
     const { data } = await axiosInstance.get(`/internal/clients/${id}/payment-method/`);
+    return data;
+  },
+
+  changeDomain: async (id: string, newDomain: string): Promise<{ success: boolean; message: string; task_id: string }> => {
+    const { data } = await axiosInstance.post(`/clients/${id}/change-domain/`, {
+      new_domain: newDomain,
+    });
     return data;
   },
 
