@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { EdgeProps, getBezierPath, EdgeLabelRenderer, BaseEdge } from 'reactflow';
+import { useFlowStore } from '@/store/useFlowStore';
 
 export const ConditionalEdge = memo(({
   id,
@@ -12,7 +13,11 @@ export const ConditionalEdge = memo(({
   style = {},
   markerEnd,
   data,
+  selected,
 }: EdgeProps) => {
+  const showEdgeLabels = useFlowStore((state) => state.showEdgeLabels);
+  const viewMode = useFlowStore((state) => state.viewMode);
+
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
@@ -24,6 +29,8 @@ export const ConditionalEdge = memo(({
 
   const label = data?.label || data?.condition?.value;
   const isDisqualify = data?.condition?.operator === 'disqualify' || label === 'Disqualify';
+  const shouldShowLabel =
+    Boolean(label) && (viewMode !== 'overview' || showEdgeLabels || selected);
 
   // Determine edge styling based on type
   const edgeStyle = isDisqualify
@@ -52,7 +59,7 @@ export const ConditionalEdge = memo(({
           ...style,
         }}
       />
-      {label && (
+      {shouldShowLabel && (
         <EdgeLabelRenderer>
           <div
             style={{

@@ -3,7 +3,7 @@
  */
 import axiosInstance from "./axiosInstance";
 import { toast } from "@/hooks/use-toast";
-import { AxiosError } from "axios";
+import { AxiosError, type AxiosRequestConfig } from "axios";
 
 // ==================== TYPES ====================
 
@@ -110,9 +110,13 @@ export const templateApi = {
     return data;
   },
 
-  getTemplate: async (id: string): Promise<QuestionnaireTemplate> => {
+  getTemplate: async (
+    id: string,
+    config?: AxiosRequestConfig
+  ): Promise<QuestionnaireTemplate> => {
     const { data } = await axiosInstance.get<QuestionnaireTemplate>(
-      `questionnaires/frontend/templates/${id}/`
+      `questionnaires/frontend/templates/${id}/`,
+      config
     );
     return data;
   },
