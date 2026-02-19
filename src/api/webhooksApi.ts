@@ -35,4 +35,11 @@ export const webhooksApi = {
     deleteEndpoint: async (id: string) => {
         await axiosInstance.delete(`/webhooks/endpoints/${id}/`);
     },
+
+    testEndpoint: async (id: string) => {
+        const response = await axiosInstance.post<{ status: string; http_status: number; response_body: string }>(
+            `/webhooks/endpoints/${id}/test/`
+        );
+        return response.data;
+    },
 };
