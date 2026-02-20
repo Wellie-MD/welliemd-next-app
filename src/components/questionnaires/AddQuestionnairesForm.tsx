@@ -26,6 +26,7 @@ import {
   Question,
   CreateQuestionPayload,
 } from "@/api/questionnaires";
+import { normalizeChoiceDisplay } from "@/utils/choiceValue";
 
 interface AddQuestionnairesFormProps {
   open: boolean;
@@ -622,7 +623,9 @@ export function AddQuestionnairesForm({
   const selectedParent = existingQuestions.find(
     (q) => q.id === formData.parent_question_id
   );
-  const triggerOptions = selectedParent?.answer_choices || [];
+  const triggerOptions = (selectedParent?.answer_choices || [])
+    .map((option) => normalizeChoiceDisplay(option))
+    .filter((option) => option.length > 0);
 
   // Filter out current question from parent options (when editing)
   const parentQuestionOptions = existingQuestions.filter(

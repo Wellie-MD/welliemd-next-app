@@ -2,6 +2,7 @@ import { memo } from "react";
 import { Handle, Position, NodeProps } from "reactflow";
 import { Question } from "@/api/questionnaires";
 import { useFlowStore } from "@/store/useFlowStore";
+import { normalizeChoiceDisplay } from "@/utils/choiceValue";
 
 export const QuestionNode = memo(
   ({
@@ -90,7 +91,7 @@ export const QuestionNode = memo(
                     isOverviewMode ? "text-xs truncate" : "text-sm"
                   }`}
                 >
-                  {choice}
+                  {normalizeChoiceDisplay(choice)}
                 </span>
 
                 {/* Handle for each consent choice */}
@@ -111,14 +112,7 @@ export const QuestionNode = memo(
         {!isConsentQuestion && hasChoices && (
           <div className={`${isOverviewMode ? "p-1.5 space-y-1" : "p-2 space-y-2"}`}>
             {question.answer_choices.map((choice, idx) => {
-              // Handle product_selection type where choices are objects
-              const displayText =
-                typeof choice === "string"
-                  ? choice
-                  : (choice as { product_name?: string; name?: string })
-                      .product_name ||
-                    (choice as { product_name?: string; name?: string }).name ||
-                    JSON.stringify(choice);
+              const displayText = normalizeChoiceDisplay(choice);
 
               return (
                 <div
