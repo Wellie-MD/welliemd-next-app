@@ -34,6 +34,7 @@ import { RX_DRUG_FORM_OPTIONS } from "@/api/products";
 import { ProductSelector } from "./ProductSelector";
 import { GroupedQuestionBuilder } from "./GroupedQuestionBuilder";
 import { SubQuestion } from "@/api/questionnaires";
+import { normalizeChoiceDisplay } from "@/utils/choiceValue";
 
 interface QuestionFormProps {
   open: boolean;
@@ -2278,22 +2279,19 @@ export function QuestionForm({
                                     </SelectTrigger>
                                     <SelectContent>
                                       {parentQ.answer_choices.map(
-                                        (option, idx) => (
-                                          <SelectItem
-                                            key={idx}
-                                            value={option}
-                                            disabled={parent.trigger_values.includes(
-                                              option
-                                            )}
-                                          >
-                                            {option}{" "}
-                                            {parent.trigger_values.includes(
-                                              option
-                                            )
-                                              ? "✓"
-                                              : ""}
-                                          </SelectItem>
-                                        )
+                                        (option, idx) => {
+                                          const optionValue = normalizeChoiceDisplay(option);
+                                          const isSelected = parent.trigger_values.includes(optionValue);
+                                          return (
+                                            <SelectItem
+                                              key={idx}
+                                              value={optionValue}
+                                              disabled={isSelected}
+                                            >
+                                              {optionValue} {isSelected ? "✓" : ""}
+                                            </SelectItem>
+                                          );
+                                        }
                                       )}
                                     </SelectContent>
                                   </Select>

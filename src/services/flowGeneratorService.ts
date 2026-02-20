@@ -9,6 +9,11 @@
 import { Node, Edge, MarkerType } from "reactflow";
 import { Question, QuestionnaireTemplate } from "@/api/questionnaires";
 import { getLayoutedElements } from "@/utils/flowLayout";
+import {
+  findMatchingChoiceIndex,
+  normalizeChoiceDisplay,
+  normalizeChoiceToken,
+} from "@/utils/choiceValue";
 
 const FLOW_DEBUG =
   import.meta.env.DEV && import.meta.env.VITE_FLOWBUILDER_DEBUG === "true";
@@ -37,7 +42,7 @@ export interface FlowGenerationResult {
 interface ConditionalLogic {
   show_if?: {
     question_id: string;
-    value: string | string[];
+    value: unknown | unknown[];
     operator: string;
   };
   disqualify_if?:
@@ -51,6 +56,10 @@ interface ConditionalLogic {
         operator?: string;
         reason?: string;
       };
+}
+
+function buildChoiceRuleKey(questionId: string, value: unknown): string {
+  return `${questionId}|${normalizeChoiceToken(value)}`;
 }
 
 // ==================== MAIN GENERATOR ====================
@@ -293,7 +302,7 @@ function generateEdges(
             ? firstParent.value
             : [firstParent.value];
           const firstValue = values[0];
-          const key = `${firstParent.question_id}|${firstValue}`;
+          const key = `${firstParent.question_id}|${normalizeChoiceToken(firstValue)}`;
           if (!conditionalGroups.has(key)) {
             conditionalGroups.set(key, []);
           }
@@ -312,7 +321,7 @@ function generateEdges(
         // Only add the question once, using the first trigger value as the key
         if (!processedQuestions.has(question.id)) {
           const firstValue = values[0];
-          const key = `${logic.show_if.question_id}|${firstValue}`;
+          const key = `${logic.show_if.question_id}|${normalizeChoiceToken(firstValue)}`;
           if (!conditionalGroups.has(key)) {
             conditionalGroups.set(key, []);
           }
@@ -355,7 +364,7 @@ function generateEdges(
     const validationRules = question.validation_rules as unknown;
     if (validationRules?.disqualifying_answer) {
       choicesWithRules.set(
-        `${question.id}|${validationRules.disqualifying_answer}`,
+        buildChoiceRuleKey(question.id, validationRules.disqualifying_answer),
         true
       );
     }
@@ -363,8 +372,8 @@ function generateEdges(
       validationRules?.disqualifying_answers &&
       Array.isArray(validationRules.disqualifying_answers)
     ) {
-      validationRules.disqualifying_answers.forEach((answer: string) => {
-        choicesWithRules.set(`${question.id}|${answer}`, true);
+      validationRules.disqualifying_answers.forEach((answer: unknown) => {
+        choicesWithRules.set(buildChoiceRuleKey(question.id, answer), true);
       });
     }
 
@@ -398,9 +407,11 @@ function generateEdges(
               ? parent.value
               : [parent.value];
             values.forEach((value) => {
-              const key = `${question.id}|${value}`;
+              const key = buildChoiceRuleKey(question.id, value);
               debugLog(
-                `Conditional rule: Q${question.order_index} choice "${value}" triggers Q${otherQ.order_index}`
+                `Conditional rule: Q${question.order_index} choice "${normalizeChoiceDisplay(
+                  value
+                )}" triggers Q${otherQ.order_index}`
               );
               choicesWithRules.set(key, true);
             });
@@ -434,9 +445,11 @@ function generateEdges(
             ? logic.show_if.value
             : [logic.show_if.value];
           values.forEach((value) => {
-            const key = `${question.id}|${value}`;
+            const key = buildChoiceRuleKey(question.id, value);
             debugLog(
-              `Conditional rule: Q${question.order_index} choice "${value}" triggers Q${otherQ.order_index}`
+              `Conditional rule: Q${question.order_index} choice "${normalizeChoiceDisplay(
+                value
+              )}" triggers Q${otherQ.order_index}`
             );
             choicesWithRules.set(key, true);
           });
@@ -497,13 +510,17 @@ function generateEdges(
 
       if (!targetIsConditional) {
         choices.forEach((choice, choiceIndex) => {
-          const choiceKey = `${currentQuestion.id}|${choice}`;
+          const choiceKey = buildChoiceRuleKey(currentQuestion.id, choice);
           const hasRule = choicesWithRules.has(choiceKey);
 
           // Only create sequential edge if this choice doesn't have a rule
           if (!hasRule) {
             debugLog(
-              `Creating sequential edge: Q${currentQuestion.order_index} choice "${choice}" -> Q${targetQuestion.order_index}`
+              `Creating sequential edge: Q${
+                currentQuestion.order_index
+              } choice "${normalizeChoiceDisplay(choice)}" -> Q${
+                targetQuestion.order_index
+              }`
             );
             edges.push({
               id: `e-order-${currentQuestion.id}-choice-${choiceIndex}-${targetQuestion.id}`,
@@ -520,7 +537,9 @@ function generateEdges(
             });
           } else {
             debugLog(
-              `Skipping sequential edge for Q${currentQuestion.order_index} choice "${choice}" (has rule)`
+              `Skipping sequential edge for Q${
+                currentQuestion.order_index
+              } choice "${normalizeChoiceDisplay(choice)}" (has rule)`
             );
           }
         });
@@ -628,7 +647,7 @@ function generateEdges(
  */
 function generateFollowUpEdges(
   targetQuestion: Question,
-  showIf: { question_id: string; value: string; operator: string },
+  showIf: { question_id: string; value: unknown; operator: string },
   allQuestions: Question[]
 ): Edge[] {
   const edges: Edge[] = [];
@@ -658,20 +677,28 @@ function generateFollowUpEdges(
     sourceQuestion.answer_choices &&
     sourceQuestion.answer_choices.length > 0
   ) {
-    const choiceIndex = sourceQuestion.answer_choices.indexOf(showIf.value);
+    const choiceIndex = findMatchingChoiceIndex(
+      sourceQuestion.answer_choices,
+      showIf.value
+    );
 
     if (choiceIndex !== -1) {
       sourceHandle = `choice-${choiceIndex}`;
     } else {
       // Value not found in choices - might be a custom condition
       console.warn(
-        `Value "${showIf.value}" not found in choices for question ${sourceQuestion.id}`
+        `Value "${normalizeChoiceDisplay(
+          showIf.value
+        )}" not found in choices for question ${sourceQuestion.id}`
       );
     }
   }
 
   // Create edge with label
-  const edgeLabel = formatConditionLabel(showIf.value, showIf.operator);
+  const edgeLabel = formatConditionLabel(
+    normalizeChoiceDisplay(showIf.value),
+    showIf.operator
+  );
 
   // Include trigger value in ID to ensure uniqueness when multiple triggers exist
   const edgeId = sourceHandle
@@ -727,7 +754,7 @@ function generateDisqualifyEdgesFromValidation(
   if (!validationRules) return edges;
 
   // Handle choice-based disqualifying answers
-  const disqualifyingAnswers: string[] = [];
+  const disqualifyingAnswers: unknown[] = [];
 
   if (validationRules.disqualifying_answer) {
     disqualifyingAnswers.push(validationRules.disqualifying_answer);
@@ -744,11 +771,13 @@ function generateDisqualifyEdgesFromValidation(
   disqualifyingAnswers.forEach((answer) => {
     if (!question.answer_choices) return;
 
-    const choiceIndex = question.answer_choices.indexOf(answer);
+    const choiceIndex = findMatchingChoiceIndex(question.answer_choices, answer);
 
     if (choiceIndex === -1) {
       console.warn(
-        `Disqualifying answer "${answer}" not found in choices for question ${question.id}`
+        `Disqualifying answer "${normalizeChoiceDisplay(
+          answer
+        )}" not found in choices for question ${question.id}`
       );
       return;
     }
