@@ -45,7 +45,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Loader2, Plus, Pencil, Trash2, ChevronDown, ChevronUp, Mail, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, Plus, Pencil, ChevronDown, ChevronUp, Mail, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   notificationTemplatesApi,
@@ -500,18 +500,7 @@ export default function NotificationTemplates() {
             >
               <Pencil className="h-4 w-4" />
             </button>
-            <button
-              type="button"
-              className="text-red-600 hover:opacity-80"
-              title="Delete"
-              onClick={(e) => {
-                e.stopPropagation();
-                setTemplateToDelete(template);
-                setIsDeleteDialogOpen(true);
-              }}
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            {/* Delete button hidden in client portal */}
           </div>
         );
       },
