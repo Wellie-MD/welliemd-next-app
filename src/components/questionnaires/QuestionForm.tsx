@@ -144,7 +144,7 @@ export function QuestionForm({
     medications: [],
     note: "",
   });
-  const [bmiMax, setBmiMax] = useState<number | "">(27);
+  const [bmiMin, setBmiMin] = useState<number | "">(27);
   const [dobMinAge, setDobMinAge] = useState<number | "">(18);
   const [dobMaxAge, setDobMaxAge] = useState<number | "">(65);
 
@@ -266,9 +266,13 @@ export function QuestionForm({
         });
       }
 
-      // Extract BMI eligibility config
-      if (question.question_type === "bmi" && validationRules?.bmi_max !== undefined) {
-        setBmiMax(validationRules.bmi_max);
+      // Extract BMI eligibility config (supports both bmi_min and legacy bmi_max)
+      if (question.question_type === "bmi") {
+        if (validationRules?.bmi_min !== undefined) {
+          setBmiMin(validationRules.bmi_min);
+        } else if (validationRules?.bmi_max !== undefined) {
+          setBmiMin(validationRules.bmi_max);
+        }
       }
 
       // Extract DOB age eligibility config
@@ -643,9 +647,9 @@ export function QuestionForm({
           note: medicationConfig.note,
         };
       } else if (formData.question_type === "bmi") {
-        // Add BMI eligibility config
+        // Add BMI eligibility config (minimum threshold)
         validationRules = {
-          bmi_max: bmiMax !== "" ? bmiMax : undefined,
+          bmi_min: bmiMin !== "" ? bmiMin : undefined,
         };
       } else if (
         formData.question_type === "date" &&
@@ -983,21 +987,21 @@ export function QuestionForm({
             <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
               <h3 className="font-semibold text-sm">BMI Eligibility Settings</h3>
               <p className="text-xs text-muted-foreground">
-                Set the maximum BMI threshold. Patients with BMI exceeding this limit will be disqualified.
+                Set the minimum BMI threshold. Patients with BMI below this limit will be disqualified.
               </p>
               <div className="space-y-2">
-                <Label htmlFor="bmi_max">
-                  Maximum BMI Limit <span className="text-red-500">*</span>
+                <Label htmlFor="bmi_min">
+                  Minimum BMI Limit <span className="text-red-500">*</span>
                 </Label>
                 <Input
-                  id="bmi_max"
+                  id="bmi_min"
                   type="number"
                   step="0.1"
                   min="15"
                   max="100"
-                  value={bmiMax}
+                  value={bmiMin}
                   onChange={(e) =>
-                    setBmiMax(e.target.value === "" ? "" : Number(e.target.value))
+                    setBmiMin(e.target.value === "" ? "" : Number(e.target.value))
                   }
                   placeholder="e.g., 27"
                 />
