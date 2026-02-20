@@ -31,6 +31,7 @@ export interface AffiliateInsights {
 export interface PatientCommission {
     order_id: string;
     display_id: string;
+    business_order_id: string;
     patient_id: string;
     patient_name: string;
     status: "pending" | "earned" | "cancelled";
