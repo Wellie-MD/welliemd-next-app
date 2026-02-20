@@ -45,7 +45,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Loader2, Plus, Pencil, ChevronDown, ChevronUp, Mail, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, Pencil, ChevronDown, ChevronUp, Mail, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   notificationTemplatesApi,
@@ -524,15 +524,7 @@ export default function NotificationTemplates() {
             <Mail className="h-4 w-4" />
             Test All Templates
           </Button>
-          <Button 
-            className="gap-2" 
-            onClick={handleCreate}
-            disabled={allTypesUsed}
-            title={allTypesUsed ? "All template types are already in use" : "Create a new template"}
-          >
-            <Plus className="h-4 w-4" />
-            Create Template
-          </Button>
+          {/* Create Template button hidden in client portal */}
         </div>
       </div>
       {allTypesUsed && (
