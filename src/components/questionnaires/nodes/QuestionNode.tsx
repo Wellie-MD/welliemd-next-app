@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Question } from '@/api/questionnaires';
 import { useFlowStore } from '@/store/useFlowStore';
+import { normalizeChoiceDisplay } from '@/utils/choiceValue';
 
 export const QuestionNode = memo(({ data, selected, id }: NodeProps<{ question: Question; isLocked?: boolean }>) => {
   const { question, isLocked } = data;
@@ -52,7 +53,7 @@ export const QuestionNode = memo(({ data, selected, id }: NodeProps<{ question: 
               key={idx}
               className="relative flex items-center px-4 py-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
             >
-              <span className="text-sm text-gray-700">{choice}</span>
+              <span className="text-sm text-gray-700">{normalizeChoiceDisplay(choice)}</span>
               
               {/* Handle for each consent choice */}
               <Handle
@@ -76,7 +77,7 @@ export const QuestionNode = memo(({ data, selected, id }: NodeProps<{ question: 
               key={idx}
               className="relative flex items-center px-4 py-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
             >
-              <span className="text-sm text-gray-700">{choice}</span>
+              <span className="text-sm text-gray-700">{normalizeChoiceDisplay(choice)}</span>
               
               {/* Handle for each answer choice */}
               <Handle
