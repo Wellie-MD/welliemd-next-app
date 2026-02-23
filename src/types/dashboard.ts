@@ -18,6 +18,13 @@ export interface LiveSummary {
   purchased: number
 }
 
+export interface PatientSummary {
+  active_patients: number
+  inactive_patients: number
+  dropoff_patients: number
+  calculated_at: string
+}
+
 export interface ChartDataPoint {
   month?: string
   day?: string
@@ -45,6 +52,12 @@ export interface PaymentItem {
 }
 
 export interface DashboardMetrics {
+  period?: {
+    start: string
+    end: string
+    previous_start: string
+    previous_end: string
+  }
   total_patients: number
   total_revenue: number
   total_profit: number
@@ -53,6 +66,7 @@ export interface DashboardMetrics {
   total_orders: number
   growth_percentage: number
   live_summary: LiveSummary
+  patient_summary?: PatientSummary
 }
 
 export interface DashboardData {
