@@ -35,6 +35,11 @@ export class AuthService {
 
   private constructor() {}
 
+  /** Normalize email to lowercase for case-insensitive auth (RFC 5321). */
+  private static normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
+  }
+
   public static getInstance(): AuthService {
     if (!AuthService.instance) {
       AuthService.instance = new AuthService();
@@ -56,7 +61,7 @@ export class AuthService {
     const response = await apiClient.post<LoginResponse>(
       API_ENDPOINTS.AUTH.LOGIN,
       {
-        email: credentials.email,
+        email: AuthService.normalizeEmail(credentials.email),
         password: credentials.password,
         portal: credentials.portal || 'patient', // Default to 'patient' if not provided
       },
@@ -87,7 +92,7 @@ export class AuthService {
     const response = await apiClient.post<LoginResponse>(
       API_ENDPOINTS.AUTH.REGISTER,
       {
-        email: userData.email,
+        email: AuthService.normalizeEmail(userData.email),
         password: userData.password,
         first_name: userData.firstName,
         last_name: userData.lastName,
@@ -192,7 +197,10 @@ export class AuthService {
   async forgotPassword(data: ForgotPasswordRequest): Promise<void> {
     debugLog('AuthService.forgotPassword:', { email: data.email });
 
-    await apiClient.post(API_ENDPOINTS.AUTH.PASSWORD_RESET_REQUEST, data);
+    await apiClient.post(API_ENDPOINTS.AUTH.PASSWORD_RESET_REQUEST, {
+      ...data,
+      email: AuthService.normalizeEmail(data.email),
+    });
   }
 
   /**
