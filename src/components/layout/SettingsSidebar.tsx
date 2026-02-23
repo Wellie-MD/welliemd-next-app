@@ -17,7 +17,8 @@ import {
   TrendingUp,
   Settings2,
   Mail,
-  Cloud
+  Cloud,
+  BookOpen
 } from "lucide-react"
 import {
   // Sidebar,
@@ -54,6 +55,7 @@ const settingsMenuItems = [
   { title: "Analytics and SEO", url: "/dashboard/settings/analytics-seo", icon: TrendingUp },
   { title: "Email and Sending Domain", url: "/dashboard/settings/email-domain", icon: Globe },
   { title: "Beluga Settings", url: "/dashboard/settings/beluga-settings", icon: Cloud },
+  { title: "Patient Resources", url: "/dashboard/settings/patient-resources", icon: BookOpen },
 ]
 
 export function SettingsSidebar({

@@ -17,6 +17,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useFlowStore } from '@/store/useFlowStore';
+import { normalizeChoiceDisplay } from '@/utils/choiceValue';
 
 interface EdgeConditionDialogProps {
   open: boolean;
@@ -84,11 +85,14 @@ export function EdgeConditionDialog({
                     <SelectValue placeholder="Select trigger value" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableChoices.map((choice, idx) => (
-                      <SelectItem key={idx} value={choice}>
-                        {choice}
-                      </SelectItem>
-                    ))}
+                    {availableChoices.map((choice, idx) => {
+                      const choiceValue = normalizeChoiceDisplay(choice);
+                      return (
+                        <SelectItem key={idx} value={choiceValue}>
+                          {choiceValue}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>

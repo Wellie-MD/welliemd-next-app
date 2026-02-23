@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { Search, MoreVertical, Copy, Edit, Lock, Archive, Unlock, ArchiveRestore, ChevronDown, ChevronUp, SlidersHorizontal, X } from 'lucide-react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { Search, MoreVertical, Copy, Edit, Lock, Archive, Unlock, ArchiveRestore, ChevronDown, ChevronUp, SlidersHorizontal, X, CircleHelp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,10 +13,14 @@ import {
 import { useFlowStore, FilterType } from '@/store/useFlowStore';
 import { Question } from '@/api/questionnaires';
 import { cn } from '@/lib/utils';
+import { HubNode } from '@/utils/flowVisibility';
+import { FLOWBUILDER_SIDEBAR_DEFERRED_MOUNT_MS } from '@/constants/flowBuilder';
 
 interface FlowSidebarProps {
   onEditQuestion: (question: Question) => void;
   onQuestionSelect: (questionId: string | null) => void;
+  hubNodes?: HubNode[];
+  onHubFocus?: (questionId: string) => void;
 }
 
 const FILTERS: { value: FilterType; label: string }[] = [
@@ -26,13 +30,21 @@ const FILTERS: { value: FilterType; label: string }[] = [
   { value: 'locked', label: 'Locked' },
 ];
 
-export function FlowSidebar({ onEditQuestion, onQuestionSelect }: FlowSidebarProps) {
+export function FlowSidebar({
+  onEditQuestion,
+  onQuestionSelect,
+  hubNodes = [],
+  onHubFocus,
+}: FlowSidebarProps) {
   const {
+    questions,
+    nodes,
+    lockedQuestions,
+    archivedQuestions,
     searchQuery,
     setSearchQuery,
     activeFilter,
     setActiveFilter,
-    getFilteredQuestions,
     selectedNodeId,
     setSelectedNodeId,
     toggleLockQuestion,
@@ -46,8 +58,65 @@ export function FlowSidebar({ onEditQuestion, onQuestionSelect }: FlowSidebarPro
 
   const [hoveredQuestionId, setHoveredQuestionId] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(true);
+  const [isHeavyContentReady, setIsHeavyContentReady] = useState(false);
 
-  const filteredQuestions = getFilteredQuestions();
+  useEffect(() => {
+    if (sidebarCollapsed) return;
+    if (isHeavyContentReady) return;
+    if (searchQuery.trim().length > 0) {
+      setIsHeavyContentReady(true);
+      return;
+    }
+    const timerId = window.setTimeout(() => {
+      setIsHeavyContentReady(true);
+    }, FLOWBUILDER_SIDEBAR_DEFERRED_MOUNT_MS);
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [isHeavyContentReady, searchQuery, sidebarCollapsed]);
+
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+
+  const filteredQuestions = useMemo(() => {
+    if (!isHeavyContentReady) return [];
+
+    let filtered = questions;
+
+    if (activeFilter === 'archived') {
+      filtered = filtered.filter((q) => archivedQuestions.has(q.id));
+    } else if (activeFilter === 'locked') {
+      filtered = filtered.filter((q) => lockedQuestions.has(q.id));
+    } else if (activeFilter === 'unused') {
+      const usedIds = new Set(nodes.map((n) => n.id));
+      filtered = filtered.filter(
+        (q) => !usedIds.has(q.id) && !archivedQuestions.has(q.id)
+      );
+    } else {
+      filtered = filtered.filter((q) => !archivedQuestions.has(q.id));
+    }
+
+    const normalizedQuery = deferredSearchQuery.trim().toLowerCase();
+    if (!normalizedQuery) return filtered;
+
+    return filtered.filter((q) => {
+      const questionText = q.question_text?.toLowerCase() || '';
+      const questionType = q.question_type?.toLowerCase() || '';
+      const questionId = q.id?.toLowerCase() || '';
+      return (
+        questionText.includes(normalizedQuery) ||
+        questionType.includes(normalizedQuery) ||
+        questionId.includes(normalizedQuery)
+      );
+    });
+  }, [
+    activeFilter,
+    archivedQuestions,
+    deferredSearchQuery,
+    isHeavyContentReady,
+    lockedQuestions,
+    nodes,
+    questions,
+  ]);
 
   const handleCheckboxChange = (questionId: string, checked: boolean) => {
     if (checked) {
@@ -146,161 +215,219 @@ export function FlowSidebar({ onEditQuestion, onQuestionSelect }: FlowSidebarPro
             )}
           </div>
 
-          {/* Questions List */}
-          <div className="flex-1 overflow-y-auto scrollbar-hide" style={{ minHeight: 0 }}>
-            <div className="p-2 space-y-1">
-              {filteredQuestions.length === 0 ? (
-                <div className="text-center py-8 text-sm text-gray-400">
-                  {searchQuery ? 'No questions found' : 'No questions yet'}
-                </div>
-              ) : (
-                filteredQuestions.map((question) => {
-                  const isLocked = isQuestionLocked(question.id);
-                  const isArchived = isQuestionArchived(question.id);
-                  const isSelected = selectedNodeId === question.id;
-                  const isHovered = hoveredQuestionId === question.id;
-
-                  return (
-                    <div
-                      key={question.id}
-                      className={cn(
-                        'group relative flex items-center py-1.5 cursor-pointer transition-all duration-200 rounded overflow-hidden',
-                        isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
-                      )}
-                      onMouseEnter={() => setHoveredQuestionId(question.id)}
-                      onMouseLeave={() => setHoveredQuestionId(null)}
-                    >
-                      {/* Checkbox - positioned absolutely, appears on hover */}
-                      <div
-                        className={cn(
-                          'absolute left-2 shrink-0 transition-opacity duration-200',
-                          isHovered || isSelected ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                        )}
-                      >
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={(checked) => handleCheckboxChange(question.id, checked as boolean)}
-                          className="h-4 w-4"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-
-                      {/* Question Text - Slides left on hover to reveal checkbox */}
-                      <div 
-                        className={cn(
-                          'flex-1 min-w-0 px-2 transition-all duration-200',
-                          isHovered || isSelected ? 'ml-6' : 'ml-0'
-                        )}
-                      >
-                        <div className="text-sm text-gray-900 truncate">
-                          {question.question_text || <span className="text-gray-400 italic">Untitled</span>}
-                        </div>
-                      </div>
-
-                      {/* Status Icons */}
-                      <div className="flex items-center gap-1 shrink-0">
-                        {isLocked && (
-                          <Lock className="h-3 w-3 text-gray-400" />
-                        )}
-                        {isArchived && (
-                          <Archive className="h-3 w-3 text-gray-400" />
-                        )}
-                      </div>
-
-                      {/* Actions Menu */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                          >
-                            <MoreVertical className="h-3.5 w-3.5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              duplicateQuestion(question.id);
-                            }}
-                            disabled={question.is_read_only}
-                          >
-                            <Copy className="h-3.5 w-3.5 mr-2" />
-                            Duplicate
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onEditQuestion(question);
-                            }}
-                            disabled={question.is_read_only}
-                          >
-                            <Edit className="h-3.5 w-3.5 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleLockQuestion(question.id);
-                            }}
-                            disabled={question.is_read_only}
-                          >
-                            {isLocked ? (
-                              <>
-                                <Unlock className="h-3.5 w-3.5 mr-2" />
-                                Unlock
-                              </>
-                            ) : (
-                              <>
-                                <Lock className="h-3.5 w-3.5 mr-2" />
-                                Lock
-                              </>
-                            )}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleArchiveQuestion(question.id);
-                            }}
-                            disabled={question.is_read_only}
-                            className={isArchived ? 'text-green-600' : 'text-red-600'}
-                          >
-                            {isArchived ? (
-                              <>
-                                <ArchiveRestore className="h-3.5 w-3.5 mr-2" />
-                                Restore
-                              </>
-                            ) : (
-                              <>
-                                <Archive className="h-3.5 w-3.5 mr-2" />
-                                Archive
-                              </>
-                            )}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+          {!isHeavyContentReady ? (
+            <div className="flex-1 flex items-center justify-center text-xs text-gray-500">
+              Loading question index...
+            </div>
+          ) : (
+            <>
+              {/* Hub Navigation */}
+              {hubNodes.length > 0 && (
+                <div className="px-3 py-2 border-b shrink-0">
+                  <div className="flex items-center gap-1 mb-2">
+                    <div className="text-xs font-medium text-gray-700">
+                      BRANCH HUBS
                     </div>
-                  );
-                })
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          className="text-gray-400 hover:text-gray-600 transition-colors"
+                          aria-label="What are branch hubs?"
+                        >
+                          <CircleHelp className="h-3.5 w-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs text-xs">
+                        Branch Hubs are high-fanout questions. Click one to focus
+                        and inspect the branch area around that question.
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <div className="space-y-1 max-h-28 overflow-y-auto">
+                    {hubNodes.map((hub) => (
+                      <Tooltip key={hub.questionId}>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => onHubFocus?.(hub.questionId)}
+                            className="w-full text-left px-2 py-1.5 rounded bg-gray-50 hover:bg-gray-100 transition-colors"
+                          >
+                            <div className="text-xs font-medium text-gray-900 truncate">
+                              Q{hub.orderIndex} · {hub.fanOut} branches
+                            </div>
+                            <div className="text-[11px] text-gray-600 truncate">
+                              {hub.questionText}
+                            </div>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                          Hub question with {hub.fanOut} downstream branches.
+                          Click to jump and focus this branch.
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </div>
               )}
-            </div>
-          </div>
 
-          {/* Footer */}
-          <div className="p-3 border-t shrink-0">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold">
-                {filteredQuestions.length}
+              {/* Questions List */}
+              <div className="flex-1 overflow-y-auto scrollbar-hide" style={{ minHeight: 0 }}>
+                <div className="p-2 space-y-1">
+                  {filteredQuestions.length === 0 ? (
+                    <div className="text-center py-8 text-sm text-gray-400">
+                      {searchQuery ? 'No questions found' : 'No questions yet'}
+                    </div>
+                  ) : (
+                    filteredQuestions.map((question) => {
+                      const isLocked = isQuestionLocked(question.id);
+                      const isArchived = isQuestionArchived(question.id);
+                      const isSelected = selectedNodeId === question.id;
+                      const isHovered = hoveredQuestionId === question.id;
+
+                      return (
+                        <div
+                          key={question.id}
+                          className={cn(
+                            'group relative flex items-center py-1.5 cursor-pointer transition-all duration-200 rounded overflow-hidden',
+                            isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                          )}
+                          onMouseEnter={() => setHoveredQuestionId(question.id)}
+                          onMouseLeave={() => setHoveredQuestionId(null)}
+                        >
+                          {/* Checkbox - positioned absolutely, appears on hover */}
+                          <div
+                            className={cn(
+                              'absolute left-2 shrink-0 transition-opacity duration-200',
+                              isHovered || isSelected ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                            )}
+                          >
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={(checked) => handleCheckboxChange(question.id, checked as boolean)}
+                              className="h-4 w-4"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+
+                          {/* Question Text - Slides left on hover to reveal checkbox */}
+                          <div
+                            className={cn(
+                              'flex-1 min-w-0 px-2 transition-all duration-200',
+                              isHovered || isSelected ? 'ml-6' : 'ml-0'
+                            )}
+                          >
+                            <div className="text-sm text-gray-900 truncate">
+                              {question.question_text || <span className="text-gray-400 italic">Untitled</span>}
+                            </div>
+                          </div>
+
+                          {/* Status Icons */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            {isLocked && (
+                              <Lock className="h-3 w-3 text-gray-400" />
+                            )}
+                            {isArchived && (
+                              <Archive className="h-3 w-3 text-gray-400" />
+                            )}
+                          </div>
+
+                          {/* Actions Menu */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                              >
+                                <MoreVertical className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-40">
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  duplicateQuestion(question.id);
+                                }}
+                                disabled={question.is_read_only}
+                              >
+                                <Copy className="h-3.5 w-3.5 mr-2" />
+                                Duplicate
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onEditQuestion(question);
+                                }}
+                                disabled={question.is_read_only}
+                              >
+                                <Edit className="h-3.5 w-3.5 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleLockQuestion(question.id);
+                                }}
+                                disabled={question.is_read_only}
+                              >
+                                {isLocked ? (
+                                  <>
+                                    <Unlock className="h-3.5 w-3.5 mr-2" />
+                                    Unlock
+                                  </>
+                                ) : (
+                                  <>
+                                    <Lock className="h-3.5 w-3.5 mr-2" />
+                                    Lock
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleArchiveQuestion(question.id);
+                                }}
+                                disabled={question.is_read_only}
+                                className={isArchived ? 'text-green-600' : 'text-red-600'}
+                              >
+                                {isArchived ? (
+                                  <>
+                                    <ArchiveRestore className="h-3.5 w-3.5 mr-2" />
+                                    Restore
+                                  </>
+                                ) : (
+                                  <>
+                                    <Archive className="h-3.5 w-3.5 mr-2" />
+                                    Archive
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
-              <Button variant="ghost" size="sm" className="text-xs">
-                <svg className="h-3.5 w-3.5 mr-1.5" viewBox="0 0 16 16" fill="none">
-                  <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-                Invite
-              </Button>
-            </div>
-          </div>
+
+              {/* Footer */}
+              <div className="p-3 border-t shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold">
+                    {filteredQuestions.length}
+                  </div>
+                  <Button variant="ghost" size="sm" className="text-xs">
+                    <svg className="h-3.5 w-3.5 mr-1.5" viewBox="0 0 16 16" fill="none">
+                      <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                    Invite
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
         </>
       )}
     </div>

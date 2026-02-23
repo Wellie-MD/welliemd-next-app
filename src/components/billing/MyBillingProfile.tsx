@@ -132,6 +132,11 @@ export default function MyBillingProfile() {
       : subscriptionState === "past_due" || subscriptionState === "unpaid"
       ? "bg-rose-100 text-rose-800 border-rose-200"
       : "bg-slate-100 text-slate-700 border-slate-200";
+  const lockState = subscriptionStatus?.lock_state ?? "unlocked";
+  const lockBadgeClass =
+    lockState === "locked"
+      ? "bg-rose-100 text-rose-800 border-rose-200"
+      : "bg-emerald-100 text-emerald-800 border-emerald-200";
 
   if (loading) {
     return (
@@ -264,6 +269,17 @@ export default function MyBillingProfile() {
                 {subscriptionStatus?.subscription_status ?? "unknown"}
               </Badge>
             </div>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Lock Status</span>
+              <Badge className={`border ${lockBadgeClass}`}>
+                {lockState}
+              </Badge>
+            </div>
+            {lockState === "locked" && subscriptionStatus?.lock_reason_code && (
+              <p className="text-rose-700 font-medium">
+                Account locked due to {subscriptionStatus.lock_reason_code}.
+              </p>
+            )}
             <p className="text-muted-foreground">
               Current period: <span className="text-foreground font-medium">{subscriptionStatus?.current_period_start ?? "N/A"} to {subscriptionStatus?.current_period_end ?? "N/A"}</span>
             </p>

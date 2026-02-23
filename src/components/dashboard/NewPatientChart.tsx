@@ -12,11 +12,12 @@ interface NewPatientChartProps {
 
 export function NewPatientChart({ data }: NewPatientChartProps) {
   const navigate = useNavigate()
+  const hasData = data.length > 0
 
   return (
     <Card className="rounded-2xl shadow-md bg-white w-full h-full">
       <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl">
-        <CardTitle className="text-gray-800">New Patients</CardTitle>
+        <CardTitle className="text-gray-800">New Patients (Last 12 Months)</CardTitle>
         <Button
           variant="ghost"
           size="sm"
@@ -27,40 +28,47 @@ export function NewPatientChart({ data }: NewPatientChartProps) {
         </Button>
       </CardHeader>
       <CardContent className="w-full">
-        <div className="h-80 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis
-                dataKey="month"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 11, fill: "#64748b" }}
-                tickFormatter={(value) => {
-                  // Extract month name from YYYY-MM format
-                  const date = new Date(value + '-01');
-                  return date.toLocaleDateString('en-US', { month: 'short' });
-                }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 11, fill: "#64748b" }}
-                tickFormatter={(value) => value.toLocaleString()}
-              />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="new_patients"
-                stroke="#FF928A"
-                strokeWidth={3}
-                dot={{ fill: "white", stroke: "#FF928A", strokeWidth: 2, r: 4 }}
-                activeDot={{ r: 6, fill: "white", stroke: "#FF928A", strokeWidth: 2 }}
-                name="New Patients"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        {hasData ? (
+          <div className="h-80 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="month"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: "#64748b" }}
+                  tickFormatter={(value) => {
+                    const date = new Date(value + "-01")
+                    return date.toLocaleDateString("en-US", { month: "short" })
+                  }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: "#64748b" }}
+                  allowDecimals={false}
+                  domain={[0, (dataMax: number) => Math.max(1, Math.ceil(dataMax))]}
+                  tickFormatter={(value: number) => value.toLocaleString()}
+                />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="new_patients"
+                  stroke="#FF928A"
+                  strokeWidth={3}
+                  dot={{ fill: "white", stroke: "#FF928A", strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, fill: "white", stroke: "#FF928A", strokeWidth: 2 }}
+                  name="New Patients"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="h-80 flex items-center justify-center text-sm text-gray-500">
+            No patient-growth data for this period.
+          </div>
+        )}
       </CardContent>
     </Card>
   )

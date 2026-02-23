@@ -33,8 +33,22 @@ export default function Dashboard() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [loadingCharts, setLoadingCharts] = useState(true);
 
-  const { kpiData, liveSummary, loading: loadingMetrics, metrics } = useDashboardMetrics({
+  const { kpiData, patientSummary, metrics } = useDashboardMetrics({
     fallbackKpis: dashboard.kpis
+  });
+
+  const dashboardWindowLabel = metrics?.period
+    ? `Window: ${new Date(metrics.period.start).toLocaleDateString()} - ${new Date(metrics.period.end).toLocaleDateString()}`
+    : null;
+  const chartWindowLabel = "Charts: Monthly trend for last 12 months";
+  const dashboardWindowPayments = (paymentData || []).filter((item) => {
+    if (!metrics?.period) return true;
+    const rawDate = item.rawDate || item.date;
+    if (!rawDate) return false;
+    const d = new Date(rawDate);
+    const start = new Date(`${metrics.period.start}T00:00:00`);
+    const end = new Date(`${metrics.period.end}T23:59:59.999`);
+    return d >= start && d <= end;
   });
 
   // Log metrics for validation
@@ -61,6 +75,7 @@ export default function Dashboard() {
 
         // Transform API data to match table format and limit to 8 records
         const transformedData = response.results.slice(0, 8).map((item) => ({
+          rawDate: item.date,
           date: new Date(item.date).toLocaleDateString(),
           patientId: item.patient_id,
           patientName: item.patient_name,
@@ -177,7 +192,13 @@ export default function Dashboard() {
   return (
     <div className="p-4 space-y-4 w-full min-w-0 overflow-x-hidden">
       <div className="flex items-center justify-between min-w-0">
-        <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+          {dashboardWindowLabel ? (
+            <p className="text-sm text-muted-foreground">{dashboardWindowLabel}</p>
+          ) : null}
+          <p className="text-xs text-muted-foreground">{chartWindowLabel}</p>
+        </div>
       </div>
 
       {/* KPI Cards - Horizontally Scrollable */}
@@ -222,7 +243,7 @@ export default function Dashboard() {
                     <ShoppingCart className="h-6 w-6 text-gray-600" />
                   </div>
                   <p className="text-2xl font-bold text-gray-800">
-                    {liveSummary.active_carts}
+                    {patientSummary.active_patients}
                   </p>
                   <p className="text-sm text-gray-600">Active</p>
                 </div>
@@ -231,16 +252,16 @@ export default function Dashboard() {
                     <Eye className="h-6 w-6 text-gray-600" />
                   </div>
                   <p className="text-2xl font-bold text-gray-800">
-                    {liveSummary.checking_out}
+                    {patientSummary.inactive_patients}
                   </p>
-                  <p className="text-sm text-gray-600">In Active</p>
+                  <p className="text-sm text-gray-600">Inactive</p>
                 </div>
                 <div className="text-center space-y-2">
                   <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
                     <DollarSign className="h-6 w-6 text-gray-600" />
                   </div>
                   <p className="text-2xl font-bold text-gray-800">
-                    {liveSummary.purchased}
+                    {patientSummary.dropoff_patients}
                   </p>
                   <p className="text-sm text-gray-600">Drop Off</p>
                 </div>
@@ -275,8 +296,8 @@ export default function Dashboard() {
         </div>
         <div className="w-full min-w-0">
           <PaymentTable 
-            title="Payment" 
-            data={paymentData || dashboard.payments} 
+            title="Payment (KPI Window)" 
+            data={loadingPayments ? [] : (metrics?.period ? dashboardWindowPayments : (paymentData || dashboard.payments))} 
             columns={paymentColumns} 
           />
         </div>
