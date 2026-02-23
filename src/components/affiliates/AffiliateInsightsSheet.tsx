@@ -72,7 +72,7 @@ export function AffiliateInsightsSheet({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(5);
 
-  // Sorting state for patient commissions table
+  // Sorting state for affiliate commissions table
   const [sortConfig, setSortConfig] = useState<{
     key: keyof PatientCommission;
     direction: "asc" | "desc";
@@ -118,7 +118,7 @@ export function AffiliateInsightsSheet({
     }));
   }, [insights]);
 
-  // Sorting logic for patient commissions
+  // Sorting logic for affiliate commissions
   const handleSort = (key: keyof PatientCommission) => {
     setSortConfig((prev) => ({
       key,
@@ -374,12 +374,12 @@ export function AffiliateInsightsSheet({
                   </div>
                 </div>
 
-                {/* Patient Commissions Table */}
+                {/* Affiliate Commissions Table */}
                 <Card className="border shadow-sm">
                   <CardHeader>
                     <CardTitle className="text-sm font-semibold flex items-center gap-2">
                       <Users className="h-4 w-4 text-blue-500" />
-                      Patient Commissions
+                      Affiliate Commissions
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
@@ -389,7 +389,7 @@ export function AffiliateInsightsSheet({
                       </div>
                     ) : sortedCommissions.length === 0 ? (
                       <div className="p-8 text-center text-muted-foreground">
-                        No patient commissions found for this date range
+                        No affiliate commissions found for this date range
                       </div>
                     ) : (
                       <>
@@ -401,7 +401,7 @@ export function AffiliateInsightsSheet({
                                   className="cursor-pointer hover:bg-muted/50"
                                   onClick={() => handleSort("display_id")}
                                 >
-                                  Patient ID{getSortIcon("display_id")}
+                                  Order ID{getSortIcon("display_id")}
                                 </TableHead>
                                 <TableHead
                                   className="cursor-pointer hover:bg-muted/50"
@@ -433,7 +433,15 @@ export function AffiliateInsightsSheet({
                               {sortedCommissions.map((item) => (
                                 <TableRow key={item.order_id}>
                                   <TableCell className="font-medium">
-                                    {item.display_id}
+                                    {item.business_order_id ? (
+                                      <>
+                                        <span className="text-blue-600">{item.business_order_id}</span>
+                                        <span className="text-muted-foreground mx-1">-</span>
+                                        <span>{item.display_id}</span>
+                                      </>
+                                    ) : (
+                                      item.display_id
+                                    )}
                                   </TableCell>
                                   <TableCell>{item.patient_name}</TableCell>
                                   <TableCell>
