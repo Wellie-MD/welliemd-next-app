@@ -11,6 +11,8 @@ export interface SocialTags {
   gtm_tag: string;
   facebook_tag: string;
   tiktok_tag: string;
+  custom_global_js: string;
+  conversion_tracking_js: string;
 }
 
 export interface SocialTagsResponse {
@@ -59,6 +61,28 @@ export const socialTagsApi = {
   updateTikTokTag: async (tag: string): Promise<SocialTags> => {
     const response = await axiosInstance.patch<SocialTagsResponse>(`${BASE_URL}/me/social-tags/`, {
       tiktok_tag: tag,
+    });
+    return response.data.social_tags;
+  },
+
+  /**
+   * Update Custom Global JS
+   * PATCH /api/v1/clients/me/social-tags/
+   */
+  updateCustomGlobalJs: async (tag: string): Promise<SocialTags> => {
+    const response = await axiosInstance.patch<SocialTagsResponse>(`${BASE_URL}/me/social-tags/`, {
+      custom_global_js: tag,
+    });
+    return response.data.social_tags;
+  },
+
+  /**
+   * Update Conversion Tracking JS
+   * PATCH /api/v1/clients/me/social-tags/
+   */
+  updateConversionTrackingJs: async (tag: string): Promise<SocialTags> => {
+    const response = await axiosInstance.patch<SocialTagsResponse>(`${BASE_URL}/me/social-tags/`, {
+      conversion_tracking_js: tag,
     });
     return response.data.social_tags;
   },
