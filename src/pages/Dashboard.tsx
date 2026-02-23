@@ -18,6 +18,10 @@ export default function Dashboard() {
 
   // Use API data if available, otherwise fallback to mock data
   const dashboard = dashboardData || mockData.dashboard;
+  const dashboardWindowLabel = dashboard?.period
+    ? `KPI window: ${new Date(dashboard.period.start).toLocaleDateString()} - ${new Date(dashboard.period.end).toLocaleDateString()}`
+    : null;
+  const chartWindowLabel = "Charts: Monthly trend for last 12 months";
 
   const handleViewMore = (section: string) => {
     console.log(`View more clicked for ${section}`);
@@ -79,7 +83,13 @@ export default function Dashboard() {
   return (
     <div className="p-4 space-y-4 w-full min-w-0 overflow-x-hidden">
       <div className="flex items-center justify-between min-w-0">
-        <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+          {dashboardWindowLabel ? (
+            <p className="text-sm text-muted-foreground">{dashboardWindowLabel}</p>
+          ) : null}
+          <p className="text-xs text-muted-foreground">{chartWindowLabel}</p>
+        </div>
         {/* {dashboardData && (
           <Button
             variant="outline"
@@ -185,7 +195,7 @@ export default function Dashboard() {
         </div>
         <div className="w-full min-w-0">
           <PaymentTable
-            title="Payment"
+            title="Payment (KPI Window)"
             data={dashboard.payments}
             columns={paymentColumns}
           />
