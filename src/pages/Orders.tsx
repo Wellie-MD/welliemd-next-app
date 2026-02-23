@@ -28,9 +28,14 @@ const orderColumns = [
 const orderStatusFilters = [
   "All",
   "Created",
+  "Payment Pending",
   "Processing",
+  "Visit Failed",
   "Visit Pending",
+  "Consult Canceled",
+  "Referred",
   "Prescribed",
+  "Billing Pending",
   "Rx Sent",
   "Shipped",
   "Canceled"
@@ -94,9 +99,14 @@ export default function Orders() {
         // Map display names to backend status values
         const statusMap: Record<string, string> = {
           "Created": "created",
+          "Payment Pending": "payment_pending",
           "Processing": "processing",
+          "Visit Failed": "visit_failed",
           "Visit Pending": "visit_pending",
+          "Consult Canceled": "consult_canceled",
+          "Referred": "referred",
           "Prescribed": "prescribed",
+          "Billing Pending": "billing_pending",
           "Rx Sent": "rx_sent",
           "Shipped": "shipped",
           "Canceled": "canceled"
