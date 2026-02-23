@@ -94,8 +94,8 @@ export function AddQuestionnairesForm({
   >("");
   const [triggerValues, setTriggerValues] = useState<string[]>([]);
 
-  // State for BMI eligibility config
-  const [bmiMax, setBmiMax] = useState<number | "">(27);
+  // State for BMI eligibility config (minimum threshold)
+  const [bmiMin, setBmiMin] = useState<number | "">(27);
 
   // State for Date of Birth age eligibility config
   const [dobMinAge, setDobMinAge] = useState<number | "">(18);
@@ -176,11 +176,15 @@ export function AddQuestionnairesForm({
         }
       }
 
-      // Extract BMI eligibility config
+      // Extract BMI eligibility config (supports bmi_min and legacy bmi_max)
       const qType = question.question_type as string;
       const valRules = validationRules as Record<string, unknown>;
-      if (qType === "bmi" && valRules?.bmi_max !== undefined) {
-        setBmiMax(valRules.bmi_max as number);
+      if (qType === "bmi" || qType === "height_weight") {
+        if (valRules?.bmi_min !== undefined) {
+          setBmiMin(valRules.bmi_min as number);
+        } else if (valRules?.bmi_max !== undefined) {
+          setBmiMin(valRules.bmi_max as number);
+        }
       }
 
       // Extract DOB age eligibility config
@@ -413,9 +417,9 @@ export function AddQuestionnairesForm({
           allowed_extensions: formData.allowed_extensions,
         };
       } else if (formData.question_type === "bmi" || formData.question_type === "height_weight") {
-        // Add BMI eligibility config (supports both "bmi" and "height_weight" types)
+        // Add BMI eligibility config (minimum threshold)
         validationRules = {
-          bmi_max: bmiMax !== "" ? bmiMax : undefined,
+          bmi_min: bmiMin !== "" ? bmiMin : undefined,
         };
       } else if (
         formData.question_type === "date" &&
@@ -692,21 +696,21 @@ export function AddQuestionnairesForm({
             <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
               <h3 className="font-semibold text-sm">BMI Eligibility Settings</h3>
               <p className="text-xs text-muted-foreground">
-                Set the maximum BMI threshold. Patients with BMI exceeding this limit will be disqualified.
+                Set the minimum BMI threshold. Patients with BMI below this limit will be disqualified.
               </p>
               <div className="space-y-2">
-                <Label htmlFor="bmi_max">
-                  Maximum BMI Limit <span className="text-red-500">*</span>
+                <Label htmlFor="bmi_min">
+                  Minimum BMI Limit <span className="text-red-500">*</span>
                 </Label>
                 <Input
-                  id="bmi_max"
+                  id="bmi_min"
                   type="number"
                   step="0.1"
                   min="15"
                   max="100"
-                  value={bmiMax}
+                  value={bmiMin}
                   onChange={(e) =>
-                    setBmiMax(e.target.value === "" ? "" : Number(e.target.value))
+                    setBmiMin(e.target.value === "" ? "" : Number(e.target.value))
                   }
                   placeholder="e.g., 27"
                 />

@@ -220,11 +220,6 @@ export function OrderDetailsSheet({
                 <Badge className={statusColors[status] || "bg-gray-100 text-gray-800"}>
                   {statusLabels[status] || status}
                 </Badge>
-                <PermissionGate permission={Permissions.ORDER_DELETE}>
-                  <Button size="sm" variant="destructive" onClick={() => setShowDeleteDialog(true)}>
-                    Delete
-                  </Button>
-                </PermissionGate>
               </div>
             </div>
           </SheetHeader>

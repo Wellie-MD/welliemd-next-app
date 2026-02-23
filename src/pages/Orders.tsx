@@ -440,15 +440,6 @@ export default function Orders() {
                   >
                     {savingId === row.id ? 'Saving...' : 'Save'}
                   </Button>
-                  <PermissionGate permission={Permissions.ORDER_DELETE}>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => setDeleteTarget(row)}
-                    >
-                      Delete
-                    </Button>
-                  </PermissionGate>
                 </div>
               )
               },
