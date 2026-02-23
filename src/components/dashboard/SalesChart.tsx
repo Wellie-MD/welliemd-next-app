@@ -10,47 +10,56 @@ interface SalesChartProps {
 }
 
 export function SalesChart({ data }: SalesChartProps) {
+  const hasData = data.length > 0
+
   return (
     <Card className="rounded-2xl shadow-md bg-white w-full">
       <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl">
-        <CardTitle className="text-gray-800">Total Sales</CardTitle>
+        <CardTitle className="text-gray-800">Total Sales (Last 12 Months)</CardTitle>
       </CardHeader>
       <CardContent className="w-full">
-        <div className="h-80 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis
-                dataKey="month"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 11, fill: "#64748b" }}
-                interval={0}
-                tickFormatter={(value) => {
-                  // Extract month name from YYYY-MM format
-                  const date = new Date(value + '-01');
-                  return date.toLocaleDateString('en-US', { month: 'short' });
-                }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 11, fill: "#64748b" }}
-                tickFormatter={(value) => value.toLocaleString()}
-              />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="total_sales"
-                stroke="#8979FF"
-                strokeWidth={3}
-                dot={{ fill: "white", stroke: "#8979FF", strokeWidth: 2, r: 4 }}
-                activeDot={{ r: 6, fill: "white", stroke: "#8979FF", strokeWidth: 2 }}
-                name="Total Sales"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        {hasData ? (
+          <div className="h-80 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="month"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: "#64748b" }}
+                  interval={0}
+                  tickFormatter={(value) => {
+                    const date = new Date(value + "-01")
+                    return date.toLocaleDateString("en-US", { month: "short" })
+                  }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: "#64748b" }}
+                  allowDecimals={false}
+                  domain={[0, (dataMax: number) => Math.max(1, Math.ceil(dataMax))]}
+                  tickFormatter={(value: number) => value.toLocaleString()}
+                />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="total_sales"
+                  stroke="#8979FF"
+                  strokeWidth={3}
+                  dot={{ fill: "white", stroke: "#8979FF", strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, fill: "white", stroke: "#8979FF", strokeWidth: 2 }}
+                  name="Total Sales"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="h-80 flex items-center justify-center text-sm text-gray-500">
+            No sales data for this period.
+          </div>
+        )}
       </CardContent>
     </Card>
   )

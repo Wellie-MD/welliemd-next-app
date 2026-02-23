@@ -110,10 +110,18 @@ export const useDashboardMetrics = ({ fallbackKpis }: UseDashboardMetricsProps) 
         purchased: metrics?.live_summary?.purchased ?? dashboard.liveSummary.purchased,
     };
 
+    const patientSummary = {
+        active_patients: metrics?.patient_summary?.active_patients ?? liveSummary.active_carts,
+        inactive_patients: metrics?.patient_summary?.inactive_patients ?? liveSummary.checking_out,
+        dropoff_patients: metrics?.patient_summary?.dropoff_patients ?? liveSummary.purchased,
+        calculated_at: metrics?.patient_summary?.calculated_at ?? "",
+    };
+
     return {
         metrics,
         kpiData,
         liveSummary,
+        patientSummary,
         loading,
         error,
         refetch: async () => {
