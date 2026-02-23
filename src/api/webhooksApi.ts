@@ -37,7 +37,7 @@ export const webhooksApi = {
     },
 
     testEndpoint: async (id: string) => {
-        const response = await axiosInstance.post<{ status: string; http_status: number; response_body: string }>(
+        const response = await axiosInstance.post<{ status: string; http_status: number }>(
             `/webhooks/endpoints/${id}/test/`
         );
         return response.data;
