@@ -186,14 +186,18 @@ export function B2BBillingDisplay({ clientId, client }: B2BBillingDisplayProps) 
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            Current period: {currentPeriodStart || "N/A"} to {currentPeriodEnd || "N/A"}
+            Current access period: {currentPeriodStart || "N/A"} to {currentPeriodEnd || "N/A"}
           </p>
-          <p className="text-xs text-muted-foreground">
-            Next billing date: {nextBillingDate || "N/A"}
-          </p>
+          {subscriptionStatus !== "canceled" ? (
+            <p className="text-xs text-muted-foreground">
+              Next billing date: {nextBillingDate || "N/A"}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">Next billing date: N/A (canceled)</p>
+          )}
           {cancelAtPeriodEnd && (
             <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-              Cancellation is scheduled at period end.
+              Cancellation is scheduled at period end{currentPeriodEnd ? ` (${currentPeriodEnd})` : ""}.
             </p>
           )}
           <div className="mt-3 flex flex-wrap gap-2">

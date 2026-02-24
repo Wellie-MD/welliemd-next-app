@@ -74,6 +74,16 @@ function lineItemLabel(itemType: string) {
   return itemType.replace(/_/g, " ");
 }
 
+function getAccessPeriodFromInvoice(inv: any): string | null {
+  const baseLine = (inv?.line_items || []).find(
+    (li: any) => li?.metadata?.line_kind === "subscription_base_advance"
+  );
+  const start = baseLine?.metadata?.access_period_start;
+  const end = baseLine?.metadata?.access_period_end;
+  if (!start || !end) return null;
+  return `${formatDate(start)} to ${formatDate(end)}`;
+}
+
 export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
   const [invoiceType, setInvoiceType] = useState<InvoiceType | "all">("all");
   const [status, setStatus] = useState<InvoiceStatusFilter>("all");
@@ -375,11 +385,19 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                 <div className="font-semibold">{formatDate(selected.issued_at)}</div>
               </div>
               <div className="rounded-md border p-3">
-                <div className="text-muted-foreground text-xs">Billing Period</div>
+                <div className="text-muted-foreground text-xs">
+                  {selected.invoice_type === "saas_fee" ? "Usage Billing Period" : "Billing Period"}
+                </div>
                 <div className="font-semibold">
                   {formatDate(selected.billing_period_start)} to {formatDate(selected.billing_period_end)}
                 </div>
               </div>
+              {selected.invoice_type === "saas_fee" && getAccessPeriodFromInvoice(selected) && (
+                <div className="rounded-md border p-3">
+                  <div className="text-muted-foreground text-xs">Renewal Access Period</div>
+                  <div className="font-semibold">{getAccessPeriodFromInvoice(selected)}</div>
+                </div>
+              )}
             </div>
 
             <div className="px-4 pb-4">
