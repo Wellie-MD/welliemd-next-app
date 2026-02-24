@@ -129,7 +129,7 @@ export function BillingConfigEditor({ clientId }: BillingConfigEditorProps) {
             },
             {
                 onSuccess: () => {
-                    toast.success("Billing configuration saved and initial charge attempted");
+                    toast.success("Billing configuration saved and prorated activation charge attempted");
                     queryClient.invalidateQueries({ queryKey: ["billingConfig", clientId] });
                     queryClient.invalidateQueries({ queryKey: ["b2bBillingStatus", clientId] });
                     setIsDirty(false);
@@ -188,9 +188,11 @@ export function BillingConfigEditor({ clientId }: BillingConfigEditorProps) {
             <div className="p-4 border-b">
                 <h2 className="text-lg font-semibold flex items-center gap-2">
                     <Settings className="h-5 w-5 text-primary" />
-                    Billing Configuration
+                    B2B Subscription Billing Configuration
                 </h2>
-                <p className="text-xs text-muted-foreground mt-1">Configure monthly billing settings</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                    Configure custom B2B subscription pricing, patient usage billing, and renewal schedule
+                </p>
             </div>
 
             <div className="p-4 space-y-6">
@@ -198,7 +200,7 @@ export function BillingConfigEditor({ clientId }: BillingConfigEditorProps) {
                 <div>
                     <Label htmlFor="base_fee" className="text-sm font-medium flex items-center gap-1 mb-2">
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
-                        Base Monthly Fee
+                        Base Subscription Fee
                     </Label>
                     <div className="flex items-center gap-2">
                         <div className="relative w-32">
@@ -213,10 +215,10 @@ export function BillingConfigEditor({ clientId }: BillingConfigEditorProps) {
                                 onChange={(e) => handleChange("b2b_base_fee", e.target.value)}
                             />
                         </div>
-                        <span className="text-sm text-muted-foreground">/ month</span>
+                        <span className="text-sm text-muted-foreground">/ renewal cycle</span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                        Fixed monthly platform fee regardless of patient count
+                        Charged as the subscription base fee. Used for prorated signup billing and monthly renewals (advance billing).
                     </p>
                 </div>
 
@@ -225,7 +227,7 @@ export function BillingConfigEditor({ clientId }: BillingConfigEditorProps) {
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                             <Users className="h-5 w-5 text-primary" />
-                            <span className="text-sm font-medium">Per-Patient Fee</span>
+                            <span className="text-sm font-medium">Active Patient Usage Fee</span>
                         </div>
                         <Switch
                             id="patient_fee_toggle"
@@ -238,7 +240,7 @@ export function BillingConfigEditor({ clientId }: BillingConfigEditorProps) {
                     {formData.b2b_patient_fee_enabled && (
                         <div className="pl-0 sm:pl-8">
                             <Label htmlFor="patient_fee_rate" className="block text-xs font-medium text-muted-foreground mb-1.5">
-                                Fee per active patient
+                                Fee per active patient (usage)
                             </Label>
                             <div className="flex items-center gap-2">
                                 <div className="relative w-32">
@@ -255,8 +257,11 @@ export function BillingConfigEditor({ clientId }: BillingConfigEditorProps) {
                                         }
                                     />
                                 </div>
-                                <span className="text-sm text-muted-foreground">/ patient / month</span>
+                                <span className="text-sm text-muted-foreground">/ active patient / cycle</span>
                             </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Billed in arrears on renewals (and on final usage invoice when canceling).
+                            </p>
                         </div>
                     )}
                 </div>
@@ -265,12 +270,12 @@ export function BillingConfigEditor({ clientId }: BillingConfigEditorProps) {
                 <div>
                     <div className="flex items-center gap-2 mb-3">
                         <Calendar className="h-5 w-5 text-primary" />
-                        <h3 className="text-sm font-semibold">Billing Schedule</h3>
+                        <h3 className="text-sm font-semibold">Renewal Schedule</h3>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <Label htmlFor="anchor_day" className="block text-xs font-medium text-muted-foreground mb-1.5">
-                                Billing Anchor Day
+                                Renewal Anchor Day
                             </Label>
                             <Select
                                 value={String(formData.b2b_billing_anchor_day || 1)}
@@ -290,12 +295,12 @@ export function BillingConfigEditor({ clientId }: BillingConfigEditorProps) {
                                 </SelectContent>
                             </Select>
                             <p className="text-[10px] text-muted-foreground mt-1">
-                                Day of month when billing cycle starts
+                                Day of month when renewal runs. New subscriptions are prorated until this day.
                             </p>
                         </div>
                         <div>
                             <Label htmlFor="timezone" className="block text-xs font-medium text-muted-foreground mb-1.5">
-                                Timezone
+                                Billing Timezone
                             </Label>
                             <Select
                                 value={formData.b2b_billing_timezone || "UTC"}
@@ -321,14 +326,14 @@ export function BillingConfigEditor({ clientId }: BillingConfigEditorProps) {
                 {/* Info Box */}
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 p-3 rounded-lg text-xs text-muted-foreground">
                     <span className="font-bold text-blue-700 dark:text-blue-400">Note:</span>{" "}
-                    Changes to billing configuration take effect on the next billing cycle.
-                    Mid-cycle changes do not affect the current invoice.
+                    Changes to pricing affect future invoices only. Existing invoices keep their original pricing snapshot.
+                    Renewals charge base subscription fee in advance and patient usage in arrears.
                     {canShowActivateNow ? (
                         <>
-                            {" "}Use <strong>{activationLabel}</strong> to run initial onboarding charge immediately.
+                            {" "}Use <strong>{activationLabel}</strong> to start the subscription now and attempt a prorated signup charge.
                         </>
                     ) : (
-                        <> No immediate charge is run when saving while subscription is active.</>
+                        <> Saving while the subscription is active will not run an immediate charge.</>
                     )}
                 </div>
 
