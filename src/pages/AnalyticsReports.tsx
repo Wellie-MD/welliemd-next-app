@@ -106,6 +106,8 @@ export default function AnalyticsReports() {
     )
   }, [aggregates?.byVariant, variantSearch])
 
+  const hasActiveReportFilters = Boolean(selectedState || selectedPharmacy || selectedVariant)
+
   // Export to CSV
   const exportToCSV = (data: any[], filename: string) => {
     if (!data.length) return
@@ -242,6 +244,91 @@ export default function AnalyticsReports() {
           </Card>
         </div>
       )}
+
+      {/* Report Filters */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Report Filters</CardTitle>
+            {hasActiveReportFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSelectedState('')
+                  setSelectedPharmacy('')
+                  setSelectedVariant('')
+                }}
+              >
+                Clear Filters
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">State</label>
+              <Select
+                value={selectedState || "all"}
+                onValueChange={(val) => setSelectedState(val === "all" ? "" : val)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All States" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All States</SelectItem>
+                  {states.map((state) => (
+                    <SelectItem key={state} value={state}>
+                      {state}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Pharmacy</label>
+              <Select
+                value={selectedPharmacy || "all"}
+                onValueChange={(val) => setSelectedPharmacy(val === "all" ? "" : val)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Pharmacies" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Pharmacies</SelectItem>
+                  {pharmacies.map((pharmacy) => (
+                    <SelectItem key={String(pharmacy.id)} value={String(pharmacy.id)}>
+                      {pharmacy.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Variant</label>
+              <Select
+                value={selectedVariant || "all"}
+                onValueChange={(val) => setSelectedVariant(val === "all" ? "" : val)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Variants" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Variants</SelectItem>
+                  {variants.map((variant) => (
+                    <SelectItem key={String(variant.id)} value={String(variant.id)}>
+                      {variant.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       {/* Orders by State */}
       <Card>
         <CardHeader>
