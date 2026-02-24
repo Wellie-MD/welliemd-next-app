@@ -23,12 +23,35 @@ function formatDate(value?: string) {
   });
 }
 
+function formatLabel(value?: string) {
+  if (!value) return "-";
+  return value
+    .split("_")
+    .filter(Boolean)
+    .map((part) => {
+      const lower = part.toLowerCase();
+      if (lower === "saas") return "SaaS";
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(" ");
+}
+
 function statusClass(status: string) {
   const s = status.toLowerCase();
   if (s === "paid") return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300";
   if (s === "failed" || s === "overdue") return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
   if (s === "due" || s === "pending") return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
   return "bg-primary/10 text-primary dark:bg-primary/20";
+}
+
+function getAccessPeriodFromInvoice(inv: any): string | null {
+  const baseLine = (inv?.line_items || []).find(
+    (li: any) => li?.metadata?.line_kind === "subscription_base_advance"
+  );
+  const start = baseLine?.metadata?.access_period_start;
+  const end = baseLine?.metadata?.access_period_end;
+  if (!start || !end) return null;
+  return `${formatDate(start)} to ${formatDate(end)}`;
 }
 
 export default function InvoicesPage() {
@@ -339,10 +362,10 @@ export default function InvoicesPage() {
                           </div>
                         </td>
                       )}
-                      <td className="px-6 py-4">{(inv.invoice_type || "-").replace("_", " ")}</td>
+                      <td className="px-6 py-4">{formatLabel(inv.invoice_type)}</td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${getStatusBadgeClass(inv.status, inv.is_overdue)}`}>
-                          {effectiveStatus}
+                          {formatLabel(effectiveStatus)}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-text-secondary-light dark:text-text-secondary-dark">
@@ -425,10 +448,10 @@ export default function InvoicesPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-4">
               <div className="rounded border p-3">
-                <strong>Status:</strong> {selected.status}
+                <strong>Status:</strong> {formatLabel(selected.status)}
               </div>
               <div className="rounded border p-3">
-                <strong>Type:</strong> {(selected.invoice_type || "-").replace("_", " ")}
+                <strong>Type:</strong> {formatLabel(selected.invoice_type)}
               </div>
               <div className="rounded border p-3">
                 <strong>Total:</strong> {formatMoney((selected as any).total_amount ?? selected.amount)}
@@ -440,9 +463,15 @@ export default function InvoicesPage() {
                 <strong>Due:</strong> {formatDate((selected as any).due_date)}
               </div>
               <div className="rounded border p-3">
-                <strong>Billing Period:</strong> {formatDate((selected as any).billing_period_start)} to{" "}
+                <strong>{selected.invoice_type === "saas_fee" ? "Usage Billing Period" : "Billing Period"}:</strong>{" "}
+                {formatDate((selected as any).billing_period_start)} to{" "}
                 {formatDate((selected as any).billing_period_end)}
               </div>
+              {selected.invoice_type === "saas_fee" && getAccessPeriodFromInvoice(selected) && (
+                <div className="rounded border p-3">
+                  <strong>Renewal Access Period:</strong> {getAccessPeriodFromInvoice(selected)}
+                </div>
+              )}
             </div>
 
             <div className="mt-2">
@@ -466,7 +495,7 @@ export default function InvoicesPage() {
                     <tbody>
                       {(selected.line_items ?? []).map((li) => (
                         <tr key={li.id} className="border-t">
-                          <td className="px-3 py-2">{(li as any).item_type?.replace(/_/g, " ")}</td>
+                          <td className="px-3 py-2">{formatLabel((li as any).item_type)}</td>
                           <td className="px-3 py-2">{li.description || "-"}</td>
                           <td className="px-3 py-2 text-right">{li.quantity ?? 0}</td>
                           <td className="px-3 py-2 text-right">{formatMoney(li.unit_price)}</td>
