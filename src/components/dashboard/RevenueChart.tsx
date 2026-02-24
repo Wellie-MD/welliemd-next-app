@@ -1,7 +1,6 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from "recharts"
 import { ChartDataPoint } from "@/types/dashboard"
 
@@ -25,10 +24,9 @@ export function RevenueChart({ data }: RevenueChartProps) {
   const hasData = data.length > 0
 
   return (
-    <Card className="rounded-2xl shadow-md bg-white w-full">
-      <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl">
+      <Card className="rounded-2xl shadow-md bg-white w-full">
+      <CardHeader className="bg-blue-50 rounded-t-2xl">
         <CardTitle className="text-gray-800">Net Revenue (Last 12 Months)</CardTitle>
-        <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">View More</Button>
       </CardHeader>
       <CardContent className="w-full">
         {hasData ? (
