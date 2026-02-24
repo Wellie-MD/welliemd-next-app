@@ -31,6 +31,16 @@ function statusClass(status: string) {
   return "bg-primary/10 text-primary dark:bg-primary/20";
 }
 
+function getAccessPeriodFromInvoice(inv: any): string | null {
+  const baseLine = (inv?.line_items || []).find(
+    (li: any) => li?.metadata?.line_kind === "subscription_base_advance"
+  );
+  const start = baseLine?.metadata?.access_period_start;
+  const end = baseLine?.metadata?.access_period_end;
+  if (!start || !end) return null;
+  return `${formatDate(start)} to ${formatDate(end)}`;
+}
+
 export default function InvoicesPage() {
   const [activeTab, setActiveTab] = useState<InvoiceTab>("all");
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -440,9 +450,15 @@ export default function InvoicesPage() {
                 <strong>Due:</strong> {formatDate((selected as any).due_date)}
               </div>
               <div className="rounded border p-3">
-                <strong>Billing Period:</strong> {formatDate((selected as any).billing_period_start)} to{" "}
+                <strong>{selected.invoice_type === "saas_fee" ? "Usage Billing Period" : "Billing Period"}:</strong>{" "}
+                {formatDate((selected as any).billing_period_start)} to{" "}
                 {formatDate((selected as any).billing_period_end)}
               </div>
+              {selected.invoice_type === "saas_fee" && getAccessPeriodFromInvoice(selected) && (
+                <div className="rounded border p-3">
+                  <strong>Renewal Access Period:</strong> {getAccessPeriodFromInvoice(selected)}
+                </div>
+              )}
             </div>
 
             <div className="mt-2">

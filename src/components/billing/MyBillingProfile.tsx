@@ -281,13 +281,21 @@ export default function MyBillingProfile() {
               </p>
             )}
             <p className="text-muted-foreground">
-              Current period: <span className="text-foreground font-medium">{subscriptionStatus?.current_period_start ?? "N/A"} to {subscriptionStatus?.current_period_end ?? "N/A"}</span>
+              Current access period: <span className="text-foreground font-medium">{subscriptionStatus?.current_period_start ?? "N/A"} to {subscriptionStatus?.current_period_end ?? "N/A"}</span>
             </p>
-            <p className="text-muted-foreground">
-              Next billing date: <span className="text-foreground font-medium">{subscriptionStatus?.next_billing_date ?? "N/A"}</span>
-            </p>
+            {subscriptionStatus?.subscription_status !== "canceled" ? (
+              <p className="text-muted-foreground">
+                Next billing date: <span className="text-foreground font-medium">{subscriptionStatus?.next_billing_date ?? "N/A"}</span>
+              </p>
+            ) : (
+              <p className="text-muted-foreground">
+                Next billing date: <span className="text-foreground font-medium">N/A (canceled)</span>
+              </p>
+            )}
             {subscriptionStatus?.cancel_at_period_end && (
-              <p className="text-amber-700 font-medium">Cancellation is scheduled at period end.</p>
+              <p className="text-amber-700 font-medium">
+                Cancellation is scheduled at period end{subscriptionStatus?.current_period_end ? ` (${subscriptionStatus.current_period_end})` : ""}.
+              </p>
             )}
           </CardContent>
         </Card>
