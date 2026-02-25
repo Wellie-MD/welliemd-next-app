@@ -86,6 +86,11 @@ export default function Analytics() {
 
   // Check if any filters are active
   const hasActiveFilters = selectedTreatment || selectedProductGroup || period === 'custom'
+  const hasDimensionFilter = Boolean(selectedTreatment || selectedProductGroup)
+  const treatmentFilterLabel = treatments.find(t => t.id === selectedTreatment)?.name || selectedTreatment
+  const productGroupFilterLabel = productGroups.find(g => g.id === selectedProductGroup)?.name || selectedProductGroup
+
+  const formatOrderLabel = (count: number) => `${count} order${count === 1 ? "" : "s"}`
 
 
   if (isLoading) {
@@ -335,7 +340,19 @@ export default function Analytics() {
           {analytics.salesByTreatment && analytics.salesByTreatment.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Sales by Treatment</CardTitle>
+                <CardTitle>
+                  {selectedTreatment ? "Selected Treatment Sales" : "Sales by Treatment"}
+                </CardTitle>
+                {selectedTreatment ? (
+                  <p className="text-sm text-muted-foreground">
+                    Filtered to <span className="font-medium text-foreground">{treatmentFilterLabel}</span>.
+                    Share is 100% by definition within the current filtered result set.
+                  </p>
+                ) : hasDimensionFilter ? (
+                  <p className="text-sm text-muted-foreground">
+                    Percentages are calculated within the current filtered result set.
+                  </p>
+                ) : null}
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -355,7 +372,7 @@ export default function Analytics() {
                       </div>
                       <div className="ml-4 text-right">
                         <div className="text-sm font-bold">${item.total.toLocaleString()}</div>
-                        <div className="text-xs text-muted-foreground">{item.count} orders</div>
+                        <div className="text-xs text-muted-foreground">{formatOrderLabel(item.count)}</div>
                       </div>
                     </div>
                   ))}
@@ -368,7 +385,19 @@ export default function Analytics() {
           {analytics.salesByProductGroup && analytics.salesByProductGroup.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Sales by Product Group</CardTitle>
+                <CardTitle>
+                  {selectedProductGroup ? "Selected Product Group Sales" : "Sales by Product Group"}
+                </CardTitle>
+                {selectedProductGroup ? (
+                  <p className="text-sm text-muted-foreground">
+                    Filtered to <span className="font-medium text-foreground">{productGroupFilterLabel}</span>.
+                    Share is 100% by definition within the current filtered result set.
+                  </p>
+                ) : hasDimensionFilter ? (
+                  <p className="text-sm text-muted-foreground">
+                    Percentages are calculated within the current filtered result set.
+                  </p>
+                ) : null}
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -388,7 +417,7 @@ export default function Analytics() {
                       </div>
                       <div className="ml-4 text-right">
                         <div className="text-sm font-bold">${item.total.toLocaleString()}</div>
-                        <div className="text-xs text-muted-foreground">{item.count} orders</div>
+                        <div className="text-xs text-muted-foreground">{formatOrderLabel(item.count)}</div>
                       </div>
                     </div>
                   ))}
@@ -438,7 +467,9 @@ export default function Analytics() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Customer Behavior</CardTitle>
-            <span className="text-sm text-muted-foreground">Last 30 minutes</span>
+            <span className="text-sm text-muted-foreground">
+              {hasActiveFilters ? "Current filtered date range" : "Current selected date range"}
+            </span>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-4 text-center">

@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import {
-  Plus, MoreHorizontal, Eye, Copy, Trash2, XCircle
+  Plus, MoreHorizontal, Eye, Copy, Trash2, XCircle, Play
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -167,6 +167,31 @@ export default function WebhooksApis() {
       fetchWebhooks()
     } catch (error) {
       toast({ title: "Error", description: "Failed to delete webhook", variant: "destructive" })
+    }
+  }
+
+  const handleTest = async (id: string, name: string) => {
+    try {
+      toast({ title: "Sending Test Event", description: `Triggering test event for ${name}...` })
+      const result = await webhooksApi.testEndpoint(id)
+
+      if (result.status === "success") {
+        toast({
+          title: "Test Successful",
+          description: `Received ${result.http_status} OK from endpoint.`,
+          variant: "default"
+        })
+      } else {
+        toast({
+          title: "Test Failed",
+          description: `Endpoint returned ${result.http_status} error.`,
+          variant: "destructive"
+        })
+      }
+    } catch (error: any) {
+      console.error(error)
+      const msg = error.response?.data?.detail || "Failed to trigger test event"
+      toast({ title: "Error", description: msg, variant: "destructive" })
     }
   }
 
@@ -440,6 +465,10 @@ export default function WebhooksApis() {
                           setIsDialogOpen(true)
                         }}>
                           Edit Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleTest(webhook.id, webhook.name)}>
+                          <Play className="mr-2 h-4 w-4" />
+                          Test Webhook
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(webhook.id)}>
