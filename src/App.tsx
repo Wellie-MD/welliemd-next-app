@@ -13,6 +13,7 @@ import { useMessages } from "@/hooks/useMessages";
 import { groupMessages } from "@/utils/groupMessages";
 import { Toaster } from "@/components/ui/toaster";
 import { useSocialTags } from "@/hooks/useSocialTags";
+import BillingSuspendedBanner from "@/components/billing/BillingSuspendedBanner";
 
 // pages
 import Dashboard from "./pages/Dashboard";
@@ -215,6 +216,10 @@ const App = () => {
                   <MessageChime conversations={conversations} />
 
                   <Header />
+
+                  {/* Billing Suspended Banner - shown when account is locked */}
+                  <BillingSuspendedBanner />
+
                   <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
                     <Routes>
                       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
