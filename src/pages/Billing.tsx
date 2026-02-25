@@ -125,8 +125,8 @@ export default function Billing() {
             >
               <option value="-issued_at">Newest first</option>
               <option value="issued_at">Oldest first</option>
-              <option value="-amount">Amount high → low</option>
-              <option value="amount">Amount low → high</option>
+              <option value="-total_amount">Amount high → low</option>
+              <option value="total_amount">Amount low → high</option>
               <option value="status">Status A → Z</option>
             </select>
             <input
@@ -248,31 +248,52 @@ export default function Billing() {
       </Card>
 
       {selected && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white rounded-md p-4 w-full max-w-3xl">
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-md p-4 w-full max-w-4xl max-h-[90vh] overflow-auto">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-lg font-semibold">Invoice {selected.invoice_number}</h3>
               <button onClick={() => setSelected(null)} className="text-sm px-2 py-1">
                 Close
               </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              <div><strong>Client:</strong> {(selected as any).client_name || "-"}</div>
-              <div><strong>Type:</strong> {selected.invoice_type?.replace("_", " ")}</div>
-              <div><strong>Status:</strong> {selected.status}</div>
-              <div><strong>Total:</strong> ${(selected as any).total_amount ?? selected.amount}</div>
-              <div><strong>Issued:</strong> {selected.issued_at ? new Date(selected.issued_at).toLocaleDateString() : "-"}</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-4">
+              <div className="rounded border p-3"><strong>Client:</strong> {(selected as any).client_name || "-"}</div>
+              <div className="rounded border p-3"><strong>Type:</strong> {selected.invoice_type?.replace("_", " ")}</div>
+              <div className="rounded border p-3"><strong>Status:</strong> {selected.status}</div>
+              <div className="rounded border p-3"><strong>Total:</strong> ${(selected as any).total_amount ?? selected.amount}</div>
+              <div className="rounded border p-3"><strong>Issued:</strong> {selected.issued_at ? new Date(selected.issued_at).toLocaleDateString() : "-"}</div>
+              <div className="rounded border p-3"><strong>Due:</strong> {selected.due_date ? new Date(selected.due_date).toLocaleDateString() : "N/A"}</div>
             </div>
             <div className="mt-4">
               <h4 className="font-medium mb-2">Line Items</h4>
-              <ul className="list-disc pl-5 text-sm">
-                {(selected.line_items ?? []).map((li) => (
-                  <li key={li.id}>
-                    {li.description} — {li.quantity} × {li.unit_price} = {(li as any).total_amount}
-                  </li>
-                ))}
-                {(selected.line_items ?? []).length === 0 && <li>No line items</li>}
-              </ul>
+              {(selected.line_items ?? []).length === 0 ? (
+                <div className="rounded border p-3 text-sm text-muted-foreground">No line items</div>
+              ) : (
+                <div className="rounded border overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/30">
+                      <tr>
+                        <th className="text-left px-3 py-2">Type</th>
+                        <th className="text-left px-3 py-2">Description</th>
+                        <th className="text-right px-3 py-2">Qty</th>
+                        <th className="text-right px-3 py-2">Unit Price</th>
+                        <th className="text-right px-3 py-2">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(selected.line_items ?? []).map((li) => (
+                        <tr key={li.id} className="border-t">
+                          <td className="px-3 py-2">{li.item_type?.replace("_", " ")}</td>
+                          <td className="px-3 py-2">{li.description || "-"}</td>
+                          <td className="px-3 py-2 text-right">{li.quantity ?? 0}</td>
+                          <td className="px-3 py-2 text-right">{li.unit_price ?? 0}</td>
+                          <td className="px-3 py-2 text-right">{(li as any).total_amount ?? 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         </div>
