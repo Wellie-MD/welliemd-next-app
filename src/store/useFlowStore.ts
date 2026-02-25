@@ -3,7 +3,7 @@ import { Node, Edge } from "reactflow";
 import { Question, QuestionnaireTemplate } from "@/api/questionnaires";
 
 export type FilterType = "all" | "archived" | "unused" | "locked";
-export type FlowViewMode = "overview" | "focus" | "edit";
+export type FlowViewMode = "overview" | "focus" | "edit" | "checkout";
 
 interface FlowState {
   // Template data
