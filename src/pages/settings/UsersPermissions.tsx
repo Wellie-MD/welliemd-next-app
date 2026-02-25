@@ -288,16 +288,16 @@ function UserCard({ user, roles, onAssignRole, onDeactivate, onClick }: {
           )}
         </div>
       </div>
-      
+
       <div className="flex items-center gap-2">
         {getStatusBadge()}
         <Badge variant="secondary">{user.primary_role}</Badge>
-        
-        {!isPrimaryOwner && (
+
+        {!isPrimaryOwner && user.email !== 'admin-welliemd@gmail.com' && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={(e) => e.stopPropagation()}
               >
