@@ -183,3 +183,37 @@ export async function getAdminOrders(params: OrdersQueryParams = {}): Promise<Or
     );
   }
 }
+
+export interface OrderUpdatePayload {
+  client_id: string;
+  status?: string;
+  tracking_number?: string;
+}
+
+export interface OrderUpdateResponse {
+  success: boolean;
+  order: AdminOrder;
+  error?: string;
+}
+
+/**
+ * Update an order's status and/or tracking number via the control plane.
+ */
+export async function updateAdminOrder(
+  orderId: string,
+  payload: OrderUpdatePayload
+): Promise<OrderUpdateResponse> {
+  try {
+    const { data } = await axiosInstance.patch<OrderUpdateResponse>(
+      `/admin/dashboard/orders/${orderId}/`,
+      payload
+    );
+    return data;
+  } catch (error: any) {
+    console.error('Failed to update order:', error);
+    throw new Error(
+      error.response?.data?.error ||
+      'Failed to update order. Please try again.'
+    );
+  }
+}
