@@ -34,6 +34,7 @@ import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
+import RegisterInvitation from "./pages/auth/RegisterInvitation";
 import AnalyticsCohorts from "./pages/AnalyticsCohorts";
 import AnalyticsReports from "./pages/AnalyticsReports";
 import CouponCodes from "./pages/CouponCodes";
@@ -44,6 +45,7 @@ import ProductConfig from "./pages/ProductConfig";
 import ArchiveTemplates from "./pages/ArchiveTemplates";
 import ArchiveProducts from "./pages/ArchiveProducts";
 import ManageAccount from "./pages/ManageAccount";
+import UsersPermissions from "./pages/management/UsersPermissions";
 
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -84,6 +86,7 @@ const App = () => {
         {/* <Route path="/signup" element={<SignUp />} /> */}
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/register" element={<RegisterInvitation />} />
         
         {/* Dashboard routes */}
         <Route path="/dashboard/*" element={
@@ -125,6 +128,7 @@ const App = () => {
                     <Route path="/pharmacies" element={<ProtectedRoute><Pharmacies /></ProtectedRoute>} />
                     <Route path="/products/archive" element={<ProtectedRoute><ArchiveProducts /></ProtectedRoute>} />
                     <Route path="/manage-account" element={<ProtectedRoute><ManageAccount /></ProtectedRoute>} />
+                    <Route path="/users-permissions" element={<ProtectedRoute><UsersPermissions /></ProtectedRoute>} />
                   </Routes>
                 </main>
               </div>

@@ -18,7 +18,8 @@ import {
   MapPin,        // <- used for Pharmacies
   ChevronDown,
   ChevronRight,
-  Archive
+  Archive,
+  ShieldCheck
 } from "lucide-react"
 
 import {
@@ -47,6 +48,7 @@ const menuSections = [
     items: [
       { title: "Home", url: "/dashboard", icon: BarChart3 },
       { title: "Clients", url: "/dashboard/clients", icon: Users },
+      { title: "Users & Permissions", url: "/dashboard/users-permissions", icon: ShieldCheck },
       // {
       //   title: "Treatments",
       //   icon: Stethoscope,
