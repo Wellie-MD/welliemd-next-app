@@ -1,9 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, Loader2, AlertCircle, Filter } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FileText, Loader2, AlertCircle, Filter, Search, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -21,104 +19,132 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { clientApi } from "@/api/clientApi";
-import type { InvoiceType } from "@/types/b2bBilling";
+import type { B2BInvoice, InvoiceType } from "@/types/b2bBilling";
 
 interface B2BInvoiceListProps {
   clientId: string;
 }
 
+type InvoiceStatusFilter = "all" | "draft" | "pending" | "due" | "paid" | "overdue" | "failed" | "canceled" | "refunded";
+type InvoiceOrdering = "-issued_at" | "issued_at" | "-total_amount" | "total_amount" | "status";
+
+function formatMoney(value: string | number | undefined) {
+  const parsed = Number(value ?? 0);
+  return `$${Number.isFinite(parsed) ? parsed.toFixed(2) : "0.00"}`;
+}
+
+function formatDate(dateString?: string) {
+  if (!dateString) return "N/A";
+  return new Date(dateString).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function statusVariant(status: string) {
+  switch (status) {
+    case "paid":
+      return "default";
+    case "overdue":
+    case "failed":
+      return "destructive";
+    case "pending":
+    case "due":
+      return "secondary";
+    default:
+      return "outline";
+  }
+}
+
+function typeVariant(type: string) {
+  switch (type) {
+    case "reimbursement":
+      return "default";
+    case "saas_fee":
+      return "secondary";
+    case "aggregated_snapshot":
+      return "outline";
+    default:
+      return "outline";
+  }
+}
+
+function lineItemLabel(itemType: string) {
+  return itemType.replace(/_/g, " ");
+}
+
+function getAccessPeriodFromInvoice(inv: any): string | null {
+  const baseLine = (inv?.line_items || []).find(
+    (li: any) => li?.metadata?.line_kind === "subscription_base_advance"
+  );
+  const start = baseLine?.metadata?.access_period_start;
+  const end = baseLine?.metadata?.access_period_end;
+  if (!start || !end) return null;
+  return `${formatDate(start)} to ${formatDate(end)}`;
+}
+
 export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
   const [invoiceType, setInvoiceType] = useState<InvoiceType | "all">("all");
+  const [status, setStatus] = useState<InvoiceStatusFilter>("all");
+  const [search, setSearch] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [ordering, setOrdering] = useState<InvoiceOrdering>("-issued_at");
   const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<B2BInvoice | null>(null);
   const pageSize = 10;
 
+  const params = useMemo(() => {
+    const merged: Record<string, unknown> = {
+      page,
+      page_size: pageSize,
+      ordering,
+    };
+    if (status !== "all") merged.status = status;
+    if (search.trim()) merged.invoice_number = search.trim();
+    if (fromDate) merged.issued_at_after = fromDate;
+    if (toDate) merged.issued_at_before = toDate;
+    return merged;
+  }, [page, ordering, status, search, fromDate, toDate]);
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ["b2bInvoices", clientId, invoiceType, page],
+    queryKey: ["b2bInvoices", clientId, invoiceType, params],
     queryFn: () =>
       clientApi.getB2BInvoices(
         clientId,
         invoiceType === "all" ? undefined : invoiceType,
-        {
-          page,
-          page_size: pageSize,
-          ordering: "-issued_at",
-        }
+        params
       ),
     enabled: !!clientId,
   });
 
   const invoices = data?.results || [];
+  const totalCount = data?.count || 0;
+  const totalPages = Math.ceil(totalCount / pageSize);
+
   const formatBreakdown = (inv: any) => {
     const items = inv.line_items ?? [];
     const pharmacy = items
       .filter((li: any) => ["medication_reimbursement", "shipping_cost"].includes(li.item_type))
-      .reduce(
-        (sum: number, li: any) =>
-          sum + parseFloat(li.total_amount || li.unit_price || 0),
-        0
-      );
+      .reduce((sum: number, li: any) => sum + parseFloat(li.total_amount || li.unit_price || 0), 0);
     const consult = items
       .filter((li: any) => li.item_type === "consultation")
-      .reduce(
-        (sum: number, li: any) =>
-          sum + parseFloat(li.total_amount || li.unit_price || 0),
-        0
-      );
+      .reduce((sum: number, li: any) => sum + parseFloat(li.total_amount || li.unit_price || 0), 0);
     if (!pharmacy && !consult) return "-";
     return `Pharmacy: $${pharmacy.toFixed(2)} · Consult: $${consult.toFixed(2)}`;
   };
-  const totalCount = data?.count || 0;
-  const totalPages = Math.ceil(totalCount / pageSize);
-
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case "paid":
-        return "default";
-      case "overdue":
-      case "failed":
-        return "destructive";
-      case "pending":
-      case "due":
-        return "secondary";
-      default:
-        return "outline";
-    }
-  };
-
-  const getInvoiceTypeBadgeVariant = (type: string) => {
-    switch (type) {
-      case "reimbursement":
-        return "default";
-      case "saas_fee":
-        return "secondary";
-      case "aggregated_snapshot":
-        return "outline";
-      default:
-        return "outline";
-    }
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
+    <section className="bg-card rounded-2xl border shadow-sm overflow-hidden mb-8">
+      <div className="p-4 border-b space-y-4">
+        <div className="flex justify-between items-start gap-4">
           <div>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
               B2B Invoices
-            </CardTitle>
-            <CardDescription>
-              Platform billing invoices for this client
-            </CardDescription>
+            </h2>
+            <p className="text-xs text-muted-foreground mt-1">Platform billing invoices</p>
           </div>
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
@@ -129,78 +155,156 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by type" />
+              <SelectTrigger className="w-[170px]">
+                <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="reimbursement">Reimbursement</SelectItem>
                 <SelectItem value="saas_fee">SaaS Fee</SelectItem>
+                <SelectItem value="aggregated_snapshot">Snapshot</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
+          <div className="relative">
+            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              className="w-full rounded-md border bg-background pl-9 pr-3 py-2 text-sm"
+              placeholder="Search invoice number"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+            />
           </div>
-        ) : error ? (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Failed to load invoices. Please try again later.
-            </AlertDescription>
-          </Alert>
-        ) : invoices.length === 0 ? (
-          <Alert>
-            <FileText className="h-4 w-4" />
-            <AlertDescription>
-              No invoices found
-              {invoiceType !== "all" && ` for type: ${invoiceType}`}.
-            </AlertDescription>
-          </Alert>
-        ) : (
-          <>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Invoice Number</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Breakdown</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Issued Date</TableHead>
-                    <TableHead>Due Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invoices.map((invoice) => {
-                    const statusLabel =
-                      (invoice as any).is_overdue && invoice.status !== "paid"
-                        ? "overdue"
-                        : invoice.status;
-                    return (
+          <Select
+            value={status}
+            onValueChange={(value) => {
+              setStatus(value as InvoiceStatusFilter);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="All Statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="due">Due</SelectItem>
+              <SelectItem value="paid">Paid</SelectItem>
+              <SelectItem value="overdue">Overdue</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
+              <SelectItem value="canceled">Canceled</SelectItem>
+              <SelectItem value="refunded">Refunded</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={ordering}
+            onValueChange={(value) => {
+              setOrdering(value as InvoiceOrdering);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Sort" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="-issued_at">Newest first</SelectItem>
+              <SelectItem value="issued_at">Oldest first</SelectItem>
+              <SelectItem value="-total_amount">Amount high to low</SelectItem>
+              <SelectItem value="total_amount">Amount low to high</SelectItem>
+              <SelectItem value="status">Status A to Z</SelectItem>
+            </SelectContent>
+          </Select>
+          <input
+            type="date"
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            value={fromDate}
+            onChange={(e) => {
+              setFromDate(e.target.value);
+              setPage(1);
+            }}
+          />
+          <input
+            type="date"
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            value={toDate}
+            onChange={(e) => {
+              setToDate(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="p-8 flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : error ? (
+        <div className="p-4">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+            <p className="text-sm text-red-700 dark:text-red-300">Failed to load invoices. Please try again later.</p>
+          </div>
+        </div>
+      ) : invoices.length === 0 ? (
+        <div className="p-8 flex flex-col items-center justify-center text-center">
+          <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+            <FileText className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <p className="text-sm font-medium">No invoices found</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Invoices will appear here once generated.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Invoice Number</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Breakdown</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Issued</TableHead>
+                  <TableHead>Due</TableHead>
+                  <TableHead className="text-right">Details</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invoices.map((invoice) => {
+                  const effectiveStatus =
+                    (invoice as any).is_overdue && invoice.status !== "paid"
+                      ? "overdue"
+                      : invoice.status;
+
+                  return (
                     <TableRow key={invoice.id}>
-                      <TableCell className="font-mono text-sm">
+                      <TableCell className="font-mono text-xs">
                         {invoice.invoice_number}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getInvoiceTypeBadgeVariant(invoice.invoice_type)}>
+                        <Badge variant={typeVariant(invoice.invoice_type)}>
                           {invoice.invoice_type.replace("_", " ")}
                         </Badge>
                       </TableCell>
                       <TableCell className="font-medium">
-                        ${parseFloat(invoice.total_amount).toFixed(2)}
+                        {formatMoney(invoice.total_amount)}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {formatBreakdown(invoice)}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getStatusBadgeVariant(statusLabel)}>
-                          {statusLabel}
+                        <Badge variant={statusVariant(effectiveStatus)}>
+                          {effectiveStatus}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
@@ -209,46 +313,129 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDate(invoice.due_date)}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSelected(invoice)}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                      </TableCell>
                     </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="p-4 border-t flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Showing {(page - 1) * pageSize + 1} to{" "}
+                {Math.min(page * pageSize, totalCount)} of {totalCount} invoices
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {selected && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-background rounded-xl border shadow-lg w-full max-w-4xl max-h-[90vh] overflow-auto">
+            <div className="p-4 border-b flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">Invoice {selected.invoice_number}</h3>
+                <p className="text-xs text-muted-foreground">{selected.invoice_type.replace("_", " ")} · {selected.status}</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => setSelected(null)}>
+                Close
+              </Button>
             </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-4">
-                <p className="text-sm text-muted-foreground">
-                  Showing {(page - 1) * pageSize + 1} to{" "}
-                  {Math.min(page * pageSize, totalCount)} of {totalCount} invoices
-                </p>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-sm">
-                    Page {page} of {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                  >
-                    Next
-                  </Button>
+            <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+              <div className="rounded-md border p-3">
+                <div className="text-muted-foreground text-xs">Total Amount</div>
+                <div className="font-semibold">{formatMoney(selected.total_amount)}</div>
+              </div>
+              <div className="rounded-md border p-3">
+                <div className="text-muted-foreground text-xs">Issued Date</div>
+                <div className="font-semibold">{formatDate(selected.issued_at)}</div>
+              </div>
+              <div className="rounded-md border p-3">
+                <div className="text-muted-foreground text-xs">
+                  {selected.invoice_type === "saas_fee" ? "Usage Billing Period" : "Billing Period"}
+                </div>
+                <div className="font-semibold">
+                  {formatDate(selected.billing_period_start)} to {formatDate(selected.billing_period_end)}
                 </div>
               </div>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
+              {selected.invoice_type === "saas_fee" && getAccessPeriodFromInvoice(selected) && (
+                <div className="rounded-md border p-3">
+                  <div className="text-muted-foreground text-xs">Renewal Access Period</div>
+                  <div className="font-semibold">{getAccessPeriodFromInvoice(selected)}</div>
+                </div>
+              )}
+            </div>
+
+            <div className="px-4 pb-4">
+              <h4 className="font-semibold mb-2">Line Items</h4>
+              {(selected.line_items || []).length === 0 ? (
+                <div className="rounded-md border p-3 text-sm text-muted-foreground">
+                  No line items available for this invoice.
+                </div>
+              ) : (
+                <div className="rounded-md border overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/30">
+                      <tr>
+                        <th className="text-left px-3 py-2">Type</th>
+                        <th className="text-left px-3 py-2">Description</th>
+                        <th className="text-right px-3 py-2">Qty</th>
+                        <th className="text-right px-3 py-2">Unit</th>
+                        <th className="text-right px-3 py-2">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(selected.line_items || []).map((item) => (
+                        <tr key={item.id} className="border-t">
+                          <td className="px-3 py-2">{lineItemLabel(item.item_type)}</td>
+                          <td className="px-3 py-2">{item.description || "-"}</td>
+                          <td className="px-3 py-2 text-right">{item.quantity || 0}</td>
+                          <td className="px-3 py-2 text-right">{formatMoney(item.unit_price)}</td>
+                          <td className="px-3 py-2 text-right font-medium">{formatMoney(item.total_amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Save, Loader2, Info, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Info, AlertCircle, Eye, EyeOff, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,6 +38,8 @@ import {
 import { PasswordDisplayModal } from "@/components/clients/PasswordDisplayModal";
 import { B2BBillingDisplay } from "@/components/billing/B2BBillingDisplay";
 import { B2BInvoiceList } from "@/components/billing/B2BInvoiceList";
+import { BillingLockStatusCard } from "@/components/billing/BillingLockStatusCard";
+import { BillingConfigEditor } from "@/components/billing/BillingConfigEditor";
 
 // Helper component for field info tooltips
 const FieldInfo = ({ content }: { content: string }) => (
@@ -88,18 +90,12 @@ export default function ClientForm() {
     questionnaire_url: "",
 
     // Billing Settings
-    patient_fee: 5.0,
     async_consult_fee_to_client: 30.0,
     async_consult_cost: 25.0,
     sync_video_consult_fee_to_client: 60.0,
     sync_consult_cost: 50.0,
-    monthly_saas_fee: 500.0,
-    first_next_saas_fees_billing_date: "",
     include_cost_to_client_in_reimbursement: true,
     include_shipping_cost_to_client_in_reimbursement: true,
-    b2b_dunning_enabled: true,
-    b2b_grace_period_days: 7,
-    b2b_manual_pay_enabled: true,
 
     // Payment Gateway
     payment_gateway: "nmi",
@@ -192,23 +188,16 @@ export default function ClientForm() {
         token_expiry_minutes: existingClient.token_expiry_minutes || 30,
         database_host: existingClient.database_host || "127.0.0.1",
         database_name: existingClient.database_name,
-        patient_fee: existingClient.patient_fee || 5.0,
         async_consult_fee_to_client:
           existingClient.async_consult_fee_to_client || 30.0,
         async_consult_cost: existingClient.async_consult_cost || 25.0,
         sync_video_consult_fee_to_client:
           existingClient.sync_video_consult_fee_to_client || 60.0,
         sync_consult_cost: existingClient.sync_consult_cost || 50.0,
-        monthly_saas_fee: existingClient.monthly_saas_fee || 500.0,
-        first_next_saas_fees_billing_date:
-          existingClient.first_next_saas_fees_billing_date || "",
         include_cost_to_client_in_reimbursement:
           existingClient.include_cost_to_client_in_reimbursement ?? true,
         include_shipping_cost_to_client_in_reimbursement:
           existingClient.include_shipping_cost_to_client_in_reimbursement ?? true,
-        b2b_dunning_enabled: existingClient.b2b_dunning_enabled ?? true,
-        b2b_grace_period_days: existingClient.b2b_grace_period_days ?? 7,
-        b2b_manual_pay_enabled: existingClient.b2b_manual_pay_enabled ?? true,
         payment_gateway: existingClient.payment_gateway || "nmi",
         is_active: existingClient.is_active,
       });
@@ -237,6 +226,7 @@ export default function ClientForm() {
         title: "Success",
         description: response.message,
       });
+      navigate("/dashboard/clients");
     },
     onError: (error: unknown) => {
       toast({
@@ -281,7 +271,6 @@ export default function ClientForm() {
         title: "Success",
         description: response.message,
       });
-      navigate("/dashboard/clients");
     },
     onError: (error: unknown) => {
       toast({
@@ -391,33 +380,21 @@ export default function ClientForm() {
         token_expiry_minutes: formData.token_expiry_minutes,
         database_host: formData.database_host,
         database_name: formData.database_name,
-        patient_fee: formData.patient_fee,
         async_consult_fee_to_client: formData.async_consult_fee_to_client,
         async_consult_cost: formData.async_consult_cost,
         sync_video_consult_fee_to_client:
           formData.sync_video_consult_fee_to_client,
         sync_consult_cost: formData.sync_consult_cost,
-        monthly_saas_fee: formData.monthly_saas_fee,
-        first_next_saas_fees_billing_date:
-          formData.first_next_saas_fees_billing_date || undefined,
         include_cost_to_client_in_reimbursement:
           formData.include_cost_to_client_in_reimbursement,
         include_shipping_cost_to_client_in_reimbursement:
           formData.include_shipping_cost_to_client_in_reimbursement,
-        b2b_dunning_enabled: formData.b2b_dunning_enabled,
-        b2b_grace_period_days: formData.b2b_grace_period_days,
-        b2b_manual_pay_enabled: formData.b2b_manual_pay_enabled,
         payment_gateway: formData.payment_gateway,
         is_active: formData.is_active,
       };
       updateMutation.mutate(updatePayload);
     } else {
-      // Clean up empty date fields for create
-      const createPayload = {
-        ...formData,
-        first_next_saas_fees_billing_date: formData.first_next_saas_fees_billing_date || undefined,
-      };
-      createMutation.mutate(createPayload);
+      createMutation.mutate(formData);
     }
   };
 
@@ -520,23 +497,23 @@ export default function ClientForm() {
                           email: emailTouched
                             ? prev.email
                             : p
-                            ? `${p}@welliemd.com`
-                            : prev.email,
+                              ? `${p}@welliemd.com`
+                              : prev.email,
                           admin_panel_domain: adminDomainTouched
                             ? prev.admin_panel_domain
                             : p
-                            ? `https://${p}client.welliemd.com`
-                            : prev.admin_panel_domain,
+                              ? `https://${p}client.welliemd.com`
+                              : prev.admin_panel_domain,
                           subdomain: subdomainTouched
                             ? prev.subdomain
                             : p
-                            ? `https://${p}questionnaire.welliemd.com`
-                            : prev.subdomain,
+                              ? `https://${p}questionnaire.welliemd.com`
+                              : prev.subdomain,
                           api_endpoint: apiEndpointTouched
                             ? prev.api_endpoint
                             : p
-                            ? `https://${p}api.welliemd.com/api/v1/`
-                            : prev.api_endpoint,
+                              ? `https://${p}api.welliemd.com/api/v1/`
+                              : prev.api_endpoint,
                           first_name: firstNameTouched
                             ? prev.first_name
                             : fn || prev.first_name,
@@ -872,289 +849,155 @@ export default function ClientForm() {
 
           {/* Tab 3: Billing Configuration */}
           <TabsContent value="billing" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Fee Configuration</CardTitle>
-                <CardDescription>
-                  Configure fees and billing settings
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Core Fees</p>
-                    <p className="text-xs text-muted-foreground">
-                      These fees define your base pricing model for patients and consults.
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="patient_fee">Patient Fee ($)</Label>
-                    <Input
-                      id="patient_fee"
-                      type="number"
-                      step="0.01"
-                      value={formData.patient_fee}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          patient_fee: e.target.value === "" ? 0 : parseFloat(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="async_consult_fee_to_client">
-                      Async Consult Fee ($)
-                    </Label>
-                    <Input
-                      id="async_consult_fee_to_client"
-                      type="number"
-                      step="0.01"
-                      value={formData.async_consult_fee_to_client}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          async_consult_fee_to_client: e.target.value === "" ? 0 : parseFloat(
-                            e.target.value
-                          ),
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="async_consult_cost">
-                      Async Consult Cost ($)
-                    </Label>
-                    <Input
-                      id="async_consult_cost"
-                      type="number"
-                      step="0.01"
-                      value={formData.async_consult_cost}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          async_consult_cost: e.target.value === "" ? 0 : parseFloat(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-                </div>
-                <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Sync & SaaS Fees</p>
-                    <p className="text-xs text-muted-foreground">
-                      Sync consult rates and the monthly SaaS base fee.
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="sync_video_consult_fee_to_client">
-                      Sync Consult Fee ($)
-                    </Label>
-                    <Input
-                      id="sync_video_consult_fee_to_client"
-                      type="number"
-                      step="0.01"
-                      value={formData.sync_video_consult_fee_to_client}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          sync_video_consult_fee_to_client: e.target.value === "" ? 0 : parseFloat(
-                            e.target.value
-                          ),
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="sync_consult_cost">
-                      Sync Consult Cost ($)
-                    </Label>
-                    <Input
-                      id="sync_consult_cost"
-                      type="number"
-                      step="0.01"
-                      value={formData.sync_consult_cost}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          sync_consult_cost: e.target.value === "" ? 0 : parseFloat(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="monthly_saas_fee">
-                      Monthly SaaS Fee ($)
-                    </Label>
-                    <Input
-                      id="monthly_saas_fee"
-                      type="number"
-                      step="0.01"
-                      value={formData.monthly_saas_fee}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          monthly_saas_fee: e.target.value === "" ? 0 : parseFloat(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="first_next_saas_fees_billing_date">
-                        First/Next SaaS Billing Date
+            {/* Section 1: Fee Configuration */}
+            <section className="bg-card rounded-2xl border shadow-sm overflow-hidden">
+              <div className="p-4 border-b">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <CreditCard className="h-5 w-5 text-primary" />
+                  Fee Configuration
+                </h2>
+                <p className="text-xs text-muted-foreground mt-1">Configure fees and billing settings</p>
+              </div>
+              <div className="p-4 space-y-6">
+                {/* Consult Fees */}
+                <div className="bg-muted/50 rounded-xl p-4 border">
+                  <h3 className="text-sm font-semibold mb-3">Consult Fees</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="async_consult_fee_to_client" className="block text-xs font-medium text-muted-foreground mb-1.5">
+                        Async Consult Fee ($)
                       </Label>
                       <Input
-                        id="first_next_saas_fees_billing_date"
-                        type="date"
-                        value={formData.first_next_saas_fees_billing_date}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            first_next_saas_fees_billing_date: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
-                  <div className="space-y-1">
-                    <Label className="text-sm font-medium">
-                      Reimbursement Charge Options
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      Control which costs are included when charging the client
-                      for reimbursements. Consult fees are always included.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-background p-3">
-                    <div>
-                      <p className="text-sm font-medium">
-                        Include medication cost to client
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Charges the client for product cost on reimbursement
-                        invoices.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={
-                        formData.include_cost_to_client_in_reimbursement ?? true
-                      }
-                      onCheckedChange={(checked) =>
-                        setFormData({
-                          ...formData,
-                          include_cost_to_client_in_reimbursement: checked,
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-background p-3">
-                    <div>
-                      <p className="text-sm font-medium">
-                        Include shipping cost to client
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Charges the client for shipping cost on reimbursement
-                        invoices.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={
-                        formData.include_shipping_cost_to_client_in_reimbursement ??
-                        true
-                      }
-                      onCheckedChange={(checked) =>
-                        setFormData({
-                          ...formData,
-                          include_shipping_cost_to_client_in_reimbursement: checked,
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
-                  <div className="space-y-1">
-                    <Label className="text-sm font-medium">
-                      Subscription Dunning
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      Configure grace period handling for failed SaaS subscription renewals.
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-background p-3">
-                    <div>
-                      <p className="text-sm font-medium">Enable grace period</p>
-                      <p className="text-xs text-muted-foreground">
-                        Keep subscription active while invoice is due.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={formData.b2b_dunning_enabled ?? true}
-                      onCheckedChange={(checked) =>
-                        setFormData({
-                          ...formData,
-                          b2b_dunning_enabled: checked,
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="b2b_grace_period_days">Grace period (days)</Label>
-                      <Input
-                        id="b2b_grace_period_days"
+                        id="async_consult_fee_to_client"
                         type="number"
-                        min={0}
-                        max={60}
-                        value={formData.b2b_grace_period_days ?? 7}
+                        step="0.01"
+                        className="bg-card"
+                        value={formData.async_consult_fee_to_client}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            b2b_grace_period_days: Number(e.target.value),
+                            async_consult_fee_to_client: e.target.value === "" ? 0 : parseFloat(e.target.value),
                           })
                         }
-                        disabled={!formData.b2b_dunning_enabled}
                       />
                     </div>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border bg-background p-3">
-                      <div>
-                        <p className="text-sm font-medium">Allow manual pay</p>
-                        <p className="text-xs text-muted-foreground">
-                          Let clients manually pay overdue invoices.
-                        </p>
+                    <div>
+                      <Label htmlFor="async_consult_cost" className="block text-xs font-medium text-muted-foreground mb-1.5">
+                        Async Consult Cost ($)
+                      </Label>
+                      <Input
+                        id="async_consult_cost"
+                        type="number"
+                        step="0.01"
+                        className="bg-card"
+                        value={formData.async_consult_cost}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            async_consult_cost: e.target.value === "" ? 0 : parseFloat(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sync Consult Fees */}
+                <div className="bg-muted/50 rounded-xl p-4 border">
+                  <h3 className="text-sm font-semibold mb-3">Sync Consult Fees</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="sync_video_consult_fee_to_client" className="block text-xs font-medium text-muted-foreground mb-1.5">
+                        Sync Consult Fee ($)
+                      </Label>
+                      <Input
+                        id="sync_video_consult_fee_to_client"
+                        type="number"
+                        step="0.01"
+                        className="bg-card"
+                        value={formData.sync_video_consult_fee_to_client}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            sync_video_consult_fee_to_client: e.target.value === "" ? 0 : parseFloat(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="sync_consult_cost" className="block text-xs font-medium text-muted-foreground mb-1.5">
+                        Sync Consult Cost ($)
+                      </Label>
+                      <Input
+                        id="sync_consult_cost"
+                        type="number"
+                        step="0.01"
+                        className="bg-card"
+                        value={formData.sync_consult_cost}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            sync_consult_cost: e.target.value === "" ? 0 : parseFloat(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reimbursement Charge Options */}
+                <div className="bg-muted/50 rounded-xl p-4 border">
+                  <h3 className="text-sm font-semibold mb-3">Reimbursement Charge Options</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="pr-4">
+                        <p className="text-sm font-medium">Include medication cost to client</p>
+                        <p className="text-xs text-muted-foreground">Charges product cost on reimbursement invoices.</p>
                       </div>
                       <Switch
-                        checked={formData.b2b_manual_pay_enabled ?? true}
+                        checked={formData.include_cost_to_client_in_reimbursement ?? true}
                         onCheckedChange={(checked) =>
                           setFormData({
                             ...formData,
-                            b2b_manual_pay_enabled: checked,
+                            include_cost_to_client_in_reimbursement: checked,
                           })
                         }
-                        disabled={!formData.b2b_dunning_enabled}
+                      />
+                    </div>
+                    <div className="h-px bg-border w-full" />
+                    <div className="flex items-center justify-between">
+                      <div className="pr-4">
+                        <p className="text-sm font-medium">Include shipping cost to client</p>
+                        <p className="text-xs text-muted-foreground">Charges shipping cost on reimbursement invoices.</p>
+                      </div>
+                      <Switch
+                        checked={formData.include_shipping_cost_to_client_in_reimbursement ?? true}
+                        onCheckedChange={(checked) =>
+                          setFormData({
+                            ...formData,
+                            include_shipping_cost_to_client_in_reimbursement: checked,
+                          })
+                        }
                       />
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </section>
 
-            {/* B2B Billing Display - Only show in edit mode */}
+            {/* B2B Billing - Only show in edit mode */}
             {isEditMode && id && (
               <>
+                {/* Section 2: Billing Status - Lock state indicator */}
+                <BillingLockStatusCard clientId={id} />
+
+                {/* Section 3: Billing Configuration - Base fee, patient fee, schedule */}
+                <BillingConfigEditor clientId={id} />
+
+                {/* Section 4: B2B Billing Status - Payment method & subscription */}
                 <B2BBillingDisplay clientId={id} client={existingClient} />
+
+                {/* Section 5: B2B Invoices - Invoice history */}
                 <B2BInvoiceList clientId={id} />
               </>
             )}
