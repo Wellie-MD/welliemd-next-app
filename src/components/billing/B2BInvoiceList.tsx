@@ -70,8 +70,15 @@ function typeVariant(type: string) {
   }
 }
 
-function lineItemLabel(itemType: string) {
-  return itemType.replace(/_/g, " ");
+function lineItemLabel(item: any) {
+  if (item?.item_type === "consultation") {
+    const mode = String(item?.metadata?.consult_mode || "").toLowerCase();
+    if (mode === "sync") return "Sync Consult";
+    if (mode === "async") return "Async Consult";
+  }
+  return String(item?.item_type || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
 function getAccessPeriodFromInvoice(inv: any): string | null {
@@ -412,6 +419,7 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                     <thead className="bg-muted/30">
                       <tr>
                         <th className="text-left px-3 py-2">Type</th>
+                        <th className="text-left px-3 py-2">Client Order #</th>
                         <th className="text-left px-3 py-2">Description</th>
                         <th className="text-right px-3 py-2">Qty</th>
                         <th className="text-right px-3 py-2">Unit</th>
@@ -421,7 +429,10 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                     <tbody>
                       {(selected.line_items || []).map((item) => (
                         <tr key={item.id} className="border-t">
-                          <td className="px-3 py-2">{lineItemLabel(item.item_type)}</td>
+                          <td className="px-3 py-2">{lineItemLabel(item)}</td>
+                          <td className="px-3 py-2 font-mono text-xs">
+                            {(item as any).client_order_number || (item as any).order_display_id || (selected as any).client_order_number || selected.source_tenant_order_display_id || "-"}
+                          </td>
                           <td className="px-3 py-2">{item.description || "-"}</td>
                           <td className="px-3 py-2 text-right">{item.quantity || 0}</td>
                           <td className="px-3 py-2 text-right">{formatMoney(item.unit_price)}</td>
