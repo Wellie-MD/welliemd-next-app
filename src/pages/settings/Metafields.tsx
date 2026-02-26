@@ -119,9 +119,22 @@ export default function Metafields() {
         description: 'Custom Global JS saved successfully',
       })
     } catch (error: any) {
+      let errorMsg = 'Failed to save Custom Global JS';
+      if (error.response?.data) {
+        if (Array.isArray(error.response.data)) {
+          errorMsg = error.response.data.join(', ');
+        } else if (error.response.data.detail) {
+          errorMsg = error.response.data.detail;
+        } else if (typeof error.response.data === 'string') {
+          errorMsg = error.response.data;
+        } else if (error.response.data.non_field_errors) {
+          errorMsg = error.response.data.non_field_errors.join(', ');
+        }
+      }
+
       toast({
         title: 'Error',
-        description: error.response?.data?.detail || 'Failed to save Custom Global JS',
+        description: errorMsg,
         variant: 'destructive',
       })
     } finally {
@@ -140,9 +153,22 @@ export default function Metafields() {
         description: 'Conversion Tracking JS saved successfully',
       })
     } catch (error: any) {
+      let errorMsg = 'Failed to save Conversion Tracking JS';
+      if (error.response?.data) {
+        if (Array.isArray(error.response.data)) {
+          errorMsg = error.response.data.join(', ');
+        } else if (error.response.data.detail) {
+          errorMsg = error.response.data.detail;
+        } else if (typeof error.response.data === 'string') {
+          errorMsg = error.response.data;
+        } else if (error.response.data.non_field_errors) {
+          errorMsg = error.response.data.non_field_errors.join(', ');
+        }
+      }
+
       toast({
         title: 'Error',
-        description: error.response?.data?.detail || 'Failed to save Conversion Tracking JS',
+        description: errorMsg,
         variant: 'destructive',
       })
     } finally {
