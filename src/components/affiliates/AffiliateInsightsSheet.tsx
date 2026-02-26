@@ -434,11 +434,7 @@ export function AffiliateInsightsSheet({
                                 <TableRow key={item.order_id}>
                                   <TableCell className="font-medium">
                                     {item.business_order_id ? (
-                                      <>
-                                        <span className="text-blue-600">{item.business_order_id}</span>
-                                        <span className="text-muted-foreground mx-1">-</span>
-                                        <span>{item.display_id}</span>
-                                      </>
+                                      <span className="text-blue-600">{item.business_order_id}</span>
                                     ) : (
                                       item.display_id
                                     )}

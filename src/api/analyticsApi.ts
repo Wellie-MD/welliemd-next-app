@@ -81,19 +81,24 @@ export const getTreatments = async (): Promise<Treatment[]> => {
       },
     });
     // Normalize response to array of {id, name}
-    if (Array.isArray(response.data)) {
-      return response.data.map((t: any) => ({
+    const normalize = (rows: any[]) => rows.map((t: any) => ({
         id: t.id || t.pk,
         name: t.name || t.treatment_name,
       }));
-    }
-    if (response.data.results && Array.isArray(response.data.results)) {
-      return response.data.results.map((t: any) => ({
-        id: t.id || t.pk,
-        name: t.name || t.treatment_name,
-      }));
-    }
-    return [];
+    const rows = Array.isArray(response.data)
+      ? normalize(response.data)
+      : (response.data.results && Array.isArray(response.data.results))
+        ? normalize(response.data.results)
+        : [];
+
+    // Defensive de-duplication for inconsistent backend responses / legacy data.
+    const seen = new Set<string>();
+    return rows.filter((row) => {
+      const key = String(row.id || "").trim().toLowerCase() || String(row.name || "").trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   } catch (error) {
     console.error('Failed to fetch treatments:', error);
     return [];
@@ -111,19 +116,23 @@ export const getProductGroups = async (): Promise<ProductGroup[]> => {
       },
     });
     // Normalize response to array of {id, name}
-    if (Array.isArray(response.data)) {
-      return response.data.map((g: any) => ({
+    const normalize = (rows: any[]) => rows.map((g: any) => ({
         id: g.id || g.pk,
         name: g.name || g.group_name,
       }));
-    }
-    if (response.data.results && Array.isArray(response.data.results)) {
-      return response.data.results.map((g: any) => ({
-        id: g.id || g.pk,
-        name: g.name || g.group_name,
-      }));
-    }
-    return [];
+    const rows = Array.isArray(response.data)
+      ? normalize(response.data)
+      : (response.data.results && Array.isArray(response.data.results))
+        ? normalize(response.data.results)
+        : [];
+
+    const seen = new Set<string>();
+    return rows.filter((row) => {
+      const key = `${String(row.id || "").trim().toLowerCase()}::${String(row.name || "").trim().toLowerCase()}`;
+      if (!row.id || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   } catch (error) {
     console.error('Failed to fetch product groups:', error);
     return [];

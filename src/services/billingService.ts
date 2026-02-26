@@ -26,11 +26,16 @@ export interface BillingSubscriptionStatus {
 
 export interface InvoiceItem {
   id: string;
+  item_type?: string;
   order_id?: string | null;
+  order_display_id?: string | null;
+  client_order_number?: string | null;
   description?: string;
   quantity?: number;
   unit_price?: string | number;
   subtotal?: string | number;
+  total_amount?: string | number;
+  metadata?: Record<string, any>;
 }
 
 export interface Invoice {
@@ -38,13 +43,21 @@ export interface Invoice {
   invoice_number?: string;
   invoice_type?: string;
   amount?: string | number;
+  total_amount?: string | number;
   status?: string;
   is_overdue?: boolean;
   external_invoice_link?: string;
+  source_tenant_order_display_id?: string;
+  source_tenant_email?: string;
+  client_order_number?: string;
+  billing_period_start?: string;
+  billing_period_end?: string;
   period_start?: string;
   period_end?: string;
   line_items?: InvoiceItem[];
   created_at?: string;
+  issued_at?: string;
+  due_date?: string;
 }
 
 export interface InvoiceListResponse {

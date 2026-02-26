@@ -53,19 +53,50 @@ export interface AggregatesParams {
   variant_id?: string;
 }
 
+const ORDERS_PAGE_SIZE = 500;
+
+async function fetchAllOrders(params?: Record<string, unknown>) {
+  let page = 1;
+  let allResults: any[] = [];
+  let count = 0;
+  let hasNext = true;
+
+  while (hasNext) {
+    const response = await fetchOrders({
+      ...params,
+      page,
+      page_size: ORDERS_PAGE_SIZE,
+    });
+
+    const results = response.results || [];
+    allResults = allResults.concat(results);
+    count = response.count || count;
+    hasNext = Boolean(response.next) && results.length > 0;
+    page += 1;
+
+    if (results.length === 0) break;
+    if (allResults.length >= count && count > 0) break;
+  }
+
+  return {
+    count,
+    results: allResults,
+  };
+}
+
 /**
  * Fetch aggregate reports data
  */
 export const getAggregates = async (params?: AggregatesParams): Promise<AggregatesData> => {
   try {
-    // Build order filters
+    // Build order filters (best-effort server-side), with full client-side pagination aggregation.
     const orderFilters: any = {
       ...(params?.start_date && { created_at__gte: params.start_date }),
       ...(params?.end_date && { created_at__lte: params.end_date }),
     };
 
-    // Fetch orders
-    const ordersResponse = await fetchOrders(orderFilters);
+    // Fetch ALL order pages so aggregates are complete and not limited to first page.
+    const ordersResponse = await fetchAllOrders(orderFilters);
     const rawOrders = ordersResponse.results || [];
 
     let orders = rawOrders;
@@ -141,9 +172,10 @@ function aggregateByState(orders: any[], params?: AggregatesParams): AggregateBy
       order.shipping_address?.state ||
       order.billing_address?.state ||
       'Unknown';
+    const normalizedState = String(state).trim();
 
     // Skip if filtering by specific state and this doesn't match
-    if (params?.state && state !== params.state) {
+    if (params?.state && normalizedState !== params.state) {
       return;
     }
 
@@ -152,8 +184,8 @@ function aggregateByState(orders: any[], params?: AggregatesParams): AggregateBy
     const isCompleted = ['completed', 'shipped', 'delivered'].includes(status);
     const isPending = ['pending', 'processing'].includes(status);
 
-    if (!stateMap.has(state)) {
-      stateMap.set(state, {
+    if (!stateMap.has(normalizedState)) {
+      stateMap.set(normalizedState, {
         totalOrders: 0,
         totalSales: 0,
         completed: 0,
@@ -161,7 +193,7 @@ function aggregateByState(orders: any[], params?: AggregatesParams): AggregateBy
       });
     }
 
-    const current = stateMap.get(state)!;
+    const current = stateMap.get(normalizedState)!;
     current.totalOrders += 1;
     current.totalSales += amount;
     if (isCompleted) current.completed += 1;
@@ -193,11 +225,11 @@ function aggregateByPharmacy(orders: any[], params?: AggregatesParams): Aggregat
   }>();
 
   orders.forEach(order => {
-    const pharmacyId = order.pharmacy_id || order.pharmacy || 'unknown';
+    const pharmacyId = String(order.pharmacy_id || order.pharmacy || 'unknown');
     const pharmacyName = order.pharmacy_name || order.pharmacy_display_name || `Pharmacy ${pharmacyId}`;
 
     // Skip if filtering by specific pharmacy and this doesn't match
-    if (params?.pharmacy_id && pharmacyId !== params.pharmacy_id) {
+    if (params?.pharmacy_id && String(pharmacyId) !== String(params.pharmacy_id)) {
       return;
     }
 
@@ -333,17 +365,17 @@ function aggregateByVariant(orders: any[], params?: AggregatesParams): Aggregate
  */
 export const getStates = async (): Promise<string[]> => {
   try {
-    const ordersResponse = await fetchOrders({ limit: 1000 });
+    const ordersResponse = await fetchAllOrders();
     const orders = ordersResponse.results || [];
 
     const states = new Set<string>();
     orders.forEach((order: any) => {
-      const state = order.shipping_state ||
+    const state = order.shipping_state ||
         order.billing_state ||
         order.state ||
         order.shipping_address?.state ||
         order.billing_address?.state;
-      if (state) states.add(state);
+      if (state) states.add(String(state).trim());
     });
 
     return Array.from(states).sort();
@@ -359,7 +391,16 @@ export const getStates = async (): Promise<string[]> => {
 export const getPharmacies = async (): Promise<Array<{ id: string; name: string }>> => {
   try {
     const response = await axiosInstance.get('products/pharmacies/');
-    return response.data?.results || response.data || [];
+    const rows = response.data?.results || response.data || [];
+    const seen = new Set<string>();
+    return (rows as Array<{ id: string; name: string }>).filter((item: any) => {
+      const id = String(item?.id ?? "").trim();
+      const name = String(item?.name ?? "").trim();
+      const key = `${id}::${name}`;
+      if (!id || !name || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   } catch (error) {
     console.error('Failed to fetch pharmacies:', error);
     return [];
@@ -372,7 +413,16 @@ export const getPharmacies = async (): Promise<Array<{ id: string; name: string 
 export const getVariants = async (): Promise<Array<{ id: string; name: string }>> => {
   try {
     const response = await axiosInstance.get('products/product-variants/');
-    return response.data?.results || response.data || [];
+    const rows = response.data?.results || response.data || [];
+    const seen = new Set<string>();
+    return (rows as Array<{ id: string; name: string }>).filter((item: any) => {
+      const id = String(item?.id ?? "").trim();
+      const name = String(item?.name ?? "").trim();
+      const key = `${id}::${name}`;
+      if (!id || !name || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   } catch (error) {
     console.error('Failed to fetch variants:', error);
     return [];

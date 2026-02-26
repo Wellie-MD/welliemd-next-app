@@ -121,6 +121,12 @@ export default function MyBillingProfile() {
   }, []);
 
   const subscriptionState = (subscriptionStatus?.subscription_status || "unknown").toLowerCase();
+  const formatBadgeLabel = (value?: string | null) =>
+    (value || "unknown")
+      .split("_")
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
   const hasPaymentMethod = Boolean(paymentMethod?.last4 || profile?.payment_method?.last4);
   const showNoPaymentMethodState =
     paymentMethodStatus === "no_customer" ||
@@ -160,7 +166,7 @@ export default function MyBillingProfile() {
             My Billing Profile
             </p>
             <p className="text-sm text-muted-foreground mt-1">
-              Manage payment method, billing identity, and subscription cycle.
+              Manage your payment method, billing identity, and subscription billing status.
             </p>
           </div>
         </div>
@@ -260,34 +266,47 @@ export default function MyBillingProfile() {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Subscription Cycle</CardTitle>
+            <CardTitle className="text-lg">Subscription & Billing Status</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Status</span>
               <Badge className={`border ${subscriptionBadgeClass}`}>
-                {subscriptionStatus?.subscription_status ?? "unknown"}
+                {formatBadgeLabel(subscriptionStatus?.subscription_status)}
               </Badge>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Lock Status</span>
               <Badge className={`border ${lockBadgeClass}`}>
-                {lockState}
+                {formatBadgeLabel(lockState)}
               </Badge>
             </div>
             {lockState === "locked" && subscriptionStatus?.lock_reason_code && (
               <p className="text-rose-700 font-medium">
-                Account locked due to {subscriptionStatus.lock_reason_code}.
+                Account locked due to {formatBadgeLabel(subscriptionStatus.lock_reason_code)}.
               </p>
             )}
             <p className="text-muted-foreground">
-              Current period: <span className="text-foreground font-medium">{subscriptionStatus?.current_period_start ?? "N/A"} to {subscriptionStatus?.current_period_end ?? "N/A"}</span>
+              Current access period: <span className="text-foreground font-medium">{subscriptionStatus?.current_period_start ?? "N/A"} to {subscriptionStatus?.current_period_end ?? "N/A"}</span>
             </p>
-            <p className="text-muted-foreground">
-              Next billing date: <span className="text-foreground font-medium">{subscriptionStatus?.next_billing_date ?? "N/A"}</span>
-            </p>
+            {subscriptionStatus?.subscription_status !== "canceled" ? (
+              <p className="text-muted-foreground">
+                Next billing date: <span className="text-foreground font-medium">{subscriptionStatus?.next_billing_date ?? "N/A"}</span>
+              </p>
+            ) : (
+              <p className="text-muted-foreground">
+                Next billing date: <span className="text-foreground font-medium">N/A (canceled)</span>
+              </p>
+            )}
             {subscriptionStatus?.cancel_at_period_end && (
-              <p className="text-amber-700 font-medium">Cancellation is scheduled at period end.</p>
+              <p className="text-amber-700 font-medium">
+                Cancellation is scheduled at period end{subscriptionStatus?.current_period_end ? ` (${subscriptionStatus.current_period_end})` : ""}.
+              </p>
+            )}
+            {subscriptionStatus?.subscription_status !== "canceled" && (
+              <p className="text-xs text-muted-foreground pt-1">
+                Renewals charge the base subscription fee in advance and active-patient usage in arrears.
+              </p>
             )}
           </CardContent>
         </Card>
