@@ -1,16 +1,11 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   X,
   Upload,
   Image as ImageIcon,
-  Trash2,
-  Plus,
-  Facebook,
 } from "lucide-react";
 import {
   fetchBrandSettings,
@@ -18,9 +13,6 @@ import {
 } from "@/api/brandSettingsApi";
 import { messageService } from "@/services/messageService";
 import { toast } from "@/hooks/use-toast";
-import { Switch } from "@/components/ui/switch";
-// import { messageService } from "@/services/messageService"
-// import api from "@/services/api"
 
 interface UploadFieldProps {
   label: string;
@@ -43,6 +35,12 @@ const FileUploadField = ({
 }: UploadFieldProps) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
+
+  // When the parent updates currentUrl (e.g. after a successful save),
+  // drop the local File so the component switches to the server URL.
+  useEffect(() => {
+    setSelectedFile(null);
+  }, [currentUrl]);
 
   // Helper to fix LocalStack URLs for the browser
   const getDisplayUrl = () => {
@@ -213,76 +211,14 @@ const ColorPaletteSection = ({
 
 export default function Brand() {
   const [loading, setLoading] = useState(false);
-  const [socialLinks, setSocialLinks] = useState([
-    {
-      platform: "Facebook",
-      url: "https://facebook.com/welliemd",
-      enabled: true,
-    },
-    {
-      platform: "Twitter",
-      url: "https://twitter.com/welliemd",
-      enabled: false,
-    },
-  ]);
-
-  const [customAds, setCustomAds] = useState([
-    { title: "Ad 1", content: "Your custom ad content here" },
-  ]);
-
-  const addSocialLink = () => {
-    setSocialLinks([...socialLinks, { platform: "", url: "", enabled: false }]);
-  };
-
-  const removeSocialLink = (index: number) => {
-    setSocialLinks(socialLinks.filter((_, i) => i !== index));
-  };
-
-  const updateSocialLink = (
-    index: number,
-    field: string,
-    value: string | boolean,
-  ) => {
-    setSocialLinks(
-      socialLinks.map((link, i) =>
-        i === index ? { ...link, [field]: value } : link,
-      ),
-    );
-  };
-
-  const addCustomAd = () => {
-    setCustomAds([...customAds, { title: "", content: "" }]);
-  };
-
-  const removeCustomAd = (index: number) => {
-    setCustomAds(customAds.filter((_, i) => i !== index));
-  };
-
-  const updateCustomAd = (index: number, field: string, value: string) => {
-    setCustomAds(
-      customAds.map((ad, i) => (i === index ? { ...ad, [field]: value } : ad)),
-    );
-  };
 
   const [formData, setFormData] = useState({
-    homePageUrl: "patients.com",
-    helpPageSlug: "welliemd.com/help",
     logos: { square: "", round: "", transparent: "", favicon: "" },
     loginPageImage: "",
-    primaryColor: "#3B82F6", // Default value
+    primaryColor: "#3B82F6",
     secondaryColor: "#10B981",
     accentColor: "#F59E0B",
     neutralColor: "#F3F4F6",
-    support: {
-      phone: "(833) 937-7363",
-      email: "support@welliemd.com",
-      hours: "",
-    },
-    enabledNotifications: {
-      smsCompleted: true,
-      smsNoShow: false,
-      smsNoTreatment: true,
-    },
   });
 
   const [filesToUpload, setFilesToUpload] = useState<Record<string, File>>({});
@@ -340,14 +276,21 @@ export default function Brand() {
       const updatedLogos = { ...formData.logos };
       let updatedLoginImg = formData.loginPageImage;
 
-      // Upload pending files using messageService
-      for (const [path, file] of Object.entries(filesToUpload)) {
-        console.log({ path, file });
+      // Upload all pending files in parallel for speed
+      const entries = Object.entries(filesToUpload);
+      if (entries.length > 0) {
+        const results = await Promise.all(
+          entries.map(async ([path, file]) => {
+            const { url } = await messageService.uploadAttachment(file);
+            return { path, url };
+          }),
+        );
 
-        const { url } = await messageService.uploadAttachment(file);
-        if (path.startsWith("logos."))
-          (updatedLogos as any)[path.split(".")[1]] = url;
-        if (path === "loginPageImage") updatedLoginImg = url;
+        for (const { path, url } of results) {
+          if (path.startsWith("logos."))
+            (updatedLogos as any)[path.split(".")[1]] = url;
+          if (path === "loginPageImage") updatedLoginImg = url;
+        }
       }
 
       await updateBrandSettings({
@@ -355,12 +298,20 @@ export default function Brand() {
         logos: updatedLogos,
         loginPageImage: updatedLoginImg,
       });
+
+      // Sync local state with what was actually saved so subsequent
+      // saves (or a page-stay) don't revert to stale/empty values.
+      setFormData((prev) => ({
+        ...prev,
+        logos: updatedLogos,
+        loginPageImage: updatedLoginImg,
+      }));
+
       toast({
         title: "Success",
         description: "Brand assets updated!",
         variant: "default",
       });
-      // alert("Brand assets updated!");
       setFilesToUpload({});
     } catch (err) {
       toast({
@@ -435,39 +386,6 @@ export default function Brand() {
           </CardContent>
         </Card>
 
-        {/* Support & Links (Simple Text) */}
-        <Card>
-          <CardContent className="p-6 space-y-4">
-            <div>
-              <h2 className="text-lg font-medium mb-1">Get Account Link</h2>
-              <p className="text-sm text-muted-foreground">
-                Links to various pages that be shared for created or account.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Home URL</Label>
-                <Input
-                  value={formData.homePageUrl}
-                  onChange={(e) =>
-                    setFormData({ ...formData, homePageUrl: e.target.value })
-                  }
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label>Help Slug</Label>
-                <Input
-                  value={formData.helpPageSlug}
-                  onChange={(e) =>
-                    setFormData({ ...formData, helpPageSlug: e.target.value })
-                  }
-                  className="mt-1"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
         {/* Login Page Image */}
         <Card>
           <CardContent className="p-6 space-y-4">
@@ -578,264 +496,6 @@ export default function Brand() {
                   "#111827",
                 ]}
               /> */}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Patient Portal Experience Section */}
-        <Card>
-          <CardContent className="p-6 space-y-4">
-            <div>
-              <h2 className="text-lg font-medium mb-1">
-                Patient Portal Experience
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Have your patients have better experience.
-              </p>
-            </div>
-
-            <div className="flex gap-4">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="sms-completed"
-                  checked={formData.enabledNotifications.smsCompleted}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      enabledNotifications: {
-                        ...prev.enabledNotifications,
-                        smsCompleted: e.target.checked,
-                      },
-                    }))
-                  }
-                  className="w-4 h-4 text-sky-600 border-gray-300 rounded focus:ring-sky-500"
-                />
-                <Label htmlFor="sms-completed" className="text-sm">
-                  SMS - Completed telehealth
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="sms-no-show"
-                  checked={formData.enabledNotifications.smsNoShow}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      enabledNotifications: {
-                        ...prev.enabledNotifications,
-                        smsNoShow: e.target.checked,
-                      },
-                    }))
-                  }
-                  className="w-4 h-4 text-sky-600 border-gray-300 rounded focus:ring-sky-500"
-                />
-                <Label htmlFor="sms-no-show" className="text-sm">
-                  SMS - No show telehealth
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="sms-no-treatment"
-                  checked={formData.enabledNotifications.smsNoTreatment}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      enabledNotifications: {
-                        ...prev.enabledNotifications,
-                        smsNoTreatment: e.target.checked,
-                      },
-                    }))
-                  }
-                  className="w-4 h-4 text-sky-600 border-gray-300 rounded focus:ring-sky-500"
-                />
-                <Label htmlFor="sms-no-treatment" className="text-sm">
-                  SMS - Patient finished from treatment
-                </Label>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Support Info Section */}
-        <Card>
-          <CardContent className="p-6 space-y-4">
-            <div>
-              <h2 className="text-lg font-medium mb-1">Support Info</h2>
-              <p className="text-sm text-muted-foreground">
-                Helping support information for your patients.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <Label className="text-sm font-medium">Phone</Label>
-                <Input
-                  placeholder="(833) 937-7363"
-                  className="mt-1 focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
-                />
-              </div>
-              <div>
-                <Label className="text-sm font-medium">Email</Label>
-                <Input
-                  placeholder="support@welliemd.com"
-                  className="mt-1 focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-sm font-medium">Support Hours</Label>
-              <Textarea
-                placeholder="Monday-Friday 9am-5pm EST. We'll get back to you as soon as possible during business hours. For urgent medical questions, please contact your healthcare provider directly or call 911 in case of an emergency."
-                rows={4}
-                className="mt-1 focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Social Links Section */}
-        <Card>
-          <CardContent className="p-6 space-y-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-lg font-medium">Social Links</h2>
-                <p className="text-sm text-muted-foreground">
-                  Redirect links to the different social media via Patient
-                  Portal.
-                </p>
-              </div>
-              <Button
-                type="button"
-                onClick={addSocialLink}
-                size="sm"
-                className="bg-sky-500 hover:bg-sky-600"
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                Add Link
-              </Button>
-            </div>
-
-            <div className="space-y-4">
-              {socialLinks.map((link, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-4 p-4 border rounded-lg"
-                >
-                  <div className="flex items-center gap-2">
-                    <Facebook className="w-5 h-5 text-blue-600" />
-                    <Switch
-                      checked={link.enabled}
-                      onCheckedChange={(checked) =>
-                        updateSocialLink(index, "enabled", checked)
-                      }
-                    />
-                  </div>
-                  <div className="flex-1 grid grid-cols-2 gap-4">
-                    <Input
-                      placeholder="Platform name"
-                      value={link.platform}
-                      onChange={(e) =>
-                        updateSocialLink(index, "platform", e.target.value)
-                      }
-                      className="focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
-                    />
-                    <Input
-                      placeholder="https://..."
-                      value={link.url}
-                      onChange={(e) =>
-                        updateSocialLink(index, "url", e.target.value)
-                      }
-                      className="focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => removeSocialLink(index)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6 space-y-4">
-            <div>
-              <h2 className="text-lg font-medium">Help page</h2>
-              <p className="text-sm text-muted-foreground">
-                Just ask doubt and Help page will show.
-              </p>
-            </div>
-            {/* Additional help page content would go here */}
-          </CardContent>
-        </Card>
-
-        {/* Custom Ads Section */}
-        <Card className="hidden">
-          <CardContent className="p-6 space-y-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-lg font-medium">Custom Ads</h2>
-                <p className="text-sm text-muted-foreground">
-                  Reach users with the your Patients.
-                </p>
-              </div>
-              <Button
-                type="button"
-                onClick={addCustomAd}
-                size="sm"
-                className="bg-sky-500 hover:bg-sky-600"
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                Add Ad
-              </Button>
-            </div>
-
-            <div className="space-y-4">
-              {customAds.map((ad, index) => (
-                <div key={index} className="p-4 border rounded-lg space-y-4">
-                  <div className="flex justify-between items-center">
-                    <Input
-                      placeholder="Ad Title"
-                      value={ad.title}
-                      onChange={(e) =>
-                        updateCustomAd(index, "title", e.target.value)
-                      }
-                      className="flex-1 mr-4 focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => removeCustomAd(index)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <Textarea
-                    placeholder="Ad content..."
-                    value={ad.content}
-                    onChange={(e) =>
-                      updateCustomAd(index, "content", e.target.value)
-                    }
-                    rows={3}
-                    className="focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
-                  />
-                  <FileUploadField
-                    label="Ad Image"
-                    accept="image/*"
-                    maxSize="5 MB"
-                  />
-                </div>
-              ))}
             </div>
           </CardContent>
         </Card>
