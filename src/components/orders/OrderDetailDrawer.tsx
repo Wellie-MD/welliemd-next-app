@@ -117,9 +117,15 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
       if (hasTrackingChange) payload.tracking_number = trackingNumber
 
       const response = await updateAdminOrder(order.id, payload)
+
       if (response.success && response.order) {
+        // Synchronous replay (idempotent cached result)
         onOrderUpdated(response.order)
         toast({ title: "Order updated", description: "Order has been updated successfully." })
+        onOpenChange(false)
+      } else if (response.status === 'queued' || response.status === 'processing') {
+        // Async — update queued via Celery task
+        toast({ title: "Update queued", description: "Order update is being processed." })
         onOpenChange(false)
       }
     } catch (err: any) {

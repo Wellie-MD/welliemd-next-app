@@ -87,7 +87,7 @@ export async function getAdminDashboardOverview(): Promise<DashboardData> {
   } catch (error: any) {
     console.error('Failed to fetch admin dashboard overview:', error);
     throw new Error(
-      error.response?.data?.error || 
+      error.response?.data?.error ||
       'Failed to load dashboard data. Please try again.'
     );
   }
@@ -178,7 +178,7 @@ export async function getAdminOrders(params: OrdersQueryParams = {}): Promise<Or
   } catch (error: any) {
     console.error('Failed to fetch admin orders:', error);
     throw new Error(
-      error.response?.data?.error || 
+      error.response?.data?.error ||
       'Failed to load orders. Please try again.'
     );
   }
@@ -191,22 +191,31 @@ export interface OrderUpdatePayload {
 }
 
 export interface OrderUpdateResponse {
-  success: boolean;
-  order: AdminOrder;
+  success?: boolean;
+  order?: AdminOrder;
+  status?: 'queued' | 'processing';
+  attempt_id?: string;
+  message?: string;
   error?: string;
 }
 
 /**
  * Update an order's status and/or tracking number via the control plane.
+ *
+ * Sends an Idempotency-Key header (UUID v4) so duplicate requests are
+ * deduplicated server-side.  The backend returns 202 when the update is
+ * queued for async processing, or 200 when replaying a cached result.
  */
 export async function updateAdminOrder(
   orderId: string,
   payload: OrderUpdatePayload
 ): Promise<OrderUpdateResponse> {
   try {
+    const idempotencyKey = crypto.randomUUID();
     const { data } = await axiosInstance.patch<OrderUpdateResponse>(
       `/admin/dashboard/orders/${orderId}/`,
-      payload
+      payload,
+      { headers: { 'Idempotency-Key': idempotencyKey } }
     );
     return data;
   } catch (error: any) {
