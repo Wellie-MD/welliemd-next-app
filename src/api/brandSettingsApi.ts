@@ -12,25 +12,9 @@ export interface BrandLogos {
     favicon: string;
 }
 
-export interface BrandNotifications {
-    smsCompleted: boolean;
-    smsNoShow: boolean;
-    smsNoTreatment: boolean;
-}
-
-export interface BrandSupport {
-    phone: string;
-    email: string;
-    hours: string;
-}
-
 export interface BrandSettings {
-    homePageUrl: string;
-    helpPageSlug: string;
     logos: BrandLogos;
     loginPageImage: string;
-    support: BrandSupport;
-    enabledNotifications: BrandNotifications;
     primaryColor?: string;
     secondaryColor?: string;
     accentColor?: string;

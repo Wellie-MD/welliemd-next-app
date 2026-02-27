@@ -54,6 +54,19 @@ function getAccessPeriodFromInvoice(inv: any): string | null {
   return `${formatDate(start)} to ${formatDate(end)}`;
 }
 
+function getClientOrderNumber(inv: any): string {
+  return inv?.client_order_number || inv?.source_tenant_order_display_id || inv?.invoice_number || "-";
+}
+
+function lineItemTypeLabel(li: any): string {
+  if (li?.item_type === "consultation") {
+    const mode = String(li?.metadata?.consult_mode || "").toLowerCase();
+    if (mode === "sync") return "Sync Consult";
+    if (mode === "async") return "Async Consult";
+  }
+  return formatLabel(li?.item_type);
+}
+
 export default function InvoicesPage() {
   const [activeTab, setActiveTab] = useState<InvoiceTab>("all");
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -101,7 +114,7 @@ export default function InvoicesPage() {
 
   const params = useMemo(() => {
     const p: Record<string, unknown> = { ordering };
-    if (search.trim()) p.invoice_number = search.trim();
+    if (search.trim()) p.search = search.trim();
     if (fromDate) p.issued_at_after = fromDate;
     if (toDate) p.issued_at_before = toDate;
     if (status) p.status = status;
@@ -228,7 +241,7 @@ export default function InvoicesPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
             <input
               className="w-full pl-10 pr-4 py-2 rounded-md border border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark"
-              placeholder={activeTab === "reimbursement" ? "Search order/invoice" : "Search invoice number"}
+              placeholder={activeTab === "reimbursement" ? "Search order # or invoice #" : "Search invoice # or order #"}
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -348,7 +361,7 @@ export default function InvoicesPage() {
                         <td className="px-6 py-4">
                           <Link to="/dashboard/orders" className="block">
                             <div className="font-medium text-text-primary-light dark:text-text-primary-dark hover:text-primary transition-colors">
-                              {inv.source_tenant_order_display_id ?? inv.invoice_number}
+                              {getClientOrderNumber(inv)}
                             </div>
                             <div className="text-text-secondary-light dark:text-text-secondary-dark text-xs">
                               {inv.source_tenant_email ?? ""}
@@ -453,6 +466,11 @@ export default function InvoicesPage() {
               <div className="rounded border p-3">
                 <strong>Type:</strong> {formatLabel(selected.invoice_type)}
               </div>
+              {selected.invoice_type === "reimbursement" && (
+                <div className="rounded border p-3">
+                  <strong>Client Order #:</strong> {getClientOrderNumber(selected)}
+                </div>
+              )}
               <div className="rounded border p-3">
                 <strong>Total:</strong> {formatMoney((selected as any).total_amount ?? selected.amount)}
               </div>
@@ -486,6 +504,7 @@ export default function InvoicesPage() {
                     <thead className="bg-muted/30">
                       <tr>
                         <th className="text-left px-3 py-2">Type</th>
+                        <th className="text-left px-3 py-2">Client Order #</th>
                         <th className="text-left px-3 py-2">Description</th>
                         <th className="text-right px-3 py-2">Qty</th>
                         <th className="text-right px-3 py-2">Unit</th>
@@ -495,7 +514,10 @@ export default function InvoicesPage() {
                     <tbody>
                       {(selected.line_items ?? []).map((li) => (
                         <tr key={li.id} className="border-t">
-                          <td className="px-3 py-2">{formatLabel((li as any).item_type)}</td>
+                          <td className="px-3 py-2">{lineItemTypeLabel(li)}</td>
+                          <td className="px-3 py-2 font-mono text-xs">
+                            {(li as any).client_order_number || (li as any).order_display_id || (selected.invoice_type === "reimbursement" ? getClientOrderNumber(selected) : "-")}
+                          </td>
                           <td className="px-3 py-2">{li.description || "-"}</td>
                           <td className="px-3 py-2 text-right">{li.quantity ?? 0}</td>
                           <td className="px-3 py-2 text-right">{formatMoney(li.unit_price)}</td>

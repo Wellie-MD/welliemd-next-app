@@ -23,34 +23,48 @@ export function VisitorChart({ data }: VisitorChartProps) {
   const hasData = Array.isArray(data) && data.length > 0
 
   return (
-    <Card className="border-0 shadow-none">
+    <Card className="border-border/70 bg-gradient-to-br from-primary/5 via-background to-blue-50/30 shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-lg font-medium">Visitors</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-[400px]">
+        <div className="h-[380px] rounded-md border bg-background/70 p-2">
           {hasData ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="uvGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.02} />
+                  </linearGradient>
+                  <linearGradient id="tvGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#10B981" stopOpacity={0.02} />
+                  </linearGradient>
+                  <linearGradient id="pvGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#F59E0B" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
                 <XAxis 
                   dataKey="time" 
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: '#64748B', fontSize: 12 }}
+                  tick={{ fill: '#64748B', fontSize: 11 }}
                   dy={10}
                 />
                 <YAxis 
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: '#64748B', fontSize: 12 }}
+                  tick={{ fill: '#64748B', fontSize: 11 }}
                   dx={-10}
                 />
                 <Tooltip 
                   contentStyle={{
-                    backgroundColor: '#fff',
+                    backgroundColor: '#ffffff',
                     border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    borderRadius: '10px',
+                    boxShadow: '0 8px 20px rgba(15,23,42,0.10)'
                   }}
                 />
                 <Legend 
@@ -64,40 +78,37 @@ export function VisitorChart({ data }: VisitorChartProps) {
                 <Area 
                   type="monotone" 
                   dataKey="uniqueVisitors" 
-                  stroke="#8979FF"
-                  fill="#8979FF"
-                  fillOpacity={0.1}
+                  stroke="#3B82F6"
+                  fill="url(#uvGradient)"
                   strokeWidth={2}
                   name="Unique Visitors"
-                  dot={<CustomDot stroke="#8979FF" />}
+                  dot={<CustomDot stroke="#3B82F6" />}
                   activeDot={{ r: 6, strokeWidth: 2 }}
                 />
                 <Area 
                   type="monotone" 
                   dataKey="totalVisitors" 
-                  stroke="#FF928A"
-                  fill="#FF928A"
-                  fillOpacity={0.1}
+                  stroke="#10B981"
+                  fill="url(#tvGradient)"
                   strokeWidth={2}
                   name="Total Visitors"
-                  dot={<CustomDot stroke="#FF928A" />}
+                  dot={<CustomDot stroke="#10B981" />}
                   activeDot={{ r: 6, strokeWidth: 2 }}
                 />
                 <Area 
                   type="monotone" 
                   dataKey="totalPageviews" 
-                  stroke="#3CC3DF"
-                  fill="#3CC3DF"
-                  fillOpacity={0.1}
+                  stroke="#F59E0B"
+                  fill="url(#pvGradient)"
                   strokeWidth={2}
                   name="Total Pageviews"
-                  dot={<CustomDot stroke="#3CC3DF" />}
+                  dot={<CustomDot stroke="#F59E0B" />}
                   activeDot={{ r: 6, strokeWidth: 2 }}
                 />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-full flex items-center justify-center text-sm text-muted-foreground border rounded-md">
+            <div className="flex h-full items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
               No visitor time-series data for the selected period.
             </div>
           )}
