@@ -16,6 +16,8 @@ import { DeactivateUserModal } from '@/components/users/DeactivateUserModal';
 import { UserProfileModal } from '@/components/users/UserProfileModal';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useMemo } from 'react';
 
 export default function UsersPermissions() {
   const [users, setUsers] = useState<PortalUser[]>([]);
@@ -33,6 +35,7 @@ export default function UsersPermissions() {
   });
   const { toast } = useToast();
   const navigate = useNavigate();
+  const canInviteUsers = useAuthStore((state) => state.user?.permissions?.includes('portal_user:invite'));
 
   const loadData = useCallback(async () => {
     try {
@@ -42,20 +45,7 @@ export default function UsersPermissions() {
         userManagementService.getAvailableRoles(),
       ]);
 
-      // Add hardcoded Master Key user
-      const hardcodedUser: PortalUser = {
-        id: 'hardcoded-master-key',
-        email: 'admin-welliemd@gmail.com',
-        first_name: 'Admin',
-        last_name: 'WellieMD',
-        is_active: true,
-        created_at: new Date().toISOString(),
-        roles: ['Master Key'],
-        primary_role: 'Master Key',
-        invitation_status: 'active'
-      };
-
-      setUsers([hardcodedUser, ...usersData]);
+      setUsers(usersData);
       setRoles(rolesData);
     } catch (error: any) {
       toast({
@@ -168,7 +158,7 @@ export default function UsersPermissions() {
   }
 
   // Use roles from hierarchy if possible
-  const roleDisplayOrder = ['Master Key', 'Admin'];
+  const roleDisplayOrder = ['Admin'];
 
   return (
     <div className="p-6 space-y-8">
@@ -179,10 +169,12 @@ export default function UsersPermissions() {
             Manage administrative users and their access levels for the platform.
           </p>
         </div>
-        <Button onClick={() => setInviteModalOpen(true)}>
-          <UserPlus className="h-4 w-4 mr-2" />
-          Invite User
-        </Button>
+        {canInviteUsers && (
+          <Button onClick={() => setInviteModalOpen(true)}>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Invite User
+          </Button>
+        )}
       </div>
 
       {/* Render sections for each role */}
@@ -281,6 +273,8 @@ function UserCard({ user, roles, onAssignRole, onDeactivate, onClick }: {
   onDeactivate: (userId: string, userName: string) => void;
   onClick: () => void;
 }) {
+  const roleOptions = useMemo(() => roles.map(r => ({ id: r.id, name: r.name })), [roles]);
+
   const initials = `${user.first_name?.[0] || 'U'}${user.last_name?.[0] || ''}`.toUpperCase();
   const fullName = `${user.first_name} ${user.last_name}`.trim() || user.email;
 
@@ -340,54 +334,52 @@ function UserCard({ user, roles, onAssignRole, onDeactivate, onClick }: {
       <div className="flex items-center gap-3 ml-4">
         <Badge variant="outline" className="text-[10px] uppercase tracking-wider h-6">{user.primary_role}</Badge>
 
-        {user.primary_role !== 'Master Key' && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[180px]">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-[180px]">
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick();
+              }}
+            >
+              View Profile
+            </DropdownMenuItem>
+
+            {roleOptions.map((role) => (
               <DropdownMenuItem
+                key={role.id}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onClick();
+                  onAssignRole(user.id, role.id);
                 }}
+                disabled={user.primary_role === role.name}
               >
-                View Profile
+                Assign {role.name}
               </DropdownMenuItem>
+            ))}
 
-              {roles.map((role) => (
-                <DropdownMenuItem
-                  key={role.id}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAssignRole(user.id, role.id);
-                  }}
-                  disabled={user.primary_role === role.name}
-                >
-                  Assign {role.name}
-                </DropdownMenuItem>
-              ))}
-
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeactivate(user.id, fullName);
-                }}
-                disabled={user.primary_role === 'Platform Owner'} // Example protection
-              >
-                Deactivate User
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeactivate(user.id, fullName);
+              }}
+              disabled={user.primary_role === 'Platform Owner'} // Example protection
+            >
+              Deactivate User
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
       </div>
     </div>

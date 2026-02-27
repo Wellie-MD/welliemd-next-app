@@ -26,7 +26,7 @@ export function UserProfileModal({ open, onClose, user }: UserProfileModalProps)
 
   if (!user) return null;
 
-  const initials = `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
+  const initials = `${user.first_name?.[0] || 'U'}${user.last_name?.[0] || ''}`.toUpperCase();
   const fullName = `${user.first_name} ${user.last_name}`;
 
   const copyToClipboard = (text: string, label: string) => {
@@ -97,26 +97,6 @@ export function UserProfileModal({ open, onClose, user }: UserProfileModalProps)
               <Input value={user.last_name} disabled />
             </div>
           </div>
-
-          {/* Hardcoded Password for Master Key */}
-          {user.primary_role === 'Master Key' && (
-            <div className="grid gap-2">
-              <Label className="flex items-center gap-2">
-                <Lock className="h-4 w-4" />
-                Password
-              </Label>
-              <div className="flex gap-2">
-                <Input value="welliemd@123?" disabled className="flex-1" />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => copyToClipboard('welliemd@123?', 'Password')}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
 
           {/* Email */}
           <div className="grid gap-2">

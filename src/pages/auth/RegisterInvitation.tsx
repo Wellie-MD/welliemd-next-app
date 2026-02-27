@@ -89,14 +89,20 @@ export default function RegisterInvitation() {
         navigate("/auth/signin");
       }
     } catch (error: any) {
-      toast({
-        title: "Invalid Invitation",
-        description:
-          error.response?.data?.error ||
-          "This invitation link is invalid or has expired",
-        variant: "destructive",
-      });
-      navigate("/auth/signin");
+      if (!error.response || error.response.status >= 500) {
+        toast({
+          title: "Network Error",
+          description: "Could not connect to the server securely. Please check your connection or try again later.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Invalid Invitation",
+          description: error.response?.data?.error || "This invitation link is invalid or has expired",
+          variant: "destructive",
+        });
+        navigate("/auth/signin");
+      }
     } finally {
       setValidating(false);
     }
