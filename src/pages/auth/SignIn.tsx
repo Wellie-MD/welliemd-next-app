@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ const SignIn = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  
+
   const isLoading = useAuthStore((state) => state.isLoading);
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +26,7 @@ const SignIn = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    
+
     try {
       await authService.login({ email, password });
       navigate("/");  // Navigate to dashboard on successful login
@@ -34,12 +34,34 @@ const SignIn = () => {
       console.error('Login failed:', err);
       setError(err instanceof Error ? err.message : 'Failed to sign in. Please check your credentials.');
       const message =
-      err?.response?.data?.message ||
-      "Failed to sign in. Please check your credentials.";
+        err?.response?.data?.message ||
+        "Failed to sign in. Please check your credentials.";
 
-    showToast(message);
+      showToast(message);
     }
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('impersonate_token');
+
+    if (token) {
+      const handleImpersonation = async () => {
+        try {
+          // Clear query params to prevent re-triggering on refresh
+          window.history.replaceState({}, document.title, window.location.pathname);
+
+          await authService.impersonateLogin(token);
+          showToast("Impersonation successful. Welcome.");
+          navigate("/");
+        } catch (err) {
+          console.error('Impersonation failed:', err);
+          showToast("Impersonation failed. The token may be expired or invalid.");
+        }
+      };
+      handleImpersonation();
+    }
+  }, [navigate]); // eslint-disable-line
 
   return (
     <AuthLayout>

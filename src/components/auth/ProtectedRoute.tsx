@@ -18,9 +18,9 @@ interface ProtectedRouteProps {
  * A wrapper component that protects routes from unauthenticated access
  * and optionally checks for required permissions.
  */
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
-  children, 
-  requiredPermission 
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  children,
+  requiredPermission
 }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isLoading = useAuthStore((state) => state.isLoading);
@@ -36,7 +36,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/auth/signin" state={{ from: location }} replace />;
+    return <Navigate to={`/auth/signin${location.search}`} state={{ from: location }} replace />;
   }
 
   // Check permissions if required
@@ -44,7 +44,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     const allowed = Array.isArray(requiredPermission)
       ? hasAnyPermission(requiredPermission)
       : hasPermission(requiredPermission);
-    
+
     if (!allowed) {
       // Redirect to 403 Forbidden page
       return <Navigate to="/forbidden" replace />;

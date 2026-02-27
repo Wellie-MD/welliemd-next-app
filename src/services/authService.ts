@@ -45,7 +45,17 @@ export const authService = {
       // portal: 'client'
     });
     const { access: accessToken, user } = data;
-    
+
+    useAuthStore.getState().login(accessToken, user);
+    return user;
+  },
+
+  impersonateLogin: async (token: string): Promise<User> => {
+    const { data } = await api.post<LoginResponse>('/auth/impersonate-login/', {
+      token
+    });
+    const { access: accessToken, user } = data;
+
     useAuthStore.getState().login(accessToken, user);
     return user;
   },
@@ -70,7 +80,7 @@ export const authService = {
         email: credentials.email.trim().toLowerCase(),
         password: credentials.password,
       });
-      
+
       useAuthStore.getState().login(data.access, data.user);
       return data.user;
     } catch (error: any) {
@@ -116,7 +126,7 @@ export const authService = {
             'Content-Type': 'application/json',
           },
         });
-        
+
         const { data } = await refreshAxios.post<RefreshResponse>('/auth/token/refresh/');
         const newAccessToken = data.access;
 
@@ -127,7 +137,7 @@ export const authService = {
         // Update the auth store with the new token
         const authStore = useAuthStore.getState();
         authStore.setAccessToken(newAccessToken);
-        
+
         // Update user data to ensure consistency
         if (authStore.user) {
           try {
@@ -139,7 +149,7 @@ export const authService = {
             console.warn('Failed to refresh user data after token refresh:', error);
           }
         }
-        
+
         return newAccessToken;
       } catch (error: any) {
         console.error('Token refresh failed:', error.response?.data || error.message);
@@ -149,7 +159,7 @@ export const authService = {
         refreshPromise = null;
       }
     })();
-    
+
     return refreshPromise;
   },
 
@@ -161,7 +171,7 @@ export const authService = {
     } catch (error: any) {
       if (error.response?.status === 401) {
         useAuthStore.getState().logout();
-        
+
         if (throwOnError) {
           throw error;
         }
@@ -174,14 +184,14 @@ export const authService = {
   hydrateAuth: async (): Promise<void> => {
     const { setHydratingState } = await import('../api/axiosInstance');
     setHydratingState(true);
-    
+
     const authStore = useAuthStore.getState();
     authStore.setLoading(true);
-    
+
     try {
       // Try to refresh token on page load
       const newAccessToken = await authService.refreshAccessToken();
-      
+
       if (newAccessToken) {
         // Create a direct axios call to avoid interceptor conflicts during hydration
         const directAxios = axios.create({
@@ -192,7 +202,7 @@ export const authService = {
             'Authorization': `Bearer ${newAccessToken}`
           },
         });
-        
+
         const { data } = await directAxios.get<User>('/auth/me/');
         authStore.login(newAccessToken, data);
         return;
@@ -203,7 +213,7 @@ export const authService = {
       setHydratingState(false);
       authStore.setLoading(false);
     }
-    
+
     // If refresh failed, ensure clean logout
     authStore.logout();
   },
@@ -227,7 +237,7 @@ export const authService = {
         new_password: newPassword,
         confirm_password: confirmPassword,
       });
-      
+
       // On success, logout and redirect to login
       await authService.logout();
       window.location.href = '/auth/signin';
