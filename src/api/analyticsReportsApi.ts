@@ -1,5 +1,4 @@
 // Reports API Service for Aggregate Data
-import axiosInstance from './axiosInstance';
 import { fetchOrders } from './ordersApi';
 import { parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 
@@ -84,6 +83,123 @@ async function fetchAllOrders(params?: Record<string, unknown>) {
   };
 }
 
+function normalizeText(value: unknown): string {
+  return String(value ?? '').trim();
+}
+
+function normalizeCaseInsensitive(value: unknown): string {
+  return normalizeText(value).toLowerCase();
+}
+
+function parseOrderAmount(order: any): number {
+  return parseFloat(order.orderTotal || order.amount || order.total || '0');
+}
+
+function getOrderState(order: any): string {
+  const state = order.patient_state ||
+    order.shipping_state ||
+    order.billing_state ||
+    order.state ||
+    order.shipping_address?.state ||
+    order.billing_address?.state ||
+    'Unknown';
+  const normalized = normalizeText(state);
+  return normalized || 'Unknown';
+}
+
+function getOrderPharmacy(order: any): { key: string; name: string } {
+  const pharmacyId = normalizeText(order.pharmacy_id ?? order.pharmacy);
+  const pharmacyName = normalizeText(order.pharmacy_name || order.pharmacy_display_name || order.pharmacy_display || '');
+
+  if (pharmacyId) {
+    return {
+      key: `id:${pharmacyId}`,
+      name: pharmacyName || `Pharmacy ${pharmacyId}`,
+    };
+  }
+
+  const fallbackName = pharmacyName || 'Unknown';
+  return {
+    key: `name:${normalizeCaseInsensitive(fallbackName)}`,
+    name: fallbackName,
+  };
+}
+
+function getOrderVariantEntries(order: any): Array<{ key: string; id?: string; variant: string; productName?: string; quantity: number; amount: number }> {
+  const variants: Array<{ key: string; id?: string; variant: string; productName?: string; quantity: number; amount: number }> = [];
+  const productName = normalizeText(order.product_name) || undefined;
+
+  let items: any[] = [];
+  if (Array.isArray(order.selected_medicines) && order.selected_medicines.length > 0) {
+    items = order.selected_medicines;
+  } else if (Array.isArray(order.items) && order.items.length > 0) {
+    items = order.items;
+  } else if (Array.isArray(order.line_items) && order.line_items.length > 0) {
+    items = order.line_items;
+  } else if (Array.isArray(order.order_items) && order.order_items.length > 0) {
+    items = order.order_items;
+  }
+
+  if (items.length === 0) {
+    const rawId = normalizeText(order.variant_id || order.product_variant_id);
+    const rawName = normalizeText(order.variant_name || order.product_name || 'Unknown');
+    const key = rawId ? `id:${rawId}` : `name:${normalizeCaseInsensitive(rawName)}`;
+    variants.push({
+      key,
+      id: rawId || undefined,
+      variant: rawName || 'Unknown',
+      productName,
+      quantity: parseInt(order.quantity || '1', 10) || 1,
+      amount: parseOrderAmount(order),
+    });
+    return variants;
+  }
+
+  items.forEach((item) => {
+    const rawId = normalizeText(item?.variant_id || item?.product_variant_id);
+    const rawName = normalizeText(item?.variant_name || item?.name || order.product_name || 'Unknown');
+    const key = rawId ? `id:${rawId}` : `name:${normalizeCaseInsensitive(rawName)}`;
+    variants.push({
+      key,
+      id: rawId || undefined,
+      variant: rawName || 'Unknown',
+      productName: productName || normalizeText(item?.product_name) || undefined,
+      quantity: parseInt(item?.quantity || '1', 10) || 1,
+      amount: parseFloat(item?.total || item?.price || item?.amount || '0') || 0,
+    });
+  });
+
+  return variants;
+}
+
+function orderMatchesReportFilters(order: any, params?: AggregatesParams): boolean {
+  if (!params) return true;
+
+  if (params.state) {
+    const orderState = getOrderState(order);
+    if (normalizeCaseInsensitive(orderState) !== normalizeCaseInsensitive(params.state)) {
+      return false;
+    }
+  }
+
+  if (params.pharmacy_id) {
+    const pharmacy = getOrderPharmacy(order);
+    if (pharmacy.key !== params.pharmacy_id) {
+      return false;
+    }
+  }
+
+  if (params.variant_id) {
+    const variants = getOrderVariantEntries(order);
+    const hasVariant = variants.some((variant) => variant.key === params.variant_id);
+    if (!hasVariant) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 /**
  * Fetch aggregate reports data
  */
@@ -112,14 +228,17 @@ export const getAggregates = async (params?: AggregatesParams): Promise<Aggregat
       });
     }
 
-    const byState = aggregateByState(orders, params);
-    const byPharmacy = aggregateByPharmacy(orders, params);
-    const byVariant = aggregateByVariant(orders, params);
+    // Apply report filters globally so all cards/tables represent the same dataset.
+    orders = orders.filter((order: any) => orderMatchesReportFilters(order, params));
+
+    const byState = aggregateByState(orders);
+    const byPharmacy = aggregateByPharmacy(orders);
+    const byVariant = aggregateByVariant(orders);
 
     // Calculate summary
     const totalOrders = orders.length;
     const totalSales = orders.reduce((sum, order) => {
-      const total = parseFloat(order.orderTotal || order.amount || '0');
+      const total = parseOrderAmount(order);
       return sum + total;
     }, 0);
 
@@ -155,7 +274,7 @@ export const getAggregates = async (params?: AggregatesParams): Promise<Aggregat
 /**
  * Aggregate orders by state
  */
-function aggregateByState(orders: any[], params?: AggregatesParams): AggregateByState[] {
+function aggregateByState(orders: any[]): AggregateByState[] {
   const stateMap = new Map<string, {
     totalOrders: number;
     totalSales: number;
@@ -165,21 +284,9 @@ function aggregateByState(orders: any[], params?: AggregatesParams): AggregateBy
 
   orders.forEach(order => {
     // Extract state from shipping address or billing address
-    const state = order.patient_state ||
-      order.shipping_state ||
-      order.billing_state ||
-      order.state ||
-      order.shipping_address?.state ||
-      order.billing_address?.state ||
-      'Unknown';
-    const normalizedState = String(state).trim();
+    const normalizedState = getOrderState(order);
 
-    // Skip if filtering by specific state and this doesn't match
-    if (params?.state && normalizedState !== params.state) {
-      return;
-    }
-
-    const amount = parseFloat(order.orderTotal || order.amount || order.total || '0');
+    const amount = parseOrderAmount(order);
     const status = (order.order_status || order.status || '').toLowerCase();
     const isCompleted = ['completed', 'shipped', 'delivered'].includes(status);
     const isPending = ['pending', 'processing'].includes(status);
@@ -215,9 +322,10 @@ function aggregateByState(orders: any[], params?: AggregatesParams): AggregateBy
 /**
  * Aggregate orders by pharmacy
  */
-function aggregateByPharmacy(orders: any[], params?: AggregatesParams): AggregateByPharmacy[] {
+function aggregateByPharmacy(orders: any[]): AggregateByPharmacy[] {
   const pharmacyMap = new Map<string, {
-    id?: string;
+    id: string;
+    name: string;
     totalOrders: number;
     totalSales: number;
     completed: number;
@@ -225,22 +333,17 @@ function aggregateByPharmacy(orders: any[], params?: AggregatesParams): Aggregat
   }>();
 
   orders.forEach(order => {
-    const pharmacyId = String(order.pharmacy_id || order.pharmacy || 'unknown');
-    const pharmacyName = order.pharmacy_name || order.pharmacy_display_name || `Pharmacy ${pharmacyId}`;
+    const pharmacy = getOrderPharmacy(order);
 
-    // Skip if filtering by specific pharmacy and this doesn't match
-    if (params?.pharmacy_id && String(pharmacyId) !== String(params.pharmacy_id)) {
-      return;
-    }
-
-    const amount = parseFloat(order.orderTotal || order.amount || order.total || '0');
+    const amount = parseOrderAmount(order);
     const status = (order.order_status || order.status || '').toLowerCase();
     const isCompleted = ['completed', 'shipped', 'delivered'].includes(status);
     const isPending = ['pending', 'processing'].includes(status);
 
-    if (!pharmacyMap.has(pharmacyName)) {
-      pharmacyMap.set(pharmacyName, {
-        id: pharmacyId,
+    if (!pharmacyMap.has(pharmacy.key)) {
+      pharmacyMap.set(pharmacy.key, {
+        id: pharmacy.key,
+        name: pharmacy.name,
         totalOrders: 0,
         totalSales: 0,
         completed: 0,
@@ -248,7 +351,7 @@ function aggregateByPharmacy(orders: any[], params?: AggregatesParams): Aggregat
       });
     }
 
-    const current = pharmacyMap.get(pharmacyName)!;
+    const current = pharmacyMap.get(pharmacy.key)!;
     current.totalOrders += 1;
     current.totalSales += amount;
     if (isCompleted) current.completed += 1;
@@ -256,8 +359,8 @@ function aggregateByPharmacy(orders: any[], params?: AggregatesParams): Aggregat
   });
 
   return Array.from(pharmacyMap.entries())
-    .map(([pharmacy, data]) => ({
-      pharmacy,
+    .map(([, data]) => ({
+      pharmacy: data.name,
       pharmacyId: data.id,
       totalOrders: data.totalOrders,
       totalSales: data.totalSales,
@@ -271,9 +374,10 @@ function aggregateByPharmacy(orders: any[], params?: AggregatesParams): Aggregat
 /**
  * Aggregate orders by variant
  */
-function aggregateByVariant(orders: any[], params?: AggregatesParams): AggregateByVariant[] {
+function aggregateByVariant(orders: any[]): AggregateByVariant[] {
   const variantMap = new Map<string, {
     id?: string;
+    variant: string;
     productName?: string;
     totalOrders: number;
     totalQuantity: number;
@@ -281,75 +385,32 @@ function aggregateByVariant(orders: any[], params?: AggregatesParams): Aggregate
   }>();
 
   orders.forEach(order => {
-    // 1. Prioritize selected_medicines
-    let items = [];
-    if (order.selected_medicines && order.selected_medicines.length > 0) {
-      items = order.selected_medicines;
-    } else {
-      items = order.items || order.line_items || order.order_items || [];
-    }
-
-    if (items.length === 0) {
-      // If no items array, try to get variant from order itself
-      const variantId = order.variant_id || order.product_variant_id || 'unknown';
-      const variantName = order.variant_name || order.product_name || `Variant ${variantId}`;
-
-      // Skip if filtering by specific variant and this doesn't match
-      if (params?.variant_id && variantId !== params.variant_id) {
-        return;
-      }
-
-      const amount = parseFloat(order.orderTotal || order.amount || order.total || '0');
-      const quantity = parseInt(order.quantity || '1', 10);
-
-      if (!variantMap.has(variantName)) {
-        variantMap.set(variantName, {
-          id: variantId,
-          productName: order.product_name,
+    const variants = getOrderVariantEntries(order);
+    variants.forEach((variant) => {
+      if (!variantMap.has(variant.key)) {
+        variantMap.set(variant.key, {
+          id: variant.id,
+          variant: variant.variant,
+          productName: variant.productName,
           totalOrders: 0,
           totalQuantity: 0,
           totalSales: 0,
         });
       }
 
-      const current = variantMap.get(variantName)!;
+      const current = variantMap.get(variant.key)!;
       current.totalOrders += 1;
-      current.totalQuantity += quantity;
-      current.totalSales += amount;
-    } else {
-      items.forEach((item: any) => {
-        const variantId = item.variant_id || item.product_variant_id || 'unknown';
-        const variantName = item.variant_name || item.name || `Variant ${variantId}`;
-
-        // Skip if filtering by specific variant and this doesn't match
-        if (params?.variant_id && variantId !== params.variant_id) {
-          return;
-        }
-
-        const amount = parseFloat(item.total || item.price || item.amount || '0');
-        const quantity = parseInt(item.quantity || '1', 10);
-
-        if (!variantMap.has(variantName)) {
-          variantMap.set(variantName, {
-            id: variantId,
-            productName: order.product_name || item.name,
-            totalOrders: 0,
-            totalQuantity: 0,
-            totalSales: 0,
-          });
-        }
-
-        const current = variantMap.get(variantName)!;
-        current.totalOrders += 1;
-        current.totalQuantity += quantity;
-        current.totalSales += amount;
-      });
-    }
+      current.totalQuantity += variant.quantity;
+      current.totalSales += variant.amount;
+      if (!current.productName && variant.productName) {
+        current.productName = variant.productName;
+      }
+    });
   });
 
   return Array.from(variantMap.entries())
-    .map(([variant, data]) => ({
-      variant,
+    .map(([, data]) => ({
+      variant: data.variant,
       variantId: data.id,
       productName: data.productName,
       totalOrders: data.totalOrders,
@@ -370,12 +431,8 @@ export const getStates = async (): Promise<string[]> => {
 
     const states = new Set<string>();
     orders.forEach((order: any) => {
-    const state = order.shipping_state ||
-        order.billing_state ||
-        order.state ||
-        order.shipping_address?.state ||
-        order.billing_address?.state;
-      if (state) states.add(String(state).trim());
+      const state = getOrderState(order);
+      if (state) states.add(state);
     });
 
     return Array.from(states).sort();
@@ -390,17 +447,19 @@ export const getStates = async (): Promise<string[]> => {
  */
 export const getPharmacies = async (): Promise<Array<{ id: string; name: string }>> => {
   try {
-    const response = await axiosInstance.get('products/pharmacies/');
-    const rows = response.data?.results || response.data || [];
+    const ordersResponse = await fetchAllOrders();
+    const orders = ordersResponse.results || [];
     const seen = new Set<string>();
-    return (rows as Array<{ id: string; name: string }>).filter((item: any) => {
-      const id = String(item?.id ?? "").trim();
-      const name = String(item?.name ?? "").trim();
-      const key = `${id}::${name}`;
-      if (!id || !name || seen.has(key)) return false;
-      seen.add(key);
-      return true;
+    const pharmacies: Array<{ id: string; name: string }> = [];
+
+    orders.forEach((order: any) => {
+      const pharmacy = getOrderPharmacy(order);
+      if (!pharmacy.name || seen.has(pharmacy.key)) return;
+      seen.add(pharmacy.key);
+      pharmacies.push({ id: pharmacy.key, name: pharmacy.name });
     });
+
+    return pharmacies.sort((a, b) => a.name.localeCompare(b.name));
   } catch (error) {
     console.error('Failed to fetch pharmacies:', error);
     return [];
@@ -412,17 +471,20 @@ export const getPharmacies = async (): Promise<Array<{ id: string; name: string 
  */
 export const getVariants = async (): Promise<Array<{ id: string; name: string }>> => {
   try {
-    const response = await axiosInstance.get('products/product-variants/');
-    const rows = response.data?.results || response.data || [];
+    const ordersResponse = await fetchAllOrders();
+    const orders = ordersResponse.results || [];
     const seen = new Set<string>();
-    return (rows as Array<{ id: string; name: string }>).filter((item: any) => {
-      const id = String(item?.id ?? "").trim();
-      const name = String(item?.name ?? "").trim();
-      const key = `${id}::${name}`;
-      if (!id || !name || seen.has(key)) return false;
-      seen.add(key);
-      return true;
+    const variants: Array<{ id: string; name: string }> = [];
+
+    orders.forEach((order: any) => {
+      getOrderVariantEntries(order).forEach((variant) => {
+        if (!variant.variant || seen.has(variant.key)) return;
+        seen.add(variant.key);
+        variants.push({ id: variant.key, name: variant.variant });
+      });
     });
+
+    return variants.sort((a, b) => a.name.localeCompare(b.name));
   } catch (error) {
     console.error('Failed to fetch variants:', error);
     return [];
