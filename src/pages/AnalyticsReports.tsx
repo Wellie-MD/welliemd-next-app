@@ -28,7 +28,7 @@ import {
   Package,
   Filter,
 } from "lucide-react"
-import { format, subDays, subMonths } from "date-fns"
+import { format, subDays, subMonths, startOfDay, endOfDay } from "date-fns"
 import {
   getAggregates,
   getStates,
@@ -156,8 +156,8 @@ export default function AnalyticsReports() {
 
   const queryParams = useMemo(
     () => ({
-      ...(dateRange.from && { start_date: format(dateRange.from, "yyyy-MM-dd") }),
-      ...(dateRange.to && { end_date: format(dateRange.to, "yyyy-MM-dd") }),
+      ...(dateRange.from && { start_date: startOfDay(dateRange.from).toISOString() }),
+      ...(dateRange.to && { end_date: endOfDay(dateRange.to).toISOString() }),
       ...(selectedState && { state: selectedState }),
       ...(selectedPharmacy && { pharmacy_id: selectedPharmacy }),
       ...(selectedVariant && { variant_id: selectedVariant }),

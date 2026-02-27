@@ -72,8 +72,8 @@ export default function Analytics() {
 
   const queryParams = useMemo(
     () => ({
-      start_date: format(dateRange.from, "yyyy-MM-dd"),
-      end_date: format(dateRange.to, "yyyy-MM-dd"),
+      start_date: startOfDay(dateRange.from).toISOString(),
+      end_date: endOfDay(dateRange.to).toISOString(),
       period,
       ...(selectedTreatment && { treatment_id: selectedTreatment }),
       ...(selectedProductGroup && { product_group_id: selectedProductGroup }),
