@@ -1,7 +1,5 @@
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
@@ -13,59 +11,169 @@ import {
   TableCell,
   TableHead,
   TableHeader,
-  TableRow
+  TableRow,
 } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import { AlertTriangle, CalendarIcon, Download, Loader2, Search } from "lucide-react"
-import { format, subDays, subWeeks, subYears } from "date-fns"
-import { cn } from "@/lib/utils"
-import { getAggregates, getStates, getPharmacies, getVariants } from "@/api/analyticsReportsApi"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  CalendarIcon,
+  Download,
+  Loader2,
+  Search,
+  ShoppingCart,
+  DollarSign,
+  Building2,
+  Package,
+  Filter,
+} from "lucide-react"
+import { format, subDays, subMonths } from "date-fns"
+import {
+  getAggregates,
+  getStates,
+  getPharmacies,
+  getVariants,
+  type AggregatesData,
+  type AggregateByPharmacy,
+  type AggregateByState,
+  type AggregateByVariant,
+} from "@/api/analyticsReportsApi"
+
+function SummaryCard({
+  title,
+  value,
+  icon: Icon,
+  iconTone = "text-primary",
+  chipTone = "bg-primary/10",
+}: {
+  title: string
+  value: string | number
+  icon: React.ComponentType<{ className?: string }>
+  iconTone?: string
+  chipTone?: string
+}) {
+  return (
+    <Card className="border-border/70 shadow-sm transition-colors hover:border-primary/30">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {title}
+          </CardTitle>
+          <div className={`rounded-md p-1.5 ${chipTone}`}>
+            <Icon className={`h-4 w-4 ${iconTone}`} />
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold tracking-tight">{value}</div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function SectionHeader({
+  title,
+  searchValue,
+  onSearchChange,
+  onExport,
+  placeholder,
+}: {
+  title: string
+  searchValue: string
+  onSearchChange: (value: string) => void
+  onExport: () => void
+  placeholder: string
+}) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <CardTitle className="text-base">{title}</CardTitle>
+      <div className="flex items-center gap-2">
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder={placeholder}
+            value={searchValue}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+        <Button variant="outline" size="sm" onClick={onExport}>
+          <Download className="mr-2 h-4 w-4" />
+          Export
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function CompletionCell({
+  completed,
+  pending,
+  total,
+}: {
+  completed: number
+  pending: number
+  total: number
+}) {
+  const ratio = total > 0 ? Math.round((completed / total) * 100) : 0
+  return (
+    <div className="min-w-[130px]">
+      <div className="mb-1 flex items-center justify-end gap-2">
+        <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">
+          {completed}
+        </Badge>
+        <Badge variant="secondary" className="bg-amber-100 text-amber-700">
+          {pending}
+        </Badge>
+      </div>
+      <div className="h-1.5 w-full rounded-full bg-muted">
+        <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${ratio}%` }} />
+      </div>
+    </div>
+  )
+}
 
 export default function AnalyticsReports() {
-  // Date filter states
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: subDays(new Date(), 7),
     to: new Date(),
   })
-
-  // 2. Temporary date range state (For UI selection only)
   const [tempDateRange, setTempDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>(dateRange)
-
-  // 3. Popover open state
   const [isPopoverOpen, setIsPopoverOpen] = useState(false)
 
-  // Filter states for aggregates
-  const [selectedState, setSelectedState] = useState<string>('')
-  const [selectedPharmacy, setSelectedPharmacy] = useState<string>('')
-  const [selectedVariant, setSelectedVariant] = useState<string>('')
+  const [selectedState, setSelectedState] = useState("")
+  const [selectedPharmacy, setSelectedPharmacy] = useState("")
+  const [selectedVariant, setSelectedVariant] = useState("")
+
+  const [stateSearch, setStateSearch] = useState("")
+  const [pharmacySearch, setPharmacySearch] = useState("")
+  const [variantSearch, setVariantSearch] = useState("")
 
   useEffect(() => {
-    if (isPopoverOpen) {
-      setTempDateRange(dateRange)
-    }
+    if (isPopoverOpen) setTempDateRange(dateRange)
   }, [isPopoverOpen, dateRange])
 
-  // Search/filter states
-  const [stateSearch, setStateSearch] = useState('')
-  const [pharmacySearch, setPharmacySearch] = useState('')
-  const [variantSearch, setVariantSearch] = useState('')
+  const queryParams = useMemo(
+    () => ({
+      ...(dateRange.from && { start_date: format(dateRange.from, "yyyy-MM-dd") }),
+      ...(dateRange.to && { end_date: format(dateRange.to, "yyyy-MM-dd") }),
+      ...(selectedState && { state: selectedState }),
+      ...(selectedPharmacy && { pharmacy_id: selectedPharmacy }),
+      ...(selectedVariant && { variant_id: selectedVariant }),
+    }),
+    [dateRange, selectedState, selectedPharmacy, selectedVariant],
+  )
 
-  // Build query parameters
-  const queryParams = useMemo(() => ({
-    ...(dateRange.from && { start_date: format(dateRange.from, "yyyy-MM-dd") }),
-    ...(dateRange.to && { end_date: format(dateRange.to, "yyyy-MM-dd") }),
-    ...(selectedState && { state: selectedState }),
-    ...(selectedPharmacy && { pharmacy_id: selectedPharmacy }),
-    ...(selectedVariant && { variant_id: selectedVariant }),
-  }), [dateRange, selectedState, selectedPharmacy, selectedVariant])
-
-  // Fetch aggregates data
-  const { data: aggregates, isLoading, error } = useQuery({
+  const {
+    data: aggregates,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["aggregates", queryParams],
     queryFn: () => getAggregates(queryParams),
   })
 
-  // Fetch filter options
   const { data: states = [] } = useQuery({
     queryKey: ["states"],
     queryFn: getStates,
@@ -84,195 +192,213 @@ export default function AnalyticsReports() {
     staleTime: 150000,
   })
 
-  // Filter data based on search
   const filteredStateData = useMemo(() => {
     if (!aggregates?.byState) return []
-    return aggregates.byState.filter(item =>
-      item.state.toLowerCase().includes(stateSearch.toLowerCase())
+    return aggregates.byState.filter((item) =>
+      item.state.toLowerCase().includes(stateSearch.toLowerCase()),
     )
   }, [aggregates?.byState, stateSearch])
 
   const filteredPharmacyData = useMemo(() => {
     if (!aggregates?.byPharmacy) return []
-    return aggregates.byPharmacy.filter(item =>
-      item.pharmacy.toLowerCase().includes(pharmacySearch.toLowerCase())
+    return aggregates.byPharmacy.filter((item) =>
+      item.pharmacy.toLowerCase().includes(pharmacySearch.toLowerCase()),
     )
   }, [aggregates?.byPharmacy, pharmacySearch])
 
   const filteredVariantData = useMemo(() => {
     if (!aggregates?.byVariant) return []
-    return aggregates.byVariant.filter(item =>
-      item.variant.toLowerCase().includes(variantSearch.toLowerCase())
+    return aggregates.byVariant.filter((item) =>
+      item.variant.toLowerCase().includes(variantSearch.toLowerCase()),
     )
   }, [aggregates?.byVariant, variantSearch])
 
   const hasActiveReportFilters = Boolean(selectedState || selectedPharmacy || selectedVariant)
 
-  // Export to CSV
-  const exportToCSV = (data: any[], filename: string) => {
+  const exportToCSV = (data: Record<string, unknown>[], filename: string) => {
     if (!data.length) return
 
-    const headers = Object.keys(data[0]).join(',')
-    const rows = data.map(row => Object.values(row).join(','))
-    const csv = [headers, ...rows].join('\n')
+    const headers = Object.keys(data[0]).join(",")
+    const rows = data.map((row) => Object.values(row).join(","))
+    const csv = [headers, ...rows].join("\n")
 
-    const blob = new Blob([csv], { type: 'text/csv' })
+    const blob = new Blob([csv], { type: "text/csv" })
     const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
+    const a = document.createElement("a")
     a.href = url
-    a.download = `${filename}_${format(new Date(), 'yyyy-MM-dd')}.csv`
+    a.download = `${filename}_${format(new Date(), "yyyy-MM-dd")}.csv`
     a.click()
     window.URL.revokeObjectURL(url)
   }
 
+  const setPresetDays = (days: number) => {
+    setDateRange({ from: subDays(new Date(), days), to: new Date() })
+  }
+
+  const setPresetMonths = (months: number) => {
+    setDateRange({ from: subMonths(new Date(), months), to: new Date() })
+  }
+
   if (isLoading) {
     return (
-      <div className="p-6 flex items-center justify-center min-h-[400px]">
+      <div className="flex min-h-[400px] items-center justify-center p-6">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Analytics Reports</h1>
-        <div className="flex items-center gap-4">
-          <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="justify-start text-left">
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {dateRange.from && dateRange.to ? (
-                  <>
-                    {format(dateRange.from, "MMM dd, yyyy")} - {format(dateRange.to, "MMM dd, yyyy")}
-                  </>
-                ) : (
-                  <span>Pick a date range</span>
-                )}
+    <div className="space-y-6 p-6">
+      <Card className="border-border/70 bg-gradient-to-r from-primary/5 via-background to-blue-50/40 shadow-sm">
+        <CardContent className="space-y-4 p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Analytics Reports</h1>
+              <p className="text-sm text-muted-foreground">
+                Operational reporting across states, pharmacies, and product variants.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setPresetDays(7)}>
+                Last 7 days
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <div className="p-3">
-                <div className="flex flex-row gap-4 mb-2">
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm text-center">Start Date</h4>
-                    <Calendar
-                      mode="single"
-                      selected={tempDateRange.from}
-                      onSelect={(date) => setTempDateRange(prev => ({ ...prev, from: date }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm text-center">End Date</h4>
-                    <Calendar
-                      mode="single"
-                      selected={tempDateRange.to}
-                      onSelect={(date) => setTempDateRange(prev => ({ ...prev, to: date }))}
-                      disabled={(date) => tempDateRange.from ? date < tempDateRange.from : false}
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2 pt-2 border-t">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsPopoverOpen(false)}
-                  >
-                    Cancel
+              <Button variant="outline" size="sm" onClick={() => setPresetDays(30)}>
+                Last 30 days
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setPresetMonths(3)}>
+                Last 3 months
+              </Button>
+              <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="justify-start text-left">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange.from && dateRange.to ? (
+                      <>{format(dateRange.from, "MMM dd, yyyy")} - {format(dateRange.to, "MMM dd, yyyy")}</>
+                    ) : (
+                      <span>Pick date range</span>
+                    )}
                   </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      setDateRange(tempDateRange)
-                      setIsPopoverOpen(false)
-                    }}
-                  >
-                    Apply Range
-                  </Button>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
-      </div>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <div className="p-3">
+                    <div className="mb-2 flex flex-row gap-4">
+                      <div className="space-y-2">
+                        <h4 className="text-center text-sm font-medium">Start Date</h4>
+                        <Calendar
+                          mode="single"
+                          selected={tempDateRange.from}
+                          onSelect={(date) => setTempDateRange((prev) => ({ ...prev, from: date }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="text-center text-sm font-medium">End Date</h4>
+                        <Calendar
+                          mode="single"
+                          selected={tempDateRange.to}
+                          onSelect={(date) => setTempDateRange((prev) => ({ ...prev, to: date }))}
+                          disabled={(date) => (tempDateRange.from ? date < tempDateRange.from : false)}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2 border-t pt-2">
+                      <Button variant="ghost" size="sm" onClick={() => setIsPopoverOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setDateRange(tempDateRange)
+                          setIsPopoverOpen(false)
+                        }}
+                      >
+                        Apply Range
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
 
-      {/* Summary Cards */}
-      {aggregates && (
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{aggregates.summary.totalOrders}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Total Sales</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                ${aggregates.summary.totalSales.toLocaleString()}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">States</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{aggregates.summary.totalStates}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Pharmacies</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{aggregates.summary.totalPharmacies}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Product Variants</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{aggregates.summary.totalVariants}</div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Report Filters */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Report Filters</CardTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/15">
+              <Filter className="mr-1 h-3 w-3" />
+              {hasActiveReportFilters ? "Filtered" : "No filter"}
+            </Badge>
             {hasActiveReportFilters && (
               <Button
                 variant="ghost"
                 size="sm"
+                className="h-7 px-2"
                 onClick={() => {
-                  setSelectedState('')
-                  setSelectedPharmacy('')
-                  setSelectedVariant('')
+                  setSelectedState("")
+                  setSelectedPharmacy("")
+                  setSelectedVariant("")
                 }}
               >
-                Clear Filters
+                Clear filters
               </Button>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>Failed to load analytics reports. Please refresh and try again.</AlertDescription>
+        </Alert>
+      )}
+
+      {aggregates && (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <SummaryCard
+            title="Total Orders"
+            value={aggregates.summary.totalOrders}
+            icon={ShoppingCart}
+            iconTone="text-blue-600"
+            chipTone="bg-blue-100"
+          />
+          <SummaryCard
+            title="Total Sales"
+            value={`$${aggregates.summary.totalSales.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+            icon={DollarSign}
+            iconTone="text-emerald-600"
+            chipTone="bg-emerald-100"
+          />
+          <SummaryCard
+            title="States"
+            value={aggregates.summary.totalStates}
+            icon={Building2}
+            iconTone="text-indigo-600"
+            chipTone="bg-indigo-100"
+          />
+          <SummaryCard
+            title="Pharmacies"
+            value={aggregates.summary.totalPharmacies}
+            icon={Building2}
+            iconTone="text-amber-600"
+            chipTone="bg-amber-100"
+          />
+          <SummaryCard
+            title="Product Variants"
+            value={aggregates.summary.totalVariants}
+            icon={Package}
+            iconTone="text-violet-600"
+            chipTone="bg-violet-100"
+          />
+        </div>
+      )}
+
+      <Card className="border-border/70 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base text-primary">Report Filters</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <label className="text-sm font-medium">State</label>
-              <Select
-                value={selectedState || "all"}
-                onValueChange={(val) => setSelectedState(val === "all" ? "" : val)}
-              >
+              <Select value={selectedState || "all"} onValueChange={(val) => setSelectedState(val === "all" ? "" : val)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All States" />
                 </SelectTrigger>
@@ -289,10 +415,7 @@ export default function AnalyticsReports() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Pharmacy</label>
-              <Select
-                value={selectedPharmacy || "all"}
-                onValueChange={(val) => setSelectedPharmacy(val === "all" ? "" : val)}
-              >
+              <Select value={selectedPharmacy || "all"} onValueChange={(val) => setSelectedPharmacy(val === "all" ? "" : val)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Pharmacies" />
                 </SelectTrigger>
@@ -309,10 +432,7 @@ export default function AnalyticsReports() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Variant</label>
-              <Select
-                value={selectedVariant || "all"}
-                onValueChange={(val) => setSelectedVariant(val === "all" ? "" : val)}
-              >
+              <Select value={selectedVariant || "all"} onValueChange={(val) => setSelectedVariant(val === "all" ? "" : val)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Variants" />
                 </SelectTrigger>
@@ -329,190 +449,155 @@ export default function AnalyticsReports() {
           </div>
         </CardContent>
       </Card>
-      {/* Orders by State */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Orders by State</CardTitle>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search states..."
-                  value={stateSearch}
-                  onChange={(e) => setStateSearch(e.target.value)}
-                  className="pl-8 w-64"
-                />
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => exportToCSV(filteredStateData, 'orders_by_state')}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {filteredStateData.length > 0 ? (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>State</TableHead>
-                    <TableHead className="text-right">Total Orders</TableHead>
-                    <TableHead className="text-right">Total Sales</TableHead>
-                    <TableHead className="text-right">Avg Order Value</TableHead>
-                    <TableHead className="text-right">Completed</TableHead>
-                    <TableHead className="text-right">Pending</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredStateData.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium">{item.state}</TableCell>
-                      <TableCell className="text-right">{item.totalOrders}</TableCell>
-                      <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
-                      <TableCell className="text-right">${item.averageOrderValue.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">{item.completedOrders}</TableCell>
-                      <TableCell className="text-right">{item.pendingOrders}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-32 text-muted-foreground">
-              No data available
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Orders by Pharmacy */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Orders by Pharmacy</CardTitle>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search pharmacies..."
-                  value={pharmacySearch}
-                  onChange={(e) => setPharmacySearch(e.target.value)}
-                  className="pl-8 w-64"
-                />
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => exportToCSV(filteredPharmacyData, 'orders_by_pharmacy')}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {filteredPharmacyData.length > 0 ? (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Pharmacy</TableHead>
-                    <TableHead className="text-right">Total Orders</TableHead>
-                    <TableHead className="text-right">Total Sales</TableHead>
-                    <TableHead className="text-right">Avg Order Value</TableHead>
-                    <TableHead className="text-right">Completed</TableHead>
-                    <TableHead className="text-right">Pending</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredPharmacyData.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="font-medium">{item.pharmacy}</TableCell>
-                      <TableCell className="text-right">{item.totalOrders}</TableCell>
-                      <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
-                      <TableCell className="text-right">${item.averageOrderValue.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">{item.completedOrders}</TableCell>
-                      <TableCell className="text-right">{item.pendingOrders}</TableCell>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <Card className="border-border/70 shadow-sm">
+          <CardHeader>
+            <SectionHeader
+              title="Orders by State"
+              searchValue={stateSearch}
+              onSearchChange={setStateSearch}
+              onExport={() => exportToCSV(filteredStateData as Record<string, unknown>[], "orders_by_state")}
+              placeholder="Search states..."
+            />
+          </CardHeader>
+          <CardContent>
+            {filteredStateData.length > 0 ? (
+              <div className="rounded-md border">
+                <ScrollArea className="w-full">
+                  <Table>
+                    <TableHeader className="bg-muted/40">
+                    <TableRow>
+                      <TableHead>State</TableHead>
+                      <TableHead className="text-right">Orders</TableHead>
+                      <TableHead className="text-right">Sales</TableHead>
+                      <TableHead className="text-right">Avg Order</TableHead>
+                      <TableHead className="text-right">Fulfillment</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-32 text-muted-foreground">
-              No data available
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Orders by Product Variant */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Orders by Product Variant</CardTitle>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search variants..."
-                  value={variantSearch}
-                  onChange={(e) => setVariantSearch(e.target.value)}
-                  className="pl-8 w-64"
-                />
+                    </TableHeader>
+                    <TableBody>
+                    {(filteredStateData as AggregateByState[]).map((item, index) => (
+                      <TableRow
+                        key={`${item.state}-${index}`}
+                        className="transition-colors odd:bg-muted/20 hover:bg-primary/5"
+                      >
+                        <TableCell className="font-medium">{item.state}</TableCell>
+                        <TableCell className="text-right">{item.totalOrders}</TableCell>
+                        <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">${item.averageOrderValue.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">
+                          <CompletionCell
+                            completed={item.completedOrders}
+                            pending={item.pendingOrders}
+                            total={item.totalOrders}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => exportToCSV(filteredVariantData, 'orders_by_variant')}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-            </div>
-          </div>
+            ) : (
+              <div className="flex h-32 items-center justify-center text-muted-foreground">No data available</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 shadow-sm">
+          <CardHeader>
+            <SectionHeader
+              title="Orders by Pharmacy"
+              searchValue={pharmacySearch}
+              onSearchChange={setPharmacySearch}
+              onExport={() => exportToCSV(filteredPharmacyData as Record<string, unknown>[], "orders_by_pharmacy")}
+              placeholder="Search pharmacies..."
+            />
+          </CardHeader>
+          <CardContent>
+            {filteredPharmacyData.length > 0 ? (
+              <div className="rounded-md border">
+                <ScrollArea className="w-full">
+                  <Table>
+                    <TableHeader className="bg-muted/40">
+                    <TableRow>
+                      <TableHead>Pharmacy</TableHead>
+                      <TableHead className="text-right">Orders</TableHead>
+                      <TableHead className="text-right">Sales</TableHead>
+                      <TableHead className="text-right">Avg Order</TableHead>
+                      <TableHead className="text-right">Fulfillment</TableHead>
+                    </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {(filteredPharmacyData as AggregateByPharmacy[]).map((item, index) => (
+                      <TableRow
+                        key={`${item.pharmacy}-${index}`}
+                        className="transition-colors odd:bg-muted/20 hover:bg-primary/5"
+                      >
+                        <TableCell className="font-medium">{item.pharmacy}</TableCell>
+                        <TableCell className="text-right">{item.totalOrders}</TableCell>
+                        <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">${item.averageOrderValue.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">
+                          <CompletionCell
+                            completed={item.completedOrders}
+                            pending={item.pendingOrders}
+                            total={item.totalOrders}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </div>
+            ) : (
+              <div className="flex h-32 items-center justify-center text-muted-foreground">No data available</div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-border/70 shadow-sm">
+        <CardHeader>
+          <SectionHeader
+            title="Orders by Product Variant"
+            searchValue={variantSearch}
+            onSearchChange={setVariantSearch}
+            onExport={() => exportToCSV(filteredVariantData as Record<string, unknown>[], "orders_by_variant")}
+            placeholder="Search variants..."
+          />
         </CardHeader>
         <CardContent>
           {filteredVariantData.length > 0 ? (
             <div className="rounded-md border">
-              <Table>
-                <TableHeader>
+              <ScrollArea className="w-full">
+                <Table>
+                  <TableHeader className="bg-muted/40">
                   <TableRow>
                     <TableHead>Product Variant</TableHead>
-                    <TableHead className="text-right">Total Orders</TableHead>
-                    <TableHead className="text-right">Total Quantity</TableHead>
-                    <TableHead className="text-right">Total Sales</TableHead>
+                    <TableHead className="text-right">Orders</TableHead>
+                    <TableHead className="text-right">Quantity</TableHead>
+                    <TableHead className="text-right">Sales</TableHead>
                     <TableHead className="text-right">Avg Price</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
-                  {filteredVariantData.map((item, index) => {
-                    let displayVariant = item.variant;
+                  <TableBody>
+                  {(filteredVariantData as AggregateByVariant[]).map((item, index) => {
+                    let displayVariant = item.variant
                     if (item.productName && item.variant.startsWith(item.productName)) {
-                      displayVariant = item.variant.replace(item.productName, '').replace(/^[\s-]+/, '');
+                      displayVariant = item.variant.replace(item.productName, "").replace(/^[\s-]+/, "")
                     }
-
-                    // Fallback
-                    if (!displayVariant.trim()) displayVariant = 'Default Variant';
+                    if (!displayVariant.trim()) displayVariant = "Default Variant"
 
                     return (
-                      <TableRow key={index}>
+                      <TableRow
+                        key={`${item.variant}-${index}`}
+                        className="transition-colors odd:bg-muted/20 hover:bg-primary/5"
+                      >
                         <TableCell className="font-medium">
-                          <div className="text-base font-semibold">
-                            {/* Top Line: Product Name (from order.product_name) */}
-                            {item.productName || item.variant}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {/* Bottom Line: Cleaned Variant Name */}
-                            {displayVariant}
-                          </div>
+                          <div className="text-base font-semibold">{item.productName || item.variant}</div>
+                          <div className="text-sm text-muted-foreground">{displayVariant}</div>
                         </TableCell>
                         <TableCell className="text-right">{item.totalOrders}</TableCell>
                         <TableCell className="text-right">{item.totalQuantity}</TableCell>
@@ -521,59 +606,15 @@ export default function AnalyticsReports() {
                       </TableRow>
                     )
                   })}
-                </TableBody>
-              </Table>
+                  </TableBody>
+                </Table>
+              </ScrollArea>
             </div>
           ) : (
-            <div className="flex items-center justify-center h-32 text-muted-foreground">
-              No data available
-            </div>
+            <div className="flex h-32 items-center justify-center text-muted-foreground">No data available</div>
           )}
         </CardContent>
       </Card>
-
-      {/* Other Tabs (Premium Features)
-        <TabsContent value="time-metrics" className="space-y-6">
-          <Alert className="border-yellow-200 bg-yellow-50">
-            <AlertTriangle className="h-4 w-4 text-yellow-600" />
-            <AlertDescription className="text-yellow-800">
-              This is a premium feature that is still in development. The data calculated might not be accurate and should be validated.
-            </AlertDescription>
-          </Alert>
-          <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold mb-2">No data</h3>
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="retention" className="space-y-6">
-          <Alert className="border-yellow-200 bg-yellow-50">
-            <AlertTriangle className="h-4 w-4 text-yellow-600" />
-            <AlertDescription className="text-yellow-800">
-              This is a premium feature that is still in development. The data calculated might not be accurate and should be validated.
-            </AlertDescription>
-          </Alert>
-          <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold mb-2">No data</h3>
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="segments" className="space-y-6">
-          <Alert className="border-yellow-200 bg-yellow-50">
-            <AlertTriangle className="h-4 w-4 text-yellow-600" />
-            <AlertDescription className="text-yellow-800">
-              This is a premium feature that is still in development. The data calculated might not be accurate and should be validated.
-            </AlertDescription>
-          </Alert>
-          <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold mb-2">No data</h3>
-            </div>
-          </div>
-        </TabsContent> */}
     </div>
   )
 }
