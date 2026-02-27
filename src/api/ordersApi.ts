@@ -94,6 +94,13 @@ export interface Order {
   treatment_type?: string | null
   doctor_name?: string | null
   prescription_medications?: PrescriptionMedication[]
+  // Shipping address (patient address)
+  shipping_address?: string | null
+  // B2B reimbursement cost fields
+  medication_cost_to_client?: string | null
+  consult_cost_to_client?: string | null
+  consult_type?: 'async' | 'sync' | null
+  shipping_fee_to_client?: string | null
 }
 
 export interface PaginatedOrdersResponse {
