@@ -211,6 +211,7 @@ const ColorPaletteSection = ({
 
 export default function Brand() {
   const [loading, setLoading] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   const [formData, setFormData] = useState({
     logos: { square: "", round: "", transparent: "", favicon: "" },
@@ -232,6 +233,8 @@ export default function Brand() {
         if (brandData) setFormData((prev) => ({ ...prev, ...brandData }));
       } catch (err) {
         console.error("Load error", err);
+      } finally {
+        setIsLoadingData(false);
       }
     };
     fetchBrand();
@@ -326,7 +329,9 @@ export default function Brand() {
 
   return (
     <div className="mx-auto space-y-8 p-6">
-      <h1 className="text-2xl font-semibold">Brand Configuration</h1>
+      {!isLoadingData && (
+        <>
+          <h1 className="text-2xl font-semibold">Brand Configuration</h1>
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Logo Section */}
         <Card>
@@ -511,6 +516,8 @@ export default function Brand() {
           </Button>
         </div>
       </form>
+        </>
+      )}
     </div>
   );
 }

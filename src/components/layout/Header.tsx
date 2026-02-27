@@ -21,28 +21,25 @@ export function Header() {
   const user = useAuthStore((state) => state.user)
   const navigate = useNavigate()
   const { state } = useSidebar()
-  const { logos } = useBranding()
+  const { logos, isLoading } = useBranding()
 
   const handleLogout = async () => {
     await authService.logout()
     navigate('/auth/signin')
   }
 
-  const logoUrl = logos?.square || "/welliemd_logo.png"
-
 
   return (
     <header className="h-16 bg-blue-100 border-b border-gray-200 flex items-center justify-between px-4">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          {state === "collapsed" && (
+          {state === "collapsed" && !isLoading && logos?.square && (
           <img 
-            src={logoUrl}
+            src={logos.square}
             alt="Logo" 
             className="h-8 w-auto max-w-[200px] object-contain"
             onError={(e) => {
-              // Fallback to default logo if brand logo fails to load
-              e.currentTarget.src = "/welliemd_logo.png"
+              e.currentTarget.style.display = "none"
             }}
           />
              )}

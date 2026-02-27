@@ -38,10 +38,10 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       
       // Fix LocalStack URLs in logos
       const fixedLogos: BrandLogos | undefined = settings.logos ? {
-        square: fixLocalStackUrl(settings.logos.square) || '',
-        round: fixLocalStackUrl(settings.logos.round) || '',
-        transparent: fixLocalStackUrl(settings.logos.transparent) || '',
-        favicon: fixLocalStackUrl(settings.logos.favicon) || '',
+        square: fixLocalStackUrl(settings.logos.square) || undefined,
+        round: fixLocalStackUrl(settings.logos.round) || undefined,
+        transparent: fixLocalStackUrl(settings.logos.transparent) || undefined,
+        favicon: fixLocalStackUrl(settings.logos.favicon) || undefined,
       } : undefined;
       
       console.log('[BrandingContext] Fixed logos:', fixedLogos);
