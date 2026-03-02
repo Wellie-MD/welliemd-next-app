@@ -195,11 +195,6 @@ export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdat
                   Edit
                 </Button>
               </PermissionGate>
-              <PermissionGate permission={Permissions.USER_DELETE}>
-                <Button size="sm" variant="destructive" onClick={() => setDeleteOpen(true)}>
-                  Delete
-                </Button>
-              </PermissionGate>
             </div>
           </div>
         </SheetHeader>

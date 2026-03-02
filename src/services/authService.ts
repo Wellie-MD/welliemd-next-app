@@ -142,8 +142,25 @@ export const authService = {
         
         return newAccessToken;
       } catch (error: any) {
-        console.error('Token refresh failed:', error.response?.data || error.message);
-        useAuthStore.getState().logout();
+        // Only log out if the refresh token is invalid (401) or expired
+        // AND we don't have a valid access token already
+        // Don't log out for network errors or other transient issues
+        const status = error.response?.status;
+        const authStore = useAuthStore.getState();
+        
+        if (status === 401 || status === 403) {
+          // Only logout if we don't have a valid access token
+          // If user just logged in, they have a valid token, so don't logout
+          if (!authStore.isAuthenticated || !authStore.accessToken) {
+            console.error('Refresh token is invalid or expired, logging out');
+            authStore.logout();
+          } else {
+            // We have a valid access token, just log the refresh failure
+            console.warn('Refresh token failed but user has valid access token, continuing with existing token');
+          }
+        } else {
+          console.error('Token refresh failed (non-auth error):', error.response?.data || error.message);
+        }
         throw error;
       } finally {
         refreshPromise = null;
@@ -179,7 +196,46 @@ export const authService = {
     authStore.setLoading(true);
     
     try {
-      // Try to refresh token on page load
+      // If user is already authenticated with a valid access token, verify it's still valid
+      // instead of immediately trying to refresh (which can fail if cookie isn't ready yet)
+      if (authStore.isAuthenticated && authStore.accessToken) {
+        try {
+          // Try to verify the existing token by calling /auth/me/
+          const directAxios = axios.create({
+            baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
+            withCredentials: true,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authStore.accessToken}`
+            },
+          });
+          
+          const { data } = await directAxios.get<User>('/auth/me/');
+          // Token is still valid, update user data and return
+          authStore.setUser(data);
+          setHydratingState(false);
+          authStore.setLoading(false);
+          return;
+        } catch (error: any) {
+          // Token is invalid, fall through to refresh logic
+          const status = error.response?.status;
+          if (status === 401 || status === 403) {
+            // Token expired, try to refresh
+            console.log('Access token expired, attempting refresh...');
+          } else {
+            // Network or other error, don't try to refresh
+            console.log('Failed to verify token (non-auth error):', error.message);
+            setHydratingState(false);
+            authStore.setLoading(false);
+            return;
+          }
+        }
+      }
+      
+      // Only try to refresh token if:
+      // 1. User is not authenticated, OR
+      // 2. User is authenticated but token verification failed
+      // On page refresh, access token in memory is lost, but refresh token cookie persists
       const newAccessToken = await authService.refreshAccessToken();
       
       if (newAccessToken) {
@@ -198,14 +254,31 @@ export const authService = {
         return;
       }
     } catch (error: any) {
-      console.log('Session restoration failed:', error.message);
+      // Only log out if we don't have a valid access token
+      // If user just logged in and has a valid token, don't log them out
+      const status = error.response?.status;
+      if (status === 401 || status === 403) {
+        // Only logout if we don't have a valid access token already
+        if (!authStore.isAuthenticated || !authStore.accessToken) {
+          console.log('Session restoration failed: refresh token invalid or expired');
+          useAuthStore.getState().logout();
+        } else {
+          // We have a valid token, just log the refresh failure but don't logout
+          console.log('Token refresh failed but user has valid access token, continuing with existing token');
+        }
+      } else {
+        console.log('Session restoration failed (non-auth error, will retry on next request):', error.message);
+        // Don't log out for transient errors - user might still have a valid session
+        // If we have a valid token, keep the user logged in
+        if (authStore.isAuthenticated && authStore.accessToken) {
+          // Keep user logged in with existing token
+          console.log('Keeping user logged in with existing access token');
+        }
+      }
     } finally {
       setHydratingState(false);
       authStore.setLoading(false);
     }
-    
-    // If refresh failed, ensure clean logout
-    authStore.logout();
   },
 
   requestPasswordReset: async (email: string): Promise<void> => {
