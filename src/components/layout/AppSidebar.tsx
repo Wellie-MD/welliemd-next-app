@@ -215,11 +215,15 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
 
   function SidebarLogo() {
   const { state } = useSidebar()
-  const { logos } = useBranding()
+  const { logos, isLoading } = useBranding()
 
   if (state === "collapsed") return null
 
-  const logoUrl = logos?.square || "/welliemd_logo.png"
+  if (isLoading) return null
+
+  if (!logos?.square) return null
+
+  const logoUrl = logos.square
 
   return (
     <img
@@ -227,8 +231,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
       alt="Logo"
       className="h-8 w-auto max-w-[200px] object-contain"
       onError={(e) => {
-        // Fallback to default logo if brand logo fails to load
-        e.currentTarget.src = "/welliemd_logo.png"
+        e.currentTarget.style.display = "none"
       }}
     />
   )

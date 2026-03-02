@@ -7,7 +7,8 @@ interface AuthLayoutProps {
 }
 
 export const AuthLayout = ({ children }: AuthLayoutProps) => {
-  const [loginImage, setLoginImage] = useState<string>(authIllustration);
+  const [loginImage, setLoginImage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadBrandSettings = async () => {
@@ -22,7 +23,8 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
         }
       } catch (error) {
         console.error("Failed to load brand settings:", error);
-        // Keep using the default image on error
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -39,15 +41,17 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
       </div>
       
       {/* Right side - Illustration */}
-      <div className="flex-1 flex items-center justify-center p-0 bg-transparent">
-        <div className="w-full h-full flex items-center justify-center">
-          <img 
-            src={loginImage} 
-            alt="Healthcare illustration" 
-            className="w-full h-full object-cover"
-          />
+      {!isLoading && (
+        <div className="flex-1 flex items-center justify-center p-0 bg-transparent">
+          <div className="w-full h-full flex items-center justify-center">
+            <img 
+              src={loginImage || authIllustration} 
+              alt="Healthcare illustration" 
+              className="w-full h-full object-cover"
+            />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

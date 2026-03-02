@@ -70,11 +70,10 @@ export function SettingsSidebar({
   const navigate = useNavigate()
   const location = useLocation()
   const currentPath = location.pathname
-  const { logos } = useBranding()
+  const { logos, isLoading } = useBranding()
   // const collapsed = state === "collapsed"
 
   const isActive = (path: string) => currentPath === path
-  const logoUrl = logos?.square || "/welliemd_logo.png"
 
   // Wrapper for menu items with tooltip when collapsed
   const MenuItemWrapper = ({ children, title }: { children: React.ReactNode, title: string }) => {
@@ -105,14 +104,13 @@ export function SettingsSidebar({
       {/* <Sidebar collapsible="icon" className="border-r flex flex-col h-full overflow-hidden"> */}
       <div className={`flex w-full p-4 ${collapsed ? "justify-center" : "justify-between"
         }`}>
-        {!collapsed && (
+        {!collapsed && !isLoading && logos?.square && (
   <img
-    src={logoUrl}
+    src={logos.square}
     alt="Logo"
     className="h-8 w-auto max-w-[200px] object-contain"
     onError={(e) => {
-      // Fallback to default logo if brand logo fails to load
-      e.currentTarget.src = "/welliemd_logo.png"
+      e.currentTarget.style.display = "none"
     }}
   />
 )}
