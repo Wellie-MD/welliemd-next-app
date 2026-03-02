@@ -100,6 +100,10 @@ export default function OrderDetail() {
   const [refundReasonDescription, setRefundReasonDescription] = useState("")
   const [refundNotes, setRefundNotes] = useState("")
   const [refundLoading, setRefundLoading] = useState(false)
+  const [showStatusDialog, setShowStatusDialog] = useState(false)
+  const [newStatus, setNewStatus] = useState("")
+  const [statusTrackingNumber, setStatusTrackingNumber] = useState("")
+  const [statusUpdateLoading, setStatusUpdateLoading] = useState(false)
   const { toast } = useToast()
 
   const isUuid = (s: string) =>
@@ -198,6 +202,35 @@ export default function OrderDetail() {
     fetchFn.then(setOrder).catch(() => {})
   }
 
+  const handleStatusUpdate = async () => {
+    if (!order?.id || !newStatus) return
+    if (newStatus === 'shipped' && !statusTrackingNumber.trim()) {
+      toast({ title: "Tracking number is required for shipped status", variant: "destructive" })
+      return
+    }
+    try {
+      setStatusUpdateLoading(true)
+      const payload: Partial<Order> = { status: newStatus } as Partial<Order>
+      if (newStatus === 'shipped' && statusTrackingNumber.trim()) {
+        payload.tracking_number = statusTrackingNumber.trim()
+      }
+      await ordersApi.updateOrder(order.id, payload)
+      setShowStatusDialog(false)
+      setNewStatus("")
+      setStatusTrackingNumber("")
+      toast({ title: `Status updated to ${statusLabels[newStatus] || newStatus}` })
+      refetchOrder()
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { error?: string; detail?: string } } })?.response?.data?.error ||
+        (err as { response?: { data?: { error?: string; detail?: string } } })?.response?.data?.detail ||
+        "Failed to update status"
+      toast({ title: message, variant: "destructive" })
+    } finally {
+      setStatusUpdateLoading(false)
+    }
+  }
+
   const handleRefundSubmit = async () => {
     if (!order?.id) return
     if (!refundReason) {
@@ -257,10 +290,19 @@ export default function OrderDetail() {
     })
   }
   if (order.paymentDate) {
+    const reimbursementParts: string[] = []
+    if (order.medication_cost_to_client) reimbursementParts.push(`Medication Cost: ${order.medication_cost_to_client}`)
+    if (order.consult_cost_to_client) {
+      const consultLabel = order.consult_type === 'sync' ? 'Sync Consult Cost' : 'Async Consult Cost'
+      reimbursementParts.push(`${consultLabel}: ${order.consult_cost_to_client}`)
+    }
+    if (order.shipping_fee_to_client) reimbursementParts.push(`Shipping Fee: ${order.shipping_fee_to_client}`)
     timelineItems.push({
       title: "Order Reimbursement Billing Success",
       date: formatDateTime(order.paymentDate),
-      description: order.orderTotal ? `${order.orderTotal} (Medication Cost: ${order.orderTotal})` : undefined,
+      description: reimbursementParts.length > 0
+        ? `$${order.orderTotal || '0.00'} (${reimbursementParts.join(', ')})`
+        : order.orderTotal ? `$${order.orderTotal}` : undefined,
       icon: "payments",
       iconBg: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800",
     })
@@ -539,7 +581,14 @@ export default function OrderDetail() {
                   {statusDisplay.toUpperCase().replace(/_/g, " ")}
                 </span>
               </div>
-              <button className="text-sm text-slate-500 hover:text-primary flex items-center gap-1">
+              <button
+                className="text-sm text-slate-500 hover:text-primary flex items-center gap-1"
+                onClick={() => {
+                  setNewStatus(status)
+                  setStatusTrackingNumber(order.tracking_number || "")
+                  setShowStatusDialog(true)
+                }}
+              >
                 <Pencil className="h-4 w-4" /> Update Status
               </button>
             </div>
@@ -595,7 +644,7 @@ export default function OrderDetail() {
             </div>
             {(order.mrn || order.visitStatus) && (
               <div className="p-3 bg-muted/50 rounded-lg border">
-                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Visit ID</p>
+                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Master ID</p>
                 <p className="text-xs font-mono text-slate-700 dark:text-slate-300 break-all">
                   {order.mrn || order.visitStatus || "—"}
                 </p>
@@ -656,16 +705,16 @@ export default function OrderDetail() {
             </p>
           </div>
 
-          {/* Billing Address */}
+          {/* Shipping Address */}
           <div className="bg-card rounded-xl shadow-sm border p-6">
             <h3 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
               <Receipt className="h-4 w-4 text-slate-400" />
-              Billing Address
+              Shipping Address
             </h3>
             <div className="text-sm text-slate-600 dark:text-slate-300 space-y-1">
               <p className="font-medium text-slate-900 dark:text-white">{order.name || "—"}</p>
               <p>{order.phone || "—"}</p>
-              <p>{order.address || "—"}</p>
+              <p>{order.shipping_address || order.address || "—"}</p>
             </div>
           </div>
 
@@ -785,6 +834,56 @@ export default function OrderDetail() {
               </Button>
               <Button onClick={handleRefundSubmit} disabled={refundLoading}>
                 {refundLoading ? "Processing..." : isAuthorized ? "Void Authorization" : "Process Refund"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Update Status Dialog */}
+      <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
+        <DialogContent className="max-w-md w-full">
+          <DialogHeader>
+            <DialogTitle>Update Order Status</DialogTitle>
+            <DialogDescription>
+              Change the status of this order. Some transitions may be irreversible.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">New Status</label>
+              <Select value={newStatus} onValueChange={setNewStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(statusLabels).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {newStatus === "shipped" && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Tracking Number</label>
+                <Input
+                  placeholder="Enter tracking number"
+                  value={statusTrackingNumber}
+                  onChange={(e) => setStatusTrackingNumber(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Required when setting status to Shipped.
+                </p>
+              </div>
+            )}
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowStatusDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleStatusUpdate} disabled={statusUpdateLoading || !newStatus}>
+                {statusUpdateLoading ? "Updating..." : "Update Status"}
               </Button>
             </div>
           </div>
