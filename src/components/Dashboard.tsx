@@ -1,7 +1,6 @@
-import { Calendar, AlertCircle, X, MessageSquare, FileText, ClipboardList, Pill } from "lucide-react";
+import { Calendar, MessageSquare, FileText, ClipboardList, Pill } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
-import { Alert, AlertDescription } from "./ui/alert";
 import { useNavigate } from "react-router-dom";
 import { FollowUpList } from "@/features/followups";
 import { AvailableTreatmentsList } from "@/features/treatments";
@@ -18,17 +17,6 @@ export default function Dashboard() {
       <div>
         <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
       </div>
-
-      {/* Alert Banner */}
-      <Alert className="border-blue-200 bg-blue-50">
-        <AlertCircle className="h-4 w-4 text-blue-600" />
-        <AlertDescription className="text-blue-800">
-          Your ID photo was not correctly uploaded. Please tap to update or talk to your doctor.
-        </AlertDescription>
-        <Button variant="ghost" size="sm" className="absolute right-2 top-2 h-6 w-6 p-0">
-          <X className="h-4 w-4" />
-        </Button>
-      </Alert>
 
       {/* Follow-Up Questionnaires Section */}
       <Card>

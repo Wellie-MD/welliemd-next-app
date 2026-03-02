@@ -7,8 +7,6 @@ import {
   Search,
   AtSign,
   X,
-  Phone,
-  Video,
   ChevronDown,
   Paperclip,
   FileText,
@@ -649,14 +647,6 @@ export default function Messages() {
                       <h3 className="font-medium text-gray-900">{selected.label}</h3>
                       <p className="text-sm text-gray-600">Unified thread</p>
                     </div>
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm">
-                      <Phone className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Video className="h-4 w-4" />
-                    </Button>
                   </div>
                 </div>
                 <Separator />
