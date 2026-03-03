@@ -513,75 +513,82 @@ export default function PatientResources() {
   // LIST VIEW
   // ──────────────────────────────────────────────
   return (
-    <div className="max-w-[1400px] mx-auto">
+    <div className="max-w-5xl mx-auto p-6 space-y-6 min-h-screen">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl text-white">
-              <BookOpen className="h-5 w-5" />
-            </div>
+          <h1 className="text-2xl font-semibold text-foreground">
             Patient Resources
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-gray-500 text-sm mt-1 max-w-xl">
             Create and manage blog posts visible to your patients
           </p>
         </div>
         <Button
           onClick={handleNewPost}
-          className="gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md hover:shadow-lg transition-all"
+          className="gap-2"
         >
           <Plus className="h-4 w-4" />
-          New Post
+          Create New Resource
         </Button>
       </div>
 
       {/* Filters bar */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search posts..."
-            className="pl-9 bg-white"
-          />
+      <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8 w-full">
+        {/* Category Filter Pills (Simulating the active categories state space) */}
+        <div className="flex-1 w-full overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+          <div className="flex gap-2 min-w-max">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[160px] bg-white border-gray-200 rounded-full shadow-sm font-medium">
+                <Filter className="h-4 w-4 mr-2 text-slate-400" />
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="draft">Drafts</SelectItem>
+                <SelectItem value="published">Published</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[160px] bg-white">
-            <Filter className="h-4 w-4 mr-2 text-slate-400" />
-            <SelectValue placeholder="All statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="draft">Drafts</SelectItem>
-            <SelectItem value="published">Published</SelectItem>
-            <SelectItem value="archived">Archived</SelectItem>
-          </SelectContent>
-        </Select>
-        <div className="flex border rounded-lg overflow-hidden bg-white">
-          <button
-            onClick={() => setViewMode("grid")}
-            className={cn(
-              "p-2 transition-colors",
-              viewMode === "grid"
-                ? "bg-slate-100 text-slate-900"
-                : "text-slate-400 hover:text-slate-600"
-            )}
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => setViewMode("list")}
-            className={cn(
-              "p-2 transition-colors",
-              viewMode === "list"
-                ? "bg-slate-100 text-slate-900"
-                : "text-slate-400 hover:text-slate-600"
-            )}
-          >
-            <List className="h-4 w-4" />
-          </button>
+
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          {/* Search Bar */}
+          <div className="relative flex-grow md:flex-grow-0 md:w-64 lg:w-80">
+            <input
+              type="text"
+              placeholder="Search resources..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
+            />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          </div>
+
+          {/* View Toggle */}
+          <div className="hidden sm:flex items-center bg-gray-100 p-1.5 rounded-xl border border-gray-200 shrink-0">
+            <button
+              className={`p-2 rounded-lg transition-all duration-200 ${viewMode === "grid"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-900 hover:bg-white/50"
+                }`}
+              onClick={() => setViewMode("grid")}
+              aria-label="Grid view"
+            >
+              <LayoutGrid className="h-5 w-5" />
+            </button>
+            <button
+              className={`p-2 rounded-lg transition-all duration-200 ${viewMode === "list"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-900 hover:bg-white/50"
+                }`}
+              onClick={() => setViewMode("list")}
+              aria-label="List view"
+            >
+              <List className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -668,17 +675,17 @@ export default function PatientResources() {
                     {resource.excerpt}
                   </p>
                 )}
-                <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                  <div className="flex items-center gap-3 text-xs text-slate-400">
-                    <span className="flex items-center gap-1">
-                      <Eye className="h-3 w-3" />
-                      {resource.views_count}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Heart className="h-3 w-3" />
+                <div className="flex items-center justify-between pt-3 border-t border-slate-100 mt-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1.5 text-gray-500 font-medium">
+                      <Heart className="h-4 w-4 fill-red-50 text-red-500" />
                       {resource.likes_count}
-                    </span>
-                    <span className="flex items-center gap-1">
+                    </div>
+                    <div className="flex items-center gap-1.5 text-gray-500 font-medium">
+                      <Eye className="h-4 w-4 text-blue-500" />
+                      {resource.views_count}
+                    </div>
+                    <span className="flex items-center gap-1.5 text-gray-500 text-xs ml-2 border-l border-gray-200 pl-4">
                       <Calendar className="h-3 w-3" />
                       {new Date(
                         resource.created_at
@@ -787,16 +794,16 @@ export default function PatientResources() {
                     </p>
                   )}
                 </div>
-                <div className="flex items-center gap-4 text-xs text-slate-400 flex-shrink-0">
-                  <span className="flex items-center gap-1">
-                    <Eye className="h-3 w-3" />
-                    {resource.views_count}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {resource.read_time_minutes}m
-                  </span>
-                  <span>
+                <div className="flex items-center gap-4 flex-shrink-0 border-l border-gray-100 pl-6 ml-4">
+                  <div className="flex items-center gap-1.5 text-gray-500 font-medium whitespace-nowrap">
+                    <Heart className="h-4 w-4 fill-red-50 text-red-500" />
+                    {resource.likes_count} likes
+                  </div>
+                  <div className="flex items-center gap-1.5 text-gray-500 font-medium whitespace-nowrap">
+                    <Eye className="h-4 w-4 text-blue-500" />
+                    {resource.views_count} views
+                  </div>
+                  <span className="text-gray-400 text-sm whitespace-nowrap">
                     {new Date(resource.created_at).toLocaleDateString()}
                   </span>
                 </div>

@@ -11,8 +11,12 @@
 }
 
 /* Editor content area */
+.blog-editor-content {
+  overflow-y: auto;
+}
+
 .blog-editor-content .tiptap {
-  min-height: 400px;
+  min-height: unset;
   outline: none;
 }
 
