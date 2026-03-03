@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Package, ExternalLink, RefreshCw, AlertCircle, Truck, CheckCircle2, Clock, XCircle, Pill } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,7 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-import { getOrders, PatientOrder } from '@/shared/api/ordersApi';
+import { getOrders, getOrder, PatientOrder } from '@/shared/api/ordersApi';
 
 // Status badge configuration
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof Package }> = {
@@ -237,6 +238,7 @@ function OrdersLoadingSkeleton() {
 }
 
 export default function Orders() {
+  const [searchParams] = useSearchParams();
   const [orders, setOrders] = useState<PatientOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -245,6 +247,8 @@ export default function Orders() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
+  const orderIdFromUrl = searchParams.get('order_id');
+  const fetchedOrderRef = useRef<string | null>(null);
 
   const fetchOrders = useCallback(async (pageNum: number = 1, append: boolean = false) => {
     try {
@@ -268,6 +272,30 @@ export default function Orders() {
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  // Handle order_id from URL query param (e.g., from email/SMS notifications)
+  useEffect(() => {
+    const fetchOrderById = async () => {
+      if (!orderIdFromUrl || fetchedOrderRef.current === orderIdFromUrl) {
+        return;
+      }
+      
+      fetchedOrderRef.current = orderIdFromUrl;
+      
+      try {
+        const order = await getOrder(orderIdFromUrl);
+        setSelectedOrder(order);
+        setModalOpen(true);
+      } catch (err) {
+        console.error('Failed to fetch order from URL:', err);
+        // Don't show error - just don't open modal
+      }
+    };
+
+    if (orderIdFromUrl) {
+      fetchOrderById();
+    }
+  }, [orderIdFromUrl]);
 
   // Simple polling: Auto-refresh orders every 60 seconds for background updates
   // This is more reliable than WebSocket for healthcare apps

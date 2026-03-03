@@ -60,6 +60,10 @@ export const API_ENDPOINTS = {
     NMI_PAYMENT_METHODS: "/nmi/payment-methods/",
     AUTHNET_PAYMENT_METHODS: "/authorizenet/payment-methods/",
   },
+  RESOURCES: {
+    LIST: "/patient/resources/",
+    DETAIL: (id: string) => `/patient/resources/${id}/`,
+  },
 } as const;
 
 // Authentication constants

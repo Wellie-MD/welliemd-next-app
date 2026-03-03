@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, CSSProperties, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Home, 
@@ -13,12 +13,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Package,
+  LucideIcon,
   X,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "./ui/utils";
 
 interface NavigationItem {
-  icon: React.ComponentType<{ className?: string; size?: number | string }>;
+  icon: LucideIcon;
   label: string;
   path: string;
 }
@@ -32,6 +34,7 @@ const navigationItems: NavigationItem[] = [
   { icon: Package, label: "Orders", path: "/dashboard/orders" },
   { icon: TestTube, label: "Treatments", path: "/dashboard/treatments" },
   { icon: MessageSquare, label: "Messages", path: "/dashboard/messages" },
+  { icon: BookOpen, label: "Resources", path: "/dashboard/blog" },
   { icon: Settings, label: "Settings", path: "/dashboard/settings" },
   { icon: HelpCircle, label: "Help", path: "/dashboard/help" },
 ];
@@ -53,43 +56,46 @@ export default function Sidebar({ isMobileOpen, onMobileClose }: SidebarProps) {
   const NavItem = ({ item }: { item: NavigationItem }) => {
     const Icon = item.icon;
     
-  // Improved active logic: sirf current page highlight ho
+    // Improved active logic: sirf current page highlight ho
     const isActive = location.pathname === item.path ||
                      (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
+
+    // On mobile, always show full size. On desktop, respect collapsed state
+    const shouldShowCollapsed = isCollapsed && !isMobileOpen;
+
+    const iconStyle: CSSProperties = {
+      minWidth: shouldShowCollapsed ? '24px' : '18px',
+      minHeight: shouldShowCollapsed ? '24px' : '18px',
+      width: shouldShowCollapsed ? '24px' : '18px',
+      height: shouldShowCollapsed ? '24px' : '18px',
+      ...(isActive && { color: 'var(--brand-primary)' })
+    };
+
+    const linkStyle: CSSProperties | undefined = isActive ? { color: 'var(--brand-primary)' } : undefined;
 
     return (
       <li className="relative group">
         <NavLink
           to={item.path}
           end={item.path === '/dashboard'}
-          className={({ isActive: navIsActive }) =>
+          className={() =>
             cn(
               "flex items-center w-full text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md text-sm font-medium transition-colors duration-200",
-              isCollapsed && !isMobileOpen ? "justify-center px-3 py-3" : "justify-start px-3 py-2",
-              (isActive || navIsActive) && "text-blue-600 bg-blue-50"
+              shouldShowCollapsed ? "justify-center px-3 py-3" : "justify-start px-3 py-2",
+              isActive && "bg-blue-50"
             )
           }
-          onClick={() => {
-            // Close mobile sidebar on click
-            if (window.innerWidth < 768) {
-              onMobileClose();
-            }
-          }}
+          {...(linkStyle && { style: linkStyle })}
         >
           <Icon 
-            size={isCollapsed && !isMobileOpen ? 24 : 18}
-            className={cn("flex-none", !isCollapsed || isMobileOpen ? "mr-3" : "")}
-            style={{
-              minWidth: isCollapsed && !isMobileOpen ? '24px' : '18px',
-              minHeight: isCollapsed && !isMobileOpen ? '24px' : '18px',
-              width: isCollapsed && !isMobileOpen ? '24px' : '18px',
-              height: isCollapsed && !isMobileOpen ? '24px' : '18px'
-            }}
+            size={shouldShowCollapsed ? 24 : 18}
+            className={cn("flex-none", !shouldShowCollapsed && "mr-3")}
+            style={iconStyle}
           />
-          {(!isCollapsed || isMobileOpen) && <span className="truncate">{item.label}</span>}
+          {!shouldShowCollapsed && <span className="truncate">{item.label}</span>}
         </NavLink>
 
-        {isCollapsed && !isMobileOpen && (
+        {shouldShowCollapsed && (
           <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none whitespace-nowrap z-50">
             {item.label}
             <div className="absolute top-1/2 left-0 -translate-y-1/2 -translate-x-1 w-0 h-0 border-r-4 border-r-gray-900 border-t-2 border-b-2 border-t-transparent border-b-transparent"></div>
@@ -99,8 +105,7 @@ export default function Sidebar({ isMobileOpen, onMobileClose }: SidebarProps) {
     );
   };
 
-  const mainItems = navigationItems.slice(0, -1);
-  const bottomItems = navigationItems.slice(-1);
+  const mainItems = navigationItems;
 
   return (
     <>
