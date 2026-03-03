@@ -31,7 +31,12 @@ interface BrandProviderProps {
  * @param hex - Hex color string (e.g., "#2563eb")
  * @returns HSL string in format "221 83% 53%"
  */
-function hexToHSL(hex: string): string {
+function hexToHSL(hex: string | null | undefined): string {
+  // Return default if hex is null/undefined/empty
+  if (!hex) {
+    return '221 83% 53%'; // Default blue
+  }
+  
   // Remove the hash if present
   hex = hex.replace('#', '');
 

@@ -1,17 +1,21 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Calendar, User, Clock, Share2, Bookmark, Heart, Eye, Twitter, Facebook, Linkedin, Link2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Calendar, User, Clock, Share2, Bookmark, Heart, Eye, Twitter, Linkedin, Link2, AlertCircle } from "lucide-react";
 import { resourcesApi, type BlogResource } from "@/features/resources/api";
+import { useBranding } from "@/features/branding/hooks/useBranding";
 import "../styles/blog.css";
 
 export default function BlogPost() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { colors } = useBranding();
   const [post, setPost] = useState<BlogResource | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isLiked, setIsLiked] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
 
   useEffect(() => {
     if (!id) return;
@@ -21,7 +25,12 @@ export default function BlogPost() {
         setLoading(true);
         setError(null);
         const data = await resourcesApi.getById(id);
-        if (!cancelled) setPost(data);
+        if (!cancelled) {
+          setPost(data);
+          setIsLiked(data.is_liked || false);
+          setIsBookmarked(data.is_bookmarked || false);
+          setLikeCount(data.likes_count || 0);
+        }
       } catch {
         if (!cancelled) setError("Failed to load article.");
       } finally {
@@ -30,6 +39,27 @@ export default function BlogPost() {
     })();
     return () => { cancelled = true; };
   }, [id]);
+
+  const handleToggleLike = async () => {
+    if (!post) return;
+    try {
+      const result = await resourcesApi.toggleLike(post.id);
+      setIsLiked(result.status === 'liked');
+      setLikeCount(result.likes_count);
+    } catch (err: any) {
+      console.error("toggleLike error:", err?.response?.data || err);
+    }
+  };
+
+  const handleToggleBookmark = async () => {
+    if (!post) return;
+    try {
+      const result = await resourcesApi.toggleBookmark(post.id);
+      setIsBookmarked(result.status === 'added');
+    } catch {
+      // handle error
+    }
+  };
 
   const formatViews = (count: number) =>
     count >= 1000 ? `${(count / 1000).toFixed(1)}k` : String(count);
@@ -65,33 +95,43 @@ export default function BlogPost() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
-      {/* Sticky Navigation */}
-      <div className="blog-nav">
-        <div className="blog-post-container py-4">
+      {/* Navigation */}
+      <div className="pt-8 pb-4">
+        <div className="blog-post-container">
           <div className="flex items-center justify-between">
             <button
               onClick={() => navigate('/dashboard/blog')}
-              className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 transition-all duration-300"
+              className="flex items-center text-gray-600 hover:text-gray-900 font-medium transition-colors"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <span className="flex items-center justify-center w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm mr-3 transition-colors hover:bg-gray-50">
+                <ArrowLeft className="w-5 h-5" />
+              </span>
+              Back to Resources
             </button>
 
             <div className="flex items-center gap-3">
               <button
-                className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 ${isLiked ? 'bg-red-100 text-red-600' : 'bg-gray-100 hover:bg-red-50 hover:text-red-600'
+                className={`flex items-center justify-center w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm transition-all duration-300 ${isLiked ? 'text-red-600' : 'text-gray-600 hover:text-red-600'
                   }`}
-                onClick={() => setIsLiked(!isLiked)}
+                onClick={handleToggleLike}
               >
                 <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
               </button>
               <button
-                className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 ${isBookmarked ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 hover:bg-blue-50 hover:text-blue-600'
+                className={`flex items-center justify-center w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm transition-all duration-300 ${isBookmarked ? 'text-blue-600' : 'text-gray-600 hover:text-blue-600'
                   }`}
-                onClick={() => setIsBookmarked(!isBookmarked)}
+                onClick={handleToggleBookmark}
               >
                 <Bookmark className={`w-5 h-5 ${isBookmarked ? 'fill-current' : ''}`} />
               </button>
-              <button className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 hover:bg-green-50 hover:text-green-600 transition-all duration-300">
+              <button
+                onClick={() => {
+                  window.scrollTo({
+                    top: document.body.scrollHeight,
+                    behavior: 'smooth'
+                  });
+                }}
+                className="flex items-center justify-center w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm text-gray-600 hover:text-green-600 transition-all duration-300">
                 <Share2 className="w-5 h-5" />
               </button>
             </div>
@@ -102,7 +142,10 @@ export default function BlogPost() {
       <div className="blog-post-container py-8">
         {/* Article Header */}
         <div className="blog-post-header">
-          <div className="inline-block bg-blue-600 text-white px-6 py-2 rounded-full font-medium mb-6">
+          <div 
+            className="inline-block px-6 py-2 rounded-full font-medium mb-6"
+            style={{ backgroundColor: colors.primaryColor, color: 'white' }}
+          >
             {post.category}
           </div>
 
@@ -158,83 +201,86 @@ export default function BlogPost() {
           />
         </div>
 
-        {/* Social Share */}
-        <div className="bg-gradient-to-br from-gray-50 to-blue-50 border border-gray-200 rounded-2xl p-8 mb-8">
-          <h3 className="text-2xl font-bold text-gray-900 mb-6">Share this article</h3>
-          <div className="flex flex-wrap gap-4">
-            <button
-              onClick={() => {
-                const url = encodeURIComponent(window.location.href);
-                const text = encodeURIComponent(post.title);
-                window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, '_blank', 'noopener,noreferrer');
-              }}
-              className="flex items-center gap-3 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-2xl font-medium transition-all duration-300"
-            >
-              <Twitter className="w-5 h-5" />
-              Twitter
-            </button>
-            <button
-              onClick={() => {
-                const url = encodeURIComponent(window.location.href);
-                window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank', 'noopener,noreferrer');
-              }}
-              className="flex items-center gap-3 bg-blue-700 hover:bg-blue-800 text-white px-6 py-3 rounded-2xl font-medium transition-all duration-300"
-            >
-              <Facebook className="w-5 h-5" />
-              Facebook
-            </button>
-            <button
-              onClick={() => {
-                const url = encodeURIComponent(window.location.href);
-                const title = encodeURIComponent(post.title);
-                window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, '_blank', 'noopener,noreferrer');
-              }}
-              className="flex items-center gap-3 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-medium transition-all duration-300"
-            >
-              <Linkedin className="w-5 h-5" />
-              LinkedIn
-            </button>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href).then(() => {
-                  const btn = document.activeElement as HTMLButtonElement;
-                  const originalText = btn?.querySelector('span')?.textContent;
-                  const span = btn?.querySelector('span');
-                  if (span) {
-                    span.textContent = 'Copied!';
-                    setTimeout(() => { span.textContent = originalText || 'Copy Link'; }, 2000);
-                  }
-                });
-              }}
-              className="flex items-center gap-3 bg-white hover:bg-gray-50 text-gray-900 px-6 py-3 rounded-2xl font-medium border-2 border-gray-300 hover:border-gray-400 transition-all duration-300"
-            >
-              <Link2 className="w-5 h-5" />
-              <span>Copy Link</span>
-            </button>
-          </div>
-        </div>
+        {/* Social Share & Engagement Stats */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 w-full mt-8">
+          <h3 className="text-[17px] font-semibold text-gray-900 mb-5">Share this article</h3>
 
-        {/* Engagement Stats */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-lg">
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
-            <div className="flex items-center justify-center lg:justify-start gap-8">
-              <div className="text-center bg-gradient-to-br from-red-50 to-pink-50 p-6 rounded-2xl">
-                <div className="text-3xl font-bold text-red-600">{post.likes_count}</div>
-                <div className="text-gray-600 font-medium">Likes</div>
-              </div>
-              <div className="text-center bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-2xl">
-                <div className="text-3xl font-bold text-blue-600">{formatViews(post.views_count)}</div>
-                <div className="text-gray-600 font-medium">Views</div>
-              </div>
+          {/* Main Flex Container: justify-between splits the left and right sections */}
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 w-full">
+
+            {/* LEFT ALIGNED: Buttons */}
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  const url = encodeURIComponent(window.location.href);
+                  const text = encodeURIComponent(post.title);
+                  window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, '_blank', 'noopener,noreferrer');
+                }}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-sky-50 hover:bg-sky-100 text-sky-500 rounded-lg font-medium transition-all hover:-translate-y-0.5 hover:shadow-sm active:scale-95 active:translate-y-0 text-sm"
+              >
+                <Twitter className="w-4 h-4 shrink-0" fill="currentColor" strokeWidth={0} />
+                <span className="whitespace-nowrap">Twitter</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const url = encodeURIComponent(window.location.href);
+                  window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, '_blank', 'noopener,noreferrer');
+                }}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-95 active:translate-y-0 text-sm"
+              >
+                <Linkedin className="w-4 h-4 shrink-0" fill="currentColor" strokeWidth={0} />
+                <span className="whitespace-nowrap">LinkedIn</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(window.location.href);
+                    setIsCopied(true);
+                    setTimeout(() => setIsCopied(false), 2000);
+                  } catch (err) {
+                    console.error('Failed to copy text: ', err);
+                  }
+                }}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-all hover:-translate-y-0.5 hover:shadow-sm active:scale-95 active:translate-y-0 text-sm"
+              >
+                <Link2 className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">{isCopied ? 'Copied!' : 'Copy Link'}</span>
+              </button>
             </div>
 
-            <button
-              onClick={() => navigate('/dashboard/blog')}
-              className="flex items-center gap-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-8 py-4 rounded-2xl font-medium transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              Back to All Articles
-            </button>
+            {/* RIGHT ALIGNED: Divider & Stats */}
+            <div className="flex items-center justify-center md:justify-end gap-6 md:gap-8 w-full md:w-auto mt-4 md:mt-0">
+
+              {/* Vertical Divider */}
+              <div className="w-px bg-gray-200 h-10 hidden md:block"></div>
+
+              {/* Likes Stat */}
+              <button
+                type="button"
+                onClick={handleToggleLike}
+                className="text-center group cursor-pointer bg-transparent border-none p-0 appearance-none hover:opacity-80 transition-all active:scale-95"
+              >
+                <div className="text-[28px] font-bold text-red-500 group-hover:scale-110 transition-transform leading-none mb-1">
+                  {likeCount}
+                </div>
+                <div className="text-[11px] text-gray-500 uppercase tracking-widest font-semibold">Likes</div>
+              </button>
+
+              {/* Views Stat */}
+              <div className="text-center group cursor-pointer hover:opacity-80 transition-opacity">
+                <div className="text-[28px] font-bold text-blue-500 group-hover:scale-110 transition-transform leading-none mb-1">
+                  {formatViews(post.views_count)}
+                </div>
+                <div className="text-[11px] text-gray-500 uppercase tracking-widest font-semibold">Views</div>
+              </div>
+
+            </div>
+
           </div>
         </div>
       </div>
