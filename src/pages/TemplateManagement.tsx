@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { FileText, Link2 } from "lucide-react";
+import { FileText, Link2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
@@ -10,11 +10,24 @@ import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
 import { isWithinInterval, parseISO, format } from "date-fns";
 import { exportToCSV } from "@/utils/exportUtils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 const getTemplateColumns = (
   navigate: ReturnType<typeof useNavigate>,
   handlePublishToggle: (template: QuestionnaireTemplate) => Promise<void>,
-  publishingIds: Set<string>
+  publishingIds: Set<string>,
+  onEditSlug: (template: QuestionnaireTemplate) => void
 ) => [
   {
     key: "name",
@@ -57,6 +70,28 @@ const getTemplateColumns = (
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(" ");
     },
+  },
+  {
+    key: "slug",
+    label: "Slug",
+    render: (value: string | undefined, row: QuestionnaireTemplate) => (
+      <div className="flex items-center gap-2">
+        <span className="text-sm">{value || "-"}</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onEditSlug(row);
+          }}
+          title="Edit slug"
+          className="h-7 w-7 p-0 hover:bg-gray-100 hover:text-blue-600"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    ),
   },
   {
     key: "question_count",
@@ -157,6 +192,9 @@ export default function TemplateManagement() {
   const [date, setDate] = useState<DateRange | undefined>();
   const [refreshKey, setRefreshKey] = useState(0);
   const [publishingIds, setPublishingIds] = useState<Set<string>>(new Set());
+  const [editingSlugTemplate, setEditingSlugTemplate] = useState<QuestionnaireTemplate | null>(null);
+  const [slugInputValue, setSlugInputValue] = useState("");
+  const [slugSaving, setSlugSaving] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { currentClient, clients, loading: clientsLoading } = useClients();
@@ -211,6 +249,56 @@ export default function TemplateManagement() {
     navigate(`/dashboard/templates/${template.id}/flow-builder`);
   };
 
+  const handleEditSlug = useCallback((template: QuestionnaireTemplate) => {
+    setEditingSlugTemplate(template);
+    setSlugInputValue(template.slug || "");
+  }, []);
+
+  const handleSaveSlug = useCallback(async () => {
+    if (!editingSlugTemplate) return;
+    const value = slugInputValue.trim().toLowerCase();
+    if (value && (value.length < 2 || value.length > 100)) {
+      toast({
+        title: "Invalid slug",
+        description: "Slug must be 2-100 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (value && !SLUG_PATTERN.test(value)) {
+      toast({
+        title: "Invalid slug",
+        description: "Slug must contain only lowercase letters, numbers, and hyphens (e.g., glutathione, nad-plus)",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSlugSaving(true);
+    try {
+      await templateApi.updateTemplate(editingSlugTemplate.id, {
+        slug: value || null,
+      });
+      toast({
+        title: "Success",
+        description: "Slug updated successfully",
+      });
+      setEditingSlugTemplate(null);
+      setSlugInputValue("");
+      fetchTemplates();
+    } catch (error: unknown) {
+      toast({
+        title: "Error",
+        description:
+          (error as { response?: { data?: { slug?: string[] } } })?.response?.data?.slug?.[0] ||
+          (error as Error)?.message ||
+          "Failed to update slug",
+        variant: "destructive",
+      });
+    } finally {
+      setSlugSaving(false);
+    }
+  }, [editingSlugTemplate, slugInputValue, toast]);
+
   const handleCopyQuestionnaireLink = async (
     template: QuestionnaireTemplate
   ) => {
@@ -223,18 +311,19 @@ export default function TemplateManagement() {
       return;
     }
 
-    if (!template.beluga_visit_type) {
+    const routeKey = template.slug || template.beluga_visit_type;
+    if (!routeKey) {
       toast({
         title: "Error",
-        description: "Visit type is not set for this template",
+        description: "Slug or visit type is not set for this template",
         variant: "destructive",
       });
       return;
     }
 
-    // Build the questionnaire link: questionnaire_url + /visit/ + visit_type
+    // Build the questionnaire link: questionnaire_url + /visit/ + slug or visit_type
     const baseUrl = effectiveClient.questionnaire_url.replace(/\/$/, ""); // Remove trailing slash
-    const visitType = template.beluga_visit_type;
+    const visitType = routeKey;
     const questionnaireLink = `${baseUrl}/visit/${visitType}`;
 
     // Copy to clipboard with fallback for older browsers
@@ -337,7 +426,8 @@ export default function TemplateManagement() {
           .includes(searchTerm.toLowerCase()) ||
         template.beluga_visit_type
           ?.toLowerCase()
-          .includes(searchTerm.toLowerCase());
+          .includes(searchTerm.toLowerCase()) ||
+        template.slug?.toLowerCase().includes(searchTerm.toLowerCase());
 
       // Status filter
       const matchesStatus =
@@ -453,6 +543,7 @@ export default function TemplateManagement() {
         questionnaire_type: questionnaireTypeDisplay,
         treatment_type: template.treatment_type || "-",
         beluga_visit_type: template.beluga_visit_type || "-",
+        slug: template.slug || "-",
         question_count: questionCount,
         review: reviewStatus,
         status: displayStatus,
@@ -468,6 +559,7 @@ export default function TemplateManagement() {
       { key: "questionnaire_type", label: "Questionnaire Type" },
       { key: "treatment_type", label: "Treatment Type" },
       { key: "beluga_visit_type", label: "Visit Type" },
+      { key: "slug", label: "Slug" },
       { key: "question_count", label: "Questions" },
       { key: "review", label: "Review" },
       { key: "status", label: "Status" },
@@ -479,11 +571,11 @@ export default function TemplateManagement() {
   // Only map if templates is an array
   const templatesWithActions = Array.isArray(filteredTemplates)
     ? filteredTemplates.map((template) => {
-        const hasVisitType = !!template.beluga_visit_type;
+        const hasRouteKey = !!(template.slug || template.beluga_visit_type);
         const hasQuestionnaireUrl = !!effectiveClient?.questionnaire_url;
         const isFollowUp = template.questionnaire_type === 'follow_up';
         // Follow-up questionnaires should NOT have public links - they require secure tokens
-        const isLinkDisabled = !hasVisitType || !hasQuestionnaireUrl || isFollowUp;
+        const isLinkDisabled = !hasRouteKey || !hasQuestionnaireUrl || isFollowUp;
 
         return {
           ...template,
@@ -501,8 +593,8 @@ export default function TemplateManagement() {
                   isLinkDisabled
                     ? isFollowUp
                       ? "Follow-ups must be sent from Patient details"
-                      : !hasVisitType
-                      ? "Visit type not set"
+                      : !hasRouteKey
+                      ? "Slug or visit type not set"
                       : "Questionnaire URL not configured"
                     : "Copy Questionnaire Link"
                 }
@@ -562,7 +654,7 @@ export default function TemplateManagement() {
         <DataTable
           data={templatesWithActions}
           columns={[
-            ...getTemplateColumns(navigate, handlePublishToggle, publishingIds),
+            ...getTemplateColumns(navigate, handlePublishToggle, publishingIds, handleEditSlug),
             { key: "actions", label: "Actions" },
           ]}
           searchPlaceholder="Search templates by name, type, or visit type"
@@ -578,6 +670,38 @@ export default function TemplateManagement() {
           onRefresh={handleRefresh}
         />
       )}
+
+      <Dialog open={!!editingSlugTemplate} onOpenChange={(open) => !open && setEditingSlugTemplate(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Slug</DialogTitle>
+            <DialogDescription>
+              Set a unique URL slug for this questionnaire. When set, it overrides the visit type for routing.
+              Use lowercase letters, numbers, and hyphens (e.g., glutathione, nad-plus). Leave empty to use visit type only.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="slug-input">Slug</Label>
+              <Input
+                id="slug-input"
+                value={slugInputValue}
+                onChange={(e) => setSlugInputValue(e.target.value)}
+                placeholder="e.g., glutathione"
+                className="lowercase"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingSlugTemplate(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveSlug} disabled={slugSaving}>
+              {slugSaving ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -13,6 +13,7 @@ export interface QuestionnaireTemplate {
   description?: string;
   questionnaire_type: string;
   beluga_visit_type?: string;
+  slug?: string;
   treatment_type?: string;
   question_count?: number;
   requires_photo_upload: boolean;
@@ -83,6 +84,7 @@ export interface CreateTemplatePayload {
   description?: string;
   questionnaire_type: string;
   beluga_visit_type?: string;
+  slug?: string;
   requires_photo_upload?: boolean;
   requires_identity_verification?: boolean;
 }
@@ -135,7 +137,7 @@ export const templateApi = {
     id: string,
     payload: Partial<CreateTemplatePayload>
   ): Promise<QuestionnaireTemplate> => {
-    const { data } = await axiosInstance.put<QuestionnaireTemplate>(
+    const { data } = await axiosInstance.patch<QuestionnaireTemplate>(
       `questionnaires/frontend/templates/${id}/`,
       payload
     );
