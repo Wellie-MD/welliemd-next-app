@@ -3,11 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { MoreVertical, UserPlus, Loader2 } from "lucide-react";
 import { userManagementService, PortalUser, Role } from '@/services/userManagementService';
@@ -60,28 +60,28 @@ export default function UsersPermissions() {
 
   const handleInviteUser = async (email: string, roleId: string, firstName?: string, lastName?: string) => {
     try {
-      const response = await userManagementService.inviteUser({ 
-        email, 
+      const response = await userManagementService.inviteUser({
+        email,
         role_id: roleId,
         first_name: firstName,
         last_name: lastName,
       });
-      
+
       // Show success message
       toast({
         title: 'Success',
         description: `Invitation created for ${email}`,
         duration: 5000,
       });
-      
+
       // Reload data in background to show new user
       loadData().catch(err => {
         console.error('Failed to reload users:', err);
       });
-      
+
       // Return response so modal can show invitation link
       return response;
-      
+
     } catch (error: unknown) {
       console.error('Failed to create invitation:', error);
       toast({
@@ -136,7 +136,7 @@ export default function UsersPermissions() {
     // If clicking on Primary Owner's own card, redirect to manage account
     const isPrimaryOwner = user.primary_role === 'Primary Owner';
     const isCurrentUser = users.find(u => u.primary_role === 'Primary Owner')?.id === user.id;
-    
+
     if (isPrimaryOwner && isCurrentUser) {
       navigate('/dashboard/manage-account');
     } else {
@@ -235,13 +235,28 @@ function UserCard({ user, roles, onAssignRole, onDeactivate, onClick }: {
   onDeactivate: (userId: string, userName: string) => void;
   onClick: () => void;
 }) {
+  const { toast } = useToast();
   const initials = `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
   const fullName = `${user.first_name} ${user.last_name}`;
   const isPrimaryOwner = user.primary_role === 'Primary Owner';
 
-  const copyToClipboard = (text: string, e: React.MouseEvent) => {
+  const copyToClipboard = async (text: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(text);
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        description: "Link copied to clipboard",
+        duration: 3000,
+      });
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+      toast({
+        title: "Error",
+        description: "Failed to copy link to clipboard",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
   };
 
   // Get status badge based on invitation status
@@ -256,7 +271,7 @@ function UserCard({ user, roles, onAssignRole, onDeactivate, onClick }: {
   };
 
   return (
-    <div 
+    <div
       className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
       onClick={onClick}
     >
@@ -269,7 +284,7 @@ function UserCard({ user, roles, onAssignRole, onDeactivate, onClick }: {
         <div className="flex-1">
           <p className="font-medium">{fullName}</p>
           <p className="text-sm text-muted-foreground">{user.email}</p>
-          
+
           {/* Show invitation link for pending users */}
           {user.invitation_status === 'pending' && user.invitation_link && (
             <div className="flex items-center gap-2 mt-1">
@@ -288,16 +303,16 @@ function UserCard({ user, roles, onAssignRole, onDeactivate, onClick }: {
           )}
         </div>
       </div>
-      
+
       <div className="flex items-center gap-2">
         {getStatusBadge()}
         <Badge variant="secondary">{user.primary_role}</Badge>
-        
+
         {!isPrimaryOwner && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={(e) => e.stopPropagation()}
               >
