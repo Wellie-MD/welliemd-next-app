@@ -133,16 +133,8 @@ export default function UsersPermissions() {
   };
 
   const handleUserClick = (user: PortalUser) => {
-    // If clicking on Primary Owner's own card, redirect to manage account
-    const isPrimaryOwner = user.primary_role === 'Primary Owner';
-    const isCurrentUser = users.find(u => u.primary_role === 'Primary Owner')?.id === user.id;
-
-    if (isPrimaryOwner && isCurrentUser) {
-      navigate('/dashboard/manage-account');
-    } else {
-      // Show profile modal for other users
-      setProfileModal({ open: true, user });
-    }
+    // Show profile modal for all users
+    setProfileModal({ open: true, user });
   };
 
   // Group users by role
@@ -152,6 +144,8 @@ export default function UsersPermissions() {
     acc[role].push(user);
     return acc;
   }, {} as Record<string, PortalUser[]>);
+
+  const primaryOwnerCount = users.filter(user => user.primary_role === 'Primary Owner').length;
 
   if (loading) {
     return (
@@ -197,6 +191,7 @@ export default function UsersPermissions() {
                   onAssignRole={handleAssignRole}
                   onDeactivate={handleDeactivateUser}
                   onClick={() => handleUserClick(user)}
+                  primaryOwnerCount={primaryOwnerCount}
                 />
               ))}
             </CardContent>
@@ -228,12 +223,13 @@ export default function UsersPermissions() {
 }
 
 // User card component
-function UserCard({ user, roles, onAssignRole, onDeactivate, onClick }: {
+function UserCard({ user, roles, onAssignRole, onDeactivate, onClick, primaryOwnerCount }: {
   user: PortalUser;
   roles: Role[];
   onAssignRole: (userId: string, roleId: string) => void;
   onDeactivate: (userId: string, userName: string) => void;
   onClick: () => void;
+  primaryOwnerCount: number;
 }) {
   const { toast } = useToast();
   const initials = `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
@@ -308,7 +304,7 @@ function UserCard({ user, roles, onAssignRole, onDeactivate, onClick }: {
         {getStatusBadge()}
         <Badge variant="secondary">{user.primary_role}</Badge>
 
-        {!isPrimaryOwner && (
+        {(!isPrimaryOwner || primaryOwnerCount > 1) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
