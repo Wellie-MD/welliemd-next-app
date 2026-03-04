@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { FileText, Download, Eye, Upload, Search } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { FileText, Download, Eye, Upload, Search, TestTube } from "lucide-react";
+import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { useNavigate } from "react-router-dom";
 
 interface MedicalRecord {
   id: number;
@@ -14,12 +15,13 @@ interface MedicalRecord {
   doctor: string;
   size: string;
   description?: string;
-  category: 'lab-results' | 'imaging' | 'reports' | 'prescriptions' | 'other';
+  category: 'imaging' | 'reports' | 'prescriptions' | 'other';
 }
 
 export default function MedicalRecords() {
   const [searchTerm, setSearchTerm] = useState("");
   const [records] = useState<MedicalRecord[]>([]);
+  const navigate = useNavigate();
 
   const filteredRecords = records.filter(record =>
     record.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -90,10 +92,16 @@ export default function MedicalRecords() {
           <h1 className="text-2xl font-semibold text-gray-900">Medical Records</h1>
           <p className="text-gray-600">Access and manage your health documents</p>
         </div>
-        <Button>
-          <Upload className="h-4 w-4 mr-2" />
-          Upload Document
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate('/dashboard/labs')}>
+            <TestTube className="h-4 w-4 mr-2" />
+            View Lab Results
+          </Button>
+          <Button>
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Document
+          </Button>
+        </div>
       </div>
 
       <div className="mb-6">
@@ -111,7 +119,6 @@ export default function MedicalRecords() {
       <Tabs defaultValue="all" className="space-y-6">
         <TabsList>
           <TabsTrigger value="all">All Records ({filteredRecords.length})</TabsTrigger>
-          <TabsTrigger value="lab-results">Lab Results ({getRecordsByCategory('lab-results').length})</TabsTrigger>
           <TabsTrigger value="imaging">Imaging ({getRecordsByCategory('imaging').length})</TabsTrigger>
           <TabsTrigger value="reports">Reports ({getRecordsByCategory('reports').length})</TabsTrigger>
           <TabsTrigger value="prescriptions">Prescriptions ({getRecordsByCategory('prescriptions').length})</TabsTrigger>
@@ -128,22 +135,6 @@ export default function MedicalRecords() {
                 <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No medical records available</h3>
                 <p className="text-gray-600">You don't have any medical records yet.</p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        <TabsContent value="lab-results" className="space-y-4">
-          {getRecordsByCategory('lab-results').length > 0 ? (
-            getRecordsByCategory('lab-results').map((record) => (
-              <RecordCard key={record.id} record={record} />
-            ))
-          ) : (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No lab results available</h3>
-                <p className="text-gray-600">You don't have any lab results yet.</p>
               </CardContent>
             </Card>
           )}
