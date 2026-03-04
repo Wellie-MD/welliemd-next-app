@@ -139,6 +139,7 @@ export default function Payments() {
     nmi_api_key: null,
     nmi_base_url: null,
     nmi_public_key: null,
+    nmi_test_mode: true,
     stripe_secret_key: null,
     stripe_publishable_key: null,
     stripe_subscription_id: null,
@@ -188,6 +189,10 @@ export default function Payments() {
   }
 
   const handleGatewayFieldChange = (key: keyof PaymentGatewayConfig, value: string) => {
+    if (key === 'nmi_test_mode') {
+      setGatewayConfig(prev => ({ ...prev, nmi_test_mode: value === 'true' }))
+      return
+    }
     setGatewayConfig(prev => ({ ...prev, [key]: value || null }))
   }
 
@@ -314,7 +319,11 @@ export default function Payments() {
                       
                       {field.type === 'select' ? (
                         <Select
-                          value={(gatewayConfig[field.key] as string) || ''}
+                          value={
+                            field.key === 'nmi_test_mode'
+                              ? String(Boolean(gatewayConfig.nmi_test_mode))
+                              : ((gatewayConfig[field.key] as string) || '')
+                          }
                           onValueChange={(value) => handleGatewayFieldChange(field.key, value)}
                         >
                           <SelectTrigger className="mt-1">
