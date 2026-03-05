@@ -17,11 +17,23 @@ export default function Blog() {
     try {
       setLoading(true);
       setError(null);
-      const params: { search?: string; category?: string } = {};
+      const params: { search?: string; category?: string; is_bookmarked?: boolean } = {};
+
       if (searchQuery.trim()) params.search = searchQuery.trim();
-      if (activeCategory) params.category = activeCategory;
+
+      if (activeCategory === "saved") {
+        params.is_bookmarked = true;
+      } else if (activeCategory) {
+        params.category = activeCategory;
+      }
+
       const data = await resourcesApi.getAll(params);
-      setBlogPosts(data);
+
+      if (activeCategory === "saved") {
+        setBlogPosts(data.filter(post => post.is_bookmarked));
+      } else {
+        setBlogPosts(data);
+      }
     } catch {
       setError("Failed to load resources. Please try again.");
     } finally {
@@ -47,87 +59,86 @@ export default function Blog() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="blog-container py-8">
-        
+
         {/* Header Section */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+        <div className="text-center mb-16 pt-4">
+          <h1 className="text-5xl md:text-7xl font-extrabold text-gray-900 mb-6 tracking-tight">
             All Resources
           </h1>
-          <p className="text-lg text-gray-600 max-w-3xl mx-auto mb-8 leading-relaxed">
-            Want more inspiration? Browse our <span className="font-semibold text-gray-900">search results</span>
+          <p className="text-gray-500 text-lg max-w-3xl mx-auto mb-10">
+            Want more inspiration? Browse our <span className="font-bold text-gray-900">search results</span>
           </p>
-          
+
           {/* Search Bar */}
           <div className="search-bar-container">
-            <Search className="search-icon w-5 h-5" />
+            <Search className="search-icon" />
             <input
               type="text"
-              placeholder="Search"
-              className="search-input"
+              placeholder="Search for articles, tips, wellness advice..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
             />
-            <button className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2">
-              <Filter className="w-4 h-4" />
-              <span className="hidden sm:inline">Filter</span>
-            </button>
           </div>
 
           {/* Category Filter Pills */}
-          {categories.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-2 mb-6">
-              <button
-                onClick={() => setActiveCategory(null)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
-                  !activeCategory
-                    ? "bg-gray-900 text-white"
-                    : "bg-white text-gray-600 border border-gray-200 hover:border-gray-400"
+          <div className="flex flex-wrap justify-center gap-4 mb-8 mt-6">
+            <button
+              onClick={() => setActiveCategory(null)}
+              className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${!activeCategory
+                ? "bg-blue-50 text-blue-600 border border-blue-200 shadow-sm"
+                : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300"
                 }`}
-              >
-                All
-              </button>
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
-                    activeCategory === cat
-                      ? "bg-gray-900 text-white"
-                      : "bg-white text-gray-600 border border-gray-200 hover:border-gray-400"
+            >
+              All
+            </button>
+            <button
+              onClick={() => setActiveCategory("saved")}
+              className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${activeCategory === "saved"
+                ? "bg-blue-50 text-blue-600 border border-blue-200 shadow-sm"
+                : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                }`}
+            >
+              Saved
+            </button>
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+                className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${activeCategory === cat
+                  ? "bg-blue-50 text-blue-600 border border-blue-200 shadow-sm"
+                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300"
                   }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          )}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
 
-          {/* View Toggle */}
-          <div className="flex justify-center mb-8">
-            <div className="inline-flex items-center bg-white border border-gray-200 rounded-full p-1 shadow-sm">
-              <button
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
-                  viewMode === 'grid'
-                    ? 'bg-gray-900 text-white shadow-md'
-                    : 'text-gray-700 hover:text-gray-900'
-                }`}
-                onClick={() => setViewMode('grid')}
-              >
-                <Grid3X3 className="w-4 h-4" />
-                <span className="hidden sm:inline">Grid</span>
-              </button>
-              <button
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
-                  viewMode === 'list'
-                    ? 'bg-gray-900 text-white shadow-md'
-                    : 'text-gray-700 hover:text-gray-900'
-                }`}
-                onClick={() => setViewMode('list')}
-              >
-                <List className="w-4 h-4" />
-                <span className="hidden sm:inline">List</span>
-              </button>
-            </div>
+        {/* View Toggle - Separated for proper spacing */}
+        <div className="flex justify-center mb-8">
+          <div className="inline-flex items-center bg-gray-50/80 p-1.5 rounded-full shadow-sm shrink-0 gap-2">
+            <button
+              className={`flex items-center justify-center p-2 rounded-full transition-all duration-200 w-10 h-10 ${viewMode === 'grid'
+                  ? 'bg-white text-gray-800 shadow-sm ring-1 ring-gray-900/5'
+                  : 'text-gray-500 hover:text-gray-900'
+                  }`}
+              onClick={() => setViewMode('grid')}
+              aria-label="Grid view"
+            >
+              <Grid3X3 className="w-5 h-5 mx-auto" />
+            </button>
+            <button
+              className={`flex items-center justify-center p-2 rounded-full transition-all duration-200 w-10 h-10 ${viewMode === 'list'
+                  ? 'bg-white text-gray-800 shadow-sm ring-1 ring-gray-900/5'
+                  : 'text-gray-500 hover:text-gray-900'
+                  }`}
+              onClick={() => setViewMode('list')}
+              aria-label="List view"
+            >
+              <List className="w-5 h-5 mx-auto" />
+            </button>
           </div>
         </div>
 
@@ -174,8 +185,8 @@ export default function Blog() {
                 {/* Image Section */}
                 <div className="relative overflow-hidden">
                   {post.cover_image ? (
-                    <img 
-                      src={post.cover_image} 
+                    <img
+                      src={post.cover_image}
                       alt={post.title}
                       className="blog-card-image"
                     />
@@ -188,7 +199,7 @@ export default function Blog() {
                     {post.category}
                   </div>
                 </div>
-                
+
                 {/* Content Section */}
                 <div className="blog-card-content">
                   {/* Meta Information */}
@@ -203,17 +214,17 @@ export default function Blog() {
                       <span>{post.published_at ? new Date(post.published_at).toLocaleDateString() : "Draft"}</span>
                     </div>
                   </div>
-                  
+
                   {/* Title */}
                   <h2 className="blog-card-title">
                     {post.title}
                   </h2>
-                  
+
                   {/* Excerpt */}
                   <p className="blog-card-excerpt">
                     {post.excerpt}
                   </p>
-                  
+
                   {/* Author Section */}
                   <div className="blog-card-author">
                     <div className="author-info">
@@ -225,7 +236,7 @@ export default function Blog() {
                         <div className="author-role">Healthcare Professional</div>
                       </div>
                     </div>
-                    
+
                     <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
                       <ArrowRight className="w-4 h-4 text-blue-600" />
                     </div>

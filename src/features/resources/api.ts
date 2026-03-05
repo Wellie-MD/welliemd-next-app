@@ -14,6 +14,8 @@ export interface BlogResource {
   likes_count: number;
   read_time_minutes: number;
   author_name: string;
+  is_liked: boolean;
+  is_bookmarked: boolean;
 }
 
 export const resourcesApi = {
@@ -23,6 +25,7 @@ export const resourcesApi = {
   getAll: async (params?: {
     search?: string;
     category?: string;
+    is_bookmarked?: boolean;
   }): Promise<BlogResource[]> => {
     const response = await apiClient.get<BlogResource[]>(
       "/patient/resources/",
@@ -38,6 +41,27 @@ export const resourcesApi = {
   getById: async (id: string): Promise<BlogResource> => {
     const response = await apiClient.get<BlogResource>(
       `/patient/resources/${id}/`
+    );
+    return response.data;
+  },
+  /**
+   * Toggle like status for a resource.
+   */
+  toggleLike: async (id: string): Promise<{ status: string, likes_count: number }> => {
+    const response = await apiClient.post<{ status: string, likes_count: number }>(
+      `/patient/resources/${id}/toggle-like/`,
+      {}
+    );
+    return response.data;
+  },
+
+  /**
+   * Toggle bookmark status for a resource.
+   */
+  toggleBookmark: async (id: string): Promise<{ status: string }> => {
+    const response = await apiClient.post<{ status: string }>(
+      `/patient/resources/${id}/toggle-bookmark/`,
+      {}
     );
     return response.data;
   },
