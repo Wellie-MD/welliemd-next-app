@@ -26,7 +26,7 @@ import { getCouponInsights, getCouponUsage } from "@/api/couponsApi";
 const usageColumns = [
   { key: "code", label: "Code" },
   { key: "name", label: "Name" },
-  { key: "value", label: "Value", render: (val: any) => `$${val}` },
+  { key: "value", label: "Value", render: (val: any, row: any) => row.coupon_type === "percent" ? `${parseFloat(val)}%` : `$${val}` },
   { key: "max_threshold", label: "Max. threshold", render: (val: any) => val ? `$${val}` : "-" },
   { key: "frequency_based", label: "Frequency based", render: (val: any) => val ? "Yes" : "No" },
   { key: "discounted_amount", label: "Discounted Amount", render: (val: any) => `$${val}` },
@@ -80,7 +80,7 @@ export default function CouponInsights() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Coupons · Insights</h1>
         </div>
-        
+
         {/* Date Picker */}
         <Popover>
           <PopoverTrigger asChild>
@@ -137,20 +137,20 @@ export default function CouponInsights() {
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={insights.impact_chart}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis 
-                        dataKey="date" 
-                        hide 
+                      <XAxis
+                        dataKey="date"
+                        hide
                       />
                       <YAxis hide />
-                      <Tooltip 
+                      <Tooltip
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                         labelFormatter={(label) => format(new Date(label), "MMM dd, yyyy")}
                       />
-                      <Line 
-                        type="monotone" 
-                        dataKey="uses" 
+                      <Line
+                        type="monotone"
+                        dataKey="uses"
                         name="Uses"
-                        stroke="#3b82f6" 
+                        stroke="#3b82f6"
                         strokeWidth={2.5}
                         dot={{ r: 4, fill: "#3b82f6", strokeWidth: 2, stroke: "#fff" }}
                         activeDot={{ r: 6 }}
@@ -180,8 +180,8 @@ export default function CouponInsights() {
               {/* Circular visualization element */}
               <div className="w-32 h-32 rounded-full border-8 border-blue-50 flex items-center justify-center">
                 <div className="text-center">
-                   <div className="text-2xl font-extrabold text-blue-600">${insights?.total_discount_amount ?? 0}</div>
-                   <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Total</div>
+                  <div className="text-2xl font-extrabold text-blue-600">${insights?.total_discount_amount ?? 0}</div>
+                  <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Total</div>
                 </div>
               </div>
               {/* Decorative progress ring */}
@@ -248,41 +248,41 @@ export default function CouponInsights() {
           Usage
           {isUsageLoading && <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />}
         </h2>
-        
+
         {/* Filters Bar */}
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-4">
           <div className="flex flex-col md:flex-row gap-4">
-             <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Search by code, order ref, or name..."
-                  className="pl-10"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-             </div>
-             
-             <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 min-w-[200px]">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase">Filter by code</span>
-                  <Select value={codeFilter} onValueChange={setCodeFilter}>
-                    <SelectTrigger className="h-10">
-                      <SelectValue placeholder="All Codes" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Codes</SelectItem>
-                      {insights?.top_coupons.map(c => (
-                        <SelectItem key={c.code} value={c.code}>{c.code.toUpperCase()}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <Button variant="ghost" size="sm" onClick={resetFilters} className="text-blue-600 font-semibold gap-1">
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  Reset Filters
-                </Button>
-             </div>
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by code, order ref, or name..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 min-w-[200px]">
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Filter by code</span>
+                <Select value={codeFilter} onValueChange={setCodeFilter}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="All Codes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Codes</SelectItem>
+                    {insights?.top_coupons.map(c => (
+                      <SelectItem key={c.code} value={c.code}>{c.code.toUpperCase()}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button variant="ghost" size="sm" onClick={resetFilters} className="text-blue-600 font-semibold gap-1">
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset Filters
+              </Button>
+            </div>
           </div>
         </div>
 
