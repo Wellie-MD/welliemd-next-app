@@ -127,6 +127,15 @@ export function OrderDetailsSheet({
     const amount = order?.refundableAmount ? parseFloat(order.refundableAmount) : 0
     return Number.isNaN(amount) ? 0 : amount
   }, [order?.refundableAmount])
+  const totalRefunded = useMemo(() => {
+    const amount = order?.totalRefunded ? parseFloat(order.totalRefunded) : 0
+    return Number.isNaN(amount) ? 0 : amount
+  }, [order?.totalRefunded])
+  const orderTotal = useMemo(() => {
+    const amount = order?.orderTotal ? parseFloat(order.orderTotal) : parseFloat(order?.amount || "0")
+    return Number.isNaN(amount) ? 0 : amount
+  }, [order?.orderTotal, order?.amount])
+  const netCollected = Math.max(0, orderTotal - totalRefunded)
 
   const refundReasonOptions = [
     { value: "customer_request", label: "Customer Request" },
@@ -291,8 +300,15 @@ export function OrderDetailsSheet({
                   <InfoItem 
                     icon={<CreditCard className="h-4 w-4" />} 
                     label="Order Total" 
-                    value={order.orderTotal ? `$${order.orderTotal}` : undefined} 
+                    value={order.orderTotal ? `$${netCollected.toFixed(2)}` : undefined} 
                   />
+                  {totalRefunded > 0 && (
+                    <InfoItem
+                      icon={<CreditCard className="h-4 w-4" />}
+                      label="Refunded"
+                      value={`-$${totalRefunded.toFixed(2)}`}
+                    />
+                  )}
                 </div>
               </section>
 
@@ -308,7 +324,11 @@ export function OrderDetailsSheet({
                   <InfoItem 
                     icon={<CreditCard className="h-4 w-4" />} 
                     label="Payment Status" 
-                    value={order.paymentStatus} 
+                    value={
+                      totalRefunded > 0
+                        ? (totalRefunded >= orderTotal ? "Refunded" : "Partially Refunded")
+                        : order.paymentStatus
+                    } 
                   />
                   <InfoItem 
                     icon={<Calendar className="h-4 w-4" />} 

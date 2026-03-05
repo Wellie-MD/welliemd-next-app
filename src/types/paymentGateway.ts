@@ -16,6 +16,7 @@ export interface PaymentGatewayConfig {
     nmi_api_key?: string | null;
     nmi_base_url?: string | null;
     nmi_public_key?: string | null;
+    nmi_test_mode?: boolean | null;
 
     // Stripe fields
     stripe_secret_key?: string | null;
@@ -96,6 +97,18 @@ export const GATEWAY_FIELDS: Record<PaymentGatewayType, GatewayFieldConfig[]> = 
             placeholder: 'Enter NMI Public Key',
             description: 'NMI Public Key for Collect.js tokenization in the browser. Found in NMI Control Panel → Settings → Security Keys → Public Security Key.',
             type: 'text'
+        },
+        {
+            key: 'nmi_test_mode',
+            label: 'NMI Environment',
+            placeholder: 'Select NMI environment',
+            description: 'Use Sandbox for test credentials (routes to sandbox.nmi.com). Use Production for live credentials.',
+            type: 'select',
+            options: [
+                { value: 'true', label: 'Sandbox (Testing)' },
+                { value: 'false', label: 'Production (Live)' },
+            ],
+            required: true
         },
         // Base URL is hardcoded in backend (default: https://secure.networkmerchants.com/api/transact.php)
     ],

@@ -499,379 +499,405 @@ export default function PatientResources() {
   // ──────────────────────────────────────────────
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-6 min-h-screen">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">
-            Patient Resources
-          </h1>
-          <p className="text-gray-500 text-sm mt-1 max-w-xl">
-            Create and manage blog posts visible to your patients
-          </p>
-        </div>
-        <Button
-          onClick={handleNewPost}
-          className="gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Create New Resource
-        </Button>
-      </div>
-
-      {/* Filters bar */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8 w-full">
-        {/* Category Filter Pills (Simulating the active categories state space) */}
-        <div className="flex-1 w-full overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
-          <div className="flex gap-2 min-w-max">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[160px] bg-white border-gray-200 rounded-full shadow-sm font-medium focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0">
-                <Filter className="h-4 w-4 mr-2 text-slate-400" />
-                <SelectValue placeholder="All statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="draft">Drafts</SelectItem>
-                <SelectItem value="published">Published</SelectItem>
-                <SelectItem value="archived">Archived</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          {/* Search Bar */}
-          <div className="relative flex-grow md:flex-grow-0 md:w-64 lg:w-80">
-            <input
-              type="text"
-              placeholder="Search resources..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
-            />
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          </div>
-
-          {/* View Toggle */}
-          <div className="hidden sm:flex items-center bg-gray-100 p-1.5 rounded-xl border border-gray-200 shrink-0">
-            <button
-              className={`p-2 rounded-lg transition-all duration-200 ${viewMode === "grid"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-900 hover:bg-white/50"
-                }`}
-              onClick={() => setViewMode("grid")}
-              aria-label="Grid view"
-            >
-              <LayoutGrid className="h-5 w-5" />
-            </button>
-            <button
-              className={`p-2 rounded-lg transition-all duration-200 ${viewMode === "list"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-900 hover:bg-white/50"
-                }`}
-              onClick={() => setViewMode("list")}
-              aria-label="List view"
-            >
-              <List className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Loading */}
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-        </div>
-      ) : filtered.length === 0 ? (
-        /* Empty state */
-        <Card className="border-dashed border-2 border-slate-200">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <div className="p-4 bg-slate-100 rounded-2xl mb-4">
-              <FileText className="h-10 w-10 text-slate-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-700 mb-1">
-              No posts yet
-            </h3>
-            <p className="text-sm text-slate-500 mb-6 text-center max-w-sm">
-              Start creating blog posts that will be visible to all your
-              patients on their portal.
-            </p>
-            <Button onClick={handleNewPost} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Create Your First Post
-            </Button>
-          </CardContent>
-        </Card>
-      ) : viewMode === "grid" ? (
-        /* Grid view */
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {filtered.map((resource) => (
-            <Card
-              key={resource.id}
-              className="group overflow-hidden border-slate-200 hover:shadow-lg hover:border-slate-300 transition-all duration-300 cursor-pointer"
-              onClick={() => handleEdit(resource)}
-            >
-              {resource.cover_image && (
-                <div className="relative h-44 overflow-hidden">
-                  <img
-                    src={resource.cover_image}
-                    alt={resource.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <Badge
-                    className={cn(
-                      "absolute top-3 left-3 border text-xs",
-                      statusColor(resource.status)
-                    )}
-                  >
-                    {resource.status}
-                  </Badge>
-                </div>
-              )}
-              <CardContent
-                className={cn("p-5", !resource.cover_image && "pt-5")}
-              >
-                {!resource.cover_image && (
-                  <Badge
-                    className={cn(
-                      "border text-xs mb-3",
-                      statusColor(resource.status)
-                    )}
-                  >
-                    {resource.status}
-                  </Badge>
-                )}
-                <div className="flex items-center gap-2 text-xs text-slate-400 mb-2">
-                  {resource.category && (
-                    <>
-                      <Tag className="h-3 w-3" />
-                      <span>{resource.category}</span>
-                      <span>·</span>
-                    </>
-                  )}
-                  <Clock className="h-3 w-3" />
-                  <span>{resource.read_time_minutes} min read</span>
-                </div>
-                <h3 className="font-semibold text-slate-800 line-clamp-2 mb-2 group-hover:text-blue-700 transition-colors">
-                  {resource.title}
-                </h3>
-                {resource.excerpt && (
-                  <p className="text-sm text-slate-500 line-clamp-2 mb-3">
-                    {resource.excerpt}
+      <div className="max-w-5xl mx-auto p-6 space-y-6 min-h-screen">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-6">
+            <div>
+              <h1 className="text-2xl font-semibold text-foreground">
+                <h1 className="text-2xl font-semibold text-foreground">
+                  Patient Resources
+                </h1>
+                <p className="text-gray-500 text-sm mt-1 max-w-xl">
+                  <p className="text-gray-500 text-sm mt-1 max-w-xl">
+                    Create and manage blog posts visible to your patients
                   </p>
-                )}
-                <div className="flex items-center justify-between pt-3 border-t border-slate-100 mt-4">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1.5 text-gray-500 font-medium">
-                      <Heart className="h-4 w-4 fill-red-50 text-red-500" />
-                      {resource.likes_count}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-gray-500 font-medium">
-                      <Eye className="h-4 w-4 text-blue-500" />
-                      {resource.views_count}
-                    </div>
-                    <span className="flex items-center gap-1.5 text-gray-500 text-xs ml-2 border-l border-gray-200 pl-4">
-                      <Calendar className="h-3 w-3" />
-                      {new Date(
-                        resource.created_at
-                      ).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      asChild
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button className="p-1 rounded hover:bg-slate-100">
-                        <MoreHorizontal className="h-4 w-4 text-slate-400" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEdit(resource);
-                        }}
-                      >
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      {resource.status !== "published" && (
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePublish(resource.id);
-                          }}
-                        >
-                          <Send className="h-4 w-4 mr-2" />
-                          Publish
-                        </DropdownMenuItem>
-                      )}
-                      {resource.status !== "archived" && (
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleArchive(resource.id);
-                          }}
-                        >
-                          <Archive className="h-4 w-4 mr-2" />
-                          Archive
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-red-600 focus:text-red-600"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeletingId(resource.id);
-                          setDeleteDialogOpen(true);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        /* List view */
-        <div className="space-y-3">
-          {filtered.map((resource) => (
-            <Card
-              key={resource.id}
-              className="group border-slate-200 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer"
-              onClick={() => handleEdit(resource)}
-            >
-              <CardContent className="p-4 flex items-center gap-4">
-                {resource.cover_image && (
-                  <img
-                    src={resource.cover_image}
-                    alt=""
-                    className="w-20 h-14 object-cover rounded-lg flex-shrink-0"
+                <Button
+                  onClick={handleNewPost}
+                  className="gap-2"
+                  className="gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create New Resource
+                  Create New Resource
+                </Button>
+            </div>
+
+            {/* Filters bar */}
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8 w-full">
+              {/* Category Filter Pills (Simulating the active categories state space) */}
+              <div className="flex-1 w-full overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+                <div className="flex gap-2 min-w-max">
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[160px] bg-white border-gray-200 rounded-full shadow-sm font-medium focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0">
+                      <Filter className="h-4 w-4 mr-2 text-slate-400" />
+                      <SelectValue placeholder="All statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="draft">Drafts</SelectItem>
+                      <SelectItem value="published">Published</SelectItem>
+                      <SelectItem value="archived">Archived</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 w-full md:w-auto">
+                {/* Search Bar */}
+                <div className="relative flex-grow md:flex-grow-0 md:w-64 lg:w-80">
+                  <input
+                    type="text"
+                    placeholder="Search resources..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
                   />
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Badge
-                      className={cn(
-                        "text-[10px] border",
-                        statusColor(resource.status)
-                      )}
-                    >
-                      {resource.status}
-                    </Badge>
-                    {resource.category && (
-                      <span className="text-xs text-slate-400">
-                        {resource.category}
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="font-semibold text-slate-800 truncate group-hover:text-blue-700 transition-colors">
-                    {resource.title}
-                  </h3>
-                  {resource.excerpt && (
-                    <p className="text-sm text-slate-500 truncate">
-                      {resource.excerpt}
-                    </p>
-                  )}
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 </div>
-                <div className="flex items-center gap-4 flex-shrink-0 border-l border-gray-100 pl-6 ml-4">
-                  <div className="flex items-center gap-1.5 text-gray-500 font-medium whitespace-nowrap">
-                    <Heart className="h-4 w-4 fill-red-50 text-red-500" />
-                    {resource.likes_count} likes
-                  </div>
-                  <div className="flex items-center gap-1.5 text-gray-500 font-medium whitespace-nowrap">
-                    <Eye className="h-4 w-4 text-blue-500" />
-                    {resource.views_count} views
-                  </div>
-                  <span className="text-gray-400 text-sm whitespace-nowrap">
-                    {new Date(resource.created_at).toLocaleDateString()}
-                  </span>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    asChild
-                    onClick={(e) => e.stopPropagation()}
+
+                {/* View Toggle */}
+                <div className="hidden sm:flex items-center bg-gray-100 p-1.5 rounded-xl border border-gray-200 shrink-0">
+                  <button
+                    className={`p-2 rounded-lg transition-all duration-200 ${viewMode === "grid"
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-500 hover:text-gray-900 hover:bg-white/50"
+                      }`}
+                    onClick={() => setViewMode("grid")}
+                    aria-label="Grid view"
                   >
-                    <button className="p-1 rounded hover:bg-slate-100">
-                      <MoreHorizontal className="h-4 w-4 text-slate-400" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEdit(resource);
-                      }}
-                    >
-                      <Pencil className="h-4 w-4 mr-2" /> Edit
-                    </DropdownMenuItem>
-                    {resource.status !== "published" && (
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePublish(resource.id);
-                        }}
-                      >
-                        <Send className="h-4 w-4 mr-2" /> Publish
-                      </DropdownMenuItem>
+                    <LayoutGrid className="h-5 w-5" />
+                  </button>
+                  <button
+                    className={`p-2 rounded-lg transition-all duration-200 ${viewMode === "list"
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-500 hover:text-gray-900 hover:bg-white/50"
+                      }`}
+                    onClick={() => setViewMode("list")}
+                    aria-label="List view"
+                  >
+                    <List className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Loading */}
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+              </div>
+            ) : filtered.length === 0 ? (
+              /* Empty state */
+              <Card className="border-dashed border-2 border-slate-200">
+                <CardContent className="flex flex-col items-center justify-center py-16">
+                  <div className="p-4 bg-slate-100 rounded-2xl mb-4">
+                    <FileText className="h-10 w-10 text-slate-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-700 mb-1">
+                    No posts yet
+                  </h3>
+                  <p className="text-sm text-slate-500 mb-6 text-center max-w-sm">
+                    Start creating blog posts that will be visible to all your
+                    patients on their portal.
+                  </p>
+                  <Button onClick={handleNewPost} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Create Your First Post
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : viewMode === "grid" ? (
+              /* Grid view */
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                {filtered.map((resource) => (
+                  <Card
+                    key={resource.id}
+                    className="group overflow-hidden border-slate-200 hover:shadow-lg hover:border-slate-300 transition-all duration-300 cursor-pointer"
+                    onClick={() => handleEdit(resource)}
+                  >
+                    {resource.cover_image && (
+                      <div className="relative h-44 overflow-hidden">
+                        <img
+                          src={resource.cover_image}
+                          alt={resource.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <Badge
+                          className={cn(
+                            "absolute top-3 left-3 border text-xs",
+                            statusColor(resource.status)
+                          )}
+                        >
+                          {resource.status}
+                        </Badge>
+                      </div>
                     )}
-                    {resource.status !== "archived" && (
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleArchive(resource.id);
-                        }}
-                      >
-                        <Archive className="h-4 w-4 mr-2" /> Archive
-                      </DropdownMenuItem>
-                    )}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="text-red-600 focus:text-red-600"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeletingId(resource.id);
-                        setDeleteDialogOpen(true);
-                      }}
+                    <CardContent
+                      className={cn("p-5", !resource.cover_image && "pt-5")}
                     >
-                      <Trash2 className="h-4 w-4 mr-2" /> Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </CardContent>
-            </Card>
+                      {!resource.cover_image && (
+                        <Badge
+                          className={cn(
+                            "border text-xs mb-3",
+                            statusColor(resource.status)
+                          )}
+                        >
+                          {resource.status}
+                        </Badge>
+                      )}
+                      <div className="flex items-center gap-2 text-xs text-slate-400 mb-2">
+                        {resource.category && (
+                          <>
+                            <Tag className="h-3 w-3" />
+                            <span>{resource.category}</span>
+                            <span>·</span>
+                          </>
+                        )}
+                        <Clock className="h-3 w-3" />
+                        <span>{resource.read_time_minutes} min read</span>
+                      </div>
+                      <h3 className="font-semibold text-slate-800 line-clamp-2 mb-2 group-hover:text-blue-700 transition-colors">
+                        {resource.title}
+                      </h3>
+                      {resource.excerpt && (
+                        <p className="text-sm text-slate-500 line-clamp-2 mb-3">
+                          {resource.excerpt}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-100 mt-4">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-1.5 text-gray-500 font-medium">
+                            <Heart className="h-4 w-4 fill-red-50 text-red-500" />
+                            <div className="flex items-center justify-between pt-3 border-t border-slate-100 mt-4">
+                              <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-1.5 text-gray-500 font-medium">
+                                  <Heart className="h-4 w-4 fill-red-50 text-red-500" />
+                                  {resource.likes_count}
+                                </div>
+                                <div className="flex items-center gap-1.5 text-gray-500 font-medium">
+                                  <Eye className="h-4 w-4 text-blue-500" />
+                                  {resource.views_count}
+                                </div>
+                                <span className="flex items-center gap-1.5 text-gray-500 text-xs ml-2 border-l border-gray-200 pl-4">
+                              </div>
+                              <div className="flex items-center gap-1.5 text-gray-500 font-medium">
+                                <Eye className="h-4 w-4 text-blue-500" />
+                                {resource.views_count}
+                              </div>
+                              <span className="flex items-center gap-1.5 text-gray-500 text-xs ml-2 border-l border-gray-200 pl-4">
+                                <Calendar className="h-3 w-3" />
+                                {new Date(
+                                  resource.created_at
+                                ).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger
+                                asChild
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button className="p-1 rounded hover:bg-slate-100">
+                                  <MoreHorizontal className="h-4 w-4 text-slate-400" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEdit(resource);
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                                {resource.status !== "published" && (
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handlePublish(resource.id);
+                                    }}
+                                  >
+                                    <Send className="h-4 w-4 mr-2" />
+                                    Publish
+                                  </DropdownMenuItem>
+                                )}
+                                {resource.status !== "archived" && (
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleArchive(resource.id);
+                                    }}
+                                  >
+                                    <Archive className="h-4 w-4 mr-2" />
+                                    Archive
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-red-600 focus:text-red-600"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeletingId(resource.id);
+                                    setDeleteDialogOpen(true);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </CardContent>
+                      </Card>
           ))}
-        </div>
+                    </div>
+                    ) : (
+                    /* List view */
+                    <div className="space-y-3">
+                      {filtered.map((resource) => (
+                        <Card
+                          key={resource.id}
+                          className="group border-slate-200 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer"
+                          onClick={() => handleEdit(resource)}
+                        >
+                          <CardContent className="p-4 flex items-center gap-4">
+                            {resource.cover_image && (
+                              <img
+                                src={resource.cover_image}
+                                alt=""
+                                className="w-20 h-14 object-cover rounded-lg flex-shrink-0"
+                              />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge
+                                  className={cn(
+                                    "text-[10px] border",
+                                    statusColor(resource.status)
+                                  )}
+                                >
+                                  {resource.status}
+                                </Badge>
+                                {resource.category && (
+                                  <span className="text-xs text-slate-400">
+                                    {resource.category}
+                                  </span>
+                                )}
+                              </div>
+                              <h3 className="font-semibold text-slate-800 truncate group-hover:text-blue-700 transition-colors">
+                                {resource.title}
+                              </h3>
+                              {resource.excerpt && (
+                                <p className="text-sm text-slate-500 truncate">
+                                  {resource.excerpt}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-4 flex-shrink-0 border-l border-gray-100 pl-6 ml-4">
+                              <div className="flex items-center gap-1.5 text-gray-500 font-medium whitespace-nowrap">
+                                <Heart className="h-4 w-4 fill-red-50 text-red-500" />
+                                {resource.likes_count} likes
+                              </div>
+                              <div className="flex items-center gap-1.5 text-gray-500 font-medium whitespace-nowrap">
+                                <Eye className="h-4 w-4 text-blue-500" />
+                                {resource.views_count} views
+                              </div>
+                              <span className="text-gray-400 text-sm whitespace-nowrap">
+                                <div className="flex items-center gap-4 flex-shrink-0 border-l border-gray-100 pl-6 ml-4">
+                                  <div className="flex items-center gap-1.5 text-gray-500 font-medium whitespace-nowrap">
+                                    <Heart className="h-4 w-4 fill-red-50 text-red-500" />
+                                    {resource.likes_count} likes
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-gray-500 font-medium whitespace-nowrap">
+                                    <Eye className="h-4 w-4 text-blue-500" />
+                                    {resource.views_count} views
+                                  </div>
+                                  <span className="text-gray-400 text-sm whitespace-nowrap">
+                                    {new Date(resource.created_at).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger
+                                    asChild
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <button className="p-1 rounded hover:bg-slate-100">
+                                      <MoreHorizontal className="h-4 w-4 text-slate-400" />
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEdit(resource);
+                                      }}
+                                    >
+                                      <Pencil className="h-4 w-4 mr-2" /> Edit
+                                    </DropdownMenuItem>
+                                    {resource.status !== "published" && (
+                                      <DropdownMenuItem
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handlePublish(resource.id);
+                                        }}
+                                      >
+                                        <Send className="h-4 w-4 mr-2" /> Publish
+                                      </DropdownMenuItem>
+                                    )}
+                                    {resource.status !== "archived" && (
+                                      <DropdownMenuItem
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleArchive(resource.id);
+                                        }}
+                                      >
+                                        <Archive className="h-4 w-4 mr-2" /> Archive
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      className="text-red-600 focus:text-red-600"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDeletingId(resource.id);
+                                        setDeleteDialogOpen(true);
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" /> Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </CardContent>
+                            </Card>
+          ))}
+                          </div>
       )}
 
-      {/* Delete confirmation dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Post</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this post? This action cannot be
-              undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleDelete}>
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+                          {/* Delete confirmation dialog */}
+                          <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Delete Post</DialogTitle>
+                                <DialogDescription>
+                                  Are you sure you want to delete this post? This action cannot be
+                                  undone.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <DialogFooter>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setDeleteDialogOpen(false)}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button variant="destructive" onClick={handleDelete}>
+                                  Delete
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+                      );
 }

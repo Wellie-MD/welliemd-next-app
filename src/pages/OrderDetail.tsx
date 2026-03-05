@@ -350,6 +350,17 @@ export default function OrderDetail() {
   const shippingFee = parseMoney(order.shipping_fee)
   const discountAmount = parseMoney(order.discount_amount) ?? 0
   const totalAmount = parseMoney(order.orderTotal ?? order.amount)
+  const refundedAmount = parseMoney(order.totalRefunded) ?? 0
+  const netTotalAmount =
+    totalAmount != null
+      ? Math.max(0, totalAmount - refundedAmount)
+      : null
+  const refundStatusLabel =
+    refundedAmount > 0
+      ? totalAmount != null && refundedAmount >= totalAmount
+        ? "Refunded"
+        : "Partially Refunded"
+      : null
   const productSubtotalAfterDiscount =
     originalPrice != null
       ? Math.max(0, originalPrice - discountAmount)
@@ -369,6 +380,7 @@ export default function OrderDetail() {
   const itemPrice = formatMoney(itemUnitPrice)
   const lineTotalPrice = formatMoney(productSubtotalAfterDiscount)
   const totalPrice = formatMoney(totalAmount)
+  const netTotalPrice = formatMoney(netTotalAmount)
 
   const TimelineIcon = ({ name, iconBg }: { name: TimelineItem["icon"]; iconBg: string }) => {
     const iconMap = {
@@ -551,17 +563,27 @@ export default function OrderDetail() {
                       className="px-6 py-3 text-right font-bold text-slate-900 dark:text-white border-t border-border"
                       colSpan={3}
                     >
-                      Total (USD):
+                      {refundedAmount > 0 ? "Net Total (USD):" : "Total (USD):"}
                     </td>
                     <td className="px-6 py-3 text-right font-bold text-primary border-t border-border">
                       <div className="flex flex-col items-end">
-                        <span>${totalPrice}</span>
+                        <span>${netTotalPrice}</span>
                         <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
                           Product + shipping
                         </span>
                       </div>
                     </td>
                   </tr>
+                  {refundedAmount > 0 && (
+                    <tr>
+                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                        Refunded:
+                      </td>
+                      <td className="px-6 py-3 text-right font-medium text-red-600 dark:text-red-400">
+                        −${refundedAmount.toFixed(2)}
+                      </td>
+                    </tr>
+                  )}
                 </tfoot>
               </table>
             </div>
@@ -739,14 +761,33 @@ export default function OrderDetail() {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-500 dark:text-slate-400">Status</span>
-                <span className="text-green-600 dark:text-green-400 font-medium text-xs bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded">
-                  {order.paymentStatus || "—"}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-green-600 dark:text-green-400 font-medium text-xs bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded">
+                    {order.paymentStatus || "—"}
+                  </span>
+                  {refundStatusLabel && (
+                    <span className="text-red-600 dark:text-red-300 font-medium text-xs bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded">
+                      {refundStatusLabel}
+                    </span>
+                  )}
+                </div>
               </div>
+              {refundedAmount > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500 dark:text-slate-400">Refunded</span>
+                  <span className="text-red-600 dark:text-red-400 font-medium">-${refundedAmount.toFixed(2)}</span>
+                </div>
+              )}
+              {refundedAmount > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500 dark:text-slate-400">Net Collected</span>
+                  <span className="text-slate-900 dark:text-white font-medium">${netTotalPrice}</span>
+                </div>
+              )}
               <div className="pt-3 border-t border-border flex justify-between items-center mt-2">
                 <span className="text-slate-900 dark:text-white font-bold">Amount</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-900 dark:text-white font-bold">${totalPrice}</span>
+                  <span className="text-slate-900 dark:text-white font-bold">${netTotalPrice}</span>
                   {canRefundOrVoid && (
                     <PermissionGate permission={Permissions.REFUND_CREATE}>
                       <Button
