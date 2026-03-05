@@ -125,7 +125,7 @@ export default function RichTextEditor({
     editorProps: {
       attributes: {
         class:
-          "prose prose-sm sm:prose-base max-w-none focus:outline-none min-h-[400px] px-8 py-6",
+          "prose prose-sm sm:prose-base max-w-none w-full break-words break-all focus:outline-none h-full px-8 py-6",
       },
     },
     onUpdate: ({ editor }) => {
@@ -243,7 +243,7 @@ export default function RichTextEditor({
   return (
     <div
       className={cn(
-        "rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden",
+        "rounded-xl border border-slate-200 bg-white shadow-sm min-h-[400px] flex flex-col w-full max-w-full overflow-hidden",
         "focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100",
         "transition-all duration-200",
         className
@@ -738,7 +738,7 @@ export default function RichTextEditor({
       )}
 
       {/* ── Editor content ── */}
-      <EditorContent editor={editor} className="blog-editor-content" />
+      <EditorContent editor={editor} className="blog-editor-content flex-1 overflow-x-hidden" />
 
       {/* ── Footer stats ── */}
       <div className="border-t border-slate-200 px-4 py-2 flex items-center justify-between text-xs text-slate-400 bg-slate-50/50">
