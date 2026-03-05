@@ -37,14 +37,11 @@ const EVENT_TYPES = [
   { value: "SUBSCRIPTION_CREATED", label: "Subscription Created" },
   { value: "SUBSCRIPTION_UPDATED", label: "Subscription Updated" },
   { value: "ABANDONED_SESSION", label: "Abandoned Session" },
-  { value: "MAGIC_LINK", label: "Magic Link" },
   { value: "PAYMENT_CANCELLED", label: "Payment Cancelled" },
   { value: "PAYMENT_CREATED", label: "Payment Created" },
   { value: "PAYMENT_FAILED", label: "Payment Failed" },
   { value: "PAYMENT_SUCCEEDED", label: "Payment Succeeded" },
   { value: "PAYMENT_REFUNDED", label: "Payment Refunded" },
-  { value: "DISPUTE_CREATED", label: "Dispute Created" },
-  { value: "DISPUTE_UPDATED", label: "Dispute Updated" },
   { value: "AFFILIATE_CONVERSION", label: "New Affiliate Conversion" },
 ]
 
