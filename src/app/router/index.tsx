@@ -21,6 +21,7 @@ const Settings = React.lazy(() => import('@/components/Settings'));
 const PaymentMethodsPage = React.lazy(() => import('@/components/payments/PaymentMethodsPage'));
 const Blog = React.lazy(() => import('@/components/Blog'));
 const BlogPost = React.lazy(() => import('@/components/BlogPost'));
+const Labs = React.lazy(() => import('@/features/labs/LabsPage'));
 
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -64,6 +65,7 @@ export const AppRouter: React.FC = () => {
             <Route path="orders" element={<Orders />} />
             <Route path="blog" element={<Blog />} />
             <Route path="blog/:id" element={<BlogPost />} />
+            <Route path="labs" element={<Labs />} />
             
             {/* Settings and Help pages */}
             <Route path="settings" element={<Settings />} />
