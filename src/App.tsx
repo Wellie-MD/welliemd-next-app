@@ -46,6 +46,7 @@ import ArchiveTemplates from "./pages/ArchiveTemplates";
 import ArchiveProducts from "./pages/ArchiveProducts";
 import ManageAccount from "./pages/ManageAccount";
 import UsersPermissions from "./pages/management/UsersPermissions";
+import MasterKeyAccess from "./pages/MasterKeyAccess";
 
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -87,6 +88,9 @@ const App = () => {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/register" element={<RegisterInvitation />} />
+        
+        {/* Master Key Access - no auth required, accessed via email link */}
+        <Route path="/admin/master-key/access/:token" element={<MasterKeyAccess />} />
         
         {/* Dashboard routes */}
         <Route path="/dashboard/*" element={
