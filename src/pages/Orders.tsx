@@ -10,21 +10,6 @@ import { exportToCSV } from "@/utils/exportUtils"
 import { AdminOrder } from "@/api/dashboardApi"
 import { OrderDetailDrawer } from "@/components/orders/OrderDetailDrawer"
 
-/**
- * Generate a short client prefix from the client name.
- * - Single word: first 3 letters uppercased (e.g. "knysys" -> "KNY")
- * - Multiple words: first letter of each word (e.g. "Knysys Health Care" -> "KHC")
- */
-function generateClientPrefix(clientName: string): string {
-  if (!clientName) return ''
-  const words = clientName.trim().split(/\s+/).filter(Boolean)
-  if (words.length === 0) return ''
-  if (words.length === 1) {
-    return words[0].substring(0, 3).toUpperCase()
-  }
-  return words.map(w => w[0]).join('').toUpperCase()
-}
-
 // Status filters based on Order model
 const orderStatusFilters = [
   "All",
@@ -66,7 +51,8 @@ export default function Orders() {
     // Reconstruct raw AdminOrder from the formatted row
     const rawOrder: AdminOrder = {
       id: row.id,
-      display_id: row.display_id, // already prefixed
+      display_id: row.display_id,
+      order_id: row.order_id ?? null,
       patient_name: row.patient_name,
       patient_email: row.patient_email,
       patient_phone: row.patient_phone,
@@ -203,14 +189,11 @@ export default function Orders() {
         return true
       })
       .map(order => {
-        const clientPrefix = generateClientPrefix(order.client_name)
-        const prefixedDisplayId = clientPrefix
-          ? `${clientPrefix}-${order.display_id}`
-          : order.display_id
+        const canonicalOrderNumber = order.order_id || order.display_id
         return {
         ...order,
-        // Prefixed display_id for the table
-        display_id: prefixedDisplayId,
+        display_id: canonicalOrderNumber,
+        order_id: order.order_id ?? null,
         // Keep raw values under _raw prefix for the drawer
         _raw_display_id: order.display_id,
         _raw_amount: order.amount,
