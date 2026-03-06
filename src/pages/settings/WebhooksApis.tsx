@@ -43,6 +43,12 @@ const EVENT_TYPES = [
   { value: "PAYMENT_SUCCEEDED", label: "Payment Succeeded" },
   { value: "PAYMENT_REFUNDED", label: "Payment Refunded" },
   { value: "AFFILIATE_CONVERSION", label: "New Affiliate Conversion" },
+  { value: "LAB_ORDER_CREATED", label: "Lab Order Created" },
+  { value: "LAB_ORDER_SHIPPED_TO_PATIENT", label: "Lab Order Shipped to Patient" },
+  { value: "LAB_ORDER_DELIVERED_TO_PATIENT", label: "Lab Order Delivered to Patient" },
+  { value: "LAB_ORDER_SHIPPED_TO_LAB", label: "Lab Order Shipped to Lab" },
+  { value: "LAB_ORDER_RECEIVED_BY_LAB", label: "Lab Order Received by Lab" },
+  { value: "LAB_ORDER_RESULTS", label: "Lab Order Results" },
 ]
 
 const webhookSchema = z.object({
