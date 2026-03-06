@@ -31,7 +31,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-   SidebarTrigger,
+  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -61,11 +61,8 @@ const menuSections = [
         title: "Orders",
         url: "/dashboard/orders",
         icon: ShoppingBag,
-        // children: [
-        //   { title: "Orders", url: "/dashboard/orders" },
-        //   { title: "Payments", url: "/dashboard/orders/payments" },
-        // ]
       },
+      { title: "Payments", url: "/dashboard/payments", icon: CreditCard },
       { title: "Messenger", url: "/dashboard/messages", icon: MessageSquare },
       // { 
       //   title: "Analytics", 
@@ -119,27 +116,27 @@ const menuSections = [
 
   // --- Removed "SALES & CHANNELS" on request: https://telehealthknysys.atlassian.net/browse/KAN-3 --
 
-//   {
-//     label: "SALES & CHANNELS", 
-//     items: [
-// {
-//         title: "Finances",
-//         icon: CreditCard,
-//         children: [
-//           { title: "Billing", url: "/dashboard/billing" },
-//         ]
-//       },
-//       // {
-//       //   title: "Discounts",
-//       //   icon: Gift,
-//       //   children: [
-//       //     { title: "Coupon Codes", url: "/dashboard/coupon-codes" },
-//       //     { title: "Insights", url: "/dashboard/coupon-insights" }
-//       //   ]
-//       // },
-//       // { title: "Affiliates", url: "/dashboard/affiliates", icon: Users }
-//     ]
-//   }
+  //   {
+  //     label: "SALES & CHANNELS", 
+  //     items: [
+  // {
+  //         title: "Finances",
+  //         icon: CreditCard,
+  //         children: [
+  //           { title: "Billing", url: "/dashboard/billing" },
+  //         ]
+  //       },
+  //       // {
+  //       //   title: "Discounts",
+  //       //   icon: Gift,
+  //       //   children: [
+  //       //     { title: "Coupon Codes", url: "/dashboard/coupon-codes" },
+  //       //     { title: "Insights", url: "/dashboard/coupon-insights" }
+  //       //   ]
+  //       // },
+  //       // { title: "Affiliates", url: "/dashboard/affiliates", icon: Users }
+  //     ]
+  //   }
 ]
 
 export function AppSidebar() {
@@ -153,7 +150,7 @@ export function AppSidebar() {
   // Auto-open sections when a child is active
   useEffect(() => {
     const activeParents: string[] = []
-    
+
     menuSections.forEach(section => {
       section.items.forEach(item => {
         if (item.children?.some(child => currentPath.startsWith(child.url))) {
@@ -161,14 +158,14 @@ export function AppSidebar() {
         }
       })
     })
-    
+
     setOpenSections(prev => [...new Set([...prev, ...activeParents])])
   }, [currentPath])
 
   const toggleSection = (title: string) => {
     if (collapsed) return
-    setOpenSections(prev => 
-      prev.includes(title) 
+    setOpenSections(prev =>
+      prev.includes(title)
         ? prev.filter(item => item !== title)
         : [...prev, title]
     )
@@ -199,19 +196,19 @@ export function AppSidebar() {
     return <>{children}</>
   }
 
-   function SidebarLogo() {
-  const { state } = useSidebar()
+  function SidebarLogo() {
+    const { state } = useSidebar()
 
-  if (state === "collapsed") return null
+    if (state === "collapsed") return null
 
-  return (
-    <img
-      src="/welliemd_logo.png"
-      alt="Welliemd"
-      className="h-8 w-auto"
-    />
-  )
-}
+    return (
+      <img
+        src="/welliemd_logo.png"
+        alt="Welliemd"
+        className="h-8 w-auto"
+      />
+    )
+  }
 
   return (
     <Sidebar collapsible="icon" className="border-r">
@@ -246,21 +243,20 @@ export function AppSidebar() {
                                 className={`
                                   group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
                                   ${collapsed ? "p-2 justify-center" : "px-3 py-2.5 justify-between"}
-                                  ${isActive 
-                                    ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm" 
+                                  ${isActive
+                                    ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm"
                                     : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
                                   }
                                 `}
                               >
                                 <div className="flex items-center min-w-0">
-                                  <item.icon className={`h-5 w-5 flex-shrink-0 ${
-                                    isActive ? "text-[#12517A]" : "text-gray-500 group-hover:text-[#12517A]"
-                                  }`} />
-                                {!collapsed && (
-                                  <span className="ml-3 font-medium truncate">
-                                    {item.title}
-                                  </span>
-                                )}
+                                  <item.icon className={`h-5 w-5 flex-shrink-0 ${isActive ? "text-[#12517A]" : "text-gray-500 group-hover:text-[#12517A]"
+                                    }`} />
+                                  {!collapsed && (
+                                    <span className="ml-3 font-medium truncate">
+                                      {item.title}
+                                    </span>
+                                  )}
                                 </div>
                                 {!collapsed && (
                                   <ChevronDown
@@ -313,11 +309,10 @@ export function AppSidebar() {
                               `}
                             >
                               <item.icon
-                                className={`h-5 w-5 flex-shrink-0 ${
-                                  currentPath === item.url
+                                className={`h-5 w-5 flex-shrink-0 ${currentPath === item.url
                                     ? "text-[#12517A]"
                                     : "text-gray-500 group-hover:text-[#12517A]"
-                                }`}
+                                  }`}
                               />
                               {!collapsed && (
                                 <span className="ml-3 font-medium truncate">

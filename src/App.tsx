@@ -80,14 +80,14 @@ const App = () => {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<ProtectedRoute><Navigate to="/dashboard" replace /></ProtectedRoute>} />
-        
+
         {/* Auth routes */}
         <Route path="/auth/signin" element={<SignIn />} />
         {/* <Route path="/signup" element={<SignUp />} /> */}
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/register" element={<RegisterInvitation />} />
-        
+
         {/* Dashboard routes */}
         <Route path="/dashboard/*" element={
           <SidebarProvider>
@@ -104,6 +104,7 @@ const App = () => {
                     <Route path="/treatments" element={<ProtectedRoute><Treatments /></ProtectedRoute>} />
                     <Route path="/treatments/configurations" element={<ProtectedRoute><TreatmentConfigurations /></ProtectedRoute>} />
                     <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+                    <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
                     {/* <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} /> // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-2 */}
                     {/* <Route path="/prescriptions" element={<ProtectedRoute><Prescriptions /></ProtectedRoute>} />  */} // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-3
                     <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
@@ -135,7 +136,7 @@ const App = () => {
             </div>
           </SidebarProvider>
         } />
-        
+
         <Route path="/dashboard/settings/*" element={
           <ProtectedRoute>
             <SidebarProvider>
@@ -150,8 +151,8 @@ const App = () => {
             </SidebarProvider>
           </ProtectedRoute>
         } />
-        
-        
+
+
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
