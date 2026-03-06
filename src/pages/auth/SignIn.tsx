@@ -9,8 +9,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Eye, EyeOff, AlertCircle } from "lucide-react";
 import { useAuth } from "@/features/auth";
-import { 
-  loginFormSchema, 
+import { useBranding } from "@/features/branding/hooks/useBranding";
+import {
+  loginFormSchema,
   type LoginFormData,
   validateEmailField,
   validatePasswordField,
@@ -20,8 +21,20 @@ import { getErrorMessage } from "@/features/auth/utils/errors";
 const SignIn = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  
+
   const { login, isLoading, error, clearError } = useAuth();
+  const { logos } = useBranding();
+
+  // Fix LocalStack URLs for browser access
+  const fixLocalStackUrl = (url?: string): string | undefined => {
+    if (!url) return url;
+    if (url.includes('localstack')) {
+      return url.replace('localstack', 'localhost');
+    }
+    return url;
+  };
+
+  const logoUrl = fixLocalStackUrl(logos?.square || logos?.transparent);
 
   const {
     register,
@@ -44,7 +57,7 @@ const SignIn = () => {
   const onSubmit = async (data: LoginFormData) => {
     setSubmitError(null);
     clearError();
-    
+
     try {
       await login({
         email: data.email,
@@ -66,6 +79,15 @@ const SignIn = () => {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md space-y-6">
         <div className="space-y-2 text-center">
+          {logoUrl && (
+            <div className="flex justify-center mb-4">
+              <img
+                src={logoUrl}
+                alt="Logo"
+                className="h-12 w-auto object-contain"
+              />
+            </div>
+          )}
           <h1 className="text-3xl font-bold tracking-tight">Welcome back</h1>
         </div>
 
@@ -142,9 +164,9 @@ const SignIn = () => {
             </Link>
           </div>
 
-          <Button 
-            type="submit" 
-            className="w-full" 
+          <Button
+            type="submit"
+            className="w-full"
             disabled={isLoading || !isValid}
           >
             {isLoading ? "Signing in..." : "Sign in"}
