@@ -1,13 +1,14 @@
 import { useState, CSSProperties, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  Calendar, 
-  MessageSquare, 
-  User, 
-  FileText, 
+import {
+  Home,
+  Calendar,
+  MessageSquare,
+  User,
+  FileText,
   Pill,
   TestTube,
+  FlaskConical,
   HelpCircle,
   Settings,
   ChevronLeft,
@@ -30,6 +31,7 @@ const navigationItems: NavigationItem[] = [
   { icon: User, label: "Profile", path: "/dashboard/profile" },
   { icon: Calendar, label: "Appointments", path: "/dashboard/appointments" },
   { icon: FileText, label: "Medical Records", path: "/dashboard/medical-records" },
+  { icon: FlaskConical, label: "Labs", path: "/dashboard/labs" },
   { icon: Pill, label: "Prescriptions", path: "/dashboard/prescriptions" },
   { icon: Package, label: "Orders", path: "/dashboard/orders" },
   { icon: TestTube, label: "Treatments", path: "/dashboard/treatments" },
@@ -55,10 +57,10 @@ export default function Sidebar({ isMobileOpen, onMobileClose }: SidebarProps) {
 
   const NavItem = ({ item }: { item: NavigationItem }) => {
     const Icon = item.icon;
-    
+
     // Improved active logic: sirf current page highlight ho
     const isActive = location.pathname === item.path ||
-                     (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
+      (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
 
     // On mobile, always show full size. On desktop, respect collapsed state
     const shouldShowCollapsed = isCollapsed && !isMobileOpen;
@@ -87,7 +89,7 @@ export default function Sidebar({ isMobileOpen, onMobileClose }: SidebarProps) {
           }
           {...(linkStyle && { style: linkStyle })}
         >
-          <Icon 
+          <Icon
             size={shouldShowCollapsed ? 24 : 18}
             className={cn("flex-none", !shouldShowCollapsed && "mr-3")}
             style={iconStyle}
@@ -111,7 +113,7 @@ export default function Sidebar({ isMobileOpen, onMobileClose }: SidebarProps) {
     <>
       {/* Mobile sidebar overlay */}
       {isMobileOpen && (
-        <div 
+        <div
           className="md:hidden fixed inset-0 bg-black/50 z-40 transition-opacity duration-300"
           onClick={onMobileClose}
         />
@@ -119,17 +121,17 @@ export default function Sidebar({ isMobileOpen, onMobileClose }: SidebarProps) {
 
       {/* Sidebar */}
 
-     
-      <div 
+
+      <div
         className={cn(
           "bg-white border-r border-gray-200 flex flex-col z-50 transition-all duration-300 ease-in-out min-h-screen",
 
           // Mobile drawer behavior
-            isMobileOpen ? "fixed inset-y-0 left-0 w-64 translate-x-0 " : "inset-y-0 left-0 w-64 -translate-x-full md:static md:translate-x-0 sidebar",
-            isCollapsed && !isMobileOpen ? "w-16" : "w-64",
+          isMobileOpen ? "fixed inset-y-0 left-0 w-64 translate-x-0 " : "inset-y-0 left-0 w-64 -translate-x-full md:static md:translate-x-0 sidebar",
+          isCollapsed && !isMobileOpen ? "w-16" : "w-64",
           // Desktop collapse only
-          !isMobileOpen && isCollapsed 
-            ? "md:w-16" 
+          !isMobileOpen && isCollapsed
+            ? "md:w-16"
             : "md:w-64"
         )}
       >
@@ -141,7 +143,7 @@ export default function Sidebar({ isMobileOpen, onMobileClose }: SidebarProps) {
           {(!isCollapsed || isMobileOpen) && (
             <p className="text-sm text-gray-500 uppercase tracking-wide">MENU</p>
           )}
-          
+
           {/* Close button for mobile, collapse/expand for desktop */}
           <div className="flex items-center">
             {isMobileOpen ? (
@@ -171,7 +173,7 @@ export default function Sidebar({ isMobileOpen, onMobileClose }: SidebarProps) {
             )}
           </div>
         </div>
-        
+
         <nav className="flex-1 px-4">
           <ul className="space-y-1">
             {mainItems.map((item) => (
@@ -179,7 +181,7 @@ export default function Sidebar({ isMobileOpen, onMobileClose }: SidebarProps) {
             ))}
           </ul>
         </nav>
-        
+
         {/* <div className="p-4 border-t border-gray-200">
           <ul className="space-y-1">
             {bottomItems.map((item) => (
