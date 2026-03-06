@@ -194,9 +194,10 @@ export default function BlogPost() {
         )}
 
         {/* Article Content */}
-        <div className="blog-post-content">
+        <div className="blog-post-content prose prose-blue max-w-none break-words prose-img:rounded-xl prose-headings:text-gray-900 prose-a:text-blue-600">
           <div
             dangerouslySetInnerHTML={{ __html: post.content }}
+            className="overflow-x-auto"
           />
         </div>
 
