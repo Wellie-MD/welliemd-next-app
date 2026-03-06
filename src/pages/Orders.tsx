@@ -440,10 +440,12 @@ export default function Orders() {
                   >
                     {savingId === row.id ? 'Saving...' : 'Save'}
                   </Button>
+                  {/* Delete button hidden on client portal /dashboard/orders */}
                   <PermissionGate permission={Permissions.ORDER_DELETE}>
                     <Button
                       size="sm"
                       variant="destructive"
+                      className="hidden"
                       onClick={() => setDeleteTarget(row)}
                     >
                       Delete
