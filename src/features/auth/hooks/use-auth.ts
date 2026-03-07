@@ -48,16 +48,27 @@ export const useAuth = () => {
   const login = useCallback(async (credentials: LoginRequest) => {
     try {
       await loginAction(credentials);
-      
-      const from = location.state?.from?.pathname || '/dashboard';
-      navigate(from, { replace: true });
-      
+
+      const searchParams = new URLSearchParams(location.search);
+      const returnTarget = searchParams.get('return');
+      const stateFrom = location.state?.from;
+      const from =
+        returnTarget ||
+        (typeof stateFrom === 'string' ? stateFrom : stateFrom?.pathname) ||
+        '/dashboard';
+
+      if (/^https?:\/\//i.test(from)) {
+        window.location.href = from;
+      } else {
+        navigate(from, { replace: true });
+      }
+
       debugLog('Login successful, navigating to:', from);
     } catch (error) {
       debugLog('Login failed:', error);
       throw error;
     }
-  }, [loginAction, navigate, location.state]);
+  }, [loginAction, navigate, location.search, location.state]);
 
   const register = useCallback(async (userData: RegisterRequest) => {
     try {

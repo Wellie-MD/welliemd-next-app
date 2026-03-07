@@ -42,7 +42,7 @@ export function ProtectedRoute({
       <Navigate 
         to={redirectTo} 
         state={{ 
-          from: location.pathname,
+          from: `${location.pathname}${location.search}${location.hash}`,
           message: 'Please sign in to access this page'
         }} 
         replace 
