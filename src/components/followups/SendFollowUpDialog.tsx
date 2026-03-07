@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { AlertCircle, AlertTriangle, CheckCircle2, Copy, Mail, Loader2 } from 'lucide-react';
-import { createFollowUp, getFollowUpTemplates, FollowUpTemplate, CreateFollowUpResponse } from '@/api/followUpApi';
+import { createFollowUp, getFollowUpTemplates, FollowUpTemplate, CreateFollowUpResponse, sendFollowUpNotification } from '@/api/followUpApi';
 import { patientService, TreatmentEpisode } from '@/services/patientService';
 
 interface SendFollowUpDialogProps {
@@ -58,6 +58,8 @@ export function SendFollowUpDialog({
   const [episodes, setEpisodes] = useState<TreatmentEpisode[]>([]);
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>('');
   const [episodesFallbackUsed, setEpisodesFallbackUsed] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [sendEmailMessage, setSendEmailMessage] = useState<string | null>(null);
 
   const selectedTemplateRecord = useMemo(
     () => templates.find((t) => t.id === selectedTemplate) || null,
@@ -151,6 +153,7 @@ export function SendFollowUpDialog({
       // Reset state when dialog opens
       setResult(null);
       setCopied(false);
+      setSendEmailMessage(null);
     }
   }, [open, loadTemplates]);
 
@@ -205,13 +208,32 @@ export function SendFollowUpDialog({
     }
   };
 
-  const handleSendEmail = () => {
-    if (result?.follow_up_url && patientEmail) {
-      const subject = encodeURIComponent('Complete Your Follow-Up Questionnaire');
-      const body = encodeURIComponent(
-        `Hello,\n\nPlease complete your follow-up questionnaire by clicking the link below:\n\n${result.follow_up_url}\n\nThis link will expire in ${expiryHours} hours.\n\nThank you.`
-      );
-      window.open(`mailto:${patientEmail}?subject=${subject}&body=${body}`);
+  const handleSendEmail = async () => {
+    if (!result?.session_id) return;
+
+    setSendingEmail(true);
+    setSendEmailMessage(null);
+    try {
+      const response = await sendFollowUpNotification(result.session_id, {
+        template_type: 'follow_up_scheduled',
+        channels: ['email'],
+      });
+
+      if (response.success) {
+        setSendEmailMessage('Follow-up email sent successfully.');
+        if (response.notification_result?.follow_up_url) {
+          setResult((prev) => (
+            prev ? { ...prev, follow_up_url: response.notification_result?.follow_up_url || prev.follow_up_url } : prev
+          ));
+        }
+      } else {
+        setSendEmailMessage(response.error || 'Failed to send follow-up email.');
+      }
+    } catch (error) {
+      console.error('Failed to send follow-up email:', error);
+      setSendEmailMessage('Failed to send follow-up email.');
+    } finally {
+      setSendingEmail(false);
     }
   };
 
@@ -362,6 +384,9 @@ export function SendFollowUpDialog({
                 timeStyle: 'short',
               })}
             </p>
+            {sendEmailMessage && (
+              <p className="text-sm text-muted-foreground">{sendEmailMessage}</p>
+            )}
           </div>
         ) : (
           // Error state
@@ -402,8 +427,12 @@ export function SendFollowUpDialog({
           ) : result.success ? (
             <>
               {patientEmail && (
-                <Button variant="outline" onClick={handleSendEmail}>
-                  <Mail className="mr-2 h-4 w-4" />
+                <Button variant="outline" onClick={handleSendEmail} disabled={sendingEmail}>
+                  {sendingEmail ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Mail className="mr-2 h-4 w-4" />
+                  )}
                   Send via Email
                 </Button>
               )}
