@@ -75,6 +75,26 @@ const normalizeUrl = (url: string = ''): string => {
   return url.endsWith('/') ? url : `${url}/`;
 };
 
+const getPersistedAccessToken = (): string | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem('auth-store');
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw);
+    const accessToken = parsed?.state?.tokens?.accessToken;
+    return typeof accessToken === 'string' && accessToken.trim() ? accessToken : null;
+  } catch (error) {
+    debugLog('Failed to read persisted auth token:', error);
+    return null;
+  }
+};
+
 // Create axios instance
 const createApiClient = (): AxiosInstance => {
   const client = axios.create({
@@ -100,8 +120,9 @@ const createApiClient = (): AxiosInstance => {
       }
 
       // Add access token if available
-      const accessToken = tokenManager.getAccessToken();
+      const accessToken = tokenManager.getAccessToken() || getPersistedAccessToken();
       if (accessToken) {
+        tokenManager.setAccessToken(accessToken);
         config.headers = config.headers || {};
         config.headers.Authorization = `Bearer ${accessToken}`;
       }
@@ -285,4 +306,3 @@ export async function withRetry<T>(
 
   throw lastError;
 }
-
