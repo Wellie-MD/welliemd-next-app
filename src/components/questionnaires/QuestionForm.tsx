@@ -33,6 +33,11 @@ import { listDoseMappings, ProductDoseMapping } from "@/api/productDoseMappings"
 import { RX_DRUG_FORM_OPTIONS } from "@/api/products";
 import { ProductSelector } from "./ProductSelector";
 import { GroupedQuestionBuilder } from "./GroupedQuestionBuilder";
+import {
+  VisibilityGroup,
+  createDefaultVisibilityGroup,
+  VisibilityRuleBuilder,
+} from "./VisibilityRuleBuilder";
 import { SubQuestion } from "@/api/questionnaires";
 import { normalizeChoiceDisplay } from "@/utils/choiceValue";
 
@@ -47,6 +52,13 @@ interface QuestionFormProps {
 interface ParentQuestionConfig {
   question_id: string;
   trigger_values: string[];
+}
+
+interface LegacyConditionNode {
+  question_id?: string;
+  operator?: string;
+  value?: unknown;
+  field?: string;
 }
 
 type CheckoutMode = "static" | "followup_derived_context";
@@ -84,6 +96,70 @@ interface ExtendedQuestionPayload extends CreateQuestionPayload {
   requires_agreement?: boolean;
   is_disqualifying?: boolean;
   beluga_consent_code?: string;
+}
+
+function isVisibilityGroup(value: unknown): value is VisibilityGroup {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    (value as VisibilityGroup).type === "group" &&
+    Array.isArray((value as VisibilityGroup).children)
+  );
+}
+
+function normalizeShowIfToTree(showIf: unknown, logicOperator: "AND" | "OR" = "OR"): VisibilityGroup | null {
+  if (!showIf) return null;
+
+  if (isVisibilityGroup(showIf)) {
+    return showIf;
+  }
+
+  if (Array.isArray(showIf)) {
+    return {
+      type: "group",
+      operator: logicOperator,
+      children: showIf
+        .filter((item): item is LegacyConditionNode => !!item && typeof item === "object")
+        .map((item) => ({
+          type: "condition" as const,
+          question_id: item.question_id || "",
+          operator: (item.operator as
+            | "equals"
+            | "not_equals"
+            | "in"
+            | "not_in"
+            | "contains"
+            | "not_contains") || "equals",
+          value: Array.isArray(item.value) ? item.value.map(String) : String(item.value ?? ""),
+          field: item.field,
+        })),
+    };
+  }
+
+  if (typeof showIf === "object" && showIf && (showIf as LegacyConditionNode).question_id) {
+    const item = showIf as LegacyConditionNode;
+    return {
+      type: "group",
+      operator: "AND",
+      children: [
+        {
+          type: "condition",
+          question_id: item.question_id || "",
+          operator: (item.operator as
+            | "equals"
+            | "not_equals"
+            | "in"
+            | "not_in"
+            | "contains"
+            | "not_contains") || "equals",
+          value: Array.isArray(item.value) ? item.value.map(String) : String(item.value ?? ""),
+          field: item.field,
+        },
+      ],
+    };
+  }
+
+  return null;
 }
 
 export function QuestionForm({
@@ -151,6 +227,10 @@ export function QuestionForm({
   const [selectedParentForAdding, setSelectedParentForAdding] =
     useState<string>("");
   const [logicOperator, setLogicOperator] = useState<"AND" | "OR">("OR");
+  const [followUpMode, setFollowUpMode] = useState<"simple" | "advanced">("simple");
+  const [visibilityRules, setVisibilityRules] = useState<VisibilityGroup>(
+    createDefaultVisibilityGroup()
+  );
 
   // Prefill config
   const [prefillEnabled, setPrefillEnabled] = useState(false);
@@ -249,6 +329,12 @@ export function QuestionForm({
 
       // Check if this is the new multi-parent format or legacy single-parent format
       const showIf = question.conditional_logic?.show_if;
+      const normalizedTree = normalizeShowIfToTree(
+        showIf,
+        question.conditional_logic?.logic_operator === "AND" ? "AND" : "OR"
+      );
+      setVisibilityRules(normalizedTree || createDefaultVisibilityGroup());
+      setFollowUpMode(normalizedTree && isVisibilityGroup(showIf) ? "advanced" : "simple");
 
       if (showIf && Array.isArray(showIf)) {
         // New format: Array of parent question configs
@@ -492,6 +578,8 @@ export function QuestionForm({
       setParentQuestions([]);
       setSelectedParentForAdding("");
       setLogicOperator("OR");
+      setFollowUpMode("simple");
+      setVisibilityRules(createDefaultVisibilityGroup());
       setCheckoutConfig(null);
       setCheckoutMode("static");
       setSubQuestions([]);
@@ -635,7 +723,16 @@ export function QuestionForm({
 
     // Validate follow-up settings
     if (formData.is_follow_up) {
-      if (parentQuestions.length === 0) {
+      if (followUpMode === "advanced") {
+        if (!visibilityRules.children.length) {
+          toast({
+            title: "Validation Error",
+            description: "Add at least one visibility condition before saving this follow-up question.",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else if (parentQuestions.length === 0) {
         toast({
           title: "Validation Error",
           description:
@@ -646,19 +743,21 @@ export function QuestionForm({
       }
 
       // Validate each parent has trigger values
-      for (const parent of parentQuestions) {
-        if (parent.trigger_values.length === 0) {
-          const parentQ = existingQuestions.find(
-            (q) => q.id === parent.question_id
-          );
-          toast({
-            title: "Validation Error",
-            description: `Parent question "${
-              parentQ?.question_text || "Unknown"
-            }" must have at least one trigger value`,
-            variant: "destructive",
-          });
-          return;
+      if (followUpMode === "simple") {
+        for (const parent of parentQuestions) {
+          if (parent.trigger_values.length === 0) {
+            const parentQ = existingQuestions.find(
+              (q) => q.id === parent.question_id
+            );
+            toast({
+              title: "Validation Error",
+              description: `Parent question "${
+                parentQ?.question_text || "Unknown"
+              }" must have at least one trigger value`,
+              variant: "destructive",
+            });
+            return;
+          }
         }
       }
     }
@@ -682,7 +781,11 @@ export function QuestionForm({
       // Build conditional_logic based on follow-up settings
       let conditionalLogic = {};
 
-      if (formData.is_follow_up && parentQuestions.length > 0) {
+      if (formData.is_follow_up && followUpMode === "advanced") {
+        conditionalLogic = {
+          show_if: visibilityRules,
+        };
+      } else if (formData.is_follow_up && parentQuestions.length > 0) {
         if (parentQuestions.length === 1) {
           // Single parent: use legacy format for backward compatibility
           const parent = parentQuestions[0];
@@ -2137,6 +2240,38 @@ export function QuestionForm({
 
             {showFollowUpSettings && (
               <div className="space-y-4 mt-3 pl-4 border-l-2">
+                <div className="space-y-2 p-3 border rounded-lg bg-background">
+                  <Label>Visibility Builder Mode</Label>
+                  <Select
+                    value={followUpMode}
+                    onValueChange={(value: "simple" | "advanced") => setFollowUpMode(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="simple">Simple parent triggers</SelectItem>
+                      <SelectItem value="advanced">Advanced nested rules</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Use advanced mode when you need branch convergence like
+                    <code className="ml-1">(A AND B) OR (C AND D)</code>.
+                  </p>
+                </div>
+
+                {followUpMode === "advanced" ? (
+                  <VisibilityRuleBuilder
+                    value={visibilityRules}
+                    onChange={setVisibilityRules}
+                    questions={parentQuestionOptions.map((question) => ({
+                      id: question.id,
+                      question_text: question.question_text,
+                      order_index: question.order_index,
+                      answer_choices: question.answer_choices,
+                    }))}
+                  />
+                ) : (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label>
@@ -2356,12 +2491,14 @@ export function QuestionForm({
 
                   {parentQuestions.length > 0 && (
                     <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
-                      ℹ️ This question will show when ANY of the{" "}
-                      {parentQuestions.length} parent question(s) has the
-                      specified trigger value(s)
+                      ℹ️ This question will show{" "}
+                      {logicOperator === "AND"
+                        ? "only when every configured parent matches."
+                        : "when any configured parent matches."}
                     </p>
                   )}
                 </div>
+                )}
               </div>
             )}
           </div>
