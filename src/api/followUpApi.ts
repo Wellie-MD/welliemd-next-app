@@ -44,6 +44,22 @@ export interface FollowUpTemplate {
     questionnaire_type: string;
 }
 
+export interface SendFollowUpNotificationRequest {
+    template_type?: string;
+    channels?: Array<'email' | 'sms'>;
+}
+
+export interface SendFollowUpNotificationResponse {
+    success: boolean;
+    session_id: string;
+    notification_result?: {
+        email?: string;
+        sms?: string;
+        follow_up_url?: string;
+    };
+    error?: string;
+}
+
 /**
  * Create a new follow-up session for a patient.
  * Returns the follow-up URL to send to the patient.
@@ -109,8 +125,29 @@ export async function getFollowUpTemplates(): Promise<FollowUpTemplate[]> {
     }
 }
 
+export async function sendFollowUpNotification(
+    followUpId: string,
+    data: SendFollowUpNotificationRequest
+): Promise<SendFollowUpNotificationResponse> {
+    try {
+        const response = await axiosInstance.post<SendFollowUpNotificationResponse>(
+            `/questionnaires/follow-ups/${followUpId}/send_notification/`,
+            data
+        );
+        return response.data;
+    } catch (error: any) {
+        console.error('Error sending follow-up notification:', error);
+        return {
+            success: false,
+            session_id: followUpId,
+            error: error.response?.data?.error || error.message || 'Failed to send follow-up notification',
+        };
+    }
+}
+
 export default {
     createFollowUp,
     getPatientFollowUps,
     getFollowUpTemplates,
+    sendFollowUpNotification,
 };
