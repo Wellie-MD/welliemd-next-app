@@ -80,7 +80,7 @@ export function SendFollowUpDialog({
     if (!selectedTemplateRecord || !selectedEpisodeRecord) return null;
 
     const templateText = `${selectedTemplateRecord.name || ''} ${selectedTemplateRecord.treatment_type || ''}`.toLowerCase();
-    const episodeText = `${selectedEpisodeRecord.current_product_name || ''} ${selectedEpisodeRecord.current_product_base_medication_name || ''} ${selectedEpisodeRecord.current_product_titration_category || ''} ${selectedEpisodeRecord.treatment_key || ''}`.toLowerCase();
+    const episodeText = `${selectedEpisodeRecord.current_product_name || ''} ${selectedEpisodeRecord.current_product_category_name || ''} ${selectedEpisodeRecord.current_product_titration_category || ''} ${selectedEpisodeRecord.treatment_key || ''}`.toLowerCase();
 
     const glpPattern =
       /(glp|semaglutide|tirzepatide|ozempic|wegovy|mounjaro|zepbound|individualized weight loss)/;
@@ -99,6 +99,17 @@ export function SendFollowUpDialog({
 
     return null;
   }, [selectedTemplateRecord, selectedEpisodeRecord]);
+
+  const describeEpisode = useCallback((episode: TreatmentEpisode) => {
+    const primary = [
+      episode.current_product_name,
+      episode.current_product_category_name,
+      episode.current_product_titration_category,
+    ].filter(Boolean);
+
+    const summary = primary.length > 0 ? primary.join(' • ') : episode.treatment_key;
+    return `${summary} • ${episode.status}`;
+  }, []);
 
   const loadTemplates = useCallback(async () => {
     setLoadingTemplates(true);
@@ -165,6 +176,7 @@ export function SendFollowUpDialog({
 
   const handleSubmit = async () => {
     if (!selectedTemplate) return;
+    if (episodes.length === 0) return;
     if (episodes.length > 1 && !selectedEpisodeId) return;
 
     setLoading(true);
@@ -173,7 +185,7 @@ export function SendFollowUpDialog({
         patient_id: patientId,
         questionnaire_id: selectedTemplate,
         expiry_hours: expiryHours,
-        episode_id: selectedEpisodeId || null,
+        episode_id: selectedEpisodeId || selectedEpisodeRecord?.id || null,
       });
 
       setResult(response);
@@ -308,9 +320,8 @@ export function SendFollowUpDialog({
                   Loading treatment history...
                 </div>
               ) : episodes.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No prior treatment episode found. The follow-up will still be sent,
-                  but prefill may be limited.
+                <p className="text-sm text-red-600">
+                  No treatment episode is available for this patient and template yet. Create or attach the correct treatment track before sending a manual follow-up.
                 </p>
               ) : (
                 <>
@@ -321,7 +332,7 @@ export function SendFollowUpDialog({
                     <SelectContent>
                       {episodes.map((episode) => (
                         <SelectItem key={episode.id} value={episode.id}>
-                          {episode.current_product_name || episode.treatment_key} • {episode.status}
+                          {describeEpisode(episode)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -411,6 +422,7 @@ export function SendFollowUpDialog({
                   !selectedTemplate ||
                   loadingTemplates ||
                   loadingEpisodes ||
+                  episodes.length === 0 ||
                   (episodes.length > 1 && !selectedEpisodeId)
                 }
               >
