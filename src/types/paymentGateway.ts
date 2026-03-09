@@ -13,7 +13,6 @@ export interface PaymentGatewayConfig {
 
     // NMI fields
     nmi_security_key?: string | null;
-    nmi_api_key?: string | null;
     nmi_base_url?: string | null;
     nmi_public_key?: string | null;
     nmi_test_mode?: boolean | null;
@@ -78,25 +77,19 @@ export const GATEWAY_FIELDS: Record<PaymentGatewayType, GatewayFieldConfig[]> = 
     nmi: [
         {
             key: 'nmi_security_key',
-            label: 'Security Key',
-            placeholder: 'Enter NMI Security Key',
-            description: 'Your NMI Security Key for server-side API calls. Found in NMI Control Panel → Settings → Security Keys. This is required for processing payments.',
+            label: 'API Security Key',
+            placeholder: 'Enter NMI API Security Key',
+            description: 'Private merchant API security key used for server-side transact.php payment requests. Generate it from the merchant account Security Keys page. Do not use Partner Portal / v4 boarding keys here.',
             type: 'password',
             required: true
         },
         {
-            key: 'nmi_api_key',
-            label: 'API Key',
-            placeholder: 'Enter NMI API Key',
-            description: 'NMI API Key for additional authentication. This may be the same as the Security Key depending on your NMI account setup.',
-            type: 'password'
-        },
-        {
             key: 'nmi_public_key',
-            label: 'Public Key (Tokenization Key)',
-            placeholder: 'Enter NMI Public Key',
-            description: 'NMI Public Key for Collect.js tokenization in the browser. Found in NMI Control Panel → Settings → Security Keys → Public Security Key.',
-            type: 'text'
+            label: 'Tokenization Key (Collect.js)',
+            placeholder: 'Enter NMI Tokenization Key',
+            description: 'Public tokenization key used only for Collect.js in the browser. Generate it from the merchant account Security Keys page using the Tokenization key type. Do not use Partner Portal / v4 keys here.',
+            type: 'text',
+            required: true
         },
         {
             key: 'nmi_test_mode',

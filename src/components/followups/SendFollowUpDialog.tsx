@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { AlertCircle, AlertTriangle, CheckCircle2, Copy, Mail, Loader2 } from 'lucide-react';
-import { createFollowUp, getFollowUpTemplates, FollowUpTemplate, CreateFollowUpResponse } from '@/api/followUpApi';
+import { createFollowUp, getFollowUpTemplates, FollowUpTemplate, CreateFollowUpResponse, sendFollowUpNotification } from '@/api/followUpApi';
 import { patientService, TreatmentEpisode } from '@/services/patientService';
 
 interface SendFollowUpDialogProps {
@@ -58,6 +58,8 @@ export function SendFollowUpDialog({
   const [episodes, setEpisodes] = useState<TreatmentEpisode[]>([]);
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>('');
   const [episodesFallbackUsed, setEpisodesFallbackUsed] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [sendEmailMessage, setSendEmailMessage] = useState<string | null>(null);
 
   const selectedTemplateRecord = useMemo(
     () => templates.find((t) => t.id === selectedTemplate) || null,
@@ -78,7 +80,7 @@ export function SendFollowUpDialog({
     if (!selectedTemplateRecord || !selectedEpisodeRecord) return null;
 
     const templateText = `${selectedTemplateRecord.name || ''} ${selectedTemplateRecord.treatment_type || ''}`.toLowerCase();
-    const episodeText = `${selectedEpisodeRecord.current_product_name || ''} ${selectedEpisodeRecord.current_product_base_medication_name || ''} ${selectedEpisodeRecord.current_product_titration_category || ''} ${selectedEpisodeRecord.treatment_key || ''}`.toLowerCase();
+    const episodeText = `${selectedEpisodeRecord.current_product_name || ''} ${selectedEpisodeRecord.current_product_category_name || ''} ${selectedEpisodeRecord.current_product_titration_category || ''} ${selectedEpisodeRecord.treatment_key || ''}`.toLowerCase();
 
     const glpPattern =
       /(glp|semaglutide|tirzepatide|ozempic|wegovy|mounjaro|zepbound|individualized weight loss)/;
@@ -97,6 +99,17 @@ export function SendFollowUpDialog({
 
     return null;
   }, [selectedTemplateRecord, selectedEpisodeRecord]);
+
+  const describeEpisode = useCallback((episode: TreatmentEpisode) => {
+    const primary = [
+      episode.current_product_name,
+      episode.current_product_category_name,
+      episode.current_product_titration_category,
+    ].filter(Boolean);
+
+    const summary = primary.length > 0 ? primary.join(' • ') : episode.treatment_key;
+    return `${summary} • ${episode.status}`;
+  }, []);
 
   const loadTemplates = useCallback(async () => {
     setLoadingTemplates(true);
@@ -151,6 +164,7 @@ export function SendFollowUpDialog({
       // Reset state when dialog opens
       setResult(null);
       setCopied(false);
+      setSendEmailMessage(null);
     }
   }, [open, loadTemplates]);
 
@@ -162,6 +176,7 @@ export function SendFollowUpDialog({
 
   const handleSubmit = async () => {
     if (!selectedTemplate) return;
+    if (episodes.length === 0) return;
     if (episodes.length > 1 && !selectedEpisodeId) return;
 
     setLoading(true);
@@ -170,7 +185,7 @@ export function SendFollowUpDialog({
         patient_id: patientId,
         questionnaire_id: selectedTemplate,
         expiry_hours: expiryHours,
-        episode_id: selectedEpisodeId || null,
+        episode_id: selectedEpisodeId || selectedEpisodeRecord?.id || null,
       });
 
       setResult(response);
@@ -205,13 +220,32 @@ export function SendFollowUpDialog({
     }
   };
 
-  const handleSendEmail = () => {
-    if (result?.follow_up_url && patientEmail) {
-      const subject = encodeURIComponent('Complete Your Follow-Up Questionnaire');
-      const body = encodeURIComponent(
-        `Hello,\n\nPlease complete your follow-up questionnaire by clicking the link below:\n\n${result.follow_up_url}\n\nThis link will expire in ${expiryHours} hours.\n\nThank you.`
-      );
-      window.open(`mailto:${patientEmail}?subject=${subject}&body=${body}`);
+  const handleSendEmail = async () => {
+    if (!result?.session_id) return;
+
+    setSendingEmail(true);
+    setSendEmailMessage(null);
+    try {
+      const response = await sendFollowUpNotification(result.session_id, {
+        template_type: 'follow_up_scheduled',
+        channels: ['email'],
+      });
+
+      if (response.success) {
+        setSendEmailMessage('Follow-up email sent successfully.');
+        if (response.notification_result?.follow_up_url) {
+          setResult((prev) => (
+            prev ? { ...prev, follow_up_url: response.notification_result?.follow_up_url || prev.follow_up_url } : prev
+          ));
+        }
+      } else {
+        setSendEmailMessage(response.error || 'Failed to send follow-up email.');
+      }
+    } catch (error) {
+      console.error('Failed to send follow-up email:', error);
+      setSendEmailMessage('Failed to send follow-up email.');
+    } finally {
+      setSendingEmail(false);
     }
   };
 
@@ -286,9 +320,8 @@ export function SendFollowUpDialog({
                   Loading treatment history...
                 </div>
               ) : episodes.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No prior treatment episode found. The follow-up will still be sent,
-                  but prefill may be limited.
+                <p className="text-sm text-red-600">
+                  No treatment episode is available for this patient and template yet. Create or attach the correct treatment track before sending a manual follow-up.
                 </p>
               ) : (
                 <>
@@ -299,7 +332,7 @@ export function SendFollowUpDialog({
                     <SelectContent>
                       {episodes.map((episode) => (
                         <SelectItem key={episode.id} value={episode.id}>
-                          {episode.current_product_name || episode.treatment_key} • {episode.status}
+                          {describeEpisode(episode)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -362,6 +395,9 @@ export function SendFollowUpDialog({
                 timeStyle: 'short',
               })}
             </p>
+            {sendEmailMessage && (
+              <p className="text-sm text-muted-foreground">{sendEmailMessage}</p>
+            )}
           </div>
         ) : (
           // Error state
@@ -386,6 +422,7 @@ export function SendFollowUpDialog({
                   !selectedTemplate ||
                   loadingTemplates ||
                   loadingEpisodes ||
+                  episodes.length === 0 ||
                   (episodes.length > 1 && !selectedEpisodeId)
                 }
               >
@@ -402,8 +439,12 @@ export function SendFollowUpDialog({
           ) : result.success ? (
             <>
               {patientEmail && (
-                <Button variant="outline" onClick={handleSendEmail}>
-                  <Mail className="mr-2 h-4 w-4" />
+                <Button variant="outline" onClick={handleSendEmail} disabled={sendingEmail}>
+                  {sendingEmail ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Mail className="mr-2 h-4 w-4" />
+                  )}
                   Send via Email
                 </Button>
               )}
