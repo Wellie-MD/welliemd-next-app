@@ -129,7 +129,7 @@ export interface CreateQuestionPayload {
   question_type: string;
   is_required: boolean;
   is_read_only?: boolean;
-  answer_choices?: string[];
+  answer_choices?: unknown[];
   conditional_logic?: Record<string, unknown>;
   validation_rules?: Record<string, unknown>;
   beluga_field_mapping?: string;
@@ -144,7 +144,7 @@ export interface UpdateQuestionPayload {
   question_type?: string;
   is_required?: boolean;
   is_read_only?: boolean;
-  answer_choices?: string[];
+  answer_choices?: unknown[];
   conditional_logic?: Record<string, unknown>;
   validation_rules?: Record<string, unknown>;
   beluga_field_mapping?: string;
