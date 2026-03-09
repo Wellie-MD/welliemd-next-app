@@ -18,9 +18,15 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Info } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   questionApi,
   templateApi,
@@ -33,6 +39,11 @@ import { listDoseMappings, ProductDoseMapping } from "@/api/productDoseMappings"
 import { RX_DRUG_FORM_OPTIONS } from "@/api/products";
 import { ProductSelector } from "./ProductSelector";
 import { GroupedQuestionBuilder } from "./GroupedQuestionBuilder";
+import {
+  VisibilityGroup,
+  createDefaultVisibilityGroup,
+  VisibilityRuleBuilder,
+} from "./VisibilityRuleBuilder";
 import { SubQuestion } from "@/api/questionnaires";
 import { normalizeChoiceDisplay } from "@/utils/choiceValue";
 
@@ -49,7 +60,27 @@ interface ParentQuestionConfig {
   trigger_values: string[];
 }
 
-type CheckoutMode = "static" | "followup_derived_context";
+interface StructuredChoiceMeta {
+  category_id?: number;
+  category_name?: string;
+  dose_mapping_id?: number;
+  dose_mapping_label?: string;
+}
+
+interface StructuredChoiceOption {
+  label: string;
+  value?: string;
+  meta?: StructuredChoiceMeta;
+}
+
+type AnswerChoiceOption = string | StructuredChoiceOption;
+
+interface LegacyConditionNode {
+  question_id?: string;
+  operator?: string;
+  value?: unknown;
+  field?: string;
+}
 
 interface CheckoutConfig {
   resolution_mode?: "followup_derived_context";
@@ -84,6 +115,126 @@ interface ExtendedQuestionPayload extends CreateQuestionPayload {
   requires_agreement?: boolean;
   is_disqualifying?: boolean;
   beluga_consent_code?: string;
+  answer_choices: AnswerChoiceOption[];
+}
+
+function isStructuredChoiceOption(choice: unknown): choice is StructuredChoiceOption {
+  return !!choice && typeof choice === "object" && !Array.isArray(choice);
+}
+
+function getChoiceLabel(choice: AnswerChoiceOption): string {
+  return normalizeChoiceDisplay(choice);
+}
+
+function getChoiceMeta(choice: AnswerChoiceOption): StructuredChoiceMeta {
+  if (!isStructuredChoiceOption(choice) || !choice.meta) return {};
+  return choice.meta;
+}
+
+function buildChoiceOption(
+  label: string,
+  meta?: StructuredChoiceMeta
+): AnswerChoiceOption {
+  const trimmed = label.trim();
+  const normalizedMeta = meta || {};
+  const hasMeta = Object.values(normalizedMeta).some(
+    (value) => value !== undefined && value !== null && value !== ""
+  );
+
+  if (!hasMeta) {
+    return trimmed;
+  }
+
+  return {
+    label: trimmed,
+    value: trimmed,
+    meta: normalizedMeta,
+  };
+}
+
+function isVisibilityGroup(value: unknown): value is VisibilityGroup {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    (value as VisibilityGroup).type === "group" &&
+    Array.isArray((value as VisibilityGroup).children)
+  );
+}
+
+function normalizeShowIfToTree(showIf: unknown, logicOperator: "AND" | "OR" = "OR"): VisibilityGroup | null {
+  if (!showIf) return null;
+
+  if (isVisibilityGroup(showIf)) {
+    return showIf;
+  }
+
+  if (Array.isArray(showIf)) {
+    return {
+      type: "group",
+      operator: logicOperator,
+      children: showIf
+        .filter((item): item is LegacyConditionNode => !!item && typeof item === "object")
+        .map((item) => ({
+          type: "condition" as const,
+          question_id: item.question_id || "",
+          operator: (item.operator as
+            | "equals"
+            | "not_equals"
+            | "in"
+            | "not_in"
+            | "contains"
+            | "not_contains") || "equals",
+          value: Array.isArray(item.value) ? item.value.map(String) : String(item.value ?? ""),
+          field: item.field,
+        })),
+    };
+  }
+
+  if (typeof showIf === "object" && showIf && (showIf as LegacyConditionNode).question_id) {
+    const item = showIf as LegacyConditionNode;
+    return {
+      type: "group",
+      operator: "AND",
+      children: [
+        {
+          type: "condition",
+          question_id: item.question_id || "",
+          operator: (item.operator as
+            | "equals"
+            | "not_equals"
+            | "in"
+            | "not_in"
+            | "contains"
+            | "not_contains") || "equals",
+          value: Array.isArray(item.value) ? item.value.map(String) : String(item.value ?? ""),
+          field: item.field,
+        },
+      ],
+    };
+  }
+
+  return null;
+}
+
+function FieldHelp({ text }: { text: string }) {
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex items-center text-muted-foreground hover:text-foreground"
+            aria-label="Field help"
+          >
+            <Info className="h-3.5 w-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
+          {text}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }
 
 export function QuestionForm({
@@ -93,12 +244,6 @@ export function QuestionForm({
   question,
   onSuccess,
 }: QuestionFormProps) {
-  const FOLLOWUP_PROTOCOL_OPTIONS = [
-    { value: "alternative protocol", label: "Alternative Protocol" },
-    { value: "rapid protocol", label: "Rapid Protocol" },
-    { value: "twice weekly protocol", label: "Twice Weekly Protocol" },
-  ];
-
   const [loading, setLoading] = useState(false);
 
   const [existingQuestions, setExistingQuestions] = useState<Question[]>([]);
@@ -151,19 +296,25 @@ export function QuestionForm({
   const [selectedParentForAdding, setSelectedParentForAdding] =
     useState<string>("");
   const [logicOperator, setLogicOperator] = useState<"AND" | "OR">("OR");
+  const [followUpMode, setFollowUpMode] = useState<"simple" | "advanced">("simple");
+  const [visibilityRules, setVisibilityRules] = useState<VisibilityGroup>(
+    createDefaultVisibilityGroup()
+  );
 
   // Prefill config
   const [prefillEnabled, setPrefillEnabled] = useState(false);
   const [prefillSource, setPrefillSource] = useState<
     "onboarding" | "latest_completed" | "clinical" | "derived"
   >("onboarding");
+  const [prefillFieldType, setPrefillFieldType] = useState<
+    "" | "medication_family" | "medication_dose"
+  >("");
   const [prefillSourceQuestionId, setPrefillSourceQuestionId] = useState("");
   const [prefillDerivedField, setPrefillDerivedField] = useState<
     "therapy_route" | "regimen_protocol"
   >("therapy_route");
 
   // State for checkout question type
-  const [checkoutMode, setCheckoutMode] = useState<CheckoutMode>("static");
   const [checkoutConfig, setCheckoutConfig] = useState<CheckoutConfig | null>(
     null
   );
@@ -249,6 +400,12 @@ export function QuestionForm({
 
       // Check if this is the new multi-parent format or legacy single-parent format
       const showIf = question.conditional_logic?.show_if;
+      const normalizedTree = normalizeShowIfToTree(
+        showIf,
+        question.conditional_logic?.logic_operator === "AND" ? "AND" : "OR"
+      );
+      setVisibilityRules(normalizedTree || createDefaultVisibilityGroup());
+      setFollowUpMode(normalizedTree && isVisibilityGroup(showIf) ? "advanced" : "simple");
 
       if (showIf && Array.isArray(showIf)) {
         // New format: Array of parent question configs
@@ -327,6 +484,9 @@ export function QuestionForm({
         (prefillConfig?.source as "onboarding" | "latest_completed" | "clinical" | "derived") ||
           "onboarding"
       );
+      setPrefillFieldType(
+        (prefillConfig?.field_type as "" | "medication_family" | "medication_dose") || ""
+      );
       setPrefillSourceQuestionId(prefillConfig?.source_question_id || "");
       if (prefillConfig?.field) {
         setPrefillDerivedField(
@@ -341,14 +501,8 @@ export function QuestionForm({
       ) {
         const existingCheckoutConfig = validationRules.checkout_config as CheckoutConfig;
         setCheckoutConfig(existingCheckoutConfig);
-        setCheckoutMode(
-          existingCheckoutConfig?.resolution_mode === "followup_derived_context"
-            ? "followup_derived_context"
-            : "static"
-        );
       } else if (question.question_type === "checkout") {
         setCheckoutConfig(null);
-        setCheckoutMode("static");
       }
 
       // Extract medication config for medication_dose_selector questions
@@ -492,8 +646,9 @@ export function QuestionForm({
       setParentQuestions([]);
       setSelectedParentForAdding("");
       setLogicOperator("OR");
+      setFollowUpMode("simple");
+      setVisibilityRules(createDefaultVisibilityGroup());
       setCheckoutConfig(null);
-      setCheckoutMode("static");
       setSubQuestions([]);
       setEnableNumberValidation(false);
       setNumberValidationOperator("gt");
@@ -538,7 +693,7 @@ export function QuestionForm({
         ...formData,
         answer_choices: [
           ...(formData.answer_choices || []),
-          newAnswerChoice.trim(),
+          buildChoiceOption(newAnswerChoice.trim()),
         ],
       });
       setNewAnswerChoice("");
@@ -551,9 +706,10 @@ export function QuestionForm({
       formData.answer_choices?.filter((_, i) => i !== index) || [];
 
     // Also remove from disqualifying answers if it was marked
-    if (choiceToRemove && disqualifyingAnswers.includes(choiceToRemove)) {
+    const choiceDisplay = choiceToRemove ? getChoiceLabel(choiceToRemove) : "";
+    if (choiceDisplay && disqualifyingAnswers.includes(choiceDisplay)) {
       setDisqualifyingAnswers(
-        disqualifyingAnswers.filter((a) => a !== choiceToRemove)
+        disqualifyingAnswers.filter((a) => a !== choiceDisplay)
       );
     }
 
@@ -566,15 +722,42 @@ export function QuestionForm({
   const handleUpdateChoice = (index: number, value: string) => {
     const oldValue = formData.answer_choices?.[index];
     const updatedChoices = [...(formData.answer_choices || [])];
-    updatedChoices[index] = value;
+    const existingMeta = oldValue ? getChoiceMeta(oldValue) : {};
+    updatedChoices[index] = buildChoiceOption(value, existingMeta);
 
     // Update disqualifying answers if the old value was marked
-    if (oldValue && disqualifyingAnswers.includes(oldValue)) {
+    const oldDisplay = oldValue ? getChoiceLabel(oldValue) : "";
+    if (oldDisplay && disqualifyingAnswers.includes(oldDisplay)) {
       const updatedDisqualifying = disqualifyingAnswers.map((a) =>
-        a === oldValue ? value : a
+        a === oldDisplay ? value : a
       );
       setDisqualifyingAnswers(updatedDisqualifying);
     }
+
+    setFormData({
+      ...formData,
+      answer_choices: updatedChoices,
+    });
+  };
+
+  const handleUpdateChoiceMeta = (
+    index: number,
+    updates: Partial<StructuredChoiceMeta>
+  ) => {
+    const updatedChoices = [...(formData.answer_choices || [])];
+    const currentChoice = updatedChoices[index];
+    const label = currentChoice ? getChoiceLabel(currentChoice) : "";
+    const currentMeta = currentChoice ? getChoiceMeta(currentChoice) : {};
+    const nextMeta = { ...currentMeta, ...updates };
+
+    if (!nextMeta.category_id) {
+      delete nextMeta.category_name;
+    }
+    if (!nextMeta.dose_mapping_id) {
+      delete nextMeta.dose_mapping_label;
+    }
+
+    updatedChoices[index] = buildChoiceOption(label, nextMeta);
 
     setFormData({
       ...formData,
@@ -635,7 +818,16 @@ export function QuestionForm({
 
     // Validate follow-up settings
     if (formData.is_follow_up) {
-      if (parentQuestions.length === 0) {
+      if (followUpMode === "advanced") {
+        if (!visibilityRules.children.length) {
+          toast({
+            title: "Validation Error",
+            description: "Add at least one visibility condition before saving this follow-up question.",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else if (parentQuestions.length === 0) {
         toast({
           title: "Validation Error",
           description:
@@ -646,19 +838,21 @@ export function QuestionForm({
       }
 
       // Validate each parent has trigger values
-      for (const parent of parentQuestions) {
-        if (parent.trigger_values.length === 0) {
-          const parentQ = existingQuestions.find(
-            (q) => q.id === parent.question_id
-          );
-          toast({
-            title: "Validation Error",
-            description: `Parent question "${
-              parentQ?.question_text || "Unknown"
-            }" must have at least one trigger value`,
-            variant: "destructive",
-          });
-          return;
+      if (followUpMode === "simple") {
+        for (const parent of parentQuestions) {
+          if (parent.trigger_values.length === 0) {
+            const parentQ = existingQuestions.find(
+              (q) => q.id === parent.question_id
+            );
+            toast({
+              title: "Validation Error",
+              description: `Parent question "${
+                parentQ?.question_text || "Unknown"
+              }" must have at least one trigger value`,
+              variant: "destructive",
+            });
+            return;
+          }
         }
       }
     }
@@ -682,7 +876,11 @@ export function QuestionForm({
       // Build conditional_logic based on follow-up settings
       let conditionalLogic = {};
 
-      if (formData.is_follow_up && parentQuestions.length > 0) {
+      if (formData.is_follow_up && followUpMode === "advanced") {
+        conditionalLogic = {
+          show_if: visibilityRules,
+        };
+      } else if (formData.is_follow_up && parentQuestions.length > 0) {
         if (parentQuestions.length === 1) {
           // Single parent: use legacy format for backward compatibility
           const parent = parentQuestions[0];
@@ -717,26 +915,13 @@ export function QuestionForm({
         if (!checkoutConfig) {
           toast({
             title: "Validation Error",
-            description:
-              checkoutMode === "followup_derived_context"
-                ? "Configure derived checkout fields before saving"
-                : "Product selection is required for checkout questions",
+            description: "Product selection is required for checkout questions",
             variant: "destructive",
           });
           return;
         }
 
-        if (checkoutMode === "followup_derived_context") {
-          if (!checkoutConfig.target_regimen_protocol) {
-            toast({
-              title: "Validation Error",
-              description:
-                "Select a regimen protocol for derived follow-up checkout questions",
-              variant: "destructive",
-            });
-            return;
-          }
-        } else if (
+        if (
           !checkoutConfig.category ||
           !checkoutConfig.regimen ||
           !checkoutConfig.dose_mapping
@@ -795,16 +980,9 @@ export function QuestionForm({
         };
       } else if (formData.question_type === "checkout") {
         const normalizedCheckoutConfig: CheckoutConfig = { ...checkoutConfig };
-        if (checkoutMode === "followup_derived_context") {
-          normalizedCheckoutConfig.resolution_mode = "followup_derived_context";
-          normalizedCheckoutConfig.dose_strategy =
-            normalizedCheckoutConfig.dose_strategy ||
-            "next_dose_if_available_else_same";
-        } else {
-          delete normalizedCheckoutConfig.resolution_mode;
-          delete normalizedCheckoutConfig.target_regimen_protocol;
-          delete normalizedCheckoutConfig.dose_strategy;
-        }
+        delete normalizedCheckoutConfig.resolution_mode;
+        delete normalizedCheckoutConfig.target_regimen_protocol;
+        delete normalizedCheckoutConfig.dose_strategy;
         validationRules = {
           checkout_config: normalizedCheckoutConfig,
         };
@@ -901,6 +1079,7 @@ export function QuestionForm({
         validationRules.prefill = {
           enabled: true,
           source: prefillSource,
+          field_type: prefillFieldType || undefined,
           source_question_id:
             prefillSource === "derived" ? undefined : prefillSourceQuestionId || undefined,
           field: prefillSource === "derived" ? prefillDerivedField : undefined,
@@ -1094,9 +1273,12 @@ export function QuestionForm({
 
           {/* Question Type */}
           <div className="space-y-2">
-            <Label htmlFor="question_type">
-              Question Type <span className="text-red-500">*</span>
-            </Label>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="question_type">
+                Question Type <span className="text-red-500">*</span>
+              </Label>
+              <FieldHelp text="Use normal single-choice questions for medication and dose in follow-up flows. Use checkout questions only at the end of each final path." />
+            </div>
             <Select
               value={formData.question_type}
               onValueChange={(value) => {
@@ -1186,6 +1368,13 @@ export function QuestionForm({
                 </SelectItem>
               </SelectContent>
             </Select>
+            {(formData.question_type === "single_choice" ||
+              formData.question_type === "medication_dose_selector" ||
+              formData.question_type === "checkout") && (
+              <p className="text-xs text-muted-foreground">
+                Recommended: use `Single Choice (Radio)` for medication and dose questions, then use conditions to show the correct static checkout question.
+              </p>
+            )}
           </div>
 
           {/* Grouped Question Builder */}
@@ -1276,132 +1465,25 @@ export function QuestionForm({
           {/* Checkout Product Selection */}
           {formData.question_type === "checkout" && (
             <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
-              <h3 className="font-semibold text-sm">Checkout Configuration</h3>
-              <div className="space-y-2">
-                <Label>Checkout Mode</Label>
-                <Select
-                  value={checkoutMode}
-                  onValueChange={(value: CheckoutMode) => {
-                    setCheckoutMode(value);
-                    if (value === "followup_derived_context") {
-                      setCheckoutConfig((prev) => ({
-                        ...(prev || {}),
-                        resolution_mode: "followup_derived_context",
-                        dose_strategy:
-                          prev?.dose_strategy ||
-                          "next_dose_if_available_else_same",
-                      }));
-                    } else {
-                      setCheckoutConfig((prev) => {
-                        if (!prev) return null;
-                        const next = { ...prev };
-                        delete next.resolution_mode;
-                        delete next.target_regimen_protocol;
-                        delete next.dose_strategy;
-                        return next;
-                      });
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select mode" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="static">
-                      Static Product (Onboarding/Basic Follow-up)
-                    </SelectItem>
-                    {templateQuestionnaireType === "follow_up" && (
-                      <SelectItem value="followup_derived_context">
-                        Dynamic Follow-up (Derived Context)
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-                {templateQuestionnaireType !== "follow_up" && (
-                  <p className="text-xs text-muted-foreground">
-                    Dynamic derived mode is available only for follow-up templates.
-                  </p>
-                )}
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-sm">Checkout Configuration</h3>
+                <FieldHelp text="Pick the fixed product lane for this checkout question. Use questionnaire visibility rules to decide which checkout appears. Do not use checkout settings as the main branching engine." />
               </div>
-
-              {checkoutMode === "followup_derived_context" && (
-                <>
-                  <div className="space-y-2">
-                    <Label>
-                      Target Regimen Protocol{" "}
-                      <span className="text-red-500">*</span>
-                    </Label>
-                    <Select
-                      value={checkoutConfig?.target_regimen_protocol || ""}
-                      onValueChange={(value) =>
-                        setCheckoutConfig((prev) => ({
-                          ...(prev || {}),
-                          target_regimen_protocol: value,
-                        }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select protocol" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {FOLLOWUP_PROTOCOL_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Dose Strategy</Label>
-                    <Select
-                      value={
-                        checkoutConfig?.dose_strategy ||
-                        "next_dose_if_available_else_same"
-                      }
-                      onValueChange={(
-                        value: "same_dose" | "next_dose_if_available_else_same"
-                      ) =>
-                        setCheckoutConfig((prev) => ({
-                          ...(prev || {}),
-                          dose_strategy: value,
-                        }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select dose strategy" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="next_dose_if_available_else_same">
-                          Move to Next Dose (fallback to same at max dose)
-                        </SelectItem>
-                        <SelectItem value="same_dose">
-                          Keep Same Dose
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
-              )}
-
               <div className="space-y-2">
-                <Label>
-                  {checkoutMode === "followup_derived_context"
-                    ? "Fallback Product (Optional)"
-                    : "Select Product"}{" "}
-                  {checkoutMode === "static" && (
-                    <span className="text-red-500">*</span>
-                  )}
-                </Label>
+                <div className="flex items-center gap-2">
+                  <Label>
+                  Select Product <span className="text-red-500">*</span>
+                  </Label>
+                  <FieldHelp text="Select the exact category, regimen, and dose mapping for this checkout path. Create separate checkout questions for same dose, increase dose, decrease dose, or change medication paths." />
+                </div>
                 <ProductSelector
                   value={checkoutConfig}
                   onChange={setCheckoutConfig}
                 />
                 <p className="text-xs text-muted-foreground">
-                  {checkoutMode === "followup_derived_context"
-                    ? "Products are resolved from follow-up derived context. Fallback product is used only when context cannot be derived."
-                    : "This product will be displayed to the patient for checkout. Product metadata is included automatically."}
+                  This product will be displayed to the patient for checkout.
+                  Use questionnaire conditions to decide which checkout question
+                  should appear.
                 </p>
               </div>
             </div>
@@ -1410,11 +1492,17 @@ export function QuestionForm({
           {/* Medication & Dose Selector Configuration */}
           {formData.question_type === "medication_dose_selector" && (
             <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
-              <h3 className="font-semibold text-sm">Medication & Dose Configuration</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-sm">Medication & Dose Configuration</h3>
+                <FieldHelp text="This older selector is still supported, but the recommended follow-up pattern is now normal single-choice medication and dose questions with answer choice metadata." />
+              </div>
 
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-sm">Use Dynamic Options (from Products)</Label>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm">Use Dynamic Options (from Products)</Label>
+                    <FieldHelp text="Dynamic mode builds the medication and dose list from product data. Use this only if you want the selector pattern. For the current follow-up setup, prefer normal single-choice questions instead." />
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     Build the two-step list from the client’s assigned products.
                   </p>
@@ -1443,7 +1531,10 @@ export function QuestionForm({
 
               {medicationMode === "dynamic" ? (
                 <div className="space-y-3">
-                  <Label className="text-sm">Dynamic Filters</Label>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm">Dynamic Filters</Label>
+                    <FieldHelp text="These filters control which product-backed options appear in the selector. Keep them aligned with the products assigned to the client." />
+                  </div>
 
                   <div className="space-y-2">
                     <Label className="text-xs">Medication Categories</Label>
@@ -1693,50 +1784,172 @@ export function QuestionForm({
                 {/* Existing choices */}
                 <div className="space-y-2">
                   {formData.answer_choices?.map((choice, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Input
-                        value={choice}
-                        onChange={(e) =>
-                          handleUpdateChoice(index, e.target.value)
-                        }
-                        placeholder={`Choice ${index + 1}`}
-                        className="flex-1"
-                      />
+                    <div key={index} className="space-y-2 rounded-md border bg-background p-3">
                       <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id={`disqualify-${index}`}
-                          checked={disqualifyingAnswers.includes(choice)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setDisqualifyingAnswers([
-                                ...disqualifyingAnswers,
-                                choice,
-                              ]);
-                            } else {
-                              setDisqualifyingAnswers(
-                                disqualifyingAnswers.filter((a) => a !== choice)
-                              );
-                            }
-                          }}
-                          className="rounded"
-                          title="Mark as disqualifying"
+                        <Input
+                          value={getChoiceLabel(choice)}
+                          onChange={(e) =>
+                            handleUpdateChoice(index, e.target.value)
+                          }
+                          placeholder={`Choice ${index + 1}`}
+                          className="flex-1"
                         />
-                        <label
-                          htmlFor={`disqualify-${index}`}
-                          className="text-xs text-red-600 cursor-pointer whitespace-nowrap"
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id={`disqualify-${index}`}
+                            checked={disqualifyingAnswers.includes(getChoiceLabel(choice))}
+                            onChange={(e) => {
+                              const choiceLabel = getChoiceLabel(choice);
+                              if (e.target.checked) {
+                                setDisqualifyingAnswers([
+                                  ...disqualifyingAnswers,
+                                  choiceLabel,
+                                ]);
+                              } else {
+                                setDisqualifyingAnswers(
+                                  disqualifyingAnswers.filter((a) => a !== choiceLabel)
+                                );
+                              }
+                            }}
+                            className="rounded"
+                            title="Mark as disqualifying"
+                          />
+                          <label
+                            htmlFor={`disqualify-${index}`}
+                            className="text-xs text-red-600 cursor-pointer whitespace-nowrap"
+                          >
+                            Disqualify
+                          </label>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveChoice(index)}
                         >
-                          Disqualify
-                        </label>
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveChoice(index)}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </Button>
+
+                      {formData.question_type === "single_choice" && (
+                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <Label className="text-xs text-muted-foreground">
+                                Medication Category (Optional)
+                              </Label>
+                              <FieldHelp text="For medication-related single-choice answers, map the option to its medication family. This makes follow-up prefill and branching more reliable." />
+                            </div>
+                            <Select
+                              value={
+                                getChoiceMeta(choice).category_id
+                                  ? String(getChoiceMeta(choice).category_id)
+                                  : "__none__"
+                              }
+                              onValueChange={(value) => {
+                                if (value === "__none__") {
+                                  handleUpdateChoiceMeta(index, {
+                                    category_id: undefined,
+                                    category_name: undefined,
+                                    dose_mapping_id: undefined,
+                                    dose_mapping_label: undefined,
+                                  });
+                                  return;
+                                }
+                                const selectedCategory = categories.find(
+                                  (category) => String(category.id) === value
+                                );
+                                handleUpdateChoiceMeta(index, {
+                                  category_id: selectedCategory?.id,
+                                  category_name: selectedCategory?.name,
+                                  dose_mapping_id:
+                                    getChoiceMeta(choice).category_id === selectedCategory?.id
+                                      ? getChoiceMeta(choice).dose_mapping_id
+                                      : undefined,
+                                  dose_mapping_label:
+                                    getChoiceMeta(choice).category_id === selectedCategory?.id
+                                      ? getChoiceMeta(choice).dose_mapping_label
+                                      : undefined,
+                                });
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="No category mapping" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">No category mapping</SelectItem>
+                                {categories.map((category) => (
+                                  <SelectItem key={category.id} value={String(category.id)}>
+                                    {category.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <Label className="text-xs text-muted-foreground">
+                                Dose Mapping (Optional)
+                              </Label>
+                              <FieldHelp text="For medication-dose answers, select the exact dose mapping for this option. This lets follow-up prefill choose the correct answer directly from product context instead of guessing by text." />
+                            </div>
+                            <Select
+                              value={
+                                getChoiceMeta(choice).dose_mapping_id
+                                  ? String(getChoiceMeta(choice).dose_mapping_id)
+                                  : "__none__"
+                              }
+                              onValueChange={(value) => {
+                                if (value === "__none__") {
+                                  handleUpdateChoiceMeta(index, {
+                                    dose_mapping_id: undefined,
+                                    dose_mapping_label: undefined,
+                                  });
+                                  return;
+                                }
+                                const selectedDoseMapping = doseMappings.find(
+                                  (mapping) => String(mapping.id) === value
+                                );
+                                handleUpdateChoiceMeta(index, {
+                                  dose_mapping_id: selectedDoseMapping?.id,
+                                  dose_mapping_label:
+                                    selectedDoseMapping?.patient_label ||
+                                    selectedDoseMapping?.name,
+                                  category_id:
+                                    getChoiceMeta(choice).category_id ||
+                                    selectedDoseMapping?.category,
+                                  category_name:
+                                    getChoiceMeta(choice).category_name ||
+                                    selectedDoseMapping?.category_name,
+                                });
+                              }}
+                              disabled={
+                                !getChoiceMeta(choice).category_id &&
+                                !getChoiceMeta(choice).dose_mapping_id
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="No dose mapping" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">No dose mapping</SelectItem>
+                                {doseMappings
+                                  .filter((mapping) => {
+                                    const categoryId = getChoiceMeta(choice).category_id;
+                                    return !categoryId || mapping.category === categoryId;
+                                  })
+                                  .map((mapping) => (
+                                    <SelectItem key={mapping.id} value={String(mapping.id)}>
+                                      {mapping.category_name} - {mapping.patient_label}
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -2137,6 +2350,41 @@ export function QuestionForm({
 
             {showFollowUpSettings && (
               <div className="space-y-4 mt-3 pl-4 border-l-2">
+                <div className="space-y-2 p-3 border rounded-lg bg-background">
+                  <div className="flex items-center gap-2">
+                    <Label>Visibility Builder Mode</Label>
+                    <FieldHelp text="Use Simple parent triggers for basic show/hide rules. Use Advanced nested rules when one shared question should appear after more than one strict path, such as (A AND B) OR (C AND D)." />
+                  </div>
+                  <Select
+                    value={followUpMode}
+                    onValueChange={(value: "simple" | "advanced") => setFollowUpMode(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="simple">Simple parent triggers</SelectItem>
+                      <SelectItem value="advanced">Advanced nested rules</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Use advanced mode when you need branch convergence like
+                    <code className="ml-1">(A AND B) OR (C AND D)</code>.
+                  </p>
+                </div>
+
+                {followUpMode === "advanced" ? (
+                  <VisibilityRuleBuilder
+                    value={visibilityRules}
+                    onChange={setVisibilityRules}
+                    questions={parentQuestionOptions.map((question) => ({
+                      id: question.id,
+                      question_text: question.question_text,
+                      order_index: question.order_index,
+                      answer_choices: question.answer_choices,
+                    }))}
+                  />
+                ) : (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label>
@@ -2356,12 +2604,14 @@ export function QuestionForm({
 
                   {parentQuestions.length > 0 && (
                     <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
-                      ℹ️ This question will show when ANY of the{" "}
-                      {parentQuestions.length} parent question(s) has the
-                      specified trigger value(s)
+                      ℹ️ This question will show{" "}
+                      {logicOperator === "AND"
+                        ? "only when every configured parent matches."
+                        : "when any configured parent matches."}
                     </p>
                   )}
                 </div>
+                )}
               </div>
             )}
           </div>
@@ -2371,7 +2621,10 @@ export function QuestionForm({
             {/* Prefill config */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="prefill_enabled">Prefill from previous answers</Label>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="prefill_enabled">Prefill from previous answers</Label>
+                  <FieldHelp text="Turn this on when the question should start with a value from the same treatment track instead of making the patient re-enter it." />
+                </div>
                 <Switch
                   id="prefill_enabled"
                   checked={prefillEnabled}
@@ -2380,7 +2633,10 @@ export function QuestionForm({
               </div>
               {prefillEnabled && (
                 <div className="space-y-2">
-                  <Label>Prefill Source</Label>
+                  <div className="flex items-center gap-2">
+                    <Label>Prefill Source</Label>
+                    <FieldHelp text="Onboarding uses the original treatment setup. Latest Completed uses the most recent completed questionnaire in the same episode. Derived uses current treatment context such as route or regimen." />
+                  </div>
                   <Select
                     value={prefillSource}
                     onValueChange={(value) =>
@@ -2402,7 +2658,10 @@ export function QuestionForm({
 
                   {prefillSource === "derived" ? (
                     <>
-                      <Label>Derived Field</Label>
+                      <div className="flex items-center gap-2">
+                        <Label>Derived Field</Label>
+                        <FieldHelp text="Use a derived field when the answer should come from current treatment context rather than a previous questionnaire answer." />
+                      </div>
                       <Select
                         value={prefillDerivedField}
                         onValueChange={(value) =>
@@ -2425,7 +2684,37 @@ export function QuestionForm({
                     </>
                   ) : (
                     <>
-                      <Label>Source Question ID (optional)</Label>
+                      <div className="flex items-center gap-2">
+                        <Label>Prefill Field Type</Label>
+                        <FieldHelp text="Use medication_family for medication-only questions. Use medication_dose for medication plus exact dose questions. This avoids relying on question wording to guess intent." />
+                      </div>
+                      <Select
+                        value={prefillFieldType || "auto"}
+                        onValueChange={(value) =>
+                          setPrefillFieldType(
+                            value === "auto"
+                              ? ""
+                              : (value as "medication_family" | "medication_dose")
+                          )
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">Auto detect from question wording</SelectItem>
+                          <SelectItem value="medication_family">Medication family</SelectItem>
+                          <SelectItem value="medication_dose">Medication dose</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Use this when you want prefill to match medication-only or medication+dose explicitly.
+                      </p>
+
+                      <div className="flex items-center gap-2">
+                        <Label>Source Question ID (optional)</Label>
+                        <FieldHelp text="Usually leave this blank. Use it only when this question should prefill from one exact earlier question instead of auto-matching within the same treatment track." />
+                      </div>
                       <Input
                         value={prefillSourceQuestionId}
                         onChange={(e) => setPrefillSourceQuestionId(e.target.value)}
