@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { PaymentFieldFrame } from './PaymentFieldFrame';
 
 export interface NmiCollectFormHandle {
-  getPaymentData: () => Promise<{ payment_token: string; postal_code?: string }>;
+  getPaymentData: () => Promise<{ payment_token: string; postal_code?: string; card_meta?: Record<string, unknown> }>;
 }
 
 interface NmiCollectFormProps {
@@ -35,7 +35,7 @@ export const NmiCollectForm = forwardRef<NmiCollectFormHandle, NmiCollectFormPro
   const [postalCode, setPostalCode] = useState('');
 
   const configuredRef = useRef(false);
-  const pendingResolveRef = useRef<((token: string) => void) | null>(null);
+  const pendingResolveRef = useRef<((data: { payment_token: string; postal_code?: string; card_meta?: Record<string, unknown> }) => void) | null>(null);
   const pendingRejectRef = useRef<((err: Error) => void) | null>(null);
 
   useEffect(() => {
@@ -75,7 +75,16 @@ export const NmiCollectForm = forwardRef<NmiCollectFormHandle, NmiCollectFormPro
           callback: (response: any) => {
             if (pendingResolveRef.current) {
               if (response && response.token) {
-                pendingResolveRef.current(response.token);
+                pendingResolveRef.current({
+                  payment_token: response.token,
+                  card_meta: {
+                    token: response.token,
+                    card: response?.card || null,
+                    card_type: response?.card?.type || response?.cardType || response?.type || '',
+                    masked_cc: response?.card?.number || response?.masked || response?.masked_cc || '',
+                    expiration: response?.card?.exp || response?.exp || response?.expiration || '',
+                  },
+                });
               } else {
                 pendingRejectRef.current?.(new Error('Failed to tokenize card'));
               }
@@ -120,8 +129,8 @@ export const NmiCollectForm = forwardRef<NmiCollectFormHandle, NmiCollectFormPro
         throw new Error('Please enter a valid ZIP code');
       }
 
-      return await new Promise<{ payment_token: string; postal_code?: string }>((resolve, reject) => {
-        pendingResolveRef.current = (token: string) => resolve({ payment_token: token, postal_code: normalizedZip });
+      return await new Promise<{ payment_token: string; postal_code?: string; card_meta?: Record<string, unknown> }>((resolve, reject) => {
+        pendingResolveRef.current = (data) => resolve({ ...data, postal_code: normalizedZip });
         pendingRejectRef.current = reject;
 
         try {

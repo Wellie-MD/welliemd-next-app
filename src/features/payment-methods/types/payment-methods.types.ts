@@ -29,6 +29,7 @@ export interface CreatePaymentMethodPayload {
   user_id: string;
   payment_method_id?: string;
   payment_token?: string;
+  card_meta?: Record<string, unknown>;
   opaqueDataDescriptor?: string;
   opaqueDataValue?: string;
   postal_code?: string;
