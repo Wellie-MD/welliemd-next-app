@@ -198,6 +198,7 @@ export function QuestionForm({
   const [includeNoneOption, setIncludeNoneOption] = useState(false);
   const [includeOtherOption, setIncludeOtherOption] = useState(false);
   const [bmiMax, setBmiMax] = useState<number | "">(27);
+  const [bmiMin, setBmiMin] = useState<number | "">("");
   const [dobMinAge, setDobMinAge] = useState<number | "">(18);
   const [dobMaxAge, setDobMaxAge] = useState<number | "">(65);
   const [isHidden, setIsHidden] = useState(false);
@@ -393,8 +394,13 @@ export function QuestionForm({
       }
 
       // Extract BMI eligibility config
-      if (question.question_type === "bmi" && validationRules?.bmi_max !== undefined) {
-        setBmiMax(validationRules.bmi_max);
+      if (question.question_type === "bmi") {
+        if (validationRules?.bmi_max !== undefined) {
+          setBmiMax(validationRules.bmi_max);
+        }
+        if (validationRules?.bmi_min !== undefined) {
+          setBmiMin(validationRules.bmi_min);
+        }
       }
 
       // Extract DOB age eligibility config
@@ -847,6 +853,7 @@ export function QuestionForm({
         // Add BMI eligibility config
         validationRules = {
           bmi_max: bmiMax !== "" ? bmiMax : undefined,
+          bmi_min: bmiMin !== "" ? bmiMin : undefined,
         };
       } else if (
         formData.question_type === "date" &&
@@ -1206,6 +1213,24 @@ export function QuestionForm({
               <p className="text-xs text-muted-foreground">
                 Set the maximum BMI threshold. Patients with BMI exceeding this limit will be disqualified.
               </p>
+              <div className="space-y-2">
+                <Label htmlFor="bmi_min">Minimum BMI Limit</Label>
+                <Input
+                  id="bmi_min"
+                  type="number"
+                  step="0.1"
+                  min="10"
+                  max="50"
+                  value={bmiMin}
+                  onChange={(e) =>
+                    setBmiMin(e.target.value === "" ? "" : Number(e.target.value))
+                  }
+                  placeholder="e.g., 18.5"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Set the minimum BMI threshold. Patients with BMI below this limit will be disqualified.
+                </p>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="bmi_max">
                   Maximum BMI Limit <span className="text-red-500">*</span>
