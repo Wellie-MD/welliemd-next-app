@@ -363,4 +363,25 @@ export const clientApi = {
     const { data } = await axiosInstance.post(`/internal/clients/${clientId}/billing/cancel/`, { mode });
     return data;
   },
+
+  /**
+   * Send master key credentials to the requesting admin user's email.
+   */
+  sendMasterKeyEmail: async (): Promise<{ message: string }> => {
+    const { data } = await axiosInstance.post('/admin/send-masterkey-email/');
+    return data;
+  },
+
+  /**
+   * Access master key credentials via one-time token.
+   */
+  accessMasterKey: async (token: string): Promise<{
+    email: string;
+    password: string;
+    consumed_at: string;
+    requested_by: string | null;
+  }> => {
+    const { data } = await axiosInstance.get(`/admin/masterkey/access/${token}/`);
+    return data;
+  },
 };

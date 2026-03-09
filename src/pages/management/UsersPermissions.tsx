@@ -273,14 +273,29 @@ function UserCard({ user, roles, onAssignRole, onDeactivate, onClick }: {
   onDeactivate: (userId: string, userName: string) => void;
   onClick: () => void;
 }) {
+  const { toast } = useToast();
   const roleOptions = useMemo(() => roles.map(r => ({ id: r.id, name: r.name })), [roles]);
 
   const initials = `${user.first_name?.[0] || 'U'}${user.last_name?.[0] || ''}`.toUpperCase();
   const fullName = `${user.first_name} ${user.last_name}`.trim() || user.email;
 
-  const copyToClipboard = (text: string, e: React.MouseEvent) => {
+  const copyToClipboard = async (text: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(text);
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        description: "Link copied to clipboard",
+        duration: 3000,
+      });
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+      toast({
+        title: "Error",
+        description: "Failed to copy link to clipboard",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
   };
 
   // Get status badge based on invitation status
