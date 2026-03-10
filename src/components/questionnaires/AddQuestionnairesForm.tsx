@@ -24,6 +24,7 @@ import { Plus, Trash2, Lock, GripVertical } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 import { 
   createTemplate, 
+  templateApi,
   updateTemplate,
   createQuestion,
   QuestionnaireTemplate,
@@ -79,6 +80,7 @@ export default function AddQuestionnairesForm({
   onSuccess 
 }: AddQuestionnairesFormProps) {
   const [loading, setLoading] = useState(false)
+  const [followupTemplates, setFollowupTemplates] = useState<QuestionnaireTemplate[]>([])
   const [formData, setFormData] = useState<CreateTemplatePayload>({
     name: "",
     description: "",
@@ -88,6 +90,7 @@ export default function AddQuestionnairesForm({
     requires_photo_upload: false,
     requires_identity_verification: false,
     is_admin_template: true,
+    default_followup_template: null,
   })
   const [questions, setQuestions] = useState<QuestionFormData[]>([])
 
@@ -102,6 +105,7 @@ export default function AddQuestionnairesForm({
         requires_photo_upload: template.requires_photo_upload,
         requires_identity_verification: template.requires_identity_verification,
         is_admin_template: template.is_admin_template !== undefined ? template.is_admin_template : true,
+        default_followup_template: template.default_followup_template || null,
       })
       setQuestions([])
     } else {
@@ -114,10 +118,36 @@ export default function AddQuestionnairesForm({
         requires_photo_upload: false,
         requires_identity_verification: false,
         is_admin_template: true,
+        default_followup_template: null,
       })
       setQuestions([])
     }
   }, [template, open])
+
+  useEffect(() => {
+    const loadFollowups = async () => {
+      if (!open) return
+      try {
+        const templates = await templateApi.listTemplates()
+        setFollowupTemplates(
+          (templates || []).filter(
+            (t) =>
+              t.questionnaire_type === "follow_up" &&
+              (!template || t.id !== template.id)
+          )
+        )
+      } catch {
+        setFollowupTemplates([])
+      }
+    }
+    loadFollowups()
+  }, [open, template])
+
+  useEffect(() => {
+    if (formData.questionnaire_type !== "onboarding" && formData.default_followup_template) {
+      setFormData((prev) => ({ ...prev, default_followup_template: null }))
+    }
+  }, [formData.questionnaire_type, formData.default_followup_template])
 
   const addQuestion = () => {
     const newQuestion: QuestionFormData = {
@@ -329,6 +359,38 @@ export default function AddQuestionnairesForm({
               placeholder="e.g., Initial Visit, Follow-up, Consultation (optional)"
             />
           </div>
+
+          {formData.questionnaire_type === "onboarding" && (
+            <div className="space-y-2">
+              <Label htmlFor="default_followup_template">
+                Default Follow-up Template
+              </Label>
+              <Select
+                value={formData.default_followup_template || "none"}
+                onValueChange={(value) =>
+                  setFormData({
+                    ...formData,
+                    default_followup_template: value === "none" ? null : value,
+                  })
+                }
+              >
+                <SelectTrigger id="default_followup_template">
+                  <SelectValue placeholder="Select default follow-up template" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Default Follow-up</SelectItem>
+                  {followupTemplates.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Used to auto-select follow-up for episodes started from this onboarding template.
+              </p>
+            </div>
+          )}
 
           {/* Toggles */}
           <div className="space-y-4">

@@ -25,6 +25,9 @@ export interface QuestionnaireTemplate {
   // Phase 2 additions
   primary_category?: number; // Primary product category for automated dose injection
   primary_category_name?: string; // Category name for display
+  default_followup_template?: string | null;
+  default_followup_template_name?: string | null;
+  default_followup_source_template_id?: string | null;
 
   created_at: string;
   updated_at: string;
@@ -110,6 +113,7 @@ export interface CreateTemplatePayload {
   requires_photo_upload?: boolean;
   requires_identity_verification?: boolean;
   is_admin_template?: boolean;
+  default_followup_template?: string | null;
 }
 
 export interface UpdateTemplatePayload {
@@ -121,6 +125,7 @@ export interface UpdateTemplatePayload {
   requires_photo_upload?: boolean;
   requires_identity_verification?: boolean;
   is_admin_template?: boolean;
+  default_followup_template?: string | null;
 }
 
 export interface CreateQuestionPayload {
@@ -157,10 +162,14 @@ export interface UpdateQuestionPayload {
 
 export const templateApi = {
   listTemplates: async (): Promise<QuestionnaireTemplate[]> => {
-    const { data } = await axiosInstance.get<QuestionnaireTemplate[]>(
+    const { data } = await axiosInstance.get<
+      QuestionnaireTemplate[] | { results?: QuestionnaireTemplate[] }
+    >(
       "questionnaires/frontend/templates/"
     );
-    return data;
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.results)) return data.results;
+    return [];
   },
 
   getTemplate: async (
