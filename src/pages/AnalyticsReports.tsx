@@ -27,6 +27,7 @@ import {
   Building2,
   Package,
   Filter,
+  X,
 } from "lucide-react"
 import { format, subDays, subMonths, startOfDay, endOfDay } from "date-fns"
 import {
@@ -145,6 +146,7 @@ export default function AnalyticsReports() {
   })
   const [tempDateRange, setTempDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>(dateRange)
   const [isPopoverOpen, setIsPopoverOpen] = useState(false)
+  const [activePeriod, setActivePeriod] = useState<"7d" | "30d" | "3m" | "custom">("7d")
 
   const [selectedState, setSelectedState] = useState("")
   const [selectedPharmacy, setSelectedPharmacy] = useState("")
@@ -235,12 +237,14 @@ export default function AnalyticsReports() {
     window.URL.revokeObjectURL(url)
   }
 
-  const setPresetDays = (days: number) => {
+  const setPresetDays = (days: number, key: "7d" | "30d") => {
     setDateRange({ from: subDays(new Date(), days), to: new Date() })
+    setActivePeriod(key)
   }
 
   const setPresetMonths = (months: number) => {
     setDateRange({ from: subMonths(new Date(), months), to: new Date() })
+    setActivePeriod("3m")
   }
 
   if (isLoading) {
@@ -264,18 +268,36 @@ export default function AnalyticsReports() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setPresetDays(7)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPresetDays(7, "7d")}
+                className={activePeriod === "7d" ? "bg-accent text-accent-foreground" : ""}
+              >
                 Last 7 days
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setPresetDays(30)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPresetDays(30, "30d")}
+                className={activePeriod === "30d" ? "bg-accent text-accent-foreground" : ""}
+              >
                 Last 30 days
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setPresetMonths(3)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPresetMonths(3)}
+                className={activePeriod === "3m" ? "bg-accent text-accent-foreground" : ""}
+              >
                 Last 3 months
               </Button>
               <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="justify-start text-left">
+                  <Button
+                    variant="outline"
+                    className={`justify-start text-left${activePeriod === "custom" ? " bg-accent text-accent-foreground" : ""}`}
+                  >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {dateRange.from && dateRange.to ? (
                       <>{format(dateRange.from, "MMM dd, yyyy")} - {format(dateRange.to, "MMM dd, yyyy")}</>
@@ -313,6 +335,7 @@ export default function AnalyticsReports() {
                         size="sm"
                         onClick={() => {
                           setDateRange(tempDateRange)
+                          setActivePeriod("custom")
                           setIsPopoverOpen(false)
                         }}
                       >
@@ -326,24 +349,39 @@ export default function AnalyticsReports() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/15">
-              <Filter className="mr-1 h-3 w-3" />
-              {hasActiveReportFilters ? "Filtered" : "No filter"}
+            <Badge
+              variant="secondary"
+              className={`flex items-center gap-1 ${
+                activePeriod !== "7d" || hasActiveReportFilters
+                  ? "bg-primary/15 text-primary"
+                  : "bg-primary/10 text-primary"
+              }`}
+            >
+              <Filter className="h-3 w-3" />
+              <span>
+                {activePeriod === "7d" && "Last 7 days"}
+                {activePeriod === "30d" && "Last 30 days"}
+                {activePeriod === "3m" && "Last 3 months"}
+                {activePeriod === "custom" && dateRange.from && dateRange.to
+                  ? `${format(dateRange.from, "MMM dd")} – ${format(dateRange.to, "MMM dd, yyyy")}`
+                  : activePeriod === "custom" ? "Custom range" : ""}
+                {hasActiveReportFilters && " · Filtered"}
+              </span>
+              {(activePeriod !== "7d" || hasActiveReportFilters) && (
+                <button
+                  className="ml-1 rounded-full hover:bg-primary/20 p-0.5 transition-colors"
+                  aria-label="Clear date filter"
+                  onClick={() => {
+                    setPresetDays(7, "7d")
+                    setSelectedState("")
+                    setSelectedPharmacy("")
+                    setSelectedVariant("")
+                  }}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </Badge>
-            {hasActiveReportFilters && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2"
-                onClick={() => {
-                  setSelectedState("")
-                  setSelectedPharmacy("")
-                  setSelectedVariant("")
-                }}
-              >
-                Clear filters
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>
