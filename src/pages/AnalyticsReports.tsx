@@ -78,12 +78,14 @@ function SectionHeader({
   onSearchChange,
   onExport,
   placeholder,
+  showExport = true,
 }: {
   title: string
   searchValue: string
   onSearchChange: (value: string) => void
   onExport: () => void
   placeholder: string
+  showExport?: boolean
 }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -98,10 +100,12 @@ function SectionHeader({
             className="pl-8"
           />
         </div>
-        <Button variant="outline" size="sm" onClick={onExport}>
-          <Download className="mr-2 h-4 w-4" />
-          Export
-        </Button>
+        {showExport && (
+          <Button variant="outline" size="sm" onClick={onExport}>
+            <Download className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+        )}
       </div>
     </div>
   )
@@ -459,6 +463,7 @@ export default function AnalyticsReports() {
               onSearchChange={setStateSearch}
               onExport={() => exportToCSV(filteredStateData as Record<string, unknown>[], "orders_by_state")}
               placeholder="Search states..."
+              showExport={false}
             />
           </CardHeader>
           <CardContent>
@@ -512,6 +517,7 @@ export default function AnalyticsReports() {
               onSearchChange={setPharmacySearch}
               onExport={() => exportToCSV(filteredPharmacyData as Record<string, unknown>[], "orders_by_pharmacy")}
               placeholder="Search pharmacies..."
+              showExport={false}
             />
           </CardHeader>
           <CardContent>
@@ -566,6 +572,7 @@ export default function AnalyticsReports() {
             onSearchChange={setVariantSearch}
             onExport={() => exportToCSV(filteredVariantData as Record<string, unknown>[], "orders_by_variant")}
             placeholder="Search variants..."
+            showExport={false}
           />
         </CardHeader>
         <CardContent>
