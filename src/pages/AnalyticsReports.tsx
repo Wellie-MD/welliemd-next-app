@@ -595,7 +595,7 @@ export default function AnalyticsReports() {
                     if (item.productName && item.variant.startsWith(item.productName)) {
                       displayVariant = item.variant.replace(item.productName, "").replace(/^[\s-]+/, "")
                     }
-                    if (!displayVariant.trim()) displayVariant = "Default Variant"
+                    const showSubLabel = displayVariant.trim() !== "" && displayVariant.trim() !== (item.productName || "").trim()
 
                     return (
                       <TableRow
@@ -604,7 +604,7 @@ export default function AnalyticsReports() {
                       >
                         <TableCell className="font-medium">
                           <div className="text-base font-semibold">{item.productName || item.variant}</div>
-                          <div className="text-sm text-muted-foreground">{displayVariant}</div>
+                          {showSubLabel && <div className="text-sm text-muted-foreground">{displayVariant}</div>}
                         </TableCell>
                         <TableCell className="text-right">{item.totalOrders}</TableCell>
                         <TableCell className="text-right">{item.totalQuantity}</TableCell>
