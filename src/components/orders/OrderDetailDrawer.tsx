@@ -150,7 +150,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
             Order Details
           </SheetTitle>
           <SheetDescription className="font-mono text-sm">
-            {order.display_id}
+            {order.order_id || order.display_id}
           </SheetDescription>
         </SheetHeader>
 

@@ -1,3 +1,4 @@
+import { useRef, type MouseEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -86,6 +87,17 @@ function updateNodeAtPath(
   const targetIndex = path[path.length - 1];
   current.children[targetIndex] = updater(current.children[targetIndex]);
   return next;
+}
+
+function updateGroupAtPath(
+  root: VisibilityGroup,
+  path: number[],
+  updater: (node: VisibilityGroup) => VisibilityGroup
+): VisibilityGroup {
+  if (path.length === 0) {
+    return updater(cloneNode(root));
+  }
+  return updateNodeAtPath(root, path, (node) => updater(node as VisibilityGroup));
 }
 
 function removeNodeAtPath(root: VisibilityGroup, path: number[]): VisibilityGroup {
@@ -282,7 +294,20 @@ function GroupEditor({
   isRoot?: boolean;
   onChange: (next: VisibilityGroup) => void;
 }) {
-  const handleAppend = (child: VisibilityCondition | VisibilityGroup) => {
+  const appendLockRef = useRef<number>(0);
+
+  const guardAppend = (
+    event: MouseEvent<HTMLButtonElement>,
+    child: VisibilityCondition | VisibilityGroup
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const now = Date.now();
+    if (now - appendLockRef.current < 250) {
+      return;
+    }
+    appendLockRef.current = now;
     onChange(appendChildAtPath(root, path, child));
   };
 
@@ -302,7 +327,12 @@ function GroupEditor({
         <Select
           value={node.operator}
           onValueChange={(operator: "AND" | "OR") =>
-            onChange({ ...node, operator })
+            onChange(
+              updateGroupAtPath(root, path, (current) => ({
+                ...current,
+                operator,
+              }))
+            )
           }
         >
           <SelectTrigger className="w-[180px]">
@@ -326,11 +356,7 @@ function GroupEditor({
                   node={child}
                   path={childPath}
                   questions={questions}
-                  onChange={(nextChild) => {
-                    onChange(
-                      updateNodeAtPath(root, childPath, () => nextChild)
-                    );
-                  }}
+                  onChange={onChange}
                 />
                 <div className="mt-2 flex justify-end">
                   <Button type="button" variant="ghost" size="sm" onClick={() => onChange(removeNodeAtPath(root, childPath))}>
@@ -364,7 +390,7 @@ function GroupEditor({
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => handleAppend(defaultCondition())}
+          onClick={(event) => guardAppend(event, defaultCondition())}
         >
           <Plus className="mr-2 h-4 w-4" />
           Add condition
@@ -373,8 +399,8 @@ function GroupEditor({
           type="button"
           variant="outline"
           size="sm"
-          onClick={() =>
-            handleAppend({
+          onClick={(event) =>
+            guardAppend(event, {
               type: "group",
               operator: "AND",
               children: [defaultCondition()],
