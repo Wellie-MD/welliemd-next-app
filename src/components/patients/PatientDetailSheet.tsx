@@ -10,14 +10,14 @@ import { Patient, patientService } from '@/services/patientService';
 import { PatientFollowUpStatus } from '@/components/followups/PatientFollowUpStatus';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  Calendar, 
-  MapPin, 
-  ShieldAlert, 
-  Stethoscope, 
+import {
+  User,
+  Mail,
+  Phone,
+  Calendar,
+  MapPin,
+  ShieldAlert,
+  Stethoscope,
   Pill,
   ClipboardList
 } from 'lucide-react';
@@ -60,6 +60,7 @@ interface PatientDetailSheetProps {
   onOpenChange: (open: boolean) => void;
   onPatientUpdated?: (patient: Patient) => void;
   onPatientDeleted?: (patientId: string) => void;
+  readOnly?: boolean;
 }
 
 const buildInitialForm = (patient: Patient) => ({
@@ -77,7 +78,7 @@ const buildInitialForm = (patient: Patient) => ({
   self_reported_meds: patient.self_reported_meds || '',
 });
 
-export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdated, onPatientDeleted }: PatientDetailSheetProps) {
+export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdated, onPatientDeleted, readOnly }: PatientDetailSheetProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -190,11 +191,13 @@ export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdat
               </SheetDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <PermissionGate permission={Permissions.USER_UPDATE}>
-                <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
-                  Edit
-                </Button>
-              </PermissionGate>
+              {!readOnly && (
+                <PermissionGate permission={Permissions.USER_UPDATE}>
+                  <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+                    Edit
+                  </Button>
+                </PermissionGate>
+              )}
             </div>
           </div>
         </SheetHeader>
@@ -266,7 +269,7 @@ export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdat
               <h4 className="text-sm font-semibold flex items-center gap-2">
                 <Stethoscope size={16} /> Medical History
               </h4>
-              
+
               <div className="space-y-3">
                 <div className="bg-muted/50 p-3 rounded-lg border border-border">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase font-bold mb-1">
@@ -295,8 +298,8 @@ export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdat
 
             {/* Follow-Ups Section */}
             <div>
-              <PatientFollowUpStatus 
-                patientId={patient.id} 
+              <PatientFollowUpStatus
+                patientId={patient.id}
                 patientName={patient.full_name || `${patient.first_name} ${patient.last_name}`}
                 patientEmail={patient.email}
               />
@@ -344,40 +347,40 @@ export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdat
         </ScrollArea>
 
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Edit Patient</DialogTitle>
-            <DialogDescription>
-              Update contact and medical details for this patient.
-            </DialogDescription>
-          </DialogHeader>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Edit Patient</DialogTitle>
+              <DialogDescription>
+                Update contact and medical details for this patient.
+              </DialogDescription>
+            </DialogHeader>
             <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-3 scrollbar-hide overscroll-contain">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground uppercase">First Name</label>
-                <Input
-                  placeholder="First name"
-                  value={formState.first_name}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, first_name: e.target.value }))}
-                />
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">First Name</label>
+                  <Input
+                    placeholder="First name"
+                    value={formState.first_name}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, first_name: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">Last Name</label>
+                  <Input
+                    placeholder="Last name"
+                    value={formState.last_name}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, last_name: e.target.value }))}
+                  />
+                </div>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted-foreground uppercase">Last Name</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Email</label>
                 <Input
-                  placeholder="Last name"
-                  value={formState.last_name}
-                  onChange={(e) => setFormState((prev) => ({ ...prev, last_name: e.target.value }))}
+                  placeholder="Email address"
+                  value={formState.email}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, email: e.target.value }))}
                 />
               </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted-foreground uppercase">Email</label>
-              <Input
-                placeholder="Email address"
-                value={formState.email}
-                onChange={(e) => setFormState((prev) => ({ ...prev, email: e.target.value }))}
-              />
-            </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-muted-foreground uppercase">Phone</label>
