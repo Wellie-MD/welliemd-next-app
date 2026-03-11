@@ -34,7 +34,7 @@ export function PaymentTable({ title, data, columns }: PaymentTableProps) {
           variant="ghost"
           size="sm"
           className="text-blue-600 hover:text-blue-700"
-          onClick={() => navigate("/dashboard/orders/payments")}
+          onClick={() => navigate("/dashboard/payments")}
         >
           View All
         </Button>

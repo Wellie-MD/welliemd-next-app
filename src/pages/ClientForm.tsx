@@ -229,12 +229,30 @@ export default function ClientForm() {
       navigate("/dashboard/clients");
     },
     onError: (error: unknown) => {
+      const resp = (error as any)?.response?.data || {};
+      let message = "Failed to create client";
+
+      // Check for field-specific validation errors (e.g., email already exists)
+      if (resp.email) {
+        // If email is an array, join the messages; otherwise convert to string
+        const emailError = Array.isArray(resp.email) ? resp.email.join(' ') : String(resp.email);
+        
+        // Transform backend email error to user-friendly message
+        if (emailError.toLowerCase().includes("already exists")) {
+          message = "A client with this email already exists.";
+        } else {
+          message = emailError;
+        }
+      } else if (resp.error) {
+        // Generic error message from backend
+        message = String(resp.error);
+      } else if (resp.message) {
+        message = String(resp.message);
+      }
+
       toast({
         title: "Error",
-        description:
-          error.response?.data?.detail ||
-          error.response?.data?.message ||
-          "Failed to create client",
+        description: message,
         variant: "destructive",
       });
     },

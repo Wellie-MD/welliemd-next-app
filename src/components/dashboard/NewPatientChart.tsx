@@ -22,7 +22,7 @@ export function NewPatientChart({ data }: NewPatientChartProps) {
           variant="ghost"
           size="sm"
           className="text-blue-600 hover:text-blue-700"
-          onClick={() => navigate("/dashboard/patients")}
+          onClick={() => navigate("/dashboard/clients")}
         >
           View All
         </Button>
