@@ -47,11 +47,13 @@ export interface FollowUpTemplate {
 export interface SendFollowUpNotificationRequest {
     template_type?: string;
     channels?: Array<'email' | 'sms'>;
+    idempotency_key?: string;
 }
 
 export interface SendFollowUpNotificationResponse {
     success: boolean;
     session_id: string;
+    skipped_duplicate?: boolean;
     notification_result?: {
         email?: string;
         sms?: string;

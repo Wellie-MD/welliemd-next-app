@@ -180,21 +180,32 @@ export default function AnalyticsReports() {
     queryFn: () => getAggregates(queryParams),
   })
 
+  const optionParams = useMemo(
+    () => ({
+      ...(dateRange.from && { start_date: startOfDay(dateRange.from).toISOString() }),
+      ...(dateRange.to && { end_date: endOfDay(dateRange.to).toISOString() }),
+      ...(selectedState && { state: selectedState }),
+      ...(selectedPharmacy && { pharmacy_id: selectedPharmacy }),
+      ...(selectedVariant && { variant_id: selectedVariant }),
+    }),
+    [dateRange, selectedState, selectedPharmacy, selectedVariant],
+  )
+
   const { data: states = [] } = useQuery({
-    queryKey: ["states"],
-    queryFn: getStates,
+    queryKey: ["states", optionParams.start_date, optionParams.end_date, optionParams.pharmacy_id, optionParams.variant_id],
+    queryFn: () => getStates(optionParams),
     staleTime: 150000,
   })
 
   const { data: pharmacies = [] } = useQuery({
-    queryKey: ["pharmacies"],
-    queryFn: getPharmacies,
+    queryKey: ["pharmacies", optionParams.start_date, optionParams.end_date, optionParams.state, optionParams.variant_id],
+    queryFn: () => getPharmacies(optionParams),
     staleTime: 150000,
   })
 
   const { data: variants = [] } = useQuery({
-    queryKey: ["variants"],
-    queryFn: getVariants,
+    queryKey: ["variants", optionParams.start_date, optionParams.end_date, optionParams.state, optionParams.pharmacy_id],
+    queryFn: () => getVariants(optionParams),
     staleTime: 150000,
   })
 
@@ -220,6 +231,8 @@ export default function AnalyticsReports() {
   }, [aggregates?.byVariant, variantSearch])
 
   const hasActiveReportFilters = Boolean(selectedState || selectedPharmacy || selectedVariant)
+  const selectedPharmacyLabel = pharmacies.find((item) => String(item.id) === String(selectedPharmacy))?.name || selectedPharmacy
+  const selectedVariantLabel = variants.find((item) => String(item.id) === String(selectedVariant))?.name || selectedVariant
 
   const exportToCSV = (data: Record<string, unknown>[], filename: string) => {
     if (!data.length) return
@@ -245,6 +258,20 @@ export default function AnalyticsReports() {
   const setPresetMonths = (months: number) => {
     setDateRange({ from: subMonths(new Date(), months), to: new Date() })
     setActivePeriod("3m")
+  }
+
+  const isDayRangePreset = (days: number) => {
+    if (!dateRange.from || !dateRange.to) return false
+    const expectedFrom = startOfDay(subDays(new Date(), days)).getTime()
+    const currentFrom = startOfDay(dateRange.from).getTime()
+    return expectedFrom === currentFrom
+  }
+
+  const isMonthRangePreset = (months: number) => {
+    if (!dateRange.from || !dateRange.to) return false
+    const expectedFrom = startOfDay(subMonths(new Date(), months)).getTime()
+    const currentFrom = startOfDay(dateRange.from).getTime()
+    return expectedFrom === currentFrom
   }
 
   if (isLoading) {
@@ -333,6 +360,7 @@ export default function AnalyticsReports() {
                       </Button>
                       <Button
                         size="sm"
+                        disabled={!tempDateRange.from || !tempDateRange.to}
                         onClick={() => {
                           setDateRange(tempDateRange)
                           setActivePeriod("custom")
@@ -453,6 +481,7 @@ export default function AnalyticsReports() {
                   ))}
                 </SelectContent>
               </Select>
+              {states.length === 0 && <p className="text-xs text-muted-foreground">No states for current date/filter scope.</p>}
             </div>
 
             <div className="space-y-2">
@@ -470,6 +499,7 @@ export default function AnalyticsReports() {
                   ))}
                 </SelectContent>
               </Select>
+              {pharmacies.length === 0 && <p className="text-xs text-muted-foreground">No pharmacies for current date/filter scope.</p>}
             </div>
 
             <div className="space-y-2">
@@ -487,6 +517,7 @@ export default function AnalyticsReports() {
                   ))}
                 </SelectContent>
               </Select>
+              {variants.length === 0 && <p className="text-xs text-muted-foreground">No variants for current date/filter scope.</p>}
             </div>
           </div>
         </CardContent>
