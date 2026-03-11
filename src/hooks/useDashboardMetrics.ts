@@ -17,7 +17,6 @@ export const useDashboardMetrics = ({ fallbackKpis }: UseDashboardMetricsProps) 
             try {
                 setLoading(true);
                 const data = await fetchDashboardMetrics();
-                console.log({data});
                 setMetrics(data);
                 setError(null);
             } catch (err) {
@@ -31,7 +30,60 @@ export const useDashboardMetrics = ({ fallbackKpis }: UseDashboardMetricsProps) 
         loadMetrics();
     }, []);
 
-    const kpiData: Metric[] = metrics?.kpis ?? fallbackKpis;
+    const safeNumber = (value: number | undefined) => (typeof value === "number" ? value : 0);
+    const growth = safeNumber(metrics?.growth_percentage);
+
+    // Support both API shapes:
+    // 1) explicit `kpis` array
+    // 2) totals payload (total_revenue, total_orders, etc.) -> derive KPIs
+    const kpiData: Metric[] = metrics?.kpis && metrics.kpis.length > 0
+        ? metrics.kpis
+        : metrics
+            ? [
+                {
+                    title: "Total Patients",
+                    value: safeNumber(metrics.total_patients).toString(),
+                    change: "+0%", // API doesn't provide patient growth yet
+                    trend: "neutral"
+                },
+                {
+                    title: "Total Revenue",
+                    value: `$${safeNumber(metrics.total_revenue).toLocaleString()}`,
+                    change: `${growth > 0 ? '+' : ''}${growth}%`,
+                    trend: growth >= 0 ? "up" : "down"
+                },
+                {
+                    title: "Total Profit",
+                    value: `$${safeNumber(metrics.total_profit).toLocaleString()}`,
+                    change: "+0%",
+                    trend: "neutral"
+                },
+                {
+                    title: "Total Expense",
+                    value: `$${safeNumber(metrics.total_expenses).toLocaleString()}`,
+                    change: "+0%",
+                    trend: "neutral"
+                },
+                {
+                    title: "Total Sales",
+                    value: `${safeNumber(metrics.total_sales).toLocaleString()}`,
+                    change: "+0%",
+                    trend: "neutral"
+                },
+                {
+                    title: "Total Orders",
+                    value: safeNumber(metrics.total_orders).toString(),
+                    change: "+0%",
+                    trend: "neutral"
+                },
+                {
+                    title: "Total Growth",
+                    value: `${growth}%`,
+                    change: `${growth > 0 ? '+' : ''}${growth}%`,
+                    trend: growth >= 0 ? "up" : "down"
+                }
+            ]
+            : fallbackKpis;
 
     const { dashboard } = mockData;
 
