@@ -97,14 +97,24 @@ export function InviteUserModal({
     onClose();
   };
 
-  const copyInviteLink = () => {
+  const copyInviteLink = async () => {
     if (inviteResult?.invitation_link) {
-      navigator.clipboard.writeText(inviteResult.invitation_link);
-      toast({
-        title: "Copied!",
-        description: "Invitation link copied to clipboard",
-        duration: 2000,
-      });
+      try {
+        await navigator.clipboard.writeText(inviteResult.invitation_link);
+        toast({
+          title: "Copied!",
+          description: "Invitation link copied to clipboard",
+          duration: 3000,
+        });
+      } catch (err) {
+        console.error('Failed to copy link:', err);
+        toast({
+          title: "Error",
+          description: "Failed to copy link to clipboard",
+          variant: "destructive",
+          duration: 3000,
+        });
+      }
     }
   };
 
@@ -146,7 +156,7 @@ export function InviteUserModal({
 
             <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
               <p className="text-sm text-amber-800">
-                <strong>Note:</strong> The user must complete registration using this link before it expires. 
+                <strong>Note:</strong> The user must complete registration using this link before it expires.
                 Once registered, they can log in with their own password.
               </p>
             </div>

@@ -147,17 +147,18 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => 
             <Pencil className="w-4 h-4" />
             Edit
           </Button>
-          {row.admin_panel_domain && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => handleImpersonate(row)}
-              className="flex items-center"
-            >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Login as Client
-            </Button>
-          )}
+          {/* Login as Client — hidden for now
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => handleImpersonate(row)}
+            disabled={!row.admin_panel_domain}
+            className="flex items-center"
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Login as Client
+          </Button>
+          */}
         </div>
       ),
     },

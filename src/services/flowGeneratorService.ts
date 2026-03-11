@@ -40,11 +40,31 @@ export interface FlowGenerationResult {
 }
 
 interface ConditionalLogic {
-  show_if?: {
+  show_if?:
+    | {
+        type?: string;
+        operator?: "AND" | "OR";
+        children?: Array<{
+          type?: string;
+          question_id?: string;
+          value?: unknown | unknown[];
+          operator?: string;
+          field?: string;
+          children?: unknown[];
+        }>;
+      }
+    | {
     question_id: string;
     value: unknown | unknown[];
     operator: string;
-  };
+      field?: string;
+    }
+    | Array<{
+        question_id: string;
+        value: unknown | unknown[];
+        operator: string;
+        field?: string;
+      }>;
   disqualify_if?:
     | Array<{
         value: string;
@@ -60,6 +80,28 @@ interface ConditionalLogic {
 
 function buildChoiceRuleKey(questionId: string, value: unknown): string {
   return `${questionId}|${normalizeChoiceToken(value)}`;
+}
+
+function extractShowIfConditions(
+  showIf: ConditionalLogic["show_if"]
+): Array<{ question_id: string; value: unknown | unknown[]; operator: string; field?: string }> {
+  if (!showIf) return [];
+
+  if (Array.isArray(showIf)) {
+    return showIf;
+  }
+
+  if (typeof showIf === "object" && "question_id" in showIf && showIf.question_id) {
+    return [showIf];
+  }
+
+  if (typeof showIf === "object" && showIf?.type === "group" && Array.isArray(showIf.children)) {
+    return showIf.children.flatMap((child) =>
+      extractShowIfConditions(child as ConditionalLogic["show_if"])
+    );
+  }
+
+  return [];
 }
 
 // ==================== MAIN GENERATOR ====================
@@ -584,49 +626,23 @@ function generateEdges(
     // For questions with multiple trigger values, create all edges at once
     if (logic?.show_if && !processedConditionalQuestions.has(question.id)) {
       processedConditionalQuestions.add(question.id);
+      extractShowIfConditions(logic.show_if).forEach((parent) => {
+        if (!parent.question_id) return;
 
-      // Handle multi-parent format (array)
-      if (Array.isArray(logic.show_if)) {
-        logic.show_if.forEach((parent: unknown) => {
-          if (!parent.question_id) return;
-
-          const values = Array.isArray(parent.value)
-            ? parent.value
-            : [parent.value];
-
-          // Create an edge for each trigger value
-          values.forEach((value) => {
-            const followUpEdges = generateFollowUpEdges(
-              question,
-              {
-                question_id: parent.question_id,
-                value,
-                operator: parent.operator,
-              },
-              questions
-            );
-            edges.push(...followUpEdges);
-          });
-        });
-      } else if (
-        typeof logic.show_if === "object" &&
-        logic.show_if.question_id
-      ) {
-        // Handle single-parent format (object)
-        const values = Array.isArray(logic.show_if.value)
-          ? logic.show_if.value
-          : [logic.show_if.value];
-
-        // Create an edge for each trigger value
+        const values = Array.isArray(parent.value) ? parent.value : [parent.value];
         values.forEach((value) => {
           const followUpEdges = generateFollowUpEdges(
             question,
-            { ...logic.show_if, value },
+            {
+              question_id: parent.question_id,
+              value,
+              operator: parent.operator,
+            },
             questions
           );
           edges.push(...followUpEdges);
         });
-      }
+      });
     }
 
     // Generate disqualify edges from validation_rules
