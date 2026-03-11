@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TestTube, Calendar, Search, ChevronDown, ChevronUp, AlertCircle, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { TestTube, Calendar, Search, ChevronDown, ChevronUp, AlertCircle, CheckCircle, Clock, XCircle, Info, ExternalLink, Loader2, CalendarCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,6 +52,8 @@ function getSubmissionStatusIcon(status: string | null) {
             return <CheckCircle className="h-4 w-4 text-green-500" />;
         case 'submitted':
             return <Clock className="h-4 w-4 text-blue-500" />;
+        case 'processing':
+            return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
         case 'pending':
             return <AlertCircle className="h-4 w-4 text-yellow-500" />;
         case 'failed':
@@ -67,6 +69,8 @@ function getSubmissionStatusColor(status: string | null): string {
             return 'bg-green-100 text-green-800';
         case 'submitted':
             return 'bg-blue-100 text-blue-800';
+        case 'processing':
+            return 'bg-blue-100 text-blue-800';
         case 'pending':
             return 'bg-yellow-100 text-yellow-800';
         case 'failed':
@@ -74,6 +78,104 @@ function getSubmissionStatusColor(status: string | null): string {
         default:
             return 'bg-gray-100 text-gray-800';
     }
+}
+
+/** Returns style config for the status message box based on submission status. */
+function getStatusMessageConfig(status: string | null) {
+    switch (status?.toLowerCase()) {
+        case 'failed':
+            return {
+                containerClass: 'bg-red-50 border-red-200',
+                iconClass: 'text-red-600',
+                titleClass: 'text-red-800',
+                textClass: 'text-red-700',
+                linkClass: 'text-red-700 underline decoration-red-400 hover:text-red-900',
+                icon: <XCircle className="h-4 w-4 flex-shrink-0" />,
+                title: 'Error Details',
+            };
+        case 'completed':
+            return {
+                containerClass: 'bg-green-50 border-green-200',
+                iconClass: 'text-green-600',
+                titleClass: 'text-green-800',
+                textClass: 'text-green-700',
+                linkClass: 'text-green-700 underline decoration-green-400 hover:text-green-900',
+                icon: <CheckCircle className="h-4 w-4 flex-shrink-0" />,
+                title: 'Completed',
+            };
+        case 'submitted':
+        case 'processing':
+            return {
+                containerClass: 'bg-blue-50 border-blue-200',
+                iconClass: 'text-blue-600',
+                titleClass: 'text-blue-800',
+                textClass: 'text-blue-700',
+                linkClass: 'text-blue-700 underline decoration-blue-400 hover:text-blue-900',
+                icon: <Info className="h-4 w-4 flex-shrink-0" />,
+                title: 'Status Update',
+            };
+        case 'pending':
+            return {
+                containerClass: 'bg-yellow-50 border-yellow-200',
+                iconClass: 'text-yellow-600',
+                titleClass: 'text-yellow-800',
+                textClass: 'text-yellow-700',
+                linkClass: 'text-yellow-700 underline decoration-yellow-400 hover:text-yellow-900',
+                icon: <AlertCircle className="h-4 w-4 flex-shrink-0" />,
+                title: 'Pending',
+            };
+        default:
+            return {
+                containerClass: 'bg-gray-50 border-gray-200',
+                iconClass: 'text-gray-600',
+                titleClass: 'text-gray-800',
+                textClass: 'text-gray-700',
+                linkClass: 'text-gray-700 underline decoration-gray-400 hover:text-gray-900',
+                icon: <Info className="h-4 w-4 flex-shrink-0" />,
+                title: 'Details',
+            };
+    }
+}
+
+/** Determines a friendly label for a URL found in status messages. */
+function getFriendlyLinkLabel(url: string): { label: string; icon: JSX.Element } {
+    const lower = url.toLowerCase();
+    if (lower.includes('schedule') || lower.includes('booking') || lower.includes('appointment') || lower.includes('calendly')) {
+        return { label: 'Book Lab Appointment', icon: <CalendarCheck className="inline h-3.5 w-3.5 mr-1" /> };
+    }
+    if (lower.includes('requisition') || lower.includes('download') || lower.includes('.pdf')) {
+        return { label: 'Download Lab Requisition', icon: <ExternalLink className="inline h-3.5 w-3.5 mr-1" /> };
+    }
+    if (lower.includes('result') || lower.includes('report')) {
+        return { label: 'View Lab Results', icon: <ExternalLink className="inline h-3.5 w-3.5 mr-1" /> };
+    }
+    return { label: 'View Details', icon: <ExternalLink className="inline h-3.5 w-3.5 mr-1" /> };
+}
+
+/** Renders error_details text with URLs converted to friendly, styled links. */
+function StatusMessageContent({ text, linkClass }: { text: string; linkClass: string }) {
+    const parts = text.split(/(https?:\/\/[^\s]+)/g);
+    return (
+        <>
+            {parts.map((part, i) => {
+                if (part.match(/^https?:\/\//)) {
+                    const { label, icon } = getFriendlyLinkLabel(part);
+                    return (
+                        <a
+                            key={i}
+                            href={part}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`${linkClass} inline-flex items-center font-medium`}
+                        >
+                            {icon}{label}
+                        </a>
+                    );
+                }
+                return <span key={i}>{part}</span>;
+            })}
+        </>
+    );
 }
 
 interface LabResultCardProps {
@@ -86,9 +188,9 @@ function LabResultCard({ result, isExpanded, onToggle }: LabResultCardProps) {
     return (
         <Card className="mb-4">
             <CardContent className="p-4">
-                <div 
-                className="flex items-center justify-between cursor-pointer"
-                onClick={onToggle}
+                <div
+                    className="flex items-center justify-between cursor-pointer"
+                    onClick={onToggle}
                 >
                     <div className="flex items-center space-x-4">
                         <div className="p-2 bg-blue-50 rounded-lg">
@@ -120,7 +222,7 @@ function LabResultCard({ result, isExpanded, onToggle }: LabResultCardProps) {
                         )}
                     </div>
                 </div>
-                
+
                 {isExpanded && (
                     <div className="mt-4 pt-4 border-t border-gray-100">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -158,9 +260,9 @@ function SubmissionCard({ submission, isExpanded, onToggle }: SubmissionCardProp
     return (
         <Card className="mb-4">
             <CardContent className="p-4">
-                <div 
-                className="flex items-center justify-between cursor-pointer"
-                onClick={onToggle}
+                <div
+                    className="flex items-center justify-between cursor-pointer"
+                    onClick={onToggle}
                 >
                     <div className="flex items-center space-x-4">
                         <div className="p-2 bg-purple-50 rounded-lg">
@@ -189,7 +291,7 @@ function SubmissionCard({ submission, isExpanded, onToggle }: SubmissionCardProp
                         )}
                     </div>
                 </div>
-                
+
                 {isExpanded && (
                     <div className="mt-4 pt-4 border-t border-gray-100">
                         <div className="space-y-3">
@@ -211,7 +313,7 @@ function SubmissionCard({ submission, isExpanded, onToggle }: SubmissionCardProp
                                     <p className="font-medium">{formatDate(submission.submitted_at)}</p>
                                 </div>
                             </div>
-                            
+
                             {submission.lab_results.length > 0 && (
                                 <div className="mt-4">
                                     <h4 className="font-medium text-gray-900 mb-2">Lab Results</h4>
@@ -232,12 +334,22 @@ function SubmissionCard({ submission, isExpanded, onToggle }: SubmissionCardProp
                                     </div>
                                 </div>
                             )}
-                            
-                            {submission.error_details && (
-                                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                                    <p className="text-sm text-red-800">{submission.error_details}</p>
-                                </div>
-                            )}
+
+
+                            {submission.error_details && (() => {
+                                const cfg = getStatusMessageConfig(submission.submission_status);
+                                return (
+                                    <div className={`mt-4 p-3 border rounded-lg ${cfg.containerClass}`}>
+                                        <div className={`flex items-center gap-2 mb-1.5 ${cfg.iconClass}`}>
+                                            {cfg.icon}
+                                            <span className={`text-sm font-semibold ${cfg.titleClass}`}>{cfg.title}</span>
+                                        </div>
+                                        <p className={`text-sm ${cfg.textClass} leading-relaxed`}>
+                                            <StatusMessageContent text={submission.error_details} linkClass={cfg.linkClass} />
+                                        </p>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </div>
                 )}
@@ -263,12 +375,12 @@ export default function LabsPage() {
         try {
             setLoading(true);
             setError(null);
-            
+
             const [results, submissions] = await Promise.all([
                 getLabResults(),
                 getLabSubmissions(),
             ]);
-            
+
             setLabResults(results);
             setLabSubmissions(submissions);
         } catch (err) {
@@ -284,7 +396,7 @@ export default function LabsPage() {
     );
 
     const filteredSubmissions = labSubmissions.filter(submission =>
-        submission.lab_results.some(r => 
+        submission.lab_results.some(r =>
             r.test_name.toLowerCase().includes(searchTerm.toLowerCase())
         )
     );
@@ -374,8 +486,8 @@ export default function LabsPage() {
                                 <TestTube className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                                 <h3 className="text-lg font-medium text-gray-900 mb-2">No lab results available</h3>
                                 <p className="text-gray-600">
-                                    {searchTerm 
-                                        ? 'No results match your search criteria.' 
+                                    {searchTerm
+                                        ? 'No results match your search criteria.'
                                         : "You don't have any lab results yet."}
                                 </p>
                             </CardContent>
@@ -399,8 +511,8 @@ export default function LabsPage() {
                                 <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                                 <h3 className="text-lg font-medium text-gray-900 mb-2">No lab submissions</h3>
                                 <p className="text-gray-600">
-                                    {searchTerm 
-                                        ? 'No submissions match your search criteria.' 
+                                    {searchTerm
+                                        ? 'No submissions match your search criteria.'
                                         : "You don't have any lab submissions yet."}
                                 </p>
                             </CardContent>
