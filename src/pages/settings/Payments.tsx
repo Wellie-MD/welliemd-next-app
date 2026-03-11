@@ -136,7 +136,6 @@ export default function Payments() {
   const [gatewayConfig, setGatewayConfig] = useState<PaymentGatewayConfig>({
     payment_gateway: 'stripe',
     nmi_security_key: null,
-    nmi_api_key: null,
     nmi_base_url: null,
     nmi_public_key: null,
     nmi_test_mode: true,
@@ -234,7 +233,7 @@ export default function Payments() {
       )
     }
     if (payment_gateway === 'nmi') {
-      return !!(gatewayConfig.nmi_security_key)
+      return !!(gatewayConfig.nmi_security_key && gatewayConfig.nmi_public_key)
     }
     if (payment_gateway === 'authorize_net') {
       return !!(gatewayConfig.authorize_net_api_login_id && gatewayConfig.authorize_net_transaction_key)
@@ -295,6 +294,14 @@ export default function Payments() {
                   <h3 className="font-medium text-sm">
                     {getGatewayLabel(gatewayConfig.payment_gateway)} Credentials
                   </h3>
+                  {gatewayConfig.payment_gateway === 'nmi' && (
+                    <p className="text-xs text-muted-foreground rounded-md border bg-muted/40 px-3 py-2">
+                      Use the <strong>merchant account</strong> keys from <strong>NMI Portal → Settings → Security Keys</strong>.
+                      WellieMD requires an <strong>API Security Key</strong> for server-side payment requests and a
+                      <strong> Tokenization Key</strong> for Collect.js. Do <strong>not</strong> use Partner Portal /
+                      Merchant Boarding API <code>v4_secret_...</code> keys from the boarding screen.
+                    </p>
+                  )}
                   
                   {GATEWAY_FIELDS[gatewayConfig.payment_gateway]?.map((field) => (
                     <div key={field.key}>

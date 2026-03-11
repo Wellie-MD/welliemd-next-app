@@ -27,6 +27,7 @@ import {
   Building2,
   Package,
   Filter,
+  X,
 } from "lucide-react"
 import { format, subDays, subMonths, startOfDay, endOfDay } from "date-fns"
 import {
@@ -174,21 +175,32 @@ export default function AnalyticsReports() {
     queryFn: () => getAggregates(queryParams),
   })
 
+  const optionParams = useMemo(
+    () => ({
+      ...(dateRange.from && { start_date: startOfDay(dateRange.from).toISOString() }),
+      ...(dateRange.to && { end_date: endOfDay(dateRange.to).toISOString() }),
+      ...(selectedState && { state: selectedState }),
+      ...(selectedPharmacy && { pharmacy_id: selectedPharmacy }),
+      ...(selectedVariant && { variant_id: selectedVariant }),
+    }),
+    [dateRange, selectedState, selectedPharmacy, selectedVariant],
+  )
+
   const { data: states = [] } = useQuery({
-    queryKey: ["states"],
-    queryFn: getStates,
+    queryKey: ["states", optionParams.start_date, optionParams.end_date, optionParams.pharmacy_id, optionParams.variant_id],
+    queryFn: () => getStates(optionParams),
     staleTime: 150000,
   })
 
   const { data: pharmacies = [] } = useQuery({
-    queryKey: ["pharmacies"],
-    queryFn: getPharmacies,
+    queryKey: ["pharmacies", optionParams.start_date, optionParams.end_date, optionParams.state, optionParams.variant_id],
+    queryFn: () => getPharmacies(optionParams),
     staleTime: 150000,
   })
 
   const { data: variants = [] } = useQuery({
-    queryKey: ["variants"],
-    queryFn: getVariants,
+    queryKey: ["variants", optionParams.start_date, optionParams.end_date, optionParams.state, optionParams.pharmacy_id],
+    queryFn: () => getVariants(optionParams),
     staleTime: 150000,
   })
 
@@ -214,6 +226,8 @@ export default function AnalyticsReports() {
   }, [aggregates?.byVariant, variantSearch])
 
   const hasActiveReportFilters = Boolean(selectedState || selectedPharmacy || selectedVariant)
+  const selectedPharmacyLabel = pharmacies.find((item) => String(item.id) === String(selectedPharmacy))?.name || selectedPharmacy
+  const selectedVariantLabel = variants.find((item) => String(item.id) === String(selectedVariant))?.name || selectedVariant
 
   const exportToCSV = (data: Record<string, unknown>[], filename: string) => {
     if (!data.length) return
@@ -239,6 +253,20 @@ export default function AnalyticsReports() {
     setDateRange({ from: subMonths(new Date(), months), to: new Date() })
   }
 
+  const isDayRangePreset = (days: number) => {
+    if (!dateRange.from || !dateRange.to) return false
+    const expectedFrom = startOfDay(subDays(new Date(), days)).getTime()
+    const currentFrom = startOfDay(dateRange.from).getTime()
+    return expectedFrom === currentFrom
+  }
+
+  const isMonthRangePreset = (months: number) => {
+    if (!dateRange.from || !dateRange.to) return false
+    const expectedFrom = startOfDay(subMonths(new Date(), months)).getTime()
+    const currentFrom = startOfDay(dateRange.from).getTime()
+    return expectedFrom === currentFrom
+  }
+
   if (isLoading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center p-6">
@@ -260,13 +288,13 @@ export default function AnalyticsReports() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setPresetDays(7)}>
+              <Button variant={isDayRangePreset(7) ? "default" : "outline"} size="sm" onClick={() => setPresetDays(7)}>
                 Last 7 days
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setPresetDays(30)}>
+              <Button variant={isDayRangePreset(30) ? "default" : "outline"} size="sm" onClick={() => setPresetDays(30)}>
                 Last 30 days
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setPresetMonths(3)}>
+              <Button variant={isMonthRangePreset(3) ? "default" : "outline"} size="sm" onClick={() => setPresetMonths(3)}>
                 Last 3 months
               </Button>
               <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
@@ -307,6 +335,7 @@ export default function AnalyticsReports() {
                       </Button>
                       <Button
                         size="sm"
+                        disabled={!tempDateRange.from || !tempDateRange.to}
                         onClick={() => {
                           setDateRange(tempDateRange)
                           setIsPopoverOpen(false)
@@ -324,20 +353,30 @@ export default function AnalyticsReports() {
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/15">
               <Filter className="mr-1 h-3 w-3" />
-              {hasActiveReportFilters ? "Filtered" : "No filter"}
+              {hasActiveReportFilters ? "Dimension Filters Applied" : "Captured Payments Only"}
             </Badge>
-            {hasActiveReportFilters && (
+            <Badge variant="outline">
+              {dateRange.from && dateRange.to
+                ? `${format(dateRange.from, "MMM dd, yyyy")} - ${format(dateRange.to, "MMM dd, yyyy")}`
+                : "Date range"}
+            </Badge>
+            {selectedState && <Badge variant="outline">State: {selectedState}</Badge>}
+            {selectedPharmacy && <Badge variant="outline">Pharmacy: {selectedPharmacyLabel}</Badge>}
+            {selectedVariant && <Badge variant="outline">Variant: {selectedVariantLabel}</Badge>}
+            {(hasActiveReportFilters || (dateRange.from && dateRange.to)) && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-7 px-2"
                 onClick={() => {
+                  setDateRange({ from: subDays(new Date(), 7), to: new Date() })
                   setSelectedState("")
                   setSelectedPharmacy("")
                   setSelectedVariant("")
                 }}
               >
-                Clear filters
+                <X className="mr-1 h-3 w-3" />
+                Reset view
               </Button>
             )}
           </div>
@@ -411,6 +450,7 @@ export default function AnalyticsReports() {
                   ))}
                 </SelectContent>
               </Select>
+              {states.length === 0 && <p className="text-xs text-muted-foreground">No states for current date/filter scope.</p>}
             </div>
 
             <div className="space-y-2">
@@ -428,6 +468,7 @@ export default function AnalyticsReports() {
                   ))}
                 </SelectContent>
               </Select>
+              {pharmacies.length === 0 && <p className="text-xs text-muted-foreground">No pharmacies for current date/filter scope.</p>}
             </div>
 
             <div className="space-y-2">
@@ -445,6 +486,7 @@ export default function AnalyticsReports() {
                   ))}
                 </SelectContent>
               </Select>
+              {variants.length === 0 && <p className="text-xs text-muted-foreground">No variants for current date/filter scope.</p>}
             </div>
           </div>
         </CardContent>
