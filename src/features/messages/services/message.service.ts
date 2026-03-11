@@ -86,6 +86,8 @@ export const MessageService = {
     media_url?: string;
     media_mime_type?: string;
     media_file_name?: string;
+    first_name?: string;
+    last_name?: string;
   }): Promise<{ sent: boolean; id: number }> {
     const res = await apiClient.post(`/messages/send/`, payload);
     return res.data;

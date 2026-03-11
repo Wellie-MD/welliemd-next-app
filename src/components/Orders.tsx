@@ -297,13 +297,13 @@ export default function Orders() {
     }
   }, [orderIdFromUrl]);
 
-  // Simple polling: Auto-refresh orders every 60 seconds for background updates
+  // Simple polling: Auto-refresh orders every 10 seconds for background updates
   // This is more reliable than WebSocket for healthcare apps
   useEffect(() => {
     const pollInterval = setInterval(() => {
-      console.log('🔄 Auto-refreshing orders (60s polling)...');
+      console.log('🔄 Auto-refreshing orders (10s polling)...');
       fetchOrders(page);
-    }, 60000); // 60 seconds
+    }, 10000); // 10 seconds
 
     return () => clearInterval(pollInterval);
   }, [fetchOrders, page]);

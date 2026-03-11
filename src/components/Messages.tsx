@@ -32,6 +32,7 @@ import {
   type ChatRecipient,
 } from "@/features/messages/services/message.service";
 import { VisitService, type Visit } from "@/features/visits/services/visit.service";
+import { useAuth } from "@/features/auth";
 
 import { isToday, isYesterday, isThisWeek, format, formatISO } from "date-fns";
 
@@ -214,6 +215,7 @@ function DocumentBubble({
 }
 
 export default function Messages() {
+  const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selected, setSelected] = useState<Conversation | null>(null);
 
@@ -327,7 +329,7 @@ export default function Messages() {
 
       const latest = newestFirst?.[0];
       if (latest) lastSeenLatestIdRef.current[selected.id] = latest.id;
-    }, 30000);  // Changed from 2000ms to 30000ms (30 seconds) to reduce API calls
+    }, 10000);  // Poll every 10 seconds
 
     return () => clearInterval(timer);
   }, [selected]);
@@ -371,7 +373,7 @@ export default function Messages() {
           lastSeenLatestIdRef.current[conv.id] = latest.id;
         }
       }
-    }, 60000);  // Changed from 2500ms to 60000ms (60 seconds) to reduce API calls
+    }, 10000);  // Poll every 10 seconds
 
     return () => clearInterval(timer);
   }, [conversations, selected]);
@@ -489,6 +491,8 @@ export default function Messages() {
           media_url: first?.url,
           media_mime_type: first?.mimeType,
           media_file_name: first?.fileName,
+          ...(user?.first_name != null && { first_name: user.first_name }),
+          ...(user?.last_name != null && { last_name: user.last_name }),
         });
 
         optimistic.push(
@@ -515,6 +519,8 @@ export default function Messages() {
           media_url: up.url,
           media_mime_type: up.mimeType,
           media_file_name: up.fileName,
+          ...(user?.first_name != null && { first_name: user.first_name }),
+          ...(user?.last_name != null && { last_name: user.last_name }),
         });
 
         optimistic.push(
