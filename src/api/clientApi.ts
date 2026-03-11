@@ -195,19 +195,21 @@ export interface PaymentMethodResponse {
 
 export const clientApi = {
   list: async (): Promise<Client[]> => {
-    const { data } = await axiosInstance.get('/clients/', {
-      params: { page_size: 500 },
-    });
-    const results = Array.isArray(data?.results)
-      ? data.results
-      : Array.isArray(data)
-        ? data
-        : [];
+    const allResults: unknown[] = [];
+    let url: string | null = '/clients/';
+    let params: Record<string, string> = { page_size: '500' };
 
-    // ensure `user` is either an object or null
-    return results.map((c: unknown) => ({
+    while (url) {
+      const isFullUrl = url.startsWith('http');
+      const { data } = await axiosInstance.get(isFullUrl ? url : '/clients/', isFullUrl ? {} : { params });
+      const results = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
+      allResults.push(...results);
+      url = data?.next && typeof data.next === 'string' ? data.next : null;
+    }
+
+    return allResults.map((c: unknown) => ({
       ...c,
-      user: c?.user ?? null,
+      user: (c as { user?: unknown })?.user ?? null,
     })) as Client[];
   },
 
