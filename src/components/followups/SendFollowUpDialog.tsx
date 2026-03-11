@@ -59,6 +59,7 @@ export function SendFollowUpDialog({
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>('');
   const [episodesFallbackUsed, setEpisodesFallbackUsed] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailSentOnce, setEmailSentOnce] = useState(false);
   const [sendEmailMessage, setSendEmailMessage] = useState<string | null>(null);
 
   const selectedTemplateRecord = useMemo(
@@ -164,6 +165,7 @@ export function SendFollowUpDialog({
       // Reset state when dialog opens
       setResult(null);
       setCopied(false);
+      setEmailSentOnce(false);
       setSendEmailMessage(null);
     }
   }, [open, loadTemplates]);
@@ -221,18 +223,29 @@ export function SendFollowUpDialog({
   };
 
   const handleSendEmail = async () => {
-    if (!result?.session_id) return;
+    if (!result?.session_id || sendingEmail || emailSentOnce) return;
 
     setSendingEmail(true);
     setSendEmailMessage(null);
     try {
+      const idempotencyKey =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
       const response = await sendFollowUpNotification(result.session_id, {
         template_type: 'follow_up_scheduled',
         channels: ['email'],
+        idempotency_key: idempotencyKey,
       });
 
       if (response.success) {
-        setSendEmailMessage('Follow-up email sent successfully.');
+        setEmailSentOnce(true);
+        setSendEmailMessage(
+          response.skipped_duplicate
+            ? 'Email was already sent recently for this follow-up.'
+            : 'Follow-up email sent successfully.'
+        );
         if (response.notification_result?.follow_up_url) {
           setResult((prev) => (
             prev ? { ...prev, follow_up_url: response.notification_result?.follow_up_url || prev.follow_up_url } : prev
@@ -395,6 +408,11 @@ export function SendFollowUpDialog({
                 timeStyle: 'short',
               })}
             </p>
+            {patientEmail && (
+              <p className="text-xs text-muted-foreground">
+                A scheduled follow-up email is sent automatically when the session is created. Use resend only if needed.
+              </p>
+            )}
             {sendEmailMessage && (
               <p className="text-sm text-muted-foreground">{sendEmailMessage}</p>
             )}
@@ -439,13 +457,15 @@ export function SendFollowUpDialog({
           ) : result.success ? (
             <>
               {patientEmail && (
-                <Button variant="outline" onClick={handleSendEmail} disabled={sendingEmail}>
+                <Button variant="outline" onClick={handleSendEmail} disabled={sendingEmail || emailSentOnce}>
                   {sendingEmail ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : emailSentOnce ? (
+                    <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
                   ) : (
                     <Mail className="mr-2 h-4 w-4" />
                   )}
-                  Send via Email
+                  {emailSentOnce ? 'Email Sent' : 'Resend Email'}
                 </Button>
               )}
               <Button onClick={() => onOpenChange(false)}>Done</Button>

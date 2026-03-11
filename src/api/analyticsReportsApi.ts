@@ -53,6 +53,8 @@ export interface AggregatesParams {
 }
 
 const ORDERS_PAGE_SIZE = 500;
+const CAPTURED_PAYMENT_STATUSES = new Set(['captured', 'approved', 'succeeded']);
+const FINANCIAL_ORDER_STATUSES = new Set(['prescribed', 'billing_pending', 'rx_sent', 'shipped']);
 
 async function fetchAllOrders(params?: Record<string, unknown>) {
   let page = 1;
@@ -104,7 +106,23 @@ function getOrderState(order: any): string {
     order.billing_address?.state ||
     'Unknown';
   const normalized = normalizeText(state);
-  return normalized || 'Unknown';
+  if (!normalized) return 'Unknown';
+  if (normalized.length === 2) return normalized.toUpperCase();
+  return normalized;
+}
+
+function getOrderStatus(order: any): string {
+  return normalizeCaseInsensitive(order.orderStatus || order.order_status || order.status);
+}
+
+function getPaymentStatus(order: any): string {
+  return normalizeCaseInsensitive(order.paymentStatus || order.payment_status || order.transaction_status);
+}
+
+function isCapturedFinancialOrder(order: any): boolean {
+  const orderStatus = getOrderStatus(order);
+  const paymentStatus = getPaymentStatus(order);
+  return FINANCIAL_ORDER_STATUSES.has(orderStatus) && CAPTURED_PAYMENT_STATUSES.has(paymentStatus);
 }
 
 function getOrderPharmacy(order: any): { key: string; name: string } {
@@ -200,6 +218,14 @@ function orderMatchesReportFilters(order: any, params?: AggregatesParams): boole
   return true;
 }
 
+function isCompletedOrderStatus(status: string): boolean {
+  return ['completed', 'shipped', 'delivered'].includes(status);
+}
+
+function isPendingOrderStatus(status: string): boolean {
+  return ['created', 'processing', 'pending', 'payment_pending', 'visit_pending', 'billing_pending', 'prescribed', 'rx_sent'].includes(status);
+}
+
 /**
  * Fetch aggregate reports data
  */
@@ -227,6 +253,9 @@ export const getAggregates = async (params?: AggregatesParams): Promise<Aggregat
         return isWithinInterval(orderDate, { start: filterStart, end: filterEnd });
       });
     }
+
+    // Financial analytics must only include captured/settled payments.
+    orders = orders.filter((order: any) => isCapturedFinancialOrder(order));
 
     // Apply report filters globally so all cards/tables represent the same dataset.
     orders = orders.filter((order: any) => orderMatchesReportFilters(order, params));
@@ -287,9 +316,9 @@ function aggregateByState(orders: any[]): AggregateByState[] {
     const normalizedState = getOrderState(order);
 
     const amount = parseOrderAmount(order);
-    const status = (order.order_status || order.status || '').toLowerCase();
-    const isCompleted = ['completed', 'shipped', 'delivered'].includes(status);
-    const isPending = ['pending', 'processing'].includes(status);
+    const status = getOrderStatus(order);
+    const isCompleted = isCompletedOrderStatus(status);
+    const isPending = isPendingOrderStatus(status);
 
     if (!stateMap.has(normalizedState)) {
       stateMap.set(normalizedState, {
@@ -336,9 +365,9 @@ function aggregateByPharmacy(orders: any[]): AggregateByPharmacy[] {
     const pharmacy = getOrderPharmacy(order);
 
     const amount = parseOrderAmount(order);
-    const status = (order.order_status || order.status || '').toLowerCase();
-    const isCompleted = ['completed', 'shipped', 'delivered'].includes(status);
-    const isPending = ['pending', 'processing'].includes(status);
+    const status = getOrderStatus(order);
+    const isCompleted = isCompletedOrderStatus(status);
+    const isPending = isPendingOrderStatus(status);
 
     if (!pharmacyMap.has(pharmacy.key)) {
       pharmacyMap.set(pharmacy.key, {
@@ -424,10 +453,28 @@ function aggregateByVariant(orders: any[]): AggregateByVariant[] {
 /**
  * Get list of states from orders
  */
-export const getStates = async (): Promise<string[]> => {
+export const getStates = async (params?: AggregatesParams): Promise<string[]> => {
   try {
-    const ordersResponse = await fetchAllOrders();
-    const orders = ordersResponse.results || [];
+    const orderFilters: any = {
+      ...(params?.start_date && { created_at__gte: params.start_date }),
+      ...(params?.end_date && { created_at__lte: params.end_date }),
+    };
+    const ordersResponse = await fetchAllOrders(orderFilters);
+    const rawOrders = ordersResponse.results || [];
+    let orders = rawOrders.filter((order: any) => isCapturedFinancialOrder(order));
+
+    if (params?.start_date && params?.end_date) {
+      const filterStart = startOfDay(parseISO(params.start_date));
+      const filterEnd = endOfDay(parseISO(params.end_date));
+      orders = orders.filter((order: any) => {
+        if (!order.created_at) return false;
+        const orderDate = parseISO(order.created_at);
+        return isWithinInterval(orderDate, { start: filterStart, end: filterEnd });
+      });
+    }
+
+    // Keep current dimension open while honoring other active filters.
+    orders = orders.filter((order: any) => orderMatchesReportFilters(order, { ...params, state: undefined }));
 
     const states = new Set<string>();
     orders.forEach((order: any) => {
@@ -445,10 +492,28 @@ export const getStates = async (): Promise<string[]> => {
 /**
  * Get list of pharmacies
  */
-export const getPharmacies = async (): Promise<Array<{ id: string; name: string }>> => {
+export const getPharmacies = async (params?: AggregatesParams): Promise<Array<{ id: string; name: string }>> => {
   try {
-    const ordersResponse = await fetchAllOrders();
-    const orders = ordersResponse.results || [];
+    const orderFilters: any = {
+      ...(params?.start_date && { created_at__gte: params.start_date }),
+      ...(params?.end_date && { created_at__lte: params.end_date }),
+    };
+    const ordersResponse = await fetchAllOrders(orderFilters);
+    const rawOrders = ordersResponse.results || [];
+    let orders = rawOrders.filter((order: any) => isCapturedFinancialOrder(order));
+
+    if (params?.start_date && params?.end_date) {
+      const filterStart = startOfDay(parseISO(params.start_date));
+      const filterEnd = endOfDay(parseISO(params.end_date));
+      orders = orders.filter((order: any) => {
+        if (!order.created_at) return false;
+        const orderDate = parseISO(order.created_at);
+        return isWithinInterval(orderDate, { start: filterStart, end: filterEnd });
+      });
+    }
+
+    // Keep current dimension open while honoring other active filters.
+    orders = orders.filter((order: any) => orderMatchesReportFilters(order, { ...params, pharmacy_id: undefined }));
     const seen = new Set<string>();
     const pharmacies: Array<{ id: string; name: string }> = [];
 
@@ -469,10 +534,28 @@ export const getPharmacies = async (): Promise<Array<{ id: string; name: string 
 /**
  * Get list of variants
  */
-export const getVariants = async (): Promise<Array<{ id: string; name: string }>> => {
+export const getVariants = async (params?: AggregatesParams): Promise<Array<{ id: string; name: string }>> => {
   try {
-    const ordersResponse = await fetchAllOrders();
-    const orders = ordersResponse.results || [];
+    const orderFilters: any = {
+      ...(params?.start_date && { created_at__gte: params.start_date }),
+      ...(params?.end_date && { created_at__lte: params.end_date }),
+    };
+    const ordersResponse = await fetchAllOrders(orderFilters);
+    const rawOrders = ordersResponse.results || [];
+    let orders = rawOrders.filter((order: any) => isCapturedFinancialOrder(order));
+
+    if (params?.start_date && params?.end_date) {
+      const filterStart = startOfDay(parseISO(params.start_date));
+      const filterEnd = endOfDay(parseISO(params.end_date));
+      orders = orders.filter((order: any) => {
+        if (!order.created_at) return false;
+        const orderDate = parseISO(order.created_at);
+        return isWithinInterval(orderDate, { start: filterStart, end: filterEnd });
+      });
+    }
+
+    // Keep current dimension open while honoring other active filters.
+    orders = orders.filter((order: any) => orderMatchesReportFilters(order, { ...params, variant_id: undefined }));
     const seen = new Set<string>();
     const variants: Array<{ id: string; name: string }> = [];
 

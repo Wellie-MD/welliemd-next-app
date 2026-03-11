@@ -219,9 +219,9 @@ export function OrderDetailsSheet({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-col gap-2">
                 <SheetTitle className="text-lg sm:text-xl">Order Details</SheetTitle>
-                {order.display_id && (
+                {(order.order_id || order.display_id) && (
                   <p className="text-sm text-muted-foreground">
-                    Order #{order.display_id}
+                    Order #{order.order_id || order.display_id}
                   </p>
                 )}
               </div>
