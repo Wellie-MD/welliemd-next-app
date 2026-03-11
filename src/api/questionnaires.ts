@@ -17,6 +17,7 @@ export interface QuestionnaireTemplate {
   treatment_type?: string;
   question_count?: number;
   requires_photo_upload: boolean;
+  requires_labs: boolean;
   requires_identity_verification: boolean;
   is_published: boolean;
   is_archived?: boolean;
@@ -86,6 +87,7 @@ export interface CreateTemplatePayload {
   beluga_visit_type?: string;
   slug?: string;
   requires_photo_upload?: boolean;
+  requires_labs?: boolean;
   requires_identity_verification?: boolean;
 }
 
