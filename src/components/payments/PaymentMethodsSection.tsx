@@ -114,6 +114,7 @@ export function PaymentMethodsSection({ userId }: PaymentMethodsSectionProps) {
           user_id: userId,
           payment_token: paymentData.payment_token,
           postal_code: paymentData.postal_code,
+          card_meta: paymentData.card_meta,
         });
       } else if (activeGateway === 'authorize_net') {
         const paymentData = await authnetRef.current?.getPaymentData();

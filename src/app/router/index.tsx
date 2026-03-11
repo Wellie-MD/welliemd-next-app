@@ -10,6 +10,7 @@ const ResetPassword = React.lazy(() => import('@/pages/auth/ResetPassword'));
 
 const DashboardLayout = React.lazy(() => import('@/layouts/dashboard-layout'));
 const Dashboard = React.lazy(() => import('@/components/Dashboard'));
+const FollowUpRedirectPage = React.lazy(() => import('@/features/followups/FollowUpRedirectPage'));
 const Profile = React.lazy(() => import('@/components/Profile'));
 const Treatments = React.lazy(() => import('@/components/Treatments'));
 const Prescriptions = React.lazy(() => import('@/components/Prescriptions'));
@@ -41,6 +42,14 @@ export const AppRouter: React.FC = () => {
           <Route path="/auth/signin" element={<SignIn />} />
           <Route path="/auth/forgot-password" element={<ForgotPassword />} />
           <Route path="/auth/reset-password" element={<ResetPassword />} />
+          <Route
+            path="/follow-up/:sessionId"
+            element={
+              <ProtectedRoute>
+                <FollowUpRedirectPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Trailing slash normalization - redirect /dashboard/ to /dashboard */}
           <Route path="/dashboard/" element={<Navigate to="/dashboard" replace />} />

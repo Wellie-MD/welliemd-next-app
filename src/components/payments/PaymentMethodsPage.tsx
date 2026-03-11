@@ -134,6 +134,7 @@ export default function PaymentMethodsPage() {
           user_id: userProfile.id,
           payment_token: data.payment_token,
           postal_code: data.postal_code,
+          card_meta: data.card_meta,
         });
       } else if (activeGateway === 'authorize_net') {
         const data = await authnetRef.current?.getPaymentData();
