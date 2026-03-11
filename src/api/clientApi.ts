@@ -195,7 +195,9 @@ export interface PaymentMethodResponse {
 
 export const clientApi = {
   list: async (): Promise<Client[]> => {
-    const { data } = await axiosInstance.get('/clients/');
+    const { data } = await axiosInstance.get('/clients/', {
+      params: { page_size: 500 },
+    });
     const results = Array.isArray(data?.results)
       ? data.results
       : Array.isArray(data)
