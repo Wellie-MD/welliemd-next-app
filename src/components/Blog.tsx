@@ -61,84 +61,100 @@ export default function Blog() {
       <div className="blog-container py-8">
 
         {/* Header Section */}
-        <div className="text-center mb-16 pt-4">
-          <h1 className="text-5xl md:text-7xl font-extrabold text-gray-900 mb-6 tracking-tight">
+        <div className="text-center mb-10 pt-4">
+          <h1
+            className="text-center tracking-tight"
+            style={{
+              fontSize: '2.5rem', /* 40px size, equivalent to text-4xl */
+              lineHeight: '1.2',
+              fontWeight: '800',  /* Extra bold */
+              color: '#0f172a',   /* Slate-900 dark color */
+              display: 'block',
+              marginBottom: '1rem'
+            }}
+          >
             All Resources
           </h1>
           <p className="text-gray-500 text-lg max-w-3xl mx-auto mb-10">
             Want more inspiration? Browse our <span className="font-bold text-gray-900">search results</span>
           </p>
 
-          {/* Search Bar */}
-          <div className="search-bar-container">
-            <Search className="search-icon" />
-            <input
-              type="text"
-              placeholder="Search for articles, tips, wellness advice..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="search-input"
-            />
-          </div>
+          <div className="flex flex-col gap-8">
+            {/* Search Bar */}
+            <div className="search-bar-container">
+              <Search className="search-icon" />
+              <input
+                type="text"
+                placeholder="Search for articles, tips, wellness advice..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="search-input"
+              />
+            </div>
 
-          {/* Category Filter Pills */}
-          <div className="flex flex-wrap justify-center gap-4 mb-8 mt-6">
-            <button
-              onClick={() => setActiveCategory(null)}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${!activeCategory
-                ? "bg-blue-50 text-blue-600 border border-blue-200 shadow-sm"
-                : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300"
-                }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setActiveCategory("saved")}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${activeCategory === "saved"
-                ? "bg-blue-50 text-blue-600 border border-blue-200 shadow-sm"
-                : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300"
-                }`}
-            >
-              Saved
-            </button>
-            {categories.map((cat) => (
+            {/* Category Filter Pills */}
+            <div className="flex flex-wrap justify-center gap-3">
               <button
-                key={cat}
-                onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-                className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${activeCategory === cat
+                onClick={() => setActiveCategory(null)}
+                className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${!activeCategory
                   ? "bg-blue-50 text-blue-600 border border-blue-200 shadow-sm"
                   : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300"
                   }`}
               >
-                {cat}
+                All
               </button>
-            ))}
-          </div>
-        </div>
+              <button
+                onClick={() => setActiveCategory("saved")}
+                className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${activeCategory === "saved"
+                  ? "bg-blue-50 text-blue-600 border border-blue-200 shadow-sm"
+                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                  }`}
+              >
+                Saved
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+                  className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${activeCategory === cat
+                    ? "bg-blue-50 text-blue-600 border border-blue-200 shadow-sm"
+                    : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                    }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
 
-        {/* View Toggle - Separated for proper spacing */}
-        <div className="flex justify-center mb-8">
-          <div className="inline-flex items-center bg-gray-50/80 p-1.5 rounded-full shadow-sm shrink-0 gap-2">
-            <button
-              className={`flex items-center justify-center p-2 rounded-full transition-all duration-200 w-10 h-10 ${viewMode === 'grid'
-                  ? 'bg-white text-gray-800 shadow-sm ring-1 ring-gray-900/5'
-                  : 'text-gray-500 hover:text-gray-900'
-                  }`}
-              onClick={() => setViewMode('grid')}
-              aria-label="Grid view"
-            >
-              <Grid3X3 className="w-5 h-5 mx-auto" />
-            </button>
-            <button
-              className={`flex items-center justify-center p-2 rounded-full transition-all duration-200 w-10 h-10 ${viewMode === 'list'
-                  ? 'bg-white text-gray-800 shadow-sm ring-1 ring-gray-900/5'
-                  : 'text-gray-500 hover:text-gray-900'
-                  }`}
-              onClick={() => setViewMode('list')}
-              aria-label="List view"
-            >
-              <List className="w-5 h-5 mx-auto" />
-            </button>
+            <div style={{ height: "32px", width: "100%" }}></div>
+
+            {/* View Toggle - Only show if we have posts */}
+            {!loading && !error && blogPosts.length > 0 && (
+              <div className="flex justify-center">
+                <div className="inline-flex items-center bg-gray-50/80 p-1.5 rounded-full shadow-sm shrink-0 gap-2 border border-gray-100">
+                  <button
+                    className={`flex items-center justify-center p-2 rounded-full transition-all duration-200 w-10 h-10 ${viewMode === 'grid'
+                      ? 'bg-white text-gray-800 shadow-sm ring-1 ring-gray-900/5'
+                      : 'text-gray-500 hover:text-gray-900'
+                      }`}
+                    onClick={() => setViewMode('grid')}
+                    aria-label="Grid view"
+                  >
+                    <Grid3X3 className="w-5 h-5 mx-auto" />
+                  </button>
+                  <button
+                    className={`flex items-center justify-center p-2 rounded-full transition-all duration-200 w-10 h-10 ${viewMode === 'list'
+                      ? 'bg-white text-gray-800 shadow-sm ring-1 ring-gray-900/5'
+                      : 'text-gray-500 hover:text-gray-900'
+                      }`}
+                    onClick={() => setViewMode('list')}
+                    aria-label="List view"
+                  >
+                    <List className="w-5 h-5 mx-auto" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -166,16 +182,18 @@ export default function Blog() {
 
         {/* Empty State */}
         {!loading && !error && blogPosts.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <BookOpen className="w-14 h-14 text-gray-300 mb-4" />
-            <h3 className="text-xl font-semibold text-gray-700 mb-1">No resources yet</h3>
-            <p className="text-gray-500">Check back soon for new articles.</p>
+          <div className="flex flex-col items-center justify-center py-24 min-h-[40vh] text-center mt-4">
+            <div className="bg-white p-6 rounded-full shadow-sm border border-gray-100 mb-6">
+              <BookOpen className="w-16 h-16 text-gray-400" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-800 mb-2">No resources found</h3>
+            <p className="text-gray-500 text-lg">We couldn't find any articles matching your criteria.</p>
           </div>
         )}
 
         {/* Blog Posts Grid */}
         {!loading && !error && blogPosts.length > 0 && (
-          <div className={viewMode === 'grid' ? 'blog-grid' : 'flex flex-col gap-6'}>
+          <div className={viewMode === 'grid' ? 'blog-grid' : 'flex flex-col gap-6 mt-8'}>
             {blogPosts.map((post) => (
               <article
                 key={post.id}

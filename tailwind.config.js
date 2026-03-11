@@ -37,22 +37,22 @@ export default {
       colors: {
         // Brand colors
         brand: designTokens.colors.brand,
-        
+
         // Semantic colors
         success: designTokens.colors.semantic.success,
         warning: designTokens.colors.semantic.warning,
         error: designTokens.colors.semantic.error,
         info: designTokens.colors.semantic.info,
-        
+
         // Medical colors
         medical: designTokens.colors.medical,
-        
+
         // Status colors
         status: designTokens.colors.status,
-        
+
         // Priority colors
         priority: designTokens.colors.priority,
-        
+
         // shadcn/ui color system
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -97,24 +97,24 @@ export default {
         'brand-secondary': 'var(--brand-secondary)',
         'brand-accent': 'var(--brand-accent)',
         'brand-neutral': 'var(--brand-neutral)',
-        
+
         // HSL format for opacity modifiers (e.g., bg-brand-primary-hsl/50)
         'brand-primary-hsl': 'hsl(var(--brand-primary-hsl))',
         'brand-secondary-hsl': 'hsl(var(--brand-secondary-hsl))',
         'brand-accent-hsl': 'hsl(var(--brand-accent-hsl))',
         'brand-neutral-hsl': 'hsl(var(--brand-neutral-hsl))',
       },
-      
+
       // Typography from design tokens
       fontFamily: designTokens.typography.fontFamily,
       fontSize: designTokens.typography.fontSize,
       fontWeight: designTokens.typography.fontWeight,
       lineHeight: designTokens.typography.lineHeight,
       letterSpacing: designTokens.typography.letterSpacing,
-      
+
       // Spacing from design tokens
       spacing: designTokens.spacing,
-      
+
       // Border radius from design tokens
       borderRadius: {
         ...designTokens.borderRadius,
@@ -122,20 +122,20 @@ export default {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
-      
+
       // Box shadow from design tokens
       boxShadow: designTokens.boxShadow,
-      
+
       // Z-index from design tokens
       zIndex: designTokens.zIndex,
-      
+
       // Animation from design tokens
       transitionDuration: designTokens.animation.duration,
       transitionTimingFunction: designTokens.animation.easing,
-      
+
       // Breakpoints from design tokens
       screens: designTokens.breakpoints,
-      
+
       // Custom animations
       keyframes: {
         'accordion-down': {
@@ -206,32 +206,32 @@ export default {
         'bounce-subtle': 'bounce-subtle 2s ease-in-out infinite',
         'shimmer': 'shimmer 2s linear infinite',
       },
-      
+
       // Custom utilities
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
         'shimmer-gradient': 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)',
       },
-      
+
       // Custom component heights
       height: {
         'header': designTokens.components.header.height,
         'sidebar-collapsed': designTokens.components.sidebar.width.collapsed,
         'sidebar-expanded': designTokens.components.sidebar.width.expanded,
       },
-      
+
       // Custom component widths
       width: {
         'sidebar-collapsed': designTokens.components.sidebar.width.collapsed,
         'sidebar-expanded': designTokens.components.sidebar.width.expanded,
       },
-      
+
       // Custom min/max heights
       minHeight: {
         'screen-header': 'calc(100vh - 4rem)', // 100vh - header height
       },
-      
+
       // Custom backdrop blur
       backdropBlur: {
         xs: 'blur(2px)',
@@ -240,8 +240,9 @@ export default {
   },
   plugins: [
     require('tailwindcss-animate'),
+    require('@tailwindcss/typography'),
     // Custom plugin for medical-specific utilities
-    function({ addUtilities, theme }) {
+    function ({ addUtilities, theme }) {
       const medicalUtilities = {
         '.status-scheduled': {
           backgroundColor: theme('colors.status.scheduled'),
@@ -284,7 +285,7 @@ export default {
           borderLeftWidth: '4px',
         },
       };
-      
+
       addUtilities(medicalUtilities);
     },
   ],

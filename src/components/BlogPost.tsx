@@ -142,7 +142,7 @@ export default function BlogPost() {
       <div className="blog-post-container py-8">
         {/* Article Header */}
         <div className="blog-post-header">
-          <div 
+          <div
             className="inline-block px-6 py-2 rounded-full font-medium mb-6"
             style={{ backgroundColor: colors.primaryColor, color: 'white' }}
           >
@@ -176,7 +176,6 @@ export default function BlogPost() {
           </div>
           <div>
             <div className="text-xl font-bold text-gray-900">{post.author_name}</div>
-            <div className="text-gray-600">Healthcare Professional</div>
             {post.published_at && (
               <div className="text-sm text-gray-500 mt-1">
                 Published {new Date(post.published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
@@ -195,9 +194,10 @@ export default function BlogPost() {
         )}
 
         {/* Article Content */}
-        <div className="blog-post-content">
+        <div className="blog-post-content prose prose-blue max-w-none break-words prose-img:rounded-xl prose-headings:text-gray-900 prose-a:text-blue-600">
           <div
             dangerouslySetInnerHTML={{ __html: post.content }}
+            className="overflow-x-auto"
           />
         </div>
 
