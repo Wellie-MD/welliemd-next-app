@@ -9,7 +9,7 @@ function arraysEqual(a: Message[], b: Message[]) {
   return true;
 }
 
-export function useMessages(pollInterval: number = 5000) {
+export function useMessages(pollInterval: number = 20000) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);   // 👈 only for first load
   const [error, setError] = useState<string | null>(null);
