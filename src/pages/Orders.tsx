@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/alert-dialog"
 
 const orderColumns = [
-  { key: "order_id", label: "Order ID", minWidth: "120px", className: "font-medium" },
+  { key: "order_id", label: "Order #", minWidth: "120px", className: "font-medium" },
   { key: "patient_name", label: "Patient", minWidth: "160px", className: "max-w-[220px]" },
   { key: "email", label: "Email", minWidth: "200px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell max-w-[220px]" },
   { key: "phone", label: "Phone", minWidth: "130px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell max-w-[140px]" },
@@ -384,12 +384,12 @@ export default function Orders() {
           patient_name: o.patient?.full_name || o.name || o.email || '-',
         }))}
         columns={orderColumns.map(col => {
-          // Order ID: show value or "—" for old orders not backfilled
+          // Canonical order number (matches invoice/admin priority).
           if (col.key === 'order_id') {
             return {
               ...col,
               render: (_: any, row: any) => (
-                <span className="text-sm font-medium">{row.order_id ?? '—'}</span>
+                <span className="text-sm font-medium">{row.order_id ?? row.display_id ?? '—'}</span>
               ),
             }
           }
@@ -399,7 +399,7 @@ export default function Orders() {
             return {
               ...col,
               render: (_: any, row: any) => {
-                const detailId = row.order_id ?? row.id
+                const detailId = row.id
                 return (
                   <button
                     onClick={() => detailId && navigate(`/dashboard/orders/details/${detailId}`)}
@@ -417,7 +417,7 @@ export default function Orders() {
             return {
               ...col,
               render: (_: any, row: any) => {
-                const detailId = row.order_id ?? row.id
+                const detailId = row.id
                 return (
                 <div className="flex gap-2">
                   <Button
@@ -440,10 +440,12 @@ export default function Orders() {
                   >
                     {savingId === row.id ? 'Saving...' : 'Save'}
                   </Button>
+                  {/* Delete button hidden on client portal /dashboard/orders */}
                   <PermissionGate permission={Permissions.ORDER_DELETE}>
                     <Button
                       size="sm"
                       variant="destructive"
+                      className="hidden"
                       onClick={() => setDeleteTarget(row)}
                     >
                       Delete

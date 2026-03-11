@@ -102,7 +102,7 @@ export default function Dashboard() {
         const transformedData = response.results.slice(0, 8).map((item) => ({
           date: new Date(item.orderDate).toLocaleDateString(),
           deliveryDate: item.datePrescribed,
-          orderNumber: item.display_id,
+          orderNumber: item.order_id || item.display_id,
           name: item.name,
           product: item.product_name,
           pharmacy: item.pharmacy_display,
