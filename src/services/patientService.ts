@@ -20,6 +20,7 @@ export interface Patient {
     updated_at: string;
     orders_count?: number;
     last_order_at?: string | null;
+    last_order_id?: string | null;
     last_order_display_id?: string | null;
 }
 

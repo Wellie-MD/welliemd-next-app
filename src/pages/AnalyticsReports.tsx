@@ -79,12 +79,14 @@ function SectionHeader({
   onSearchChange,
   onExport,
   placeholder,
+  showExport = true,
 }: {
   title: string
   searchValue: string
   onSearchChange: (value: string) => void
   onExport: () => void
   placeholder: string
+  showExport?: boolean
 }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -99,10 +101,12 @@ function SectionHeader({
             className="pl-8"
           />
         </div>
-        <Button variant="outline" size="sm" onClick={onExport}>
-          <Download className="mr-2 h-4 w-4" />
-          Export
-        </Button>
+        {showExport && (
+          <Button variant="outline" size="sm" onClick={onExport}>
+            <Download className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+        )}
       </div>
     </div>
   )
@@ -142,6 +146,7 @@ export default function AnalyticsReports() {
   })
   const [tempDateRange, setTempDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>(dateRange)
   const [isPopoverOpen, setIsPopoverOpen] = useState(false)
+  const [activePeriod, setActivePeriod] = useState<"7d" | "30d" | "3m" | "custom">("7d")
 
   const [selectedState, setSelectedState] = useState("")
   const [selectedPharmacy, setSelectedPharmacy] = useState("")
@@ -245,12 +250,14 @@ export default function AnalyticsReports() {
     window.URL.revokeObjectURL(url)
   }
 
-  const setPresetDays = (days: number) => {
+  const setPresetDays = (days: number, key: "7d" | "30d") => {
     setDateRange({ from: subDays(new Date(), days), to: new Date() })
+    setActivePeriod(key)
   }
 
   const setPresetMonths = (months: number) => {
     setDateRange({ from: subMonths(new Date(), months), to: new Date() })
+    setActivePeriod("3m")
   }
 
   const isDayRangePreset = (days: number) => {
@@ -288,18 +295,36 @@ export default function AnalyticsReports() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant={isDayRangePreset(7) ? "default" : "outline"} size="sm" onClick={() => setPresetDays(7)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPresetDays(7, "7d")}
+                className={activePeriod === "7d" ? "bg-accent text-accent-foreground" : ""}
+              >
                 Last 7 days
               </Button>
-              <Button variant={isDayRangePreset(30) ? "default" : "outline"} size="sm" onClick={() => setPresetDays(30)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPresetDays(30, "30d")}
+                className={activePeriod === "30d" ? "bg-accent text-accent-foreground" : ""}
+              >
                 Last 30 days
               </Button>
-              <Button variant={isMonthRangePreset(3) ? "default" : "outline"} size="sm" onClick={() => setPresetMonths(3)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPresetMonths(3)}
+                className={activePeriod === "3m" ? "bg-accent text-accent-foreground" : ""}
+              >
                 Last 3 months
               </Button>
               <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="justify-start text-left">
+                  <Button
+                    variant="outline"
+                    className={`justify-start text-left${activePeriod === "custom" ? " bg-accent text-accent-foreground" : ""}`}
+                  >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {dateRange.from && dateRange.to ? (
                       <>{format(dateRange.from, "MMM dd, yyyy")} - {format(dateRange.to, "MMM dd, yyyy")}</>
@@ -338,6 +363,7 @@ export default function AnalyticsReports() {
                         disabled={!tempDateRange.from || !tempDateRange.to}
                         onClick={() => {
                           setDateRange(tempDateRange)
+                          setActivePeriod("custom")
                           setIsPopoverOpen(false)
                         }}
                       >
@@ -351,34 +377,39 @@ export default function AnalyticsReports() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/15">
-              <Filter className="mr-1 h-3 w-3" />
-              {hasActiveReportFilters ? "Dimension Filters Applied" : "Captured Payments Only"}
+            <Badge
+              variant="secondary"
+              className={`flex items-center gap-1 ${
+                activePeriod !== "7d" || hasActiveReportFilters
+                  ? "bg-primary/15 text-primary"
+                  : "bg-primary/10 text-primary"
+              }`}
+            >
+              <Filter className="h-3 w-3" />
+              <span>
+                {activePeriod === "7d" && "Last 7 days"}
+                {activePeriod === "30d" && "Last 30 days"}
+                {activePeriod === "3m" && "Last 3 months"}
+                {activePeriod === "custom" && dateRange.from && dateRange.to
+                  ? `${format(dateRange.from, "MMM dd")} – ${format(dateRange.to, "MMM dd, yyyy")}`
+                  : activePeriod === "custom" ? "Custom range" : ""}
+                {hasActiveReportFilters && " · Filtered"}
+              </span>
+              {(activePeriod !== "7d" || hasActiveReportFilters) && (
+                <button
+                  className="ml-1 rounded-full hover:bg-primary/20 p-0.5 transition-colors"
+                  aria-label="Clear date filter"
+                  onClick={() => {
+                    setPresetDays(7, "7d")
+                    setSelectedState("")
+                    setSelectedPharmacy("")
+                    setSelectedVariant("")
+                  }}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </Badge>
-            <Badge variant="outline">
-              {dateRange.from && dateRange.to
-                ? `${format(dateRange.from, "MMM dd, yyyy")} - ${format(dateRange.to, "MMM dd, yyyy")}`
-                : "Date range"}
-            </Badge>
-            {selectedState && <Badge variant="outline">State: {selectedState}</Badge>}
-            {selectedPharmacy && <Badge variant="outline">Pharmacy: {selectedPharmacyLabel}</Badge>}
-            {selectedVariant && <Badge variant="outline">Variant: {selectedVariantLabel}</Badge>}
-            {(hasActiveReportFilters || (dateRange.from && dateRange.to)) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2"
-                onClick={() => {
-                  setDateRange({ from: subDays(new Date(), 7), to: new Date() })
-                  setSelectedState("")
-                  setSelectedPharmacy("")
-                  setSelectedVariant("")
-                }}
-              >
-                <X className="mr-1 h-3 w-3" />
-                Reset view
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -501,6 +532,7 @@ export default function AnalyticsReports() {
               onSearchChange={setStateSearch}
               onExport={() => exportToCSV(filteredStateData as Record<string, unknown>[], "orders_by_state")}
               placeholder="Search states..."
+              showExport={false}
             />
           </CardHeader>
           <CardContent>
@@ -554,6 +586,7 @@ export default function AnalyticsReports() {
               onSearchChange={setPharmacySearch}
               onExport={() => exportToCSV(filteredPharmacyData as Record<string, unknown>[], "orders_by_pharmacy")}
               placeholder="Search pharmacies..."
+              showExport={false}
             />
           </CardHeader>
           <CardContent>
@@ -608,6 +641,7 @@ export default function AnalyticsReports() {
             onSearchChange={setVariantSearch}
             onExport={() => exportToCSV(filteredVariantData as Record<string, unknown>[], "orders_by_variant")}
             placeholder="Search variants..."
+            showExport={false}
           />
         </CardHeader>
         <CardContent>
@@ -630,7 +664,7 @@ export default function AnalyticsReports() {
                     if (item.productName && item.variant.startsWith(item.productName)) {
                       displayVariant = item.variant.replace(item.productName, "").replace(/^[\s-]+/, "")
                     }
-                    if (!displayVariant.trim()) displayVariant = "Default Variant"
+                    const showSubLabel = displayVariant.trim() !== "" && displayVariant.trim() !== (item.productName || "").trim()
 
                     return (
                       <TableRow
@@ -639,7 +673,7 @@ export default function AnalyticsReports() {
                       >
                         <TableCell className="font-medium">
                           <div className="text-base font-semibold">{item.productName || item.variant}</div>
-                          <div className="text-sm text-muted-foreground">{displayVariant}</div>
+                          {showSubLabel && <div className="text-sm text-muted-foreground">{displayVariant}</div>}
                         </TableCell>
                         <TableCell className="text-right">{item.totalOrders}</TableCell>
                         <TableCell className="text-right">{item.totalQuantity}</TableCell>

@@ -58,13 +58,8 @@ export interface DashboardMetrics {
     previous_start: string
     previous_end: string
   }
-  total_patients: number
-  total_revenue: number
-  total_profit: number
-  total_expenses: number
-  total_sales: number
-  total_orders: number
-  growth_percentage: number
+  kpis: Metric[]
+  currency: string
   live_summary: LiveSummary
   patient_summary?: PatientSummary
 }

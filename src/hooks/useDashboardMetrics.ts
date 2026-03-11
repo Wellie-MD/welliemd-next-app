@@ -31,76 +31,7 @@ export const useDashboardMetrics = ({ fallbackKpis }: UseDashboardMetricsProps) 
         loadMetrics();
     }, []);
 
-    // Construct KPI data from real metrics or fallback to mock
-    const kpiData: Metric[] = metrics ? [
-        {
-            title: "Total Patients",
-            value: metrics.total_patients.toString(),
-            change: "+0%", // API doesn't provide patient growth yet
-            trend: "neutral" // Fixed string literal type
-        },
-        {
-            title: "Total Revenue",
-            value: `$${metrics.total_revenue.toLocaleString()}`,
-            change: `${metrics.growth_percentage > 0 ? '+' : ''}${metrics.growth_percentage}%`,
-            trend: metrics.growth_percentage >= 0 ? "up" : "down"
-        },
-        {
-            title: "Total Profit",
-            value: `$${metrics.total_profit.toLocaleString()}`,
-            change: "+0%", // API doesn't provide profit growth yet
-            trend: "neutral"
-        },
-        {
-            title: "Total Expense",
-            value: `$${metrics.total_expenses.toLocaleString()}`,
-            change: "+0%", // API doesn't provide profit growth yet
-            trend: "neutral"
-        },
-        {
-            title: "Total Sales",
-            value: `${metrics.total_sales.toLocaleString()}`,
-            change: "+0%", // API doesn't provide profit growth yet
-            trend: "neutral"
-        },
-        {
-            title: "Total Orders",
-            value: metrics.total_orders.toString(),
-            change: "+0%", // API doesn't provide order growth yet
-            trend: "neutral"
-        },
-        {
-            title: "Total Growth",
-            value: `${metrics.growth_percentage}%`,
-            change: `${metrics.growth_percentage > 0 ? '+' : ''}${metrics.growth_percentage}%`,
-            trend: metrics.growth_percentage >= 0 ? "up" : "down"
-        }
-        // ,
-        // {
-        //     title: "Total Online Sessions",
-        //     value: "0",
-        //     change: "+0%",
-        //     trend: "up"
-        // },
-        // {
-        //     title: "Conversion Rate",
-        //     value: "0.0%",
-        //     change: "+0%",
-        //     trend: "up"
-        // },
-        // {
-        //     title: "Full Refunds",
-        //     value: "0",
-        //     change: "-0%",
-        //     trend: "down"
-        // },
-        // {
-        //     title: "Partial Refunds",
-        //     value: "0",
-        //     change: "-0%",
-        //     trend: "down"
-        // }
-    ] : fallbackKpis;
+    const kpiData: Metric[] = metrics?.kpis ?? fallbackKpis;
 
     const { dashboard } = mockData;
 
