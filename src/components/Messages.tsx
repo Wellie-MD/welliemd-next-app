@@ -33,6 +33,7 @@ import {
 } from "@/features/messages/services/message.service";
 import { VisitService, type Visit } from "@/features/visits/services/visit.service";
 import { useAuth } from "@/features/auth";
+import { env } from "@/config/env";
 
 import { isToday, isYesterday, isThisWeek, format, formatISO } from "date-fns";
 
@@ -493,6 +494,7 @@ export default function Messages() {
           media_file_name: first?.fileName,
           ...(user?.first_name != null && { first_name: user.first_name }),
           ...(user?.last_name != null && { last_name: user.last_name }),
+          app_name: env.VITE_APP_NAME,
         });
 
         optimistic.push(
@@ -521,6 +523,7 @@ export default function Messages() {
           media_file_name: up.fileName,
           ...(user?.first_name != null && { first_name: user.first_name }),
           ...(user?.last_name != null && { last_name: user.last_name }),
+          app_name: env.VITE_APP_NAME,
         });
 
         optimistic.push(

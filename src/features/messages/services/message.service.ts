@@ -88,6 +88,7 @@ export const MessageService = {
     media_file_name?: string;
     first_name?: string;
     last_name?: string;
+    app_name?: string; // VITE_APP_NAME - used by backend to resolve client for Beluga
   }): Promise<{ sent: boolean; id: number }> {
     const res = await apiClient.post(`/messages/send/`, payload);
     return res.data;
