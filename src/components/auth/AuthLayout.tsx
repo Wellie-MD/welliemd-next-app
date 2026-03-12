@@ -1,36 +1,8 @@
-import { useState, useEffect } from "react";
-import authIllustration from "@/assets/flow1.jpg";
-import { fetchPublicBrandSettings } from "@/api/brandSettingsApi";
-
 interface AuthLayoutProps {
   children: React.ReactNode;
 }
 
 export const AuthLayout = ({ children }: AuthLayoutProps) => {
-  const [loginImage, setLoginImage] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const loadBrandSettings = async () => {
-      try {
-        const brandData = await fetchPublicBrandSettings();
-        if (brandData?.loginPageImage) {
-          // Fix LocalStack URLs for browser access
-          const imageUrl = brandData.loginPageImage.includes("localstack")
-            ? brandData.loginPageImage.replace("localstack", "localhost")
-            : brandData.loginPageImage;
-          setLoginImage(imageUrl);
-        }
-      } catch (error) {
-        console.error("Failed to load brand settings:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadBrandSettings();
-  }, []);
-
   return (
     <div className="h-screen flex flex-row items-stretch">
       {/* Left side - Form */}
@@ -39,19 +11,21 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
           {children}
         </div>
       </div>
-      
-      {/* Right side - Illustration */}
-      {!isLoading && (
-        <div className="flex-1 flex items-center justify-center p-0 bg-transparent">
-          <div className="w-full h-full flex items-center justify-center">
-            <img 
-              src={loginImage || authIllustration} 
-              alt="Healthcare illustration" 
-              className="w-full h-full object-cover"
-            />
-          </div>
-        </div>
-      )}
+
+      {/* Right side - Fixed background video (shared across all clients) */}
+      <div className="hidden md:flex flex-1 items-center justify-center p-0 bg-white overflow-hidden">
+        <video
+          className="w-full h-full object-contain object-right scale-110 origin-right"
+          // NOTE: The actual file should be hosted at this path by the static assets pipeline
+          // e.g. a processed mp4/webm uploaded to the CDN or public assets directory.
+          src="/Telehealth.Simplified.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+          aria-hidden="true"
+        />
+      </div>
     </div>
   );
 };

@@ -88,13 +88,12 @@ const FileUploadField = ({
         )}
       </div>
       <div
-        className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-          dragOver
+        className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${dragOver
             ? "border-sky-400 bg-sky-50"
             : selectedFile || currentUrl
               ? "border-green-300 bg-green-50"
               : "border-gray-300 hover:border-gray-400"
-        }`}
+          }`}
         onDragOver={(e) => {
           e.preventDefault();
           setDragOver(true);
@@ -199,7 +198,7 @@ const ColorPaletteSection = ({
               activeColor === color
                 ? "border-sky-500 scale-110 shadow-sm"
                 : "border-gray-200"
-            } hover:border-gray-300 transition-all`}
+              } hover:border-gray-300 transition-all`}
             style={{ backgroundColor: color }}
             onClick={() => onColorChange?.(color)}
           />
@@ -332,129 +331,116 @@ export default function Brand() {
       {!isLoadingData && (
         <>
           <h1 className="text-2xl font-semibold">Brand Configuration</h1>
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Logo Section */}
-        <Card>
-          <CardContent className="p-6 space-y-6">
-            <div>
-              <h2 className="text-lg font-medium mb-1">Configure Your Brand</h2>
-              <p className="text-sm text-muted-foreground">
-                Customize what your patients see when they receive a
-                prescription.
-              </p>
-            </div>
-            <h2 className="text-lg font-medium">Logos</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FileUploadField
-                label="Square Logo"
-                accept="image/*"
-                currentUrl={formData.logos.square}
-                onFileSelect={(f) => handleFileChange(`logos.square`, f)}
-                recommendedResolution="500×100px"
-                description="Used in header and sidebar. Wide horizontal format works best."
-              />
-              <FileUploadField
-                label="Favicon Logo"
-                accept="image/*"
-                currentUrl={formData.logos.favicon}
-                onFileSelect={(f) => handleFileChange(`logos.favicon`, f)}
-                recommendedResolution="32×32px or 64×64px"
-                description="Browser tab icon. Square format required."
-              />
-              {/* Pages Section */}
-            </div>
-            <div className="hidden">
-              <h3 className="text-base font-medium mb-4">Pages</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FileUploadField
-                  label="How It Works"
-                  accept=".pdf,.doc,.docx"
-                  maxSize="10 MB"
-                />
-                <FileUploadField
-                  label="FAQs"
-                  accept=".pdf,.doc,.docx"
-                  maxSize="10 MB"
-                />
-                <FileUploadField
-                  label="Testimonials"
-                  accept=".pdf,.doc,.docx"
-                  maxSize="10 MB"
-                />
-                <FileUploadField
-                  label="Pricing"
-                  accept=".pdf,.doc,.docx"
-                  maxSize="10 MB"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Logo Section */}
+            <Card>
+              <CardContent className="p-6 space-y-6">
+                <div>
+                  <h2 className="text-lg font-medium mb-1">Configure Your Brand</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Customize what your patients see when they receive a
+                    prescription.
+                  </p>
+                </div>
+                <h2 className="text-lg font-medium">Logos</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FileUploadField
+                    label="Square Logo"
+                    accept="image/*"
+                    currentUrl={formData.logos.square}
+                    onFileSelect={(f) => handleFileChange(`logos.square`, f)}
+                    recommendedResolution="500×100px"
+                    description="Used in header and sidebar. Wide horizontal format works best."
+                  />
+                  <FileUploadField
+                    label="Favicon Logo"
+                    accept="image/*"
+                    currentUrl={formData.logos.favicon}
+                    onFileSelect={(f) => handleFileChange(`logos.favicon`, f)}
+                    recommendedResolution="32×32px or 64×64px"
+                    description="Browser tab icon. Square format required."
+                  />
+                  {/* Pages Section */}
+                </div>
+                <div className="hidden">
+                  <h3 className="text-base font-medium mb-4">Pages</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FileUploadField
+                      label="How It Works"
+                      accept=".pdf,.doc,.docx"
+                      maxSize="10 MB"
+                    />
+                    <FileUploadField
+                      label="FAQs"
+                      accept=".pdf,.doc,.docx"
+                      maxSize="10 MB"
+                    />
+                    <FileUploadField
+                      label="Testimonials"
+                      accept=".pdf,.doc,.docx"
+                      maxSize="10 MB"
+                    />
+                    <FileUploadField
+                      label="Pricing"
+                      accept=".pdf,.doc,.docx"
+                      maxSize="10 MB"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Login Page Image */}
-        <Card>
-          <CardContent className="p-6 space-y-4">
-            <h2 className="text-lg font-medium">Login Page Image</h2>
-            <FileUploadField
-              label="Main Login Image"
-              accept="image/*"
-              currentUrl={formData.loginPageImage}
-              onFileSelect={(f) => handleFileChange("loginPageImage", f)}
-              recommendedResolution="1920×1080px"
-              description="Full-screen background image for login page. Landscape format recommended."
-            />
-          </CardContent>
-        </Card>
-        {/* Color Palette Section */}
-        <Card>
-          <CardContent className="p-6 space-y-6">
-            <div>
-              <h2 className="text-lg font-medium">Color Palette</h2>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <ColorPaletteSection
-                title="Primary Colors"
-                activeColor={formData.primaryColor}
-                onColorChange={(color) =>
-                  setFormData({ ...formData, primaryColor: color })
-                }
-                colors={[
-                  "#3B82F6",
-                  "#1E40AF",
-                  "#1D4ED8",
-                  "#2563EB",
-                  "#3730A3",
-                  "#4338CA",
-                  "#5B21B6",
-                  "#7C3AED",
-                  "#10B981",
-                  "#059669",
-                  "#047857",
-                  "#065F46",
-                  "#064E3B",
-                  "#6B7280",
-                  "#4B5563",
-                  "#374151",
-                  "#F59E0B",
-                  "#D97706",
-                  "#B45309",
-                  "#92400E",
-                  "#78350F",
-                  "#EF4444",
-                  "#DC2626",
-                  "#B91C1C",
-                  "#F3F4F6",
-                  "#E5E7EB",
-                  "#D1D5DB",
-                  "#9CA3AF",
-                  "#6B7280",
-                  "#4B5563",
-                  "#374151",
-                  "#111827",
-                ]}
-              />
-              {/* <ColorPaletteSection
+            {/* Color Palette Section */}
+            <Card>
+              <CardContent className="p-6 space-y-6">
+                <div>
+                  <h2 className="text-lg font-medium">Color Palette</h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <ColorPaletteSection
+                    title="Primary Colors"
+                    activeColor={formData.primaryColor}
+                    onColorChange={(color) =>
+                      setFormData({ ...formData, primaryColor: color })
+                    }
+                    colors={[
+                      "#3B82F6",
+                      "#1E40AF",
+                      "#1D4ED8",
+                      "#2563EB",
+                      "#3730A3",
+                      "#4338CA",
+                      "#5B21B6",
+                      "#7C3AED",
+                      "#10B981",
+                      "#059669",
+                      "#047857",
+                      "#065F46",
+                      "#064E3B",
+                      "#6B7280",
+                      "#4B5563",
+                      "#374151",
+                      "#F59E0B",
+                      "#D97706",
+                      "#B45309",
+                      "#92400E",
+                      "#78350F",
+                      "#EF4444",
+                      "#DC2626",
+                      "#B91C1C",
+                      "#F3F4F6",
+                      "#E5E7EB",
+                      "#D1D5DB",
+                      "#9CA3AF",
+                      "#6B7280",
+                      "#4B5563",
+                      "#374151",
+                      "#111827",
+                    ]}
+                  />
+                  {/* <ColorPaletteSection
                 title="Secondary Colors"
                 onColorChange={(color) => setFormData({ ...formData, secondaryColor: color })}
                 activeColor={formData.secondaryColor}
@@ -501,21 +487,21 @@ export default function Brand() {
                   "#111827",
                 ]}
               /> */}
-            </div>
-          </CardContent>
-        </Card>
+                </div>
+              </CardContent>
+            </Card>
 
-        {/* Save Button */}
-        <div className="flex justify-end">
-          <Button
-            type="submit"
-            disabled={loading}
-            className="bg-sky-500 text-white px-10"
-          >
-            {loading ? "Uploading Images..." : "Save Brand Assets"}
-          </Button>
-        </div>
-      </form>
+            {/* Save Button */}
+            <div className="flex justify-end">
+              <Button
+                type="submit"
+                disabled={loading}
+                className="bg-sky-500 text-white px-10"
+              >
+                {loading ? "Uploading Images..." : "Save Brand Assets"}
+              </Button>
+            </div>
+          </form>
         </>
       )}
     </div>

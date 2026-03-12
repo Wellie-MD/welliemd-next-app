@@ -14,7 +14,9 @@ export interface BrandLogos {
 
 export interface BrandSettings {
     logos: BrandLogos;
-    loginPageImage: string;
+    // loginPageImage has been deprecated in favor of a shared login video.
+    // Kept optional for backward compatibility with existing data.
+    loginPageImage?: string;
     primaryColor?: string;
     secondaryColor?: string;
     accentColor?: string;
@@ -22,7 +24,8 @@ export interface BrandSettings {
 }
 
 export interface PublicBrandSettings {
-    loginPageImage: string;
+    // Deprecated: no longer used by the login page (which shows a shared video).
+    loginPageImage?: string;
     logos: BrandLogos;
     primaryColor?: string;
     secondaryColor?: string;
