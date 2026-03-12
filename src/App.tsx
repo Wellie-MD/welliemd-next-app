@@ -135,7 +135,7 @@ const App = () => {
   useSocialTags();
 
   // lightweight poll for sidebar badge + global chime
-  const { messages } = useMessages(20000);
+  const { messages } = useMessages(30000);
   const conversations = useMemo(() => groupMessages(messages), [messages]);
 
   // tick when Messages.tsx updates localStorage (instant sidebar update)

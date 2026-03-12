@@ -147,7 +147,7 @@ function DocumentBubble({
 // ====================================================================
 
 export default function Messages() {
-  const { messages, loading, error } = useMessages(20000);
+  const { messages, loading, error } = useMessages(30000);
 
   // tabs: "patient" (normal support/doctor thread) and "support" (Beluga)
   const [tab, setTab] = useState<"patient" | "support">("patient");
