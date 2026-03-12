@@ -146,7 +146,7 @@ const menuSections = [
         title: "Settings",
         url: "/dashboard/settings",
         icon: Settings,
-        permission: Permissions.PORTAL_USER_LIST, // Admin and Primary Owner only
+        permission: Permissions.PORTAL_USER_INVITE, // Admin and Primary Owner only (not Customer Service)
       },
     ],
   },

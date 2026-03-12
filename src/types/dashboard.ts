@@ -58,14 +58,19 @@ export interface DashboardMetrics {
     previous_start: string
     previous_end: string
   }
-  total_patients: number
-  total_revenue: number
-  total_profit: number
-  total_expenses: number
-  total_sales: number
-  total_orders: number
-  growth_percentage: number
-  live_summary: LiveSummary
+  // Newer API shape
+  kpis?: Metric[]
+  currency?: string
+  // Legacy/alternate API shape
+  total_patients?: number
+  total_revenue?: number
+  total_profit?: number
+  total_expenses?: number
+  total_sales?: number
+  total_orders?: number
+  growth_percentage?: number
+  // Shared sections
+  live_summary?: LiveSummary
   patient_summary?: PatientSummary
 }
 

@@ -107,7 +107,6 @@ export default function PatientResources() {
   const [content, setContent] = useState("");
   const [coverImage, setCoverImage] = useState("");
   const [category, setCategory] = useState("General");
-  const [tags, setTags] = useState("");
   const [postStatus, setPostStatus] = useState<
     "draft" | "published" | "archived"
   >("draft");
@@ -139,7 +138,6 @@ export default function PatientResources() {
     setContent("");
     setCoverImage("");
     setCategory("General");
-    setTags("");
     setPostStatus("draft");
     setEditingResource(null);
   };
@@ -160,7 +158,6 @@ export default function PatientResources() {
       setContent(full.content || "");
       setCoverImage(full.cover_image || "");
       setCategory(full.category || "General");
-      setTags((full.tags || []).join(", "));
       setPostStatus(full.status);
       setMode("edit");
     } catch {
@@ -187,10 +184,6 @@ export default function PatientResources() {
         content,
         cover_image: coverImage.trim(),
         category,
-        tags: tags
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean),
         status: overrideStatus || postStatus,
       };
 
@@ -397,25 +390,6 @@ export default function PatientResources() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label className="text-xs text-slate-500">Status</Label>
-                  <Select
-                    value={postStatus}
-                    onValueChange={(v) =>
-                      setPostStatus(v as "draft" | "published" | "archived")
-                    }
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="draft">📝 Draft</SelectItem>
-                      <SelectItem value="published">🟢 Published</SelectItem>
-                      <SelectItem value="archived">📦 Archived</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
                   <Label className="text-xs text-slate-500">Category</Label>
                   <Select value={category} onValueChange={setCategory}>
                     <SelectTrigger className="mt-1">
@@ -431,17 +405,6 @@ export default function PatientResources() {
                   </Select>
                 </div>
 
-                <div>
-                  <Label className="text-xs text-slate-500">
-                    Tags (comma separated)
-                  </Label>
-                  <Input
-                    value={tags}
-                    onChange={(e) => setTags(e.target.value)}
-                    placeholder="e.g. health, wellness, tips"
-                    className="mt-1 text-sm"
-                  />
-                </div>
               </CardContent>
             </Card>
 
@@ -454,12 +417,34 @@ export default function PatientResources() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Input
-                  value={coverImage}
-                  onChange={(e) => setCoverImage(e.target.value)}
-                  placeholder="Paste an image URL..."
-                  className="text-sm"
-                />
+                {!coverImage && (
+                  <>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      id="cover-image-upload"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          const url = await handleImageUpload(file);
+                          setCoverImage(url);
+                        } catch (err) {
+                          toast.error("Image upload failed");
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => document.getElementById("cover-image-upload")?.click()}
+                    >
+                      Browse
+                    </Button>
+                  </>
+                )}
                 {coverImage && (
                   <div className="relative rounded-lg overflow-hidden border border-slate-200">
                     <img
@@ -539,7 +524,7 @@ export default function PatientResources() {
         <div className="flex-1 w-full overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
           <div className="flex gap-2 min-w-max">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[160px] bg-white border-gray-200 rounded-full shadow-sm font-medium">
+              <SelectTrigger className="w-[160px] bg-white border-gray-200 rounded-full shadow-sm font-medium focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0">
                 <Filter className="h-4 w-4 mr-2 text-slate-400" />
                 <SelectValue placeholder="All statuses" />
               </SelectTrigger>

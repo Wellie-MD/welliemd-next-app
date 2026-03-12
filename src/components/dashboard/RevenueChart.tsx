@@ -1,6 +1,7 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from "recharts"
 import { ChartDataPoint } from "@/types/dashboard"
 
@@ -21,12 +22,19 @@ const formatCurrencyTick = (value: number) => {
 }
 
 export function RevenueChart({ data }: RevenueChartProps) {
+  // const navigate = useNavigate()
   const hasData = data.length > 0
 
   return (
       <Card className="rounded-2xl shadow-md bg-white w-full">
-      <CardHeader className="bg-blue-50 rounded-t-2xl">
+      <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl">
         <CardTitle className="text-gray-800">Net Revenue (Last 12 Months)</CardTitle>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="invisible"
+        >
+        </Button>
       </CardHeader>
       <CardContent className="w-full">
         {hasData ? (

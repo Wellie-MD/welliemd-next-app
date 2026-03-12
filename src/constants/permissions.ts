@@ -22,6 +22,8 @@ export const Permissions = {
     ORDER_DELETE: 'order:delete',
 
     // Patients
+    USER_LIST: 'user:list',
+    USER_RETRIEVE: 'user:retrieve',
     USER_UPDATE: 'user:update',
     USER_DELETE: 'user:delete',
 

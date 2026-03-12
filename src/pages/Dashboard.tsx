@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, Eye, DollarSign, MoreHorizontal } from "lucide-react";
+import { ShoppingCart, Eye, DollarSign, MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
 import mockData from "@/data/mockData.json";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { SalesChart } from "@/components/dashboard/SalesChart";
@@ -14,7 +14,7 @@ import { DataTable } from "@/components/dashboard/DataTable";
 import { PaymentTable } from "@/components/dashboard/PaymentTable";
 import { DashboardData } from "@/types/dashboard";
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { fetchClientPaymentHistory } from "@/api/paymentTransactionsApi";
 
 import { fetchOrders } from "@/api/ordersApi";
@@ -33,6 +33,33 @@ export default function Dashboard() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [loadingCharts, setLoadingCharts] = useState(true);
 
+  const metricsScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollButtons = useCallback(() => {
+    const el = metricsScrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 0);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+  }, []);
+
+  // Re-check arrow visibility on container resize (e.g. window resize)
+  useEffect(() => {
+    const el = metricsScrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(updateScrollButtons);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [updateScrollButtons]);
+
+  const scrollMetrics = useCallback((direction: "left" | "right") => {
+    const el = metricsScrollRef.current;
+    if (!el) return;
+    const scrollAmount = 320;
+    el.scrollBy({ left: direction === "right" ? scrollAmount : -scrollAmount, behavior: "smooth" });
+  }, []);
+
   const { kpiData, patientSummary, metrics } = useDashboardMetrics({
     fallbackKpis: dashboard.kpis
   });
@@ -50,6 +77,13 @@ export default function Dashboard() {
     const end = new Date(`${metrics.period.end}T23:59:59.999`);
     return d >= start && d <= end;
   });
+
+  // Re-evaluate scroll arrows whenever kpiData changes
+  useEffect(() => {
+    // slight delay to let the DOM paint the new cards
+    const id = setTimeout(updateScrollButtons, 50);
+    return () => clearTimeout(id);
+  }, [kpiData, updateScrollButtons]);
 
   // Log metrics for validation
   useEffect(() => {
@@ -102,7 +136,7 @@ export default function Dashboard() {
         const transformedData = response.results.slice(0, 8).map((item) => ({
           date: new Date(item.orderDate).toLocaleDateString(),
           deliveryDate: item.datePrescribed,
-          orderNumber: item.display_id,
+          orderNumber: item.order_id ?? item.display_id,
           name: item.name,
           product: item.product_name,
           pharmacy: item.pharmacy_display,
@@ -202,18 +236,46 @@ export default function Dashboard() {
       </div>
 
       {/* KPI Cards - Horizontally Scrollable */}
-      <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide">
-        <div className="flex gap-4 min-w-max">
-          {kpiData.map((kpi, index) => (
-            <div
-              key={index}
-              // onClick={() => handleKPIClick(kpi)}
-              className="cursor-pointer"
-            >
-              <MetricCard metric={kpi} />
-            </div>
-          ))}
+      <div className="relative">
+        {/* Left arrow */}
+        {canScrollLeft && (
+          <button
+            onClick={() => scrollMetrics("left")}
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-md border border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all duration-200 -ml-3"
+            aria-label="Scroll metrics left"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        )}
+
+        <div
+          ref={metricsScrollRef}
+          onScroll={updateScrollButtons}
+          className="overflow-x-auto -mx-4 px-4 scrollbar-hide"
+        >
+          <div className="flex gap-4 min-w-max">
+            {kpiData.map((kpi, index) => (
+              <div
+                key={index}
+                // onClick={() => handleKPIClick(kpi)}
+                className="cursor-pointer"
+              >
+                <MetricCard metric={kpi} />
+              </div>
+            ))}
+          </div>
         </div>
+
+        {/* Right arrow */}
+        {canScrollRight && (
+          <button
+            onClick={() => scrollMetrics("right")}
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-md border border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all duration-200 -mr-3"
+            aria-label="Scroll metrics right"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 w-full min-w-0">

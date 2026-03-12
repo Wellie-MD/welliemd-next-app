@@ -23,6 +23,10 @@ import {
 } from "lucide-react";
 import { useMessages } from "@/hooks/useMessages";
 import { groupMessages, type Conversation } from "@/utils/groupMessages";
+import { useClients, type Client } from "@/hooks/useClients";
+
+import { patientService, type Patient } from "@/services/patientService";
+import { PatientDetailSheet } from "@/components/patients/PatientDetailSheet";
 import { messageService, type Message } from "@/services/messageService";
 
 import { isToday, isYesterday, isThisWeek, format, formatISO } from "date-fns";
@@ -56,7 +60,7 @@ function writeLastSeenToStorage(next: LastSeenMap) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(next));
     window.dispatchEvent(new Event("msg:last-seen-updated"));
-  } catch {}
+  } catch { }
 }
 function readLastSeenFromStorage(): LastSeenMap {
   try {
@@ -156,6 +160,36 @@ export default function Messages() {
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
 
+  // For patient profile sheet
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+
+  const handleViewProfile = async () => {
+    if (!activeConversation) return;
+    try {
+      setLoadingProfile(true);
+      // Search by email or exact name to find the patient record
+      const searchQuery = activeConversation.patientEmail || activeConversation.patientName;
+      if (!searchQuery) {
+        alert("No identifier found to load patient profile.");
+        return;
+      }
+      const res = await patientService.getPatients({ search: searchQuery, page_size: 1 });
+      if (res.results && res.results.length > 0) {
+        setSelectedPatient(res.results[0]);
+        setIsSheetOpen(true);
+      } else {
+        alert("Patient profile not found.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to load patient profile.");
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
   // attachments state (ENABLED only for Patient tab)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -195,7 +229,7 @@ export default function Messages() {
           if (belugaArraysEqual(existing, msgs)) return prev;
           return { ...prev, [masterId]: msgs };
         });
-      } catch {}
+      } catch { }
     };
 
     fetchBeluga();
@@ -301,7 +335,7 @@ export default function Messages() {
       b.start(now + 0.06);
       a.stop(now + 0.5);
       b.stop(now + 0.5);
-    } catch {}
+    } catch { }
   };
 
   const showBrowserNotification = (title: string, body: string) => {
@@ -313,7 +347,7 @@ export default function Messages() {
           if (perm === "granted") new Notification(title, { body });
         });
       }
-    } catch {}
+    } catch { }
   };
 
   useEffect(() => {
@@ -353,7 +387,7 @@ export default function Messages() {
         if (activeConversation.masterId && messageService.markRead) {
           await messageService.markRead(activeConversation.masterId);
         }
-      } catch {}
+      } catch { }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConversation?.messages, activeConversation?.id]);
@@ -624,7 +658,7 @@ export default function Messages() {
     (async () => {
       try {
         if (c.masterId && messageService.markRead) await messageService.markRead(c.masterId);
-      } catch {}
+      } catch { }
     })();
     // ensure we land on latest right after opening
     requestAnimationFrame(() => scrollToBottom(false));
@@ -660,17 +694,15 @@ export default function Messages() {
             </h2>
             <div className="inline-flex rounded-lg border overflow-hidden">
               <button
-                className={`px-3 py-1.5 text-sm font-medium ${
-                  tab === "patient" ? "bg-indigo-600 text-white" : "bg-white text-gray-700"
-                }`}
+                className={`px-3 py-1.5 text-sm font-medium ${tab === "patient" ? "bg-indigo-600 text-white" : "bg-white text-gray-700"
+                  }`}
                 onClick={() => setTab("patient")}
               >
                 Patient
               </button>
               <button
-                className={`px-3 py-1.5 text-sm font-medium ${
-                  tab === "support" ? "bg-indigo-600 text-white" : "bg-white text-gray-700"
-                } border-l`}
+                className={`px-3 py-1.5 text-sm font-medium ${tab === "support" ? "bg-indigo-600 text-white" : "bg-white text-gray-700"
+                  } border-l`}
                 onClick={() => setTab("support")}
               >
                 Support
@@ -678,7 +710,7 @@ export default function Messages() {
             </div>
           </div>
 
-          <div className="p-4 space-y-2 overflow-y-auto"  style={{ maxHeight: 'calc(100vh - 15rem)' }} >
+          <div className="p-4 space-y-2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 15rem)' }} >
             {loading && <div>Loading...</div>}
             {error && <div className="text-red-500">{error}</div>}
 
@@ -733,8 +765,8 @@ export default function Messages() {
                     {previewTime
                       ? new Date(previewTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
                       : c.lastTime
-                      ? new Date(c.lastTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                      : ""}
+                        ? new Date(c.lastTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                        : ""}
                   </div>
                 </div>
               );
@@ -759,12 +791,19 @@ export default function Messages() {
                     {tab === "support" ? "Client ↔ Beluga Support" : "Support / Doctor Messages"}
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="gap-2" aria-label="Call">
-                    <Phone className="h-4 w-4" /> Call
-                  </Button>
-                  <Button variant="outline" size="sm" aria-label="View Profile">
-                    <Eye className="h-4 w-4" /> View Profile
+                <div className="flex gap-2 items-center">
+                  <div className="text-sm border bg-gray-50 rounded px-2 py-1 flex items-center">
+                    <span className="text-muted-foreground mr-2 font-medium">Order:</span>
+                    <span className="font-mono">{activeConversation.orderNumber || activeConversation.masterId}</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-label="View Profile"
+                    onClick={handleViewProfile}
+                    disabled={loadingProfile}
+                  >
+                    <Eye className="h-4 w-4 mr-1" /> {loadingProfile ? "Loading..." : "View Profile"}
                   </Button>
                 </div>
               </div>
@@ -832,8 +871,8 @@ export default function Messages() {
                               rawUrl.startsWith("http") || rawUrl.startsWith("data:")
                                 ? rawUrl
                                 : rawUrl
-                                ? `${S3_PUBLIC_BASE}${rawUrl.replace(/^\/+/, "")}`
-                                : "";
+                                  ? `${S3_PUBLIC_BASE}${rawUrl.replace(/^\/+/, "")}`
+                                  : "";
 
                             const mime = (m.media_mime_type || "").toLowerCase();
                             const fileName = m.media_file_name || m.content || "attachment";
@@ -980,6 +1019,22 @@ export default function Messages() {
           )}
         </div>
       </div>
+
+      {selectedPatient && (
+        <PatientDetailSheet
+          patient={selectedPatient}
+          open={isSheetOpen}
+          onOpenChange={setIsSheetOpen}
+          // The sheet expects onPatientUpdated and onPatientDeleted as optional props
+          // but we just pass empty functions if we don't need intense sync here
+          onPatientUpdated={(updated) => setSelectedPatient(updated)}
+          onPatientDeleted={() => {
+            setIsSheetOpen(false);
+            setSelectedPatient(null);
+          }}
+          readOnly={true}
+        />
+      )}
     </div>
   );
 }
