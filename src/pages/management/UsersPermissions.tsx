@@ -83,6 +83,8 @@ export default function UsersPermissions() {
         console.error('Failed to reload users:', err);
       });
 
+      setInviteModalOpen(false);
+
       // Return response so modal can show invitation link
       return response;
 

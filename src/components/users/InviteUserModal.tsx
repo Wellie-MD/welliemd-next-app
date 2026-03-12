@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -51,13 +51,20 @@ export function InviteUserModal({
   roles,
 }: InviteUserModalProps) {
   const [email, setEmail] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [roleId, setRoleId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [inviteResult, setInviteResult] = useState<InviteResponse | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!open) {
+      setEmail("");
+      setRoleId("");
+      setError("");
+      setInviteResult(null);
+    }
+  }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,7 +83,7 @@ export function InviteUserModal({
 
     try {
       setLoading(true);
-      const result = await onInvite(email, roleId, firstName, lastName);
+      const result = await onInvite(email, roleId);
       if (result && (result as InviteResponse).invitation_link) {
         setInviteResult(result as InviteResponse);
       }
@@ -89,8 +96,6 @@ export function InviteUserModal({
 
   const handleClose = () => {
     setEmail("");
-    setFirstName("");
-    setLastName("");
     setRoleId("");
     setError("");
     setInviteResult(null);
@@ -198,29 +203,6 @@ export function InviteUserModal({
                 disabled={loading}
                 required
               />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="firstName">First Name</Label>
-                <Input
-                  id="firstName"
-                  placeholder="John"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input
-                  id="lastName"
-                  placeholder="Doe"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
             </div>
 
             <div className="grid gap-2">
