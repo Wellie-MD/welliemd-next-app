@@ -1,6 +1,5 @@
 // Reports API Service for Aggregate Data
 import { fetchOrders } from './ordersApi';
-import { parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 
 export interface AggregateByState {
   state: string;
@@ -53,6 +52,8 @@ export interface AggregatesParams {
 }
 
 const ORDERS_PAGE_SIZE = 500;
+// PaymentTransaction.STATUS_CHOICES (backend): pending, authorized, captured, approved, succeeded,
+// declined, error, voided, canceled, refunded. Successful payments are captured/approved/succeeded.
 const CAPTURED_PAYMENT_STATUSES = new Set(['captured', 'approved', 'succeeded']);
 const FINANCIAL_ORDER_STATUSES = new Set(['prescribed', 'billing_pending', 'rx_sent', 'shipped']);
 
@@ -119,7 +120,7 @@ function getPaymentStatus(order: any): string {
   return normalizeCaseInsensitive(order.paymentStatus || order.payment_status || order.transaction_status);
 }
 
-function isCapturedFinancialOrder(order: any): boolean {
+function isSuccessfulPaymentOrder(order: any): boolean {
   const orderStatus = getOrderStatus(order);
   const paymentStatus = getPaymentStatus(order);
   return FINANCIAL_ORDER_STATUSES.has(orderStatus) && CAPTURED_PAYMENT_STATUSES.has(paymentStatus);
@@ -243,22 +244,11 @@ export const getAggregates = async (params?: AggregatesParams): Promise<Aggregat
 
     let orders = rawOrders;
 
-    if (params?.start_date && params?.end_date) {
-      const filterStart = startOfDay(parseISO(params.start_date));
-      const filterEnd = endOfDay(parseISO(params.end_date));
-
-      orders = rawOrders.filter((order: any) => {
-        if (!order.created_at) return false;
-        const orderDate = parseISO(order.created_at);
-        return isWithinInterval(orderDate, { start: filterStart, end: filterEnd });
-      });
-    }
-
-    // Financial analytics must only include captured/settled payments.
-    orders = orders.filter((order: any) => isCapturedFinancialOrder(order));
-
     // Apply report filters globally so all cards/tables represent the same dataset.
     orders = orders.filter((order: any) => orderMatchesReportFilters(order, params));
+
+    // Successful payments drive sales only (counts should include all placed orders).
+    const successfulOrders = orders.filter((order: any) => isSuccessfulPaymentOrder(order));
 
     const byState = aggregateByState(orders);
     const byPharmacy = aggregateByPharmacy(orders);
@@ -266,7 +256,7 @@ export const getAggregates = async (params?: AggregatesParams): Promise<Aggregat
 
     // Calculate summary
     const totalOrders = orders.length;
-    const totalSales = orders.reduce((sum, order) => {
+    const totalSales = successfulOrders.reduce((sum, order) => {
       const total = parseOrderAmount(order);
       return sum + total;
     }, 0);
@@ -316,6 +306,7 @@ function aggregateByState(orders: any[]): AggregateByState[] {
     const normalizedState = getOrderState(order);
 
     const amount = parseOrderAmount(order);
+    const isSuccessful = isSuccessfulPaymentOrder(order);
     const status = getOrderStatus(order);
     const isCompleted = isCompletedOrderStatus(status);
     const isPending = isPendingOrderStatus(status);
@@ -331,7 +322,7 @@ function aggregateByState(orders: any[]): AggregateByState[] {
 
     const current = stateMap.get(normalizedState)!;
     current.totalOrders += 1;
-    current.totalSales += amount;
+    if (isSuccessful) current.totalSales += amount;
     if (isCompleted) current.completed += 1;
     if (isPending) current.pending += 1;
   });
@@ -365,6 +356,7 @@ function aggregateByPharmacy(orders: any[]): AggregateByPharmacy[] {
     const pharmacy = getOrderPharmacy(order);
 
     const amount = parseOrderAmount(order);
+    const isSuccessful = isSuccessfulPaymentOrder(order);
     const status = getOrderStatus(order);
     const isCompleted = isCompletedOrderStatus(status);
     const isPending = isPendingOrderStatus(status);
@@ -382,7 +374,7 @@ function aggregateByPharmacy(orders: any[]): AggregateByPharmacy[] {
 
     const current = pharmacyMap.get(pharmacy.key)!;
     current.totalOrders += 1;
-    current.totalSales += amount;
+    if (isSuccessful) current.totalSales += amount;
     if (isCompleted) current.completed += 1;
     if (isPending) current.pending += 1;
   });
@@ -415,6 +407,7 @@ function aggregateByVariant(orders: any[]): AggregateByVariant[] {
 
   orders.forEach(order => {
     const variants = getOrderVariantEntries(order);
+    const isSuccessful = isSuccessfulPaymentOrder(order);
     variants.forEach((variant) => {
       if (!variantMap.has(variant.key)) {
         variantMap.set(variant.key, {
@@ -430,7 +423,7 @@ function aggregateByVariant(orders: any[]): AggregateByVariant[] {
       const current = variantMap.get(variant.key)!;
       current.totalOrders += 1;
       current.totalQuantity += variant.quantity;
-      current.totalSales += variant.amount;
+      if (isSuccessful) current.totalSales += variant.amount;
       if (!current.productName && variant.productName) {
         current.productName = variant.productName;
       }
@@ -461,17 +454,7 @@ export const getStates = async (params?: AggregatesParams): Promise<string[]> =>
     };
     const ordersResponse = await fetchAllOrders(orderFilters);
     const rawOrders = ordersResponse.results || [];
-    let orders = rawOrders.filter((order: any) => isCapturedFinancialOrder(order));
-
-    if (params?.start_date && params?.end_date) {
-      const filterStart = startOfDay(parseISO(params.start_date));
-      const filterEnd = endOfDay(parseISO(params.end_date));
-      orders = orders.filter((order: any) => {
-        if (!order.created_at) return false;
-        const orderDate = parseISO(order.created_at);
-        return isWithinInterval(orderDate, { start: filterStart, end: filterEnd });
-      });
-    }
+    let orders = rawOrders;
 
     // Keep current dimension open while honoring other active filters.
     orders = orders.filter((order: any) => orderMatchesReportFilters(order, { ...params, state: undefined }));
@@ -500,17 +483,7 @@ export const getPharmacies = async (params?: AggregatesParams): Promise<Array<{ 
     };
     const ordersResponse = await fetchAllOrders(orderFilters);
     const rawOrders = ordersResponse.results || [];
-    let orders = rawOrders.filter((order: any) => isCapturedFinancialOrder(order));
-
-    if (params?.start_date && params?.end_date) {
-      const filterStart = startOfDay(parseISO(params.start_date));
-      const filterEnd = endOfDay(parseISO(params.end_date));
-      orders = orders.filter((order: any) => {
-        if (!order.created_at) return false;
-        const orderDate = parseISO(order.created_at);
-        return isWithinInterval(orderDate, { start: filterStart, end: filterEnd });
-      });
-    }
+    let orders = rawOrders;
 
     // Keep current dimension open while honoring other active filters.
     orders = orders.filter((order: any) => orderMatchesReportFilters(order, { ...params, pharmacy_id: undefined }));
@@ -542,17 +515,7 @@ export const getVariants = async (params?: AggregatesParams): Promise<Array<{ id
     };
     const ordersResponse = await fetchAllOrders(orderFilters);
     const rawOrders = ordersResponse.results || [];
-    let orders = rawOrders.filter((order: any) => isCapturedFinancialOrder(order));
-
-    if (params?.start_date && params?.end_date) {
-      const filterStart = startOfDay(parseISO(params.start_date));
-      const filterEnd = endOfDay(parseISO(params.end_date));
-      orders = orders.filter((order: any) => {
-        if (!order.created_at) return false;
-        const orderDate = parseISO(order.created_at);
-        return isWithinInterval(orderDate, { start: filterStart, end: filterEnd });
-      });
-    }
+    let orders = rawOrders;
 
     // Keep current dimension open while honoring other active filters.
     orders = orders.filter((order: any) => orderMatchesReportFilters(order, { ...params, variant_id: undefined }));
