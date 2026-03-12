@@ -789,7 +789,7 @@ export function QuestionForm({
     }
 
     // Validate answer choices for choice-based questions
-    const choiceTypes = ["single_choice", "multiple_choice", "sex"];
+    const choiceTypes = ["single_choice", "multiple_choice", "sex", "labs"];
     if (
       choiceTypes.includes(formData.question_type) &&
       (!formData.answer_choices || formData.answer_choices.length === 0)
@@ -1056,7 +1056,7 @@ export function QuestionForm({
 
       // Handle disqualifying answers for choice-based questions
       if (
-        ["single_choice", "multiple_choice", "consent", "sex"].includes(
+        ["single_choice", "multiple_choice", "consent", "sex", "labs"].includes(
           formData.question_type
         )
       ) {
@@ -1221,7 +1221,7 @@ export function QuestionForm({
   };
 
   // Dynamic visibility flags
-  const showAnswerChoices = ["single_choice", "multiple_choice", "sex"].includes(
+  const showAnswerChoices = ["single_choice", "multiple_choice", "sex", "labs"].includes(
     formData.question_type
   );
   const showFileSettings = formData.question_type === "file_upload";
@@ -1307,13 +1307,24 @@ export function QuestionForm({
                     question_type: value,
                     answer_choices: ["Male", "Female", "Other"],
                   });
+                } else if (
+                  value === "labs" &&
+                  (!formData.answer_choices ||
+                    formData.answer_choices.length === 0)
+                ) {
+                  // Initialize default answer choices for labs preference
+                  setFormData({
+                    ...formData,
+                    question_type: value,
+                    answer_choices: ["Yes", "No"],
+                  });
                 } else {
                   // Reset validation states when changing question type
                   if (value !== "number") {
                     setEnableNumberValidation(false);
                     setNumberValidationValue("");
                   }
-                  if (!["single_choice", "multiple_choice", "sex"].includes(value)) {
+                  if (!["single_choice", "multiple_choice", "sex", "labs"].includes(value)) {
                     setDisqualifyingAnswers([]);
                   }
 
@@ -1365,6 +1376,9 @@ export function QuestionForm({
                 </SelectItem>
                 <SelectItem value="medication_dose_selector">
                   Medication & Dose Selector
+                </SelectItem>
+                <SelectItem value="labs">
+                  Labs Preference (Beluga Mapped)
                 </SelectItem>
               </SelectContent>
             </Select>

@@ -71,6 +71,7 @@ export interface Question {
   | "medical_conditions"
   | "product_selection"
   | "medication_dose_selector"
+  | "labs"
   | "state_routing";
   is_required: boolean;
   is_read_only: boolean;
