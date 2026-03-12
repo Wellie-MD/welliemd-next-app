@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts"
 import { ChartDataPoint } from "@/types/dashboard"
 import { useNavigate } from "react-router-dom"
 
@@ -13,25 +13,60 @@ interface NewPatientChartProps {
 export function NewPatientChart({ data }: NewPatientChartProps) {
   const navigate = useNavigate()
   const hasData = data.length > 0
+  const values = data.map((point) => Number(point.value) || 0)
+  const total = values.reduce((acc, value) => acc + value, 0)
+  const average = values.length ? total / values.length : 0
+  const latest = values.length ? values[values.length - 1] : 0
+
+  const formatMonth = (value: string) => {
+    const date = new Date(`${value}-01`)
+    return Number.isNaN(date.getTime())
+      ? value
+      : date.toLocaleDateString("en-US", { month: "short", year: "2-digit" })
+  }
 
   return (
-    <Card className="rounded-2xl shadow-md bg-white w-full h-full">
-      <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl">
-        <CardTitle className="text-gray-800">Total Clients (Last 12 Months)</CardTitle>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-blue-600 hover:text-blue-700"
-          onClick={() => navigate("/dashboard/clients")}
-        >
-          View All
-        </Button>
+    <Card className="rounded-2xl border-border/70 bg-gradient-to-br from-primary/5 via-background to-blue-50/30 shadow-sm w-full h-full">
+      <CardHeader className="flex flex-row items-start justify-between">
+        <div>
+          <CardTitle className="text-gray-800">Total Clients (Last 12 Months)</CardTitle>
+          <p className="text-xs text-muted-foreground pt-1">Rolling 12 months</p>
+        </div>
+        <div className="flex flex-col items-end gap-1 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-[#FF928A]" />
+            <span>Clients</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-blue-600 hover:text-blue-700"
+            onClick={() => navigate("/dashboard/clients")}
+          >
+            View All
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="w-full">
         {hasData ? (
-          <div className="h-80 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+          <div className="w-full">
+            <div className="mb-3 grid grid-cols-3 gap-2 text-xs">
+              <div className="rounded-md border bg-white/70 px-2 py-1.5">
+                <div className="text-muted-foreground">Total</div>
+                <div className="font-semibold text-gray-900">{total.toLocaleString()}</div>
+              </div>
+              <div className="rounded-md border bg-white/70 px-2 py-1.5">
+                <div className="text-muted-foreground">Avg / mo</div>
+                <div className="font-semibold text-gray-900">{Math.round(average).toLocaleString()}</div>
+              </div>
+              <div className="rounded-md border bg-white/70 px-2 py-1.5">
+                <div className="text-muted-foreground">Latest</div>
+                <div className="font-semibold text-gray-900">{latest.toLocaleString()}</div>
+              </div>
+            </div>
+            <div className="h-[320px] rounded-md border bg-background/70 p-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data} margin={{ top: 12, right: 22, left: 8, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis
                   dataKey="month"
@@ -51,7 +86,17 @@ export function NewPatientChart({ data }: NewPatientChartProps) {
                   domain={[0, (dataMax: number) => Math.max(1, Math.ceil(dataMax))]}
                   tickFormatter={(value: number) => value.toLocaleString()}
                 />
-                <Legend />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null
+                    return (
+                      <div className="rounded-md border bg-white px-3 py-2 text-xs shadow">
+                        <div className="font-medium text-gray-900">{formatMonth(String(label))}</div>
+                        <div className="text-gray-600">Clients: {Number(payload[0].value || 0).toLocaleString()}</div>
+                      </div>
+                    )
+                  }}
+                />
                 <Line
                   type="monotone"
                   dataKey="value"
@@ -61,8 +106,9 @@ export function NewPatientChart({ data }: NewPatientChartProps) {
                   activeDot={{ r: 6, fill: "white", stroke: "#FF928A", strokeWidth: 2 }}
                   name="Total Clients"
                 />
-              </LineChart>
-            </ResponsiveContainer>
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         ) : (
           <div className="h-80 flex items-center justify-center text-sm text-gray-500">
