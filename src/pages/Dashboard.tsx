@@ -205,7 +205,6 @@ export default function Dashboard() {
 
   const orderHistoryColumns = [
     { key: "date", label: "Date" },
-    { key: "deliveryDate", label: "Delivery Date" },
     { key: "orderNumber", label: "Order#" },
     { key: "name", label: "Name" },
     { key: "product", label: "Product" },
@@ -215,7 +214,6 @@ export default function Dashboard() {
 
   const paymentColumns = [
     { key: "date", label: "Date" },
-    { key: "patientId", label: "Patient Id" },
     { key: "patientName", label: "Patient Name" },
     { key: "orderNumber", label: "Order#" },
     { key: "totalAmount", label: "Total Amount" },
@@ -229,9 +227,9 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
           {dashboardWindowLabel ? (
-            <p className="text-sm text-muted-foreground">{dashboardWindowLabel}</p>
+            <p className="text-sm text-muted-foreground hidden">{dashboardWindowLabel}</p>
           ) : null}
-          <p className="text-xs text-muted-foreground">{chartWindowLabel}</p>
+          <p className="text-xs text-muted-foreground hidden">{chartWindowLabel}</p>
         </div>
       </div>
 
@@ -285,47 +283,56 @@ export default function Dashboard() {
         </div>
 
         {/* Live Summary */}
-        <div className="w-full min-w-0">
-          <Card className="rounded-2xl shadow-md bg-white">
-            <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl p-4">
-              <CardTitle className="text-gray-800">Patient Summary</CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-blue-600 hover:text-blue-700"
-                onClick={() => handleViewMore("patientSummary")}
-              >
-                View More
-              </Button>
+        <div className="w-full min-w-0 h-full">
+          <Card className="rounded-2xl border-border/70 bg-gradient-to-br from-primary/5 via-background to-blue-50/30 shadow-sm h-full flex flex-col">
+            <CardHeader className="p-4">
+              <div className="flex items-center justify-between pt-1">
+                <CardTitle className="text-gray-800">Patient Summary</CardTitle>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground invisible">
+                  <span className="h-2 w-2 rounded-full bg-[#8979FF]" />
+                  <span>Patient</span>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent className="p-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center space-y-2">
-                  <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
-                    <ShoppingCart className="h-6 w-6 text-gray-600" />
+            <CardContent className="px-4 pb-4 pt-0 flex-1 flex">
+              <div className="w-full flex flex-col gap-6 justify-center">
+                <div className="flex items-center justify-between rounded-2xl border bg-white/70 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                      <ShoppingCart className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">Number of Active Patients</p>
+                      <p className="text-xs text-muted-foreground">Prescribed patients</p>
+                    </div>
                   </div>
-                  <p className="text-2xl font-bold text-gray-800">
-                    {patientSummary.active_patients}
-                  </p>
-                  <p className="text-sm text-gray-600">Active</p>
+                  <div className="text-2xl font-bold text-gray-900">{patientSummary.active_patients}</div>
                 </div>
-                <div className="text-center space-y-2">
-                  <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
-                    <Eye className="h-6 w-6 text-gray-600" />
+
+                <div className="flex items-center justify-between rounded-2xl border bg-white/70 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center">
+                      <Eye className="h-5 w-5 text-slate-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">Number of inactive Patients</p>
+                      <p className="text-xs text-muted-foreground">Missed follow-ups (20+ days)</p>
+                    </div>
                   </div>
-                  <p className="text-2xl font-bold text-gray-800">
-                    {patientSummary.inactive_patients}
-                  </p>
-                  <p className="text-sm text-gray-600">Inactive</p>
+                  <div className="text-2xl font-bold text-gray-900">{patientSummary.inactive_patients}</div>
                 </div>
-                <div className="text-center space-y-2">
-                  <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
-                    <DollarSign className="h-6 w-6 text-gray-600" />
+
+                <div className="flex items-center justify-between rounded-2xl border bg-white/70 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-rose-100 flex items-center justify-center">
+                      <DollarSign className="h-5 w-5 text-rose-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">Number of drop-off Patients</p>
+                      <p className="text-xs text-muted-foreground">Questionnaire, no checkout</p>
+                    </div>
                   </div>
-                  <p className="text-2xl font-bold text-gray-800">
-                    {patientSummary.dropoff_patients}
-                  </p>
-                  <p className="text-sm text-gray-600">Drop Off</p>
+                  <div className="text-2xl font-bold text-gray-900">{patientSummary.dropoff_patients}</div>
                 </div>
               </div>
             </CardContent>
