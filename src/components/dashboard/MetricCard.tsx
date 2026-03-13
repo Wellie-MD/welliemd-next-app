@@ -14,7 +14,7 @@ export function MetricCard({ metric, className }: MetricCardProps) {
   const TrendIcon = metric.trend === "up" ? TrendingUp : metric.trend === "down" ? TrendingDown : Minus
   
   return (
-    <Card className={cn("min-w-[200px] max-w-[250px] rounded-2xl shadow-md bg-white flex-shrink-0", className)}>
+    <Card className={cn("min-w-[200px] max-w-[250px] rounded-2xl bg-white flex-shrink-0", className)}>
       <CardContent className="p-6">
         <div className="space-y-2">
           <p className="text-sm font-medium text-gray-600 whitespace-nowrap">{metric.title}</p>
