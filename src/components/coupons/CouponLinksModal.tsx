@@ -100,8 +100,17 @@ function inferFrontendPath(t: QuestionnaireTemplate): string {
   return `/questionnaires/${t.id}`
 }
 
+// Route key: slug when present, else visit type (so multiple questionnaires with same visit type get unique URLs)
+function getRouteKey(t: QuestionnaireTemplate): string | null {
+  const anyT = t as any
+  if (anyT.slug && typeof anyT.slug === 'string' && anyT.slug.trim()) return anyT.slug.trim()
+  if (anyT.beluga_visit_type && typeof anyT.beluga_visit_type === 'string' && anyT.beluga_visit_type.trim()) {
+    return anyT.beluga_visit_type.trim()
+  }
+  return null
+}
+
 function getVisitType(t: QuestionnaireTemplate): string | null {
-  // Use beluga_visit_type field from the template (matches the VISIT TYPE column)
   const anyT = t as any
   if (anyT.beluga_visit_type && typeof anyT.beluga_visit_type === 'string' && anyT.beluga_visit_type.trim()) {
     return anyT.beluga_visit_type.trim()
@@ -110,7 +119,6 @@ function getVisitType(t: QuestionnaireTemplate): string | null {
 }
 
 function visitTypeToPathSegment(visitType: string): string {
-  // Use the visit type as-is (it's already the correct format from backend)
   return visitType
 }
 
@@ -204,8 +212,9 @@ export default function CouponLinksModal({ open, onOpenChange, coupon, coupons =
   const items = useMemo(() => {
     return templates.map((t) => {
       const vt = getVisitType(t)
-      // Use visit_type if available, otherwise fall back to legacy path
-      const visitPath = vt ? `/visit/${visitTypeToPathSegment(vt)}` : null
+      // Use slug when present so multiple questionnaires with same visit type get unique URLs
+      const routeKey = getRouteKey(t)
+      const visitPath = routeKey ? `/visit/${visitTypeToPathSegment(routeKey)}` : null
       const legacyPath = inferFrontendPath(t)
       return { t, vt, visitPath, legacyPath }
     })
