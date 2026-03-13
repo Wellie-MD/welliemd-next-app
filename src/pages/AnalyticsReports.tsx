@@ -29,7 +29,7 @@ import {
   Filter,
   X,
 } from "lucide-react"
-import { format, subDays, subMonths, startOfDay, endOfDay } from "date-fns"
+import { format, subDays, startOfDay, endOfDay } from "date-fns"
 import {
   getAggregates,
   getStates,
@@ -140,13 +140,16 @@ function CompletionCell({
 }
 
 export default function AnalyticsReports() {
-  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
-    from: subDays(new Date(), 7),
-    to: new Date(),
+  const [period, setPeriod] = useState<"day" | "week" | "month" | "year" | "custom">("week")
+  const [customDateRange, setCustomDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined,
   })
-  const [tempDateRange, setTempDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>(dateRange)
+  const [tempDateRange, setTempDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined,
+  })
   const [isPopoverOpen, setIsPopoverOpen] = useState(false)
-  const [activePeriod, setActivePeriod] = useState<"7d" | "30d" | "3m" | "custom">("7d")
 
   const [selectedState, setSelectedState] = useState("")
   const [selectedPharmacy, setSelectedPharmacy] = useState("")
@@ -156,14 +159,34 @@ export default function AnalyticsReports() {
   const [pharmacySearch, setPharmacySearch] = useState("")
   const [variantSearch, setVariantSearch] = useState("")
 
+  const dateRange = useMemo(() => {
+    const now = new Date()
+    switch (period) {
+      case "day":
+        return { from: startOfDay(now), to: endOfDay(now) }
+      case "week":
+        return { from: subDays(now, 7), to: now }
+      case "month":
+        return { from: subDays(now, 30), to: now }
+      case "year":
+        return { from: subDays(now, 365), to: now }
+      case "custom":
+        return customDateRange.from && customDateRange.to
+          ? { from: customDateRange.from, to: customDateRange.to }
+          : { from: subDays(now, 30), to: now }
+      default:
+        return { from: subDays(now, 30), to: now }
+    }
+  }, [period, customDateRange])
+
   useEffect(() => {
-    if (isPopoverOpen) setTempDateRange(dateRange)
-  }, [isPopoverOpen, dateRange])
+    if (isPopoverOpen) setTempDateRange(customDateRange)
+  }, [isPopoverOpen, customDateRange])
 
   const queryParams = useMemo(
     () => ({
-      ...(dateRange.from && { start_date: startOfDay(dateRange.from).toISOString() }),
-      ...(dateRange.to && { end_date: endOfDay(dateRange.to).toISOString() }),
+      start_date: startOfDay(dateRange.from).toISOString(),
+      end_date: endOfDay(dateRange.to).toISOString(),
       ...(selectedState && { state: selectedState }),
       ...(selectedPharmacy && { pharmacy_id: selectedPharmacy }),
       ...(selectedVariant && { variant_id: selectedVariant }),
@@ -182,8 +205,8 @@ export default function AnalyticsReports() {
 
   const optionParams = useMemo(
     () => ({
-      ...(dateRange.from && { start_date: startOfDay(dateRange.from).toISOString() }),
-      ...(dateRange.to && { end_date: endOfDay(dateRange.to).toISOString() }),
+      start_date: startOfDay(dateRange.from).toISOString(),
+      end_date: endOfDay(dateRange.to).toISOString(),
       ...(selectedState && { state: selectedState }),
       ...(selectedPharmacy && { pharmacy_id: selectedPharmacy }),
       ...(selectedVariant && { variant_id: selectedVariant }),
@@ -250,28 +273,9 @@ export default function AnalyticsReports() {
     window.URL.revokeObjectURL(url)
   }
 
-  const setPresetDays = (days: number, key: "7d" | "30d") => {
-    setDateRange({ from: subDays(new Date(), days), to: new Date() })
-    setActivePeriod(key)
-  }
-
-  const setPresetMonths = (months: number) => {
-    setDateRange({ from: subMonths(new Date(), months), to: new Date() })
-    setActivePeriod("3m")
-  }
-
-  const isDayRangePreset = (days: number) => {
-    if (!dateRange.from || !dateRange.to) return false
-    const expectedFrom = startOfDay(subDays(new Date(), days)).getTime()
-    const currentFrom = startOfDay(dateRange.from).getTime()
-    return expectedFrom === currentFrom
-  }
-
-  const isMonthRangePreset = (months: number) => {
-    if (!dateRange.from || !dateRange.to) return false
-    const expectedFrom = startOfDay(subMonths(new Date(), months)).getTime()
-    const currentFrom = startOfDay(dateRange.from).getTime()
-    return expectedFrom === currentFrom
+  const setQuickRange = (next: "day" | "week" | "month" | "year") => {
+    setPeriod(next)
+    setCustomDateRange({ from: undefined, to: undefined })
   }
 
   if (isLoading) {
@@ -298,32 +302,40 @@ export default function AnalyticsReports() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setPresetDays(7, "7d")}
-                className={activePeriod === "7d" ? "bg-accent text-accent-foreground" : ""}
+                onClick={() => setQuickRange("day")}
+                className={period === "day" ? "bg-accent text-accent-foreground" : ""}
+              >
+                Today
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setQuickRange("week")}
+                className={period === "week" ? "bg-accent text-accent-foreground" : ""}
               >
                 Last 7 days
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setPresetDays(30, "30d")}
-                className={activePeriod === "30d" ? "bg-accent text-accent-foreground" : ""}
+                onClick={() => setQuickRange("month")}
+                className={period === "month" ? "bg-accent text-accent-foreground" : ""}
               >
                 Last 30 days
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setPresetMonths(3)}
-                className={activePeriod === "3m" ? "bg-accent text-accent-foreground" : ""}
+                onClick={() => setQuickRange("year")}
+                className={period === "year" ? "bg-accent text-accent-foreground" : ""}
               >
-                Last 3 months
+                Last year
               </Button>
               <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className={`justify-start text-left${activePeriod === "custom" ? " bg-accent text-accent-foreground" : ""}`}
+                    className={`justify-start text-left${period === "custom" ? " bg-accent text-accent-foreground" : ""}`}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {dateRange.from && dateRange.to ? (
@@ -362,8 +374,8 @@ export default function AnalyticsReports() {
                         size="sm"
                         disabled={!tempDateRange.from || !tempDateRange.to}
                         onClick={() => {
-                          setDateRange(tempDateRange)
-                          setActivePeriod("custom")
+                          setCustomDateRange(tempDateRange)
+                          setPeriod("custom")
                           setIsPopoverOpen(false)
                         }}
                       >
@@ -380,27 +392,28 @@ export default function AnalyticsReports() {
             <Badge
               variant="secondary"
               className={`flex items-center gap-1 ${
-                activePeriod !== "7d" || hasActiveReportFilters
+                period !== "week" || hasActiveReportFilters
                   ? "bg-primary/15 text-primary"
                   : "bg-primary/10 text-primary"
               }`}
             >
               <Filter className="h-3 w-3" />
               <span>
-                {activePeriod === "7d" && "Last 7 days"}
-                {activePeriod === "30d" && "Last 30 days"}
-                {activePeriod === "3m" && "Last 3 months"}
-                {activePeriod === "custom" && dateRange.from && dateRange.to
+                {period === "day" && "Today"}
+                {period === "week" && "Last 7 days"}
+                {period === "month" && "Last 30 days"}
+                {period === "year" && "Last year"}
+                {period === "custom" && dateRange.from && dateRange.to
                   ? `${format(dateRange.from, "MMM dd")} – ${format(dateRange.to, "MMM dd, yyyy")}`
-                  : activePeriod === "custom" ? "Custom range" : ""}
+                  : period === "custom" ? "Custom range" : ""}
                 {hasActiveReportFilters && " · Filtered"}
               </span>
-              {(activePeriod !== "7d" || hasActiveReportFilters) && (
+              {(period !== "week" || hasActiveReportFilters) && (
                 <button
                   className="ml-1 rounded-full hover:bg-primary/20 p-0.5 transition-colors"
                   aria-label="Clear date filter"
                   onClick={() => {
-                    setPresetDays(7, "7d")
+                    setQuickRange("week")
                     setSelectedState("")
                     setSelectedPharmacy("")
                     setSelectedVariant("")
