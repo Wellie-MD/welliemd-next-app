@@ -29,6 +29,13 @@ export interface LiveSummary {
   purchased: number;
 }
 
+export interface PatientSummary {
+  active_patients: number;
+  inactive_patients: number;
+  dropoff_patients: number;
+  calculated_at?: string;
+}
+
 export interface ChartDataPoint {
   month?: string;
   day?: string;
@@ -60,6 +67,7 @@ export interface DashboardData {
   partial?: boolean;
   kpis: Metric[];
   liveSummary: LiveSummary;
+  patientSummary?: PatientSummary;
   salesChartData: ChartDataPoint[];
   revenueChartData: ChartDataPoint[];
   newClientChartData: ChartDataPoint[];
