@@ -14,6 +14,8 @@ export function NewPatientChart({ data }: NewPatientChartProps) {
   const navigate = useNavigate()
   const hasData = data.length > 0
   const values = data.map((point) => Number(point.value) || 0)
+
+  // HEAD: data is cumulative totals — compute month-over-month deltas
   const monthlyAdds = values.map((value, index) => {
     if (index === 0) return value
     return Math.max(value - values[index - 1], 0)
@@ -73,45 +75,45 @@ export function NewPatientChart({ data }: NewPatientChartProps) {
             <div className="h-[320px] rounded-md border bg-background/70 p-2">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data} margin={{ top: 12, right: 22, left: 8, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis
-                  dataKey="month"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 11, fill: "#64748b" }}
-                  tickFormatter={(value) => {
-                    const date = new Date(value + "-01")
-                    return date.toLocaleDateString("en-US", { month: "short" })
-                  }}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 11, fill: "#64748b" }}
-                  allowDecimals={false}
-                  domain={[0, (dataMax: number) => Math.max(1, Math.ceil(dataMax))]}
-                  tickFormatter={(value: number) => value.toLocaleString()}
-                />
-                <Tooltip
-                  content={({ active, payload, label }) => {
-                    if (!active || !payload?.length) return null
-                    return (
-                      <div className="rounded-md border bg-white px-3 py-2 text-xs shadow">
-                        <div className="font-medium text-gray-900">{formatMonth(String(label))}</div>
-                        <div className="text-gray-600">Clients: {Number(payload[0].value || 0).toLocaleString()}</div>
-                      </div>
-                    )
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke="#FF928A"
-                  strokeWidth={3}
-                  dot={{ fill: "white", stroke: "#FF928A", strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, fill: "white", stroke: "#FF928A", strokeWidth: 2 }}
-                  name="Total Clients"
-                />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis
+                    dataKey="month"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fill: "#64748b" }}
+                    tickFormatter={(value) => {
+                      const date = new Date(value + "-01")
+                      return date.toLocaleDateString("en-US", { month: "short" })
+                    }}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fill: "#64748b" }}
+                    allowDecimals={false}
+                    domain={[0, (dataMax: number) => Math.max(1, Math.ceil(dataMax))]}
+                    tickFormatter={(value: number) => value.toLocaleString()}
+                  />
+                  <Tooltip
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload?.length) return null
+                      return (
+                        <div className="rounded-md border bg-white px-3 py-2 text-xs shadow">
+                          <div className="font-medium text-gray-900">{formatMonth(String(label))}</div>
+                          <div className="text-gray-600">Clients: {Number(payload[0].value || 0).toLocaleString()}</div>
+                        </div>
+                      )
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#FF928A"
+                    strokeWidth={3}
+                    dot={{ fill: "white", stroke: "#FF928A", strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, fill: "white", stroke: "#FF928A", strokeWidth: 2 }}
+                    name="Total Clients"
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </div>
