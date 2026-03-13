@@ -14,9 +14,15 @@ export function NewPatientChart({ data }: NewPatientChartProps) {
   const navigate = useNavigate()
   const hasData = data.length > 0
   const values = data.map((point) => Number(point.value) || 0)
-  const total = values.reduce((acc, value) => acc + value, 0)
-  const average = values.length ? total / values.length : 0
-  const latest = values.length ? values[values.length - 1] : 0
+  const monthlyAdds = values.map((value, index) => {
+    if (index === 0) return value
+    return Math.max(value - values[index - 1], 0)
+  })
+  const latest = monthlyAdds.length ? monthlyAdds[monthlyAdds.length - 1] : 0
+  const average = monthlyAdds.length
+    ? monthlyAdds.reduce((acc, value) => acc + value, 0) / monthlyAdds.length
+    : 0
+  const total = values.length ? values[values.length - 1] : 0
 
   const formatMonth = (value: string) => {
     const date = new Date(`${value}-01`)
