@@ -303,7 +303,7 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-gray-800">Number of Active Patients</p>
-                      <p className="text-xs text-muted-foreground">Prescribed patients</p>
+                      <p className="text-xs text-muted-foreground">Patients that are prescribed</p>
                     </div>
                   </div>
                   <div className="text-2xl font-bold text-gray-900">{patientSummary.active_patients}</div>
@@ -315,8 +315,8 @@ export default function Dashboard() {
                       <Eye className="h-5 w-5 text-slate-500" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-gray-800">Number of inactive Patients</p>
-                      <p className="text-xs text-muted-foreground">Missed follow-ups (20+ days)</p>
+                      <p className="text-sm font-semibold text-gray-800">Number of Inactive Patients</p>
+                      <p className="text-xs text-muted-foreground">Patients who have missed their follow up by 20 days and more</p>
                     </div>
                   </div>
                   <div className="text-2xl font-bold text-gray-900">{patientSummary.inactive_patients}</div>
@@ -329,7 +329,7 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-gray-800">Number of drop-off Patients</p>
-                      <p className="text-xs text-muted-foreground">Questionnaire, no checkout</p>
+                      <p className="text-xs text-muted-foreground">Patients who completed the questionnaire but didn't complete checkout</p>
                     </div>
                   </div>
                   <div className="text-2xl font-bold text-gray-900">{patientSummary.dropoff_patients}</div>
