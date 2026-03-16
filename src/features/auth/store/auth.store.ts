@@ -467,6 +467,14 @@ export const useAuthStore = create<AuthState>()(
                   debugLog('Token refreshed successfully');
                 } catch (refreshError) {
                   debugLog('Token refresh failed, clearing auth state:', refreshError);
+                  // Guard against race: if user has already logged in successfully
+                  // while initialization was in-flight, do not wipe fresh auth state.
+                  if (get().isAuthenticated) {
+                    set((state) => {
+                      state.isLoading = false;
+                    });
+                    return;
+                  }
                   authService.clearAuthData();
                   set((state) => {
                     state.user = null;
@@ -504,7 +512,13 @@ export const useAuthStore = create<AuthState>()(
               debugLog('Auth initialized successfully:', { userId: user.id });
             } catch (error) {
               debugLog('Auth initialization failed:', error);
-              
+              // Guard against race: do not clear session if auth became valid
+              // via manual login while initializeAuth was in-flight.
+              if (get().isAuthenticated) {
+                set((state) => {
+                  state.isLoading = false;
+                });
+              } else {
               authService.clearAuthData();
               set((state) => {
                 state.user = null;
@@ -515,6 +529,7 @@ export const useAuthStore = create<AuthState>()(
                 state.isLoading = false;
                 state.error = null;
               });
+              }
             } finally {
               isInitializing = false;
             }
