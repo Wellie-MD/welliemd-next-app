@@ -21,6 +21,8 @@ export function groupMessages(messages: Message[]): Conversation[] {
         masterId: msg.master_id,
         patientName: safePatientName,
         patientEmail: safePatientEmail,
+        // Prefer backend-provided orderNumber (order_id / display_id) when available
+        orderNumber: (msg as any).orderNumber || "",
         lastMessage: msg.content,
         lastTime: msg.created_at,
         messages: [msg],
@@ -31,6 +33,10 @@ export function groupMessages(messages: Message[]): Conversation[] {
       if (new Date(msg.created_at) > new Date(conv.lastTime)) {
         conv.lastMessage = msg.content;
         conv.lastTime = msg.created_at;
+      }
+      // Keep conversation-level orderNumber in sync if we didn't have one yet
+      if (!conv.orderNumber && (msg as any).orderNumber) {
+        (conv as any).orderNumber = (msg as any).orderNumber;
       }
     }
   });

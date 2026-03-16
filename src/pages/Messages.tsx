@@ -794,7 +794,9 @@ export default function Messages() {
                 <div className="flex gap-2 items-center">
                   <div className="text-sm border bg-gray-50 rounded px-2 py-1 flex items-center">
                     <span className="text-muted-foreground mr-2 font-medium">Order:</span>
-                    <span className="font-mono">{activeConversation.orderNumber || activeConversation.masterId}</span>
+                    <span className="font-mono">
+                      {activeConversation.orderNumber || activeConversation.masterId}
+                    </span>
                   </div>
                   <Button
                     variant="outline"
