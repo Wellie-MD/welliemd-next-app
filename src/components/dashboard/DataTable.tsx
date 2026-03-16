@@ -57,7 +57,7 @@ export function DataTable({ title, data, columns }: DataTableProps) {
                   {columns.map((column) => (
                     <TableCell key={column.key} className="text-xs text-gray-800 text-nowrap px-2">
                       {column.key === "orderNumber" ? (
-                        <span className="text-blue-600 underline cursor-pointer">{row[column.key]}</span>
+                        <span className="text-gray-800">{row[column.key]}</span>
                       ) : (
                         row[column.key]
                       )}
