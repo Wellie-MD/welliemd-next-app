@@ -27,7 +27,7 @@ const DashboardLayout: React.FC = () => {
 
   return (
     <NotificationsProvider>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 overflow-x-hidden">
         <Header 
           onMenuClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
           isSidebarOpen={isMobileSidebarOpen}
@@ -38,8 +38,7 @@ const DashboardLayout: React.FC = () => {
             onMobileClose={() => setIsMobileSidebarOpen(false)}
           />
           <main className={cn(
-            "flex-1 overflow-auto transition-all duration-300 pt-16 md:pt-0",
-            isMobileSidebarOpen && "ml-64 md:ml-0"
+            "flex-1 overflow-auto transition-all duration-300 pt-16 md:pt-0"
           )}>
             <div className="p-4 md:p-6">
               <Outlet />
