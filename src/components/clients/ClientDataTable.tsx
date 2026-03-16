@@ -99,7 +99,7 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => 
 
         const statusUi = {
           active: {
-            label: isPendingCancel ? 'Active (Cancel Scheduled)' : 'Active',
+            label: isPendingCancel ? 'Subscribed (Cancel Scheduled)' : 'Subscribed',
             className: 'text-green-800 bg-green-100 dark:text-green-300 dark:bg-green-900/50',
             icon: isPendingCancel ? AlertTriangle : CheckCircle,
           },
