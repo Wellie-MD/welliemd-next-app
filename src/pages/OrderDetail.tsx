@@ -520,8 +520,11 @@ export default function OrderDetail() {
                   )}
                   {discountAmount > 0 && (
                     <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={2}>
                         Product discount:
+                      </td>
+                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400">
+                        {order.coupon_code || "—"}
                       </td>
                       <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
                         −${discountAmount.toFixed(2)}
