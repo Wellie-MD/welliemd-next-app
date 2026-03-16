@@ -12,6 +12,12 @@ interface TokenRefreshResponse {
 class TokenManager {
   private accessToken: string | null = null;
   private refreshPromise: Promise<string> | null = null;
+  private readonly refreshUrl: string;
+
+  constructor() {
+    const apiBaseUrl = (env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+    this.refreshUrl = `${apiBaseUrl}/auth/token/refresh/`;
+  }
 
   /**
    * Set the access token in memory
@@ -45,7 +51,7 @@ class TokenManager {
 
     this.refreshPromise = new Promise(async (resolve, reject) => {
       try {
-        const response = await fetch(`${env.VITE_API_BASE_URL}/auth/token/refresh/`, {
+        const response = await fetch(this.refreshUrl, {
           method: 'POST',
           credentials: 'include',
           headers: {
