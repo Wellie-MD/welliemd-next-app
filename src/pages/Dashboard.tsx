@@ -56,7 +56,7 @@ const normalizeAdminKpis = (
       trend: "neutral",
     },
     {
-      title: "Number of inactive Patients",
+      title: "Number of Inactive Patients",
       value: patientSummary ? patientSummary.inactive_patients.toString() : "0",
       change: "0.0%",
       trend: "neutral",
