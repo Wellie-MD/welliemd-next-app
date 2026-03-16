@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   CalendarIcon,
@@ -123,19 +124,35 @@ function CompletionCell({
 }) {
   const ratio = total > 0 ? Math.round((completed / total) * 100) : 0
   return (
-    <div className="min-w-[130px]">
-      <div className="mb-1 flex items-center justify-end gap-2">
-        <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">
-          {completed}
-        </Badge>
-        <Badge variant="secondary" className="bg-amber-100 text-amber-700">
-          {pending}
-        </Badge>
+    <TooltipProvider delayDuration={0}>
+      <div className="min-w-[130px]">
+        <div className="mb-1 flex items-center justify-end gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 cursor-pointer">
+                {completed}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Shipped</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="secondary" className="bg-amber-100 text-amber-700 cursor-pointer">
+                {pending}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Pending</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+        <div className="h-1.5 w-full rounded-full bg-muted">
+          <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${ratio}%` }} />
+        </div>
       </div>
-      <div className="h-1.5 w-full rounded-full bg-muted">
-        <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${ratio}%` }} />
-      </div>
-    </div>
+    </TooltipProvider>
   )
 }
 
@@ -287,7 +304,7 @@ export default function AnalyticsReports() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6 relative z-0">
       <Card className="border-border/70 bg-gradient-to-r from-primary/5 via-background to-blue-50/40 shadow-sm">
         <CardContent className="space-y-4 p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -391,11 +408,10 @@ export default function AnalyticsReports() {
           <div className="flex flex-wrap items-center gap-2">
             <Badge
               variant="secondary"
-              className={`flex items-center gap-1 ${
-                period !== "week" || hasActiveReportFilters
+              className={`flex items-center gap-1 ${period !== "week" || hasActiveReportFilters
                   ? "bg-primary/15 text-primary"
                   : "bg-primary/10 text-primary"
-              }`}
+                }`}
             >
               <Filter className="h-3 w-3" />
               <span>
@@ -554,33 +570,33 @@ export default function AnalyticsReports() {
                 <ScrollArea className="w-full">
                   <Table>
                     <TableHeader className="bg-muted/40">
-                    <TableRow>
-                      <TableHead>State</TableHead>
-                      <TableHead className="text-right">Orders</TableHead>
-                      <TableHead className="text-right">Sales</TableHead>
-                      <TableHead className="text-right">Avg Order</TableHead>
-                      <TableHead className="text-right">Fulfillment</TableHead>
-                    </TableRow>
+                      <TableRow>
+                        <TableHead>State</TableHead>
+                        <TableHead className="text-right">Orders</TableHead>
+                        <TableHead className="text-right">Sales</TableHead>
+                        <TableHead className="text-right">Avg Order</TableHead>
+                        <TableHead className="text-right">Fulfillment</TableHead>
+                      </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {(filteredStateData as AggregateByState[]).map((item, index) => (
-                      <TableRow
-                        key={`${item.state}-${index}`}
-                        className="transition-colors odd:bg-muted/20 hover:bg-primary/5"
-                      >
-                        <TableCell className="font-medium">{item.state}</TableCell>
-                        <TableCell className="text-right">{item.totalOrders}</TableCell>
-                        <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">${item.averageOrderValue.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">
-                          <CompletionCell
-                            completed={item.completedOrders}
-                            pending={item.pendingOrders}
-                            total={item.totalOrders}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                      {(filteredStateData as AggregateByState[]).map((item, index) => (
+                        <TableRow
+                          key={`${item.state}-${index}`}
+                          className="transition-colors odd:bg-muted/20 hover:bg-primary/5"
+                        >
+                          <TableCell className="font-medium">{item.state}</TableCell>
+                          <TableCell className="text-right">{item.totalOrders}</TableCell>
+                          <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">${item.averageOrderValue.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">
+                            <CompletionCell
+                              completed={item.completedOrders}
+                              pending={item.pendingOrders}
+                              total={item.totalOrders}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </ScrollArea>
@@ -608,33 +624,33 @@ export default function AnalyticsReports() {
                 <ScrollArea className="w-full">
                   <Table>
                     <TableHeader className="bg-muted/40">
-                    <TableRow>
-                      <TableHead>Pharmacy</TableHead>
-                      <TableHead className="text-right">Orders</TableHead>
-                      <TableHead className="text-right">Sales</TableHead>
-                      <TableHead className="text-right">Avg Order</TableHead>
-                      <TableHead className="text-right">Fulfillment</TableHead>
-                    </TableRow>
+                      <TableRow>
+                        <TableHead>Pharmacy</TableHead>
+                        <TableHead className="text-right">Orders</TableHead>
+                        <TableHead className="text-right">Sales</TableHead>
+                        <TableHead className="text-right">Avg Order</TableHead>
+                        <TableHead className="text-right">Fulfillment</TableHead>
+                      </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {(filteredPharmacyData as AggregateByPharmacy[]).map((item, index) => (
-                      <TableRow
-                        key={`${item.pharmacy}-${index}`}
-                        className="transition-colors odd:bg-muted/20 hover:bg-primary/5"
-                      >
-                        <TableCell className="font-medium">{item.pharmacy}</TableCell>
-                        <TableCell className="text-right">{item.totalOrders}</TableCell>
-                        <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">${item.averageOrderValue.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">
-                          <CompletionCell
-                            completed={item.completedOrders}
-                            pending={item.pendingOrders}
-                            total={item.totalOrders}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                      {(filteredPharmacyData as AggregateByPharmacy[]).map((item, index) => (
+                        <TableRow
+                          key={`${item.pharmacy}-${index}`}
+                          className="transition-colors odd:bg-muted/20 hover:bg-primary/5"
+                        >
+                          <TableCell className="font-medium">{item.pharmacy}</TableCell>
+                          <TableCell className="text-right">{item.totalOrders}</TableCell>
+                          <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">${item.averageOrderValue.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">
+                            <CompletionCell
+                              completed={item.completedOrders}
+                              pending={item.pendingOrders}
+                              total={item.totalOrders}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </ScrollArea>
@@ -663,38 +679,38 @@ export default function AnalyticsReports() {
               <ScrollArea className="w-full">
                 <Table>
                   <TableHeader className="bg-muted/40">
-                  <TableRow>
-                    <TableHead>Product Variant</TableHead>
-                    <TableHead className="text-right">Orders</TableHead>
-                    <TableHead className="text-right">Quantity</TableHead>
-                    <TableHead className="text-right">Sales</TableHead>
-                    <TableHead className="text-right">Avg Price</TableHead>
-                  </TableRow>
-                </TableHeader>
+                    <TableRow>
+                      <TableHead>Product Variant</TableHead>
+                      <TableHead className="text-right">Orders</TableHead>
+                      <TableHead className="text-right">Quantity</TableHead>
+                      <TableHead className="text-right">Sales</TableHead>
+                      <TableHead className="text-right">Avg Price</TableHead>
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
-                  {(filteredVariantData as AggregateByVariant[]).map((item, index) => {
-                    let displayVariant = item.variant
-                    if (item.productName && item.variant.startsWith(item.productName)) {
-                      displayVariant = item.variant.replace(item.productName, "").replace(/^[\s-]+/, "")
-                    }
-                    const showSubLabel = displayVariant.trim() !== "" && displayVariant.trim() !== (item.productName || "").trim()
+                    {(filteredVariantData as AggregateByVariant[]).map((item, index) => {
+                      let displayVariant = item.variant
+                      if (item.productName && item.variant.startsWith(item.productName)) {
+                        displayVariant = item.variant.replace(item.productName, "").replace(/^[\s-]+/, "")
+                      }
+                      const showSubLabel = displayVariant.trim() !== "" && displayVariant.trim() !== (item.productName || "").trim()
 
-                    return (
-                      <TableRow
-                        key={`${item.variant}-${index}`}
-                        className="transition-colors odd:bg-muted/20 hover:bg-primary/5"
-                      >
-                        <TableCell className="font-medium">
-                          <div className="text-base font-semibold">{item.productName || item.variant}</div>
-                          {showSubLabel && <div className="text-sm text-muted-foreground">{displayVariant}</div>}
-                        </TableCell>
-                        <TableCell className="text-right">{item.totalOrders}</TableCell>
-                        <TableCell className="text-right">{item.totalQuantity}</TableCell>
-                        <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">${item.averagePrice.toFixed(2)}</TableCell>
-                      </TableRow>
-                    )
-                  })}
+                      return (
+                        <TableRow
+                          key={`${item.variant}-${index}`}
+                          className="transition-colors odd:bg-muted/20 hover:bg-primary/5"
+                        >
+                          <TableCell className="font-medium">
+                            <div className="text-base font-semibold">{item.productName || item.variant}</div>
+                            {showSubLabel && <div className="text-sm text-muted-foreground">{displayVariant}</div>}
+                          </TableCell>
+                          <TableCell className="text-right">{item.totalOrders}</TableCell>
+                          <TableCell className="text-right">{item.totalQuantity}</TableCell>
+                          <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">${item.averagePrice.toFixed(2)}</TableCell>
+                        </TableRow>
+                      )
+                    })}
                   </TableBody>
                 </Table>
               </ScrollArea>
