@@ -208,11 +208,11 @@ function TreatmentCard({ treatment, onStart, isStarting, formatDate, compact }: 
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2 mb-1">
             <span className="text-xl">💊</span>
-            <h4 className="font-medium text-gray-900">{treatment.name}</h4>
+            <h4 className="font-medium text-gray-900 break-words">{treatment.name}</h4>
             {treatment.can_start ? (
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                 ✅ Available
@@ -225,7 +225,7 @@ function TreatmentCard({ treatment, onStart, isStarting, formatDate, compact }: 
           </div>
           
           {treatment.description && (
-            <p className="text-sm text-gray-600 mb-2 ml-7">
+            <p className="text-sm text-gray-600 mb-2 ml-7 break-words">
               {treatment.description}
             </p>
           )}
@@ -241,10 +241,10 @@ function TreatmentCard({ treatment, onStart, isStarting, formatDate, compact }: 
           <button
             onClick={onStart}
             disabled={isStarting}
-            className="ml-4 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors disabled:opacity-50"
+            className="w-full sm:w-auto sm:ml-4 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors disabled:opacity-50 shrink-0"
           >
             {isStarting ? (
-              <span className="flex items-center gap-2">
+              <span className="flex items-center justify-center gap-2">
                 <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
                 Starting...
               </span>

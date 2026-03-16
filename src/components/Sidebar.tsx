@@ -42,18 +42,19 @@ const navigationItems: NavigationItem[] = [
 ];
 
 interface SidebarProps {
+  isMobile: boolean;
   isMobileOpen: boolean;
   onMobileClose: () => void;
 }
 
-export default function Sidebar({ isMobileOpen, onMobileClose }: SidebarProps) {
+export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
 
   // Close mobile sidebar when route changes
   useEffect(() => {
     onMobileClose();
-  }, [location.pathname]);
+  }, [location.pathname, onMobileClose]);
 
   const NavItem = ({ item }: { item: NavigationItem }) => {
     const Icon = item.icon;
@@ -63,7 +64,7 @@ export default function Sidebar({ isMobileOpen, onMobileClose }: SidebarProps) {
       (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
 
     // On mobile, always show full size. On desktop, respect collapsed state
-    const shouldShowCollapsed = isCollapsed && !isMobileOpen;
+    const shouldShowCollapsed = isCollapsed && !isMobile;
 
     const iconStyle: CSSProperties = {
       minWidth: shouldShowCollapsed ? '24px' : '18px',
@@ -109,58 +110,64 @@ export default function Sidebar({ isMobileOpen, onMobileClose }: SidebarProps) {
 
   const mainItems = navigationItems;
 
+  const shouldShowCollapsed = isCollapsed && !isMobile;
+
   return (
     <>
       {/* Mobile sidebar overlay */}
-      {isMobileOpen && (
+      {isMobile && isMobileOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-black/50 z-40 transition-opacity duration-300"
+          className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-300"
           onClick={onMobileClose}
         />
       )}
 
-      {/* Sidebar */}
-
-
-      <div
-        className={cn(
-          "bg-white border-r border-gray-200 flex flex-col z-50 transition-all duration-300 ease-in-out min-h-screen",
-
-          // Mobile drawer behavior
-          isMobileOpen ? "fixed inset-y-0 left-0 w-64 translate-x-0 " : "inset-y-0 left-0 w-64 -translate-x-full md:static md:translate-x-0 sidebar",
-          isCollapsed && !isMobileOpen ? "w-16" : "w-64",
-          // Desktop collapse only
-          !isMobileOpen && isCollapsed
-            ? "md:w-16"
-            : "md:w-64"
-        )}
-      >
-        {/* Mobile header for sidebar */}
-        <div className={cn(
-          "p-4 flex items-center",
-          isCollapsed && !isMobileOpen ? "justify-center" : "justify-between"
-        )}>
-          {(!isCollapsed || isMobileOpen) && (
+      {/* Mobile Sidebar Drawer */}
+      {isMobile && isMobileOpen && (
+        <div className="fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200 flex flex-col z-50 min-h-screen">
+          <div className="p-4 flex items-center justify-between">
             <p className="text-sm text-gray-500 uppercase tracking-wide">MENU</p>
-          )}
+            <button
+              onClick={onMobileClose}
+              className="p-1.5 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors duration-200"
+              aria-label="Close menu"
+            >
+              <X size={20} />
+            </button>
+          </div>
 
-          {/* Close button for mobile, collapse/expand for desktop */}
-          <div className="flex items-center">
-            {isMobileOpen ? (
-              <button
-                onClick={onMobileClose}
-                className="p-1.5 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors duration-200"
-                aria-label="Close menu"
-              >
-                <X size={20} />
-              </button>
-            ) : (
+          <nav className="flex-1 px-4">
+            <ul className="space-y-1">
+              {mainItems.map((item) => (
+                <NavItem key={item.path} item={item} />
+              ))}
+            </ul>
+          </nav>
+        </div>
+      )}
+
+      {/* Desktop Sidebar */}
+      {!isMobile && (
+        <div
+          className={cn(
+            "bg-white border-r border-gray-200 flex flex-col z-30 transition-all duration-300 ease-in-out min-h-screen",
+            shouldShowCollapsed ? "w-16" : "w-64"
+          )}
+        >
+          <div className={cn(
+            "p-4 flex items-center",
+            shouldShowCollapsed ? "justify-center" : "justify-between"
+          )}>
+            {!shouldShowCollapsed && (
+              <p className="text-sm text-gray-500 uppercase tracking-wide">MENU</p>
+            )}
+
+            <div className="flex items-center">
               <button
                 onClick={() => setIsCollapsed(!isCollapsed)}
                 className={cn(
                   "p-1.5 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors duration-200",
-                  isCollapsed && !isMobileOpen ? "flex justify-center" : "block",
-                  "hidden md:flex"
+                  shouldShowCollapsed ? "flex justify-center" : "block"
                 )}
                 aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
@@ -170,26 +177,18 @@ export default function Sidebar({ isMobileOpen, onMobileClose }: SidebarProps) {
                   <ChevronLeft size={20} />
                 )}
               </button>
-            )}
+            </div>
           </div>
+
+          <nav className="flex-1 px-4">
+            <ul className="space-y-1">
+              {mainItems.map((item) => (
+                <NavItem key={item.path} item={item} />
+              ))}
+            </ul>
+          </nav>
         </div>
-
-        <nav className="flex-1 px-4">
-          <ul className="space-y-1">
-            {mainItems.map((item) => (
-              <NavItem key={item.path} item={item} />
-            ))}
-          </ul>
-        </nav>
-
-        {/* <div className="p-4 border-t border-gray-200">
-          <ul className="space-y-1">
-            {bottomItems.map((item) => (
-              <NavItem key={item.path} item={item} />
-            ))}
-          </ul>
-        </div> */}
-      </div>
+      )}
     </>
   );
 }

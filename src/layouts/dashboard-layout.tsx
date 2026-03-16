@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet } from 'react-router-dom';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
-import { cn } from '@/components/ui/utils'; // Import cn
 
 /**
  * Dashboard layout component that provides the main structure for authenticated pages
@@ -11,35 +10,46 @@ import { cn } from '@/components/ui/utils'; // Import cn
  * Uses simple HTTP polling for updates (no WebSocket complexity)
  */
 const DashboardLayout: React.FC = () => {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const closeMobileSidebar = useCallback(() => setIsMobileSidebarOpen(false), []);
+  const toggleMobileSidebar = useCallback(() => setIsMobileSidebarOpen((prev) => !prev), []);
 
-  // Close mobile sidebar when window resizes to desktop
+  // Ensure drawer never sticks open as a default state on mount.
+  useEffect(() => {
+    closeMobileSidebar();
+  }, [closeMobileSidebar]);
+
+  // Keep an explicit mobile/desktop mode and close drawer when switching to desktop.
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth >= 768) {
-        setIsMobileSidebarOpen(false);
+      const nextIsMobile = window.innerWidth < 768;
+      setIsMobile(nextIsMobile);
+      if (!nextIsMobile) {
+        closeMobileSidebar();
       }
     };
 
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [closeMobileSidebar]);
 
   return (
     <NotificationsProvider>
       <div className="min-h-screen bg-gray-50 overflow-x-hidden">
         <Header 
-          onMenuClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+          onMenuClick={toggleMobileSidebar}
           isSidebarOpen={isMobileSidebarOpen}
+          showMenuButton={isMobile}
         />
         <div className="flex">
           <Sidebar 
+            isMobile={isMobile}
             isMobileOpen={isMobileSidebarOpen}
-            onMobileClose={() => setIsMobileSidebarOpen(false)}
+            onMobileClose={closeMobileSidebar}
           />
-          <main className={cn(
-            "flex-1 overflow-auto transition-all duration-300 pt-16 md:pt-0"
-          )}>
+          <main className="flex-1 overflow-auto transition-all duration-300 pt-16 md:pt-0">
             <div className="p-4 md:p-6">
               <Outlet />
             </div>

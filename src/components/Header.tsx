@@ -13,9 +13,10 @@ import { useBranding } from "@/features/branding/hooks/useBranding";
 interface HeaderProps {
   onMenuClick: () => void;
   isSidebarOpen: boolean;
+  showMenuButton?: boolean;
 }
 
-export default function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
+export default function Header({ onMenuClick, isSidebarOpen, showMenuButton = false }: HeaderProps) {
   const { isAuthenticated } = useAuth();
   const { closeAll } = useDropdown();
   const { logos } = useBranding();
@@ -40,13 +41,15 @@ export default function Header({ onMenuClick, isSidebarOpen }: HeaderProps) {
         {/* Left side - Hamburger menu (mobile only) and Logo */}
         <div className="flex items-center space-x-2 md:space-x-4">
           {/* Hamburger menu for mobile only */}
-          <button 
-            onClick={onMenuClick}
-            className="block md:hidden p-2 text-white hover:bg-white/10 rounded-lg transition-colors navbar"
-            aria-label="Toggle menu"
-          >
-            {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+          {showMenuButton && (
+            <button
+              onClick={onMenuClick}
+              className="block p-2 text-white hover:bg-white/10 rounded-lg transition-colors navbar"
+              aria-label="Toggle menu"
+            >
+              {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          )}
           
           <div>
             {logos?.square ? (

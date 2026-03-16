@@ -3,13 +3,13 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { ErrorBoundary } from '@/components/error/error-boundary';
 import { ProtectedRoute } from './protected-route';
 import { LoadingSkeleton } from '@/components/common/loading-skeleton';
+import DashboardLayout from '@/layouts/dashboard-layout';
+import Dashboard from '@/components/Dashboard';
 
 const SignIn = React.lazy(() => import('@/pages/auth/SignIn'));
 const ForgotPassword = React.lazy(() => import('@/pages/auth/ForgotPassword'));
 const ResetPassword = React.lazy(() => import('@/pages/auth/ResetPassword'));
 
-const DashboardLayout = React.lazy(() => import('@/layouts/dashboard-layout'));
-const Dashboard = React.lazy(() => import('@/components/Dashboard'));
 const FollowUpRedirectPage = React.lazy(() => import('@/features/followups/FollowUpRedirectPage'));
 const Profile = React.lazy(() => import('@/components/Profile'));
 const Treatments = React.lazy(() => import('@/components/Treatments'));
