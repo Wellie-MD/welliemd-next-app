@@ -38,7 +38,7 @@ export default function BillingSuspendedBanner() {
         };
 
         fetchLockStatus();
-        const pollId = window.setInterval(fetchLockStatus, 15000);
+        const pollId = window.setInterval(fetchLockStatus, 30000);
         const onFocus = () => {
             void fetchLockStatus();
         };
