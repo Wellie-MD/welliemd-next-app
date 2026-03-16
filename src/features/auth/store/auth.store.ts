@@ -438,29 +438,14 @@ export const useAuthStore = create<AuthState>()(
             });
           
             try {
-              // On page refresh, access token in memory is lost, but refresh token cookie persists
-              // Always try to refresh first using the cookie, then verify if we have a token
               const hasAccessToken = authService.isAuthenticated();
-              let shouldRefresh = false;
-              
+              // If no in-memory token (common after hard refresh), try cookie-based refresh once.
               if (!hasAccessToken) {
                 debugLog('No access token in memory, attempting to refresh from cookie');
-                shouldRefresh = true;
-              } else {
-                // Verify if existing token is still valid
-                const isTokenValid = await authService.verifyToken();
-                if (!isTokenValid) {
-                  debugLog('Stored token is invalid, trying to refresh');
-                  shouldRefresh = true;
-                }
-              }
-              
-              if (shouldRefresh) {
                 if (isRefreshing) {
                   debugLog('Token refresh already in progress');
                   return;
                 }
-          
                 isRefreshing = true;
                 try {
                   await authService.refreshToken();
@@ -482,9 +467,34 @@ export const useAuthStore = create<AuthState>()(
                   isRefreshing = false;
                 }
               }
-          
-              // Get current user profile
-              const user = await authService.getCurrentUser();
+
+              let user: User | null = null;
+
+              try {
+                user = await authService.getCurrentUser();
+              } catch (profileError) {
+                debugLog('Failed to fetch profile on first attempt:', profileError);
+
+                // If an access token exists but profile fetch failed (e.g. stale token),
+                // attempt one refresh fallback before clearing auth state.
+                if (!hasAccessToken) {
+                  throw profileError;
+                }
+
+                if (isRefreshing) {
+                  debugLog('Token refresh already in progress');
+                  throw profileError;
+                }
+
+                isRefreshing = true;
+                try {
+                  await authService.refreshToken();
+                  user = await authService.getCurrentUser();
+                  debugLog('Recovered session after refresh fallback');
+                } finally {
+                  isRefreshing = false;
+                }
+              }
               
               set((state) => {
                 state.user = user;
@@ -494,14 +504,14 @@ export const useAuthStore = create<AuthState>()(
                   expiresIn: 3600,
                   tokenType: 'Bearer' as const,
                 };
-                state.permissions = user.role ? ROLE_PERMISSIONS[user.role] : [];
+                state.permissions = user?.role ? ROLE_PERMISSIONS[user.role] : [];
                 state.features = {};
                 state.isAuthenticated = true;
                 state.isLoading = false;
                 state.error = null;
               });
           
-              debugLog('Auth initialized successfully:', { userId: user.id });
+              debugLog('Auth initialized successfully:', { userId: user?.id });
             } catch (error) {
               debugLog('Auth initialization failed:', error);
               

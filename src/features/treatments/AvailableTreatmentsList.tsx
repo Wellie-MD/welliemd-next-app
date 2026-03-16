@@ -8,6 +8,7 @@
  */
 import { useEffect, useState } from 'react';
 import { getAvailableTreatments, startNewTreatment, AvailableTreatment } from './api';
+import { Button } from '@/components/ui/button';
 
 interface AvailableTreatmentsListProps {
   onStartTreatment?: (treatment: AvailableTreatment) => void;
@@ -208,7 +209,7 @@ function TreatmentCard({ treatment, onStart, isStarting, formatDate, compact }: 
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <span className="text-xl">💊</span>
@@ -238,10 +239,11 @@ function TreatmentCard({ treatment, onStart, isStarting, formatDate, compact }: 
         </div>
         
         {treatment.can_start && onStart && (
-          <button
+          <Button
             onClick={onStart}
             disabled={isStarting}
-            className="w-full sm:w-auto sm:ml-4 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors disabled:opacity-50 shrink-0"
+            size="sm"
+            className="w-full md:w-auto md:ml-4 shrink-0"
           >
             {isStarting ? (
               <span className="flex items-center justify-center gap-2">
@@ -251,7 +253,7 @@ function TreatmentCard({ treatment, onStart, isStarting, formatDate, compact }: 
             ) : (
               'Start'
             )}
-          </button>
+          </Button>
         )}
       </div>
     </div>
