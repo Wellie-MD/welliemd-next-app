@@ -316,7 +316,7 @@ export default function Dashboard() {
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-gray-800">Number of inactive Patients</p>
-                      <p className="text-xs text-muted-foreground">Missed follow-ups (20+ days)</p>
+                      <p className="text-xs text-muted-foreground">Missed follow up (20+ days)</p>
                     </div>
                   </div>
                   <div className="text-2xl font-bold text-gray-900">{patientSummary.inactive_patients}</div>
