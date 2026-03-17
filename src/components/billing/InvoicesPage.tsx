@@ -58,6 +58,18 @@ function getClientOrderNumber(inv: any): string {
   return inv?.client_order_number || inv?.source_tenant_order_display_id || inv?.invoice_number || "-";
 }
 
+function normalizeLineItemDescription(description: string | undefined, orderId: string): string {
+  const desc = String(description ?? "").trim();
+  if (!desc || !orderId || orderId === "-") return desc || "-";
+
+  // Replace any existing "for Order <something>" suffix with the real order id.
+  // This fixes older invoices whose descriptions were stored with display IDs.
+  if (/\bfor Order\b/i.test(desc)) {
+    return desc.replace(/\bfor Order\b.*$/i, `for Order ${orderId}`);
+  }
+  return desc;
+}
+
 function lineItemTypeLabel(li: any): string {
   if (li?.item_type === "consultation") {
     const mode = String(li?.metadata?.consult_mode || "").toLowerCase();
@@ -520,7 +532,12 @@ export default function InvoicesPage() {
                               (li as any).order_display_id ||
                               (selected.invoice_type === "reimbursement" ? getClientOrderNumber(selected) : "-")}
                           </td>
-                          <td className="px-3 py-2">{li.description || "-"}</td>
+                          <td className="px-3 py-2">
+                            {normalizeLineItemDescription(
+                              li.description,
+                              selected.invoice_type === "reimbursement" ? getClientOrderNumber(selected) : "-"
+                            )}
+                          </td>
                           <td className="px-3 py-2 text-right">{li.quantity ?? 0}</td>
                           <td className="px-3 py-2 text-right">{formatMoney(li.unit_price)}</td>
                           <td className="px-3 py-2 text-right font-medium">
