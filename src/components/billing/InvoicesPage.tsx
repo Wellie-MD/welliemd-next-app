@@ -36,6 +36,21 @@ function formatLabel(value?: string) {
     .join(" ");
 }
 
+function extractOrderIdFromDisplay(value?: string | null): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+
+  const marker = "-ORD-";
+  const idx = raw.indexOf(marker);
+  if (idx === -1) return raw;
+
+  const after = raw.slice(idx + marker.length);
+  if (!after) return raw;
+
+  const [orderId] = after.split("-");
+  return orderId || raw;
+}
+
 function statusClass(status: string) {
   const s = status.toLowerCase();
   if (s === "paid") return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300";
@@ -55,7 +70,10 @@ function getAccessPeriodFromInvoice(inv: any): string | null {
 }
 
 function getClientOrderNumber(inv: any): string {
-  return inv?.client_order_number || inv?.source_tenant_order_display_id || inv?.invoice_number || "-";
+  const source =
+    inv?.client_order_number || inv?.source_tenant_order_display_id || inv?.invoice_number || "";
+  const normalized = extractOrderIdFromDisplay(source);
+  return normalized || "-";
 }
 
 function lineItemTypeLabel(li: any): string {
@@ -516,7 +534,11 @@ export default function InvoicesPage() {
                         <tr key={li.id} className="border-t">
                           <td className="px-3 py-2">{lineItemTypeLabel(li)}</td>
                           <td className="px-3 py-2 font-mono text-xs">
-                            {(li as any).client_order_number || (li as any).order_display_id || (selected.invoice_type === "reimbursement" ? getClientOrderNumber(selected) : "-")}
+                            {extractOrderIdFromDisplay(
+                              (li as any).client_order_number ||
+                                (li as any).order_display_id ||
+                                (selected.invoice_type === "reimbursement" ? getClientOrderNumber(selected) : "")
+                            ) || "-"}
                           </td>
                           <td className="px-3 py-2">{li.description || "-"}</td>
                           <td className="px-3 py-2 text-right">{li.quantity ?? 0}</td>
