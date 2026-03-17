@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { fetchDashboardMetrics } from '@/api/dashboardApi';
 import { DashboardMetrics, Metric } from '@/types/dashboard';
+import { patientService, Patient } from '@/services/patientService';
 import mockData from "@/data/mockData.json";
 
 interface UseDashboardMetricsProps {
@@ -11,13 +12,27 @@ export const useDashboardMetrics = ({ fallbackKpis }: UseDashboardMetricsProps) 
     const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<unknown>(null);
+    const [dropoffCount, setDropoffCount] = useState(0);
 
     useEffect(() => {
         const loadMetrics = async () => {
             try {
                 setLoading(true);
-                const data = await fetchDashboardMetrics();
-                setMetrics(data);
+                const [metricsData, patientsData] = await Promise.all([
+                    fetchDashboardMetrics(),
+                    patientService.getPatients({ page_size: 1000 }),
+                ]);
+                setMetrics(metricsData);
+
+                // Count dropoff patients: completed questionnaire but didn't complete checkout (no prescribed history)
+                let dropoff = 0;
+                (patientsData.results || []).forEach((patient: Patient) => {
+                    if (patient.engagement_status_reason === 'no_prescribed_history') {
+                        dropoff++;
+                    }
+                });
+                setDropoffCount(dropoff);
+
                 setError(null);
             } catch (err) {
                 console.error("Failed to load dashboard metrics:", err);
@@ -181,7 +196,7 @@ export const useDashboardMetrics = ({ fallbackKpis }: UseDashboardMetricsProps) 
     const patientSummary = {
         active_patients: metrics?.patient_summary?.active_patients ?? liveSummary.active_carts,
         inactive_patients: metrics?.patient_summary?.inactive_patients ?? liveSummary.checking_out,
-        dropoff_patients: metrics?.patient_summary?.dropoff_patients ?? liveSummary.purchased,
+        dropoff_patients: dropoffCount,
         calculated_at: metrics?.patient_summary?.calculated_at ?? "",
     };
 
@@ -195,8 +210,20 @@ export const useDashboardMetrics = ({ fallbackKpis }: UseDashboardMetricsProps) 
         refetch: async () => {
             setLoading(true);
             try {
-                const data = await fetchDashboardMetrics();
-                setMetrics(data);
+                const [metricsData, patientsData] = await Promise.all([
+                    fetchDashboardMetrics(),
+                    patientService.getPatients({ page_size: 1000 }),
+                ]);
+                setMetrics(metricsData);
+                
+                let dropoff = 0;
+                (patientsData.results || []).forEach((patient: Patient) => {
+                    if (patient.engagement_status_reason === 'no_prescribed_history') {
+                        dropoff++;
+                    }
+                });
+                setDropoffCount(dropoff);
+                
                 setError(null);
             } catch (err) {
                 setError(err);

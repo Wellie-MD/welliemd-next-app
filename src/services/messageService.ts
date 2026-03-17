@@ -33,6 +33,9 @@ export interface Message {
   media_url?: string;
   media_mime_type?: string;
   media_file_name?: string;
+
+  // order number from API
+  orderNumber?: string;
 }
 
 /* ---- S3 public base (only used as fallback when BE gives a key not a URL) ---- */

@@ -22,6 +22,8 @@ export interface Patient {
     last_order_at?: string | null;
     last_order_id?: string | null;
     last_order_display_id?: string | null;
+    engagement_status?: 'active' | 'inactive' | null;
+    engagement_status_reason?: 'missed_followup_window' | 'within_followup_window' | 'no_prescribed_history' | null;
 }
 
 export interface PatientListResponse {
