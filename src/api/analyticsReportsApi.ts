@@ -1,6 +1,5 @@
 // Reports API Service for Aggregate Data
 import { fetchOrders } from './ordersApi';
-import { parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 
 export interface AggregateByState {
   state: string;
@@ -53,6 +52,10 @@ export interface AggregatesParams {
 }
 
 const ORDERS_PAGE_SIZE = 500;
+// PaymentTransaction.STATUS_CHOICES (backend): pending, authorized, captured, approved, succeeded,
+// declined, error, voided, canceled, refunded. Successful payments are captured/approved/succeeded.
+const CAPTURED_PAYMENT_STATUSES = new Set(['captured', 'approved', 'succeeded']);
+const FINANCIAL_ORDER_STATUSES = new Set(['prescribed', 'billing_pending', 'rx_sent', 'shipped']);
 
 async function fetchAllOrders(params?: Record<string, unknown>) {
   let page = 1;
@@ -104,7 +107,23 @@ function getOrderState(order: any): string {
     order.billing_address?.state ||
     'Unknown';
   const normalized = normalizeText(state);
-  return normalized || 'Unknown';
+  if (!normalized) return 'Unknown';
+  if (normalized.length === 2) return normalized.toUpperCase();
+  return normalized;
+}
+
+function getOrderStatus(order: any): string {
+  return normalizeCaseInsensitive(order.orderStatus || order.order_status || order.status);
+}
+
+function getPaymentStatus(order: any): string {
+  return normalizeCaseInsensitive(order.paymentStatus || order.payment_status || order.transaction_status);
+}
+
+function isSuccessfulPaymentOrder(order: any): boolean {
+  const orderStatus = getOrderStatus(order);
+  const paymentStatus = getPaymentStatus(order);
+  return FINANCIAL_ORDER_STATUSES.has(orderStatus) && CAPTURED_PAYMENT_STATUSES.has(paymentStatus);
 }
 
 function getOrderPharmacy(order: any): { key: string; name: string } {
@@ -200,6 +219,14 @@ function orderMatchesReportFilters(order: any, params?: AggregatesParams): boole
   return true;
 }
 
+function isCompletedOrderStatus(status: string): boolean {
+  return ['completed', 'shipped', 'delivered'].includes(status);
+}
+
+function isPendingOrderStatus(status: string): boolean {
+  return ['created', 'processing', 'pending', 'payment_pending', 'visit_pending', 'billing_pending', 'prescribed', 'rx_sent'].includes(status);
+}
+
 /**
  * Fetch aggregate reports data
  */
@@ -217,19 +244,11 @@ export const getAggregates = async (params?: AggregatesParams): Promise<Aggregat
 
     let orders = rawOrders;
 
-    if (params?.start_date && params?.end_date) {
-      const filterStart = startOfDay(parseISO(params.start_date));
-      const filterEnd = endOfDay(parseISO(params.end_date));
-
-      orders = rawOrders.filter((order: any) => {
-        if (!order.created_at) return false;
-        const orderDate = parseISO(order.created_at);
-        return isWithinInterval(orderDate, { start: filterStart, end: filterEnd });
-      });
-    }
-
     // Apply report filters globally so all cards/tables represent the same dataset.
     orders = orders.filter((order: any) => orderMatchesReportFilters(order, params));
+
+    // Successful payments drive sales only (counts should include all placed orders).
+    const successfulOrders = orders.filter((order: any) => isSuccessfulPaymentOrder(order));
 
     const byState = aggregateByState(orders);
     const byPharmacy = aggregateByPharmacy(orders);
@@ -237,7 +256,7 @@ export const getAggregates = async (params?: AggregatesParams): Promise<Aggregat
 
     // Calculate summary
     const totalOrders = orders.length;
-    const totalSales = orders.reduce((sum, order) => {
+    const totalSales = successfulOrders.reduce((sum, order) => {
       const total = parseOrderAmount(order);
       return sum + total;
     }, 0);
@@ -287,9 +306,10 @@ function aggregateByState(orders: any[]): AggregateByState[] {
     const normalizedState = getOrderState(order);
 
     const amount = parseOrderAmount(order);
-    const status = (order.order_status || order.status || '').toLowerCase();
-    const isCompleted = ['completed', 'shipped', 'delivered'].includes(status);
-    const isPending = ['pending', 'processing'].includes(status);
+    const isSuccessful = isSuccessfulPaymentOrder(order);
+    const status = getOrderStatus(order);
+    const isCompleted = isCompletedOrderStatus(status);
+    const isPending = isPendingOrderStatus(status);
 
     if (!stateMap.has(normalizedState)) {
       stateMap.set(normalizedState, {
@@ -302,7 +322,7 @@ function aggregateByState(orders: any[]): AggregateByState[] {
 
     const current = stateMap.get(normalizedState)!;
     current.totalOrders += 1;
-    current.totalSales += amount;
+    if (isSuccessful) current.totalSales += amount;
     if (isCompleted) current.completed += 1;
     if (isPending) current.pending += 1;
   });
@@ -336,9 +356,10 @@ function aggregateByPharmacy(orders: any[]): AggregateByPharmacy[] {
     const pharmacy = getOrderPharmacy(order);
 
     const amount = parseOrderAmount(order);
-    const status = (order.order_status || order.status || '').toLowerCase();
-    const isCompleted = ['completed', 'shipped', 'delivered'].includes(status);
-    const isPending = ['pending', 'processing'].includes(status);
+    const isSuccessful = isSuccessfulPaymentOrder(order);
+    const status = getOrderStatus(order);
+    const isCompleted = isCompletedOrderStatus(status);
+    const isPending = isPendingOrderStatus(status);
 
     if (!pharmacyMap.has(pharmacy.key)) {
       pharmacyMap.set(pharmacy.key, {
@@ -353,7 +374,7 @@ function aggregateByPharmacy(orders: any[]): AggregateByPharmacy[] {
 
     const current = pharmacyMap.get(pharmacy.key)!;
     current.totalOrders += 1;
-    current.totalSales += amount;
+    if (isSuccessful) current.totalSales += amount;
     if (isCompleted) current.completed += 1;
     if (isPending) current.pending += 1;
   });
@@ -386,6 +407,7 @@ function aggregateByVariant(orders: any[]): AggregateByVariant[] {
 
   orders.forEach(order => {
     const variants = getOrderVariantEntries(order);
+    const isSuccessful = isSuccessfulPaymentOrder(order);
     variants.forEach((variant) => {
       if (!variantMap.has(variant.key)) {
         variantMap.set(variant.key, {
@@ -401,7 +423,7 @@ function aggregateByVariant(orders: any[]): AggregateByVariant[] {
       const current = variantMap.get(variant.key)!;
       current.totalOrders += 1;
       current.totalQuantity += variant.quantity;
-      current.totalSales += variant.amount;
+      if (isSuccessful) current.totalSales += variant.amount;
       if (!current.productName && variant.productName) {
         current.productName = variant.productName;
       }
@@ -424,10 +446,18 @@ function aggregateByVariant(orders: any[]): AggregateByVariant[] {
 /**
  * Get list of states from orders
  */
-export const getStates = async (): Promise<string[]> => {
+export const getStates = async (params?: AggregatesParams): Promise<string[]> => {
   try {
-    const ordersResponse = await fetchAllOrders();
-    const orders = ordersResponse.results || [];
+    const orderFilters: any = {
+      ...(params?.start_date && { created_at__gte: params.start_date }),
+      ...(params?.end_date && { created_at__lte: params.end_date }),
+    };
+    const ordersResponse = await fetchAllOrders(orderFilters);
+    const rawOrders = ordersResponse.results || [];
+    let orders = rawOrders;
+
+    // Keep current dimension open while honoring other active filters.
+    orders = orders.filter((order: any) => orderMatchesReportFilters(order, { ...params, state: undefined }));
 
     const states = new Set<string>();
     orders.forEach((order: any) => {
@@ -445,10 +475,18 @@ export const getStates = async (): Promise<string[]> => {
 /**
  * Get list of pharmacies
  */
-export const getPharmacies = async (): Promise<Array<{ id: string; name: string }>> => {
+export const getPharmacies = async (params?: AggregatesParams): Promise<Array<{ id: string; name: string }>> => {
   try {
-    const ordersResponse = await fetchAllOrders();
-    const orders = ordersResponse.results || [];
+    const orderFilters: any = {
+      ...(params?.start_date && { created_at__gte: params.start_date }),
+      ...(params?.end_date && { created_at__lte: params.end_date }),
+    };
+    const ordersResponse = await fetchAllOrders(orderFilters);
+    const rawOrders = ordersResponse.results || [];
+    let orders = rawOrders;
+
+    // Keep current dimension open while honoring other active filters.
+    orders = orders.filter((order: any) => orderMatchesReportFilters(order, { ...params, pharmacy_id: undefined }));
     const seen = new Set<string>();
     const pharmacies: Array<{ id: string; name: string }> = [];
 
@@ -469,10 +507,18 @@ export const getPharmacies = async (): Promise<Array<{ id: string; name: string 
 /**
  * Get list of variants
  */
-export const getVariants = async (): Promise<Array<{ id: string; name: string }>> => {
+export const getVariants = async (params?: AggregatesParams): Promise<Array<{ id: string; name: string }>> => {
   try {
-    const ordersResponse = await fetchAllOrders();
-    const orders = ordersResponse.results || [];
+    const orderFilters: any = {
+      ...(params?.start_date && { created_at__gte: params.start_date }),
+      ...(params?.end_date && { created_at__lte: params.end_date }),
+    };
+    const ordersResponse = await fetchAllOrders(orderFilters);
+    const rawOrders = ordersResponse.results || [];
+    let orders = rawOrders;
+
+    // Keep current dimension open while honoring other active filters.
+    orders = orders.filter((order: any) => orderMatchesReportFilters(order, { ...params, variant_id: undefined }));
     const seen = new Set<string>();
     const variants: Array<{ id: string; name: string }> = [];
 

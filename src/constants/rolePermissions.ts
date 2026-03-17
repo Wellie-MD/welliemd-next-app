@@ -78,6 +78,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
         Permissions.COUPON_CREATE,
         Permissions.COUPON_UPDATE,
         Permissions.COUPON_DELETE,
+        // Refunds
+        Permissions.REFUND_CREATE,
         Permissions.TEMPLATE_MANAGE,
         Permissions.TEMPLATE_ASSIGN,
         Permissions.TEMPLATE_ARCHIVE,
@@ -85,6 +87,13 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
 
     [RoleNames.CUSTOMER_SERVICE]: [
         // Limited permissions
+        // Portal / Patients
+        Permissions.PORTAL_USER_LIST,
+        Permissions.USER_LIST,
+        Permissions.USER_RETRIEVE,
+        Permissions.USER_UPDATE,
+        Permissions.USER_DELETE,
+
         Permissions.ORDER_LIST,
         Permissions.ORDER_VIEW,
         Permissions.PRODUCT_MANAGE,
@@ -92,5 +101,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
         Permissions.MESSAGE_VIEW,
         Permissions.MESSAGE_SEND,
         Permissions.COUPON_CREATE,
+        // Questionnaires
+        Permissions.TEMPLATE_MANAGE,
+        Permissions.TEMPLATE_ASSIGN,
+        Permissions.TEMPLATE_ARCHIVE,
     ],
 };

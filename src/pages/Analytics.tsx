@@ -106,7 +106,7 @@ export default function Analytics() {
     setSelectedProductGroup("")
   }
 
-  const hasActiveFilters = Boolean(selectedTreatment || selectedProductGroup || period === "custom")
+  const hasActiveFilters = Boolean(selectedTreatment || selectedProductGroup || period !== "month")
   const hasDimensionFilter = Boolean(selectedTreatment || selectedProductGroup)
   const treatmentFilterLabel = treatments.find((t) => t.id === selectedTreatment)?.name || selectedTreatment
   const productGroupFilterLabel = productGroups.find((g) => g.id === selectedProductGroup)?.name || selectedProductGroup
@@ -177,15 +177,22 @@ export default function Analytics() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setQuickRange("day")}>Today</Button>
-            <Button variant="outline" size="sm" onClick={() => setQuickRange("week")}>Last 7 Days</Button>
-            <Button variant="outline" size="sm" onClick={() => setQuickRange("month")}>Last 30 Days</Button>
-            <Button variant="outline" size="sm" onClick={() => setQuickRange("year")}>Last Year</Button>
+            <Button variant={period === "day" ? "default" : "outline"} size="sm" onClick={() => setQuickRange("day")}>Today</Button>
+            <Button variant={period === "week" ? "default" : "outline"} size="sm" onClick={() => setQuickRange("week")}>Last 7 Days</Button>
+            <Button variant={period === "month" ? "default" : "outline"} size="sm" onClick={() => setQuickRange("month")}>Last 30 Days</Button>
+            <Button variant={period === "year" ? "default" : "outline"} size="sm" onClick={() => setQuickRange("year")}>Last Year</Button>
             <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/15">
               <Filter className="mr-1 h-3 w-3" />
-              {hasActiveFilters ? "Filtered" : "No filter"}
+              {hasActiveFilters ? "Filters Applied" : "Default View"}
+            </Badge>
+            <Badge variant="outline">Sales: Captured Payments Only</Badge>
+            <Badge variant="outline">
+              {format(startOfDay(dateRange.from), "MMM dd, yyyy")} - {format(endOfDay(dateRange.to), "MMM dd, yyyy")}
             </Badge>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Treatment/Product filters apply to sales metrics. Visitor trend represents overall traffic in the selected date range.
+          </p>
         </CardContent>
       </Card>
 
@@ -308,9 +315,7 @@ export default function Analytics() {
               <div className="flex flex-wrap items-center gap-2 border-t pt-4">
                 {selectedTreatment && <FilterChip label="Treatment" value={treatments.find((t) => t.id === selectedTreatment)?.name || selectedTreatment} />}
                 {selectedProductGroup && <FilterChip label="Product" value={productGroups.find((g) => g.id === selectedProductGroup)?.name || selectedProductGroup} />}
-                {period === "custom" && customDateRange.from && customDateRange.to && (
-                  <FilterChip label="Range" value={`${format(customDateRange.from, "MMM dd, yyyy")} - ${format(customDateRange.to, "MMM dd, yyyy")}`} />
-                )}
+                <FilterChip label="Range" value={`${format(startOfDay(dateRange.from), "MMM dd, yyyy")} - ${format(endOfDay(dateRange.to), "MMM dd, yyyy")}`} />
               </div>
             )}
           </CardContent>

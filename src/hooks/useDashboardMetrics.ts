@@ -17,7 +17,6 @@ export const useDashboardMetrics = ({ fallbackKpis }: UseDashboardMetricsProps) 
             try {
                 setLoading(true);
                 const data = await fetchDashboardMetrics();
-                console.log({data});
                 setMetrics(data);
                 setError(null);
             } catch (err) {
@@ -31,76 +30,145 @@ export const useDashboardMetrics = ({ fallbackKpis }: UseDashboardMetricsProps) 
         loadMetrics();
     }, []);
 
-    // Construct KPI data from real metrics or fallback to mock
-    const kpiData: Metric[] = metrics ? [
-        {
-            title: "Total Patients",
-            value: metrics.total_patients.toString(),
-            change: "+0%", // API doesn't provide patient growth yet
-            trend: "neutral" // Fixed string literal type
-        },
-        {
-            title: "Total Revenue",
-            value: `$${metrics.total_revenue.toLocaleString()}`,
-            change: `${metrics.growth_percentage > 0 ? '+' : ''}${metrics.growth_percentage}%`,
-            trend: metrics.growth_percentage >= 0 ? "up" : "down"
-        },
-        {
-            title: "Total Profit",
-            value: `$${metrics.total_profit.toLocaleString()}`,
-            change: "+0%", // API doesn't provide profit growth yet
-            trend: "neutral"
-        },
-        {
-            title: "Total Expense",
-            value: `$${metrics.total_expenses.toLocaleString()}`,
-            change: "+0%", // API doesn't provide profit growth yet
-            trend: "neutral"
-        },
-        {
-            title: "Total Sales",
-            value: `${metrics.total_sales.toLocaleString()}`,
-            change: "+0%", // API doesn't provide profit growth yet
-            trend: "neutral"
-        },
-        {
-            title: "Total Orders",
-            value: metrics.total_orders.toString(),
-            change: "+0%", // API doesn't provide order growth yet
-            trend: "neutral"
-        },
-        {
-            title: "Total Growth",
-            value: `${metrics.growth_percentage}%`,
-            change: `${metrics.growth_percentage > 0 ? '+' : ''}${metrics.growth_percentage}%`,
-            trend: metrics.growth_percentage >= 0 ? "up" : "down"
-        }
-        // ,
-        // {
-        //     title: "Total Online Sessions",
-        //     value: "0",
-        //     change: "+0%",
-        //     trend: "up"
-        // },
-        // {
-        //     title: "Conversion Rate",
-        //     value: "0.0%",
-        //     change: "+0%",
-        //     trend: "up"
-        // },
-        // {
-        //     title: "Full Refunds",
-        //     value: "0",
-        //     change: "-0%",
-        //     trend: "down"
-        // },
-        // {
-        //     title: "Partial Refunds",
-        //     value: "0",
-        //     change: "-0%",
-        //     trend: "down"
-        // }
-    ] : fallbackKpis;
+    const safeNumber = (value: number | undefined) => (typeof value === "number" ? value : 0);
+    const growth = safeNumber(metrics?.growth_percentage);
+
+    const parseMetricValue = (value: string) => {
+        const parsed = parseFloat(value.replace(/[$,%]/g, ""));
+        return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const stripLeadingPlus = (value: string) => value.replace(/^\+/, "");
+
+    const formatPercentValue = (value: number) => `${value.toFixed(1)}%`;
+
+    const normalizeKpis = (kpis: Metric[], totals?: DashboardMetrics): Metric[] => {
+        const find = (titles: string[]) => kpis.find((kpi) => titles.includes(kpi.title));
+
+        const revenue = find(["Revenue", "Total Revenue"]);
+        const expenses = find(["Expenses", "Total Expense"]);
+        const netProfit = find(["Net Profit", "Total Profit"]);
+        const profitRatio = find(["Profit Ratio %", "Profit Ratio"]);
+        const revenueGrowth = find(["Total Growth By Revenue %", "Total Growth"]);
+        const netProfitGrowth = find(["Total Growth By Net Profit %"]);
+
+        const revenueValue = revenue?.value ?? `$${safeNumber(totals?.total_revenue).toLocaleString()}`;
+        const expensesValue = expenses?.value ?? `$${safeNumber(totals?.total_expenses).toLocaleString()}`;
+        const netProfitValue = netProfit?.value ?? `$${safeNumber(totals?.total_profit).toLocaleString()}`;
+
+        const revenueNumeric = parseMetricValue(revenueValue);
+        const netProfitNumeric = parseMetricValue(netProfitValue);
+
+        const profitRatioValue = profitRatio?.value ?? (
+            revenueNumeric > 0
+                ? formatPercentValue((netProfitNumeric / revenueNumeric) * 100)
+                : "0.0%"
+        );
+
+        const netProfitGrowthValue = netProfitGrowth?.value
+            ?? (netProfit?.change ? stripLeadingPlus(netProfit.change) : "0.0%");
+
+        const revenueGrowthValue = revenueGrowth?.value
+            ?? formatPercentValue(safeNumber(totals?.growth_percentage));
+
+        const required: Metric[] = [
+            {
+                title: "Revenue",
+                value: revenueValue,
+                change: revenue?.change ?? "0.0%",
+                trend: revenue?.trend ?? "neutral",
+            },
+            {
+                title: "Expenses",
+                value: expensesValue,
+                change: expenses?.change ?? "0.0%",
+                trend: expenses?.trend ?? "neutral",
+            },
+            {
+                title: "Net Profit",
+                value: netProfitValue,
+                change: netProfit?.change ?? "0.0%",
+                trend: netProfit?.trend ?? "neutral",
+            },
+            {
+                title: "Profit Ratio %",
+                value: profitRatioValue,
+                change: profitRatio?.change ?? "0.0%",
+                trend: profitRatio?.trend ?? netProfit?.trend ?? "neutral",
+            },
+            {
+                title: "Total Growth By Revenue %",
+                value: revenueGrowthValue,
+                change: revenueGrowth?.change ?? "0.0%",
+                trend: revenueGrowth?.trend ?? "neutral",
+            },
+            {
+                title: "Total Growth By Net Profit %",
+                value: netProfitGrowthValue,
+                change: netProfitGrowth?.change ?? netProfitGrowthValue,
+                trend: netProfitGrowth?.trend ?? netProfit?.trend ?? "neutral",
+            },
+        ];
+
+        const requiredTitles = new Set(required.map((metric) => metric.title));
+        const extras = kpis.filter((metric) => !requiredTitles.has(metric.title));
+
+        return [...required, ...extras];
+    };
+
+    // Support both API shapes:
+    // 1) explicit `kpis` array
+    // 2) totals payload (total_revenue, total_orders, etc.) -> derive KPIs
+    const rawKpis: Metric[] = metrics?.kpis && metrics.kpis.length > 0
+        ? metrics.kpis
+        : metrics
+            ? [
+                {
+                    title: "Total Patients",
+                    value: safeNumber(metrics.total_patients).toString(),
+                    change: "+0%", // API doesn't provide patient growth yet
+                    trend: "neutral"
+                },
+                {
+                    title: "Total Revenue",
+                    value: `$${safeNumber(metrics.total_revenue).toLocaleString()}`,
+                    change: `${growth > 0 ? '+' : ''}${growth}%`,
+                    trend: growth >= 0 ? "up" : "down"
+                },
+                {
+                    title: "Total Profit",
+                    value: `$${safeNumber(metrics.total_profit).toLocaleString()}`,
+                    change: "+0%",
+                    trend: "neutral"
+                },
+                {
+                    title: "Total Expense",
+                    value: `$${safeNumber(metrics.total_expenses).toLocaleString()}`,
+                    change: "+0%",
+                    trend: "neutral"
+                },
+                {
+                    title: "Total Sales",
+                    value: `${safeNumber(metrics.total_sales).toLocaleString()}`,
+                    change: "+0%",
+                    trend: "neutral"
+                },
+                {
+                    title: "Total Orders",
+                    value: safeNumber(metrics.total_orders).toString(),
+                    change: "+0%",
+                    trend: "neutral"
+                },
+                {
+                    title: "Total Growth",
+                    value: `${growth}%`,
+                    change: `${growth > 0 ? '+' : ''}${growth}%`,
+                    trend: growth >= 0 ? "up" : "down"
+                }
+            ]
+            : fallbackKpis;
+
+    const kpiData = normalizeKpis(rawKpis, metrics);
 
     const { dashboard } = mockData;
 

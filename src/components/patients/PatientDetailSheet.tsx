@@ -323,7 +323,7 @@ export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdat
                     <div key={order.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-md border border-border p-3">
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">
-                          {order.display_id ? `Order #${order.display_id}` : `Order ${order.id}`}
+                          {order.order_id || order.display_id ? `Order #${order.order_id || order.display_id}` : `Order ${order.id}`}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : '-'}

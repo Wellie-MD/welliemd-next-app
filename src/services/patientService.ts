@@ -20,6 +20,7 @@ export interface Patient {
     updated_at: string;
     orders_count?: number;
     last_order_at?: string | null;
+    last_order_id?: string | null;
     last_order_display_id?: string | null;
 }
 
@@ -47,6 +48,7 @@ export interface TreatmentEpisode {
     current_order_id?: string | null;
     current_product_id?: number | null;
     current_product_name?: string | null;
+    current_product_category_name?: string | null;
     current_product_base_medication_name?: string | null;
     current_product_rx_drug_form?: string | null;
     current_product_titration_category?: string | null;

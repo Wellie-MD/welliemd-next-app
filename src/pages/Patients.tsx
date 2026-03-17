@@ -38,8 +38,8 @@ interface PatientTableRow {
 
 const transformPatientData = (patient: Patient): PatientTableRow => {
   const lastOrderDate = patient.last_order_at ? format(new Date(patient.last_order_at), 'dd/MM/yyyy') : '-'
-  const lastOrderDisplay = patient.last_order_display_id ? `#${patient.last_order_display_id}` : ''
-  const lastOrderLabel = lastOrderDisplay && lastOrderDate !== '-' ? `${lastOrderDisplay} • ${lastOrderDate}` : (lastOrderDate !== '-' ? lastOrderDate : lastOrderDisplay || '-')
+  const lastOrderRef = patient.last_order_id ? `#${patient.last_order_id}` : (patient.last_order_display_id ? `#${patient.last_order_display_id}` : '')
+  const lastOrderLabel = lastOrderRef && lastOrderDate !== '-' ? `${lastOrderRef} • ${lastOrderDate}` : (lastOrderDate !== '-' ? lastOrderDate : lastOrderRef || '-')
 
   return {
     id: patient.id,

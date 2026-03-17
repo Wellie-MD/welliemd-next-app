@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   CalendarIcon,
@@ -27,8 +28,9 @@ import {
   Building2,
   Package,
   Filter,
+  X,
 } from "lucide-react"
-import { format, subDays, subMonths, startOfDay, endOfDay } from "date-fns"
+import { format, subDays, startOfDay, endOfDay } from "date-fns"
 import {
   getAggregates,
   getStates,
@@ -78,12 +80,14 @@ function SectionHeader({
   onSearchChange,
   onExport,
   placeholder,
+  showExport = true,
 }: {
   title: string
   searchValue: string
   onSearchChange: (value: string) => void
   onExport: () => void
   placeholder: string
+  showExport?: boolean
 }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -98,10 +102,12 @@ function SectionHeader({
             className="pl-8"
           />
         </div>
-        <Button variant="outline" size="sm" onClick={onExport}>
-          <Download className="mr-2 h-4 w-4" />
-          Export
-        </Button>
+        {showExport && (
+          <Button variant="outline" size="sm" onClick={onExport}>
+            <Download className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+        )}
       </div>
     </div>
   )
@@ -118,28 +124,48 @@ function CompletionCell({
 }) {
   const ratio = total > 0 ? Math.round((completed / total) * 100) : 0
   return (
-    <div className="min-w-[130px]">
-      <div className="mb-1 flex items-center justify-end gap-2">
-        <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">
-          {completed}
-        </Badge>
-        <Badge variant="secondary" className="bg-amber-100 text-amber-700">
-          {pending}
-        </Badge>
+    <TooltipProvider delayDuration={0}>
+      <div className="min-w-[130px]">
+        <div className="mb-1 flex items-center justify-end gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 cursor-pointer">
+                {completed}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Shipped</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="secondary" className="bg-amber-100 text-amber-700 cursor-pointer">
+                {pending}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Pending</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+        <div className="h-1.5 w-full rounded-full bg-muted">
+          <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${ratio}%` }} />
+        </div>
       </div>
-      <div className="h-1.5 w-full rounded-full bg-muted">
-        <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${ratio}%` }} />
-      </div>
-    </div>
+    </TooltipProvider>
   )
 }
 
 export default function AnalyticsReports() {
-  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
-    from: subDays(new Date(), 7),
-    to: new Date(),
+  const [period, setPeriod] = useState<"day" | "week" | "month" | "year" | "custom">("week")
+  const [customDateRange, setCustomDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined,
   })
-  const [tempDateRange, setTempDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>(dateRange)
+  const [tempDateRange, setTempDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined,
+  })
   const [isPopoverOpen, setIsPopoverOpen] = useState(false)
 
   const [selectedState, setSelectedState] = useState("")
@@ -150,14 +176,34 @@ export default function AnalyticsReports() {
   const [pharmacySearch, setPharmacySearch] = useState("")
   const [variantSearch, setVariantSearch] = useState("")
 
+  const dateRange = useMemo(() => {
+    const now = new Date()
+    switch (period) {
+      case "day":
+        return { from: startOfDay(now), to: endOfDay(now) }
+      case "week":
+        return { from: subDays(now, 7), to: now }
+      case "month":
+        return { from: subDays(now, 30), to: now }
+      case "year":
+        return { from: subDays(now, 365), to: now }
+      case "custom":
+        return customDateRange.from && customDateRange.to
+          ? { from: customDateRange.from, to: customDateRange.to }
+          : { from: subDays(now, 30), to: now }
+      default:
+        return { from: subDays(now, 30), to: now }
+    }
+  }, [period, customDateRange])
+
   useEffect(() => {
-    if (isPopoverOpen) setTempDateRange(dateRange)
-  }, [isPopoverOpen, dateRange])
+    if (isPopoverOpen) setTempDateRange(customDateRange)
+  }, [isPopoverOpen, customDateRange])
 
   const queryParams = useMemo(
     () => ({
-      ...(dateRange.from && { start_date: startOfDay(dateRange.from).toISOString() }),
-      ...(dateRange.to && { end_date: endOfDay(dateRange.to).toISOString() }),
+      start_date: startOfDay(dateRange.from).toISOString(),
+      end_date: endOfDay(dateRange.to).toISOString(),
       ...(selectedState && { state: selectedState }),
       ...(selectedPharmacy && { pharmacy_id: selectedPharmacy }),
       ...(selectedVariant && { variant_id: selectedVariant }),
@@ -174,21 +220,32 @@ export default function AnalyticsReports() {
     queryFn: () => getAggregates(queryParams),
   })
 
+  const optionParams = useMemo(
+    () => ({
+      start_date: startOfDay(dateRange.from).toISOString(),
+      end_date: endOfDay(dateRange.to).toISOString(),
+      ...(selectedState && { state: selectedState }),
+      ...(selectedPharmacy && { pharmacy_id: selectedPharmacy }),
+      ...(selectedVariant && { variant_id: selectedVariant }),
+    }),
+    [dateRange, selectedState, selectedPharmacy, selectedVariant],
+  )
+
   const { data: states = [] } = useQuery({
-    queryKey: ["states"],
-    queryFn: getStates,
+    queryKey: ["states", optionParams.start_date, optionParams.end_date, optionParams.pharmacy_id, optionParams.variant_id],
+    queryFn: () => getStates(optionParams),
     staleTime: 150000,
   })
 
   const { data: pharmacies = [] } = useQuery({
-    queryKey: ["pharmacies"],
-    queryFn: getPharmacies,
+    queryKey: ["pharmacies", optionParams.start_date, optionParams.end_date, optionParams.state, optionParams.variant_id],
+    queryFn: () => getPharmacies(optionParams),
     staleTime: 150000,
   })
 
   const { data: variants = [] } = useQuery({
-    queryKey: ["variants"],
-    queryFn: getVariants,
+    queryKey: ["variants", optionParams.start_date, optionParams.end_date, optionParams.state, optionParams.pharmacy_id],
+    queryFn: () => getVariants(optionParams),
     staleTime: 150000,
   })
 
@@ -214,6 +271,8 @@ export default function AnalyticsReports() {
   }, [aggregates?.byVariant, variantSearch])
 
   const hasActiveReportFilters = Boolean(selectedState || selectedPharmacy || selectedVariant)
+  const selectedPharmacyLabel = pharmacies.find((item) => String(item.id) === String(selectedPharmacy))?.name || selectedPharmacy
+  const selectedVariantLabel = variants.find((item) => String(item.id) === String(selectedVariant))?.name || selectedVariant
 
   const exportToCSV = (data: Record<string, unknown>[], filename: string) => {
     if (!data.length) return
@@ -231,12 +290,9 @@ export default function AnalyticsReports() {
     window.URL.revokeObjectURL(url)
   }
 
-  const setPresetDays = (days: number) => {
-    setDateRange({ from: subDays(new Date(), days), to: new Date() })
-  }
-
-  const setPresetMonths = (months: number) => {
-    setDateRange({ from: subMonths(new Date(), months), to: new Date() })
+  const setQuickRange = (next: "day" | "week" | "month" | "year") => {
+    setPeriod(next)
+    setCustomDateRange({ from: undefined, to: undefined })
   }
 
   if (isLoading) {
@@ -248,7 +304,7 @@ export default function AnalyticsReports() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6 relative z-0">
       <Card className="border-border/70 bg-gradient-to-r from-primary/5 via-background to-blue-50/40 shadow-sm">
         <CardContent className="space-y-4 p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -260,18 +316,44 @@ export default function AnalyticsReports() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setPresetDays(7)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setQuickRange("day")}
+                className={period === "day" ? "bg-accent text-accent-foreground" : ""}
+              >
+                Today
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setQuickRange("week")}
+                className={period === "week" ? "bg-accent text-accent-foreground" : ""}
+              >
                 Last 7 days
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setPresetDays(30)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setQuickRange("month")}
+                className={period === "month" ? "bg-accent text-accent-foreground" : ""}
+              >
                 Last 30 days
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setPresetMonths(3)}>
-                Last 3 months
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setQuickRange("year")}
+                className={period === "year" ? "bg-accent text-accent-foreground" : ""}
+              >
+                Last year
               </Button>
               <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="justify-start text-left">
+                  <Button
+                    variant="outline"
+                    className={`justify-start text-left${period === "custom" ? " bg-accent text-accent-foreground" : ""}`}
+                  >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {dateRange.from && dateRange.to ? (
                       <>{format(dateRange.from, "MMM dd, yyyy")} - {format(dateRange.to, "MMM dd, yyyy")}</>
@@ -307,8 +389,10 @@ export default function AnalyticsReports() {
                       </Button>
                       <Button
                         size="sm"
+                        disabled={!tempDateRange.from || !tempDateRange.to}
                         onClick={() => {
-                          setDateRange(tempDateRange)
+                          setCustomDateRange(tempDateRange)
+                          setPeriod("custom")
                           setIsPopoverOpen(false)
                         }}
                       >
@@ -322,24 +406,39 @@ export default function AnalyticsReports() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/15">
-              <Filter className="mr-1 h-3 w-3" />
-              {hasActiveReportFilters ? "Filtered" : "No filter"}
+            <Badge
+              variant="secondary"
+              className={`flex items-center gap-1 ${period !== "week" || hasActiveReportFilters
+                  ? "bg-primary/15 text-primary"
+                  : "bg-primary/10 text-primary"
+                }`}
+            >
+              <Filter className="h-3 w-3" />
+              <span>
+                {period === "day" && "Today"}
+                {period === "week" && "Last 7 days"}
+                {period === "month" && "Last 30 days"}
+                {period === "year" && "Last year"}
+                {period === "custom" && dateRange.from && dateRange.to
+                  ? `${format(dateRange.from, "MMM dd")} – ${format(dateRange.to, "MMM dd, yyyy")}`
+                  : period === "custom" ? "Custom range" : ""}
+                {hasActiveReportFilters && " · Filtered"}
+              </span>
+              {(period !== "week" || hasActiveReportFilters) && (
+                <button
+                  className="ml-1 rounded-full hover:bg-primary/20 p-0.5 transition-colors"
+                  aria-label="Clear date filter"
+                  onClick={() => {
+                    setQuickRange("week")
+                    setSelectedState("")
+                    setSelectedPharmacy("")
+                    setSelectedVariant("")
+                  }}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </Badge>
-            {hasActiveReportFilters && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2"
-                onClick={() => {
-                  setSelectedState("")
-                  setSelectedPharmacy("")
-                  setSelectedVariant("")
-                }}
-              >
-                Clear filters
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -411,6 +510,7 @@ export default function AnalyticsReports() {
                   ))}
                 </SelectContent>
               </Select>
+              {states.length === 0 && <p className="text-xs text-muted-foreground">No states for current date/filter scope.</p>}
             </div>
 
             <div className="space-y-2">
@@ -428,6 +528,7 @@ export default function AnalyticsReports() {
                   ))}
                 </SelectContent>
               </Select>
+              {pharmacies.length === 0 && <p className="text-xs text-muted-foreground">No pharmacies for current date/filter scope.</p>}
             </div>
 
             <div className="space-y-2">
@@ -445,6 +546,7 @@ export default function AnalyticsReports() {
                   ))}
                 </SelectContent>
               </Select>
+              {variants.length === 0 && <p className="text-xs text-muted-foreground">No variants for current date/filter scope.</p>}
             </div>
           </div>
         </CardContent>
@@ -459,6 +561,7 @@ export default function AnalyticsReports() {
               onSearchChange={setStateSearch}
               onExport={() => exportToCSV(filteredStateData as Record<string, unknown>[], "orders_by_state")}
               placeholder="Search states..."
+              showExport={false}
             />
           </CardHeader>
           <CardContent>
@@ -467,33 +570,33 @@ export default function AnalyticsReports() {
                 <ScrollArea className="w-full">
                   <Table>
                     <TableHeader className="bg-muted/40">
-                    <TableRow>
-                      <TableHead>State</TableHead>
-                      <TableHead className="text-right">Orders</TableHead>
-                      <TableHead className="text-right">Sales</TableHead>
-                      <TableHead className="text-right">Avg Order</TableHead>
-                      <TableHead className="text-right">Fulfillment</TableHead>
-                    </TableRow>
+                      <TableRow>
+                        <TableHead>State</TableHead>
+                        <TableHead className="text-right">Orders</TableHead>
+                        <TableHead className="text-right">Sales</TableHead>
+                        <TableHead className="text-right">Avg Order</TableHead>
+                        <TableHead className="text-right">Fulfillment</TableHead>
+                      </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {(filteredStateData as AggregateByState[]).map((item, index) => (
-                      <TableRow
-                        key={`${item.state}-${index}`}
-                        className="transition-colors odd:bg-muted/20 hover:bg-primary/5"
-                      >
-                        <TableCell className="font-medium">{item.state}</TableCell>
-                        <TableCell className="text-right">{item.totalOrders}</TableCell>
-                        <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">${item.averageOrderValue.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">
-                          <CompletionCell
-                            completed={item.completedOrders}
-                            pending={item.pendingOrders}
-                            total={item.totalOrders}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                      {(filteredStateData as AggregateByState[]).map((item, index) => (
+                        <TableRow
+                          key={`${item.state}-${index}`}
+                          className="transition-colors odd:bg-muted/20 hover:bg-primary/5"
+                        >
+                          <TableCell className="font-medium">{item.state}</TableCell>
+                          <TableCell className="text-right">{item.totalOrders}</TableCell>
+                          <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">${item.averageOrderValue.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">
+                            <CompletionCell
+                              completed={item.completedOrders}
+                              pending={item.pendingOrders}
+                              total={item.totalOrders}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </ScrollArea>
@@ -512,6 +615,7 @@ export default function AnalyticsReports() {
               onSearchChange={setPharmacySearch}
               onExport={() => exportToCSV(filteredPharmacyData as Record<string, unknown>[], "orders_by_pharmacy")}
               placeholder="Search pharmacies..."
+              showExport={false}
             />
           </CardHeader>
           <CardContent>
@@ -520,33 +624,33 @@ export default function AnalyticsReports() {
                 <ScrollArea className="w-full">
                   <Table>
                     <TableHeader className="bg-muted/40">
-                    <TableRow>
-                      <TableHead>Pharmacy</TableHead>
-                      <TableHead className="text-right">Orders</TableHead>
-                      <TableHead className="text-right">Sales</TableHead>
-                      <TableHead className="text-right">Avg Order</TableHead>
-                      <TableHead className="text-right">Fulfillment</TableHead>
-                    </TableRow>
+                      <TableRow>
+                        <TableHead>Pharmacy</TableHead>
+                        <TableHead className="text-right">Orders</TableHead>
+                        <TableHead className="text-right">Sales</TableHead>
+                        <TableHead className="text-right">Avg Order</TableHead>
+                        <TableHead className="text-right">Fulfillment</TableHead>
+                      </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {(filteredPharmacyData as AggregateByPharmacy[]).map((item, index) => (
-                      <TableRow
-                        key={`${item.pharmacy}-${index}`}
-                        className="transition-colors odd:bg-muted/20 hover:bg-primary/5"
-                      >
-                        <TableCell className="font-medium">{item.pharmacy}</TableCell>
-                        <TableCell className="text-right">{item.totalOrders}</TableCell>
-                        <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">${item.averageOrderValue.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">
-                          <CompletionCell
-                            completed={item.completedOrders}
-                            pending={item.pendingOrders}
-                            total={item.totalOrders}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                      {(filteredPharmacyData as AggregateByPharmacy[]).map((item, index) => (
+                        <TableRow
+                          key={`${item.pharmacy}-${index}`}
+                          className="transition-colors odd:bg-muted/20 hover:bg-primary/5"
+                        >
+                          <TableCell className="font-medium">{item.pharmacy}</TableCell>
+                          <TableCell className="text-right">{item.totalOrders}</TableCell>
+                          <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">${item.averageOrderValue.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">
+                            <CompletionCell
+                              completed={item.completedOrders}
+                              pending={item.pendingOrders}
+                              total={item.totalOrders}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </ScrollArea>
@@ -566,6 +670,7 @@ export default function AnalyticsReports() {
             onSearchChange={setVariantSearch}
             onExport={() => exportToCSV(filteredVariantData as Record<string, unknown>[], "orders_by_variant")}
             placeholder="Search variants..."
+            showExport={false}
           />
         </CardHeader>
         <CardContent>
@@ -574,38 +679,38 @@ export default function AnalyticsReports() {
               <ScrollArea className="w-full">
                 <Table>
                   <TableHeader className="bg-muted/40">
-                  <TableRow>
-                    <TableHead>Product Variant</TableHead>
-                    <TableHead className="text-right">Orders</TableHead>
-                    <TableHead className="text-right">Quantity</TableHead>
-                    <TableHead className="text-right">Sales</TableHead>
-                    <TableHead className="text-right">Avg Price</TableHead>
-                  </TableRow>
-                </TableHeader>
+                    <TableRow>
+                      <TableHead>Product Variant</TableHead>
+                      <TableHead className="text-right">Orders</TableHead>
+                      <TableHead className="text-right">Quantity</TableHead>
+                      <TableHead className="text-right">Sales</TableHead>
+                      <TableHead className="text-right">Avg Price</TableHead>
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
-                  {(filteredVariantData as AggregateByVariant[]).map((item, index) => {
-                    let displayVariant = item.variant
-                    if (item.productName && item.variant.startsWith(item.productName)) {
-                      displayVariant = item.variant.replace(item.productName, "").replace(/^[\s-]+/, "")
-                    }
-                    if (!displayVariant.trim()) displayVariant = "Default Variant"
+                    {(filteredVariantData as AggregateByVariant[]).map((item, index) => {
+                      let displayVariant = item.variant
+                      if (item.productName && item.variant.startsWith(item.productName)) {
+                        displayVariant = item.variant.replace(item.productName, "").replace(/^[\s-]+/, "")
+                      }
+                      const showSubLabel = displayVariant.trim() !== "" && displayVariant.trim() !== (item.productName || "").trim()
 
-                    return (
-                      <TableRow
-                        key={`${item.variant}-${index}`}
-                        className="transition-colors odd:bg-muted/20 hover:bg-primary/5"
-                      >
-                        <TableCell className="font-medium">
-                          <div className="text-base font-semibold">{item.productName || item.variant}</div>
-                          <div className="text-sm text-muted-foreground">{displayVariant}</div>
-                        </TableCell>
-                        <TableCell className="text-right">{item.totalOrders}</TableCell>
-                        <TableCell className="text-right">{item.totalQuantity}</TableCell>
-                        <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">${item.averagePrice.toFixed(2)}</TableCell>
-                      </TableRow>
-                    )
-                  })}
+                      return (
+                        <TableRow
+                          key={`${item.variant}-${index}`}
+                          className="transition-colors odd:bg-muted/20 hover:bg-primary/5"
+                        >
+                          <TableCell className="font-medium">
+                            <div className="text-base font-semibold">{item.productName || item.variant}</div>
+                            {showSubLabel && <div className="text-sm text-muted-foreground">{displayVariant}</div>}
+                          </TableCell>
+                          <TableCell className="text-right">{item.totalOrders}</TableCell>
+                          <TableCell className="text-right">{item.totalQuantity}</TableCell>
+                          <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">${item.averagePrice.toFixed(2)}</TableCell>
+                        </TableRow>
+                      )
+                    })}
                   </TableBody>
                 </Table>
               </ScrollArea>

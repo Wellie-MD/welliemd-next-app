@@ -27,6 +27,11 @@ import {
   CreateQuestionPayload,
 } from "@/api/questionnaires";
 import { normalizeChoiceDisplay } from "@/utils/choiceValue";
+import {
+  VisibilityGroup,
+  createDefaultVisibilityGroup,
+  VisibilityRuleBuilder,
+} from "./VisibilityRuleBuilder";
 
 interface AddQuestionnairesFormProps {
   open: boolean;
@@ -47,6 +52,96 @@ interface ExtendedQuestionPayload extends CreateQuestionPayload {
   requires_agreement?: boolean;
   is_disqualifying?: boolean;
   beluga_consent_code?: string;
+}
+
+interface ParentQuestionConfig {
+  question_id: string;
+  trigger_values: string[];
+}
+
+interface LegacyConditionNode {
+  question_id?: string;
+  operator?: string;
+  value?: unknown;
+  field?: string;
+}
+
+function isVisibilityGroup(value: unknown): value is VisibilityGroup {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    (value as VisibilityGroup).type === "group" &&
+    Array.isArray((value as VisibilityGroup).children)
+  );
+}
+
+function normalizeShowIfToTree(
+  showIf: unknown,
+  logicOperator: "AND" | "OR" = "OR"
+): VisibilityGroup | null {
+  if (!showIf) return null;
+
+  if (isVisibilityGroup(showIf)) {
+    return showIf;
+  }
+
+  if (Array.isArray(showIf)) {
+    return {
+      type: "group",
+      operator: logicOperator,
+      children: showIf
+        .filter(
+          (item): item is LegacyConditionNode =>
+            !!item && typeof item === "object"
+        )
+        .map((item) => ({
+          type: "condition" as const,
+          question_id: item.question_id || "",
+          operator: (item.operator as
+            | "equals"
+            | "not_equals"
+            | "in"
+            | "not_in"
+            | "contains"
+            | "not_contains") || "equals",
+          value: Array.isArray(item.value)
+            ? item.value.map(String)
+            : String(item.value ?? ""),
+          field: item.field,
+        })),
+    };
+  }
+
+  if (
+    typeof showIf === "object" &&
+    showIf &&
+    (showIf as LegacyConditionNode).question_id
+  ) {
+    const item = showIf as LegacyConditionNode;
+    return {
+      type: "group",
+      operator: "AND",
+      children: [
+        {
+          type: "condition",
+          question_id: item.question_id || "",
+          operator: (item.operator as
+            | "equals"
+            | "not_equals"
+            | "in"
+            | "not_in"
+            | "contains"
+            | "not_contains") || "equals",
+          value: Array.isArray(item.value)
+            ? item.value.map(String)
+            : String(item.value ?? ""),
+          field: item.field,
+        },
+      ],
+    };
+  }
+
+  return null;
 }
 
 export function AddQuestionnairesForm({
@@ -93,7 +188,18 @@ export function AddQuestionnairesForm({
   const [numberValidationValue, setNumberValidationValue] = useState<
     number | ""
   >("");
-  const [triggerValues, setTriggerValues] = useState<string[]>([]);
+  const [parentQuestions, setParentQuestions] = useState<
+    ParentQuestionConfig[]
+  >([]);
+  const [selectedParentForAdding, setSelectedParentForAdding] =
+    useState<string>("");
+  const [logicOperator, setLogicOperator] = useState<"AND" | "OR">("OR");
+  const [followUpMode, setFollowUpMode] = useState<"simple" | "advanced">(
+    "simple"
+  );
+  const [visibilityRules, setVisibilityRules] = useState<VisibilityGroup>(
+    createDefaultVisibilityGroup()
+  );
 
   // Prefill config
   const [prefillEnabled, setPrefillEnabled] = useState(false);
@@ -106,7 +212,7 @@ export function AddQuestionnairesForm({
   >("therapy_route");
 
   // State for BMI eligibility config
-  const [bmiMax, setBmiMax] = useState<number | "">(27);
+  const [bmiMin, setBmiMin] = useState<number | "">("");
 
   // State for Date of Birth age eligibility config
   const [dobMinAge, setDobMinAge] = useState<number | "">(18);
@@ -132,19 +238,73 @@ export function AddQuestionnairesForm({
     if (question) {
       // Extract follow-up data from conditional_logic
       const isFollowUp = !!question.conditional_logic?.show_if;
-      const parentQuestionId =
-        question.conditional_logic?.show_if?.question_id || "";
-      const triggerValue = question.conditional_logic?.show_if?.value || "";
+      let parentQuestionId = "";
+      let triggerValue = "";
+      const showIf = question.conditional_logic?.show_if;
+      const normalizedTree = normalizeShowIfToTree(
+        showIf,
+        question.conditional_logic?.logic_operator === "AND" ? "AND" : "OR"
+      );
+      setVisibilityRules(normalizedTree || createDefaultVisibilityGroup());
+      setFollowUpMode(
+        normalizedTree && isVisibilityGroup(showIf) ? "advanced" : "simple"
+      );
 
-      // Handle multiple trigger values
-      const triggerValuesList = Array.isArray(
-        question.conditional_logic?.show_if?.value
-      )
-        ? question.conditional_logic.show_if.value
-        : triggerValue
-        ? [triggerValue]
-        : [];
-      setTriggerValues(triggerValuesList);
+      if (showIf && Array.isArray(showIf)) {
+        const parentConfigs: ParentQuestionConfig[] = showIf
+          .filter(
+            (config): config is { question_id?: string; value?: unknown } =>
+              !!config && typeof config === "object"
+          )
+          .map((config) => ({
+            question_id: config.question_id || "",
+            trigger_values: Array.isArray(config.value)
+              ? config.value.map(String)
+              : config.value !== undefined && config.value !== null
+              ? [String(config.value)]
+              : [],
+          }))
+          .filter((config) => config.question_id);
+        setParentQuestions(parentConfigs);
+
+        const operator = question.conditional_logic?.logic_operator;
+        if (operator === "AND" || operator === "OR") {
+          setLogicOperator(operator);
+        }
+
+        if (parentConfigs.length > 0) {
+          const firstParent = parentConfigs[0];
+          parentQuestionId = firstParent.question_id;
+          triggerValue = firstParent.trigger_values[0] || "";
+        }
+      } else if (
+        showIf &&
+        typeof showIf === "object" &&
+        (showIf as { question_id?: string }).question_id
+      ) {
+        parentQuestionId =
+          (showIf as { question_id?: string }).question_id || "";
+        triggerValue = (showIf as { value?: string }).value || "";
+
+        const triggerValuesList = Array.isArray((showIf as { value?: unknown }).value)
+          ? ((showIf as { value: string[] }).value)
+          : triggerValue
+          ? [triggerValue]
+          : [];
+
+        if (parentQuestionId && triggerValuesList.length > 0) {
+          setParentQuestions([
+            {
+              question_id: parentQuestionId,
+              trigger_values: triggerValuesList,
+            },
+          ]);
+        } else {
+          setParentQuestions([]);
+        }
+      } else {
+        setParentQuestions([]);
+      }
 
       // Extract disqualifying answers from validation_rules
       const validationRules = question.validation_rules as unknown;
@@ -209,8 +369,8 @@ export function AddQuestionnairesForm({
       // Extract BMI eligibility config
       const qType = question.question_type as string;
       const valRules = validationRules as Record<string, unknown>;
-      if (qType === "bmi" && valRules?.bmi_max !== undefined) {
-        setBmiMax(valRules.bmi_max as number);
+      if ((qType === "bmi" || qType === "height_weight") && valRules?.bmi_min !== undefined) {
+        setBmiMin(valRules.bmi_min as number);
       }
 
       // Extract DOB age eligibility config
@@ -256,7 +416,11 @@ export function AddQuestionnairesForm({
       });
     } else {
       setDisqualifyingAnswers([]);
-      setTriggerValues([]);
+      setParentQuestions([]);
+      setSelectedParentForAdding("");
+      setLogicOperator("OR");
+      setFollowUpMode("simple");
+      setVisibilityRules(createDefaultVisibilityGroup());
       setEnableNumberValidation(false);
       setNumberValidationOperator("gt");
       setNumberValidationValue("");
@@ -387,22 +551,42 @@ export function AddQuestionnairesForm({
 
     // Validate follow-up settings
     if (formData.is_follow_up) {
-      if (!formData.parent_question_id) {
+      if (followUpMode === "advanced") {
+        if (!visibilityRules.children.length) {
+          toast({
+            title: "Validation Error",
+            description:
+              "Add at least one visibility condition before saving this follow-up question.",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else if (parentQuestions.length === 0) {
         toast({
           title: "Validation Error",
-          description: "Parent question is required for follow-up questions",
+          description:
+            "At least one parent question is required for follow-up questions",
           variant: "destructive",
         });
         return;
       }
-      if (triggerValues.length === 0) {
-        toast({
-          title: "Validation Error",
-          description:
-            "At least one trigger value is required for follow-up questions",
-          variant: "destructive",
-        });
-        return;
+
+      if (followUpMode === "simple") {
+        for (const parent of parentQuestions) {
+          if (parent.trigger_values.length === 0) {
+            const parentQ = existingQuestions.find(
+              (q) => q.id === parent.question_id
+            );
+            toast({
+              title: "Validation Error",
+              description: `Parent question "${
+                parentQ?.question_text || "Unknown"
+              }" must have at least one trigger value`,
+              variant: "destructive",
+            });
+            return;
+          }
+        }
       }
     }
 
@@ -423,16 +607,38 @@ export function AddQuestionnairesForm({
       setLoading(true);
 
       // Build conditional_logic based on follow-up settings
-      const conditionalLogic = formData.is_follow_up
-        ? {
+      let conditionalLogic = {};
+      if (formData.is_follow_up && followUpMode === "advanced") {
+        conditionalLogic = {
+          show_if: visibilityRules,
+        };
+      } else if (formData.is_follow_up && parentQuestions.length > 0) {
+        if (parentQuestions.length === 1) {
+          const parent = parentQuestions[0];
+          conditionalLogic = {
             show_if: {
-              question_id: formData.parent_question_id,
+              question_id: parent.question_id,
               value:
-                triggerValues.length === 1 ? triggerValues[0] : triggerValues,
-              operator: triggerValues.length === 1 ? "equals" : "in",
+                parent.trigger_values.length === 1
+                  ? parent.trigger_values[0]
+                  : parent.trigger_values,
+              operator: parent.trigger_values.length === 1 ? "equals" : "in",
             },
-          }
-        : {};
+          };
+        } else {
+          conditionalLogic = {
+            show_if: parentQuestions.map((parent) => ({
+              question_id: parent.question_id,
+              value:
+                parent.trigger_values.length === 1
+                  ? parent.trigger_values[0]
+                  : parent.trigger_values,
+              operator: parent.trigger_values.length === 1 ? "equals" : "in",
+            })),
+            logic_operator: logicOperator,
+          };
+        }
+      }
 
       // Build validation_rules
       let validationRules: unknown = {};
@@ -443,9 +649,9 @@ export function AddQuestionnairesForm({
           allowed_extensions: formData.allowed_extensions,
         };
       } else if (formData.question_type === "bmi" || formData.question_type === "height_weight") {
-        // Add BMI eligibility config (supports both "bmi" and "height_weight" types)
+        // Add BMI eligibility config (minimum only)
         validationRules = {
-          bmi_max: bmiMax !== "" ? bmiMax : undefined,
+          bmi_min: bmiMin !== "" ? bmiMin : undefined,
         };
       } else if (
         formData.question_type === "date" &&
@@ -619,14 +825,6 @@ export function AddQuestionnairesForm({
   const showConsentSettings = formData.question_type === "consent";
   const showFollowUpSettings = formData.is_follow_up;
 
-  // Get parent question's answer choices for trigger dropdown
-  const selectedParent = existingQuestions.find(
-    (q) => q.id === formData.parent_question_id
-  );
-  const triggerOptions = (selectedParent?.answer_choices || [])
-    .map((option) => normalizeChoiceDisplay(option))
-    .filter((option) => option.length > 0);
-
   // Filter out current question from parent options (when editing)
   const parentQuestionOptions = existingQuestions.filter(
     (q) => q.id !== question?.id
@@ -744,26 +942,26 @@ export function AddQuestionnairesForm({
             <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
               <h3 className="font-semibold text-sm">BMI Eligibility Settings</h3>
               <p className="text-xs text-muted-foreground">
-                Set the maximum BMI threshold. Patients with BMI exceeding this limit will be disqualified.
+                Set the minimum BMI threshold. Patients with BMI below this limit will be disqualified.
               </p>
               <div className="space-y-2">
-                <Label htmlFor="bmi_max">
-                  Maximum BMI Limit <span className="text-red-500">*</span>
+                <Label htmlFor="bmi_min">
+                  Minimum BMI Limit <span className="text-red-500">*</span>
                 </Label>
                 <Input
-                  id="bmi_max"
+                  id="bmi_min"
                   type="number"
                   step="0.1"
-                  min="15"
-                  max="100"
-                  value={bmiMax}
+                  min="10"
+                  max="50"
+                  value={bmiMin}
                   onChange={(e) =>
-                    setBmiMax(e.target.value === "" ? "" : Number(e.target.value))
+                    setBmiMin(e.target.value === "" ? "" : Number(e.target.value))
                   }
-                  placeholder="e.g., 27"
+                  placeholder="e.g., 18.5"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Common settings: 27 for treatment-naive, 25 for treatment-experienced
+                  Common settings: 18.5 for underweight threshold, 25 for treatment-naive
                 </p>
               </div>
             </div>
@@ -1268,116 +1466,240 @@ export function AddQuestionnairesForm({
             )}
 
             {showFollowUpSettings && (
-              <div className="space-y-3 mt-3 pl-4 border-l-2">
-                {/* Parent Question */}
-                <div className="space-y-2">
-                  <Label htmlFor="parent_question">
-                    Parent Question <span className="text-red-500">*</span>
-                  </Label>
+              <div className="space-y-4 mt-3 pl-4 border-l-2">
+                <div className="space-y-2 p-3 border rounded-lg bg-background">
+                  <Label>Visibility Builder Mode</Label>
                   <Select
-                    value={formData.parent_question_id}
-                    onValueChange={(value) => {
-                      setFormData({
-                        ...formData,
-                        parent_question_id: value,
-                        trigger_value: "",
-                      });
-                      setTriggerValues([]);
-                    }}
+                    value={followUpMode}
+                    onValueChange={(value: "simple" | "advanced") =>
+                      setFollowUpMode(value)
+                    }
                   >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select parent question" />
+                    <SelectTrigger>
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {parentQuestionOptions.map((q) => (
-                        <SelectItem key={q.id} value={q.id}>
-                          {q.order_index ? `${q.order_index}. ` : ""}
-                          {q.question_text}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="simple">
+                        Simple parent triggers
+                      </SelectItem>
+                      <SelectItem value="advanced">
+                        Advanced nested rules
+                      </SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Use advanced mode when you need branch convergence like
+                    <code className="ml-1">(A AND B) OR (C AND D)</code>.
+                  </p>
                 </div>
 
-                {/* Trigger Values (Multiple Selection) */}
-                {selectedParent && (
-                  <div className="space-y-2">
-                    <Label htmlFor="trigger_values">
-                      Trigger Values <span className="text-red-500">*</span>
-                    </Label>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Select one or more parent options that will trigger this
-                      follow-up question
-                    </p>
-                    {triggerOptions.length > 0 ? (
-                      <div className="space-y-2">
-                        {/* Selected trigger values */}
-                        {triggerValues.length > 0 && (
-                          <div className="flex flex-wrap gap-2 p-2 bg-muted/50 rounded">
-                            {triggerValues.map((value, idx) => (
-                              <div
-                                key={idx}
-                                className="flex items-center gap-1 bg-primary text-primary-foreground px-3 py-1 rounded text-sm font-medium"
-                              >
-                                <span>{value}</span>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setTriggerValues(
-                                      triggerValues.filter((v) => v !== value)
-                                    )
-                                  }
-                                  className="ml-1 hover:text-red-200 font-bold text-lg leading-none"
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                {followUpMode === "advanced" ? (
+                  <VisibilityRuleBuilder
+                    value={visibilityRules}
+                    onChange={setVisibilityRules}
+                    questions={parentQuestionOptions.map((q) => ({
+                      id: q.id,
+                      question_text: q.question_text,
+                      order_index: q.order_index,
+                      answer_choices: q.answer_choices,
+                    }))}
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label>
+                        Parent Questions <span className="text-red-500">*</span>
+                      </Label>
+                      <span className="text-xs text-muted-foreground">
+                        {parentQuestions.length} parent(s) configured
+                      </span>
+                    </div>
 
-                        {/* Dropdown to add trigger values */}
+                    {parentQuestions.length > 1 && (
+                      <div className="space-y-2 p-3 border rounded-lg bg-blue-50">
+                        <Label htmlFor="logic_operator">Logic Operator</Label>
                         <Select
-                          value=""
-                          onValueChange={(value) => {
-                            if (value && !triggerValues.includes(value)) {
-                              setTriggerValues([...triggerValues, value]);
-                            }
-                          }}
+                          value={logicOperator}
+                          onValueChange={(value: "AND" | "OR") =>
+                            setLogicOperator(value)
+                          }
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Select trigger value(s)" />
+                            <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {triggerOptions.map((option, idx) => (
-                              <SelectItem
-                                key={idx}
-                                value={option}
-                                disabled={triggerValues.includes(option)}
-                              >
-                                {option}{" "}
-                                {triggerValues.includes(option) ? "✓" : ""}
-                              </SelectItem>
-                            ))}
+                            <SelectItem value="OR">
+                              OR - Show if ANY parent matches
+                            </SelectItem>
+                            <SelectItem value="AND">
+                              AND - Show if ALL parents match
+                            </SelectItem>
                           </SelectContent>
                         </Select>
-
-                        {triggerValues.length > 0 && (
-                          <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
-                            ℹ️ This question will show when the parent question
-                            has{" "}
-                            {triggerValues.length === 1
-                              ? "this value"
-                              : "any of these values"}
-                            : {triggerValues.join(", ")}
-                          </p>
-                        )}
                       </div>
-                    ) : (
-                      <p className="text-xs text-amber-600 p-2 bg-amber-50 rounded">
-                        The selected parent question has no answer choices.
-                      </p>
                     )}
+
+                    {parentQuestions.length > 0 && (
+                      <div className="space-y-3">
+                        {parentQuestions.map((parent, parentIdx) => {
+                          const parentQ = existingQuestions.find(
+                            (q) => q.id === parent.question_id
+                          );
+                          return (
+                            <div
+                              key={`${parent.question_id}-${parentIdx}`}
+                              className="p-3 border rounded-lg bg-muted/30 space-y-2"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium">
+                                    {parentQ?.order_index
+                                      ? `${parentQ.order_index}. `
+                                      : ""}
+                                    {parentQ?.question_text || "Unknown Question"}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Trigger when answer is:
+                                  </p>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    setParentQuestions(
+                                      parentQuestions.filter(
+                                        (_, idx) => idx !== parentIdx
+                                      )
+                                    )
+                                  }
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+
+                              <div className="space-y-2">
+                                {parent.trigger_values.length > 0 && (
+                                  <div className="flex flex-wrap gap-2">
+                                    {parent.trigger_values.map((value, valueIdx) => (
+                                      <div
+                                        key={`${value}-${valueIdx}`}
+                                        className="flex items-center gap-1 bg-primary text-primary-foreground px-2 py-1 rounded text-xs"
+                                      >
+                                        <span>{value}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const updated = [...parentQuestions];
+                                            updated[parentIdx].trigger_values =
+                                              updated[parentIdx].trigger_values.filter(
+                                                (_, idx) => idx !== valueIdx
+                                              );
+                                            setParentQuestions(updated);
+                                          }}
+                                          className="ml-1 hover:text-red-200 font-bold leading-none"
+                                        >
+                                          ×
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {parentQ?.answer_choices &&
+                                  parentQ.answer_choices.length > 0 && (
+                                    <Select
+                                      value=""
+                                      onValueChange={(value) => {
+                                        if (
+                                          value &&
+                                          !parent.trigger_values.includes(value)
+                                        ) {
+                                          const updated = [...parentQuestions];
+                                          updated[parentIdx].trigger_values.push(value);
+                                          setParentQuestions(updated);
+                                        }
+                                      }}
+                                    >
+                                      <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue placeholder="Add trigger value" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {parentQ.answer_choices.map((option, idx) => {
+                                          const optionValue =
+                                            normalizeChoiceDisplay(option);
+                                          const isSelected =
+                                            parent.trigger_values.includes(optionValue);
+                                          return (
+                                            <SelectItem
+                                              key={`${optionValue}-${idx}`}
+                                              value={optionValue}
+                                              disabled={isSelected}
+                                            >
+                                              {optionValue} {isSelected ? "✓" : ""}
+                                            </SelectItem>
+                                          );
+                                        })}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <div className="space-y-2 pt-2 border-t">
+                      <Label className="text-xs">Add Parent Question</Label>
+                      <div className="flex gap-2">
+                        <Select
+                          value={selectedParentForAdding}
+                          onValueChange={setSelectedParentForAdding}
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Select a parent question" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {parentQuestionOptions
+                              .filter(
+                                (q) =>
+                                  !parentQuestions.some(
+                                    (p) => p.question_id === q.id
+                                  )
+                              )
+                              .map((q) => (
+                                <SelectItem key={q.id} value={q.id}>
+                                  {q.order_index ? `${q.order_index}. ` : ""}
+                                  {q.question_text}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            if (selectedParentForAdding) {
+                              setParentQuestions([
+                                ...parentQuestions,
+                                {
+                                  question_id: selectedParentForAdding,
+                                  trigger_values: [],
+                                },
+                              ]);
+                              setSelectedParentForAdding("");
+                            }
+                          }}
+                          disabled={!selectedParentForAdding}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

@@ -27,8 +27,8 @@ export function DataTable({ title, data, columns }: DataTableProps) {
   const navigate = useNavigate()
 
   return (
-    <Card className="rounded-2xl shadow-md bg-white w-full">
-      <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl">
+    <Card className="rounded-2xl border-border/70 bg-gradient-to-br from-primary/5 via-background to-blue-50/30 shadow-sm w-full">
+      <CardHeader className="flex flex-row items-start justify-between">
         <CardTitle className="text-gray-800">{title}</CardTitle>
         <Button
           variant="ghost"
@@ -57,7 +57,7 @@ export function DataTable({ title, data, columns }: DataTableProps) {
                   {columns.map((column) => (
                     <TableCell key={column.key} className="text-xs text-gray-800 text-nowrap px-2">
                       {column.key === "orderNumber" ? (
-                        <span className="text-blue-600 underline cursor-pointer">{row[column.key]}</span>
+                        <span className="text-gray-800">{row[column.key]}</span>
                       ) : (
                         row[column.key]
                       )}
