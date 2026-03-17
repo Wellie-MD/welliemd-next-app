@@ -3,7 +3,6 @@
  * 
  * Used in client portal to:
  * - Select follow-up questionnaire template
- * - Set expiry time
  * - Generate and display follow-up link
  * - Copy link or send via email
  */
@@ -49,7 +48,6 @@ export function SendFollowUpDialog({
 }: SendFollowUpDialogProps) {
   const [templates, setTemplates] = useState<FollowUpTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
-  const [expiryHours, setExpiryHours] = useState<number>(48);
   const [loading, setLoading] = useState(false);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
@@ -186,7 +184,6 @@ export function SendFollowUpDialog({
       const response = await createFollowUp({
         patient_id: patientId,
         questionnaire_id: selectedTemplate,
-        expiry_hours: expiryHours,
         episode_id: selectedEpisodeId || selectedEpisodeRecord?.id || null,
       });
 
@@ -308,24 +305,6 @@ export function SendFollowUpDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="expiry">Link Expiry (hours)</Label>
-              <Select
-                value={expiryHours.toString()}
-                onValueChange={(v) => setExpiryHours(parseInt(v))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="24">24 hours</SelectItem>
-                  <SelectItem value="48">48 hours (recommended)</SelectItem>
-                  <SelectItem value="72">72 hours</SelectItem>
-                  <SelectItem value="168">1 week</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="episode">Treatment Episode</Label>
               {loadingEpisodes ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -369,6 +348,10 @@ export function SendFollowUpDialog({
                 </div>
               )}
             </div>
+
+            <p className="text-xs text-muted-foreground">
+              Follow-up link expiry is set automatically based on follow-up scheduling rules.
+            </p>
           </div>
         ) : result.success ? (
           // Success state
