@@ -22,6 +22,8 @@ export interface Patient {
     last_order_at?: string | null;
     last_order_id?: string | null;
     last_order_display_id?: string | null;
+    last_order_product_name?: string | null;
+    last_visit_status?: string | null;
 }
 
 export interface PatientListResponse {

@@ -25,7 +25,6 @@ interface PatientTableRow {
   name: string
   startDate: string
   mrn: string
-  subscription: string
   productName: string
   email: string
   phone: string
@@ -46,14 +45,13 @@ const transformPatientData = (patient: Patient): PatientTableRow => {
     name: patient.full_name || `${patient.first_name} ${patient.last_name}`.trim() || patient.email,
     startDate: format(new Date(patient.created_at), 'dd/MM/yyyy'),
     mrn: patient.id.substring(0, 8).toUpperCase(), // Use first 8 chars of UUID as MRN
-    subscription: "Active", // TODO: Get from actual subscription data
-    productName: "-", // TODO: Get from actual product/order data
+    productName: patient.last_order_product_name || "-",
     email: patient.email,
     phone: patient.phone,
     orders: patient.orders_count ?? 0,
     location: patient.city && patient.state ? `${patient.city}, ${patient.state}` : patient.state || "-",
     patientStatus: "Active", // TODO: Determine from actual patient status
-    visitStatus: "-", // TODO: Get from visits data
+    visitStatus: patient.last_visit_status || "-",
     lastOrder: lastOrderLabel,
   }
 }
@@ -62,7 +60,6 @@ const patientColumns = [
   { key: "name", label: "Name", width: "150px" },
   { key: "startDate", label: "Start Date", width: "100px" },
   { key: "mrn", label: "MRN #", width: "120px" },
-  { key: "subscription", label: "Subscription", width: "120px" },
   { key: "productName", label: "Product Name", width: "120px" },
   { key: "email", label: "Email", width: "200px" },
   { 
