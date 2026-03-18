@@ -28,6 +28,7 @@ export type OrderStatus =
  */
 export interface PatientOrder {
     id: string;
+    order_id?: string | null;
     display_id: string;
     status: OrderStatus;
     status_display: string;
