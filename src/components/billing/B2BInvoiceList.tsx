@@ -324,6 +324,7 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                         <Button
                           size="sm"
                           variant="outline"
+                          type="button"
                           onClick={() => setSelected(invoice)}
                         >
                           <Eye className="h-4 w-4 mr-1" />
@@ -347,6 +348,7 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                 <Button
                   variant="outline"
                   size="sm"
+                  type="button"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
                 >
@@ -358,6 +360,7 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                 <Button
                   variant="outline"
                   size="sm"
+                  type="button"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
                 >
@@ -377,7 +380,7 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                 <h3 className="text-lg font-semibold">Invoice {selected.invoice_number}</h3>
                 <p className="text-xs text-muted-foreground">{selected.invoice_type.replace("_", " ")} · {selected.status}</p>
               </div>
-              <Button size="sm" variant="outline" onClick={() => setSelected(null)}>
+              <Button size="sm" variant="outline" type="button" onClick={() => setSelected(null)}>
                 Close
               </Button>
             </div>
