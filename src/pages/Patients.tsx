@@ -25,7 +25,6 @@ interface PatientTableRow {
   name: string
   startDate: string
   mrn: string
-  subscription: string
   productName: string
   email: string
   phone: string
@@ -36,7 +35,7 @@ interface PatientTableRow {
   lastOrder: string
 }
 
-const transformPatientData = (patient: Patient): PatientTableRow => {
+const transformPatientData = (patient: Patient, productName?: string, visitStatus?: string): PatientTableRow => {
   const lastOrderDate = patient.last_order_at ? format(new Date(patient.last_order_at), 'dd/MM/yyyy') : '-'
   const lastOrderRef = patient.last_order_id ? `#${patient.last_order_id}` : (patient.last_order_display_id ? `#${patient.last_order_display_id}` : '')
   const lastOrderLabel = lastOrderRef && lastOrderDate !== '-' ? `${lastOrderRef} • ${lastOrderDate}` : (lastOrderDate !== '-' ? lastOrderDate : lastOrderRef || '-')
@@ -46,14 +45,13 @@ const transformPatientData = (patient: Patient): PatientTableRow => {
     name: patient.full_name || `${patient.first_name} ${patient.last_name}`.trim() || patient.email,
     startDate: format(new Date(patient.created_at), 'dd/MM/yyyy'),
     mrn: patient.id.substring(0, 8).toUpperCase(), // Use first 8 chars of UUID as MRN
-    subscription: "Active", // TODO: Get from actual subscription data
-    productName: "-", // TODO: Get from actual product/order data
+    productName: productName || "-",
     email: patient.email,
     phone: patient.phone,
     orders: patient.orders_count ?? 0,
     location: patient.city && patient.state ? `${patient.city}, ${patient.state}` : patient.state || "-",
-    patientStatus: "Active", // TODO: Determine from actual patient status
-    visitStatus: "-", // TODO: Get from visits data
+    patientStatus: patient.engagement_status === 'active' ? 'Active' : patient.engagement_status === 'inactive' ? 'Inactive' : '-',
+    visitStatus: visitStatus || "-",
     lastOrder: lastOrderLabel,
   }
 }
@@ -62,8 +60,7 @@ const patientColumns = [
   { key: "name", label: "Name", width: "150px" },
   { key: "startDate", label: "Start Date", width: "100px" },
   { key: "mrn", label: "MRN #", width: "120px" },
-  { key: "subscription", label: "Subscription", width: "120px" },
-  { key: "productName", label: "Product Name", width: "120px" },
+  { key: "productName", label: "Product Name", width: "150px" },
   { key: "email", label: "Email", width: "200px" },
   { 
     key: "phone", 
@@ -135,7 +132,18 @@ export default function Patients() {
         page_size: pageSize,
         search: searchTerm || undefined,
       })
-      const transformedData = response.results.map(transformPatientData)
+      
+      const patientIds = response.results.map(p => p.id)
+      
+      // Batch fetch product names and visit statuses in parallel (2 API calls instead of N+1)
+      const [productNameMap, visitStatusMap] = await Promise.all([
+        patientService.getProductNamesForPatients(patientIds),
+        patientService.getLatestVisitsForPatients(patientIds),
+      ])
+      
+      const transformedData = response.results.map(patient => 
+        transformPatientData(patient, productNameMap[patient.id], visitStatusMap[patient.id])
+      )
       setPatients(transformedData)
       setTotalCount(response.count)
     } catch (err: any) {
