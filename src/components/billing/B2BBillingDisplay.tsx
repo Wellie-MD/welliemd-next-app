@@ -47,7 +47,7 @@ export function B2BBillingDisplay({ clientId, client }: B2BBillingDisplayProps) 
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       queryClient.invalidateQueries({ queryKey: ["client", clientId] });
       queryClient.invalidateQueries({ queryKey: ["b2bBillingStatus", clientId] });
-      toast.success("Billing activated and initial charge processed.");
+      toast.success("Subscription activated and prorated signup charge processed.");
     },
     onError: (error: unknown) => {
       const axiosError = error as any;
@@ -81,7 +81,7 @@ export function B2BBillingDisplay({ clientId, client }: B2BBillingDisplayProps) 
     mutationFn: async () => clientApi.cancelBilling(clientId, "immediate"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["b2bBillingStatus", clientId] });
-      toast.success("Subscription canceled immediately.");
+      toast.success("Subscription canceled immediately. Final usage invoice may be generated.");
     },
     onError: (error: unknown) => {
       const axiosError = error as any;
@@ -110,7 +110,7 @@ export function B2BBillingDisplay({ clientId, client }: B2BBillingDisplayProps) 
             <CreditCard className="h-5 w-5 text-primary" />
             B2B Billing Status
           </h2>
-          <p className="text-xs text-muted-foreground mt-1">Platform subscription &amp; billing info</p>
+          <p className="text-xs text-muted-foreground mt-1">Custom B2B subscription status, payment method, and billing state</p>
         </div>
         <div className="p-4">
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-center gap-2">
@@ -148,7 +148,7 @@ export function B2BBillingDisplay({ clientId, client }: B2BBillingDisplayProps) 
             <CreditCard className="h-5 w-5 text-primary" />
             B2B Billing Status
           </h2>
-          <p className="text-xs text-muted-foreground mt-1">Platform subscription &amp; billing info</p>
+          <p className="text-xs text-muted-foreground mt-1">Custom B2B subscription status, payment method, and billing state</p>
         </div>
         {client && canActivate && (
           <Button
@@ -180,20 +180,29 @@ export function B2BBillingDisplay({ clientId, client }: B2BBillingDisplayProps) 
       <div className="p-4">
         <div className="mb-4 rounded-xl border bg-muted/40 p-3">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium">Subscription</p>
+            <p className="text-sm font-medium">Subscription Lifecycle</p>
             <Badge variant={subscriptionStatus === "active" ? "default" : subscriptionStatus === "canceled" ? "destructive" : "secondary"}>
               {subscriptionStatus.replace("_", " ")}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            Current period: {currentPeriodStart || "N/A"} to {currentPeriodEnd || "N/A"}
+            Current access period: {currentPeriodStart || "N/A"} to {currentPeriodEnd || "N/A"}
           </p>
-          <p className="text-xs text-muted-foreground">
-            Next billing date: {nextBillingDate || "N/A"}
-          </p>
+          {subscriptionStatus !== "canceled" ? (
+            <p className="text-xs text-muted-foreground">
+              Next billing date: {nextBillingDate || "N/A"}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">Next billing date: N/A (canceled)</p>
+          )}
           {cancelAtPeriodEnd && (
             <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-              Cancellation is scheduled at period end.
+              Cancellation is scheduled at period end{currentPeriodEnd ? ` (${currentPeriodEnd})` : ""}.
+            </p>
+          )}
+          {canCancel && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Cancel now locks the client immediately. A final patient-usage invoice may be created for the current access period.
             </p>
           )}
           <div className="mt-3 flex flex-wrap gap-2">

@@ -70,8 +70,25 @@ function typeVariant(type: string) {
   }
 }
 
-function lineItemLabel(itemType: string) {
-  return itemType.replace(/_/g, " ");
+function lineItemLabel(item: any) {
+  if (item?.item_type === "consultation") {
+    const mode = String(item?.metadata?.consult_mode || "").toLowerCase();
+    if (mode === "sync") return "Sync Consult";
+    if (mode === "async") return "Async Consult";
+  }
+  return String(item?.item_type || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function getAccessPeriodFromInvoice(inv: any): string | null {
+  const baseLine = (inv?.line_items || []).find(
+    (li: any) => li?.metadata?.line_kind === "subscription_base_advance"
+  );
+  const start = baseLine?.metadata?.access_period_start;
+  const end = baseLine?.metadata?.access_period_end;
+  if (!start || !end) return null;
+  return `${formatDate(start)} to ${formatDate(end)}`;
 }
 
 export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
@@ -307,6 +324,7 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                         <Button
                           size="sm"
                           variant="outline"
+                          type="button"
                           onClick={() => setSelected(invoice)}
                         >
                           <Eye className="h-4 w-4 mr-1" />
@@ -330,6 +348,7 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                 <Button
                   variant="outline"
                   size="sm"
+                  type="button"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
                 >
@@ -341,6 +360,7 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                 <Button
                   variant="outline"
                   size="sm"
+                  type="button"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
                 >
@@ -360,7 +380,7 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                 <h3 className="text-lg font-semibold">Invoice {selected.invoice_number}</h3>
                 <p className="text-xs text-muted-foreground">{selected.invoice_type.replace("_", " ")} · {selected.status}</p>
               </div>
-              <Button size="sm" variant="outline" onClick={() => setSelected(null)}>
+              <Button size="sm" variant="outline" type="button" onClick={() => setSelected(null)}>
                 Close
               </Button>
             </div>
@@ -375,11 +395,19 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                 <div className="font-semibold">{formatDate(selected.issued_at)}</div>
               </div>
               <div className="rounded-md border p-3">
-                <div className="text-muted-foreground text-xs">Billing Period</div>
+                <div className="text-muted-foreground text-xs">
+                  {selected.invoice_type === "saas_fee" ? "Usage Billing Period" : "Billing Period"}
+                </div>
                 <div className="font-semibold">
                   {formatDate(selected.billing_period_start)} to {formatDate(selected.billing_period_end)}
                 </div>
               </div>
+              {selected.invoice_type === "saas_fee" && getAccessPeriodFromInvoice(selected) && (
+                <div className="rounded-md border p-3">
+                  <div className="text-muted-foreground text-xs">Renewal Access Period</div>
+                  <div className="font-semibold">{getAccessPeriodFromInvoice(selected)}</div>
+                </div>
+              )}
             </div>
 
             <div className="px-4 pb-4">
@@ -394,6 +422,7 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                     <thead className="bg-muted/30">
                       <tr>
                         <th className="text-left px-3 py-2">Type</th>
+                        <th className="text-left px-3 py-2">Client Order #</th>
                         <th className="text-left px-3 py-2">Description</th>
                         <th className="text-right px-3 py-2">Qty</th>
                         <th className="text-right px-3 py-2">Unit</th>
@@ -403,7 +432,10 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                     <tbody>
                       {(selected.line_items || []).map((item) => (
                         <tr key={item.id} className="border-t">
-                          <td className="px-3 py-2">{lineItemLabel(item.item_type)}</td>
+                          <td className="px-3 py-2">{lineItemLabel(item)}</td>
+                          <td className="px-3 py-2 font-mono text-xs">
+                            {(item as any).client_order_number || (item as any).order_display_id || (selected as any).client_order_number || selected.source_tenant_order_display_id || "-"}
+                          </td>
                           <td className="px-3 py-2">{item.description || "-"}</td>
                           <td className="px-3 py-2 text-right">{item.quantity || 0}</td>
                           <td className="px-3 py-2 text-right">{formatMoney(item.unit_price)}</td>

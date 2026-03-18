@@ -34,6 +34,7 @@ import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
+import RegisterInvitation from "./pages/auth/RegisterInvitation";
 import AnalyticsCohorts from "./pages/AnalyticsCohorts";
 import AnalyticsReports from "./pages/AnalyticsReports";
 import CouponCodes from "./pages/CouponCodes";
@@ -44,6 +45,8 @@ import ProductConfig from "./pages/ProductConfig";
 import ArchiveTemplates from "./pages/ArchiveTemplates";
 import ArchiveProducts from "./pages/ArchiveProducts";
 import ManageAccount from "./pages/ManageAccount";
+import UsersPermissions from "./pages/management/UsersPermissions";
+import MasterKeyAccess from "./pages/MasterKeyAccess";
 
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -78,12 +81,16 @@ const App = () => {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<ProtectedRoute><Navigate to="/dashboard" replace /></ProtectedRoute>} />
-        
+
         {/* Auth routes */}
         <Route path="/auth/signin" element={<SignIn />} />
         {/* <Route path="/signup" element={<SignUp />} /> */}
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/register" element={<RegisterInvitation />} />
+        
+        {/* Master Key Access - no auth required, accessed via email link */}
+        <Route path="/admin/master-key/access/:token" element={<MasterKeyAccess />} />
         
         {/* Dashboard routes */}
         <Route path="/dashboard/*" element={
@@ -101,6 +108,7 @@ const App = () => {
                     <Route path="/treatments" element={<ProtectedRoute><Treatments /></ProtectedRoute>} />
                     <Route path="/treatments/configurations" element={<ProtectedRoute><TreatmentConfigurations /></ProtectedRoute>} />
                     <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+                    <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
                     {/* <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} /> // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-2 */}
                     {/* <Route path="/prescriptions" element={<ProtectedRoute><Prescriptions /></ProtectedRoute>} />  */} // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-3
                     <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
@@ -125,13 +133,14 @@ const App = () => {
                     <Route path="/pharmacies" element={<ProtectedRoute><Pharmacies /></ProtectedRoute>} />
                     <Route path="/products/archive" element={<ProtectedRoute><ArchiveProducts /></ProtectedRoute>} />
                     <Route path="/manage-account" element={<ProtectedRoute><ManageAccount /></ProtectedRoute>} />
+                    <Route path="/users-permissions" element={<ProtectedRoute><UsersPermissions /></ProtectedRoute>} />
                   </Routes>
                 </main>
               </div>
             </div>
           </SidebarProvider>
         } />
-        
+
         <Route path="/dashboard/settings/*" element={
           <ProtectedRoute>
             <SidebarProvider>
@@ -146,8 +155,8 @@ const App = () => {
             </SidebarProvider>
           </ProtectedRoute>
         } />
-        
-        
+
+
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>

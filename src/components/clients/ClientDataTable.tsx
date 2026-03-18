@@ -4,7 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { DataTable } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import { Client } from '@/api/clientApi';
-import { Building2, CheckCircle, XCircle, Pencil, AlertTriangle, Ban } from 'lucide-react';
+import { Building2, CheckCircle, XCircle, Pencil, AlertTriangle, Ban, ExternalLink } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import axiosInstance from '@/api/axiosInstance';
 
 interface ClientDataTableProps {
   clients: Client[];
@@ -12,9 +14,27 @@ interface ClientDataTableProps {
 
 export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const handleEditClient = (client: Client) => {
     navigate(`/dashboard/clients/edit/${client.id}`);
+  };
+
+  const handleImpersonate = async (client: Client) => {
+    try {
+      const { data } = await axiosInstance.post(`/clients/${client.id}/impersonate/`);
+      if (data.token && data.admin_panel_domain) {
+        const url = new URL(data.admin_panel_domain);
+        url.searchParams.set('impersonate_token', data.token);
+        window.open(url.toString(), '_blank');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Impersonation failed",
+        description: error.response?.data?.error || "Could not log in as client",
+        variant: "destructive",
+      });
+    }
   };
 
   const columns = [
@@ -51,11 +71,10 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => 
       render: (value: boolean) => (
         <div className="flex justify-center">
           <span
-            className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-full ${
-              value
-                ? 'text-green-800 bg-green-100 dark:text-green-300 dark:bg-green-900/50'
-                : 'text-gray-700 bg-gray-100 dark:text-gray-300 dark:bg-gray-600'
-            }`}
+            className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-full ${value
+              ? 'text-green-800 bg-green-100 dark:text-green-300 dark:bg-green-900/50'
+              : 'text-gray-700 bg-gray-100 dark:text-gray-300 dark:bg-gray-600'
+              }`}
           >
             {value ? (
               <>
@@ -80,7 +99,7 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => 
 
         const statusUi = {
           active: {
-            label: isPendingCancel ? 'Active (Cancel Scheduled)' : 'Active',
+            label: isPendingCancel ? 'Subscribed (Cancel Scheduled)' : 'Subscribed',
             className: 'text-green-800 bg-green-100 dark:text-green-300 dark:bg-green-900/50',
             icon: isPendingCancel ? AlertTriangle : CheckCircle,
           },
@@ -128,6 +147,18 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => 
             <Pencil className="w-4 h-4" />
             Edit
           </Button>
+          {/* Login as Client — hidden for now
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => handleImpersonate(row)}
+            disabled={!row.admin_panel_domain}
+            className="flex items-center"
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Login as Client
+          </Button>
+          */}
         </div>
       ),
     },

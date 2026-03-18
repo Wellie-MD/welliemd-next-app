@@ -198,17 +198,20 @@ export interface PaymentMethodResponse {
 
 export const clientApi = {
   list: async (): Promise<Client[]> => {
-    const { data } = await axiosInstance.get('/clients/');
-    const results = Array.isArray(data?.results)
-      ? data.results
-      : Array.isArray(data)
-        ? data
-        : [];
+    const allResults: unknown[] = [];
+    let url: string | null = '/clients/';
+    let params: Record<string, string> = { page_size: '500' };
+    while (url) {
+      const isFullUrl = url.startsWith('http');
+      const { data } = await axiosInstance.get(isFullUrl ? url : '/clients/', isFullUrl ? {} : { params });
+      const results = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : [];
+      allResults.push(...results);
+      url = data?.next && typeof data.next === 'string' ? data.next : null;
+    }
 
-    // ensure `user` is either an object or null
-    return results.map((c: Record<string, unknown>) => ({
+    return allResults.map((c: unknown) => ({
       ...c,
-      user: (c?.user as Record<string, unknown> | null) ?? null,
+      user: (c as { user?: unknown })?.user ?? null,
     })) as Client[];
   },
 
@@ -367,6 +370,27 @@ export const clientApi = {
 
   cancelBilling: async (clientId: string, mode: 'immediate' | 'period_end'): Promise<any> => {
     const { data } = await axiosInstance.post(`/internal/clients/${clientId}/billing/cancel/`, { mode });
+    return data;
+  },
+
+  /**
+   * Send master key credentials to the requesting admin user's email.
+   */
+  sendMasterKeyEmail: async (): Promise<{ message: string }> => {
+    const { data } = await axiosInstance.post('/admin/send-masterkey-email/');
+    return data;
+  },
+
+  /**
+   * Access master key credentials via one-time token.
+   */
+  accessMasterKey: async (token: string): Promise<{
+    email: string;
+    password: string;
+    consumed_at: string;
+    requested_by: string | null;
+  }> => {
+    const { data } = await axiosInstance.get(`/admin/masterkey/access/${token}/`);
     return data;
   },
 };

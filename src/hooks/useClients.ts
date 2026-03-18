@@ -28,7 +28,7 @@ export function useClients(search: string = "") {
     try {
       setLoading(true);
       const { data } = await api.get("/clients/", {
-        params: search ? { search } : undefined,
+        params: { ...(search ? { search } : {}), page_size: 500 },
       });
 
       // /clients/ is paginated in your schema

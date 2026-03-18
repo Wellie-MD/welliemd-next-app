@@ -30,6 +30,7 @@ export interface B2BInvoiceItem {
   quantity: number;
   unit_price: string;
   total_amount: string;
+  client_order_number?: string;
   patient_id?: string;
   patient_name?: string;
   patient_email?: string;
@@ -72,6 +73,7 @@ export interface B2BInvoice {
 
   // Source tracking
   source_tenant_order_display_id?: string;
+  client_order_number?: string;
   source_order_id?: string;
 
   // Billing period

@@ -20,7 +20,7 @@ export default function Billing() {
   const queryParams = useMemo(() => {
     const params: Record<string, unknown> = { ordering, page, page_size: 25 };
     if (invoiceType !== "all") params.invoice_type = invoiceType;
-    if (search.trim()) params.invoice_number = search.trim();
+    if (search.trim()) params.search = search.trim();
     if (fromDate) params.issued_at_after = fromDate;
     if (toDate) params.issued_at_before = toDate;
     if (status) params.status = status;
@@ -33,6 +33,26 @@ export default function Billing() {
   });
 
   const invoices: B2BInvoice[] = data?.results || [];
+
+  const formatLabel = (value?: string | null) =>
+    (value || "-")
+      .toString()
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (m) => m.toUpperCase());
+
+  const getClientOrderNumber = (inv?: B2BInvoice | null) =>
+    (inv as any)?.client_order_number ||
+    (inv as any)?.source_tenant_order_display_id ||
+    "-";
+
+  const lineItemTypeLabel = (li: any) => {
+    if (li?.item_type === "consultation") {
+      const mode = String(li?.metadata?.consult_mode || "").toLowerCase();
+      if (mode === "sync") return "Sync Consult";
+      if (mode === "async") return "Async Consult";
+    }
+    return formatLabel(li?.item_type);
+  };
 
   const formatBreakdown = (inv: B2BInvoice) => {
     const items = (inv as any).line_items ?? [];
@@ -89,7 +109,7 @@ export default function Billing() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 className="w-full pl-9 pr-3 py-2 rounded-md border bg-background text-sm focus:ring-1 focus:ring-primary"
-                placeholder="Search invoice number"
+                placeholder="Search invoice # or client order #"
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
@@ -169,6 +189,7 @@ export default function Billing() {
                   <tr className="border-b">
                     <th className="px-6 py-3 font-semibold tracking-wider">Date</th>
                     <th className="px-6 py-3 font-semibold tracking-wider">Invoice</th>
+                    <th className="px-6 py-3 font-semibold tracking-wider">Client Order #</th>
                     <th className="px-6 py-3 font-semibold tracking-wider">Client</th>
                     <th className="px-6 py-3 font-semibold tracking-wider">Type</th>
                     <th className="px-6 py-3 font-semibold tracking-wider">Breakdown</th>
@@ -199,18 +220,21 @@ export default function Billing() {
                         <td className="px-6 py-4 font-medium">
                           {inv.invoice_number}
                         </td>
+                        <td className="px-6 py-4 font-mono text-xs">
+                          {getClientOrderNumber(inv)}
+                        </td>
                         <td className="px-6 py-4">
                           {(inv as any).client_name || (inv as any).client?.name || "-"}
                         </td>
                         <td className="px-6 py-4">
-                          {inv.invoice_type?.replace("_", " ")}
+                          {formatLabel(inv.invoice_type)}
                         </td>
                         <td className="px-6 py-4 text-sm text-muted-foreground">
                           {formatBreakdown(inv)}
                         </td>
                         <td className="px-6 py-4">
                           <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-primary/10 text-primary">
-                            {status}
+                            {formatLabel(status)}
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -258,6 +282,7 @@ export default function Billing() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-4">
               <div className="rounded border p-3"><strong>Client:</strong> {(selected as any).client_name || "-"}</div>
+              <div className="rounded border p-3"><strong>Client Order #:</strong> {getClientOrderNumber(selected)}</div>
               <div className="rounded border p-3"><strong>Type:</strong> {selected.invoice_type?.replace("_", " ")}</div>
               <div className="rounded border p-3"><strong>Status:</strong> {selected.status}</div>
               <div className="rounded border p-3"><strong>Total:</strong> ${(selected as any).total_amount ?? selected.amount}</div>
@@ -274,6 +299,7 @@ export default function Billing() {
                     <thead className="bg-muted/30">
                       <tr>
                         <th className="text-left px-3 py-2">Type</th>
+                        <th className="text-left px-3 py-2">Client Order #</th>
                         <th className="text-left px-3 py-2">Description</th>
                         <th className="text-right px-3 py-2">Qty</th>
                         <th className="text-right px-3 py-2">Unit Price</th>
@@ -283,7 +309,8 @@ export default function Billing() {
                     <tbody>
                       {(selected.line_items ?? []).map((li) => (
                         <tr key={li.id} className="border-t">
-                          <td className="px-3 py-2">{li.item_type?.replace("_", " ")}</td>
+                          <td className="px-3 py-2">{lineItemTypeLabel(li)}</td>
+                          <td className="px-3 py-2 font-mono text-xs">{(li as any).client_order_number || li.order_display_id || getClientOrderNumber(selected)}</td>
                           <td className="px-3 py-2">{li.description || "-"}</td>
                           <td className="px-3 py-2 text-right">{li.quantity ?? 0}</td>
                           <td className="px-3 py-2 text-right">{li.unit_price ?? 0}</td>

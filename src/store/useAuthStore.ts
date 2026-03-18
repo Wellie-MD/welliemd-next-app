@@ -9,6 +9,7 @@ interface User {
   full_name: string;
   phone?: string;
   avatar_url?: string;
+  permissions?: string[];
 }
 
 interface AuthState {

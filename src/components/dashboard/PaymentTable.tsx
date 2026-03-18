@@ -27,14 +27,14 @@ export function PaymentTable({ title, data, columns }: PaymentTableProps) {
   const navigate = useNavigate()
 
   return (
-    <Card className="rounded-2xl shadow-md bg-white w-full">
-      <CardHeader className="flex flex-row items-center justify-between bg-blue-50 rounded-t-2xl">
+    <Card className="rounded-2xl border-border/70 bg-gradient-to-br from-primary/5 via-background to-blue-50/30 shadow-sm w-full">
+      <CardHeader className="flex flex-row items-start justify-between">
         <CardTitle className="text-gray-800">{title}</CardTitle>
         <Button
           variant="ghost"
           size="sm"
           className="text-blue-600 hover:text-blue-700"
-          onClick={() => navigate("/dashboard/orders/payments")}
+          onClick={() => navigate("/dashboard/payments")}
         >
           View All
         </Button>
