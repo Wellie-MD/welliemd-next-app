@@ -33,9 +33,14 @@ export interface PaymentTransaction {
 
 export interface TransactionListResponse {
     count: number;
+    total_count?: number;
+    page?: number;
+    page_size?: number;
+    total_pages?: number;
     next: string | null;
     previous: string | null;
     results: PaymentTransaction[];
+    payments?: PaymentTransaction[];
 }
 
 export interface TransactionListParams {
@@ -65,10 +70,23 @@ export async function fetchTransactions(params: TransactionListParams = {}): Pro
     if (params.search) queryParams.append('search', params.search);
 
     const queryString = queryParams.toString();
-    const url = `/payments/transactions/${queryString ? `?${queryString}` : ''}`;
+    const url = `/admin/dashboard/payments/${queryString ? `?${queryString}` : ''}`;
 
     const response = await axiosInstance.get<TransactionListResponse>(url);
-    return response.data;
+    const data = response.data;
+    const results = data.results ?? data.payments ?? [];
+    const count =
+        typeof data.count === "number"
+            ? data.count
+            : typeof data.total_count === "number"
+              ? data.total_count
+              : results.length;
+
+    return {
+        ...data,
+        results,
+        count,
+    };
 }
 
 export default {
