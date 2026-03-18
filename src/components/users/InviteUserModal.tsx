@@ -50,8 +50,6 @@ export function InviteUserModal({
   roles,
 }: InviteUserModalProps) {
   const [email, setEmail] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [roleId, setRoleId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -73,7 +71,7 @@ export function InviteUserModal({
 
     try {
       setLoading(true);
-      await onInvite(email, roleId, firstName, lastName);
+      await onInvite(email, roleId);
       handleClose();
     } catch (err) {
       // Error handled by parent
@@ -84,8 +82,6 @@ export function InviteUserModal({
 
   const handleClose = () => {
     setEmail("");
-    setFirstName("");
-    setLastName("");
     setRoleId("");
     setError("");
     onClose();
@@ -121,29 +117,6 @@ export function InviteUserModal({
                 disabled={loading}
                 required
               />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="firstName">First Name</Label>
-                <Input
-                  id="firstName"
-                  placeholder="John"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input
-                  id="lastName"
-                  placeholder="Doe"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  disabled={loading}
-                />
-              </div>
             </div>
 
             <div className="grid gap-2">
