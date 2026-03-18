@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
+import { Badge } from "@/components/ui/badge";
 import {
   clientApi,
   ClientCreatePayload,
@@ -895,24 +896,88 @@ export default function ClientForm() {
                     </p>
                   )}
                   {isEditMode && formData.custom_domain && !validationErrors.custom_domain && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="mt-2"
-                      onClick={async () => {
-                        if (!id) return;
-                        try {
-                          const result = await clientApi.changeDomain(id, formData.custom_domain);
-                          alert(`✅ ${result.message}\nTask ID: ${result.task_id}\n\nSSL, DNS, and ALB updates are running in the background. This may take a few minutes.`);
-                        } catch (err: unknown) {
-                          const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-                          alert(`❌ Domain re-provisioning failed: ${errorMsg}`);
-                        }
-                      }}
-                    >
-                      Re-provision Domain (SSL + DNS + ALB)
-                    </Button>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          if (!id) return;
+                          try {
+                            const result = await clientApi.changeDomain(id, formData.custom_domain);
+                            toast({
+                              title: "Domain re-provisioning started",
+                              description: `Changing from ${result.old_domain} to ${result.new_domain}. This may take a few minutes.`,
+                            });
+
+                            // Poll for status every 10 seconds for up to 4 minutes
+                            const pollInterval = setInterval(async () => {
+                              try {
+                                const updatedClient = await clientApi.get(id);
+                                const status = updatedClient.domain_provisioning_status;
+                                const error = updatedClient.domain_provisioning_error;
+
+                                if (status === 'provisioned') {
+                                  clearInterval(pollInterval);
+                                  toast({
+                                    title: "✅ Domain re-provisioning complete!",
+                                    description: `Now using ${updatedClient.custom_domain}`,
+                                  });
+                                } else if (status === 'failed') {
+                                  clearInterval(pollInterval);
+                                  const errorMessages: Record<string, string> = {
+                                    'hosted_zone': 'Domain must exist in Route53 with proper client tags',
+                                    'domain_validation': 'Domain validation failed - invalid format or reserved',
+                                    'domain_ownership': 'Domain already in use by another client',
+                                    'ssl_cert': 'SSL certificate provisioning failed',
+                                    'alb_cert': 'ALB certificate attachment failed',
+                                    'dns_a_record': 'DNS record creation failed',
+                                    'amplify': 'Amplify frontend domain association failed (partial success)',
+                                    'db_update': 'Database update failed',
+                                    'task_exception': 'Task execution failed',
+                                  };
+                                  const friendlyError = error?.step 
+                                    ? errorMessages[error.step] || error.error 
+                                    : (error?.error || 'Please check logs and try again.');
+                                  toast({
+                                    title: "❌ Domain re-provisioning failed",
+                                    description: friendlyError,
+                                    variant: "destructive",
+                                  });
+                                }
+                              } catch {
+                                // Ignore polling errors, continue polling
+                              }
+                            }, 10000);
+
+                            // Clear after 4 minutes max
+                            setTimeout(() => clearInterval(pollInterval), 240000);
+                          } catch (err: unknown) {
+                            const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+                            toast({
+                              title: "❌ Domain re-provisioning failed",
+                              description: errorMsg,
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                      >
+                        Re-provision Domain (SSL + DNS + ALB)
+                      </Button>
+                      {existingClient && existingClient.domain_provisioning_status && existingClient.domain_provisioning_status !== 'idle' && (
+                        <Badge
+                          variant={
+                            existingClient.domain_provisioning_status === 'provisioned' ? 'default' :
+                            existingClient.domain_provisioning_status === 'failed' ? 'destructive' :
+                            'secondary'
+                          }
+                        >
+                          {existingClient.domain_provisioning_status === 'pending' && 'Provisioning...'}
+                          {existingClient.domain_provisioning_status === 'provisioned' && 'Provisioned'}
+                          {existingClient.domain_provisioning_status === 'failed' && 'Failed'}
+                        </Badge>
+                      )}
+                    </div>
                   )}
                 </div>
 
