@@ -300,6 +300,14 @@ export default function Orders() {
         onExport={handleExport}
         onRefresh={handleRefresh}
         loading={loading}
+        pagination={{
+          currentPage: pagination.page,
+          totalPages: pagination.total_pages,
+          pageSize: pagination.page_size,
+          totalCount: pagination.total_count,
+          onPageChange: setPage,
+          onPageSizeChange: (newPageSize) => setFilters({ page_size: newPageSize }),
+        }}
       />
       
       {/* Pagination Info */}
