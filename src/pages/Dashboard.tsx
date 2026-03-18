@@ -56,7 +56,7 @@ const normalizeAdminKpis = (
       trend: "neutral",
     },
     {
-      title: "Number of inactive Patients",
+      title: "Number of Inactive Patients",
       value: patientSummary ? patientSummary.inactive_patients.toString() : "0",
       change: "0.0%",
       trend: "neutral",
@@ -69,8 +69,8 @@ const normalizeAdminKpis = (
     },
   ].filter(Boolean) as Metric[];
 
-  const requiredTitles = new Set(required.map((metric) => metric.title));
-  const extras = kpis.filter((metric) => !requiredTitles.has(metric.title));
+  const requiredTitles = new Set(required.map((metric) => metric.title.toLowerCase()));
+  const extras = kpis.filter((metric) => !requiredTitles.has(metric.title.toLowerCase()));
 
   return [...required, ...extras];
 };
