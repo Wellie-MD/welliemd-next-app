@@ -151,7 +151,7 @@ function DocumentBubble({
 // ====================================================================
 
 export default function Messages() {
-  const { messages, loading, error } = useMessages(5000);
+  const { messages, loading, error } = useMessages(30000);
 
   // tabs: "patient" (normal support/doctor thread) and "support" (Beluga)
   const [tab, setTab] = useState<"patient" | "support">("patient");
@@ -794,7 +794,9 @@ export default function Messages() {
                 <div className="flex gap-2 items-center">
                   <div className="text-sm border bg-gray-50 rounded px-2 py-1 flex items-center">
                     <span className="text-muted-foreground mr-2 font-medium">Order:</span>
-                    <span className="font-mono">{activeConversation.orderNumber || activeConversation.masterId}</span>
+                    <span className="font-mono">
+                      {activeConversation.orderNumber || activeConversation.masterId}
+                    </span>
                   </div>
                   <Button
                     variant="outline"
