@@ -19,6 +19,8 @@ interface User {
   first_name: string;
   last_name: string;
   full_name: string;
+  phone?: string | null;
+  avatar_url?: string | null;
   permissions?: string[];
 }
 
@@ -44,10 +46,20 @@ export const authService = {
       ...credentials,
       // portal: 'client'
     });
-    const { access: accessToken, user } = data;
+    const { access: accessToken } = data;
 
-    useAuthStore.getState().login(accessToken, user);
-    return user;
+    // Put token in store first so /auth/me/ request includes Authorization.
+    // Always load profile from /auth/me/ so the UI matches the JWT identity
+    // (full UserSerializer: full_name, avatar_url, etc.) — not the login payload alone.
+    useAuthStore.getState().setAccessToken(accessToken);
+    try {
+      const { data: profile } = await api.get<User>('/auth/me/');
+      useAuthStore.getState().login(accessToken, profile);
+      return profile;
+    } catch (e) {
+      useAuthStore.getState().logout();
+      throw e;
+    }
   },
 
   register: async (credentials: RegisterCredentials): Promise<User> => {
@@ -71,8 +83,15 @@ export const authService = {
         password: credentials.password,
       });
 
-      useAuthStore.getState().login(data.access, data.user);
-      return data.user;
+      useAuthStore.getState().setAccessToken(data.access);
+      try {
+        const { data: profile } = await api.get<User>('/auth/me/');
+        useAuthStore.getState().login(data.access, profile);
+        return profile;
+      } catch (e) {
+        useAuthStore.getState().logout();
+        throw e;
+      }
     } catch (error: any) {
       console.error('Registration error:', error.response?.data);
 

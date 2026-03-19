@@ -26,6 +26,8 @@ export default function ManageAccount() {
   })
 
   const [loading, setLoading] = useState(false)
+  /** Refetch profile from API so Manage Account always shows the logged-in JWT user, not stale store data. */
+  const [profileLoading, setProfileLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
@@ -43,7 +45,25 @@ export default function ManageAccount() {
     confirmPassword?: string
   }>({})
 
-  // Initialize form with user data
+  // On mount, sync auth store with server profile for the current access token
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setProfileLoading(true)
+      try {
+        await authService.getMe()
+      } catch {
+        // getMe clears session on 401; avoid toast spam
+      } finally {
+        if (!cancelled) setProfileLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Initialize form with user data (from store, refreshed above)
   useEffect(() => {
     if (user) {
       setFormData({
@@ -186,6 +206,15 @@ export default function ManageAccount() {
     } finally {
       setResettingPassword(false)
     }
+  }
+
+  if (profileLoading) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[40vh] gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Loading your account…</p>
+      </div>
+    )
   }
 
   return (
