@@ -66,6 +66,8 @@ class RequestQueue {
 // Global instance
 const requestQueue = new RequestQueue();
 
+let didRedirectToSignIn = false;
+
 // Helper function to ensure URLs have trailing slashes
 const normalizeUrl = (url: string = ''): string => {
   if (!url) return url;
@@ -92,6 +94,16 @@ const getPersistedAccessToken = (): string | null => {
   } catch (error) {
     debugLog('Failed to read persisted auth token:', error);
     return null;
+  }
+};
+
+const clearPersistedAuthStore = (): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    // Zustand persist uses the key `auth-store` (see auth.store.ts).
+    window.localStorage.removeItem('auth-store');
+  } catch (error) {
+    debugLog('Failed to clear persisted auth-store:', error);
   }
 };
 
@@ -168,7 +180,18 @@ const createApiClient = (): AxiosInstance => {
         } catch (refreshError) {
           // If refresh fails, clear tokens and redirect to login
           tokenManager.clearTokens();
-          window.location.href = '/auth/signin';
+          clearPersistedAuthStore();
+
+          // Avoid infinite hard-reload loops when we're already on the signin page.
+          const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+          const normalizedPath = pathname.replace(/\/+$/, '');
+          const isOnSignIn = normalizedPath === '/auth/signin';
+
+          if (!isOnSignIn && !didRedirectToSignIn) {
+            didRedirectToSignIn = true;
+            window.location.href = '/auth/signin';
+          }
+
           return Promise.reject(transformAxiosError(refreshError as AxiosError));
         }
       }
