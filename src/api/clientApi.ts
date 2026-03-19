@@ -11,6 +11,12 @@ export interface Client {
   domain?: string;
   subdomain?: string;
   custom_domain?: string;
+  pending_custom_domain?: string | null;
+  domain_provisioning_status?: 'idle' | 'pending' | 'provisioned' | 'failed';
+  domain_provisioning_error?: {
+    step?: string;
+    error?: string;
+  } | null;
   master_id_prefix?: string;
   beluga_company?: string;
   database_name: string;
@@ -250,7 +256,7 @@ export const clientApi = {
     return data;
   },
 
-  changeDomain: async (id: string, newDomain: string): Promise<{ success: boolean; message: string; task_id: string }> => {
+  changeDomain: async (id: string, newDomain: string): Promise<{ success: boolean; message: string; task_id: string; old_domain: string; new_domain: string }> => {
     const { data } = await axiosInstance.post(`/clients/${id}/change-domain/`, {
       new_domain: newDomain,
     });
