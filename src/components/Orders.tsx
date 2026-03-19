@@ -23,6 +23,8 @@ import {
 
 import { getOrders, getOrder, PatientOrder } from '@/shared/api/ordersApi';
 
+const getOrderReference = (order: PatientOrder) => order.order_id || order.display_id;
+
 // Status badge configuration
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof Package }> = {
   created: { label: 'Created', variant: 'secondary', icon: Clock },
@@ -51,6 +53,8 @@ function OrderStatusBadge({ status }: { status: string }) {
 }
 
 function OrderCard({ order, onClick }: { order: PatientOrder; onClick: () => void }) {
+  const orderReference = getOrderReference(order);
+
   return (
     <Card 
       className="cursor-pointer hover:shadow-md transition-shadow"
@@ -60,7 +64,7 @@ function OrderCard({ order, onClick }: { order: PatientOrder; onClick: () => voi
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-900">{order.display_id}</span>
+              <span className="font-medium text-gray-900">{orderReference}</span>
               <OrderStatusBadge status={order.status} />
             </div>
             <p className="text-sm text-gray-600">{order.product_name}</p>
@@ -112,6 +116,7 @@ function OrderDetailModal({
   onClose: () => void;
 }) {
   if (!order) return null;
+  const orderReference = getOrderReference(order);
   
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -119,7 +124,7 @@ function OrderDetailModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
-            Order {order.display_id}
+            Order {orderReference}
           </DialogTitle>
           <DialogDescription>
             Order details and tracking information
