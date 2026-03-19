@@ -135,19 +135,18 @@ function buildChoiceOption(
   label: string,
   meta?: StructuredChoiceMeta
 ): AnswerChoiceOption {
-  const trimmed = label.trim();
   const normalizedMeta = meta || {};
   const hasMeta = Object.values(normalizedMeta).some(
     (value) => value !== undefined && value !== null && value !== ""
   );
 
   if (!hasMeta) {
-    return trimmed;
+    return label;
   }
 
   return {
-    label: trimmed,
-    value: trimmed,
+    label: label,
+    value: label,
     meta: normalizedMeta,
   };
 }
@@ -353,6 +352,9 @@ export function QuestionForm({
   const [dobMaxAge, setDobMaxAge] = useState<number | "">(65);
   const [isHidden, setIsHidden] = useState(false);
 
+  // Labs in-person mapping state
+  const [labsInPersonMapping, setLabsInPersonMapping] = useState<Record<string, boolean>>({});
+
   // Fetch template and existing questions when modal opens
   useEffect(() => {
     const fetchTemplateData = async () => {
@@ -474,6 +476,22 @@ export function QuestionForm({
         disqualifyingAnswersList = validationRules.disqualifying_answers;
       }
       setDisqualifyingAnswers(disqualifyingAnswersList);
+
+      // Extract labs_in_person_mapping from validation_rules
+      if (question.question_type === "labs") {
+        if (validationRules?.labs_in_person_mapping) {
+          setLabsInPersonMapping(validationRules.labs_in_person_mapping as Record<string, boolean>);
+        } else {
+          // Auto-initialize from existing choices if missing
+          const defaultMapping: Record<string, boolean> = {};
+          question.answer_choices.forEach(choice => {
+            defaultMapping[getChoiceLabel(choice)] = true;
+          });
+          setLabsInPersonMapping(defaultMapping);
+        }
+      } else {
+        setLabsInPersonMapping({});
+      }
 
       // Extract prefill config
       const prefillConfig = (validationRules as Record<string, unknown>)?.prefill as
@@ -643,6 +661,7 @@ export function QuestionForm({
     } else {
       setDisqualifyingAnswers([]);
       setTriggerValues([]);
+      setLabsInPersonMapping({});
       setParentQuestions([]);
       setSelectedParentForAdding("");
       setLogicOperator("OR");
@@ -688,14 +707,18 @@ export function QuestionForm({
   }, [question, templateId, open]);
 
   const handleAddChoice = () => {
-    if (newAnswerChoice.trim()) {
+    const trimmedVal = newAnswerChoice.trim();
+    if (trimmedVal) {
       setFormData({
         ...formData,
         answer_choices: [
           ...(formData.answer_choices || []),
-          buildChoiceOption(newAnswerChoice.trim()),
+          buildChoiceOption(trimmedVal),
         ],
       });
+      if (formData.question_type === "labs") {
+        setLabsInPersonMapping(prev => ({ ...prev, [trimmedVal]: true }));
+      }
       setNewAnswerChoice("");
     }
   };
@@ -711,6 +734,13 @@ export function QuestionForm({
       setDisqualifyingAnswers(
         disqualifyingAnswers.filter((a) => a !== choiceDisplay)
       );
+    }
+    if (choiceDisplay && formData.question_type === "labs" && choiceDisplay in labsInPersonMapping) {
+      setLabsInPersonMapping(prev => {
+        const next = { ...prev };
+        delete next[choiceDisplay];
+        return next;
+      });
     }
 
     setFormData({
@@ -732,6 +762,17 @@ export function QuestionForm({
         a === oldDisplay ? value : a
       );
       setDisqualifyingAnswers(updatedDisqualifying);
+    }
+
+    // Update labs_in_person_mapping key when choice text changes
+    if (oldDisplay && oldDisplay in labsInPersonMapping) {
+      setLabsInPersonMapping(prev => {
+        const updated = { ...prev };
+        const oldVal = updated[oldDisplay];
+        delete updated[oldDisplay];
+        updated[value] = oldVal;
+        return updated;
+      });
     }
 
     setFormData({
@@ -789,7 +830,7 @@ export function QuestionForm({
     }
 
     // Validate answer choices for choice-based questions
-    const choiceTypes = ["single_choice", "multiple_choice", "sex"];
+    const choiceTypes = ["single_choice", "multiple_choice", "sex", "labs"];
     if (
       choiceTypes.includes(formData.question_type) &&
       (!formData.answer_choices || formData.answer_choices.length === 0)
@@ -1050,13 +1091,21 @@ export function QuestionForm({
         };
         validationRules[operatorMap[numberValidationOperator]] =
           numberValidationValue;
+      } else if (formData.question_type === "labs") {
+        // Add labs_in_person_mapping to validation_rules
+        validationRules = {
+          ...(formData.validation_rules || {}),
+        };
+        if (Object.keys(labsInPersonMapping).length > 0) {
+          validationRules.labs_in_person_mapping = labsInPersonMapping;
+        }
       } else {
         validationRules = formData.validation_rules || {};
       }
 
       // Handle disqualifying answers for choice-based questions
       if (
-        ["single_choice", "multiple_choice", "consent", "sex"].includes(
+        ["single_choice", "multiple_choice", "consent", "sex", "labs"].includes(
           formData.question_type
         )
       ) {
@@ -1221,7 +1270,7 @@ export function QuestionForm({
   };
 
   // Dynamic visibility flags
-  const showAnswerChoices = ["single_choice", "multiple_choice", "sex"].includes(
+  const showAnswerChoices = ["single_choice", "multiple_choice", "sex", "labs"].includes(
     formData.question_type
   );
   const showFileSettings = formData.question_type === "file_upload";
@@ -1307,13 +1356,24 @@ export function QuestionForm({
                     question_type: value,
                     answer_choices: ["Male", "Female", "Other"],
                   });
+                } else if (
+                  value === "labs" &&
+                  (!formData.answer_choices ||
+                    formData.answer_choices.length === 0)
+                ) {
+                  // Initialize default answer choices for labs preference
+                  setFormData({
+                    ...formData,
+                    question_type: value,
+                    answer_choices: ["Yes", "No"],
+                  });
                 } else {
                   // Reset validation states when changing question type
                   if (value !== "number") {
                     setEnableNumberValidation(false);
                     setNumberValidationValue("");
                   }
-                  if (!["single_choice", "multiple_choice", "sex"].includes(value)) {
+                  if (!["single_choice", "multiple_choice", "sex", "labs"].includes(value)) {
                     setDisqualifyingAnswers([]);
                   }
 
@@ -1365,6 +1425,9 @@ export function QuestionForm({
                 </SelectItem>
                 <SelectItem value="medication_dose_selector">
                   Medication & Dose Selector
+                </SelectItem>
+                <SelectItem value="labs">
+                  Labs Preference (Beluga Mapped)
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -1822,6 +1885,32 @@ export function QuestionForm({
                             Disqualify
                           </label>
                         </div>
+                        {/* Labs in-person mapping dropdown */}
+                        {formData.question_type === "labs" && (
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs text-muted-foreground whitespace-nowrap">
+                              labsInPerson:
+                            </Label>
+                            <Select
+                              value={(labsInPersonMapping[getChoiceLabel(choice)] ?? true) ? "true" : "false"}
+                              onValueChange={(val) => {
+                                const choiceLabel = getChoiceLabel(choice);
+                                setLabsInPersonMapping(prev => ({
+                                  ...prev,
+                                  [choiceLabel]: val === "true",
+                                }));
+                              }}
+                            >
+                              <SelectTrigger className="w-[160px] h-8">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="true">In-Person (true)</SelectItem>
+                                <SelectItem value="false">At-Home (false)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                         <Button
                           type="button"
                           variant="ghost"
