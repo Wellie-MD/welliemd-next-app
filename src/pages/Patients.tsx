@@ -1,17 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react"
 import { DataTable } from "@/components/ui/data-table"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Plus, AlertCircle } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { AlertCircle } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { isWithinInterval, parseISO, format } from "date-fns"
 import { exportToCSV } from "@/utils/exportUtils"
@@ -92,7 +81,6 @@ export default function Patients() {
   const [activeFilter, setActiveFilter] = useState("All")
   const [activeAdditionalFilters, setActiveAdditionalFilters] = useState<string[]>([])
   const [date, setDate] = useState<DateRange | undefined>()
-  const [isOpen, setIsOpen] = useState(false)
   const [patients, setPatients] = useState<PatientTableRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -115,12 +103,6 @@ export default function Patients() {
     }, 300)
     return () => clearTimeout(timer)
   }, [searchInput])
-
-  const [newPatient, setNewPatient] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-  })
 
   // Fetch patients from backend with server-side pagination
   const fetchPatients = useCallback(async () => {
@@ -282,62 +264,6 @@ export default function Patients() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Patients</h1>
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add New
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Patient</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="firstName">First Name</Label>
-                <Input 
-                  id="firstName"
-                  value={newPatient.firstName}
-                  onChange={(e) => setNewPatient({...newPatient, firstName: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input 
-                  id="lastName"
-                  value={newPatient.lastName}
-                  onChange={(e) => setNewPatient({...newPatient, lastName: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input 
-                  id="email"
-                  type="email"
-                  value={newPatient.email}
-                  onChange={(e) => setNewPatient({...newPatient, email: e.target.value})}
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => {
-                  setIsOpen(false)
-                  setNewPatient({ firstName: "", lastName: "", email: "" })
-                }}>
-                  Cancel
-                </Button>
-                <Button onClick={() => {
-                  // Here you would typically save the patient data
-                  console.log("Saving patient:", newPatient)
-                  setIsOpen(false)
-                  setNewPatient({ firstName: "", lastName: "", email: "" })
-                }}>
-                  Save
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
 
       {error && (
