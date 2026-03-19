@@ -42,6 +42,7 @@ export function CreateTemplateModal({
     questionnaire_type: 'client_custom',
     beluga_visit_type: 'none',
     requires_photo_upload: false,
+    requires_labs: false,
     requires_identity_verification: false,
   });
 
@@ -53,6 +54,7 @@ export function CreateTemplateModal({
         questionnaire_type: template.questionnaire_type,
         beluga_visit_type: template.beluga_visit_type || 'none', // CHANGED
         requires_photo_upload: template.requires_photo_upload,
+        requires_labs: (template as any).requires_labs || false,
         requires_identity_verification: template.requires_identity_verification,
       });
     } else {
@@ -62,6 +64,7 @@ export function CreateTemplateModal({
         questionnaire_type: 'intake',
         beluga_visit_type: 'none', // CHANGED
         requires_photo_upload: false,
+        requires_labs: false,
         requires_identity_verification: false,
       });
     }
@@ -212,6 +215,17 @@ export function CreateTemplateModal({
                 checked={formData.requires_photo_upload}
                 onCheckedChange={(checked) =>
                   setFormData({ ...formData, requires_photo_upload: checked })
+                }
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="requires_labs">Require Labs</Label>
+              <Switch
+                id="requires_labs"
+                checked={formData.requires_labs || false}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, requires_labs: checked })
                 }
               />
             </div>
