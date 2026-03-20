@@ -20,6 +20,40 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
+/** Match admin portal order status filter pills → API `status` param */
+const ORDER_STATUS_FILTER_LABELS = [
+  "All",
+  "Created",
+  "Payment Pending",
+  "Processing",
+  "Visit Failed",
+  "Visit Pending",
+  "Consult Canceled",
+  "Referred",
+  "Prescribed",
+  "Billing Pending",
+  "Rx Sent",
+  "Shipped",
+  "Canceled",
+] as const
+
+const ORDER_STATUS_TO_API: Record<string, string> = {
+  Created: "created",
+  "Payment Pending": "payment_pending",
+  Processing: "processing",
+  "Visit Failed": "visit_failed",
+  "Visit Pending": "visit_pending",
+  "Consult Canceled": "consult_canceled",
+  Referred: "referred",
+  Prescribed: "prescribed",
+  "Billing Pending": "billing_pending",
+  "Rx Sent": "rx_sent",
+  Shipped: "shipped",
+  Canceled: "canceled",
+}
+
+const PAYMENT_STATUS_FILTER_LABELS = ["All", "Paid", "Pending", "Failed"] as const
+
 const orderColumns = [
   { key: "order_id", label: "Order #", minWidth: "120px", className: "font-medium" },
   { key: "patient_name", label: "Patient", minWidth: "160px", className: "max-w-[220px]" },
@@ -38,32 +72,20 @@ const orderColumns = [
   { key: "actions", label: "Actions", minWidth: "110px", render: (_: any, row: any) => null }
 ]
 
-// Meaningful filters based on the orders data structure
-const paymentStatusFilters = ["All", "Paid", "Pending", "Failed", "Refunded"]
-const visitStatusFilters = ["All", "Scheduled", "Completed", "Missed", "Rescheduled"]
-
-// Backend order status choices (value, label)
+// Backend order status choices for row editor (value, label) — aligned with Order.ORDER_STATUS_CHOICES
 const ORDER_STATUS_CHOICES = [
-  { value: 'created', label: 'Created' },
-  { value: 'processing', label: 'Processing' },
-  { value: 'visit_failed', label: 'Visit Failed' },
-  { value: 'visit_pending', label: 'Visit Pending' },
-  { value: 'consult_canceled', label: 'Consult Canceled' },
-  { value: 'referred', label: 'Referred' },
-  { value: 'prescribed', label: 'Prescribed' },
-  { value: 'billing_pending', label: 'Billing Pending' },
-  { value: 'rx_sent', label: 'Rx Sent' },
-  { value: 'shipped', label: 'Shipped' },
-  { value: 'canceled', label: 'Canceled' },
-]
-
-// Additional filter buttons (keeping the original ones from your design)
-const additionalFilters = [
-  "Sort", 
-  "Product", 
-  "Pharmacies", 
-  "Pharmacy Status", 
-  "Extra Filters"
+  { value: "created", label: "Created" },
+  { value: "payment_pending", label: "Payment Pending" },
+  { value: "processing", label: "Processing" },
+  { value: "visit_failed", label: "Visit Failed" },
+  { value: "visit_pending", label: "Visit Pending" },
+  { value: "consult_canceled", label: "Consult Canceled" },
+  { value: "referred", label: "Referred" },
+  { value: "prescribed", label: "Prescribed" },
+  { value: "billing_pending", label: "Billing Pending" },
+  { value: "rx_sent", label: "Rx Sent" },
+  { value: "shipped", label: "Shipped" },
+  { value: "canceled", label: "Canceled" },
 ]
 
 // Helper function to parse date strings. Handles ISO timestamps and DD/MM/YYYY.
@@ -103,9 +125,9 @@ export default function Orders() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
   const [activePaymentStatusFilter, setActivePaymentStatusFilter] = useState("All")
   const [activeOrderStatusFilter, setActiveOrderStatusFilter] = useState("All")
-  const [activeVisitStatusFilter, setActiveVisitStatusFilter] = useState("All")
-  const [activeAdditionalFilters, setActiveAdditionalFilters] = useState<string[]>([])
   const [date, setDate] = useState<DateRange | undefined>()
+  /** Remount DataTable so toolbar search input clears when filters reset */
+  const [dataTableKey, setDataTableKey] = useState(0)
   const [orders, setOrders] = useState<Order[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
@@ -131,65 +153,38 @@ export default function Orders() {
 
   const filteredOrders = useMemo(() => orders, [orders])
 
-  // Create filter configuration - combining all filter types
-  const filters = [
-    // Payment Status filters
-    ...paymentStatusFilters.map(status => ({
-      key: `payment-${status}`,
-      label: status === "All" ? "Payment status" : status,
-      type: 'button' as const,
-      value: activePaymentStatusFilter === status ? status : undefined,
-      onClick: () => setActivePaymentStatusFilter(status)
-    })),
-    // Order Status select (uses backend keys)
-    {
-      key: 'order-status',
-      label: 'Order status',
-      type: 'select' as const,
-      options: [{ value: 'All', label: 'All' }, ...ORDER_STATUS_CHOICES],
-      value: activeOrderStatusFilter === 'All' ? 'All' : activeOrderStatusFilter || undefined,
-      onChange: (v: string) => setActiveOrderStatusFilter(v),
-    },
-    // Visit Status filters
-    ...visitStatusFilters.slice(1).map(status => ({ // Skip "All" to avoid duplicate
-      key: `visit-${status}`,
-      label: status,
-      type: 'button' as const,
-      value: activeVisitStatusFilter === status ? status : undefined,
-      onClick: () => setActiveVisitStatusFilter(status)
-    })),
-    // Additional filter buttons
-    ...additionalFilters.map(filter => ({
-      key: `additional-${filter}`,
-      label: filter,
-      type: 'button' as const,
-      value: activeAdditionalFilters.includes(filter) ? filter : undefined,
-      onClick: () => {
-        setActiveAdditionalFilters(prev => 
-          prev.includes(filter) 
-            ? prev.filter(f => f !== filter)
-            : [...prev, filter]
-        )
-      }
-    }))
-  ]
+  // Same pill layout as admin portal: Order Status group, then Payment Status group
+  const filters = useMemo(
+    () => [
+      ...ORDER_STATUS_FILTER_LABELS.map((status) => ({
+        key: `order-${status}`,
+        label: status === "All" ? "Order Status" : status,
+        type: "button" as const,
+        value: activeOrderStatusFilter === status ? status : undefined,
+        onClick: () => setActiveOrderStatusFilter(status),
+      })),
+      ...PAYMENT_STATUS_FILTER_LABELS.map((status) => ({
+        key: `payment-${status}`,
+        label: status === "All" ? "Payment Status" : status,
+        type: "button" as const,
+        value: activePaymentStatusFilter === status ? status : undefined,
+        onClick: () => setActivePaymentStatusFilter(status),
+      })),
+    ],
+    [activeOrderStatusFilter, activePaymentStatusFilter]
+  )
 
   const handleResetFilters = useCallback(() => {
     setActivePaymentStatusFilter("All")
-    setActiveOrderStatusFilter("All") 
-    setActiveVisitStatusFilter("All")
-    setActiveAdditionalFilters([])
+    setActiveOrderStatusFilter("All")
     setDate(undefined)
     setSearchTerm("")
+    setDebouncedSearchTerm("")
     setCurrentPage(1)
+    setDataTableKey((k) => k + 1)
   }, [])
 
   const normalizePaymentStatus = (status: string) => {
-    if (status === "All") return undefined
-    return status.toLowerCase()
-  }
-
-  const normalizeVisitStatus = (status: string) => {
     if (status === "All") return undefined
     return status.toLowerCase()
   }
@@ -203,11 +198,13 @@ export default function Orders() {
         page_size: pageSize,
       }
       if (debouncedSearchTerm) params.search = debouncedSearchTerm
-      if (activeOrderStatusFilter !== "All") params.status = activeOrderStatusFilter
+      if (activeOrderStatusFilter !== "All") {
+        const apiStatus = ORDER_STATUS_TO_API[activeOrderStatusFilter]
+        if (apiStatus) params.status = apiStatus
+      }
       const paymentStatus = normalizePaymentStatus(activePaymentStatusFilter)
-      if (paymentStatus) params["transaction__status"] = paymentStatus
-      const visitStatus = normalizeVisitStatus(activeVisitStatusFilter)
-      if (visitStatus) params["visit__status"] = visitStatus
+      // Backend maps captured/approved → "paid" (same as admin dashboard), not raw NMI status
+      if (paymentStatus) params.payment_status = paymentStatus
       if (date?.from) params["created_at__gte"] = date.from.toISOString().slice(0, 10)
       if (date?.to) params["created_at__lte"] = date.to.toISOString().slice(0, 10)
 
@@ -226,7 +223,6 @@ export default function Orders() {
     debouncedSearchTerm,
     activeOrderStatusFilter,
     activePaymentStatusFilter,
-    activeVisitStatusFilter,
     date,
   ])
 
@@ -236,7 +232,7 @@ export default function Orders() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedSearchTerm, activePaymentStatusFilter, activeOrderStatusFilter, activeVisitStatusFilter, date])
+  }, [debouncedSearchTerm, activePaymentStatusFilter, activeOrderStatusFilter, date])
 
   const handleRefresh = useCallback(() => {
     loadOrders()
@@ -359,7 +355,7 @@ export default function Orders() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
             <span>Orders</span>
             <span>›</span>
-            <span>Orders</span>
+            <span>All Orders</span>
           </div>
         </div>
         {/* Right side buttons that were originally in the top row */}
@@ -379,6 +375,7 @@ export default function Orders() {
       )}
 
       <DataTable
+        key={dataTableKey}
         data={filteredOrders.map(o => ({
           ...o,
           patient_name: o.patient?.full_name || o.name || o.email || '-',
@@ -537,8 +534,8 @@ export default function Orders() {
         searchPlaceholder="Search by Order ID, Order#, affiliate order #, MRN#, patient name, phone number"
         showDatePicker={true}
         showExport={true}
-        showResetFilters={false}
-        // filters={filters}
+        showResetFilters={true}
+        filters={filters}
         dateRange={date}
         onDateRangeChange={setDate}
         onSearch={setSearchTerm}
