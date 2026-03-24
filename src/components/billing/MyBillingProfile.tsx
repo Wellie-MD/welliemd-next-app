@@ -139,6 +139,8 @@ export default function MyBillingProfile() {
       ? "bg-rose-100 text-rose-800 border-rose-200"
       : "bg-slate-100 text-slate-700 border-slate-200";
   const lockState = subscriptionStatus?.lock_state ?? "unlocked";
+  const isCanceled = subscriptionStatus?.subscription_status === "canceled";
+  const isBillingLocked = isCanceled || lockState === "locked";
   const lockBadgeClass =
     lockState === "locked"
       ? "bg-rose-100 text-rose-800 border-rose-200"
@@ -172,7 +174,14 @@ export default function MyBillingProfile() {
         </div>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Payment Method</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">Payment Method</CardTitle>
+              {isBillingLocked && (
+                <Badge className="bg-rose-100 text-rose-800 border border-rose-200">
+                  Billing Locked
+                </Badge>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {showNoPaymentMethodState ? (
@@ -224,6 +233,7 @@ export default function MyBillingProfile() {
                 <Button
                   variant="outline"
                   onClick={async () => {
+                    if (isBillingLocked) return;
                     setModalMode("update");
                     setShowModal(true);
                     setModalContent({ loading: true });
@@ -234,6 +244,8 @@ export default function MyBillingProfile() {
                         : { loading: false, error: "Failed to create setup intent" }
                     );
                   }}
+                  disabled={isBillingLocked}
+                  className="disabled:cursor-not-allowed disabled:pointer-events-auto"
                 >
                   Update Payment Method
                 </Button>
@@ -295,15 +307,11 @@ export default function MyBillingProfile() {
             <p className="text-muted-foreground">
               Current access period: <span className="text-foreground font-medium">{subscriptionStatus?.current_period_start ?? "N/A"} to {subscriptionStatus?.current_period_end ?? "N/A"}</span>
             </p>
-            {subscriptionStatus?.subscription_status !== "canceled" ? (
+            {!isCanceled ? (
               <p className="text-muted-foreground">
                 Next billing date: <span className="text-foreground font-medium">{subscriptionStatus?.next_billing_date ?? "N/A"}</span>
               </p>
-            ) : (
-              <p className="text-muted-foreground">
-                Next billing date: <span className="text-foreground font-medium">N/A (canceled)</span>
-              </p>
-            )}
+            ) : null}
             {subscriptionStatus?.cancel_at_period_end && (
               <p className="text-amber-700 font-medium">
                 Cancellation is scheduled at period end{subscriptionStatus?.current_period_end ? ` (${subscriptionStatus.current_period_end})` : ""}.
