@@ -11,7 +11,7 @@ import {
   fetchBrandSettings,
   updateBrandSettings,
 } from "@/api/brandSettingsApi";
-import { messageService } from "@/services/messageService";
+import { uploadBrandAsset } from "@/services/brandAssetsService";
 import { toast } from "@/hooks/use-toast";
 
 interface UploadFieldProps {
@@ -283,7 +283,7 @@ export default function Brand() {
       if (entries.length > 0) {
         const results = await Promise.all(
           entries.map(async ([path, file]) => {
-            const { url } = await messageService.uploadAttachment(file);
+            const { url } = await uploadBrandAsset(file);
             return { path, url };
           }),
         );
