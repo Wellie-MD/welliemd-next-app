@@ -44,34 +44,21 @@ export function AvailableTreatmentsList({ onStartTreatment }: AvailableTreatment
       return;
     }
 
-    // Open a new window immediately in response to the click so that
-    // mobile browsers (iOS Safari) treat it as a user-initiated action
-    // and don't block it as a popup.
-    const newWindow = typeof window !== 'undefined' ? window.open('', '_blank') : null;
-
     try {
       setStartingId(treatment.id);
       const result = await startNewTreatment(treatment.id);
-      
+
       if (result.success && result.questionnaire_url) {
-        if (newWindow) {
-          newWindow.location.href = result.questionnaire_url;
-        } else {
-          // Fallback if the window couldn't be opened
-          window.location.href = result.questionnaire_url;
-        }
+        // Same-window navigation: new tabs opened before async work complete are
+        // blocked as pop-ups on mobile Safari/Chrome; assigning after the API
+        // returns is not user-gesture synchronous.
+        window.location.assign(result.questionnaire_url);
       } else {
         console.error('Failed to start treatment:', result.error);
-        if (newWindow) {
-          newWindow.close();
-        }
         alert(result.message || result.error || 'Failed to start treatment. Please try again.');
       }
     } catch (error) {
       console.error('Error starting treatment:', error);
-      if (newWindow) {
-        newWindow.close();
-      }
       alert('Failed to start treatment. Please try again.');
     } finally {
       setStartingId(null);
