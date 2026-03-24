@@ -13,6 +13,15 @@ export default function Blog() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
+  const formatAuthorName = (name: string) =>
+    (name || "")
+      .trim()
+      .split(/\s+/)
+      .map((part) =>
+        part ? part.charAt(0).toUpperCase() + part.slice(1) : part
+      )
+      .join(" ");
+
   const fetchResources = useCallback(async () => {
     try {
       setLoading(true);
@@ -250,7 +259,9 @@ export default function Blog() {
                         <User className="w-4 h-4" />
                       </div>
                       <div>
-                        <div className="author-name">{post.author_name}</div>
+                        <div className="author-name">
+                          {formatAuthorName(post.author_name)}
+                        </div>
                         <div className="author-role">Healthcare Professional</div>
                       </div>
                     </div>
