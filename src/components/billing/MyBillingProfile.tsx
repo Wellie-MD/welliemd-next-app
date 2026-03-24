@@ -247,19 +247,25 @@ export default function MyBillingProfile() {
             <CardTitle className="text-lg">Billing Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <div className="flex items-start justify-between gap-4">
+            <div className="grid grid-cols-[96px_1fr] gap-3 items-start">
               <span className="text-muted-foreground">Name</span>
-              <span className="font-medium text-right">{billingDetails?.name ?? profile?.client_name ?? "-"}</span>
+              <span className="font-medium text-slate-700">
+                {billingDetails?.name ?? profile?.client_name ?? "-"}
+              </span>
             </div>
             <Separator />
-            <div className="flex items-start justify-between gap-4">
+            <div className="grid grid-cols-[96px_1fr] gap-3 items-start">
               <span className="text-muted-foreground">Email</span>
-              <span className="font-medium text-right">{billingDetails?.email ?? "-"}</span>
+              <span className="font-medium text-slate-700">
+                {billingDetails?.email ?? "-"}
+              </span>
             </div>
             <Separator />
-            <div className="flex items-start justify-between gap-4">
+            <div className="grid grid-cols-[96px_1fr] gap-3 items-start">
               <span className="text-muted-foreground">Address</span>
-              <span className="font-medium text-right">{billingDetails?.address ?? "-"}</span>
+              <span className="font-medium text-slate-700">
+                {billingDetails?.address ?? "-"}
+              </span>
             </div>
           </CardContent>
         </Card>
