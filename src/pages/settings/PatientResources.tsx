@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import {
   Plus,
@@ -67,6 +67,7 @@ import {
   patientResourcesApi,
   type PatientResource,
   type PatientResourcePayload,
+  type ResourceCategory,
 } from "@/api/patientResources";
 
 const CATEGORIES = [
@@ -100,12 +101,22 @@ export default function PatientResources() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [customCategories, setCustomCategories] = useState<ResourceCategory[]>(
+    []
+  );
+  const [addCategoryOpen, setAddCategoryOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(
+    null
+  );
 
   // Form state
   const [title, setTitle] = useState("");
   const [excerpt, setExcerpt] = useState("");
   const [content, setContent] = useState("");
   const [coverImage, setCoverImage] = useState("");
+  const [authorName, setAuthorName] = useState("");
   const [category, setCategory] = useState("General");
   const [postStatus, setPostStatus] = useState<
     "draft" | "published" | "archived"
@@ -131,15 +142,103 @@ export default function PatientResources() {
     fetchResources();
   }, [fetchResources]);
 
+  // ── Fetch categories ──
+  const fetchCategories = useCallback(async () => {
+    try {
+      const data = await patientResourcesApi.getCategories();
+      setCustomCategories(data);
+    } catch {
+      toast.error("Failed to load categories");
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
   // ── Reset form ──
   const resetForm = () => {
     setTitle("");
     setExcerpt("");
     setContent("");
     setCoverImage("");
+    setAuthorName("");
     setCategory("General");
     setPostStatus("draft");
     setEditingResource(null);
+  };
+
+  const allCategories = useMemo(() => {
+    const seen = new Set<string>();
+    const merged: string[] = [];
+    CATEGORIES.forEach((c) => {
+      if (!seen.has(c)) {
+        seen.add(c);
+        merged.push(c);
+      }
+    });
+
+    const customSorted = [...customCategories]
+      .map((c) => c.name)
+      .sort((a, b) => a.localeCompare(b));
+    customSorted.forEach((c) => {
+      if (!seen.has(c)) {
+        seen.add(c);
+        merged.push(c);
+      }
+    });
+
+    if (category && !seen.has(category)) {
+      merged.unshift(category);
+    }
+    return merged;
+  }, [customCategories, category]);
+
+  const handleAddCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) {
+      toast.error("Category name is required");
+      return;
+    }
+    const normalized = name.toLowerCase();
+    const existsLocally = allCategories.some(
+      (c) => c.toLowerCase() === normalized
+    );
+    if (existsLocally) {
+      toast.error("Category already exists");
+      return;
+    }
+    setSavingCategory(true);
+    try {
+      const created = await patientResourcesApi.createCategory(name);
+      setCustomCategories((prev) => {
+        const exists = prev.some(
+          (item) => item.name.toLowerCase() === created.name.toLowerCase()
+        );
+        return exists ? prev : [...prev, created];
+      });
+      setCategory(created.name);
+      setNewCategoryName("");
+      setAddCategoryOpen(false);
+      toast.success("Category added");
+    } catch {
+      toast.error("Failed to add category");
+    } finally {
+      setSavingCategory(false);
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    setDeletingCategoryId(id);
+    try {
+      await patientResourcesApi.deleteCategory(id);
+      setCustomCategories((prev) => prev.filter((c) => c.id !== id));
+      toast.success("Category deleted");
+    } catch {
+      toast.error("Failed to delete category");
+    } finally {
+      setDeletingCategoryId(null);
+    }
   };
 
   // ── Open create mode ──
@@ -157,6 +256,7 @@ export default function PatientResources() {
       setExcerpt(full.excerpt || "");
       setContent(full.content || "");
       setCoverImage(full.cover_image || "");
+      setAuthorName(full.author_name || "");
       setCategory(full.category || "General");
       setPostStatus(full.status);
       setMode("edit");
@@ -175,6 +275,10 @@ export default function PatientResources() {
       toast.error("Content is required");
       return;
     }
+    if (!authorName.trim()) {
+      toast.error("Author name is required");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -183,6 +287,7 @@ export default function PatientResources() {
         excerpt: excerpt.trim(),
         content,
         cover_image: coverImage.trim(),
+        author_name: authorName.trim(),
         category,
         status: overrideStatus || postStatus,
       };
@@ -390,13 +495,22 @@ export default function PatientResources() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
+                  <Label className="text-xs text-slate-500">Author Name</Label>
+                  <Input
+                    value={authorName}
+                    onChange={(e) => setAuthorName(e.target.value)}
+                    placeholder="Enter author name"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
                   <Label className="text-xs text-slate-500">Category</Label>
                   <Select value={category} onValueChange={setCategory}>
-                    <SelectTrigger className="mt-1">
+                  <SelectTrigger className="mt-1">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {CATEGORIES.map((c) => (
+                      {allCategories.map((c) => (
                         <SelectItem key={c} value={c}>
                           {c}
                         </SelectItem>
@@ -443,6 +557,9 @@ export default function PatientResources() {
                     >
                       Browse
                     </Button>
+                    <p className="text-xs text-slate-500">
+                      Recommended size: 1200×630 px
+                    </p>
                   </>
                 )}
                 {coverImage && (
@@ -509,14 +626,111 @@ export default function PatientResources() {
             Create and manage blog posts visible to your patients
           </p>
         </div>
-        <Button
-          onClick={handleNewPost}
-          className="gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Create New Resource
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            onClick={handleNewPost}
+            className="gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Create New Resource
+          </Button>
+          <Button
+            className="gap-2"
+            onClick={() => setAddCategoryOpen(true)}
+          >
+            <Tag className="h-4 w-4" />
+            Add Category
+          </Button>
+        </div>
       </div>
+
+      <Dialog open={addCategoryOpen} onOpenChange={setAddCategoryOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Manage Categories</DialogTitle>
+            <DialogDescription>
+              Add new categories for patient resources or remove ones you no longer need.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-slate-400 mb-1.5 block">
+                New Category
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="Enter category name..."
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddCategory();
+                    }
+                  }}
+                />
+                <Button
+                  onClick={handleAddCategory}
+                  disabled={savingCategory}
+                  className="gap-2"
+                >
+                  {savingCategory ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                  Save
+                </Button>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div>
+              <Label className="text-xs uppercase tracking-wider text-slate-400 mb-2 block">
+                Existing Categories
+              </Label>
+              {customCategories.length === 0 ? (
+                <p className="text-sm text-slate-500">
+                  No custom categories added yet.
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {customCategories
+                    .slice()
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((cat) => (
+                      <div
+                        key={cat.id}
+                        className="flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2"
+                      >
+                        <span className="text-sm text-slate-700">
+                          {cat.name}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteCategory(cat.id)}
+                          disabled={deletingCategoryId === cat.id}
+                          className="text-slate-500 hover:text-red-600"
+                          aria-label={`Delete ${cat.name}`}
+                        >
+                          {deletingCategoryId === cat.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+        </DialogContent>
+      </Dialog>
 
       {/* Filters bar */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8 w-full">
