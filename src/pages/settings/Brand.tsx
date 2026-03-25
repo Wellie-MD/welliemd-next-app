@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -35,6 +35,7 @@ const FileUploadField = ({
 }: UploadFieldProps) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   // When the parent updates currentUrl (e.g. after a successful save),
   // drop the local File so the component switches to the server URL.
@@ -56,6 +57,10 @@ const FileUploadField = ({
   const handleFileSelect = (file: File | null) => {
     setSelectedFile(file);
     onFileSelect?.(file);
+    if (!file && inputRef.current) {
+      // Clear input value so selecting the same file again triggers onChange
+      inputRef.current.value = "";
+    }
   };
 
   const displayUrl = getDisplayUrl();
@@ -143,7 +148,7 @@ const FileUploadField = ({
                 type="button"
                 className="text-sky-600 font-medium"
                 onClick={() =>
-                  document.getElementById(`file-${label}`)?.click()
+                  inputRef.current?.click()
                 }
               >
                 Choose a file
@@ -155,10 +160,15 @@ const FileUploadField = ({
           </div>
         )}
         <input
+          ref={inputRef}
           id={`file-${label}`}
           type="file"
           className="hidden"
           accept={accept}
+          onClick={(e) => {
+            // Reset value to allow re-selecting the same file
+            (e.currentTarget as HTMLInputElement).value = "";
+          }}
           onChange={(e) => handleFileSelect(e.target.files?.[0] || null)}
         />
       </div>
