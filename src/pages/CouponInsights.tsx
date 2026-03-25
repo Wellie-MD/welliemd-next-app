@@ -73,6 +73,8 @@ export default function CouponInsights() {
     setCurrentPage(1);
   };
 
+  const topCoupons = (insights?.top_coupons ?? []).slice(0, 4);
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -212,9 +214,9 @@ export default function CouponInsights() {
             <CardTitle className="text-sm font-medium">Top coupons</CardTitle>
           </CardHeader>
           <CardContent className="h-[200px]">
-            {insights?.top_coupons && insights.top_coupons.length > 0 ? (
+            {topCoupons && topCoupons.length > 0 ? (
               <div className="space-y-4 pt-2">
-                {insights.top_coupons.map((coupon, idx) => (
+                {topCoupons.map((coupon, idx) => (
                   <div key={coupon.code} className="flex items-center justify-between group">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-bold">
