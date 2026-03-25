@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import {
-  Plus, MoreHorizontal, Eye, Copy, Trash2, XCircle, Play
+  Check, Plus, MoreHorizontal, Eye, Copy, Trash2, XCircle, Play
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -252,7 +252,9 @@ export default function WebhooksApis() {
                       <FormLabel>Event Type *</FormLabel>
                       <Select
                         onValueChange={(value) => {
-                          if (!field.value.includes(value)) {
+                          if (field.value.includes(value)) {
+                            field.onChange(field.value.filter(v => v !== value))
+                          } else {
                             field.onChange([...field.value, value])
                           }
                         }}
@@ -264,7 +266,18 @@ export default function WebhooksApis() {
                         </FormControl>
                         <SelectContent>
                           {EVENT_TYPES.map(evt => (
-                            <SelectItem key={evt.value} value={evt.value}>{evt.label}</SelectItem>
+                            <SelectItem
+                              key={evt.value}
+                              value={evt.value}
+                              hideIndicator
+                              leading={
+                                field.value.includes(evt.value) ? (
+                                  <Check className="h-4 w-4 text-foreground" />
+                                ) : null
+                              }
+                            >
+                              {evt.label}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
