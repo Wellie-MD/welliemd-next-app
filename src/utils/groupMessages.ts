@@ -1,3 +1,16 @@
+import type { Message } from "@/services/messageService";
+
+export type Conversation = {
+  id: string;
+  masterId: string;
+  patientName: string;
+  patientEmail: string;
+  orderNumber: string;
+  lastMessage: string;
+  lastTime: string;
+  messages: Message[];
+};
+
 export function groupMessages(messages: Message[]): Conversation[] {
   const map = new Map<string, Conversation>();
 
