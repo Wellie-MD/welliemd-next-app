@@ -340,6 +340,13 @@ export function AffiliateInsightsSheet({
                               fontSize: "12px",
                               boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                             }}
+                            formatter={(value: number) => [
+                              `$${Number(value).toLocaleString("en-US", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}`,
+                              "Commission",
+                            ]}
                           />
                           <Area
                             type="monotone"
