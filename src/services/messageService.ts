@@ -66,9 +66,15 @@ export const messageService = {
     return { url: data.url, fileName: data.fileName, mimeType: data.mimeType };
   },
 
-  /** All patient/support/doctor messages (your BE /messages/all/) */
-  async getAllMessages(): Promise<Message[]> {
-    const { data } = await api.get<Message[]>("/messages/all/");
+  /** All patient/support/doctor messages (BE /messages/all/). Pass afterId for incremental polls (unscoped only). */
+  async getAllMessages(opts?: { afterId?: number }): Promise<Message[]> {
+    const params: Record<string, number> = {};
+    if (opts?.afterId != null && opts.afterId > 0) {
+      params.after_id = opts.afterId;
+    }
+    const { data } = await api.get<Message[]>("/messages/all/", {
+      params: Object.keys(params).length ? params : undefined,
+    });
     return (data || []).map((m) => {
       const hasUrl = !!m.media_url && (m.media_url.startsWith("http") || m.media_url.startsWith("data:"));
       const inferredUrl =

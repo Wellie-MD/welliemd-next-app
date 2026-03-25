@@ -21,7 +21,7 @@ import {
   FileVideo,
   FileCode,
 } from "lucide-react";
-import { useMessages } from "@/hooks/useMessages";
+import { useClientMessages } from "@/contexts/MessagesContext";
 import { groupMessages, type Conversation } from "@/utils/groupMessages";
 import { useClients, type Client } from "@/hooks/useClients";
 
@@ -151,7 +151,7 @@ function DocumentBubble({
 // ====================================================================
 
 export default function Messages() {
-  const { messages, loading, error } = useMessages(30000);
+  const { messages, loading, error } = useClientMessages();
 
   // tabs: "patient" (normal support/doctor thread) and "support" (Beluga)
   const [tab, setTab] = useState<"patient" | "support">("patient");
