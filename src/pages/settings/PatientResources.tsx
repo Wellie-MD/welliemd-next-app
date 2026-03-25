@@ -70,22 +70,6 @@ import {
   type ResourceCategory,
 } from "@/api/patientResources";
 
-const CATEGORIES = [
-  "General",
-  "Cardiology",
-  "Preventive Care",
-  "Mental Health",
-  "Nutrition",
-  "Physical Therapy",
-  "Sleep Medicine",
-  "Dermatology",
-  "Endocrinology",
-  "Women's Health",
-  "Men's Health",
-  "Pediatrics",
-  "Wellness Tips",
-];
-
 type EditorMode = "list" | "create" | "edit";
 
 export default function PatientResources() {
@@ -117,7 +101,7 @@ export default function PatientResources() {
   const [content, setContent] = useState("");
   const [coverImage, setCoverImage] = useState("");
   const [authorName, setAuthorName] = useState("");
-  const [category, setCategory] = useState("General");
+  const [categoryId, setCategoryId] = useState("");
   const [postStatus, setPostStatus] = useState<
     "draft" | "published" | "archived"
   >("draft");
@@ -156,6 +140,20 @@ export default function PatientResources() {
     fetchCategories();
   }, [fetchCategories]);
 
+  const defaultCategoryId = useMemo(() => {
+    if (!customCategories.length) return "";
+    const general = customCategories.find(
+      (c) => c.name.trim().toLowerCase() === "general"
+    );
+    return (general || customCategories[0]).id;
+  }, [customCategories]);
+
+  useEffect(() => {
+    if (!categoryId && defaultCategoryId) {
+      setCategoryId(defaultCategoryId);
+    }
+  }, [categoryId, defaultCategoryId]);
+
   // ── Reset form ──
   const resetForm = () => {
     setTitle("");
@@ -163,36 +161,14 @@ export default function PatientResources() {
     setContent("");
     setCoverImage("");
     setAuthorName("");
-    setCategory("General");
+    setCategoryId(defaultCategoryId);
     setPostStatus("draft");
     setEditingResource(null);
   };
 
   const allCategories = useMemo(() => {
-    const seen = new Set<string>();
-    const merged: string[] = [];
-    CATEGORIES.forEach((c) => {
-      if (!seen.has(c)) {
-        seen.add(c);
-        merged.push(c);
-      }
-    });
-
-    const customSorted = [...customCategories]
-      .map((c) => c.name)
-      .sort((a, b) => a.localeCompare(b));
-    customSorted.forEach((c) => {
-      if (!seen.has(c)) {
-        seen.add(c);
-        merged.push(c);
-      }
-    });
-
-    if (category && !seen.has(category)) {
-      merged.unshift(category);
-    }
-    return merged;
-  }, [customCategories, category]);
+    return [...customCategories].sort((a, b) => a.name.localeCompare(b.name));
+  }, [customCategories]);
 
   const handleAddCategory = async () => {
     const name = newCategoryName.trim();
@@ -201,8 +177,8 @@ export default function PatientResources() {
       return;
     }
     const normalized = name.toLowerCase();
-    const existsLocally = allCategories.some(
-      (c) => c.toLowerCase() === normalized
+    const existsLocally = customCategories.some(
+      (c) => c.name.toLowerCase() === normalized
     );
     if (existsLocally) {
       toast.error("Category already exists");
@@ -217,7 +193,7 @@ export default function PatientResources() {
         );
         return exists ? prev : [...prev, created];
       });
-      setCategory(created.name);
+      setCategoryId(created.id);
       setNewCategoryName("");
       setAddCategoryOpen(false);
       toast.success("Category added");
@@ -233,6 +209,9 @@ export default function PatientResources() {
     try {
       await patientResourcesApi.deleteCategory(id);
       setCustomCategories((prev) => prev.filter((c) => c.id !== id));
+      if (categoryId === id) {
+        setCategoryId(defaultCategoryId);
+      }
       toast.success("Category deleted");
     } catch {
       toast.error("Failed to delete category");
@@ -257,7 +236,7 @@ export default function PatientResources() {
       setContent(full.content || "");
       setCoverImage(full.cover_image || "");
       setAuthorName(full.author_name || "");
-      setCategory(full.category || "General");
+      setCategoryId(full.category_id || defaultCategoryId);
       setPostStatus(full.status);
       setMode("edit");
     } catch {
@@ -288,7 +267,7 @@ export default function PatientResources() {
         content,
         cover_image: coverImage.trim(),
         author_name: authorName.trim(),
-        category,
+        category_id: categoryId || undefined,
         status: overrideStatus || postStatus,
       };
 
@@ -505,14 +484,14 @@ export default function PatientResources() {
                 </div>
                 <div>
                   <Label className="text-xs text-slate-500">Category</Label>
-                  <Select value={category} onValueChange={setCategory}>
+                  <Select value={categoryId} onValueChange={setCategoryId}>
                   <SelectTrigger className="mt-1">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {allCategories.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -701,6 +680,10 @@ export default function PatientResources() {
                     .slice()
                     .sort((a, b) => a.name.localeCompare(b.name))
                     .map((cat) => (
+                      (() => {
+                        const isGeneral =
+                          cat.name.trim().toLowerCase() === "general";
+                        return (
                       <div
                         key={cat.id}
                         className="flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2"
@@ -708,21 +691,25 @@ export default function PatientResources() {
                         <span className="text-sm text-slate-700">
                           {cat.name}
                         </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteCategory(cat.id)}
-                          disabled={deletingCategoryId === cat.id}
-                          className="text-slate-500 hover:text-red-600"
-                          aria-label={`Delete ${cat.name}`}
-                        >
-                          {deletingCategoryId === cat.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </Button>
+                        {!isGeneral && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteCategory(cat.id)}
+                            disabled={deletingCategoryId === cat.id}
+                            className="text-slate-500 hover:text-red-600"
+                            aria-label={`Delete ${cat.name}`}
+                          >
+                            {deletingCategoryId === cat.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
                       </div>
+                        );
+                      })()
                     ))}
                 </div>
               )}

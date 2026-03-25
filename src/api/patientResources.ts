@@ -8,6 +8,7 @@ export interface PatientResource {
   content: string;
   cover_image: string;
   category: string;
+  category_id: string | null;
   tags: string[];
   status: "draft" | "published" | "archived";
   published_at: string | null;
@@ -25,7 +26,7 @@ export interface PatientResourcePayload {
   content: string;
   cover_image?: string;
   author_name: string;
-  category?: string;
+  category_id?: string | null;
   tags?: string[];
   status?: "draft" | "published" | "archived";
   read_time_minutes?: number;
