@@ -7,7 +7,12 @@ import api from "../api/axiosInstance";
  */
 export async function uploadBrandAsset(
   file: File
-): Promise<{ url: string; fileName: string; mimeType: string }> {
+): Promise<{
+  url: string;
+  fileName: string;
+  mimeType: string;
+  path: string;
+}> {
   const fd = new FormData();
   fd.append("file", file);
   const { data } = await api.post<{
@@ -18,5 +23,10 @@ export async function uploadBrandAsset(
   }>("/brand-settings/upload/", fd, {
     headers: { "Content-Type": "multipart/form-data" },
   });
-  return { url: data.url, fileName: data.fileName, mimeType: data.mimeType };
+  return {
+    url: data.url,
+    fileName: data.fileName,
+    mimeType: data.mimeType,
+    path: data.path,
+  };
 }

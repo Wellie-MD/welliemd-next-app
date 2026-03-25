@@ -12,8 +12,16 @@ export interface BrandLogos {
     favicon: string;
 }
 
+/** Optional S3 metadata per logo slot (stored inside Client.branding_config JSON). */
+export interface LogoSlotMeta {
+    s3Key?: string;
+}
+
+export type LogosMeta = Partial<Record<keyof BrandLogos, LogoSlotMeta>>;
+
 export interface BrandSettings {
     logos: BrandLogos;
+    logosMeta?: LogosMeta;
     // loginPageImage has been deprecated in favor of a shared login video.
     // Kept optional for backward compatibility with existing data.
     loginPageImage?: string;
