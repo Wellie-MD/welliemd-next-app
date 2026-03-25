@@ -763,6 +763,71 @@ export default function OrderDetail() {
             </ul>
           </div>
 
+          {/* Prescribed Medicine (RX_WRITTEN) */}
+          <div className="bg-card rounded-xl shadow-sm border p-6">
+            <h3 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+              <FileText className="h-4 w-4 text-slate-400" />
+              Prescribed Medicine
+            </h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Doctor</span>
+                <span className="text-slate-900 dark:text-white font-medium">
+                  {order.doctor_name || "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Master ID</span>
+                <span className="text-slate-900 dark:text-white font-mono text-xs">
+                  {order.mrn || "—"}
+                </span>
+              </div>
+
+              <div className="pt-3 border-t border-border">
+                {order.prescription_medications && order.prescription_medications.length > 0 ? (
+                  <div className="space-y-3">
+                    {order.prescription_medications.map((med, idx) => (
+                      <div key={`${med.rxId || med.medId || med.name || idx}`} className="rounded-lg border p-3 bg-muted/40">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium text-slate-900 dark:text-white">
+                            {med.name || "Medication"}
+                          </span>
+                          {med.strength && (
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                              {med.strength}
+                            </span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-300">
+                          <div>
+                            <span className="text-slate-400">Quantity:</span>{" "}
+                            {med.quantity || "—"}
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Refills:</span>{" "}
+                            {med.refills || "—"}
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Med ID:</span>{" "}
+                            {med.medId || "—"}
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Rx ID:</span>{" "}
+                            {med.rxId || "—"}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500 dark:text-slate-400 italic">
+                    No prescription details available yet.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Support Notes */}
           <div className="bg-card rounded-xl shadow-sm border p-6">
             <div className="flex justify-between items-center mb-2">
