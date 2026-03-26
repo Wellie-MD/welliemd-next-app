@@ -74,7 +74,7 @@ export function FollowUpList({ questionnaireAppUrl, onStartFollowUp }: FollowUpL
       try {
         const result = await startFollowUp(followUp.id);
         if (result.success && result.follow_up_url) {
-          window.open(result.follow_up_url, '_blank');
+          window.location.assign(result.follow_up_url);
         } else {
           console.error('Failed to start follow-up:', result.error);
           alert(result.error || 'Failed to start follow-up. Please try again.');

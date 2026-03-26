@@ -467,14 +467,27 @@ export const useAuthStore = create<AuthState>()(
                   debugLog('Token refreshed successfully');
                 } catch (refreshError) {
                   debugLog('Token refresh failed, clearing auth state:', refreshError);
-                  // Guard against race: if user has already logged in successfully
-                  // while initialization was in-flight, do not wipe fresh auth state.
-                  if (get().isAuthenticated) {
+                  // Guard against race: if the user logged in successfully
+                  // while initialization was in-flight, a valid access token
+                  // should exist in memory. If refresh failed, tokenManager
+                  // will already be cleared.
+                  if (authService.isAuthenticated()) {
                     set((state) => {
                       state.isLoading = false;
                     });
                     return;
                   }
+
+                  // Clear persisted auth so we don't keep rehydrating stale access tokens
+                  // (which can trigger repeated refresh/redirect loops).
+                  if (typeof window !== 'undefined') {
+                    try {
+                      window.localStorage.removeItem('auth-store');
+                    } catch {
+                      // Best-effort only.
+                    }
+                  }
+
                   authService.clearAuthData();
                   set((state) => {
                     state.user = null;
@@ -514,11 +527,18 @@ export const useAuthStore = create<AuthState>()(
               debugLog('Auth initialization failed:', error);
               // Guard against race: do not clear session if auth became valid
               // via manual login while initializeAuth was in-flight.
-              if (get().isAuthenticated) {
+              if (authService.isAuthenticated()) {
                 set((state) => {
                   state.isLoading = false;
                 });
               } else {
+              if (typeof window !== 'undefined') {
+                try {
+                  window.localStorage.removeItem('auth-store');
+                } catch {
+                  // Best-effort only.
+                }
+              }
               authService.clearAuthData();
               set((state) => {
                 state.user = null;
