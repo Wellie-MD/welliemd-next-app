@@ -10,8 +10,10 @@ import {
 import {
   fetchBrandSettings,
   updateBrandSettings,
+  type BrandSettings,
+  type BrandLogos,
 } from "@/api/brandSettingsApi";
-import { messageService } from "@/services/messageService";
+import { uploadBrandAsset } from "@/services/brandAssetsService";
 import { toast } from "@/hooks/use-toast";
 
 interface UploadFieldProps {
@@ -212,8 +214,9 @@ export default function Brand() {
   const [loading, setLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<BrandSettings>({
     logos: { square: "", round: "", transparent: "", favicon: "" },
+    logosMeta: {},
     loginPageImage: "",
     primaryColor: "#3B82F6",
     secondaryColor: "#10B981",
@@ -253,13 +256,16 @@ export default function Brand() {
       // 2. Clear the current URL in formData so the UI resets
       setFormData((prev) => {
         if (path.startsWith("logos.")) {
-          const logoKey = path.split(".")[1];
+          const logoKey = path.split(".")[1] as keyof BrandLogos;
+          const nextMeta = { ...(prev.logosMeta || {}) };
+          delete nextMeta[logoKey];
           return {
             ...prev,
             logos: {
               ...prev.logos,
               [logoKey]: "", // Clear the saved URL
             },
+            logosMeta: nextMeta,
           };
         }
         // Handle top-level fields like loginPageImage
@@ -277,20 +283,27 @@ export default function Brand() {
     try {
       const updatedLogos = { ...formData.logos };
       let updatedLoginImg = formData.loginPageImage;
+      let updatedLogosMeta = { ...(formData.logosMeta || {}) };
 
       // Upload all pending files in parallel for speed
       const entries = Object.entries(filesToUpload);
       if (entries.length > 0) {
         const results = await Promise.all(
           entries.map(async ([path, file]) => {
-            const { url } = await messageService.uploadAttachment(file);
-            return { path, url };
+            const { url, path: s3Key } = await uploadBrandAsset(file);
+            return { path, url, s3Key };
           }),
         );
 
-        for (const { path, url } of results) {
-          if (path.startsWith("logos."))
-            (updatedLogos as any)[path.split(".")[1]] = url;
+        for (const { path, url, s3Key } of results) {
+          if (path.startsWith("logos.")) {
+            const slot = path.split(".")[1] as keyof BrandLogos;
+            updatedLogos[slot] = url;
+            updatedLogosMeta = {
+              ...updatedLogosMeta,
+              [slot]: { s3Key },
+            };
+          }
           if (path === "loginPageImage") updatedLoginImg = url;
         }
       }
@@ -299,6 +312,7 @@ export default function Brand() {
         ...formData,
         logos: updatedLogos,
         loginPageImage: updatedLoginImg,
+        logosMeta: updatedLogosMeta,
       });
 
       // Sync local state with what was actually saved so subsequent
@@ -307,6 +321,7 @@ export default function Brand() {
         ...prev,
         logos: updatedLogos,
         loginPageImage: updatedLoginImg,
+        logosMeta: updatedLogosMeta,
       }));
 
       toast({

@@ -193,7 +193,12 @@ export default function WebhooksApis() {
       }
     } catch (error: any) {
       console.error(error)
-      const msg = error.response?.data?.detail || "Failed to trigger test event"
+      const data = error.response?.data
+      const msg =
+        (typeof data?.error === "string" && data.error) ||
+        data?.detail ||
+        (Array.isArray(data?.detail) ? data.detail.map((d: unknown) => String(d)).join(", ") : null) ||
+        "Failed to trigger test event"
       toast({ title: "Error", description: msg, variant: "destructive" })
     }
   }
