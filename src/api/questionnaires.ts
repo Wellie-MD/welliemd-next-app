@@ -17,8 +17,10 @@ export interface QuestionnaireTemplate {
   treatment_type?: string; // Weight Loss, GLP-1, ED, etc.
   beluga_visit_type?: string; // Visit type (Initial Visit, Follow-up Consultation, etc.)
   slug?: string; // Optional routing slug (required for duplicate visit types)
-  requires_photo_upload: boolean;
-  requires_identity_verification: boolean;
+  requires_photo_upload?: boolean;
+  requires_labs?: boolean;
+  requires_identity_verification?: boolean;
+  min_age?: number;
   is_published: boolean;
   is_admin_template?: boolean;
   is_modified_need_to_re_assigned?: boolean; // True if template was modified and needs re-assignment
@@ -113,7 +115,9 @@ export interface CreateTemplatePayload {
   beluga_visit_type?: string;
   slug?: string;
   requires_photo_upload?: boolean;
+  requires_labs?: boolean;
   requires_identity_verification?: boolean;
+  min_age?: number;
   is_admin_template?: boolean;
   default_followup_template?: string | null;
 }
@@ -126,7 +130,9 @@ export interface UpdateTemplatePayload {
   beluga_visit_type?: string;
   slug?: string;
   requires_photo_upload?: boolean;
+  requires_labs?: boolean;
   requires_identity_verification?: boolean;
+  min_age?: number;
   is_admin_template?: boolean;
   default_followup_template?: string | null;
 }

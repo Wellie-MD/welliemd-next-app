@@ -89,7 +89,9 @@ export default function AddQuestionnairesForm({
     beluga_visit_type: "",
     slug: "",
     requires_photo_upload: false,
+    requires_labs: false,
     requires_identity_verification: false,
+    min_age: 18,
     is_admin_template: true,
     default_followup_template: null,
   })
@@ -104,8 +106,10 @@ export default function AddQuestionnairesForm({
         treatment_type: template.treatment_type || "",
         beluga_visit_type: template.beluga_visit_type || "",
         slug: template.slug || "",
-        requires_photo_upload: template.requires_photo_upload,
-        requires_identity_verification: template.requires_identity_verification,
+        requires_photo_upload: template.requires_photo_upload || false,
+        requires_labs: template.requires_labs || false,
+        requires_identity_verification: template.requires_identity_verification || false,
+        min_age: template.min_age || 18,
         is_admin_template: template.is_admin_template !== undefined ? template.is_admin_template : true,
         default_followup_template: template.default_followup_template || null,
       })
@@ -119,7 +123,9 @@ export default function AddQuestionnairesForm({
         beluga_visit_type: "",
         slug: "",
         requires_photo_upload: false,
+        requires_labs: false,
         requires_identity_verification: false,
+        min_age: 18,
         is_admin_template: true,
         default_followup_template: null,
       })
@@ -440,6 +446,17 @@ export default function AddQuestionnairesForm({
             </div>
 
             <div className="flex items-center justify-between">
+              <Label htmlFor="requires_labs">Require Labs</Label>
+              <Switch
+                id="requires_labs"
+                checked={formData.requires_labs || false}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, requires_labs: checked })
+                }
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
               <Label htmlFor="requires_verification">
                 Requires Identity Verification
               </Label>
@@ -450,6 +467,22 @@ export default function AddQuestionnairesForm({
                   setFormData({ ...formData, requires_identity_verification: checked })
                 }
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="min_age">Minimum Age</Label>
+              <Input
+                id="min_age"
+                type="number"
+                min={0}
+                max={120}
+                value={formData.min_age || 18}
+                onChange={(e) => setFormData({ ...formData, min_age: parseInt(e.target.value) || 0 })}
+                placeholder="18"
+              />
+              <p className="text-xs text-muted-foreground">
+                Patients must be at least this age to complete the questionnaire. Set to 0 to disable age check.
+              </p>
             </div>
           </div>
 
