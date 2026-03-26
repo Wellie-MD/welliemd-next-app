@@ -23,8 +23,8 @@ import { productApi, Product } from "@/api/products";
 import {
   PRODUCT_TYPE_OPTIONS,
   PURCHASE_TYPE_OPTIONS,
-  RX_OTC_OPTIONS,
   TREATMENT_OPTIONS,
+  RX_OTC_OPTIONS,
   RX_DRUG_FORM_OPTIONS,
 } from "@/api/products";
 import { CategorySelector } from "./CategorySelector";
@@ -45,19 +45,14 @@ const normalizeTreatmentKey = (value: string): string =>
     .replace(/[_-]+/g, " ")
     .replace(/\s+/g, " ");
 
-const buildMergedTreatmentOptions = (
-  baseOptions: TreatmentOption[],
+const buildQuestionnaireTreatmentOptions = (
   questionnaireTreatmentTypes: string[]
 ): TreatmentOption[] => {
-  const merged: TreatmentOption[] = [];
+  const baseByNormalizedLabel = new Map(
+    TREATMENT_OPTIONS.map((opt) => [normalizeTreatmentKey(opt.label), opt] as const)
+  );
+  const options: TreatmentOption[] = [];
   const seen = new Set<string>();
-
-  for (const option of baseOptions) {
-    const key = normalizeTreatmentKey(option.label || option.value);
-    if (!key || seen.has(key)) continue;
-    merged.push(option);
-    seen.add(key);
-  }
 
   const uniqueQuestionnaireTypes = Array.from(
     new Set(
@@ -68,17 +63,21 @@ const buildMergedTreatmentOptions = (
   ).sort((a, b) => a.localeCompare(b));
 
   for (const treatmentType of uniqueQuestionnaireTypes) {
-    const key = normalizeTreatmentKey(treatmentType);
-    if (!key || seen.has(key)) continue;
+    const normalizedLabel = normalizeTreatmentKey(treatmentType);
+    if (!normalizedLabel) continue;
 
-    merged.push({
-      value: treatmentType,
+    const mappedOption = baseByNormalizedLabel.get(normalizedLabel);
+    if (!mappedOption) continue;
+    if (seen.has(mappedOption.value)) continue;
+
+    options.push({
+      value: mappedOption.value,
       label: treatmentType,
     });
-    seen.add(key);
+    seen.add(mappedOption.value);
   }
 
-  return merged;
+  return options;
 };
 
 interface ProductFormModalProps {
@@ -97,7 +96,7 @@ export function ProductFormModal({
   const [loading, setLoading] = useState(false);
   const [pharmacies, setPharmacies] = useState<any[]>([]);
   const [doseMappings, setDoseMappings] = useState<ProductDoseMapping[]>([]);
-  const [treatmentOptions, setTreatmentOptions] = useState<TreatmentOption[]>(TREATMENT_OPTIONS);
+  const [treatmentOptions, setTreatmentOptions] = useState<TreatmentOption[]>([]);
   const [loadingDoseMappings, setLoadingDoseMappings] = useState(false);
   // Track the category for which dose mappings were loaded
   const doseMappingsLoadedForCategoryRef = useRef<number | null>(null);
@@ -114,7 +113,7 @@ export function ProductFormModal({
     pharmacy: null as string | null,
     product_type: "single",
     purchase_type: "one_time",
-    treatment: "general",
+    treatment: "weight_loss",
     rx_or_otc: "rx",
     base_price: "0.00",
     cost_to_client: "0.00",
@@ -153,7 +152,7 @@ export function ProductFormModal({
     }
   }, [open]);
 
-  // Merge hardcoded treatments with questionnaire treatment_type values
+  // Load treatment options only from questionnaire treatment_type values
   useEffect(() => {
     const fetchTreatmentOptions = async () => {
       try {
@@ -162,15 +161,10 @@ export function ProductFormModal({
           .map((template) => template.treatment_type || "")
           .filter(Boolean);
 
-        setTreatmentOptions(
-          buildMergedTreatmentOptions(
-            TREATMENT_OPTIONS,
-            questionnaireTreatmentTypes
-          )
-        );
+        setTreatmentOptions(buildQuestionnaireTreatmentOptions(questionnaireTreatmentTypes));
       } catch (error) {
         console.error("Failed to fetch questionnaire treatment types:", error);
-        setTreatmentOptions(TREATMENT_OPTIONS);
+        setTreatmentOptions([]);
       }
     };
 
@@ -278,7 +272,7 @@ export function ProductFormModal({
         pharmacy: product.pharmacy ? String(product.pharmacy) : null,
         product_type: product.product_type || "single",
         purchase_type: product.purchase_type || "one_time",
-        treatment: product.treatment || "general",
+        treatment: product.treatment || "weight_loss",
         rx_or_otc: product.rx_or_otc || "rx",
         base_price: product.base_price?.toString() || "0.00",
         cost_to_client: product.cost_to_client?.toString() || "0.00",
@@ -314,7 +308,7 @@ export function ProductFormModal({
         pharmacy: null,
         product_type: "single",
         purchase_type: "one_time",
-        treatment: "general",
+        treatment: "weight_loss",
         rx_or_otc: "rx",
         base_price: "0.00",
         cost_to_client: "0.00",

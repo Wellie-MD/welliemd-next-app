@@ -104,10 +104,11 @@ export default function Products() {
         if (activeTreatmentFilter !== "All Treatments") {
           const treatmentMapping: Record<string, string> = {
             "Weight Loss": "weight_loss",
-            "Erectile Dysfunction": "ed",
-            GLP: "glp",
-            "Individualized GLP": "individualized_glp",
-            General: "general",
+            Glutathione: "glutathione",
+            ED: "ed",
+            "GLP Microdosing": "glp_microdosing",
+            Sermorelin: "sermorelin",
+            "NAD+": "nad_plus",
           };
           params.treatment = treatmentMapping[activeTreatmentFilter];
         }
