@@ -165,7 +165,7 @@ export default function AddProductForm({
                 <input 
                   {...register("name")} 
                   disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
                 />
               </div>
               <div>
@@ -173,7 +173,7 @@ export default function AddProductForm({
                 <input 
                   {...register("product_type")} 
                   disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
                 />
               </div>
               <div>
@@ -181,7 +181,7 @@ export default function AddProductForm({
                 <input 
                   {...register("treatment")} 
                   disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
                 />
               </div>
               <div>
@@ -189,7 +189,7 @@ export default function AddProductForm({
                 <input 
                   {...register("purchase_type")} 
                   disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
                 />
               </div>
               <div>
@@ -197,7 +197,7 @@ export default function AddProductForm({
                 <input 
                   {...register("rx_or_otc")} 
                   disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
                 />
               </div>
               <div>
@@ -205,7 +205,7 @@ export default function AddProductForm({
                 <input 
                   {...register("manufacturer_name")} 
                   disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
                 />
               </div>
               <div>
@@ -213,7 +213,7 @@ export default function AddProductForm({
                 <input 
                   {...register("ndc_number")} 
                   disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
                 />
               </div>
               <div>
@@ -221,7 +221,7 @@ export default function AddProductForm({
                 <input 
                   {...register("dose")} 
                   disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
                 />
               </div>
               <div>
@@ -229,7 +229,7 @@ export default function AddProductForm({
                 <input 
                   {...register("rx_drug_form")} 
                   disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
                 />
               </div>
               <div>
@@ -237,7 +237,7 @@ export default function AddProductForm({
                 <input 
                   {...register("refills")} 
                   disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
                 />
               </div>
               <div>
@@ -245,7 +245,7 @@ export default function AddProductForm({
                 <input 
                   {...register("rx_quantity")} 
                   disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1" 
+                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
                 />
               </div>
             </div>
@@ -258,11 +258,11 @@ export default function AddProductForm({
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Cost to Client (Admin)</label>
                 <div className="flex items-center mt-1">
-                  <span className="border px-3 py-2 rounded-l bg-muted text-muted-foreground">$</span>
+                  <span className="border px-3 py-2 rounded-l bg-muted text-muted-foreground dark:border-slate-700 dark:bg-slate-900/60">$</span>
                   <input 
                     value={product?.cost_to_client ?? ""}
                     disabled 
-                    className="border border-l-0 px-3 py-2 rounded-r w-full bg-muted text-muted-foreground cursor-not-allowed" 
+                    className="border border-l-0 px-3 py-2 rounded-r w-full bg-muted text-muted-foreground cursor-not-allowed dark:border-slate-700 dark:bg-slate-900/60" 
                   />
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">Admin-set cost used for reimbursement</p>
@@ -270,11 +270,11 @@ export default function AddProductForm({
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Shipping Cost to Client (Admin)</label>
                 <div className="flex items-center mt-1">
-                  <span className="border px-3 py-2 rounded-l bg-muted text-muted-foreground">$</span>
+                  <span className="border px-3 py-2 rounded-l bg-muted text-muted-foreground dark:border-slate-700 dark:bg-slate-900/60">$</span>
                   <input 
                     value={product?.shipping_cost_to_client ?? ""}
                     disabled 
-                    className="border border-l-0 px-3 py-2 rounded-r w-full bg-muted text-muted-foreground cursor-not-allowed" 
+                    className="border border-l-0 px-3 py-2 rounded-r w-full bg-muted text-muted-foreground cursor-not-allowed dark:border-slate-700 dark:bg-slate-900/60" 
                   />
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">Admin-set shipping cost used for reimbursement</p>
@@ -289,12 +289,12 @@ export default function AddProductForm({
               <div>
                 <label className="text-sm font-medium">Base Price (Patient)</label>
                 <div className="flex items-center mt-1">
-                  <span className="border px-3 py-2 rounded-l bg-gray-50">$</span>
+                  <span className="border px-3 py-2 rounded-l bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">$</span>
                   <input 
                     type="number"
                     step="0.01"
                     {...register("base_price")} 
-                    className="border border-l-0 px-3 py-2 rounded-r w-full" 
+                    className="border border-l-0 px-3 py-2 rounded-r w-full bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
                     placeholder="0.00"
                   />
                 </div>
@@ -304,12 +304,12 @@ export default function AddProductForm({
               <div>
                 <label className="text-sm font-medium">Discounted Price (Patient)</label>
                 <div className="flex items-center mt-1">
-                  <span className="border px-3 py-2 rounded-l bg-gray-50">$</span>
+                  <span className="border px-3 py-2 rounded-l bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">$</span>
                   <input 
                     type="number"
                     step="0.01"
                     {...register("discounted_price")} 
-                    className="border border-l-0 px-3 py-2 rounded-r w-full" 
+                    className="border border-l-0 px-3 py-2 rounded-r w-full bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
                     placeholder="0.00"
                   />
                 </div>
@@ -319,12 +319,12 @@ export default function AddProductForm({
               <div>
                 <label className="text-sm font-medium">Shipping Fee (Patient)</label>
                 <div className="flex items-center mt-1">
-                  <span className="border px-3 py-2 rounded-l bg-gray-50">$</span>
+                  <span className="border px-3 py-2 rounded-l bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">$</span>
                   <input 
                     type="number"
                     step="0.01"
                     {...register("shipping_fee_patient")} 
-                    className="border border-l-0 px-3 py-2 rounded-r w-full" 
+                    className="border border-l-0 px-3 py-2 rounded-r w-full bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
                     placeholder="0.00"
                   />
                 </div>
@@ -336,7 +336,7 @@ export default function AddProductForm({
                 <input 
                   type="text" 
                   {...register("quantity")} 
-                  className="border px-3 py-2 rounded w-full mt-1" 
+                  className="border px-3 py-2 rounded w-full mt-1 bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
                   placeholder="Available quantity"
                 />
                 <p className="text-xs text-muted-foreground mt-1">Available inventory</p>
@@ -354,7 +354,7 @@ export default function AddProductForm({
                 <textarea 
                   rows={4} 
                   {...register("description")} 
-                  className="border px-3 py-2 rounded w-full mt-1" 
+                  className="border px-3 py-2 rounded w-full mt-1 bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
                   placeholder="Enter product description"
                 />
               </div>
@@ -364,7 +364,7 @@ export default function AddProductForm({
                 <textarea 
                   rows={4} 
                   {...register("application_directions")} 
-                  className="border px-3 py-2 rounded w-full mt-1" 
+                  className="border px-3 py-2 rounded w-full mt-1 bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
                   placeholder="How to use/apply the product"
                 />
               </div>
@@ -374,7 +374,7 @@ export default function AddProductForm({
                 <textarea 
                   rows={4} 
                   {...register("learn_more")} 
-                  className="border px-3 py-2 rounded w-full mt-1" 
+                  className="border px-3 py-2 rounded w-full mt-1 bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
                   placeholder="Additional information"
                 />
               </div>
@@ -384,7 +384,7 @@ export default function AddProductForm({
                 <textarea 
                   rows={4} 
                   {...register("safety_information")} 
-                  className="border px-3 py-2 rounded w-full mt-1" 
+                  className="border px-3 py-2 rounded w-full mt-1 bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
                   placeholder="Safety information for patients"
                 />
               </div>
@@ -394,7 +394,7 @@ export default function AddProductForm({
                 <textarea 
                   rows={4} 
                   {...register("side_effects")} 
-                  className="border px-3 py-2 rounded w-full mt-1" 
+                  className="border px-3 py-2 rounded w-full mt-1 bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
                   placeholder="Potential side effects"
                 />
               </div>
@@ -411,7 +411,7 @@ export default function AddProductForm({
                     <img 
                       src={product.product_image} 
                       alt={product.name}
-                      className="max-w-xs max-h-48 rounded-lg border border-gray-200 object-contain"
+                      className="max-w-xs max-h-48 rounded-lg border border-gray-200 dark:border-slate-700 object-contain"
                       onError={(e) => {
                         // Fallback if image fails to load
                         e.currentTarget.style.display = 'none';
@@ -429,7 +429,7 @@ export default function AddProductForm({
                 type="file" 
                 accept="image/*" 
                 onChange={(e) => setValue("product_image", e.target.files?.[0] ?? null)} 
-                className="border px-3 py-2 rounded w-full" 
+                className="border px-3 py-2 rounded w-full bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
               />
               <p className="text-xs text-muted-foreground mt-1">
                 Upload a new image to replace the current one
@@ -437,7 +437,7 @@ export default function AddProductForm({
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t sticky bottom-0 bg-white">
+          <div className="flex justify-end gap-3 pt-4 border-t dark:border-slate-700 sticky bottom-0 bg-white dark:bg-slate-900">
             <Button
               type="button"
               variant="outline"

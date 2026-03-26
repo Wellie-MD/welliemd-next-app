@@ -122,8 +122,8 @@ const getTemplateColumns = (
             disabled={isDisabled}
             className={
               row.is_published
-                ? "text-red-600 border-red-600 hover:bg-red-50"
-                : ""
+                ? "text-red-600 border-red-600 hover:bg-red-50 dark:text-red-300 dark:border-red-700 dark:hover:bg-red-900/30"
+                : "bg-sky-600 hover:bg-sky-700 text-white dark:bg-sky-500 dark:hover:bg-sky-400"
             }
             title={
               isArchivedByAdmin
@@ -151,7 +151,7 @@ const getTemplateColumns = (
     render: (value: boolean, row: QuestionnaireTemplate) => {
       if (row.is_archived || row.archived_by_admin) {
         return (
-          <Badge variant="secondary" className="bg-gray-200 text-gray-700">
+          <Badge variant="secondary" className="bg-gray-200 text-gray-700 dark:bg-slate-800 dark:text-slate-300">
             Archived
           </Badge>
         );
@@ -159,7 +159,7 @@ const getTemplateColumns = (
       return (
         <Badge
           variant={value ? "default" : "secondary"}
-          className={value ? "bg-green-100 text-green-800" : ""}
+          className={value ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" : ""}
         >
           {value ? "Approved" : "Draft"}
         </Badge>

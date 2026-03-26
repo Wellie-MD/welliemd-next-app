@@ -105,20 +105,22 @@ export function SettingsSidebar({
       <div className={`flex w-full p-4 ${collapsed ? "justify-center" : "justify-between"
         }`}>
         {!collapsed && !isLoading && logos?.square && (
-  <img
-    src={logos.square}
-    alt="Logo"
-    className="h-8 w-auto max-w-[200px] object-contain"
-    onError={(e) => {
-      e.currentTarget.style.display = "none"
-    }}
-  />
+  <div className="brand-logo-shell">
+    <img
+      src={logos.square}
+      alt="Logo"
+      className="h-8 w-auto max-w-[200px] object-contain"
+      onError={(e) => {
+        e.currentTarget.style.display = "none"
+      }}
+    />
+  </div>
 )}
 
         {/* <SidebarTrigger className="text-gray-600 hover:bg-white/50 rounded-md p-1" /> */}
         <button
           onClick={onToggle}
-          className="text-gray-600 hover:bg-muted rounded-md p-1 "
+          className="text-gray-600 dark:text-slate-300 hover:bg-muted rounded-md p-1 "
         >
           {collapsed ? <ChevronsRight className="h-4 w-4" /> : <X className="h-4 w-4" />}
         </button>
@@ -138,7 +140,7 @@ export function SettingsSidebar({
                       className={`
                         group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
                         ${collapsed ? "p-2 justify-center w-10 h-10 mx-auto" : "px-3 py-2.5"}
-                        text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]
+                        text-gray-600 dark:text-slate-300 hover:text-[#12517A] hover:bg-[#F8FBFC] dark:hover:bg-slate-800
                       `}
                     >
                       <ChevronLeft className="h-4 w-4 flex-shrink-0" />
@@ -166,7 +168,7 @@ export function SettingsSidebar({
                           ${collapsed ? "p-2 justify-center w-10 h-10 mx-auto" : "px-3 py-2.5"}
                           ${isActive(item.url)
                             ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm"
-                            : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
+                            : "text-gray-600 dark:text-slate-300 hover:text-[#12517A] hover:bg-[#F8FBFC] dark:hover:bg-slate-800"
                           }
                         `}
                       >

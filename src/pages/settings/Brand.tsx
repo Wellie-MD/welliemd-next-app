@@ -3,6 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   X,
   Upload,
   Image as ImageIcon,
@@ -82,17 +89,17 @@ const FileUploadField = ({
           )}
         </div>
         {recommendedResolution && (
-          <span className="text-xs font-medium text-sky-600 bg-sky-50 px-2 py-1 rounded">
+          <span className="text-xs font-medium text-sky-600 dark:text-sky-300 bg-sky-50 dark:bg-sky-900/30 px-2 py-1 rounded">
             {recommendedResolution}
           </span>
         )}
       </div>
       <div
         className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${dragOver
-            ? "border-sky-400 bg-sky-50"
+            ? "border-sky-400 bg-sky-50 dark:bg-sky-900/30"
             : selectedFile || currentUrl
-              ? "border-green-300 bg-green-50"
-              : "border-gray-300 hover:border-gray-400"
+              ? "border-green-300 bg-green-50 dark:bg-emerald-900/20"
+              : "border-gray-300 hover:border-gray-400 dark:border-slate-700 dark:hover:border-slate-500"
           }`}
         onDragOver={(e) => {
           e.preventDefault();
@@ -109,7 +116,7 @@ const FileUploadField = ({
         {selectedFile || currentUrl ? (
           <div className="flex flex-col items-center gap-3">
             {/* Image Preview Container */}
-            <div className="relative w-24 h-24 border rounded bg-white overflow-hidden shadow-sm flex items-center justify-center">
+            <div className="relative w-24 h-24 border rounded bg-white dark:bg-slate-900 overflow-hidden shadow-sm flex items-center justify-center">
               <img
                 src={displayUrl}
                 alt="Preview"
@@ -119,17 +126,17 @@ const FileUploadField = ({
               />
             </div>
 
-            <div className="flex items-center justify-between w-full p-2 bg-white rounded border">
+            <div className="flex items-center justify-between w-full p-2 bg-white dark:bg-slate-900 rounded border dark:border-slate-700">
               <div className="flex items-center gap-2 overflow-hidden">
-                <ImageIcon className="w-4 h-4 text-gray-500 shrink-0" />
-                <span className="text-sm text-gray-700 truncate">
+                <ImageIcon className="w-4 h-4 text-gray-500 dark:text-slate-400 shrink-0" />
+                <span className="text-sm text-gray-700 dark:text-slate-200 truncate">
                   {selectedFile ? selectedFile.name : "File currently saved"}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => handleFileSelect(null)}
-                className="text-gray-400 hover:text-gray-600 ml-2"
+                className="text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300 ml-2"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -137,11 +144,11 @@ const FileUploadField = ({
           </div>
         ) : (
           <div className="space-y-2">
-            <Upload className="w-6 h-6 text-gray-400 mx-auto" />
-            <div className="text-sm text-gray-600">
+            <Upload className="w-6 h-6 text-gray-400 dark:text-slate-500 mx-auto" />
+            <div className="text-sm text-gray-600 dark:text-slate-300">
               <button
                 type="button"
-                className="text-sky-600 font-medium"
+                className="text-sky-600 dark:text-sky-400 font-medium"
                 onClick={() =>
                   document.getElementById(`file-${label}`)?.click()
                 }
@@ -219,6 +226,7 @@ export default function Brand() {
     secondaryColor: "#10B981",
     accentColor: "#F59E0B",
     neutralColor: "#F3F4F6",
+    patientPortalTheme: "light",
   });
 
   const [filesToUpload, setFilesToUpload] = useState<Record<string, File>>({});
@@ -487,6 +495,39 @@ export default function Brand() {
                   "#111827",
                 ]}
               /> */}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Patient Portal Theme */}
+            <Card>
+              <CardContent className="p-6 space-y-4">
+                <div>
+                  <h2 className="text-lg font-medium">Patient Portal Theme</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Select the default theme patients see when they visit the
+                    portal.
+                  </p>
+                </div>
+                <div className="max-w-sm">
+                  <Label className="text-sm font-medium">Default Theme</Label>
+                  <Select
+                    value={formData.patientPortalTheme}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        patientPortalTheme: value as "light" | "dark",
+                      })
+                    }
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Select theme" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="light">Light</SelectItem>
+                      <SelectItem value="dark">Dark</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>

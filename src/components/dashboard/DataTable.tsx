@@ -27,13 +27,13 @@ export function DataTable({ title, data, columns }: DataTableProps) {
   const navigate = useNavigate()
 
   return (
-    <Card className="rounded-2xl border-border/70 bg-gradient-to-br from-primary/5 via-background to-blue-50/30 shadow-sm w-full">
+    <Card className="rounded-2xl border-border/70 bg-gradient-to-br from-primary/5 via-background to-blue-50/30 dark:to-slate-900/40 shadow-sm w-full">
       <CardHeader className="flex flex-row items-start justify-between">
-        <CardTitle className="text-gray-800">{title}</CardTitle>
+        <CardTitle className="text-gray-800 dark:text-slate-100">{title}</CardTitle>
         <Button
           variant="ghost"
           size="sm"
-          className="text-blue-600 hover:text-blue-700"
+          className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
           onClick={() => navigate("/dashboard/orders")}
         >
           View All
@@ -43,9 +43,9 @@ export function DataTable({ title, data, columns }: DataTableProps) {
         <div className="max-w-full overflow-x-visible w-full">
           <Table className="w-full">
             <TableHeader>
-              <TableRow className="border-gray-200">
+              <TableRow className="border-gray-200 dark:border-slate-800">
                 {columns.map((column) => (
-                  <TableHead key={column.key} className="font-medium text-xs text-gray-600 bg-gray-50 text-nowrap px-2">
+                  <TableHead key={column.key} className="font-medium text-xs text-gray-600 dark:text-slate-300 bg-gray-50 dark:bg-slate-800 text-nowrap px-2">
                     {column.label}
                   </TableHead>
                 ))}
@@ -53,11 +53,11 @@ export function DataTable({ title, data, columns }: DataTableProps) {
             </TableHeader>
             <TableBody>
               {data.map((row, index) => (
-                <TableRow key={index} className="border-gray-100">
+                <TableRow key={index} className="border-gray-100 dark:border-slate-800">
                   {columns.map((column) => (
-                    <TableCell key={column.key} className="text-xs text-gray-800 text-nowrap px-2">
+                    <TableCell key={column.key} className="text-xs text-gray-800 dark:text-slate-100 text-nowrap px-2">
                       {column.key === "orderNumber" ? (
-                        <span className="text-gray-800">{row[column.key]}</span>
+                        <span className="text-gray-800 dark:text-slate-100">{row[column.key]}</span>
                       ) : (
                         row[column.key]
                       )}

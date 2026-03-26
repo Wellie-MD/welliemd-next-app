@@ -21,6 +21,7 @@ export interface BrandSettings {
     secondaryColor?: string;
     accentColor?: string;
     neutralColor?: string;
+    patientPortalTheme?: 'light' | 'dark';
 }
 
 export interface PublicBrandSettings {

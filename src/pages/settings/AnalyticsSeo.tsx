@@ -59,10 +59,10 @@ const FileUploadField = ({ label, description, accept, maxSize, onFileSelect }: 
         className={`
           relative border-2 border-dashed rounded-lg p-8 text-center transition-colors
           ${dragOver 
-            ? 'border-sky-400 bg-sky-50' 
+            ? 'border-sky-400 bg-sky-50 dark:bg-sky-900/30' 
             : selectedFile 
-              ? 'border-green-300 bg-green-50' 
-              : 'border-gray-300 hover:border-gray-400'
+              ? 'border-green-300 bg-green-50 dark:bg-emerald-900/20' 
+              : 'border-gray-300 hover:border-gray-400 dark:border-slate-700 dark:hover:border-slate-500'
           }
         `}
         onDragOver={handleDragOver}
@@ -70,27 +70,27 @@ const FileUploadField = ({ label, description, accept, maxSize, onFileSelect }: 
         onDrop={handleDrop}
       >
         {selectedFile ? (
-          <div className="flex items-center justify-between p-2 bg-white rounded border">
+          <div className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 rounded border dark:border-slate-700">
             <div className="flex items-center gap-2">
-              <ImageIcon className="w-4 h-4 text-gray-500" />
-              <span className="text-sm text-gray-700 truncate">{selectedFile.name}</span>
+              <ImageIcon className="w-4 h-4 text-gray-500 dark:text-slate-400" />
+              <span className="text-sm text-gray-700 dark:text-slate-200 truncate">{selectedFile.name}</span>
             </div>
             <button
               type="button"
               onClick={removeFile}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
         ) : (
           <div className="space-y-2">
-            <Upload className="w-8 h-8 text-gray-400 mx-auto" />
-            <div className="text-sm text-gray-600">
+            <Upload className="w-8 h-8 text-gray-400 dark:text-slate-500 mx-auto" />
+            <div className="text-sm text-gray-600 dark:text-slate-300">
               <span>Drag and drop an image file here or </span>
               <button
                 type="button"
-                className="text-sky-600 hover:text-sky-700 font-medium underline"
+                className="text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 font-medium underline"
                 onClick={() => document.getElementById(`file-${label.replace(/\s+/g, '-').toLowerCase()}`)?.click()}
               >
                 Browse
@@ -176,7 +176,7 @@ export default function AnalyticsSeo() {
                     type="button" 
                     variant="outline" 
                     size="sm" 
-                    className="text-sky-600 border-sky-600 hover:bg-sky-50"
+                    className="text-sky-600 border-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:border-sky-700 dark:hover:bg-sky-900/30"
                   >
                     Save
                   </Button>
@@ -196,7 +196,7 @@ export default function AnalyticsSeo() {
                     type="button" 
                     variant="outline" 
                     size="sm" 
-                    className="text-sky-600 border-sky-600 hover:bg-sky-50"
+                    className="text-sky-600 border-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:border-sky-700 dark:hover:bg-sky-900/30"
                   >
                     Save
                   </Button>
@@ -284,7 +284,7 @@ export default function AnalyticsSeo() {
               <div className="space-y-4">
                 <div>
                   <h3 className="text-sm font-medium mb-2">Social Share Preview</h3>
-                  <div className="border rounded-lg p-4 bg-gray-50">
+                  <div className="border rounded-lg p-4 bg-gray-50 dark:bg-slate-900 dark:border-slate-700">
                     <div className="space-y-2">
                       <div>
                         <Label className="text-xs text-muted-foreground">Page Title</Label>
@@ -297,7 +297,7 @@ export default function AnalyticsSeo() {
                       </div>
                       <div>
                         <Label className="text-xs text-muted-foreground">Meta description</Label>
-                        <div className="text-sm text-gray-600 mt-1 p-2 bg-white border rounded">
+                        <div className="text-sm text-gray-600 dark:text-slate-300 mt-1 p-2 bg-white dark:bg-slate-950 border rounded dark:border-slate-700">
                           {formData.defaultDescription || "Meta description"}
                         </div>
                       </div>

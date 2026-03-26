@@ -147,7 +147,7 @@ export default function AddCouponForm({
   return (
     <Dialog open={open} onOpenChange={(v) => onOpenChange?.(v)}>
       <DialogTrigger className="hidden" />
-      <DialogContent className="max-w-3xl w-full p-0 overflow-hidden">
+      <DialogContent className="max-w-3xl w-full p-0 overflow-hidden dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700">
         <DialogHeader className="px-6 pt-6">
           <DialogTitle>
             {mode === "edit" ? `Edit Coupon${coupon?.code ? `: ${coupon.code}` : ""}` : "Create New Coupon"}
@@ -180,7 +180,7 @@ export default function AddCouponForm({
                   <label className="block text-sm font-medium mb-1">Type *</label>
                   <select
                     {...register("type", { required: true })}
-                    className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 bg-white"
+                    className="border px-3 py-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
                   >
                     <option value="fixed">Fixed Amount</option>
                     <option value="percent">Percent</option>
@@ -203,7 +203,7 @@ export default function AddCouponForm({
                       {...register("value", { required: true })}
                       className="rounded-r-none"
                     />
-                    <span className="border border-l-0 rounded-r px-3 py-2 text-sm bg-gray-50 shrink-0">
+                    <span className="border border-l-0 rounded-r px-3 py-2 text-sm bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 shrink-0">
                       {type === "percent" ? "%" : "$"}
                     </span>
                   </div>
@@ -236,12 +236,45 @@ export default function AddCouponForm({
                           styles={{
                             control: (provided, state) => ({
                               ...provided,
-                              borderColor: state.isFocused ? '#0ea5e9' : provided.borderColor,
+                              backgroundColor: "hsl(var(--background))",
+                              color: "hsl(var(--foreground))",
+                              borderColor: state.isFocused ? '#0ea5e9' : 'hsl(var(--border))',
                               boxShadow: state.isFocused ? '0 0 0 3px rgba(14, 165, 233, 0.1)' : provided.boxShadow,
                               '&:hover': {
-                                borderColor: state.isFocused ? '#0ea5e9' : provided.borderColor,
+                                borderColor: state.isFocused ? '#0ea5e9' : 'hsl(var(--border))',
                               }
-                            })
+                            }),
+                            menu: (provided) => ({
+                              ...provided,
+                              backgroundColor: "hsl(var(--popover))",
+                              color: "hsl(var(--foreground))",
+                              border: "1px solid hsl(var(--border))",
+                            }),
+                            option: (provided, state) => ({
+                              ...provided,
+                              backgroundColor: state.isSelected
+                                ? "hsl(var(--primary))"
+                                : state.isFocused
+                                ? "hsl(var(--accent))"
+                                : "transparent",
+                              color: state.isSelected ? "hsl(var(--primary-foreground))" : "hsl(var(--foreground))",
+                            }),
+                            singleValue: (provided) => ({
+                              ...provided,
+                              color: "hsl(var(--foreground))",
+                            }),
+                            multiValue: (provided) => ({
+                              ...provided,
+                              backgroundColor: "hsl(var(--muted))",
+                            }),
+                            multiValueLabel: (provided) => ({
+                              ...provided,
+                              color: "hsl(var(--foreground))",
+                            }),
+                            placeholder: (provided) => ({
+                              ...provided,
+                              color: "hsl(var(--muted-foreground))",
+                            }),
                           }}
                         />
                       )
@@ -261,7 +294,7 @@ export default function AddCouponForm({
                     type="checkbox" 
                     {...register("is_active")} 
                     id="is_active" 
-                    className="h-4 w-4 text-sky-600 focus:ring-sky-500 border-gray-300 rounded" 
+                    className="h-4 w-4 text-sky-600 focus:ring-sky-500 border-gray-300 dark:border-slate-600 dark:bg-slate-900 rounded" 
                   />
                   <label htmlFor="is_active" className="text-sm font-medium select-none">
                     Is Active
@@ -283,7 +316,7 @@ export default function AddCouponForm({
         </div>
 
         {/* Sticky footer */}
-        <div className="sticky bottom-0 left-0 right-0 bg-white border-t px-6 py-4 flex justify-end">
+        <div className="sticky bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t dark:border-slate-700 px-6 py-4 flex justify-end">
           <Button
             type="submit"
             form="coupon-form"
