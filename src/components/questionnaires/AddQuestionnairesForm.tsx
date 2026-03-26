@@ -87,6 +87,7 @@ export default function AddQuestionnairesForm({
     questionnaire_type: "onboarding",
     treatment_type: "",
     beluga_visit_type: "",
+    slug: "",
     requires_photo_upload: false,
     requires_labs: false,
     requires_identity_verification: false,
@@ -103,6 +104,7 @@ export default function AddQuestionnairesForm({
         questionnaire_type: template.questionnaire_type,
         treatment_type: template.treatment_type || "",
         beluga_visit_type: template.beluga_visit_type || "",
+        slug: template.slug || "",
         requires_photo_upload: template.requires_photo_upload,
         requires_labs: (template as any).requires_labs || false,
         requires_identity_verification: template.requires_identity_verification,
@@ -117,6 +119,7 @@ export default function AddQuestionnairesForm({
         questionnaire_type: "onboarding",
         treatment_type: "",
         beluga_visit_type: "",
+        slug: "",
         requires_photo_upload: false,
         requires_labs: false,
         requires_identity_verification: false,
@@ -232,6 +235,7 @@ export default function AddQuestionnairesForm({
       const payload = {
         ...formData,
         beluga_visit_type: formData.beluga_visit_type.trim() === "" ? undefined : formData.beluga_visit_type,
+        slug: (formData.slug || "").trim() === "" ? undefined : formData.slug,
       }
 
       let createdTemplate: QuestionnaireTemplate
@@ -361,6 +365,20 @@ export default function AddQuestionnairesForm({
               onChange={(e) => setFormData({ ...formData, beluga_visit_type: e.target.value })}
               placeholder="e.g., Initial Visit, Follow-up, Consultation (optional)"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="slug">URL Slug</Label>
+            <Input
+              id="slug"
+              value={formData.slug || ""}
+              onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+              placeholder="e.g., initial-visit-v2 (optional)"
+            />
+            <p className="text-xs text-muted-foreground">
+              Optional routing slug. If multiple active templates share the same Visit Type,
+              each one needs a unique slug. If left blank, backend auto-generates one when required.
+            </p>
           </div>
 
           {formData.questionnaire_type === "onboarding" && (

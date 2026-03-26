@@ -16,6 +16,7 @@ export interface QuestionnaireTemplate {
   questionnaire_type: "onboarding" | "follow_up"; // Onboarding or Follow-up
   treatment_type?: string; // Weight Loss, GLP-1, ED, etc.
   beluga_visit_type?: string; // Visit type (Initial Visit, Follow-up Consultation, etc.)
+  slug?: string; // Optional routing slug (required for duplicate visit types)
   requires_photo_upload: boolean;
   requires_labs: boolean;
   requires_identity_verification: boolean;
@@ -112,6 +113,7 @@ export interface CreateTemplatePayload {
   questionnaire_type: "onboarding" | "follow_up";
   treatment_type?: string;
   beluga_visit_type?: string;
+  slug?: string;
   requires_photo_upload?: boolean;
   requires_labs?: boolean;
   requires_identity_verification?: boolean;
@@ -125,6 +127,7 @@ export interface UpdateTemplatePayload {
   questionnaire_type?: "onboarding" | "follow_up";
   treatment_type?: string;
   beluga_visit_type?: string;
+  slug?: string;
   requires_photo_upload?: boolean;
   requires_labs?: boolean;
   requires_identity_verification?: boolean;

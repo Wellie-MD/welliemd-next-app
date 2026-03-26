@@ -23,7 +23,8 @@ export const userService = {
      */
     getProfile: async (): Promise<User> => {
         try {
-            const response = await api.get<User>('/users/me/');
+            // Use /auth/me/ (same as authService) — canonical profile for the JWT user.
+            const response = await api.get<User>('/auth/me/');
             return response.data;
         } catch (error: any) {
             console.error('Failed to fetch user profile:', error);
@@ -40,7 +41,7 @@ export const userService = {
      */
     updateProfile: async (data: UpdateProfileData): Promise<User> => {
         try {
-            const response = await api.patch<User>('/users/me/', data);
+            const response = await api.patch<User>('/auth/me/', data);
             return response.data;
         } catch (error: any) {
             console.error('Failed to update user profile:', error);
