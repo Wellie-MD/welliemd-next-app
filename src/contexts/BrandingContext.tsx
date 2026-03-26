@@ -1,5 +1,6 @@
 import React, { createContext, useEffect, useState, ReactNode } from 'react';
 import { brandingService, BrandColors, BrandLogos } from '../features/branding/services/branding.service';
+import { useTheme } from 'next-themes';
 
 interface BrandContextValue {
   colors: BrandColors;
@@ -80,6 +81,9 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
   const [logos, setLogos] = useState<BrandLogos | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { setTheme } = useTheme();
+  const themeStorageKey = 'welliemd_patient_theme';
+  const userThemeOverrideKey = 'welliemd_patient_theme_user_set';
 
   // Helper to fix LocalStack URLs for the browser
   const fixLocalStackUrl = (url?: string): string | undefined => {
@@ -127,6 +131,14 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
         } : undefined;
         
         setLogos(fixedLogos);
+
+        const storedTheme = localStorage.getItem(themeStorageKey);
+        const userThemeOverride = localStorage.getItem(userThemeOverrideKey);
+        if (brandSettings.patientPortalTheme && userThemeOverride !== 'true') {
+          if (storedTheme !== brandSettings.patientPortalTheme) {
+            setTheme(brandSettings.patientPortalTheme);
+          }
+        }
         
         // Update favicon dynamically
         if (fixedLogos?.favicon) {

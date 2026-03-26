@@ -170,8 +170,8 @@ export default function Prescriptions() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Prescriptions</h1>
-          <p className="text-gray-600">Manage your medications and prescriptions</p>
+          <h1 className="text-2xl font-semibold text-foreground">Prescriptions</h1>
+          <p className="text-muted-foreground">Manage your medications and prescriptions</p>
         </div>
         <Button>
           <Pill className="h-4 w-4 mr-2" />
@@ -219,8 +219,8 @@ export default function Prescriptions() {
             <Card>
               <CardContent className="p-12 text-center">
                 <Pill className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No prescriptions found</h3>
-                <p className="text-gray-600">You currently have no active prescriptions.</p>
+                <h3 className="text-lg font-medium text-foreground mb-2">No prescriptions found</h3>
+                <p className="text-muted-foreground">You currently have no active prescriptions.</p>
               </CardContent>
             </Card>
           )}
@@ -245,29 +245,29 @@ export default function Prescriptions() {
 
       {/* Quick Actions */}
       <div className="mt-8">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+        <h2 className="text-lg font-semibold text-foreground mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="cursor-pointer hover:shadow-md transition-shadow">
             <CardContent className="p-6 text-center">
               <RefreshCw className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-              <h3 className="font-medium text-gray-900 mb-1">Refill Prescriptions</h3>
-              <p className="text-sm text-gray-600">Request refills for existing medications</p>
+              <h3 className="font-medium text-foreground mb-1">Refill Prescriptions</h3>
+              <p className="text-sm text-muted-foreground">Request refills for existing medications</p>
             </CardContent>
           </Card>
 
           <Card className="cursor-pointer hover:shadow-md transition-shadow">
             <CardContent className="p-6 text-center">
               <Pill className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-              <h3 className="font-medium text-gray-900 mb-1">New Prescription</h3>
-              <p className="text-sm text-gray-600">Request a new prescription from your doctor</p>
+              <h3 className="font-medium text-foreground mb-1">New Prescription</h3>
+              <p className="text-sm text-muted-foreground">Request a new prescription from your doctor</p>
             </CardContent>
           </Card>
 
           <Card className="cursor-pointer hover:shadow-md transition-shadow">
             <CardContent className="p-6 text-center">
               <User className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-              <h3 className="font-medium text-gray-900 mb-1">Pharmacy Info</h3>
-              <p className="text-sm text-gray-600">Update your preferred pharmacy</p>
+              <h3 className="font-medium text-foreground mb-1">Pharmacy Info</h3>
+              <p className="text-sm text-muted-foreground">Update your preferred pharmacy</p>
             </CardContent>
           </Card>
         </div>

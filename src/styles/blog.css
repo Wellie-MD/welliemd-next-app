@@ -219,6 +219,62 @@
   }
 }
 
+/* Dark mode overrides */
+.dark .search-input {
+  border-color: #1f2937;
+  background: #0f172a;
+  color: #f8fafc;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.6);
+}
+
+.dark .search-icon {
+  color: #94a3b8;
+}
+
+.dark .blog-card {
+  background: #0f1216;
+  border-color: #1f2329;
+  box-shadow: 0 4px 6px -1px rgba(2, 6, 23, 0.45);
+}
+
+.dark .blog-card:hover {
+  border-color: #2b313a;
+}
+
+.dark .blog-card-title {
+  color: #e5e7eb;
+}
+
+.dark .blog-card:hover .blog-card-title {
+  color: #f8fafc;
+}
+
+.dark .blog-card-excerpt {
+  color: #cbd5f5;
+}
+
+.dark .blog-card-meta {
+  color: #94a3b8;
+}
+
+.dark .blog-card-author {
+  border-top-color: #1f2937;
+}
+
+.dark .author-name {
+  color: #f8fafc;
+}
+
+.dark .author-role {
+  color: #94a3b8;
+}
+
+.dark .category-badge {
+  background: rgba(15, 23, 42, 0.92);
+  color: #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgba(2, 6, 23, 0.5);
+}
+
 /* Blog Post Reading View Styles */
 @layer components {
   .blog-post-container {
@@ -393,6 +449,59 @@
       gap: 1rem;
     }
   }
+}
+
+/* Blog post dark mode */
+.dark .blog-post-title {
+  color: #f8fafc;
+}
+
+.dark .blog-post-meta {
+  color: #94a3b8;
+}
+
+.dark .blog-post-author-card {
+  background: linear-gradient(135deg, #0f1216 0%, #11151a 100%);
+  border-color: #1f2329;
+}
+
+.dark .blog-post-author-card .text-gray-900 {
+  color: #f8fafc;
+}
+
+.dark .blog-post-author-card .text-gray-500 {
+  color: #94a3b8;
+}
+
+.dark .blog-post-content {
+  background: #0f1216;
+  border-color: #1f2329;
+  box-shadow: 0 4px 6px -1px rgba(2, 6, 23, 0.55);
+}
+
+.dark .blog-post-content h2 {
+  color: #f8fafc;
+}
+
+.dark .blog-post-content p,
+.dark .blog-post-content ul,
+.dark .blog-post-content ol,
+.dark .blog-post-content li {
+  color: #cbd5f5;
+}
+
+.dark .blog-post-content th {
+  background-color: #111827;
+  color: #f8fafc;
+}
+
+.dark .blog-post-content td {
+  border-bottom-color: #1f2937;
+}
+
+.dark .blog-nav {
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom-color: #1f2937;
 }
 
 /* Add these new styles to your existing blog.css file */

@@ -562,20 +562,20 @@ export default function Messages() {
     <div className="h-screen flex flex-col p-6">
       <div className="flex items-center justify-between mb-6 flex-shrink-0">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Messages</h1>
-          <p className="text-gray-600">All messages (Doctor + Support) per visit</p>
+          <h1 className="text-2xl font-semibold text-foreground">Messages</h1>
+          <p className="text-muted-foreground">All messages (Doctor + Support) per visit</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px] overflow-hidden">
         {/* Sidebar */}
-        <Card className="lg:col-span-1 flex flex-col overflow-hidden">
+        <Card className="lg:col-span-1 flex flex-col overflow-hidden dark:bg-slate-950/40">
           <CardHeader className="pb-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
                 placeholder="Search..."
-                className="pl-10"
+                className="pl-10 dark:bg-white dark:!text-black dark:placeholder:text-slate-400 messages-search-input"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -592,10 +592,10 @@ export default function Messages() {
                   key={c.id}
                   className={`relative p-4 cursor-pointer border-l-4 flex items-start transition-colors ${
                     isSelected
-                      ? "bg-blue-50 border-blue-600"
+                      ? "bg-slate-100 dark:bg-slate-900 border-blue-600"
                       : isHighlighted
-                      ? "bg-blue-50/70 border-blue-500"
-                      : "hover:bg-gray-50 border-transparent"
+                      ? "bg-slate-50 dark:bg-slate-900/70 border-blue-500"
+                      : "hover:bg-slate-50 dark:hover:bg-slate-900/60 border-transparent"
                   }`}
                   onClick={() => {
                     selectConversation(c);
@@ -617,11 +617,11 @@ export default function Messages() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className={`truncate ${isHighlighted ? "font-semibold text-gray-900" : "font-medium"}`}>
+                      <p className={`truncate ${isHighlighted ? "font-semibold text-foreground" : "font-medium text-foreground"}`}>
                         {c.label}
                       </p>
                       {last && (
-                        <span className="ml-2 shrink-0 text-xs text-gray-500">
+                        <span className="ml-2 shrink-0 text-xs text-muted-foreground">
                           {new Date(last.timestamp).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
@@ -630,7 +630,7 @@ export default function Messages() {
                       )}
                     </div>
                     <p className={`text-xs truncate ${
-                      isHighlighted ? "text-gray-900 font-medium" : "text-gray-500"
+                      isHighlighted ? "text-foreground font-medium" : "text-muted-foreground"
                     }`}>
                       {last?.content}
                     </p>
@@ -642,7 +642,7 @@ export default function Messages() {
         </Card>
 
         {/* Chat window */}
-        <Card className="lg:col-span-2 flex flex-col min-h-0 overflow-hidden">
+        <Card className="lg:col-span-2 flex flex-col min-h-0 overflow-hidden dark:bg-slate-950/40">
           {selected && (
             <>
               <CardHeader className="pb-4 flex-shrink-0">
@@ -653,8 +653,8 @@ export default function Messages() {
                       <AvatarFallback>CH</AvatarFallback>
                     </Avatar>
                     <div>
-                      <h3 className="font-medium text-gray-900">{selected.label}</h3>
-                      <p className="text-sm text-gray-600">Unified thread</p>
+                      <h3 className="font-medium text-foreground">{selected.label}</h3>
+                      <p className="text-sm text-muted-foreground">Unified thread</p>
                     </div>
                   </div>
                 </div>
@@ -676,7 +676,7 @@ export default function Messages() {
                   return days.map((day) => (
                     <div key={day}>
                       <div className="flex justify-center my-4">
-                        <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-gray-100 text-gray-800 shadow-sm">
+                        <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-slate-200 shadow-sm">
                           {getMessageGroupLabel(day)}
                         </span>
                       </div>
@@ -684,8 +684,8 @@ export default function Messages() {
                         {grouped[day].map((m) => {
                           const isMe = m.side ? m.side === "left" : m.senderType === "patient";
                           const alignment = isMe ? "justify-end" : "justify-start";
-                          let bubble = isMe ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-900";
-                          let sub = isMe ? "text-blue-100" : "text-gray-500";
+                          let bubble = isMe ? "bg-blue-600 text-white" : "bg-gray-100 dark:bg-slate-900 text-gray-900 dark:text-slate-100";
+                          let sub = isMe ? "text-blue-100" : "text-gray-500 dark:text-slate-400";
 
                           if (!isMe && m.senderType === "super_support") {
                             bubble = "bg-purple-100 text-purple-800";
@@ -751,14 +751,14 @@ export default function Messages() {
               </CardContent>
 
               {/* Composer */}
-              <div className="p-4 border-t bg-white flex-shrink-0">
+              <div className="p-4 border-t bg-white dark:bg-slate-900 flex-shrink-0">
                 <div className="flex items-center gap-2 max-w-3xl mx-auto w-full">
                   {/* Selected recipient chip (clickable) */}
                   <div className="relative" ref={chipRef}>
                     <button
                       type="button"
                       onClick={() => setShowChipMenu((v) => !v)}
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs text-gray-700 bg-white hover:bg-gray-50 relative z-30"
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs text-gray-700 dark:!text-black bg-white dark:bg-slate-200 hover:bg-gray-50 dark:hover:bg-slate-300 relative z-30 messages-chip-trigger"
                       title="Recipient"
                     >
                       <AtSign className="h-3.5 w-3.5" />
@@ -769,7 +769,7 @@ export default function Messages() {
                     {showChipMenu && (
                       <div
                         ref={chipMenuRef}
-                        className="fixed bg-white border rounded-md shadow-md w-40 overflow-hidden z-[9999]"
+                        className="fixed bg-white dark:bg-slate-200 border dark:border-slate-400 rounded-md shadow-md w-40 overflow-hidden z-[9999] messages-chip-menu"
                         style={{
                           left: chipRef.current
                             ? `${chipRef.current.getBoundingClientRect().left}px`
@@ -780,8 +780,8 @@ export default function Messages() {
                         }}
                       >
                         <button
-                          className={`w-full text-left px-3 py-2 hover:bg-gray-50 ${
-                            composeTo === "doctor" ? "bg-gray-50 font-medium" : ""
+                          className={`w-full text-left px-3 py-2 text-gray-700 dark:!text-black hover:bg-gray-50 dark:hover:bg-slate-300 messages-chip-option ${
+                            composeTo === "doctor" ? "bg-gray-50 dark:bg-slate-300 font-medium" : ""
                           }`}
                           onClick={() => {
                             setComposeTo("doctor");
@@ -791,8 +791,8 @@ export default function Messages() {
                           @ Doctor
                         </button>
                         <button
-                          className={`w-full text-left px-3 py-2 hover:bg-gray-50 ${
-                            composeTo === "support" ? "bg-gray-50 font-medium" : ""
+                          className={`w-full text-left px-3 py-2 text-gray-700 dark:!text-black hover:bg-gray-50 dark:hover:bg-slate-300 messages-chip-option ${
+                            composeTo === "support" ? "bg-gray-50 dark:bg-slate-300 font-medium" : ""
                           }`}
                           onClick={() => {
                             setComposeTo("support");
@@ -811,7 +811,7 @@ export default function Messages() {
                       placeholder="Type your message…"
                       value={composeText}
                       onChange={(e) => setComposeText(e.target.value)}
-                      className="rounded-full border px-4 py-2 text-sm"
+                      className="rounded-full border px-4 py-2 text-sm dark:bg-white dark:!text-black dark:placeholder:text-slate-400 messages-compose-input"
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();

@@ -15,7 +15,7 @@ export default function Dashboard() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+        <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
       </div>
 
       {/* Follow-Up Questionnaires Section */}
@@ -23,7 +23,7 @@ export default function Dashboard() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <ClipboardList className="h-5 w-5 text-blue-600" />
-            <CardTitle className="text-lg font-medium text-gray-900">Follow-Up Questionnaires</CardTitle>
+            <CardTitle className="text-lg font-medium text-foreground">Follow-Up Questionnaires</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
@@ -36,7 +36,7 @@ export default function Dashboard() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Pill className="h-5 w-5 text-green-600" />
-            <CardTitle className="text-lg font-medium text-gray-900">Start New Treatment</CardTitle>
+            <CardTitle className="text-lg font-medium text-foreground">Start New Treatment</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
@@ -48,13 +48,13 @@ export default function Dashboard() {
         {/* Upcoming Dates */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg font-medium text-gray-900">Upcoming dates</CardTitle>
+            <CardTitle className="text-lg font-medium text-foreground">Upcoming dates</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Calendar className="h-12 w-12 text-gray-300 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No upcoming dates</h3>
-              <p className="text-gray-600 text-sm">There are no upcoming dates at the moment.</p>
+              <Calendar className="h-12 w-12 text-gray-300 dark:text-slate-600 mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">No upcoming dates</h3>
+              <p className="text-muted-foreground text-sm">There are no upcoming dates at the moment.</p>
             </div>
           </CardContent>
         </Card>
@@ -63,10 +63,10 @@ export default function Dashboard() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-medium text-gray-900">Treatments</CardTitle>
+              <CardTitle className="text-lg font-medium text-foreground">Treatments</CardTitle>
               <Button 
                 variant="link" 
-                className="text-blue-600 p-0 hover:text-blue-700"
+                className="text-blue-600 dark:text-blue-300 p-0 hover:text-blue-700 dark:hover:text-blue-200"
                 onClick={() => handleNavigation('/dashboard/treatments')}
               >
                 View all
@@ -75,9 +75,9 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Calendar className="h-12 w-12 text-gray-300 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No active treatments</h3>
-              <p className="text-gray-600 text-sm">There are not active treatments at the moment.</p>
+              <Calendar className="h-12 w-12 text-gray-300 dark:text-slate-600 mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">No active treatments</h3>
+              <p className="text-muted-foreground text-sm">There are not active treatments at the moment.</p>
             </div>
           </CardContent>
         </Card>
@@ -91,8 +91,8 @@ export default function Dashboard() {
         >
           <CardContent className="p-6 text-center">
             <Calendar className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-            <h3 className="font-medium text-gray-900 mb-1">Schedule Appointment</h3>
-            <p className="text-sm text-gray-600">Book your next visit</p>
+            <h3 className="font-medium text-foreground mb-1">Schedule Appointment</h3>
+            <p className="text-sm text-muted-foreground">Book your next visit</p>
           </CardContent>
         </Card>
 
@@ -102,8 +102,8 @@ export default function Dashboard() {
         >
           <CardContent className="p-6 text-center">
             <MessageSquare className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-            <h3 className="font-medium text-gray-900 mb-1">Send Message</h3>
-            <p className="text-sm text-gray-600">Contact your doctor</p>
+            <h3 className="font-medium text-foreground mb-1">Send Message</h3>
+            <p className="text-sm text-muted-foreground">Contact your doctor</p>
           </CardContent>
         </Card>
 
@@ -113,8 +113,8 @@ export default function Dashboard() {
         >
           <CardContent className="p-6 text-center">
             <FileText className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-            <h3 className="font-medium text-gray-900 mb-1">Medical Records</h3>
-            <p className="text-sm text-gray-600">Check your medical records</p>
+            <h3 className="font-medium text-foreground mb-1">Medical Records</h3>
+            <p className="text-sm text-muted-foreground">Check your medical records</p>
           </CardContent>
         </Card>
       </div>
