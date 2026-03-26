@@ -31,6 +31,55 @@ import { CategorySelector } from "./CategorySelector";
 import { TitrationCategoryManager } from "./TitrationCategoryManager";
 import { pharmacyApi } from "@/api/pharmacyApi";
 import { listDoseMappings, ProductDoseMapping } from "@/api/productDoseMappings";
+import { templateApi } from "@/api/questionnaires";
+
+type TreatmentOption = {
+  value: string;
+  label: string;
+};
+
+const normalizeTreatmentKey = (value: string): string =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+
+const buildMergedTreatmentOptions = (
+  baseOptions: TreatmentOption[],
+  questionnaireTreatmentTypes: string[]
+): TreatmentOption[] => {
+  const merged: TreatmentOption[] = [];
+  const seen = new Set<string>();
+
+  for (const option of baseOptions) {
+    const key = normalizeTreatmentKey(option.label || option.value);
+    if (!key || seen.has(key)) continue;
+    merged.push(option);
+    seen.add(key);
+  }
+
+  const uniqueQuestionnaireTypes = Array.from(
+    new Set(
+      questionnaireTreatmentTypes
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0)
+    )
+  ).sort((a, b) => a.localeCompare(b));
+
+  for (const treatmentType of uniqueQuestionnaireTypes) {
+    const key = normalizeTreatmentKey(treatmentType);
+    if (!key || seen.has(key)) continue;
+
+    merged.push({
+      value: treatmentType,
+      label: treatmentType,
+    });
+    seen.add(key);
+  }
+
+  return merged;
+};
 
 interface ProductFormModalProps {
   open: boolean;
@@ -48,6 +97,7 @@ export function ProductFormModal({
   const [loading, setLoading] = useState(false);
   const [pharmacies, setPharmacies] = useState<any[]>([]);
   const [doseMappings, setDoseMappings] = useState<ProductDoseMapping[]>([]);
+  const [treatmentOptions, setTreatmentOptions] = useState<TreatmentOption[]>(TREATMENT_OPTIONS);
   const [loadingDoseMappings, setLoadingDoseMappings] = useState(false);
   // Track the category for which dose mappings were loaded
   const doseMappingsLoadedForCategoryRef = useRef<number | null>(null);
@@ -100,6 +150,32 @@ export function ProductFormModal({
     };
     if (open) {
       fetchPharmacies();
+    }
+  }, [open]);
+
+  // Merge hardcoded treatments with questionnaire treatment_type values
+  useEffect(() => {
+    const fetchTreatmentOptions = async () => {
+      try {
+        const templates = await templateApi.listTemplates();
+        const questionnaireTreatmentTypes = (templates || [])
+          .map((template) => template.treatment_type || "")
+          .filter(Boolean);
+
+        setTreatmentOptions(
+          buildMergedTreatmentOptions(
+            TREATMENT_OPTIONS,
+            questionnaireTreatmentTypes
+          )
+        );
+      } catch (error) {
+        console.error("Failed to fetch questionnaire treatment types:", error);
+        setTreatmentOptions(TREATMENT_OPTIONS);
+      }
+    };
+
+    if (open) {
+      fetchTreatmentOptions();
     }
   }, [open]);
 
@@ -459,7 +535,7 @@ export function ProductFormModal({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {TREATMENT_OPTIONS.map((opt) => (
+                    {treatmentOptions.map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>
                         {opt.label}
                       </SelectItem>
