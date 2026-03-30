@@ -809,38 +809,6 @@ export default function ClientForm() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="subdomain">Subdomain</Label>
-                  <Input
-                    id="subdomain"
-                    value={formData.subdomain}
-                    onChange={(e) => {
-                      setSubdomainTouched(true);
-                      setFormData({ ...formData, subdomain: e.target.value });
-                    }}
-                    onFocus={() => setSubdomainTouched(true)}
-                    placeholder="acme"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Used for questionnaire app (e.g., acme.questionnaire.welliemd.com)
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="api_endpoint">API Endpoint</Label>
-                  <Input
-                    id="api_endpoint"
-                    type="url"
-                    value={formData.api_endpoint}
-                    placeholder="https://api.acme.com"
-                    readOnly
-                    className="bg-muted cursor-not-allowed"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Base API URL for this client's backend services
-                  </p>
-                </div>
-
-                <div className="space-y-2">
                   <Label htmlFor="patient_portal_domain">Patient Portal Preview URL</Label>
                   <Input
                     id="patient_portal_domain"
@@ -866,6 +834,38 @@ export default function ClientForm() {
                   )}
                   <p className="text-xs text-muted-foreground">
                     Patient portal domain (editable)
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="subdomain">Questionnaire Domain</Label>
+                  <Input
+                    id="subdomain"
+                    value={formData.subdomain}
+                    onChange={(e) => {
+                      setSubdomainTouched(true);
+                      setFormData({ ...formData, subdomain: e.target.value });
+                    }}
+                    onFocus={() => setSubdomainTouched(true)}
+                    placeholder="https://acme.questionnaire.welliemd.com"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    URL used for questionnaire app
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="api_endpoint">API Endpoint</Label>
+                  <Input
+                    id="api_endpoint"
+                    type="url"
+                    value={formData.api_endpoint}
+                    placeholder="https://api.acme.com"
+                    readOnly
+                    className="bg-muted cursor-not-allowed"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Base API URL for this client's backend services
                   </p>
                 </div>
 
