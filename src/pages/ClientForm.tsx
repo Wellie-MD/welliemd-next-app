@@ -114,7 +114,7 @@ export default function ClientForm() {
   const [lastNameTouched, setLastNameTouched] = useState(false);
   const [adminDomainTouched, setAdminDomainTouched] = useState(false);
   const [subdomainTouched, setSubdomainTouched] = useState(false);
-  const [apiEndpointTouched, setApiEndpointTouched] = useState(false);
+  const [patientPortalDomainTouched, setPatientPortalDomainTouched] = useState(false);
 
   // Derive a safe master id prefix from a client name: lowercase + remove non-alphanumerics
   const derivePrefix = (name: string) => {
@@ -210,7 +210,7 @@ export default function ClientForm() {
       setLastNameTouched(true);
       setAdminDomainTouched(true);
       setSubdomainTouched(true);
-      setApiEndpointTouched(true);
+      setPatientPortalDomainTouched(true);
     }
   }, [existingClient]);
 
@@ -390,7 +390,6 @@ export default function ClientForm() {
         beluga_company: formData.beluga_company,
         admin_panel_domain: formData.admin_panel_domain,
         patient_portal_domain: formData.patient_portal_domain,
-        api_endpoint: formData.api_endpoint,
         questionnaire_url: formData.questionnaire_url,
         allowed_iframe_domains: formData.allowed_iframe_domains,
         default_template_id: formData.default_template_id,
@@ -527,11 +526,14 @@ export default function ClientForm() {
                             : p
                               ? `https://${p}questionnaire.welliemd.com`
                               : prev.subdomain,
-                          api_endpoint: apiEndpointTouched
-                            ? prev.api_endpoint
+                          api_endpoint: p
+                            ? `https://${p}api.welliemd.com/api/v1/`
+                            : prev.api_endpoint,
+                          patient_portal_domain: patientPortalDomainTouched
+                            ? prev.patient_portal_domain
                             : p
-                              ? `https://${p}api.welliemd.com/api/v1/`
-                              : prev.api_endpoint,
+                              ? `https://${p}patientportal.welliemd.com`
+                              : prev.patient_portal_domain,
                           first_name: firstNameTouched
                             ? prev.first_name
                             : fn || prev.first_name,
@@ -829,12 +831,9 @@ export default function ClientForm() {
                     id="api_endpoint"
                     type="url"
                     value={formData.api_endpoint}
-                    onChange={(e) => {
-                      setApiEndpointTouched(true);
-                      setFormData({ ...formData, api_endpoint: e.target.value });
-                    }}
-                    onFocus={() => setApiEndpointTouched(true)}
                     placeholder="https://api.acme.com"
+                    readOnly
+                    className="bg-muted cursor-not-allowed"
                   />
                   <p className="text-xs text-muted-foreground">
                     Base API URL for this client's backend services
@@ -842,15 +841,31 @@ export default function ClientForm() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Patient Portal Preview URL</Label>
+                  <Label htmlFor="patient_portal_domain">Patient Portal Preview URL</Label>
                   <Input
+                    id="patient_portal_domain"
                     type="url"
-                    value={derivePrefix(formData.name) ? `https://${derivePrefix(formData.name)}patientportal.welliemd.com` : ""}
-                    readOnly
-                    className="bg-muted cursor-not-allowed"
+                    value={formData.patient_portal_domain}
+                    onChange={(e) => {
+                      setPatientPortalDomainTouched(true);
+                      setFormData({ ...formData, patient_portal_domain: e.target.value });
+                      if (validationErrors.patient_portal_domain) {
+                        setValidationErrors((prev) => {
+                          const newErrors = { ...prev };
+                          delete newErrors.patient_portal_domain;
+                          return newErrors;
+                        });
+                      }
+                    }}
+                    onFocus={() => setPatientPortalDomainTouched(true)}
+                    placeholder="https://patient.acme.com"
+                    className={validationErrors.patient_portal_domain ? "border-red-500" : ""}
                   />
+                  {validationErrors.patient_portal_domain && (
+                    <p className="text-xs text-red-500">{validationErrors.patient_portal_domain}</p>
+                  )}
                   <p className="text-xs text-muted-foreground">
-                    Preview of patient portal domain (auto-generated from client name)
+                    Patient portal domain (editable)
                   </p>
                 </div>
 
