@@ -135,6 +135,15 @@ export default function ClientForm() {
     return parts.length > 1 ? parts.slice(1).join(" ") : "";
   };
 
+  // Extract hostname for allowed_iframe_domains from a full URL value.
+  const getIframeDomainFromUrl = (urlValue: string) => {
+    try {
+      return new URL(urlValue).hostname;
+    } catch {
+      return "";
+    }
+  };
+
   // Fetch existing client data if editing
   const { data: existingClient, isLoading: isLoadingClient } = useQuery({
     queryKey: ["client", id],
@@ -505,6 +514,10 @@ export default function ClientForm() {
                         const p = derivePrefix(newName);
                         const fn = deriveFirstName(newName);
                         const ln = deriveLastName(newName);
+                        const derivedQuestionnaireUrl = p
+                          ? `https://${p}questionnaire.welliemd.com`
+                          : "";
+                        const derivedIframeDomain = getIframeDomainFromUrl(derivedQuestionnaireUrl);
                         setFormData((prev) => ({
                           ...prev,
                           name: newName,
@@ -526,6 +539,14 @@ export default function ClientForm() {
                             : p
                               ? `https://${p}questionnaire.welliemd.com`
                               : prev.subdomain,
+                          questionnaire_url: subdomainTouched
+                            ? prev.questionnaire_url
+                            : derivedQuestionnaireUrl || prev.questionnaire_url,
+                          allowed_iframe_domains: subdomainTouched
+                            ? prev.allowed_iframe_domains
+                            : derivedIframeDomain
+                              ? [derivedIframeDomain]
+                              : prev.allowed_iframe_domains,
                           api_endpoint: p
                             ? `https://${p}api.welliemd.com/api/v1/`
                             : prev.api_endpoint,
@@ -844,7 +865,14 @@ export default function ClientForm() {
                     value={formData.subdomain}
                     onChange={(e) => {
                       setSubdomainTouched(true);
-                      setFormData({ ...formData, subdomain: e.target.value });
+                      const questionnaireDomain = e.target.value;
+                      const iframeDomain = getIframeDomainFromUrl(questionnaireDomain);
+                      setFormData({
+                        ...formData,
+                        subdomain: questionnaireDomain,
+                        questionnaire_url: questionnaireDomain,
+                        allowed_iframe_domains: iframeDomain ? [iframeDomain] : [],
+                      });
                     }}
                     onFocus={() => setSubdomainTouched(true)}
                     placeholder="https://acme.questionnaire.welliemd.com"
