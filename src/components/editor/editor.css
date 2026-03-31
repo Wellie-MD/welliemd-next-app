@@ -197,3 +197,62 @@
 .blog-editor-content .tiptap ::selection {
   background-color: #bfdbfe;
 }
+
+/* Dark mode overrides */
+.dark .blog-editor-content .tiptap h1 {
+  color: #f8fafc;
+}
+
+.dark .blog-editor-content .tiptap h2 {
+  color: #e2e8f0;
+}
+
+.dark .blog-editor-content .tiptap h3 {
+  color: #cbd5f5;
+}
+
+.dark .blog-editor-content .tiptap p {
+  color: #cbd5e1;
+}
+
+.dark .blog-editor-content .tiptap blockquote {
+  border-left-color: #60a5fa;
+  background-color: #0f172a;
+  color: #bfdbfe;
+}
+
+.dark .blog-editor-content .tiptap code {
+  background-color: #0f172a;
+  color: #fda4af;
+}
+
+.dark .blog-editor-content .tiptap hr {
+  border-top-color: #334155;
+}
+
+.dark .blog-editor-content .tiptap th {
+  background-color: #0f172a;
+  border-color: #1f2937;
+  color: #e2e8f0;
+}
+
+.dark .blog-editor-content .tiptap td {
+  border-color: #1f2937;
+  color: #e2e8f0;
+}
+
+.dark .blog-editor-content .tiptap .selectedCell {
+  background-color: #1d4ed8;
+}
+
+.dark .blog-editor-content .tiptap a {
+  color: #60a5fa;
+}
+
+.dark .blog-editor-content .tiptap a:hover {
+  color: #93c5fd;
+}
+
+.dark .blog-editor-content .tiptap ::selection {
+  background-color: #1d4ed8;
+}

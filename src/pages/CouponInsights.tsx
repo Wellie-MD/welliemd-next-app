@@ -86,7 +86,7 @@ export default function CouponInsights() {
           <PopoverTrigger asChild>
             <Button
               variant="outline"
-              className="w-[280px] justify-start text-left font-normal bg-white"
+              className="w-[280px] justify-start text-left font-normal bg-white dark:bg-slate-900 dark:border-slate-700"
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
               {dateRange?.from ? (
@@ -118,7 +118,7 @@ export default function CouponInsights() {
       {/* Analytics Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Coupons Impact Card */}
-        <Card className="shadow-sm border-gray-200">
+        <Card className="shadow-sm border-gray-200 dark:border-slate-700">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               Coupons impact
@@ -168,7 +168,7 @@ export default function CouponInsights() {
         </Card>
 
         {/* Total Discount Card */}
-        <Card className="shadow-sm border-gray-200">
+        <Card className="shadow-sm border-gray-200 dark:border-slate-700">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               Total discount
@@ -178,7 +178,7 @@ export default function CouponInsights() {
           <CardContent className="flex flex-col items-center justify-center h-[200px] relative">
             <div className="relative flex items-center justify-center">
               {/* Circular visualization element */}
-              <div className="w-32 h-32 rounded-full border-8 border-blue-50 flex items-center justify-center">
+              <div className="w-32 h-32 rounded-full border-8 border-blue-50 dark:border-blue-900/40 flex items-center justify-center">
                 <div className="text-center">
                   <div className="text-2xl font-extrabold text-blue-600">${insights?.total_discount_amount ?? 0}</div>
                   <div className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Total</div>
@@ -207,7 +207,7 @@ export default function CouponInsights() {
         </Card>
 
         {/* Top Coupon Card */}
-        <Card className="shadow-sm border-gray-200">
+        <Card className="shadow-sm border-gray-200 dark:border-slate-700">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Top coupons</CardTitle>
           </CardHeader>
@@ -217,17 +217,17 @@ export default function CouponInsights() {
                 {insights.top_coupons.map((coupon, idx) => (
                   <div key={coupon.code} className="flex items-center justify-between group">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-bold">
+                      <div className="w-8 h-8 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 flex items-center justify-center text-xs font-bold">
                         #{idx + 1}
                       </div>
                       <div>
-                        <div className="text-sm font-semibold group-hover:text-blue-600 transition-colors uppercase">{coupon.code}</div>
+                        <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 transition-colors uppercase">{coupon.code}</div>
                         <div className="text-[11px] text-muted-foreground truncate max-w-[120px]">{coupon.name}</div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-bold text-gray-900">{coupon.uses} uses</div>
-                      <div className="text-[11px] text-green-600 font-medium">-${coupon.savings}</div>
+                      <div className="text-sm font-bold text-gray-900 dark:text-slate-100">{coupon.uses} uses</div>
+                      <div className="text-[11px] text-green-600 dark:text-emerald-300 font-medium">-${coupon.savings}</div>
                     </div>
                   </div>
                 ))}
@@ -250,7 +250,7 @@ export default function CouponInsights() {
         </h2>
 
         {/* Filters Bar */}
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-4">
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm space-y-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -278,7 +278,7 @@ export default function CouponInsights() {
                 </Select>
               </div>
 
-              <Button variant="ghost" size="sm" onClick={resetFilters} className="text-blue-600 font-semibold gap-1">
+              <Button variant="ghost" size="sm" onClick={resetFilters} className="text-blue-600 dark:text-blue-400 font-semibold gap-1">
                 <RotateCcw className="h-3.5 w-3.5" />
                 Reset Filters
               </Button>

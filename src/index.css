@@ -122,4 +122,8 @@ All colors MUST be HSL.
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  .brand-logo-shell {
+    @apply inline-flex items-center justify-center rounded-md px-2 py-1 bg-slate-900/10 dark:bg-white/10 border border-slate-300/60 dark:border-white/20;
+  }
 }

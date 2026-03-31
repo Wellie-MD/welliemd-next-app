@@ -16,6 +16,7 @@ export interface FollowUpSession {
     status: 'CREATED' | 'VIEWED' | 'IN_PROGRESS' | 'COMPLETED' | 'EXPIRED';
     created_at: string;
     expires_at: string;
+    due_date?: string | null;
     completed_at: string | null;
     follow_up_url?: string;
 }
@@ -25,6 +26,18 @@ export interface CreateFollowUpRequest {
     questionnaire_id: string;
     parent_visit_id?: string;
     expiry_hours?: number;
+    expiry_days?: number;
+    episode_id?: string | null;
+    context_order_id?: string | null;
+}
+
+export interface FollowUpOrderCandidate {
+    id: string;
+    order_id?: string | null;
+    display_id?: string | null;
+    status?: string;
+    product_name?: string | null;
+    prescribed_at?: string | null;
     episode_id?: string | null;
 }
 
@@ -34,6 +47,8 @@ export interface CreateFollowUpResponse {
     follow_up_url: string;
     expires_at: string;
     status: string;
+    code?: string;
+    order_candidates?: FollowUpOrderCandidate[];
     error?: string;
 }
 
@@ -48,6 +63,8 @@ export interface SendFollowUpNotificationRequest {
     template_type?: string;
     channels?: Array<'email' | 'sms'>;
     idempotency_key?: string;
+    expiry_hours?: number;
+    expiry_days?: number;
 }
 
 export interface SendFollowUpNotificationResponse {
@@ -59,6 +76,12 @@ export interface SendFollowUpNotificationResponse {
         sms?: string;
         follow_up_url?: string;
     };
+    error?: string;
+}
+
+export interface GetOrderCandidatesResponse {
+    success: boolean;
+    order_candidates: FollowUpOrderCandidate[];
     error?: string;
 }
 
@@ -81,7 +104,26 @@ export async function createFollowUp(data: CreateFollowUpRequest): Promise<Creat
             follow_up_url: '',
             expires_at: '',
             status: 'error',
+            code: error.response?.data?.code,
+            order_candidates: error.response?.data?.order_candidates || [],
             error: error.response?.data?.error || error.message || 'Failed to create follow-up',
+        };
+    }
+}
+
+export async function getFollowUpOrderCandidates(patientId: string): Promise<GetOrderCandidatesResponse> {
+    try {
+        const response = await axiosInstance.get<GetOrderCandidatesResponse>(
+            '/questionnaires/follow-ups/order-candidates/',
+            { params: { patient_id: patientId } }
+        );
+        return response.data;
+    } catch (error: any) {
+        console.error('Error fetching follow-up order candidates:', error);
+        return {
+            success: false,
+            order_candidates: [],
+            error: error.response?.data?.error || error.message || 'Failed to fetch order candidates',
         };
     }
 }
@@ -151,5 +193,6 @@ export default {
     createFollowUp,
     getPatientFollowUps,
     getFollowUpTemplates,
+    getFollowUpOrderCandidates,
     sendFollowUpNotification,
 };

@@ -169,7 +169,7 @@ export function FlowSidebar({
                 placeholder="Search by name, type or id"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 pr-8 h-9 text-sm"
+                className="pl-8 pr-8 h-9 text-sm bg-white text-black placeholder:text-gray-400"
               />
               {searchQuery && (
                 <button

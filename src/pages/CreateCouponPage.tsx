@@ -238,13 +238,13 @@ export default function CreateCouponPage() {
 
   return (
     <>
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
       {/* Header */}
-      <div className="bg-white border-b px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+      <div className="bg-white dark:bg-slate-900 border-b dark:border-slate-700 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <button
             onClick={handleDiscard}
-            className="p-1 hover:bg-gray-100 rounded-md transition"
+            className="p-1 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-md transition"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -268,7 +268,7 @@ export default function CreateCouponPage() {
           {/* Left Column - 2/3 width */}
           <div className="lg:col-span-2 space-y-6">
             {/* Details Section */}
-            <div className="bg-white rounded-lg border p-6 space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-lg border dark:border-slate-700 p-6 space-y-4">
               <h2 className="text-lg font-semibold">Details</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -276,22 +276,24 @@ export default function CreateCouponPage() {
                   <label className="block text-sm font-medium mb-1">
                     Name <span className="text-red-500">*</span>
                   </label>
-                  <Input
-                    placeholder="Black Friday 50%"
-                    value={formData.name}
-                    onChange={(e) => handleInputChange("name", e.target.value)}
-                  />
+                    <Input
+                      placeholder="Black Friday 50%"
+                      value={formData.name}
+                      onChange={(e) => handleInputChange("name", e.target.value)}
+                      className="bg-gray-50 dark:bg-slate-900 text-foreground placeholder:text-muted-foreground border-border"
+                    />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">
                     Code <span className="text-red-500">*</span>
                   </label>
-                  <Input
-                    placeholder="BLF-50"
-                    value={formData.code}
-                    onChange={(e) => handleInputChange("code", e.target.value.toUpperCase())}
-                    disabled={isEditMode}
-                  />
+                    <Input
+                      placeholder="BLF-50"
+                      value={formData.code}
+                      onChange={(e) => handleInputChange("code", e.target.value.toUpperCase())}
+                      disabled={isEditMode}
+                      className="bg-gray-50 dark:bg-slate-900 text-foreground placeholder:text-muted-foreground border-border"
+                    />
                 </div>
               </div>
 
@@ -299,7 +301,7 @@ export default function CreateCouponPage() {
                 <div>
                   <label className="block text-sm font-medium mb-1">Expiration</label>
                   <select
-                    className="w-full border rounded-md px-3 py-2 text-sm"
+                    className="w-full border rounded-md px-3 py-2 text-sm bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
                     value={formData.expiration}
                     onChange={(e) => handleInputChange("expiration", e.target.value)}
                   >
@@ -309,13 +311,14 @@ export default function CreateCouponPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Expiration date</label>
-                  <Input
-                    type="datetime-local"
-                    value={formData.expires_at}
-                    onChange={(e) => handleInputChange("expires_at", e.target.value)}
-                    disabled={formData.expiration === "never"}
-                    placeholder="MM / DD / YYYY"
-                  />
+                    <Input
+                      type="datetime-local"
+                      value={formData.expires_at}
+                      onChange={(e) => handleInputChange("expires_at", e.target.value)}
+                      disabled={formData.expiration === "never"}
+                      placeholder="MM / DD / YYYY"
+                      className="bg-gray-50 dark:bg-slate-900 text-foreground placeholder:text-muted-foreground border-border"
+                    />
                 </div>
               </div>
 
@@ -324,7 +327,7 @@ export default function CreateCouponPage() {
                 <div>
                   <label className="block text-sm font-medium mb-1">Discount type</label>
                   <select
-                    className="w-full border rounded-md px-3 py-2 text-sm"
+                    className="w-full border rounded-md px-3 py-2 text-sm bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
                     value={formData.type}
                     onChange={(e) => handleInputChange("type", e.target.value)}
                   >
@@ -336,28 +339,30 @@ export default function CreateCouponPage() {
                   <label className="block text-sm font-medium mb-1">
                     Amount <span className="text-red-500">*</span>
                   </label>
-                  <Input
-                    type="number"
-                    placeholder={formData.type === "percent" ? "10%" : "10$"}
-                    value={formData.value || ""}
-                    onChange={(e) => handleInputChange("value", parseFloat(e.target.value) || 0)}
-                  />
+                    <Input
+                      type="number"
+                      placeholder={formData.type === "percent" ? "10%" : "10$"}
+                      value={formData.value || ""}
+                      onChange={(e) => handleInputChange("value", parseFloat(e.target.value) || 0)}
+                      className="bg-gray-50 dark:bg-slate-900 text-foreground placeholder:text-muted-foreground border-border"
+                    />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Max. threshold</label>
-                  <Input
-                    type="number"
-                    placeholder="100$"
-                    value={formData.max_threshold || ""}
-                    onChange={(e) => handleInputChange("max_threshold", parseFloat(e.target.value) || null)}
-                    disabled={formData.type === "fixed"}
-                  />
+                    <Input
+                      type="number"
+                      placeholder="100$"
+                      value={formData.max_threshold || ""}
+                      onChange={(e) => handleInputChange("max_threshold", parseFloat(e.target.value) || null)}
+                      disabled={formData.type === "fixed"}
+                      className="bg-gray-50 dark:bg-slate-900 text-foreground placeholder:text-muted-foreground border-border"
+                    />
                 </div>
               </div>
             </div>
 
             {/* Products Application Section */}
-            <div className="bg-white rounded-lg border p-6 space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-lg border dark:border-slate-700 p-6 space-y-4">
               <h2 className="text-lg font-semibold">Products application</h2>
               <p className="text-sm text-muted-foreground">
                 {formData.applicable_products.length || "All"} products selected
@@ -371,7 +376,7 @@ export default function CreateCouponPage() {
                   .map((pt) => (
                   <div 
                     key={pt.key} 
-                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
                     onClick={() => {
                       setCategoryFilter({ type: 'product_type', key: pt.key, label: pt.label })
                       setProductSheetOpen(true)
@@ -390,7 +395,7 @@ export default function CreateCouponPage() {
                 {productCategories.categories.map((cat) => (
                   <div 
                     key={cat.id} 
-                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                    className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-800 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
                     onClick={() => {
                       setCategoryFilter({ type: 'category', key: cat.id, label: cat.name })
                       setProductSheetOpen(true)
@@ -416,6 +421,49 @@ export default function CreateCouponPage() {
                   onChange={(sel) => handleInputChange("applicable_products", sel.map(s => s.value))}
                   placeholder="Select products (leave empty for all)"
                   className="text-sm"
+                  styles={{
+                    control: (provided, state) => ({
+                      ...provided,
+                      backgroundColor: "hsl(var(--background))",
+                      color: "hsl(var(--foreground))",
+                      borderColor: state.isFocused ? "#0ea5e9" : "hsl(var(--border))",
+                      boxShadow: state.isFocused ? "0 0 0 3px rgba(14, 165, 233, 0.1)" : provided.boxShadow,
+                      "&:hover": {
+                        borderColor: state.isFocused ? "#0ea5e9" : "hsl(var(--border))",
+                      },
+                    }),
+                    menu: (provided) => ({
+                      ...provided,
+                      backgroundColor: "hsl(var(--popover))",
+                      color: "hsl(var(--foreground))",
+                      border: "1px solid hsl(var(--border))",
+                    }),
+                    option: (provided, state) => ({
+                      ...provided,
+                      backgroundColor: state.isSelected
+                        ? "hsl(var(--primary))"
+                        : state.isFocused
+                        ? "hsl(var(--accent))"
+                        : "transparent",
+                      color: state.isSelected ? "hsl(var(--primary-foreground))" : "hsl(var(--foreground))",
+                    }),
+                    singleValue: (provided) => ({
+                      ...provided,
+                      color: "hsl(var(--foreground))",
+                    }),
+                    multiValue: (provided) => ({
+                      ...provided,
+                      backgroundColor: "hsl(var(--muted))",
+                    }),
+                    multiValueLabel: (provided) => ({
+                      ...provided,
+                      color: "hsl(var(--foreground))",
+                    }),
+                    placeholder: (provided) => ({
+                      ...provided,
+                      color: "hsl(var(--muted-foreground))",
+                    }),
+                  }}
                 />
               </div>
             </div>
@@ -424,13 +472,13 @@ export default function CreateCouponPage() {
           {/* Right Column - 1/3 width */}
           <div className="space-y-6">
             {/* Usage Section */}
-            <div className="bg-white rounded-lg border p-6 space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-lg border dark:border-slate-700 p-6 space-y-4">
               <h2 className="text-lg font-semibold">Usage</h2>
               
               <div>
                 <label className="block text-sm font-medium mb-1">Type</label>
                 <select
-                  className="w-full border rounded-md px-3 py-2 text-sm"
+                  className="w-full border rounded-md px-3 py-2 text-sm bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
                   value={formData.usage_type}
                   onChange={(e) => handleInputChange("usage_type", e.target.value)}
                 >
@@ -444,7 +492,7 @@ export default function CreateCouponPage() {
                   <Input
                     type="number"
                     placeholder="Number of orders"
-                    className="mt-2"
+                    className="mt-2 bg-gray-50 dark:bg-slate-900 text-foreground placeholder:text-muted-foreground border-border"
                     value={formData.n_orders_count || ""}
                     onChange={(e) => handleInputChange("n_orders_count", parseInt(e.target.value) || null)}
                   />
@@ -454,7 +502,7 @@ export default function CreateCouponPage() {
               <div>
                 <label className="block text-sm font-medium mb-1">Redemptions</label>
                 <select
-                  className="w-full border rounded-md px-3 py-2 text-sm"
+                  className="w-full border rounded-md px-3 py-2 text-sm bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
                   value={formData.redemptions}
                   onChange={(e) => handleInputChange("redemptions", e.target.value)}
                 >
@@ -470,7 +518,7 @@ export default function CreateCouponPage() {
                   <Input
                     type="number"
                     placeholder="Max redemptions"
-                    className="mt-2"
+                    className="mt-2 bg-gray-50 dark:bg-slate-900 text-foreground placeholder:text-muted-foreground border-border"
                     value={formData.max_usage || ""}
                     onChange={(e) => handleInputChange("max_usage", parseInt(e.target.value) || null)}
                   />
@@ -479,7 +527,7 @@ export default function CreateCouponPage() {
             </div>
 
             {/* Eligible Patients Section */}
-            <div className="bg-white rounded-lg border p-6 space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-lg border dark:border-slate-700 p-6 space-y-4">
               <h2 className="text-lg font-semibold">Eligible patients</h2>
               
               <div className="space-y-3">
@@ -509,7 +557,7 @@ export default function CreateCouponPage() {
               {formData.eligible_patients === "specific" && (
                 <div className="space-y-4 pt-2">
                   {/* Auto-add patients by search */}
-                  <div className="border rounded-lg p-4 bg-gray-50">
+                  <div className="border rounded-lg p-4 bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:bg-slate-800">
                     <div className="flex items-center justify-between mb-2">
                       <div>
                         <div className="font-medium text-sm">Auto-add patients by search</div>
@@ -527,7 +575,7 @@ export default function CreateCouponPage() {
                   </div>
 
                   {/* Manually add patient emails */}
-                  <div className="border rounded-lg p-4 bg-gray-50">
+                  <div className="border rounded-lg p-4 bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:bg-slate-800">
                     <div className="mb-2">
                       <div className="font-medium text-sm">Manually add patient emails</div>
                       <div className="text-xs text-muted-foreground">{formData.patient_emails.split('\n').filter(e => e.trim()).length} emails</div>
@@ -545,7 +593,7 @@ export default function CreateCouponPage() {
             </div>
 
             {/* Status Section */}
-            <div className="bg-white rounded-lg border p-6 space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-lg border dark:border-slate-700 p-6 space-y-4">
               <h2 className="text-lg font-semibold">Status</h2>
               
               <div className="flex items-center gap-2">

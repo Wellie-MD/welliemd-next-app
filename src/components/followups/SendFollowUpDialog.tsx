@@ -26,7 +26,15 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { AlertCircle, AlertTriangle, CheckCircle2, Copy, Mail, Loader2 } from 'lucide-react';
-import { createFollowUp, getFollowUpTemplates, FollowUpTemplate, CreateFollowUpResponse, sendFollowUpNotification } from '@/api/followUpApi';
+import {
+  createFollowUp,
+  getFollowUpOrderCandidates,
+  getFollowUpTemplates,
+  FollowUpOrderCandidate,
+  FollowUpTemplate,
+  CreateFollowUpResponse,
+  sendFollowUpNotification,
+} from '@/api/followUpApi';
 import { patientService, TreatmentEpisode } from '@/services/patientService';
 
 interface SendFollowUpDialogProps {
@@ -56,9 +64,15 @@ export function SendFollowUpDialog({
   const [episodes, setEpisodes] = useState<TreatmentEpisode[]>([]);
   const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>('');
   const [episodesFallbackUsed, setEpisodesFallbackUsed] = useState(false);
+  const [orderCandidates, setOrderCandidates] = useState<FollowUpOrderCandidate[]>([]);
+  const [selectedOrderId, setSelectedOrderId] = useState<string>('');
+  const [loadingOrderCandidates, setLoadingOrderCandidates] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailSentOnce, setEmailSentOnce] = useState(false);
   const [sendEmailMessage, setSendEmailMessage] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [expiryDays, setExpiryDays] = useState<string>('2');
+  const [customExpiryDays, setCustomExpiryDays] = useState<string>('30');
 
   const selectedTemplateRecord = useMemo(
     () => templates.find((t) => t.id === selectedTemplate) || null,
@@ -74,6 +88,11 @@ export function SendFollowUpDialog({
     }
     return null;
   }, [episodes, selectedEpisodeId]);
+
+  const selectedOrderRecord = useMemo(
+    () => orderCandidates.find((o) => o.id === selectedOrderId) || null,
+    [orderCandidates, selectedOrderId]
+  );
 
   const templateEpisodeWarning = useMemo(() => {
     if (!selectedTemplateRecord || !selectedEpisodeRecord) return null;
@@ -125,6 +144,26 @@ export function SendFollowUpDialog({
     }
   }, []);
 
+  const loadOrderCandidates = useCallback(async () => {
+    setLoadingOrderCandidates(true);
+    try {
+      const response = await getFollowUpOrderCandidates(patientId);
+      if (response.success) {
+        setOrderCandidates(response.order_candidates || []);
+        if ((response.order_candidates || []).length === 1) {
+          setSelectedOrderId(response.order_candidates[0].id);
+        }
+      } else {
+        setOrderCandidates([]);
+      }
+    } catch (error) {
+      console.error('Failed to load order candidates:', error);
+      setOrderCandidates([]);
+    } finally {
+      setLoadingOrderCandidates(false);
+    }
+  }, [patientId]);
+
   const loadEpisodes = useCallback(async (templateId: string) => {
     setLoadingEpisodes(true);
     try {
@@ -160,13 +199,19 @@ export function SendFollowUpDialog({
       setEpisodes([]);
       setSelectedEpisodeId('');
       setEpisodesFallbackUsed(false);
+      setOrderCandidates([]);
+      setSelectedOrderId('');
+      loadOrderCandidates();
       // Reset state when dialog opens
       setResult(null);
+      setFormError(null);
       setCopied(false);
       setEmailSentOnce(false);
       setSendEmailMessage(null);
+      setExpiryDays('2');
+      setCustomExpiryDays('30');
     }
-  }, [open, loadTemplates]);
+  }, [open, loadTemplates, loadOrderCandidates]);
 
   useEffect(() => {
     if (open && selectedTemplate) {
@@ -176,16 +221,40 @@ export function SendFollowUpDialog({
 
   const handleSubmit = async () => {
     if (!selectedTemplate) return;
-    if (episodes.length === 0) return;
-    if (episodes.length > 1 && !selectedEpisodeId) return;
+
+    const hasEpisodePath = Boolean(selectedEpisodeId || selectedEpisodeRecord?.id);
+    const hasOrderPath = Boolean(selectedOrderId || selectedOrderRecord?.id);
+    if (!hasEpisodePath && !hasOrderPath) return;
 
     setLoading(true);
+    setFormError(null);
     try {
+      const useCustomDays = expiryDays === 'custom';
+      const selectedExpiryDays = useCustomDays ? Number(customExpiryDays) : Number(expiryDays);
+      if (!Number.isInteger(selectedExpiryDays) || selectedExpiryDays < 1 || selectedExpiryDays > 365) {
+        setFormError('Link expiry must be between 1 and 365 days.');
+        return;
+      }
+
       const response = await createFollowUp({
         patient_id: patientId,
         questionnaire_id: selectedTemplate,
         episode_id: selectedEpisodeId || selectedEpisodeRecord?.id || null,
+        context_order_id: selectedOrderId || selectedOrderRecord?.id || null,
+        expiry_days: selectedExpiryDays,
       });
+
+      if (!response.success && response.code === 'EPISODE_RESOLUTION_REQUIRED') {
+        const candidates = response.order_candidates || [];
+        setOrderCandidates(candidates);
+        if (candidates.length === 1) {
+          setSelectedOrderId(candidates[0].id);
+        }
+        setFormError(
+          response.error || 'Episode is ambiguous or missing. Select an order context and retry.'
+        );
+        return;
+      }
 
       setResult(response);
 
@@ -304,6 +373,12 @@ export function SendFollowUpDialog({
               )}
             </div>
 
+            {formError && (
+              <div className="p-2 rounded border border-red-200 bg-red-50 text-red-700 text-sm">
+                {formError}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="episode">Treatment Episode</Label>
               {loadingEpisodes ? (
@@ -313,7 +388,7 @@ export function SendFollowUpDialog({
                 </div>
               ) : episodes.length === 0 ? (
                 <p className="text-sm text-red-600">
-                  No treatment episode is available for this patient and template yet. Create or attach the correct treatment track before sending a manual follow-up.
+                  No template-matched treatment episode is available yet. You can select an order context below to create/use episode context automatically.
                 </p>
               ) : (
                 <>
@@ -336,9 +411,9 @@ export function SendFollowUpDialog({
                   )}
                 </>
               )}
-              {episodes.length > 1 && !selectedEpisodeId && (
+              {episodes.length > 1 && !selectedEpisodeId && !selectedOrderId && (
                 <p className="text-xs text-red-600">
-                  Please select the correct treatment episode.
+                  Select a treatment episode or an order context.
                 </p>
               )}
               {templateEpisodeWarning && (
@@ -349,9 +424,82 @@ export function SendFollowUpDialog({
               )}
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              Follow-up link expiry is set automatically based on follow-up scheduling rules.
-            </p>
+            <div className="space-y-2">
+              <Label htmlFor="order-context">Order Context (Legacy-safe)</Label>
+              {loadingOrderCandidates ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading patient orders...
+                </div>
+              ) : orderCandidates.length > 0 ? (
+                <>
+                  <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
+                    <SelectTrigger id="order-context">
+                      <SelectValue placeholder="Select order (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {orderCandidates.map((order) => (
+                        <SelectItem key={order.id} value={order.id}>
+                          {(order.order_id
+                            ? `#${order.order_id}`
+                            : order.display_id
+                              ? `#${order.display_id}`
+                              : order.id.slice(0, 8))}
+                          {order.product_name ? ` • ${order.product_name}` : ''}
+                          {order.status ? ` • ${order.status}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Use when episode resolution is ambiguous or missing. Selected order will be used as follow-up context.
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  No eligible orders available for fallback context.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="expiry-days">Link Expiry</Label>
+              <Select value={expiryDays} onValueChange={setExpiryDays}>
+                <SelectTrigger id="expiry-days">
+                  <SelectValue placeholder="Select link expiry" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 day</SelectItem>
+                  <SelectItem value="2">2 days</SelectItem>
+                  <SelectItem value="3">3 days</SelectItem>
+                  <SelectItem value="5">5 days</SelectItem>
+                  <SelectItem value="7">7 days</SelectItem>
+                  <SelectItem value="14">14 days</SelectItem>
+                  <SelectItem value="21">21 days</SelectItem>
+                  <SelectItem value="30">30 days</SelectItem>
+                  <SelectItem value="custom">Custom (days)</SelectItem>
+                </SelectContent>
+              </Select>
+              {expiryDays === 'custom' && (
+                <div className="space-y-1">
+                  <Label htmlFor="custom-expiry-days" className="text-xs text-muted-foreground">
+                    Custom expiry (1-365 days)
+                  </Label>
+                  <Input
+                    id="custom-expiry-days"
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={customExpiryDays}
+                    onChange={(e) => setCustomExpiryDays(e.target.value)}
+                    placeholder="e.g. 30"
+                  />
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Applies to manual follow-up link creation. You can set up to 365 days.
+              </p>
+            </div>
           </div>
         ) : result.success ? (
           // Success state
@@ -423,8 +571,7 @@ export function SendFollowUpDialog({
                   !selectedTemplate ||
                   loadingTemplates ||
                   loadingEpisodes ||
-                  episodes.length === 0 ||
-                  (episodes.length > 1 && !selectedEpisodeId)
+                  (!selectedEpisodeId && !selectedEpisodeRecord?.id && !selectedOrderId && !selectedOrderRecord?.id)
                 }
               >
                 {loading ? (

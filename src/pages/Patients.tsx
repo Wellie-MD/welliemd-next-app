@@ -2,11 +2,11 @@ import { useState, useMemo, useCallback, useEffect } from "react"
 import { DataTable } from "@/components/ui/data-table"
 import { AlertCircle } from "lucide-react"
 import { DateRange } from "react-day-picker"
+import { useNavigate } from "react-router-dom"
 import { isWithinInterval, parseISO, format } from "date-fns"
 import { exportToCSV } from "@/utils/exportUtils"
 import { patientService, type Patient } from "@/services/patientService"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { PatientDetailSheet } from "@/components/patients/PatientDetailSheet"
 
 // Transform backend patient data to table row format
 interface PatientTableRow {
@@ -76,6 +76,7 @@ const parseDate = (dateString: string) => {
 }
 
 export default function Patients() {
+  const navigate = useNavigate()
   const [searchInput, setSearchInput] = useState("") // User input
   const [searchTerm, setSearchTerm] = useState("") // Debounced value for API
   const [activeFilter, setActiveFilter] = useState("All")
@@ -89,11 +90,6 @@ export default function Patients() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [totalCount, setTotalCount] = useState(0)
-  
-  // Patient details state
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
-  const [isDetailOpen, setIsDetailOpen] = useState(false)
-  const [isFetchingDetail, setIsFetchingDetail] = useState(false)
   
   // Debounce search input
   useEffect(() => {
@@ -223,41 +219,8 @@ export default function Patients() {
     exportToCSV(filteredPatients, patientColumns, 'patients_export')
   }, [filteredPatients])
 
-  const handleRowClick = useCallback(async (row: any) => {
-    setIsFetchingDetail(true)
-    try {
-      const patient = await patientService.getPatient(row.id)
-      setSelectedPatient(patient)
-      setIsDetailOpen(true)
-    } catch (err) {
-      console.error('Failed to fetch patient details:', err)
-      // Fallback: create a partial patient object from the row data
-      // This is a safety measure if getPatient fails
-      setSelectedPatient({
-        id: row.id,
-        email: row.email,
-        first_name: row.name.split(' ')[0] || '',
-        last_name: row.name.split(' ').slice(1).join(' ') || '',
-        full_name: row.name,
-        phone: row.phone,
-        // Other fields will be missing but the UI handles N/A
-      } as Patient)
-      setIsDetailOpen(true)
-    } finally {
-      setIsFetchingDetail(false)
-    }
-  }, [])
-
-  const handlePatientUpdated = useCallback((updated: Patient) => {
-    setSelectedPatient(updated)
-    setPatients(prev => prev.map((row) => row.id === updated.id ? transformPatientData(updated) : row))
-  }, [])
-
-  const handlePatientDeleted = useCallback((patientId: string) => {
-    setSelectedPatient(null)
-    setIsDetailOpen(false)
-    setPatients(prev => prev.filter((row) => row.id !== patientId))
-    setTotalCount(prev => Math.max(prev - 1, 0))
+  const handleRowClick = useCallback((row: any) => {
+    navigate(`/dashboard/patients/${row.id}`)
   }, [])
 
   return (
@@ -289,7 +252,7 @@ export default function Patients() {
         onExport={handleExport}
         onRefresh={handleRefresh}
         onRowClick={handleRowClick}
-        loading={loading || isFetchingDetail}
+        loading={loading}
         pagination={{
           currentPage: page,
           totalPages: Math.ceil(totalCount / pageSize),
@@ -303,13 +266,6 @@ export default function Patients() {
         }}
       />
 
-      <PatientDetailSheet 
-        patient={selectedPatient}
-        open={isDetailOpen}
-        onOpenChange={setIsDetailOpen}
-        onPatientUpdated={handlePatientUpdated}
-        onPatientDeleted={handlePatientDeleted}
-      />
     </div>
   )
 }
