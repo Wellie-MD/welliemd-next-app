@@ -6,7 +6,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Patient, patientService } from '@/services/patientService';
+import { Patient, TreatmentEpisode, patientService } from '@/services/patientService';
 import { PatientFollowUpStatus } from '@/components/followups/PatientFollowUpStatus';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -81,6 +82,8 @@ const buildInitialForm = (patient: Patient) => ({
 export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdated, onPatientDeleted, readOnly }: PatientDetailSheetProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [episodes, setEpisodes] = useState<TreatmentEpisode[]>([]);
+  const [episodesLoading, setEpisodesLoading] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -115,6 +118,7 @@ export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdat
     let isMounted = true;
     if (open && patient?.id) {
       setOrdersLoading(true);
+      setEpisodesLoading(true);
       ordersApi.fetchOrdersByPatient(patient.id, { page_size: 5, ordering: '-created_at' })
         .then((resp) => {
           if (isMounted) setOrders(resp.results || []);
@@ -124,6 +128,17 @@ export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdat
         })
         .finally(() => {
           if (isMounted) setOrdersLoading(false);
+        });
+
+      patientService.getTreatmentEpisodes(patient.id)
+        .then((data) => {
+          if (isMounted) setEpisodes(data || []);
+        })
+        .catch(() => {
+          if (isMounted) setEpisodes([]);
+        })
+        .finally(() => {
+          if (isMounted) setEpisodesLoading(false);
         });
     }
     return () => {
@@ -296,52 +311,88 @@ export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdat
 
             <Separator />
 
-            {/* Follow-Ups Section */}
-            <div>
-              <PatientFollowUpStatus
-                patientId={patient.id}
-                patientName={patient.full_name || `${patient.first_name} ${patient.last_name}`}
-                patientEmail={patient.email}
-              />
-            </div>
-
-            <Separator />
-
-            {/* Recent Orders */}
             <div className="space-y-3">
               <h4 className="text-sm font-semibold flex items-center gap-2">
-                <ClipboardList size={16} /> Recent Orders
+                <ClipboardList size={16} /> Treatment Timeline
               </h4>
 
-              {ordersLoading ? (
-                <p className="text-sm text-muted-foreground">Loading orders...</p>
-              ) : orders.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No orders found.</p>
-              ) : (
-                <div className="space-y-2">
-                  {orders.map((order) => (
-                    <div key={order.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-md border border-border p-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {order.order_id || order.display_id ? `Order #${order.order_id || order.display_id}` : `Order ${order.id}`}
+              <Tabs defaultValue="treatments" className="w-full">
+                <TabsList className="w-full">
+                  <TabsTrigger value="treatments" className="flex-1">Treatments</TabsTrigger>
+                  <TabsTrigger value="orders" className="flex-1">Orders</TabsTrigger>
+                  <TabsTrigger value="followups" className="flex-1">Follow-Ups</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="treatments" className="pt-3 space-y-2">
+                  {episodesLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading treatments...</p>
+                  ) : episodes.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No treatment episodes found.</p>
+                  ) : (
+                    episodes.map((episode) => (
+                      <div key={episode.id} className="rounded-md border border-border p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium">
+                            {episode.current_product_name || episode.current_product_category_name || episode.treatment_key || 'Treatment'}
+                          </p>
+                          <Badge variant="outline">{episode.status || 'active'}</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Started: {episode.started_at ? new Date(episode.started_at).toLocaleDateString() : '-'}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : '-'}
-                        </p>
+                        {episode.current_product_titration_category && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Regimen: {episode.current_product_titration_category}
+                          </p>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">{order.orderStatus || order.status || '-'}</Badge>
-                        <span className="text-sm font-semibold">
-                          {order.orderTotal ? `$${order.orderTotal}` : '-'}
-                        </span>
-                      </div>
+                    ))
+                  )}
+                </TabsContent>
+
+                <TabsContent value="orders" className="pt-3 space-y-2">
+                  {ordersLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading orders...</p>
+                  ) : orders.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No orders found.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {orders.map((order) => (
+                        <div key={order.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-md border border-border p-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {order.order_id || order.display_id ? `Order #${order.order_id || order.display_id}` : `Order ${order.id}`}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : '-'}
+                            </p>
+                            {order.product_name && (
+                              <p className="text-xs text-muted-foreground truncate">{order.product_name}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">{order.orderStatus || order.status || '-'}</Badge>
+                            <span className="text-sm font-semibold">
+                              {order.orderTotal ? `$${order.orderTotal}` : '-'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                      <Button variant="outline" size="sm" className="w-full" onClick={() => onOpenChange(false)}>
+                        View all orders in Orders page
+                      </Button>
                     </div>
-                  ))}
-                  <Button variant="outline" size="sm" className="w-full" onClick={() => onOpenChange(false)}>
-                    View all orders in Orders page
-                  </Button>
-                </div>
-              )}
+                  )}
+                </TabsContent>
+
+                <TabsContent value="followups" className="pt-3">
+                  <PatientFollowUpStatus
+                    patientId={patient.id}
+                    patientName={patient.full_name || `${patient.first_name} ${patient.last_name}`}
+                    patientEmail={patient.email}
+                  />
+                </TabsContent>
+              </Tabs>
             </div>
           </div>
         </ScrollArea>
