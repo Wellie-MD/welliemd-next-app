@@ -137,10 +137,11 @@ export const RX_OTC_OPTIONS = [
 
 export const TREATMENT_OPTIONS = [
   { value: "weight_loss", label: "Weight Loss" },
-  { value: "ed", label: "Erectile Dysfunction" },
-  { value: "glp", label: "GLP" },
-  { value: "individualized_glp", label: "Individualized GLP" },
-  { value: "general", label: "General" },
+  { value: "glutathione", label: "Glutathione" },
+  { value: "ed", label: "ED" },
+  { value: "glp_microdosing", label: "GLP Microdosing" },
+  { value: "sermorelin", label: "Sermorelin" },
+  { value: "nad_plus", label: "NAD+" },
 ];
 
 export const RX_DRUG_FORM_OPTIONS = [
