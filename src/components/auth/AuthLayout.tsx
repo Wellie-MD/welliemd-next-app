@@ -4,16 +4,16 @@ interface AuthLayoutProps {
 
 export const AuthLayout = ({ children }: AuthLayoutProps) => {
   return (
-    <div className="h-screen flex flex-row items-stretch">
+    <div className="h-screen flex flex-row items-stretch bg-background">
       {/* Left side - Form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-white">
+      <div className="flex-1 flex items-center justify-center p-8 bg-white dark:bg-slate-950">
         <div className="w-full max-w-md">
           {children}
         </div>
       </div>
 
       {/* Right side - Fixed background video (shared across all clients) */}
-      <div className="hidden md:flex flex-1 items-center justify-center p-0 bg-white overflow-hidden">
+      <div className="hidden md:flex flex-1 items-center justify-center p-0 bg-white dark:bg-slate-950 overflow-hidden">
         <video
           className="w-full h-full object-contain object-right scale-110 origin-right"
           // NOTE: The actual file should be hosted at this path by the static assets pipeline

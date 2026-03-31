@@ -1579,7 +1579,7 @@ function FlowBuilderContent() {
   };
 
   return (
-    <div className="h-full w-full flex flex-col bg-gray-50">
+    <div className="h-full w-full flex flex-col bg-gray-50 text-black dark:bg-gray-50 dark:text-black">
       {/* Main Content - Full Height */}
       <div className="flex-1 flex relative overflow-hidden">
         {/* Sidebar - Floating */}
@@ -1596,7 +1596,7 @@ function FlowBuilderContent() {
         <div className="flex-1 relative">
           {/* Header Card - Floating on Canvas */}
           {viewMode === "checkout" ? (
-            <div className="absolute top-4 inset-x-4 bg-white/95 backdrop-blur border rounded-xl shadow-lg z-50 px-4 py-3">
+            <div className="absolute top-4 inset-x-4 bg-white/95 backdrop-blur border border-slate-200 rounded-xl shadow-lg z-50 px-4 py-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <Button
@@ -1652,7 +1652,7 @@ function FlowBuilderContent() {
               </div>
             </div>
           ) : (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white border rounded-lg shadow-lg z-50 flex items-center justify-center gap-3 px-4 py-2 max-w-[calc(100%-2rem)] flex-wrap">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white border border-slate-200 rounded-lg shadow-lg z-50 flex items-center justify-center gap-3 px-4 py-2 max-w-[calc(100%-2rem)] flex-wrap">
             <ControlTooltip content="Return to the template details page.">
               <Button
                 variant="ghost"
@@ -1685,7 +1685,7 @@ function FlowBuilderContent() {
                 <ControlTooltip content="Template visit type (read-only).">
                   <div>
                     <Select value={safeVisitType} disabled>
-                      <SelectTrigger className="h-7 w-20 text-xs">
+                      <SelectTrigger className="h-7 w-20 text-xs dark:text-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1924,8 +1924,8 @@ function FlowBuilderContent() {
             <div className="absolute inset-x-4 top-20 bottom-4 z-40">
               <div className="absolute inset-0 rounded-2xl border border-border bg-gradient-to-br from-background via-background to-primary/5 shadow-sm" />
               <div className="relative h-full grid grid-cols-1 xl:grid-cols-[32rem,1fr] gap-4 p-3">
-                <Card className="shadow-lg border-border min-h-0 flex flex-col bg-background/95 backdrop-blur">
-                  <CardHeader className="pb-2 space-y-1.5">
+                <Card className="shadow-lg border-border min-h-0 flex flex-col bg-background/95 backdrop-blur text-black">
+                  <CardHeader className="pb-2 space-y-1.5 text-black">
                     <CardTitle className="text-base font-semibold tracking-tight flex items-center justify-between gap-2">
                       <span>Checkout Questions</span>
                       <Badge variant="secondary" className="text-[10px] h-5">
@@ -1936,12 +1936,12 @@ function FlowBuilderContent() {
                       FlowBuilder-style question cards arranged vertically. Select one to inspect conditions and jump into full edit.
                     </p>
                   </CardHeader>
-                  <CardContent className="pt-0 flex-1 min-h-0 flex flex-col gap-2">
+                  <CardContent className="pt-0 flex-1 min-h-0 flex flex-col gap-2 text-black">
                     <Input
                       value={checkoutSearchQuery}
                       onChange={(e) => setCheckoutSearchQuery(e.target.value)}
                       placeholder="Search checkout questions"
-                      className="h-9 text-sm bg-background"
+                      className="h-9 text-sm bg-white text-black placeholder:text-slate-400 border-slate-200"
                     />
                     <div className="flex-1 min-h-0 overflow-y-auto pr-1">
                       {filteredCheckoutQuestionList.length === 0 ? (
@@ -2093,7 +2093,7 @@ function FlowBuilderContent() {
                         </div>
                       )}
                     </div>
-                    <div className="pt-2 border-t border-border flex flex-wrap items-center gap-2">
+                    <div className="pt-2 border-t border-border flex flex-wrap items-center gap-2 text-black">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -2116,7 +2116,7 @@ function FlowBuilderContent() {
                   </CardContent>
                 </Card>
 
-                <Card className="shadow-lg border-border min-h-0 flex flex-col bg-background/95 backdrop-blur">
+                <Card className="shadow-lg border-border min-h-0 flex flex-col bg-background/95 backdrop-blur text-black">
                   <CardHeader className="pb-2 space-y-1.5">
                     <CardTitle className="text-base font-semibold tracking-tight">Conditions & Navigation</CardTitle>
                     <p className="text-xs text-muted-foreground leading-5">
@@ -2327,12 +2327,12 @@ function FlowBuilderContent() {
           </div>
 
           {/* Bottom Controls - Outside ReactFlow */}
-          <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white border rounded-lg shadow-lg px-3 py-2 z-40 ${viewMode === "checkout" ? "hidden" : ""}`}>
+          <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white border border-slate-200 rounded-lg shadow-lg px-3 py-2 z-40 text-black ${viewMode === "checkout" ? "hidden" : ""}`}>
             <ControlTooltip content="Recompute graph arrangement. Uses visible graph in overview/focus for speed.">
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 text-xs"
+                className="h-8 text-xs text-slate-900"
                 onClick={() => handleAutoLayout()}
                 disabled={isAutoLayouting || viewMode === "checkout"}
               >

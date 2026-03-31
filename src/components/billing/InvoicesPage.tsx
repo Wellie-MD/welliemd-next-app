@@ -321,13 +321,13 @@ export default function InvoicesPage() {
           </div>
         </div>
         <div className="flex justify-end mt-4 pt-4 border-t border-border-light dark:border-border-dark">
-          <button
+          <Button
             type="button"
             onClick={() => void applyFilters()}
-            className="bg-primary text-white font-medium py-2 px-5 rounded-md hover:bg-opacity-90 transition-colors duration-200 shadow-sm"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             Search
-          </button>
+          </Button>
         </div>
       </div>
 

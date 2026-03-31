@@ -384,7 +384,7 @@ export default function PatientResources() {
               resetForm();
               setMode("list");
             }}
-            className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
+            className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to all posts
@@ -428,15 +428,15 @@ export default function PatientResources() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Give your post a title..."
-                className="text-2xl font-bold border-0 border-b border-slate-200 rounded-none px-0 py-3 
-                  focus-visible:ring-0 focus-visible:border-blue-500 placeholder:text-slate-300
+                className="text-2xl font-bold border-0 border-b border-slate-200 dark:border-slate-700 rounded-none px-0 py-3 
+                  focus-visible:ring-0 focus-visible:border-blue-500 placeholder:text-slate-300 dark:placeholder:text-slate-600
                   transition-colors bg-transparent h-auto"
               />
             </div>
 
             {/* Excerpt */}
             <div>
-              <Label className="text-xs uppercase tracking-wider text-slate-400 mb-1.5 block">
+              <Label className="text-xs uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1.5 block">
                 Excerpt / Summary
               </Label>
               <Textarea
@@ -450,7 +450,7 @@ export default function PatientResources() {
 
             {/* Rich editor */}
             <div>
-              <Label className="text-xs uppercase tracking-wider text-slate-400 mb-1.5 block">
+              <Label className="text-xs uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1.5 block">
                 Content
               </Label>
               <RichTextEditor
@@ -465,7 +465,7 @@ export default function PatientResources() {
           {/* ── Sidebar settings ── */}
           <div className="space-y-5">
             {/* Status card */}
-            <Card className="border-slate-200 shadow-sm">
+            <Card className="border-slate-200 dark:border-slate-700 dark:bg-slate-900/60 shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <Globe className="h-4 w-4 text-blue-500" />
@@ -474,7 +474,7 @@ export default function PatientResources() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label className="text-xs text-slate-500">Author Name</Label>
+                  <Label className="text-xs text-slate-500 dark:text-slate-400">Author Name</Label>
                   <Input
                     value={authorName}
                     onChange={(e) => setAuthorName(e.target.value)}
@@ -483,7 +483,7 @@ export default function PatientResources() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-slate-500">Category</Label>
+                  <Label className="text-xs text-slate-500 dark:text-slate-400">Category</Label>
                   <Select value={categoryId} onValueChange={setCategoryId}>
                   <SelectTrigger className="mt-1">
                       <SelectValue />
@@ -502,7 +502,7 @@ export default function PatientResources() {
             </Card>
 
             {/* Cover image card */}
-            <Card className="border-slate-200 shadow-sm">
+            <Card className="border-slate-200 dark:border-slate-700 dark:bg-slate-900/60 shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <ImageIcon className="h-4 w-4 text-purple-500" />
@@ -536,13 +536,13 @@ export default function PatientResources() {
                     >
                       Browse
                     </Button>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       Recommended size: 1200×630 px
                     </p>
                   </>
                 )}
                 {coverImage && (
-                  <div className="relative rounded-lg overflow-hidden border border-slate-200">
+                  <div className="relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
                     <img
                       src={coverImage}
                       alt="Cover preview"
@@ -554,7 +554,7 @@ export default function PatientResources() {
                     <button
                       type="button"
                       onClick={() => setCoverImage("")}
-                      className="absolute top-2 right-2 bg-white/90 rounded-full p-1 hover:bg-white"
+                      className="absolute top-2 right-2 bg-white/90 dark:bg-slate-900/80 rounded-full p-1 hover:bg-white dark:hover:bg-slate-900"
                     >
                       <Trash2 className="h-3 w-3 text-red-500" />
                     </button>
@@ -564,17 +564,17 @@ export default function PatientResources() {
             </Card>
 
             {/* Quick tips */}
-            <Card className="border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-sm">
+            <Card className="border-blue-100 dark:border-blue-900/40 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-950 shadow-sm">
               <CardContent className="pt-5">
                 <div className="flex items-start gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <Sparkles className="h-4 w-4 text-blue-600" />
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                    <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-300" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-blue-900">
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
                       Writing Tips
                     </p>
-                    <ul className="text-xs text-blue-700 mt-1.5 space-y-1">
+                    <ul className="text-xs text-blue-700 dark:text-blue-300 mt-1.5 space-y-1">
                       <li>• Keep paragraphs short for readability</li>
                       <li>• Use headings to structure your content</li>
                       <li>• Add images to make posts engaging</li>
@@ -725,8 +725,8 @@ export default function PatientResources() {
         <div className="flex-1 w-full overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
           <div className="flex gap-2 min-w-max">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[160px] bg-white border-gray-200 rounded-full shadow-sm font-medium focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0">
-                <Filter className="h-4 w-4 mr-2 text-slate-400" />
+            <SelectTrigger className="w-[160px] bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 rounded-full shadow-sm font-medium focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0">
+                <Filter className="h-4 w-4 mr-2 text-slate-400 dark:text-slate-500" />
                 <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
@@ -747,17 +747,17 @@ export default function PatientResources() {
               placeholder="Search resources..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
+              className="w-full pl-11 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
             />
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-slate-500" />
           </div>
 
           {/* View Toggle */}
-          <div className="hidden sm:flex items-center bg-gray-100 p-1.5 rounded-xl border border-gray-200 shrink-0">
+          <div className="hidden sm:flex items-center bg-gray-100 dark:bg-slate-900 p-1.5 rounded-xl border border-gray-200 dark:border-slate-700 shrink-0">
             <button
               className={`p-2 rounded-lg transition-all duration-200 ${viewMode === "grid"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-900 hover:bg-white/50"
+                ? "bg-white dark:bg-slate-950 text-gray-900 dark:text-slate-100 shadow-sm"
+                : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100 hover:bg-white/50 dark:hover:bg-slate-800/60"
                 }`}
               onClick={() => setViewMode("grid")}
               aria-label="Grid view"
@@ -766,8 +766,8 @@ export default function PatientResources() {
             </button>
             <button
               className={`p-2 rounded-lg transition-all duration-200 ${viewMode === "list"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-900 hover:bg-white/50"
+                ? "bg-white dark:bg-slate-950 text-gray-900 dark:text-slate-100 shadow-sm"
+                : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100 hover:bg-white/50 dark:hover:bg-slate-800/60"
                 }`}
               onClick={() => setViewMode("list")}
               aria-label="List view"
@@ -853,7 +853,7 @@ export default function PatientResources() {
                   <Clock className="h-3 w-3" />
                   <span>{resource.read_time_minutes} min read</span>
                 </div>
-                <h3 className="font-semibold text-slate-800 line-clamp-2 mb-2 group-hover:text-blue-700 transition-colors">
+                <h3 className="font-semibold text-slate-800 dark:text-slate-100 line-clamp-2 mb-2 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">
                   {resource.title}
                 </h3>
                 {resource.excerpt && (
@@ -971,7 +971,7 @@ export default function PatientResources() {
                       </span>
                     )}
                   </div>
-                  <h3 className="font-semibold text-slate-800 truncate group-hover:text-blue-700 transition-colors">
+                  <h3 className="font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">
                     {resource.title}
                   </h3>
                   {resource.excerpt && (

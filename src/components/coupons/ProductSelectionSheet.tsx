@@ -164,21 +164,21 @@ export function ProductSelectionSheet({
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">{localSelected.size} selected</span>
             <div className="flex gap-2">
-              <button onClick={selectAll} className="text-blue-600 hover:underline">Select all</button>
-              <button onClick={clearAll} className="text-red-600 hover:underline">Clear</button>
+              <button onClick={selectAll} className="text-blue-600 dark:text-blue-400 hover:underline">Select all</button>
+              <button onClick={clearAll} className="text-red-600 dark:text-red-400 hover:underline">Clear</button>
             </div>
           </div>
 
           {/* Product List */}
           <ScrollArea 
-            className="h-[calc(100vh-320px)] border rounded-lg"
+            className="h-[calc(100vh-320px)] border rounded-lg dark:border-slate-700"
             onScrollCapture={handleScroll}
           >
             <div className="p-4 space-y-2">
               {products.map((product) => (
                 <div
                   key={product.id}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer"
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 cursor-pointer"
                   onClick={() => toggleProduct(product.id)}
                 >
                   <Checkbox
@@ -186,7 +186,7 @@ export function ProductSelectionSheet({
                     onCheckedChange={() => toggleProduct(product.id)}
                   />
                   <div className="flex-1">
-                    <div className="font-medium text-sm">{product.name}</div>
+                    <div className="font-medium text-sm text-foreground">{product.name}</div>
                     {product.base_price && (
                       <div className="text-xs text-muted-foreground">
                         ${Number(product.base_price).toFixed(2)}
@@ -194,7 +194,7 @@ export function ProductSelectionSheet({
                     )}
                   </div>
                   {product.product_type && (
-                    <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                    <span className="text-xs bg-gray-100 dark:bg-slate-800 dark:text-slate-200 px-2 py-1 rounded">
                       {product.product_type}
                     </span>
                   )}

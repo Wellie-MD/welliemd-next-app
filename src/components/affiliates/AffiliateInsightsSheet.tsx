@@ -161,8 +161,8 @@ export function AffiliateInsightsSheet({
           <div className="p-6">
             <SheetHeader className="mb-6">
               <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-blue-50 rounded-lg">
-                  <Award className="h-5 w-5 text-blue-600" />
+                <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                  <Award className="h-5 w-5 text-blue-600 dark:text-blue-300" />
                 </div>
                 <div>
                   <SheetTitle className="text-xl font-bold">
@@ -224,29 +224,29 @@ export function AffiliateInsightsSheet({
               <div className="space-y-6">
                 {/* Summary Stats GRID */}
                 <div className="grid grid-cols-2 gap-4">
-                  <Card className="border-none bg-slate-50 shadow-none">
+                  <Card className="border-none bg-slate-50 dark:bg-slate-900/60 shadow-none">
                     <CardContent className="p-4">
-                      <div className="flex items-center gap-2 mb-2 text-slate-500">
+                      <div className="flex items-center gap-2 mb-2 text-slate-500 dark:text-slate-400">
                         <Users className="h-4 w-4" />
                         <span className="text-xs font-medium uppercase tracking-wider">
                           Referrals
                         </span>
                       </div>
-                      <div className="text-2xl font-bold text-slate-900">
+                      <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                         {insights.summary.total_referrals}
                       </div>
                     </CardContent>
                   </Card>
 
-                  <Card className="border-none bg-blue-50 shadow-none">
+                  <Card className="border-none bg-blue-50 dark:bg-blue-900/30 shadow-none">
                     <CardContent className="p-4">
-                      <div className="flex items-center gap-2 mb-2 text-blue-600">
+                      <div className="flex items-center gap-2 mb-2 text-blue-600 dark:text-blue-300">
                         <DollarSign className="h-4 w-4" />
                         <span className="text-xs font-medium uppercase tracking-wider">
                           Earnings
                         </span>
                       </div>
-                      <div className="text-2xl font-bold text-blue-900">
+                      <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
                         ${insights.summary.total_commission.toLocaleString()}
                       </div>
                     </CardContent>
@@ -334,12 +334,15 @@ export function AffiliateInsightsSheet({
                           />
                           <Tooltip
                             contentStyle={{
-                              backgroundColor: "#fff",
-                              border: "1px solid #e2e8f0",
+                              backgroundColor: "hsl(var(--card))",
+                              border: "1px solid hsl(var(--border))",
                               borderRadius: "8px",
                               fontSize: "12px",
+                              color: "hsl(var(--foreground))",
                               boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                             }}
+                            labelStyle={{ color: "hsl(var(--foreground))" }}
+                            itemStyle={{ color: "hsl(var(--foreground))" }}
                           />
                           <Area
                             type="monotone"
@@ -357,11 +360,11 @@ export function AffiliateInsightsSheet({
                 </Card>
 
                 {/* Detailed Breakdown */}
-                <div className="bg-slate-50 p-4 rounded-xl space-y-3">
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl space-y-3">
+                  <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
                     Referral Breakdown
                   </h4>
-                  <div className="flex justify-between items-center bg-white p-3 rounded-lg border shadow-sm">
+                  <div className="flex justify-between items-center bg-white dark:bg-slate-950 p-3 rounded-lg border dark:border-slate-700 shadow-sm">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-blue-500" />
                       <span className="text-sm font-medium">
@@ -451,10 +454,10 @@ export function AffiliateInsightsSheet({
                                     <span
                                       className={
                                         item.status === "earned"
-                                          ? "inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700"
+                                          ? "inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
                                           : item.status === "pending"
-                                          ? "inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700"
-                                          : "inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700"
+                                          ? "inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                                          : "inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"
                                       }
                                     >
                                       {item.status === "earned"

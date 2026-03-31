@@ -729,7 +729,7 @@ export default function Messages() {
               let rowClass =
                 "flex items-center gap-3 p-2 rounded-lg cursor-pointer transition border hover:bg-muted border-transparent";
               if (isActive) {
-                rowClass += " bg-indigo-50/80 ring-2 ring-indigo-500/70 border-indigo-200";
+                rowClass += " bg-indigo-50/80 ring-2 ring-indigo-500/70 border-indigo-200 dark:bg-indigo-900/40 dark:ring-indigo-400/40 dark:border-indigo-500/40";
               }
 
               return (
@@ -792,7 +792,7 @@ export default function Messages() {
                   </div>
                 </div>
                 <div className="flex gap-2 items-center">
-                  <div className="text-sm border bg-gray-50 rounded px-2 py-1 flex items-center">
+                  <div className="text-sm border bg-gray-50 dark:bg-slate-900 dark:border-slate-700 rounded px-2 py-1 flex items-center">
                     <span className="text-muted-foreground mr-2 font-medium">Order:</span>
                     <span className="font-mono">
                       {activeConversation.orderNumber || activeConversation.masterId}
@@ -836,7 +836,7 @@ export default function Messages() {
                       <div key={dateKey}>
                         {/* Date Separator */}
                         <div className="flex justify-center my-4">
-                          <span className="bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full">
+                          <span className="bg-gray-200 text-gray-700 dark:bg-slate-800 dark:text-slate-200 text-xs px-3 py-1 rounded-full">
                             {getMessageGroupLabel(dateKey)}
                           </span>
                         </div>
@@ -858,13 +858,13 @@ export default function Messages() {
                             else displayName = m.sender_name;
 
                             let bubbleColor = "";
-                            if (m.senderType === "patient") bubbleColor = "bg-gray-100 text-gray-800";
-                            else if (m.senderType === "client") bubbleColor = "bg-gray-100 text-gray-800";
-                            else if (m.senderType === "doctor") bubbleColor = "bg-blue-100 text-blue-800";
-                            else if (m.senderType === "support") bubbleColor = "bg-purple-100 text-purple-800";
-                            else if (m.senderType === "super_support") bubbleColor = "bg-red-100 text-red-800";
-                            else if (m.senderType === "beluga_support") bubbleColor = "bg-green-100 text-green-800";
-                            else bubbleColor = "bg-gray-200 text-gray-800";
+                            if (m.senderType === "patient") bubbleColor = "bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-100";
+                            else if (m.senderType === "client") bubbleColor = "bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-100";
+                            else if (m.senderType === "doctor") bubbleColor = "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200";
+                            else if (m.senderType === "support") bubbleColor = "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200";
+                            else if (m.senderType === "super_support") bubbleColor = "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200";
+                            else if (m.senderType === "beluga_support") bubbleColor = "bg-green-100 text-green-800 dark:bg-emerald-900/40 dark:text-emerald-200";
+                            else bubbleColor = "bg-gray-200 text-gray-800 dark:bg-slate-800 dark:text-slate-100";
 
                             // ---- MEDIA-AWARE RENDERING ----
                             const isMedia = !!m.is_media && (!!m.media_url || !!m.content);

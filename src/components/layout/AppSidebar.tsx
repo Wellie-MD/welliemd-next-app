@@ -226,25 +226,27 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
   const logoUrl = logos.square
 
   return (
-    <img
-      src={logoUrl}
-      alt="Logo"
-      className="h-8 w-auto max-w-[200px] object-contain"
-      onError={(e) => {
-        e.currentTarget.style.display = "none"
-      }}
-    />
+    <div className="brand-logo-shell">
+      <img
+        src={logoUrl}
+        alt="Logo"
+        className="h-8 w-auto max-w-[200px] object-contain"
+        onError={(e) => {
+          e.currentTarget.style.display = "none"
+        }}
+      />
+    </div>
   )
 }
 
   return (
     <Sidebar
       collapsible="icon"
-      className="border-r flex flex-col h-full overflow-hidden"
+      className="border-r flex flex-col h-full overflow-hidden dark:border-slate-800 dark:[&_[data-sidebar=sidebar]]:bg-background dark:[&_[data-sidebar=sidebar]]:text-foreground"
     >
       <div className="flex w-full justify-between p-4">
         <SidebarLogo />
-        <SidebarTrigger className="text-gray-600 hover:bg-white/50 rounded-md p-1" />
+        <SidebarTrigger className="text-gray-600 dark:text-slate-100 hover:bg-white/50 dark:hover:bg-slate-900/40 rounded-md p-1" />
       </div>
       <SidebarContent className="overflow-y-auto overflow-x-hidden flex-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <div className="flex flex-col h-full">
@@ -252,14 +254,14 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
             <Fragment key={section.label}>
               {!collapsed && (
                 <div className="px-3 pt-4 pb-2 first:pt-2">
-                  <SidebarGroupLabel className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  <SidebarGroupLabel className="text-xs font-semibold text-gray-400 dark:text-slate-200 uppercase tracking-wider">
                     {section.label}
                   </SidebarGroupLabel>
                 </div>
               )}
 
               {collapsed && sectionIndex > 0 && (
-                <div className="w-full h-px bg-gray-200 mx-2 my-1"></div>
+                <div className="w-full h-px bg-gray-200 dark:bg-slate-800/80 mx-2 my-1"></div>
               )}
 
               <SidebarGroup
@@ -297,19 +299,19 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                           }
                                           ${
                                             isActive
-                                              ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm"
-                                              : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
+                                              ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm dark:bg-slate-900/30 dark:text-slate-100"
+                                              : "text-gray-600 dark:text-slate-100 hover:bg-[#F8FBFC] dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
                                           }
                                         `}
                                       >
                                         <div className="flex items-center min-w-0">
                                           <item.icon
-                                            className={`h-5 w-5 flex-shrink-0 ${
-                                              isActive
-                                                ? "text-[#12517A]"
-                                                : "text-gray-500 group-hover:text-[#12517A]"
-                                            }`}
-                                          />
+                                          className={`h-5 w-5 flex-shrink-0 ${
+                                            isActive
+                                              ? "text-[#12517A] dark:text-slate-100"
+                                              : "text-gray-500 dark:text-slate-100 group-"
+                                          }`}
+                                        />
                                           {!collapsed && (
                                             <span className="ml-3 font-medium truncate">
                                               {item.title}
@@ -328,7 +330,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                               ${
                                                 isActive
                                                   ? "text-[#12517A]"
-                                                  : "text-gray-400 group-hover:text-[#12517A]"
+                                                  : "text-gray-400 dark:text-slate-200 group-"
                                               }
                                             `}
                                           />
@@ -348,10 +350,10 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                                 to={child.url}
                                                 className={`
                                                   flex items-center w-full px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
-                                                  ${
-                                                    currentPath === child.url
-                                                      ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm border-l-2 border-[#12517A] -ml-[1px]"
-                                                      : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
+                                                ${
+                                                  currentPath === child.url
+                                                      ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm border-l-2 border-[#12517A] -ml-[1px] dark:bg-slate-900/30 dark:text-slate-100 dark:border-slate-300"
+                                                      : "text-gray-600 dark:text-slate-100 hover:bg-[#F8FBFC] dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
                                                   }
                                                 `}
                                               >
@@ -381,8 +383,8 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                         }
                                         ${
                                           currentPath === item.url
-                                            ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm"
-                                            : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
+                                            ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm dark:bg-slate-800 dark:text-slate-100"
+                                            : "text-gray-600 dark:text-slate-300 hover:bg-[#F8FBFC] dark:hover:bg-slate-800"
                                         }
                                       `}
                                     >
@@ -394,8 +396,8 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                         <item.icon
                                           className={`h-5 w-5 flex-shrink-0 ${
                                             currentPath === item.url
-                                              ? "text-[#12517A]"
-                                              : "text-gray-500 group-hover:text-[#12517A]"
+                                              ? "text-[#12517A] dark:text-slate-100"
+                                              : "text-gray-500 dark:text-slate-400 group-"
                                           }`}
                                         />
                                       </div>
@@ -426,21 +428,21 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                           ? "p-2 justify-center w-10 h-10 mx-auto"
                                           : "px-3 py-2.5 justify-between"
                                       }
-                                      ${
-                                        isActive
-                                          ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm"
-                                          : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
-                                      }
-                                    `}
-                                  >
+                                    ${
+                                      isActive
+                                        ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm dark:bg-slate-900/30 dark:text-slate-100"
+                                        : "text-gray-600 dark:text-slate-100 hover:bg-[#F8FBFC] dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
+                                    }
+                                  `}
+                                >
                                     <div className="flex items-center min-w-0">
                                       <item.icon
-                                        className={`h-5 w-5 flex-shrink-0 ${
-                                          isActive
-                                            ? "text-[#12517A]"
-                                            : "text-gray-500 group-hover:text-[#12517A]"
-                                        }`}
-                                      />
+                                      className={`h-5 w-5 flex-shrink-0 ${
+                                        isActive
+                                          ? "text-[#12517A] dark:text-slate-100"
+                                          : "text-gray-500 dark:text-slate-100 group-"
+                                      }`}
+                                    />
                                       {!collapsed && (
                                         <span className="ml-3 font-medium truncate">
                                           {item.title}
@@ -455,7 +457,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                           ${
                                             isActive
                                               ? "text-[#12517A]"
-                                              : "text-gray-400 group-hover:text-[#12517A]"
+                                              : "text-gray-400 dark:text-slate-200 group-"
                                           }
                                         `}
                                       />
@@ -477,8 +479,8 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                               flex items-center w-full px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
                                               ${
                                                 currentPath === child.url
-                                                  ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm border-l-2 border-[#12517A] -ml-[1px]"
-                                                  : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
+                                                  ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm border-l-2 border-[#12517A] -ml-[1px] dark:bg-slate-900/30 dark:text-slate-100 dark:border-slate-300"
+                                                  : "text-gray-600 dark:text-slate-100 hover:bg-[#F8FBFC] dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
                                               }
                                             `}
                                           >
@@ -508,8 +510,8 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                     }
                                     ${
                                       currentPath === item.url
-                                        ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm"
-                                        : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
+                                        ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm dark:bg-slate-900/30 dark:text-slate-100"
+                                        : "text-gray-600 dark:text-slate-100 hover:bg-[#F8FBFC] dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
                                     }
                                   `}
                                 >
@@ -519,18 +521,18 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                       collapsed ? "" : "mr-3"
                                     }`}
                                   >
-                                    <item.icon
+                                      <item.icon
                                       className={`h-5 w-5 flex-shrink-0 ${
                                         currentPath === item.url
-                                          ? "text-[#12517A]"
-                                          : "text-gray-500 group-hover:text-[#12517A]"
+                                          ? "text-[#12517A] dark:text-slate-100"
+                                          : "text-gray-500 dark:text-slate-100 group-"
                                       }`}
                                     />
                                     {/* tiny dot when collapsed */}
                                     {item.title === "Messages" &&
                                       unseenCount > 0 &&
                                       collapsed && (
-                                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white" />
+                                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900" />
                                       )}
                                   </div>
 

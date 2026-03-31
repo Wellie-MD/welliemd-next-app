@@ -185,7 +185,7 @@ export default function ManageAccount() {
                 type="email"
                 value={formData.email}
                 disabled
-                className="bg-gray-50 cursor-not-allowed"
+                className="bg-gray-50 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700 cursor-not-allowed"
               />
               <p className="text-sm text-gray-500">
                 Email address cannot be changed

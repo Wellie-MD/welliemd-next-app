@@ -110,7 +110,11 @@ const SignIn = () => {
             </Link>
           </div>
 
-          <Button type="submit" className="w-full h-12 text-base" disabled={isLoading}>
+          <Button
+            type="submit"
+            className="w-full h-12 text-base dark:bg-sky-500 dark:text-white dark:hover:bg-sky-600"
+            disabled={isLoading}
+          >
             {isLoading ? "Signing in..." : "Sign in"}
           </Button>
 
