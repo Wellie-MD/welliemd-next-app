@@ -4934,3 +4934,35 @@ html {
     opacity: 0;
   }
 }
+
+.brand-logo-shell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(15, 23, 42, 0.1);
+  border: 1px solid rgba(15, 23, 42, 0.2);
+}
+
+.dark .brand-logo-shell {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Dark Theme Input Fixes */
+.dark .messages-search-input,
+.dark .messages-compose-input {
+  color: #000000 !important;
+  background-color: #ffffff !important;
+}
+
+.dark .messages-chip-trigger,
+.dark .messages-chip-option {
+  color: #000000 !important;
+}
+
+.dark .messages-search-input::placeholder,
+.dark .messages-compose-input::placeholder {
+  color: #64748b !important;
+}

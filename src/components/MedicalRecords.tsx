@@ -89,8 +89,8 @@ export default function MedicalRecords() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Medical Records</h1>
-          <p className="text-gray-600">Access and manage your health documents</p>
+          <h1 className="text-2xl font-semibold text-foreground">Medical Records</h1>
+          <p className="text-muted-foreground">Access and manage your health documents</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => navigate('/dashboard/labs')}>

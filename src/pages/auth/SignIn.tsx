@@ -81,11 +81,13 @@ const SignIn = () => {
         <div className="space-y-2 text-center">
           {logoUrl && (
             <div className="flex justify-center mb-4">
-              <img
-                src={logoUrl}
-                alt="Logo"
-                className="h-12 w-auto object-contain"
-              />
+              <div className="brand-logo-shell">
+                <img
+                  src={logoUrl}
+                  alt="Logo"
+                  className="h-12 w-auto object-contain"
+                />
+              </div>
             </div>
           )}
           <h1 className="text-3xl font-bold tracking-tight">Welcome back</h1>

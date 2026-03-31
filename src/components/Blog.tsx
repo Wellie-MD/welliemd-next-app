@@ -66,26 +66,16 @@ export default function Blog() {
     count >= 1000 ? `${(count / 1000).toFixed(1)}k` : String(count);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="blog-container py-8">
 
         {/* Header Section */}
         <div className="text-center mb-10 pt-4">
-          <h1
-            className="text-center tracking-tight"
-            style={{
-              fontSize: '2.5rem', /* 40px size, equivalent to text-4xl */
-              lineHeight: '1.2',
-              fontWeight: '800',  /* Extra bold */
-              color: '#0f172a',   /* Slate-900 dark color */
-              display: 'block',
-              marginBottom: '1rem'
-            }}
-          >
+          <h1 className="text-center tracking-tight text-4xl font-extrabold text-foreground mb-4">
             All Resources
           </h1>
-          <p className="text-gray-500 text-lg max-w-3xl mx-auto mb-10">
-            Want more inspiration? Browse our <span className="font-bold text-gray-900">search results</span>
+          <p className="text-muted-foreground text-lg max-w-3xl mx-auto mb-10">
+            Want more inspiration? Browse our <span className="font-bold text-foreground">search results</span>
           </p>
 
           <div className="flex flex-col gap-8">
@@ -107,7 +97,7 @@ export default function Blog() {
                 onClick={() => setActiveCategory(null)}
                 className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${!activeCategory
                   ? "bg-blue-50 text-blue-600 border border-blue-200 shadow-sm"
-                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
                   }`}
               >
                 All
@@ -116,7 +106,7 @@ export default function Blog() {
                 onClick={() => setActiveCategory("saved")}
                 className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${activeCategory === "saved"
                   ? "bg-blue-50 text-blue-600 border border-blue-200 shadow-sm"
-                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
                   }`}
               >
                 Saved
@@ -127,7 +117,7 @@ export default function Blog() {
                   onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
                   className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${activeCategory === cat
                     ? "bg-blue-50 text-blue-600 border border-blue-200 shadow-sm"
-                    : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                    : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
                     }`}
                 >
                   {cat}

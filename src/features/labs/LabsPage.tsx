@@ -331,8 +331,8 @@ export default function LabsPage() {
         <div className="p-6">
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h1 className="text-2xl font-semibold text-gray-900">Labs</h1>
-                    <p className="text-gray-600">View your lab results and submissions</p>
+                    <h1 className="text-2xl font-semibold text-foreground">Labs</h1>
+                    <p className="text-muted-foreground">View your lab results and submissions</p>
                 </div>
             </div>
 

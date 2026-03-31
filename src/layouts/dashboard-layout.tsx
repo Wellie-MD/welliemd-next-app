@@ -37,7 +37,7 @@ const DashboardLayout: React.FC = () => {
 
   return (
     <NotificationsProvider>
-      <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+      <div className="min-h-screen bg-background overflow-x-hidden">
         <Header 
           onMenuClick={toggleMobileSidebar}
           isSidebarOpen={isMobileSidebarOpen}

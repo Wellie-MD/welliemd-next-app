@@ -215,15 +215,15 @@ export default function Profile() {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Account Settings</h1>
-        <p className="text-gray-600 mt-2">Manage your account information and preferences</p>
+        <h1 className="text-2xl font-semibold text-foreground">Account Settings</h1>
+        <p className="text-muted-foreground mt-2">Manage your account information and preferences</p>
       </div>
 
       {/* Basic Information */}
       <Card>
         <CardHeader>
           <CardTitle>Basic Information</CardTitle>
-          <p className="text-sm text-gray-600">Update your account's profile information and email address.</p>
+          <p className="text-sm text-muted-foreground">Update your account's profile information and email address.</p>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -362,48 +362,48 @@ export default function Profile() {
       <Card>
         <CardHeader>
           <CardTitle>Profile Information</CardTitle>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             Keep your medical and contact details current so your care team can reach you quickly.
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+          <div className="rounded-xl border border-border bg-muted/50 p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-gray-900">Latest vitals</p>
-                <p className="text-xs text-gray-500">Recorded from your most recent questionnaire</p>
+                <p className="text-sm font-semibold text-foreground">Latest vitals</p>
+                <p className="text-xs text-muted-foreground">Recorded from your most recent questionnaire</p>
               </div>
               {patientProfile?.latest_vitals?.measured_at ? (
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-muted-foreground">
                   {new Date(patientProfile.latest_vitals.measured_at).toLocaleDateString()}
                 </span>
               ) : null}
             </div>
             {patientProfile?.latest_vitals ? (
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div className="rounded-lg bg-white px-4 py-3 shadow-sm">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Height</p>
-                  <p className="mt-1 text-sm font-semibold text-gray-900">
+                <div className="rounded-lg bg-card px-4 py-3 shadow-sm">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Height</p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">
                     {formatHeight(patientProfile.latest_vitals.height_inches) || 'Not recorded'}
                   </p>
                 </div>
-                <div className="rounded-lg bg-white px-4 py-3 shadow-sm">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Weight</p>
-                  <p className="mt-1 text-sm font-semibold text-gray-900">
+                <div className="rounded-lg bg-card px-4 py-3 shadow-sm">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Weight</p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">
                     {patientProfile.latest_vitals.weight_lbs
                       ? `${patientProfile.latest_vitals.weight_lbs} lbs`
                       : 'Not recorded'}
                   </p>
                 </div>
-                <div className="rounded-lg bg-white px-4 py-3 shadow-sm">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">BMI</p>
-                  <p className="mt-1 text-sm font-semibold text-gray-900">
+                <div className="rounded-lg bg-card px-4 py-3 shadow-sm">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">BMI</p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">
                     {patientProfile.latest_vitals.bmi || 'Not recorded'}
                   </p>
                 </div>
               </div>
             ) : (
-              <p className="mt-3 text-sm text-gray-500">No vitals recorded yet.</p>
+              <p className="mt-3 text-sm text-muted-foreground">No vitals recorded yet.</p>
             )}
           </div>
 

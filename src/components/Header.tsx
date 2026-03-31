@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, Moon, Sun, X } from "lucide-react";
 import { UserProfileDropdown } from "./common/user-profile-dropdown";
 import { NotificationsDropdown } from "./common/notifications-dropdown";
 import { useAuth } from "@/features/auth";
@@ -7,6 +7,7 @@ import { useDropdown } from "@/contexts/DropdownContext";
 import { MessagesDropdown } from "@/components/common/messages-dropdown";
 import { env } from "@/config/env";
 import { useBranding } from "@/features/branding/hooks/useBranding";
+import { useTheme } from "next-themes";
 
 
 
@@ -20,7 +21,10 @@ export default function Header({ onMenuClick, isSidebarOpen, showMenuButton = fa
   const { isAuthenticated } = useAuth();
   const { closeAll } = useDropdown();
   const { logos } = useBranding();
+  const { theme, setTheme } = useTheme();
+  const isDark = theme === "dark";
   const headerRef = useRef<HTMLDivElement>(null);
+  const userThemeOverrideKey = "welliemd_patient_theme_user_set";
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -53,11 +57,13 @@ export default function Header({ onMenuClick, isSidebarOpen, showMenuButton = fa
           
           <div>
             {logos?.square ? (
-              <img 
-                src={logos.square} 
-                alt={env.VITE_APP_NAME} 
-                className="h-10 w-auto object-contain"
-              />
+              <div className="brand-logo-shell">
+                <img 
+                  src={logos.square} 
+                  alt={env.VITE_APP_NAME} 
+                  className="h-10 w-auto object-contain"
+                />
+              </div>
             ) : (
               <h1 className="text-white text-2xl font-semibold truncate max-w-[240px]">
                 {env.VITE_APP_NAME}
@@ -82,6 +88,18 @@ export default function Header({ onMenuClick, isSidebarOpen, showMenuButton = fa
           <MessagesDropdown className="text-white hover:bg-white/10 hidden md:block" />
           
           <NotificationsDropdown className="text-white hover:bg-white/10" />
+
+          <button
+            type="button"
+            className="p-2 rounded-lg text-white hover:bg-white/10 transition-colors"
+            onClick={() => {
+              localStorage.setItem(userThemeOverrideKey, "true");
+              setTheme(isDark ? "light" : "dark");
+            }}
+            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {isDark ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
           
           {isAuthenticated && (
             <UserProfileDropdown className="text-white hover:bg-white/10" />

@@ -64,7 +64,7 @@ function OrderCard({ order, onClick }: { order: PatientOrder; onClick: () => voi
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-900">{orderReference}</span>
+              <span className="font-medium text-foreground">{orderReference}</span>
               <OrderStatusBadge status={order.status} />
             </div>
             <p className="text-sm text-gray-600">{order.product_name}</p>
@@ -73,7 +73,7 @@ function OrderCard({ order, onClick }: { order: PatientOrder; onClick: () => voi
             )}
           </div>
           <div className="text-right">
-            <p className="font-medium text-gray-900">${order.amount}</p>
+            <p className="font-medium text-foreground">${order.amount}</p>
             <p className="text-xs text-gray-500">
               {new Date(order.created_at).toLocaleDateString()}
             </p>
@@ -337,8 +337,8 @@ export default function Orders() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Orders</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-semibold text-foreground">Orders</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             {totalCount > 0 ? `${totalCount} order${totalCount !== 1 ? 's' : ''}` : 'View your order history'}
           </p>
         </div>

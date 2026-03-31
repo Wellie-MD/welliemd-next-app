@@ -104,7 +104,7 @@ export default function BlogPost() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* Navigation */}
       <div className="pt-8 pb-4">
         <div className="blog-post-container">
@@ -161,20 +161,20 @@ export default function BlogPost() {
             {post.category}
           </div>
 
-          <h1 className="blog-post-title">
+          <h1 className="blog-post-title dark:text-white">
             {post.title}
           </h1>
 
           <div className="blog-post-meta">
-            <div className="flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-full">
+            <div className="flex items-center gap-2 bg-gray-100 dark:bg-slate-900 dark:text-black px-4 py-2 rounded-full">
               <Clock className="w-4 h-4" />
               <span>{post.read_time_minutes} min read</span>
             </div>
-            <div className="flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-full">
+            <div className="flex items-center gap-2 bg-gray-100 dark:bg-slate-900 dark:text-black px-4 py-2 rounded-full">
               <Eye className="w-4 h-4" />
               <span>{formatViews(post.views_count)} views</span>
             </div>
-            <div className="flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-full">
+            <div className="flex items-center gap-2 bg-gray-100 dark:bg-slate-900 dark:text-black px-4 py-2 rounded-full">
               <Calendar className="w-4 h-4" />
               <span>{post.published_at ? new Date(post.published_at).toLocaleDateString() : "Draft"}</span>
             </div>
@@ -208,7 +208,7 @@ export default function BlogPost() {
         )}
 
         {/* Article Content */}
-        <div className="blog-post-content prose prose-blue max-w-none break-words prose-img:rounded-xl prose-headings:text-gray-900 prose-a:text-blue-600">
+        <div className="blog-post-content prose prose-blue dark:prose-invert max-w-none break-words prose-img:rounded-xl prose-headings:text-gray-900 prose-a:text-blue-600">
           <div
             dangerouslySetInnerHTML={{ __html: post.content }}
             className="overflow-x-auto"
