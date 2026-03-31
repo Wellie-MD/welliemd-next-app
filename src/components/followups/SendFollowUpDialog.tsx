@@ -440,7 +440,11 @@ export function SendFollowUpDialog({
                     <SelectContent>
                       {orderCandidates.map((order) => (
                         <SelectItem key={order.id} value={order.id}>
-                          {(order.display_id ? `#${order.display_id}` : order.id.slice(0, 8))}
+                          {(order.order_id
+                            ? `#${order.order_id}`
+                            : order.display_id
+                              ? `#${order.display_id}`
+                              : order.id.slice(0, 8))}
                           {order.product_name ? ` • ${order.product_name}` : ''}
                           {order.status ? ` • ${order.status}` : ''}
                         </SelectItem>

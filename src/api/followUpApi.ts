@@ -33,6 +33,7 @@ export interface CreateFollowUpRequest {
 
 export interface FollowUpOrderCandidate {
     id: string;
+    order_id?: string | null;
     display_id?: string | null;
     status?: string;
     product_name?: string | null;
