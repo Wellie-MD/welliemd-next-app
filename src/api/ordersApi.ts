@@ -43,6 +43,13 @@ export interface PatientResponses {
   [key: string]: unknown
 }
 
+export interface QuestionnairePhoto {
+  question?: string
+  question_id?: string
+  mime?: string
+  data?: string
+}
+
 // Prescribed medication from RX_WRITTEN webhook (PrescriptionEvent.medications)
 export interface PrescriptionMedication {
   name?: string
@@ -123,6 +130,15 @@ export interface OrderRefundResponse {
   transaction?: Record<string, unknown>
   refund?: Record<string, unknown> | null
   remaining_refundable?: string
+}
+
+export interface UpdateQuestionnaireImagesPayload {
+  photos: QuestionnairePhoto[]
+}
+
+export interface UpdateQuestionnaireImagesResponse {
+  success: boolean
+  photos: QuestionnairePhoto[]
 }
 
 const ENDPOINT = '/orders/'
@@ -216,6 +232,22 @@ export const refundOrder = async (id: string, payload: OrderRefundRequest): Prom
   }
 }
 
+export const updateOrderQuestionnaireImages = async (
+  id: string,
+  payload: UpdateQuestionnaireImagesPayload
+): Promise<UpdateQuestionnaireImagesResponse> => {
+  try {
+    const { data } = await api.post<UpdateQuestionnaireImagesResponse>(
+      `${ENDPOINT}${id}/update-questionnaire-images/`,
+      payload
+    )
+    return data
+  } catch (error) {
+    console.error(`Failed to update questionnaire images for order ${id}:`, error)
+    throw error
+  }
+}
+
 export const ordersApi = {
   fetchOrders,
   fetchOrdersByPatient,
@@ -226,4 +258,5 @@ export const ordersApi = {
   deleteOrder,
   searchOrders,
   refundOrder,
+  updateOrderQuestionnaireImages,
 }
