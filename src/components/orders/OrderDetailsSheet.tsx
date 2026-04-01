@@ -432,6 +432,7 @@ export function OrderDetailsSheet({
         patientResponses={order.patient_responses}
         patientName={order.name || "Patient"}
         checkoutUrl={order.checkout_url}
+        orderId={order.id}
       />
 
       {/* Refund / Void Dialog */}
