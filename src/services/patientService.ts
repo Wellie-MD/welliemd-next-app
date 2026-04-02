@@ -10,6 +10,7 @@ export interface Patient {
     date_of_birth: string;
     sex: 'Male' | 'Female' | 'Other';
     address: string;
+    address_line_2: string;
     city: string;
     state: string;
     zip_code: string;
