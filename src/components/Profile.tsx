@@ -40,6 +40,7 @@ export default function Profile() {
     phone: '',
     date_of_birth: '',
     address: '',
+    address_line_2: '',
     city: '',
     state: '',
     zip_code: '',
@@ -77,6 +78,7 @@ export default function Profile() {
         phone: patientProfile.phone || '',
         date_of_birth: patientProfile.date_of_birth || '',
         address: patientProfile.address || '',
+        address_line_2: patientProfile.address_line_2 || '',
         city: patientProfile.city || '',
         state: patientProfile.state || '',
         zip_code: patientProfile.zip_code || '',
@@ -181,6 +183,7 @@ export default function Profile() {
         phone: profileInfo.phone,
         date_of_birth: profileInfo.date_of_birth,
         address: profileInfo.address,
+        address_line_2: profileInfo.address_line_2,
         city: profileInfo.city,
         state: profileInfo.state,
         zip_code: profileInfo.zip_code,
@@ -422,6 +425,15 @@ export default function Profile() {
                 id="address" 
                 value={profileInfo.address}
                 onChange={(e) => handleProfileInfoChange('address', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="address_line_2">Apt / Suite / Unit</Label>
+              <Input 
+                id="address_line_2" 
+                placeholder="Apartment, suite, unit, etc."
+                value={profileInfo.address_line_2}
+                onChange={(e) => handleProfileInfoChange('address_line_2', e.target.value)}
               />
             </div>
           </div>
