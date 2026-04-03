@@ -95,6 +95,13 @@ export interface Client {
   questionnaire_url?: string;
   domain?: string;
   subdomain?: string;
+  custom_domain?: string;
+  pending_custom_domain?: string | null;
+  domain_provisioning_status?: 'idle' | 'pending' | 'provisioned' | 'failed';
+  domain_provisioning_error?: {
+    step?: string;
+    error?: string;
+  } | null;
   master_id_prefix?: string;
   beluga_company?: string;
   database_name: string;
@@ -152,6 +159,7 @@ export interface ClientCreatePayload {
   name: string;
   domain?: string;
   subdomain?: string;
+  custom_domain?: string;
   master_id_prefix?: string;
   beluga_company?: string;
   admin_panel_domain: string;
@@ -195,6 +203,7 @@ export interface ClientUpdatePayload {
   name?: string;
   domain?: string;
   subdomain?: string;
+  custom_domain?: string;
   master_id_prefix?: string;
   beluga_company?: string;
   admin_panel_domain?: string;
@@ -307,7 +316,6 @@ export const clientApi = {
     const allResults: unknown[] = [];
     let url: string | null = '/clients/';
     const params: Record<string, string> = { page_size: '500' };
-
     while (url) {
       const isFullUrl = url.startsWith('http');
       const { data } = await axiosInstance.get(isFullUrl ? url : '/clients/', isFullUrl ? {} : { params });
@@ -411,6 +419,13 @@ export const clientApi = {
     payload: { archive_bucket?: string; reason?: string } = {}
   ): Promise<LifecycleActionResponse> => {
     const { data } = await axiosInstance.post(`/clients/${id}/teardown/retry/`, payload);
+    return data;
+  },
+
+  changeDomain: async (id: string, newDomain: string): Promise<{ success: boolean; message: string; task_id: string; old_domain: string; new_domain: string }> => {
+    const { data } = await axiosInstance.post(`/clients/${id}/change-domain/`, {
+      new_domain: newDomain,
+    });
     return data;
   },
 

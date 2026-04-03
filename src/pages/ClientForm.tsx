@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
+import { Badge } from "@/components/ui/badge";
 import {
   clientApi,
   ClientCreatePayload,
@@ -84,6 +85,7 @@ export default function ClientForm() {
     name: "",
     domain: "",
     subdomain: "",
+    custom_domain: "",
     master_id_prefix: "welliemd",
     beluga_company: "",
     admin_panel_domain: "",
@@ -187,6 +189,7 @@ export default function ClientForm() {
         name: existingClient.name,
         domain: existingClient.domain || "",
         subdomain: existingClient.subdomain || "",
+        custom_domain: existingClient.custom_domain || "",
         master_id_prefix: existingClient.master_id_prefix || "welliemd",
         beluga_company: existingClient.beluga_company || "",
         admin_panel_domain: existingClient.admin_panel_domain,
@@ -398,6 +401,7 @@ export default function ClientForm() {
         name: formData.name,
         domain: formData.domain,
         subdomain: formData.subdomain,
+        custom_domain: formData.custom_domain,
         master_id_prefix: formData.master_id_prefix,
         beluga_company: formData.beluga_company,
         admin_panel_domain: formData.admin_panel_domain,
@@ -546,12 +550,12 @@ export default function ClientForm() {
                           admin_panel_domain: adminDomainTouched
                             ? prev.admin_panel_domain
                             : p
-                              ? `https://${p}client.welliemd.com`
+                              ? `https://${p}client.${prev.custom_domain || 'welliemd.com'}`
                               : prev.admin_panel_domain,
                           subdomain: subdomainTouched
                             ? prev.subdomain
                             : p
-                              ? `https://${p}questionnaire.welliemd.com`
+                              ? `https://${p}questionnaire.${prev.custom_domain || 'welliemd.com'}`
                               : prev.subdomain,
                           questionnaire_url: subdomainTouched
                             ? prev.questionnaire_url
@@ -897,6 +901,160 @@ export default function ClientForm() {
                   <p className="text-xs text-muted-foreground">
                     URL used for questionnaire app
                   </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="custom_domain">
+                    Custom Domain
+                    <FieldInfo content="Custom base domain. When set, replaces '.welliemd.com' in auto-generated URLs." />
+                  </Label>
+                  <Input
+                    id="custom_domain"
+                    value={formData.custom_domain}
+                    onChange={(e) => {
+                      const newCustomDomain = e.target.value;
+                      const p = derivePrefix(formData.name);
+
+                      // Validate domain format
+                      let error = "";
+                      const trimmed = newCustomDomain.trim();
+                      if (trimmed) {
+                        if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+                          error = "Don't include the protocol (http:// or https://)";
+                        } else if (trimmed.includes(" ")) {
+                          error = "Domain cannot contain spaces";
+                        } else if (!trimmed.includes(".")) {
+                          error = "Must be a valid domain with TLD (e.g., pauserx.com)";
+                        } else if (trimmed.startsWith("www.")) {
+                          error = "Don't include the www prefix";
+                        } else if (!/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/.test(trimmed)) {
+                          error = "Invalid domain format";
+                        }
+                      }
+                      setValidationErrors((prev) => {
+                        const next = { ...prev };
+                        if (error) next.custom_domain = error;
+                        else delete next.custom_domain;
+                        return next;
+                      });
+
+                      // Force-rewrite all URL fields when custom domain changes
+                      // (bypasses touched state — applies to both new and existing clients)
+                      const baseDomain = trimmed || "welliemd.com";
+                      setFormData((prev) => ({
+                        ...prev,
+                        custom_domain: newCustomDomain,
+                        admin_panel_domain: p
+                          ? `https://${p}client.${baseDomain}`
+                          : prev.admin_panel_domain,
+                        subdomain: p
+                          ? `https://${p}questionnaire.${baseDomain}`
+                          : prev.subdomain,
+                        api_endpoint: p
+                          ? `https://${p}api.${baseDomain}/api/v1/`
+                          : prev.api_endpoint,
+                        patient_portal_domain: p
+                          ? `https://${p}patientportal.${baseDomain}`
+                          : prev.patient_portal_domain,
+                        questionnaire_url: p
+                          ? `https://${p}questionnaire.${baseDomain}`
+                          : prev.questionnaire_url,
+                      }));
+                    }}
+                    placeholder="e.g., pauserx.com"
+                    className={validationErrors.custom_domain ? "border-red-500" : ""}
+                  />
+                  {validationErrors.custom_domain ? (
+                    <p className="text-xs text-red-500">{validationErrors.custom_domain}</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      When set, auto-generated URLs will use this domain instead of welliemd.com
+                    </p>
+                  )}
+                  {isEditMode && formData.custom_domain && !validationErrors.custom_domain && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          if (!id) return;
+                          try {
+                            const result = await clientApi.changeDomain(id, formData.custom_domain);
+                            toast({
+                              title: "Domain re-provisioning started",
+                              description: `Changing from ${result.old_domain} to ${result.new_domain}. This may take a few minutes.`,
+                            });
+
+                            // Poll for status every 10 seconds for up to 4 minutes
+                            const pollInterval = setInterval(async () => {
+                              try {
+                                const updatedClient = await clientApi.get(id);
+                                const status = updatedClient.domain_provisioning_status;
+                                const error = updatedClient.domain_provisioning_error;
+
+                                if (status === 'provisioned') {
+                                  clearInterval(pollInterval);
+                                  toast({
+                                    title: "✅ Domain re-provisioning complete!",
+                                    description: `Now using ${updatedClient.custom_domain}`,
+                                  });
+                                } else if (status === 'failed') {
+                                  clearInterval(pollInterval);
+                                  const errorMessages: Record<string, string> = {
+                                    'hosted_zone': 'Domain must exist in Route53 with proper client tags',
+                                    'domain_validation': 'Domain validation failed - invalid format or reserved',
+                                    'domain_ownership': 'Domain already in use by another client',
+                                    'ssl_cert': 'SSL certificate provisioning failed',
+                                    'alb_cert': 'ALB certificate attachment failed',
+                                    'dns_a_record': 'DNS record creation failed',
+                                    'amplify': 'Amplify frontend domain association failed (partial success)',
+                                    'db_update': 'Database update failed',
+                                    'task_exception': 'Task execution failed',
+                                  };
+                                  const friendlyError = error?.step 
+                                    ? errorMessages[error.step] || error.error 
+                                    : (error?.error || 'Please check logs and try again.');
+                                  toast({
+                                    title: "❌ Domain re-provisioning failed",
+                                    description: friendlyError,
+                                    variant: "destructive",
+                                  });
+                                }
+                              } catch {
+                                // Ignore polling errors, continue polling
+                              }
+                            }, 10000);
+
+                            // Clear after 4 minutes max
+                            setTimeout(() => clearInterval(pollInterval), 240000);
+                          } catch (err: unknown) {
+                            const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+                            toast({
+                              title: "❌ Domain re-provisioning failed",
+                              description: errorMsg,
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                      >
+                        Re-provision Domain (SSL + DNS + ALB)
+                      </Button>
+                      {existingClient && existingClient.domain_provisioning_status && existingClient.domain_provisioning_status !== 'idle' && (
+                        <Badge
+                          variant={
+                            existingClient.domain_provisioning_status === 'provisioned' ? 'default' :
+                            existingClient.domain_provisioning_status === 'failed' ? 'destructive' :
+                            'secondary'
+                          }
+                        >
+                          {existingClient.domain_provisioning_status === 'pending' && 'Provisioning...'}
+                          {existingClient.domain_provisioning_status === 'provisioned' && 'Provisioned'}
+                          {existingClient.domain_provisioning_status === 'failed' && 'Failed'}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">

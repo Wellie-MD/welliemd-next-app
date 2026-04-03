@@ -143,7 +143,6 @@ export default function Dashboard() {
     { key: "patient_name", label: "Patient Name" },
     { key: "order_number", label: "Order#" },
     { key: "total_amount", label: "Total Amount" },
-    { key: "discount", label: "Discount" },
     { key: "amount_paid", label: "Amount Paid" },
   ];
 
