@@ -1,23 +1,12 @@
 import { useState, useMemo, useCallback, useEffect } from "react"
 import { DataTable } from "@/components/ui/data-table"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Plus, AlertCircle } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { AlertCircle } from "lucide-react"
 import { DateRange } from "react-day-picker"
+import { useNavigate } from "react-router-dom"
 import { isWithinInterval, parseISO, format } from "date-fns"
 import { exportToCSV } from "@/utils/exportUtils"
 import { patientService, type Patient } from "@/services/patientService"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { PatientDetailSheet } from "@/components/patients/PatientDetailSheet"
 
 // Transform backend patient data to table row format
 interface PatientTableRow {
@@ -25,7 +14,6 @@ interface PatientTableRow {
   name: string
   startDate: string
   mrn: string
-  subscription: string
   productName: string
   email: string
   phone: string
@@ -36,7 +24,7 @@ interface PatientTableRow {
   lastOrder: string
 }
 
-const transformPatientData = (patient: Patient): PatientTableRow => {
+const transformPatientData = (patient: Patient, productName?: string, visitStatus?: string): PatientTableRow => {
   const lastOrderDate = patient.last_order_at ? format(new Date(patient.last_order_at), 'dd/MM/yyyy') : '-'
   const lastOrderRef = patient.last_order_id ? `#${patient.last_order_id}` : (patient.last_order_display_id ? `#${patient.last_order_display_id}` : '')
   const lastOrderLabel = lastOrderRef && lastOrderDate !== '-' ? `${lastOrderRef} • ${lastOrderDate}` : (lastOrderDate !== '-' ? lastOrderDate : lastOrderRef || '-')
@@ -46,14 +34,13 @@ const transformPatientData = (patient: Patient): PatientTableRow => {
     name: patient.full_name || `${patient.first_name} ${patient.last_name}`.trim() || patient.email,
     startDate: format(new Date(patient.created_at), 'dd/MM/yyyy'),
     mrn: patient.id.substring(0, 8).toUpperCase(), // Use first 8 chars of UUID as MRN
-    subscription: "Active", // TODO: Get from actual subscription data
-    productName: "-", // TODO: Get from actual product/order data
+    productName: productName || "-",
     email: patient.email,
     phone: patient.phone,
     orders: patient.orders_count ?? 0,
     location: patient.city && patient.state ? `${patient.city}, ${patient.state}` : patient.state || "-",
-    patientStatus: "Active", // TODO: Determine from actual patient status
-    visitStatus: "-", // TODO: Get from visits data
+    patientStatus: patient.engagement_status === 'active' ? 'Active' : patient.engagement_status === 'inactive' ? 'Inactive' : '-',
+    visitStatus: visitStatus || "-",
     lastOrder: lastOrderLabel,
   }
 }
@@ -62,8 +49,7 @@ const patientColumns = [
   { key: "name", label: "Name", width: "150px" },
   { key: "startDate", label: "Start Date", width: "100px" },
   { key: "mrn", label: "MRN #", width: "120px" },
-  { key: "subscription", label: "Subscription", width: "120px" },
-  { key: "productName", label: "Product Name", width: "120px" },
+  { key: "productName", label: "Product Name", width: "150px" },
   { key: "email", label: "Email", width: "200px" },
   { 
     key: "phone", 
@@ -90,12 +76,12 @@ const parseDate = (dateString: string) => {
 }
 
 export default function Patients() {
+  const navigate = useNavigate()
   const [searchInput, setSearchInput] = useState("") // User input
   const [searchTerm, setSearchTerm] = useState("") // Debounced value for API
   const [activeFilter, setActiveFilter] = useState("All")
   const [activeAdditionalFilters, setActiveAdditionalFilters] = useState<string[]>([])
   const [date, setDate] = useState<DateRange | undefined>()
-  const [isOpen, setIsOpen] = useState(false)
   const [patients, setPatients] = useState<PatientTableRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -105,11 +91,6 @@ export default function Patients() {
   const [pageSize, setPageSize] = useState(20)
   const [totalCount, setTotalCount] = useState(0)
   
-  // Patient details state
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
-  const [isDetailOpen, setIsDetailOpen] = useState(false)
-  const [isFetchingDetail, setIsFetchingDetail] = useState(false)
-  
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -118,12 +99,6 @@ export default function Patients() {
     }, 300)
     return () => clearTimeout(timer)
   }, [searchInput])
-
-  const [newPatient, setNewPatient] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-  })
 
   // Fetch patients from backend with server-side pagination
   const fetchPatients = useCallback(async () => {
@@ -135,7 +110,18 @@ export default function Patients() {
         page_size: pageSize,
         search: searchTerm || undefined,
       })
-      const transformedData = response.results.map(transformPatientData)
+      
+      const patientIds = response.results.map(p => p.id)
+      
+      // Batch fetch product names and visit statuses in parallel (2 API calls instead of N+1)
+      const [productNameMap, visitStatusMap] = await Promise.all([
+        patientService.getProductNamesForPatients(patientIds),
+        patientService.getLatestVisitsForPatients(patientIds),
+      ])
+      
+      const transformedData = response.results.map(patient => 
+        transformPatientData(patient, productNameMap[patient.id], visitStatusMap[patient.id])
+      )
       setPatients(transformedData)
       setTotalCount(response.count)
     } catch (err: any) {
@@ -233,103 +219,14 @@ export default function Patients() {
     exportToCSV(filteredPatients, patientColumns, 'patients_export')
   }, [filteredPatients])
 
-  const handleRowClick = useCallback(async (row: any) => {
-    setIsFetchingDetail(true)
-    try {
-      const patient = await patientService.getPatient(row.id)
-      setSelectedPatient(patient)
-      setIsDetailOpen(true)
-    } catch (err) {
-      console.error('Failed to fetch patient details:', err)
-      // Fallback: create a partial patient object from the row data
-      // This is a safety measure if getPatient fails
-      setSelectedPatient({
-        id: row.id,
-        email: row.email,
-        first_name: row.name.split(' ')[0] || '',
-        last_name: row.name.split(' ').slice(1).join(' ') || '',
-        full_name: row.name,
-        phone: row.phone,
-        // Other fields will be missing but the UI handles N/A
-      } as Patient)
-      setIsDetailOpen(true)
-    } finally {
-      setIsFetchingDetail(false)
-    }
-  }, [])
-
-  const handlePatientUpdated = useCallback((updated: Patient) => {
-    setSelectedPatient(updated)
-    setPatients(prev => prev.map((row) => row.id === updated.id ? transformPatientData(updated) : row))
-  }, [])
-
-  const handlePatientDeleted = useCallback((patientId: string) => {
-    setSelectedPatient(null)
-    setIsDetailOpen(false)
-    setPatients(prev => prev.filter((row) => row.id !== patientId))
-    setTotalCount(prev => Math.max(prev - 1, 0))
+  const handleRowClick = useCallback((row: any) => {
+    navigate(`/dashboard/patients/${row.id}`)
   }, [])
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Patients</h1>
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add New
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Patient</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="firstName">First Name</Label>
-                <Input 
-                  id="firstName"
-                  value={newPatient.firstName}
-                  onChange={(e) => setNewPatient({...newPatient, firstName: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input 
-                  id="lastName"
-                  value={newPatient.lastName}
-                  onChange={(e) => setNewPatient({...newPatient, lastName: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input 
-                  id="email"
-                  type="email"
-                  value={newPatient.email}
-                  onChange={(e) => setNewPatient({...newPatient, email: e.target.value})}
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => {
-                  setIsOpen(false)
-                  setNewPatient({ firstName: "", lastName: "", email: "" })
-                }}>
-                  Cancel
-                </Button>
-                <Button onClick={() => {
-                  // Here you would typically save the patient data
-                  console.log("Saving patient:", newPatient)
-                  setIsOpen(false)
-                  setNewPatient({ firstName: "", lastName: "", email: "" })
-                }}>
-                  Save
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
 
       {error && (
@@ -355,7 +252,7 @@ export default function Patients() {
         onExport={handleExport}
         onRefresh={handleRefresh}
         onRowClick={handleRowClick}
-        loading={loading || isFetchingDetail}
+        loading={loading}
         pagination={{
           currentPage: page,
           totalPages: Math.ceil(totalCount / pageSize),
@@ -369,13 +266,6 @@ export default function Patients() {
         }}
       />
 
-      <PatientDetailSheet 
-        patient={selectedPatient}
-        open={isDetailOpen}
-        onOpenChange={setIsDetailOpen}
-        onPatientUpdated={handlePatientUpdated}
-        onPatientDeleted={handlePatientDeleted}
-      />
     </div>
   )
 }

@@ -8,6 +8,7 @@ export interface PatientResource {
   content: string;
   cover_image: string;
   category: string;
+  category_id: string | null;
   tags: string[];
   status: "draft" | "published" | "archived";
   published_at: string | null;
@@ -24,10 +25,19 @@ export interface PatientResourcePayload {
   excerpt?: string;
   content: string;
   cover_image?: string;
-  category?: string;
+  author_name: string;
+  category_id?: string | null;
   tags?: string[];
   status?: "draft" | "published" | "archived";
   read_time_minutes?: number;
+}
+
+export interface ResourceCategory {
+  id: string;
+  name: string;
+  slug: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export const patientResourcesApi = {
@@ -106,5 +116,25 @@ export const patientResourcesApi = {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return response.data;
+  },
+
+  // Resource categories
+  getCategories: async () => {
+    const response = await axiosInstance.get<ResourceCategory[]>(
+      "/patient-resource-categories/"
+    );
+    return response.data;
+  },
+
+  createCategory: async (name: string) => {
+    const response = await axiosInstance.post<ResourceCategory>(
+      "/patient-resource-categories/",
+      { name }
+    );
+    return response.data;
+  },
+
+  deleteCategory: async (id: string) => {
+    await axiosInstance.delete(`/patient-resource-categories/${id}/`);
   },
 };

@@ -37,10 +37,10 @@ export function RevenueChart({ data }: RevenueChartProps) {
   }
 
   return (
-      <Card className="rounded-2xl border-border/70 bg-gradient-to-br from-primary/5 via-background to-blue-50/30 shadow-sm w-full">
+      <Card className="rounded-2xl border-border/70 bg-gradient-to-br from-primary/5 via-background to-blue-50/30 dark:to-slate-900/40 shadow-sm w-full">
       <CardHeader className="flex flex-row items-start justify-between">
         <div>
-          <CardTitle className="text-gray-800">Net Revenue (Last 12 Months)</CardTitle>
+          <CardTitle className="text-gray-800 dark:text-slate-100">Net Revenue (Last 12 Months)</CardTitle>
           <div className="flex items-center gap-3">
             <p className="text-xs text-muted-foreground">Rolling 12 months</p>
             <Button
@@ -60,20 +60,20 @@ export function RevenueChart({ data }: RevenueChartProps) {
         {hasData ? (
           <div className="w-full">
             <div className="mb-3 grid grid-cols-3 gap-2 text-xs">
-              <div className="rounded-md border bg-white/70 px-2 py-1.5">
+              <div className="rounded-md border bg-white/70 dark:bg-slate-900/70 px-2 py-1.5">
                 <div className="text-muted-foreground">Total</div>
-                <div className="font-semibold text-gray-900">{formatCurrencyTick(total)}</div>
+                <div className="font-semibold text-gray-900 dark:text-slate-100">{formatCurrencyTick(total)}</div>
               </div>
-              <div className="rounded-md border bg-white/70 px-2 py-1.5">
+              <div className="rounded-md border bg-white/70 dark:bg-slate-900/70 px-2 py-1.5">
                 <div className="text-muted-foreground">Avg / mo</div>
-                <div className="font-semibold text-gray-900">{formatCurrencyTick(average)}</div>
+                <div className="font-semibold text-gray-900 dark:text-slate-100">{formatCurrencyTick(average)}</div>
               </div>
-              <div className="rounded-md border bg-white/70 px-2 py-1.5">
+              <div className="rounded-md border bg-white/70 dark:bg-slate-900/70 px-2 py-1.5">
                 <div className="text-muted-foreground">Latest</div>
-                <div className="font-semibold text-gray-900">{formatCurrencyTick(latest)}</div>
+                <div className="font-semibold text-gray-900 dark:text-slate-100">{formatCurrencyTick(latest)}</div>
               </div>
             </div>
-            <div className="h-[320px] rounded-md border bg-background/70 p-2">
+            <div className="h-[320px] rounded-md border bg-background/70 dark:bg-slate-900/60 p-2">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={data} margin={{ top: 12, right: 22, left: 8, bottom: 4 }}>
                 <defs>
@@ -105,9 +105,9 @@ export function RevenueChart({ data }: RevenueChartProps) {
                     if (!active || !payload?.length) return null
                     const value = Number(payload[0].value || 0)
                     return (
-                      <div className="rounded-md border bg-white px-3 py-2 text-xs shadow">
-                        <div className="font-medium text-gray-900">{formatMonth(String(label))}</div>
-                        <div className="text-gray-600">Net Revenue: {formatCurrencyTick(value)}</div>
+                      <div className="rounded-md border bg-white dark:bg-slate-900 px-3 py-2 text-xs shadow">
+                        <div className="font-medium text-gray-900 dark:text-slate-100">{formatMonth(String(label))}</div>
+                        <div className="text-gray-600 dark:text-slate-300">Net Revenue: {formatCurrencyTick(value)}</div>
                       </div>
                     )
                   }}

@@ -53,24 +53,21 @@ function VisitorTooltip({ active, payload, label }: any) {
     .filter((entry: any) => entry.value !== "0")
 
   return (
-    <div
-      className="rounded-md border bg-white px-3 py-2 text-xs shadow-md"
-      style={{ borderColor: "#e2e8f0" }}
-    >
-      <div className="mb-2 font-medium text-slate-800">{label}</div>
+    <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-md dark:border-slate-700 dark:bg-slate-900">
+      <div className="mb-2 font-medium text-slate-800 dark:text-slate-100">{label}</div>
       <div className="space-y-1">
         {rows.length > 0 ? (
           rows.map((row: any) => (
             <div key={row.name} className="flex items-center justify-between gap-3">
-              <span className="inline-flex items-center gap-2 text-slate-600">
+              <span className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-300">
                 <span className="h-2 w-2 rounded-full" style={{ backgroundColor: row.color }} />
                 {row.name}
               </span>
-              <span className="font-semibold text-slate-800">{row.value}</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-100">{row.value}</span>
             </div>
           ))
         ) : (
-          <div className="text-slate-500">No activity</div>
+          <div className="text-slate-500 dark:text-slate-400">No activity</div>
         )}
       </div>
     </div>
@@ -103,7 +100,7 @@ export function VisitorChart({ data }: VisitorChartProps) {
   const totalPoints = chartData.length
 
   return (
-    <Card className="border-border/70 bg-gradient-to-br from-primary/5 via-background to-blue-50/30 shadow-sm">
+    <Card className="border-border/70 bg-gradient-to-br from-primary/5 via-background to-blue-50/30 dark:from-primary/10 dark:to-slate-900/40 shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <CardTitle className="text-lg font-medium">Visitors Trend</CardTitle>
@@ -117,25 +114,25 @@ export function VisitorChart({ data }: VisitorChartProps) {
       <CardContent>
         {hasData && (
           <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <div className="rounded-md border bg-white/70 px-2 py-1.5 text-xs">
+            <div className="rounded-md border bg-white/70 dark:bg-slate-900/70 dark:border-slate-700 px-2 py-1.5 text-xs">
               <div className="text-muted-foreground">Data Points</div>
               <div className="font-semibold">{formatNumber(totalPoints)}</div>
             </div>
-            <div className="rounded-md border bg-white/70 px-2 py-1.5 text-xs">
+            <div className="rounded-md border bg-white/70 dark:bg-slate-900/70 dark:border-slate-700 px-2 py-1.5 text-xs">
               <div className="text-muted-foreground">Total Visitors</div>
               <div className="font-semibold">{formatNumber(totalVisitors)}</div>
             </div>
-            <div className="rounded-md border bg-white/70 px-2 py-1.5 text-xs">
+            <div className="rounded-md border bg-white/70 dark:bg-slate-900/70 dark:border-slate-700 px-2 py-1.5 text-xs">
               <div className="text-muted-foreground">Unique Visitors</div>
               <div className="font-semibold">{formatNumber(totalUniqueVisitors)}</div>
             </div>
-            <div className="rounded-md border bg-white/70 px-2 py-1.5 text-xs">
+            <div className="rounded-md border bg-white/70 dark:bg-slate-900/70 dark:border-slate-700 px-2 py-1.5 text-xs">
               <div className="text-muted-foreground">Pageviews</div>
               <div className="font-semibold">{formatNumber(totalPageviews)}</div>
             </div>
           </div>
         )}
-        <div className="h-[380px] rounded-md border bg-background/70 p-2">
+        <div className="h-[380px] rounded-md border bg-background/70 dark:bg-slate-900/60 p-2">
           {hasData ? (
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chartData} margin={{ top: 14, right: 22, left: 8, bottom: 2 }}>

@@ -33,7 +33,7 @@ function MetricCard({ title, value, icon: Icon, tone }: { title: string; value: 
         </div>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold tracking-tight">{value}</div>
+        <div className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{value}</div>
       </CardContent>
     </Card>
   )
@@ -156,7 +156,7 @@ export default function Analytics() {
 
   return (
     <div className="space-y-6 p-6">
-      <Card className="border-border/70 bg-gradient-to-r from-primary/5 via-background to-blue-50/40 shadow-sm">
+      <Card className="border-border/70 bg-gradient-to-r from-primary/5 via-background to-blue-50/40 dark:from-primary/10 dark:to-slate-900/40 shadow-sm">
         <CardContent className="space-y-4 p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -323,10 +323,10 @@ export default function Analytics() {
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard title="Total Visitors" value={analytics.visitors.total.toLocaleString()} icon={Users} tone="bg-blue-100 text-blue-600" />
-        <MetricCard title="Unique Visitors" value={analytics.visitors.unique.toLocaleString()} icon={Activity} tone="bg-indigo-100 text-indigo-600" />
-        <MetricCard title="Total Checkouts" value={analytics.totalCheckouts} icon={ShoppingBag} tone="bg-amber-100 text-amber-600" />
-        <MetricCard title="Total Sales" value={`$${analytics.totalSales.toLocaleString()}`} icon={DollarSign} tone="bg-emerald-100 text-emerald-600" />
+        <MetricCard title="Total Visitors" value={analytics.visitors.total.toLocaleString()} icon={Users} tone="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300" />
+        <MetricCard title="Unique Visitors" value={analytics.visitors.unique.toLocaleString()} icon={Activity} tone="bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300" />
+        <MetricCard title="Total Checkouts" value={analytics.totalCheckouts} icon={ShoppingBag} tone="bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300" />
+        <MetricCard title="Total Sales" value={`$${analytics.totalSales.toLocaleString()}`} icon={DollarSign} tone="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300" />
       </div>
 
       {(analytics.salesByTreatment?.length > 0 || analytics.salesByProductGroup?.length > 0) && (
@@ -380,7 +380,7 @@ export default function Analytics() {
               <CardContent>
                 <div className="space-y-3">
                   {analytics.salesByProductGroup.map((item, index) => (
-                    <div key={index} className="rounded-md border border-border/60 p-3 transition-colors hover:bg-emerald-50">
+                    <div key={index} className="rounded-md border border-border/60 p-3 transition-colors hover:bg-emerald-50 dark:hover:bg-emerald-900/20">
                       <div className="mb-1 flex items-center justify-between">
                         <span className="text-sm font-medium">{item.name}</span>
                         <span className="text-sm text-muted-foreground">{item.percentage}%</span>
@@ -406,11 +406,11 @@ export default function Analytics() {
           <VisitorChart data={analytics.chartData} />
         </div>
         <div className="space-y-4">
-          <StatCard title="Total Visitors" value={analytics.visitors.total.toLocaleString()} className="border border-blue-100 bg-gradient-to-r from-blue-50 to-white shadow-sm" />
-          <StatCard title="Unique Visitors" value={analytics.visitors.unique.toLocaleString()} className="border border-indigo-100 bg-gradient-to-r from-indigo-50 to-white shadow-sm" />
-          <StatCard title="Total Pageviews" value={analytics.visitors.totalPageviews.toLocaleString()} className="border border-amber-100 bg-gradient-to-r from-amber-50 to-white shadow-sm" />
-          <StatCard title="Bounce Rate" value={`${analytics.visitors.bounceRate}%`} className="border border-rose-100 bg-gradient-to-r from-rose-50 to-white shadow-sm" />
-          <StatCard title="Visit Duration" value={analytics.visitors.visitDuration} className="border border-emerald-100 bg-gradient-to-r from-emerald-50 to-white shadow-sm" />
+          <StatCard title="Total Visitors" value={analytics.visitors.total.toLocaleString()} className="border border-blue-100 bg-gradient-to-r from-blue-50 to-white shadow-sm dark:border-blue-900/40 dark:from-blue-950/40 dark:to-slate-900/40" />
+          <StatCard title="Unique Visitors" value={analytics.visitors.unique.toLocaleString()} className="border border-indigo-100 bg-gradient-to-r from-indigo-50 to-white shadow-sm dark:border-indigo-900/40 dark:from-indigo-950/40 dark:to-slate-900/40" />
+          <StatCard title="Total Pageviews" value={analytics.visitors.totalPageviews.toLocaleString()} className="border border-amber-100 bg-gradient-to-r from-amber-50 to-white shadow-sm dark:border-amber-900/40 dark:from-amber-950/40 dark:to-slate-900/40" />
+          <StatCard title="Bounce Rate" value={`${analytics.visitors.bounceRate}%`} className="border border-rose-100 bg-gradient-to-r from-rose-50 to-white shadow-sm dark:border-rose-900/40 dark:from-rose-950/40 dark:to-slate-900/40" />
+          <StatCard title="Visit Duration" value={analytics.visitors.visitDuration} className="border border-emerald-100 bg-gradient-to-r from-emerald-50 to-white shadow-sm dark:border-emerald-900/40 dark:from-emerald-950/40 dark:to-slate-900/40" />
         </div>
       </div>
 
@@ -422,15 +422,15 @@ export default function Analytics() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-4 text-center">
-              <div className="rounded-md bg-blue-50 p-3">
+              <div className="rounded-md bg-blue-50 dark:bg-blue-900/30 p-3">
                 <p className="text-2xl font-bold">{analytics.visitors.total}</p>
                 <p className="text-sm text-muted-foreground">Visitors</p>
               </div>
-              <div className="rounded-md bg-amber-50 p-3">
+              <div className="rounded-md bg-amber-50 dark:bg-amber-900/30 p-3">
                 <p className="text-2xl font-bold">{analytics.customerBehavior?.checking}</p>
                 <p className="text-sm text-muted-foreground">Checking Out</p>
               </div>
-              <div className="rounded-md bg-emerald-50 p-3">
+              <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/30 p-3">
                 <p className="text-2xl font-bold">{analytics.customerBehavior?.purchased}</p>
                 <p className="text-sm text-muted-foreground">Purchased</p>
               </div>
@@ -439,7 +439,7 @@ export default function Analytics() {
         </Card>
 
         <div className="grid grid-cols-2 gap-4">
-          <Card className="border-border/70 bg-gradient-to-r from-primary/5 to-background shadow-sm">
+          <Card className="border-border/70 bg-gradient-to-r from-primary/5 to-background dark:from-primary/10 dark:to-slate-900/40 shadow-sm">
             <CardHeader>
               <CardTitle className="text-base">Total Checkouts</CardTitle>
             </CardHeader>
@@ -448,12 +448,12 @@ export default function Analytics() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/70 bg-gradient-to-r from-emerald-50 to-background shadow-sm">
+          <Card className="border-border/70 bg-gradient-to-r from-emerald-50 to-background dark:from-emerald-950/40 dark:to-slate-900/40 shadow-sm">
             <CardHeader>
               <CardTitle className="text-base">Total Sales</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-green-600">${analytics.totalSales.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-emerald-300">${analytics.totalSales.toLocaleString()}</p>
             </CardContent>
           </Card>
         </div>

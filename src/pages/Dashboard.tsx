@@ -225,7 +225,7 @@ export default function Dashboard() {
     <div className="p-4 space-y-4 w-full min-w-0 overflow-x-hidden">
       <div className="flex items-center justify-between min-w-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-slate-100">Dashboard</h1>
           {dashboardWindowLabel ? (
             <p className="text-sm text-muted-foreground hidden">{dashboardWindowLabel}</p>
           ) : null}
@@ -239,7 +239,7 @@ export default function Dashboard() {
         {canScrollLeft && (
           <button
             onClick={() => scrollMetrics("left")}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-md border border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all duration-200 -ml-3"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white dark:bg-slate-900 shadow-md border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 dark:hover:bg-slate-800 transition-all duration-200 -ml-3"
             aria-label="Scroll metrics left"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -268,7 +268,7 @@ export default function Dashboard() {
         {canScrollRight && (
           <button
             onClick={() => scrollMetrics("right")}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-md border border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all duration-200 -mr-3"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white dark:bg-slate-900 shadow-md border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 dark:hover:bg-slate-800 transition-all duration-200 -mr-3"
             aria-label="Scroll metrics right"
           >
             <ChevronRight className="w-4 h-4" />
@@ -284,10 +284,10 @@ export default function Dashboard() {
 
         {/* Live Summary */}
         <div className="w-full min-w-0 h-full">
-          <Card className="rounded-2xl border-border/70 bg-gradient-to-br from-primary/5 via-background to-blue-50/30 shadow-sm h-full flex flex-col">
+          <Card className="rounded-2xl border-border/70 bg-gradient-to-br from-primary/5 via-background to-blue-50/30 dark:to-slate-900/40 shadow-sm h-full flex flex-col">
             <CardHeader className="p-4">
               <div className="flex items-center justify-between pt-1">
-                <CardTitle className="text-gray-800">Patient Summary</CardTitle>
+                <CardTitle className="text-gray-800 dark:text-slate-100">Patient Summary</CardTitle>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground invisible">
                   <span className="h-2 w-2 rounded-full bg-[#8979FF]" />
                   <span>Patient</span>
@@ -296,43 +296,43 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent className="px-4 pb-4 pt-0 flex-1 flex">
               <div className="w-full flex flex-col gap-6 justify-center">
-                <div className="flex items-center justify-between rounded-2xl border bg-white/70 px-4 py-3">
+                <div className="flex items-center justify-between rounded-2xl border bg-white/70 dark:bg-slate-900/70 px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                      <ShoppingCart className="h-5 w-5 text-blue-600" />
+                    <div className="h-10 w-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+                      <ShoppingCart className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-gray-800">Number of Active Patients</p>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-slate-100">Number of Active Patients</p>
                       <p className="text-xs text-muted-foreground">Patients that are prescribed</p>
                     </div>
                   </div>
-                  <div className="text-2xl font-bold text-gray-900">{patientSummary.active_patients}</div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-slate-100">{patientSummary.active_patients}</div>
                 </div>
 
-                <div className="flex items-center justify-between rounded-2xl border bg-white/70 px-4 py-3">
+                <div className="flex items-center justify-between rounded-2xl border bg-white/70 dark:bg-slate-900/70 px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center">
-                      <Eye className="h-5 w-5 text-slate-500" />
+                    <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                      <Eye className="h-5 w-5 text-slate-500 dark:text-slate-300" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-gray-800">Number of Inactive Patients</p>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-slate-100">Number of Inactive Patients</p>
                       <p className="text-xs text-muted-foreground">Patients who have missed their follow up by 20 days and more</p>
                     </div>
                   </div>
-                  <div className="text-2xl font-bold text-gray-900">{patientSummary.inactive_patients}</div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-slate-100">{patientSummary.inactive_patients}</div>
                 </div>
 
-                <div className="flex items-center justify-between rounded-2xl border bg-white/70 px-4 py-3">
+                <div className="flex items-center justify-between rounded-2xl border bg-white/70 dark:bg-slate-900/70 px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-rose-100 flex items-center justify-center">
-                      <DollarSign className="h-5 w-5 text-rose-500" />
+                    <div className="h-10 w-10 rounded-xl bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center">
+                      <DollarSign className="h-5 w-5 text-rose-500 dark:text-rose-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-gray-800">Number of drop-off Patients</p>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-slate-100">Number of drop-off Patients</p>
                       <p className="text-xs text-muted-foreground">Patients who completed the questionnaire but didn't complete checkout</p>
                     </div>
                   </div>
-                  <div className="text-2xl font-bold text-gray-900">{patientSummary.dropoff_patients}</div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-slate-100">{patientSummary.dropoff_patients}</div>
                 </div>
               </div>
             </CardContent>

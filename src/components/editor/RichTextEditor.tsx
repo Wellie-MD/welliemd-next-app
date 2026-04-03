@@ -125,7 +125,7 @@ export default function RichTextEditor({
     editorProps: {
       attributes: {
         class:
-          "prose prose-sm sm:prose-base max-w-none w-full break-words break-all focus:outline-none h-full px-8 py-6",
+          "prose prose-sm sm:prose-base dark:prose-invert max-w-none w-full break-words break-all focus:outline-none h-full px-8 py-6",
       },
     },
     onUpdate: ({ editor }) => {
@@ -221,11 +221,11 @@ export default function RichTextEditor({
             disabled={disabled}
             className={cn(
               "inline-flex items-center justify-center rounded-md p-1.5 transition-all duration-150",
-              "hover:bg-slate-100 hover:text-slate-900",
+              "hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100",
               "disabled:opacity-40 disabled:cursor-not-allowed",
               isActive
-                ? "bg-slate-200 text-slate-900 shadow-inner"
-                : "text-slate-600"
+                ? "bg-slate-200 text-slate-900 shadow-inner dark:bg-slate-800 dark:text-slate-100"
+                : "text-slate-600 dark:text-slate-300"
             )}
           >
             {children}
@@ -243,14 +243,14 @@ export default function RichTextEditor({
   return (
     <div
       className={cn(
-        "rounded-xl border border-slate-200 bg-white shadow-sm min-h-[400px] flex flex-col w-full max-w-full overflow-hidden",
-        "focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100",
+        "rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 shadow-sm min-h-[400px] flex flex-col w-full max-w-full overflow-hidden",
+        "focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 dark:focus-within:ring-blue-900/40",
         "transition-all duration-200",
         className
       )}
     >
       {/* ── Toolbar ── */}
-      <div className="border-b border-slate-200 bg-gradient-to-b from-slate-50 to-white sticky top-0 z-10">
+      <div className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 sticky top-0 z-10">
         {/* Row 1 – Text formatting */}
         <div className="flex flex-wrap items-center gap-0.5 px-3 py-2">
           {/* Text type dropdown */}
@@ -335,7 +335,7 @@ export default function RichTextEditor({
             <PopoverTrigger asChild>
               <button
                 type="button"
-                className="inline-flex items-center justify-center rounded-md p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all"
+                className="inline-flex items-center justify-center rounded-md p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100 transition-all"
               >
                 <Palette className="h-4 w-4" />
               </button>
@@ -374,7 +374,7 @@ export default function RichTextEditor({
                 type="button"
                 className={cn(
                   "inline-flex items-center justify-center rounded-md p-1.5 transition-all",
-                  "hover:bg-slate-100",
+                  "hover:bg-slate-100 dark:hover:bg-slate-800",
                   editor.isActive("highlight")
                     ? "bg-yellow-100 text-yellow-700"
                     : "text-slate-600"
@@ -509,7 +509,7 @@ export default function RichTextEditor({
                 type="button"
                 className={cn(
                   "inline-flex items-center justify-center rounded-md p-1.5 transition-all",
-                  "hover:bg-slate-100",
+                  "hover:bg-slate-100 dark:hover:bg-slate-800",
                   editor.isActive("link")
                     ? "bg-blue-100 text-blue-700"
                     : "text-slate-600"
@@ -553,7 +553,7 @@ export default function RichTextEditor({
             <PopoverTrigger asChild>
               <button
                 type="button"
-                className="inline-flex items-center justify-center rounded-md p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all"
+                className="inline-flex items-center justify-center rounded-md p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-slate-100 transition-all"
               >
                 <YoutubeIcon className="h-4 w-4" />
               </button>
@@ -586,7 +586,7 @@ export default function RichTextEditor({
                 type="button"
                 className={cn(
                   "inline-flex items-center justify-center rounded-md p-1.5 transition-all",
-                  "hover:bg-slate-100",
+                  "hover:bg-slate-100 dark:hover:bg-slate-800",
                   editor.isActive("table")
                     ? "bg-slate-200 text-slate-900"
                     : "text-slate-600"
@@ -690,14 +690,14 @@ export default function RichTextEditor({
       {editor && (
         <BubbleMenu
           editor={editor}
-          className="bg-white rounded-lg shadow-xl border border-slate-200 flex items-center gap-0.5 p-1"
+          className="bg-white dark:bg-slate-900 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 flex items-center gap-0.5 p-1"
         >
           <button
             type="button"
             onClick={() => editor.chain().focus().toggleBold().run()}
             className={cn(
-              "p-1.5 rounded hover:bg-slate-100",
-              editor.isActive("bold") && "bg-slate-200"
+              "p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800",
+              editor.isActive("bold") && "bg-slate-200 dark:bg-slate-800"
             )}
           >
             <Bold className="h-3.5 w-3.5" />
@@ -706,8 +706,8 @@ export default function RichTextEditor({
             type="button"
             onClick={() => editor.chain().focus().toggleItalic().run()}
             className={cn(
-              "p-1.5 rounded hover:bg-slate-100",
-              editor.isActive("italic") && "bg-slate-200"
+              "p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800",
+              editor.isActive("italic") && "bg-slate-200 dark:bg-slate-800"
             )}
           >
             <Italic className="h-3.5 w-3.5" />
@@ -716,8 +716,8 @@ export default function RichTextEditor({
             type="button"
             onClick={() => editor.chain().focus().toggleUnderline().run()}
             className={cn(
-              "p-1.5 rounded hover:bg-slate-100",
-              editor.isActive("underline") && "bg-slate-200"
+              "p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800",
+              editor.isActive("underline") && "bg-slate-200 dark:bg-slate-800"
             )}
           >
             <UnderlineIcon className="h-3.5 w-3.5" />
@@ -728,8 +728,8 @@ export default function RichTextEditor({
               editor.chain().focus().toggleHighlight().run()
             }
             className={cn(
-              "p-1.5 rounded hover:bg-slate-100",
-              editor.isActive("highlight") && "bg-yellow-100"
+              "p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-800",
+              editor.isActive("highlight") && "bg-yellow-100 dark:bg-yellow-900/40"
             )}
           >
             <Highlighter className="h-3.5 w-3.5" />
@@ -741,7 +741,7 @@ export default function RichTextEditor({
       <EditorContent editor={editor} className="blog-editor-content flex-1 overflow-x-hidden" />
 
       {/* ── Footer stats ── */}
-      <div className="border-t border-slate-200 px-4 py-2 flex items-center justify-between text-xs text-slate-400 bg-slate-50/50">
+      <div className="border-t border-slate-200 dark:border-slate-700 px-4 py-2 flex items-center justify-between text-xs text-slate-400 dark:text-slate-500 bg-slate-50/50 dark:bg-slate-950/60">
         <span>
           {charCount.characters()} characters · {charCount.words()} words
         </span>

@@ -134,15 +134,15 @@ export default function MyBillingProfile() {
     !hasPaymentMethod;
   const subscriptionBadgeClass =
     subscriptionState === "active"
-      ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+      ? "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800/60"
       : subscriptionState === "past_due" || subscriptionState === "unpaid"
-      ? "bg-rose-100 text-rose-800 border-rose-200"
-      : "bg-slate-100 text-slate-700 border-slate-200";
+      ? "bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800/60"
+      : "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
   const lockState = subscriptionStatus?.lock_state ?? "unlocked";
   const lockBadgeClass =
     lockState === "locked"
-      ? "bg-rose-100 text-rose-800 border-rose-200"
-      : "bg-emerald-100 text-emerald-800 border-emerald-200";
+      ? "bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800/60"
+      : "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800/60";
 
   if (loading) {
     return (
@@ -176,9 +176,9 @@ export default function MyBillingProfile() {
           </CardHeader>
           <CardContent className="space-y-4">
             {showNoPaymentMethodState ? (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                <p className="font-semibold text-amber-900">No payment method on file</p>
-                <p className="text-sm text-amber-700 mt-1">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800/60 dark:bg-amber-950/40 p-4">
+                <p className="font-semibold text-amber-900 dark:text-amber-200">No payment method on file</p>
+                <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
                   {paymentMethodStatus === "no_customer"
                     ? "Please add your payment method to enable billing for medication and shipping costs."
                     : "Your billing account is set up, but no payment method has been added yet."}
@@ -201,7 +201,7 @@ export default function MyBillingProfile() {
                 </Button>
               </div>
             ) : (
-              <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-slate-50/70 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-slate-50/70 dark:bg-slate-900/60 dark:border-slate-700 p-4">
                 <div className="flex items-center gap-3">
                   <img
                     src={resolveCardIcon(paymentMethod?.brand || profile?.payment_method?.brand)}
@@ -282,7 +282,7 @@ export default function MyBillingProfile() {
               </Badge>
             </div>
             {lockState === "locked" && subscriptionStatus?.lock_reason_code && (
-              <p className="text-rose-700 font-medium">
+              <p className="text-rose-700 dark:text-rose-300 font-medium">
                 Account locked due to {formatBadgeLabel(subscriptionStatus.lock_reason_code)}.
               </p>
             )}
@@ -299,7 +299,7 @@ export default function MyBillingProfile() {
               </p>
             )}
             {subscriptionStatus?.cancel_at_period_end && (
-              <p className="text-amber-700 font-medium">
+              <p className="text-amber-700 dark:text-amber-300 font-medium">
                 Cancellation is scheduled at period end{subscriptionStatus?.current_period_end ? ` (${subscriptionStatus.current_period_end})` : ""}.
               </p>
             )}
@@ -394,20 +394,20 @@ function StripeSetupForm({
   const publishable = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
   if (!publishable) {
     return (
-      <div className="p-4 border rounded bg-yellow-50 text-sm">
-        <p className="font-semibold text-amber-800 mb-2">
+      <div className="p-4 border rounded bg-yellow-50 dark:bg-yellow-950/40 text-sm">
+        <p className="font-semibold text-amber-800 dark:text-amber-200 mb-2">
           Stripe Configuration Required
         </p>
-        <p className="text-amber-700 mb-3">
+        <p className="text-amber-700 dark:text-amber-300 mb-3">
           Stripe publishable key is not set (VITE_STRIPE_PUBLISHABLE_KEY).
           Please configure it in your environment to enable the live payment
           element.
         </p>
-        <div className="mt-3 bg-amber-100 p-2 rounded">
-          <p className="text-xs text-amber-600 mb-1">
+        <div className="mt-3 bg-amber-100 dark:bg-amber-900/40 p-2 rounded">
+          <p className="text-xs text-amber-600 dark:text-amber-300 mb-1">
             Client Secret (for debugging):
           </p>
-          <pre className="text-xs text-amber-800 break-all whitespace-pre-wrap overflow-wrap-anywhere">
+          <pre className="text-xs text-amber-800 dark:text-amber-200 break-all whitespace-pre-wrap overflow-wrap-anywhere">
             {clientSecret}
           </pre>
         </div>

@@ -137,6 +137,55 @@ export default function OrderDetail() {
     return Number.isNaN(amount) ? 0 : amount
   }, [order?.refundableAmount])
 
+  const appliedCouponCodes = useMemo(() => {
+    if (!order) return ""
+
+    const fromOrderField = (order.coupon_code || "").trim()
+    const data = order as unknown as Record<string, unknown>
+    const codes = new Set<string>()
+
+    if (fromOrderField) {
+      codes.add(fromOrderField)
+    }
+
+    const couponObj = data.coupon as { code?: string } | undefined
+    if (couponObj?.code?.trim()) {
+      codes.add(couponObj.code.trim())
+    }
+
+    const couponCodes = data.coupon_codes
+    if (Array.isArray(couponCodes)) {
+      couponCodes.forEach((code) => {
+        if (typeof code === "string" && code.trim()) {
+          codes.add(code.trim())
+        }
+      })
+    }
+
+    const appliedCoupons = data.applied_coupons
+    if (Array.isArray(appliedCoupons)) {
+      appliedCoupons.forEach((coupon) => {
+        if (typeof coupon === "string" && coupon.trim()) {
+          codes.add(coupon.trim())
+          return
+        }
+        if (
+          coupon &&
+          typeof coupon === "object" &&
+          "code" in coupon &&
+          typeof (coupon as { code?: unknown }).code === "string"
+        ) {
+          const code = ((coupon as { code?: string }).code || "").trim()
+          if (code) {
+            codes.add(code)
+          }
+        }
+      })
+    }
+
+    return Array.from(codes).join(", ")
+  }, [order])
+
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return "—"
     try {
@@ -524,7 +573,7 @@ export default function OrderDetail() {
                         Product discount:
                       </td>
                       <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400">
-                        {order.coupon_code || "—"}
+                        {appliedCouponCodes || "—"}
                       </td>
                       <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
                         −${discountAmount.toFixed(2)}

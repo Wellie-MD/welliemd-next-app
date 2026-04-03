@@ -55,6 +55,14 @@ export interface TreatmentEpisode {
     current_product_titration_category?: string | null;
 }
 
+export interface Visit {
+    id: string;
+    patient_id: string;
+    status: string;
+    visit_type: string;
+    created_at: string;
+}
+
 export const patientService = {
     /**
      * Fetch patients with server-side pagination
@@ -153,6 +161,87 @@ export const patientService = {
                 error.response?.data?.message ||
                 'Failed to fetch treatment episodes'
             );
+        }
+    },
+
+    /**
+     * Fetch orders for specific patients and map product names
+     */
+    getProductNamesForPatients: async (patientIds: string[]): Promise<Record<string, string>> => {
+        try {
+            // Fetch all orders (no patient filter - filter locally)
+            const response = await api.get<any[]>(`/orders/`, {
+                params: {
+                    ordering: '-created_at',
+                    page_size: 5000,
+                }
+            });
+            
+            const orders = response.data.results || response.data;
+            
+            // Find latest order for each patient
+            const latestByPatient: Record<string, string> = {};
+            
+            (orders || []).forEach((order: any) => {
+                // patient is an object with id property
+                const patientKey = order.patient?.id || order.patient_id;
+                const productName = order.product_name || '-';
+                if (patientKey && !latestByPatient[patientKey]) {
+                    latestByPatient[patientKey] = productName;
+                }
+            });
+            
+            const productMap: Record<string, string> = {};
+            patientIds.forEach(id => {
+                productMap[id] = latestByPatient[id] || '-';
+            });
+            
+            return productMap;
+        } catch (error: any) {
+            console.error(`Failed to fetch orders:`, error);
+            const fallback: Record<string, string> = {};
+            patientIds.forEach(id => fallback[id] = '-');
+            return fallback;
+        }
+    },
+
+    /**
+     * Fetch visits for specific patients and map latest status
+     */
+    getLatestVisitsForPatients: async (patientIds: string[]): Promise<Record<string, string>> => {
+        try {
+            // Fetch visits for patients using comma-separated IDs
+            const response = await api.get<any[]>(`/medical/visits/`, {
+                params: {
+                    patient_id: patientIds.join(','),
+                    ordering: '-created_at',
+                    page_size: 5000,
+                }
+            });
+            
+            const visits = response.data.results || response.data;
+            
+            const latestByPatient: Record<string, string> = {};
+            
+            // Find latest for each patient
+            (visits || []).forEach((visit: any) => {
+                const patientKey = visit.patient || visit.patient_id;
+                if (!latestByPatient[patientKey]) {
+                    latestByPatient[patientKey] = visit.status;
+                }
+            });
+            
+            const visitMap: Record<string, string> = {};
+            patientIds.forEach(id => {
+                visitMap[id] = latestByPatient[id] || '-';
+            });
+            
+            return visitMap;
+        } catch (error: any) {
+            console.error(`Failed to fetch visits for patients:`, error);
+            const fallback: Record<string, string> = {};
+            patientIds.forEach(id => fallback[id] = '-');
+            return fallback;
         }
     },
 };

@@ -59,7 +59,7 @@ export default function AffiliateForm({ mode, open, onOpenChange, onSuccess, aff
               name="commission_type"
               value={form.commission_type}
               onChange={handleChange}
-              className="w-full border rounded p-2"
+              className="w-full border rounded p-2 bg-background text-foreground dark:bg-slate-900 dark:border-slate-700"
             >
               <option value="flat">Flat</option>
               <option value="percent">Percent</option>
@@ -79,7 +79,7 @@ export default function AffiliateForm({ mode, open, onOpenChange, onSuccess, aff
               name="discount_type"
               value={form.discount_type}
               onChange={handleChange}
-              className="w-full border rounded p-2"
+              className="w-full border rounded p-2 bg-background text-foreground dark:bg-slate-900 dark:border-slate-700"
             >
               <option value="flat">Flat</option>
               <option value="percent">Percent</option>
