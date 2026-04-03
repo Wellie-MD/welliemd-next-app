@@ -66,7 +66,7 @@ export default function PatientDetailPage() {
   const fullName = patient?.full_name || `${patient?.first_name || ""} ${patient?.last_name || ""}`.trim();
   const initials = `${patient?.first_name?.[0] || ""}${patient?.last_name?.[0] || ""}`.toUpperCase() || "PT";
   const fullAddress = patient?.address
-    ? `${patient.address}${patient.city || patient.state || patient.zip_code ? ", " : ""}${[patient.city, patient.state, patient.zip_code].filter(Boolean).join(" ")}`
+    ? `${patient.address}${patient.address_line_2 ? `, ${patient.address_line_2}` : ""}${patient.city || patient.state || patient.zip_code ? ", " : ""}${[patient.city, patient.state, patient.zip_code].filter(Boolean).join(" ")}`
     : "-";
 
   const getOrderStatusTone = (status?: string) => {
