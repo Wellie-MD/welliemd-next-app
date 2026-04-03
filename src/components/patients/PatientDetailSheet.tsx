@@ -71,6 +71,7 @@ const buildInitialForm = (patient: Patient) => ({
   phone: patient.phone || '',
   sex: patient.sex || 'Other',
   address: patient.address || '',
+  address_line_2: patient.address_line_2 || '',
   city: patient.city || '',
   state: patient.state || '',
   zip_code: patient.zip_code || '',
@@ -97,6 +98,7 @@ export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdat
     date_of_birth: '',
     sex: 'Other',
     address: '',
+    address_line_2: '',
     city: '',
     state: '',
     zip_code: '',
@@ -159,6 +161,7 @@ export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdat
         phone: formState.phone,
         sex: formState.sex,
         address: formState.address,
+        address_line_2: formState.address_line_2,
         city: formState.city,
         state: formState.state,
         zip_code: formState.zip_code,
@@ -269,7 +272,9 @@ export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdat
                 <p className="text-sm break-words">
                   {patient.address ? (
                     <>
-                      {patient.address}<br />
+                      {patient.address}
+                      {patient.address_line_2 && <>, {patient.address_line_2}</>}
+                      <br />
                       {patient.city}, {patient.state} {patient.zip_code}
                     </>
                   ) : 'No address provided'}
@@ -464,6 +469,14 @@ export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdat
                   placeholder="Street address"
                   value={formState.address}
                   onChange={(e) => setFormState((prev) => ({ ...prev, address: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Apt / Suite / Unit</label>
+                <Input
+                  placeholder="Apartment, suite, unit, etc."
+                  value={formState.address_line_2}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, address_line_2: e.target.value }))}
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
