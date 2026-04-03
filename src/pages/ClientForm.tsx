@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import type { AxiosError } from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Save, Loader2, Info, AlertCircle, Eye, EyeOff, CreditCard } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Info, AlertCircle, Eye, EyeOff, CreditCard, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,6 +57,17 @@ const FieldInfo = ({ content }: { content: string }) => (
   </TooltipProvider>
 );
 
+const generateSecurePassword = (length = 20) => {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
+  const cryptoObj = globalThis.crypto;
+  if (!cryptoObj?.getRandomValues) {
+    return Array.from({ length }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
+  }
+  const bytes = new Uint32Array(length);
+  cryptoObj.getRandomValues(bytes);
+  return Array.from(bytes, (value) => alphabet[value % alphabet.length]).join("");
+};
+
 export default function ClientForm() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -79,7 +90,7 @@ export default function ClientForm() {
     first_name: "",
     last_name: "",
     phone: "",
-    password: "",
+    password: generateSecurePassword(),
 
     // Client Basic Information
     name: "",
@@ -168,14 +179,6 @@ export default function ClientForm() {
       setHasPaymentMethod(!!paymentMethodData.payment_method && paymentMethodData.status !== "none");
     }
   }, [paymentMethodData]);
-
-  // Auto-generate password when first_name or last_name changes
-  useEffect(() => {
-    if (!isEditMode && formData.first_name && formData.last_name) {
-      const generatedPassword = `${formData.first_name}${formData.last_name}@123`.replace(/\s+/g, '');
-      setFormData((prev) => ({ ...prev, password: generatedPassword }));
-    }
-  }, [formData.first_name, formData.last_name, isEditMode]);
 
   // Populate form with existing data
   useEffect(() => {
@@ -767,7 +770,7 @@ export default function ClientForm() {
 
                 <div className="space-y-2">
                   <Label htmlFor="password">
-                    Password {!isEditMode && <span className="text-red-500">*</span>}
+                    Password
                   </Label>
                   <div className="relative">
                     <Input
@@ -778,23 +781,38 @@ export default function ClientForm() {
                         setFormData({ ...formData, password: e.target.value.replace(/\s+/g, '') })
                       }
                       placeholder={isEditMode ? "Leave blank to keep current password" : "Password"}
-                      required={!isEditMode}
+                      required={false}
                       disabled={isEditMode}
-                      className={validationErrors.password ? "border-red-500 pr-10" : "pr-10"}
+                      className={validationErrors.password ? "border-red-500 pr-24" : "pr-24"}
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
+                    <div className="absolute right-0 top-0 flex h-full items-center">
+                      {!isEditMode ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-full px-2 hover:bg-transparent"
+                          onClick={() =>
+                            setFormData((prev) => ({ ...prev, password: generateSecurePassword() }))
+                          }
+                        >
+                          <RefreshCcw className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      ) : null}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                   {validationErrors.password && (
                     <p className="text-xs text-red-500">{validationErrors.password}</p>
