@@ -81,7 +81,7 @@ export default function Treatments() {
               </div>
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-2">
-                  <h3 className="font-semibold text-lg text-gray-900">
+                  <h3 className="font-semibold text-lg text-foreground">
                     {visit.visit_type}
                   </h3>
                   <Badge className={statusConfig.color}>
@@ -119,8 +119,8 @@ export default function Treatments() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Treatments</h1>
-          <p className="text-gray-600">Manage your current and past treatments</p>
+          <h1 className="text-2xl font-semibold text-foreground">Treatments</h1>
+          <p className="text-muted-foreground">Manage your current and past treatments</p>
         </div>
       </div>
 
@@ -129,7 +129,7 @@ export default function Treatments() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Plus className="h-5 w-5 text-green-600" />
-            <CardTitle className="text-lg font-medium text-gray-900">
+            <CardTitle className="text-lg font-medium text-foreground">
               Start New Treatment
             </CardTitle>
           </div>

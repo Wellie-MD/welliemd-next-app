@@ -16,6 +16,16 @@ export default function BlogPost() {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
+  const SHOW_SHARE = false;
+
+  const formatAuthorName = (name: string) =>
+    (name || "")
+      .trim()
+      .split(/\s+/)
+      .map((part) =>
+        part ? part.charAt(0).toUpperCase() + part.slice(1) : part
+      )
+      .join(" ");
 
   useEffect(() => {
     if (!id) return;
@@ -94,7 +104,7 @@ export default function BlogPost() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* Navigation */}
       <div className="pt-8 pb-4">
         <div className="blog-post-container">
@@ -124,16 +134,18 @@ export default function BlogPost() {
               >
                 <Bookmark className={`w-5 h-5 ${isBookmarked ? 'fill-current' : ''}`} />
               </button>
-              <button
-                onClick={() => {
-                  window.scrollTo({
-                    top: document.body.scrollHeight,
-                    behavior: 'smooth'
-                  });
-                }}
-                className="flex items-center justify-center w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm text-gray-600 hover:text-green-600 transition-all duration-300">
-                <Share2 className="w-5 h-5" />
-              </button>
+              {SHOW_SHARE && (
+                <button
+                  onClick={() => {
+                    window.scrollTo({
+                      top: document.body.scrollHeight,
+                      behavior: 'smooth'
+                    });
+                  }}
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm text-gray-600 hover:text-green-600 transition-all duration-300">
+                  <Share2 className="w-5 h-5" />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -149,20 +161,20 @@ export default function BlogPost() {
             {post.category}
           </div>
 
-          <h1 className="blog-post-title">
+          <h1 className="blog-post-title dark:text-white">
             {post.title}
           </h1>
 
           <div className="blog-post-meta">
-            <div className="flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-full">
+            <div className="flex items-center gap-2 bg-gray-100 dark:bg-slate-900 dark:text-black px-4 py-2 rounded-full">
               <Clock className="w-4 h-4" />
               <span>{post.read_time_minutes} min read</span>
             </div>
-            <div className="flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-full">
+            <div className="flex items-center gap-2 bg-gray-100 dark:bg-slate-900 dark:text-black px-4 py-2 rounded-full">
               <Eye className="w-4 h-4" />
               <span>{formatViews(post.views_count)} views</span>
             </div>
-            <div className="flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-full">
+            <div className="flex items-center gap-2 bg-gray-100 dark:bg-slate-900 dark:text-black px-4 py-2 rounded-full">
               <Calendar className="w-4 h-4" />
               <span>{post.published_at ? new Date(post.published_at).toLocaleDateString() : "Draft"}</span>
             </div>
@@ -175,7 +187,9 @@ export default function BlogPost() {
             <User className="w-8 h-8 text-white" />
           </div>
           <div>
-            <div className="text-xl font-bold text-gray-900">{post.author_name}</div>
+            <div className="text-xl font-bold text-gray-900">
+              {formatAuthorName(post.author_name)}
+            </div>
             {post.published_at && (
               <div className="text-sm text-gray-500 mt-1">
                 Published {new Date(post.published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
@@ -194,7 +208,7 @@ export default function BlogPost() {
         )}
 
         {/* Article Content */}
-        <div className="blog-post-content prose prose-blue max-w-none break-words prose-img:rounded-xl prose-headings:text-gray-900 prose-a:text-blue-600">
+        <div className="blog-post-content prose prose-blue dark:prose-invert max-w-none break-words prose-img:rounded-xl prose-headings:text-gray-900 prose-a:text-blue-600">
           <div
             dangerouslySetInnerHTML={{ __html: post.content }}
             className="overflow-x-auto"
@@ -202,87 +216,89 @@ export default function BlogPost() {
         </div>
 
         {/* Social Share & Engagement Stats */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 w-full mt-8">
-          <h3 className="text-[17px] font-semibold text-gray-900 mb-5">Share this article</h3>
+        {SHOW_SHARE && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8 w-full mt-8">
+            <h3 className="text-[17px] font-semibold text-gray-900 mb-5">Share this article</h3>
 
-          {/* Main Flex Container: justify-between splits the left and right sections */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6 w-full">
+            {/* Main Flex Container: justify-between splits the left and right sections */}
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 w-full">
 
-            {/* LEFT ALIGNED: Buttons */}
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  const url = encodeURIComponent(window.location.href);
-                  const text = encodeURIComponent(post.title);
-                  window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, '_blank', 'noopener,noreferrer');
-                }}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-sky-50 hover:bg-sky-100 text-sky-500 rounded-lg font-medium transition-all hover:-translate-y-0.5 hover:shadow-sm active:scale-95 active:translate-y-0 text-sm"
-              >
-                <Twitter className="w-4 h-4 shrink-0" fill="currentColor" strokeWidth={0} />
-                <span className="whitespace-nowrap">Twitter</span>
-              </button>
+              {/* LEFT ALIGNED: Buttons */}
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = encodeURIComponent(window.location.href);
+                    const text = encodeURIComponent(post.title);
+                    window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, '_blank', 'noopener,noreferrer');
+                  }}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-sky-50 hover:bg-sky-100 text-sky-500 rounded-lg font-medium transition-all hover:-translate-y-0.5 hover:shadow-sm active:scale-95 active:translate-y-0 text-sm"
+                >
+                  <Twitter className="w-4 h-4 shrink-0" fill="currentColor" strokeWidth={0} />
+                  <span className="whitespace-nowrap">Twitter</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  const url = encodeURIComponent(window.location.href);
-                  window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, '_blank', 'noopener,noreferrer');
-                }}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-95 active:translate-y-0 text-sm"
-              >
-                <Linkedin className="w-4 h-4 shrink-0" fill="currentColor" strokeWidth={0} />
-                <span className="whitespace-nowrap">LinkedIn</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = encodeURIComponent(window.location.href);
+                    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, '_blank', 'noopener,noreferrer');
+                  }}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-95 active:translate-y-0 text-sm"
+                >
+                  <Linkedin className="w-4 h-4 shrink-0" fill="currentColor" strokeWidth={0} />
+                  <span className="whitespace-nowrap">LinkedIn</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(window.location.href);
-                    setIsCopied(true);
-                    setTimeout(() => setIsCopied(false), 2000);
-                  } catch (err) {
-                    console.error('Failed to copy text: ', err);
-                  }
-                }}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-all hover:-translate-y-0.5 hover:shadow-sm active:scale-95 active:translate-y-0 text-sm"
-              >
-                <Link2 className="w-4 h-4 shrink-0" />
-                <span className="whitespace-nowrap">{isCopied ? 'Copied!' : 'Copy Link'}</span>
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(window.location.href);
+                      setIsCopied(true);
+                      setTimeout(() => setIsCopied(false), 2000);
+                    } catch (err) {
+                      console.error('Failed to copy text: ', err);
+                    }
+                  }}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-all hover:-translate-y-0.5 hover:shadow-sm active:scale-95 active:translate-y-0 text-sm"
+                >
+                  <Link2 className="w-4 h-4 shrink-0" />
+                  <span className="whitespace-nowrap">{isCopied ? 'Copied!' : 'Copy Link'}</span>
+                </button>
+              </div>
 
-            {/* RIGHT ALIGNED: Divider & Stats */}
-            <div className="flex items-center justify-center md:justify-end gap-6 md:gap-8 w-full md:w-auto mt-4 md:mt-0">
+              {/* RIGHT ALIGNED: Divider & Stats */}
+              <div className="flex items-center justify-center md:justify-end gap-6 md:gap-8 w-full md:w-auto mt-4 md:mt-0">
 
-              {/* Vertical Divider */}
-              <div className="w-px bg-gray-200 h-10 hidden md:block"></div>
+                {/* Vertical Divider */}
+                <div className="w-px bg-gray-200 h-10 hidden md:block"></div>
 
-              {/* Likes Stat */}
-              <button
-                type="button"
-                onClick={handleToggleLike}
-                className="text-center group cursor-pointer bg-transparent border-none p-0 appearance-none hover:opacity-80 transition-all active:scale-95"
-              >
-                <div className="text-[28px] font-bold text-red-500 group-hover:scale-110 transition-transform leading-none mb-1">
-                  {likeCount}
+                {/* Likes Stat */}
+                <button
+                  type="button"
+                  onClick={handleToggleLike}
+                  className="text-center group cursor-pointer bg-transparent border-none p-0 appearance-none hover:opacity-80 transition-all active:scale-95"
+                >
+                  <div className="text-[28px] font-bold text-red-500 group-hover:scale-110 transition-transform leading-none mb-1">
+                    {likeCount}
+                  </div>
+                  <div className="text-[11px] text-gray-500 uppercase tracking-widest font-semibold">Likes</div>
+                </button>
+
+                {/* Views Stat */}
+                <div className="text-center group cursor-pointer hover:opacity-80 transition-opacity">
+                  <div className="text-[28px] font-bold text-blue-500 group-hover:scale-110 transition-transform leading-none mb-1">
+                    {formatViews(post.views_count)}
+                  </div>
+                  <div className="text-[11px] text-gray-500 uppercase tracking-widest font-semibold">Views</div>
                 </div>
-                <div className="text-[11px] text-gray-500 uppercase tracking-widest font-semibold">Likes</div>
-              </button>
 
-              {/* Views Stat */}
-              <div className="text-center group cursor-pointer hover:opacity-80 transition-opacity">
-                <div className="text-[28px] font-bold text-blue-500 group-hover:scale-110 transition-transform leading-none mb-1">
-                  {formatViews(post.views_count)}
-                </div>
-                <div className="text-[11px] text-gray-500 uppercase tracking-widest font-semibold">Views</div>
               </div>
 
             </div>
-
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

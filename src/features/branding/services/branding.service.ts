@@ -20,6 +20,7 @@ export interface BrandSettings {
   accentColor: string;
   neutralColor: string;
   logos?: BrandLogos;
+  patientPortalTheme?: 'light' | 'dark';
 }
 
 export const brandingService = {
