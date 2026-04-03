@@ -18,7 +18,6 @@ export interface QuestionnaireTemplate {
   beluga_visit_type?: string; // Visit type (Initial Visit, Follow-up Consultation, etc.)
   slug?: string; // Optional routing slug (required for duplicate visit types)
   requires_photo_upload?: boolean;
-  requires_labs?: boolean;
   requires_identity_verification?: boolean;
   min_age?: number;
   is_published: boolean;
@@ -116,7 +115,6 @@ export interface CreateTemplatePayload {
   beluga_visit_type?: string;
   slug?: string;
   requires_photo_upload?: boolean;
-  requires_labs?: boolean;
   requires_identity_verification?: boolean;
   min_age?: number;
   is_admin_template?: boolean;
@@ -131,7 +129,6 @@ export interface UpdateTemplatePayload {
   beluga_visit_type?: string;
   slug?: string;
   requires_photo_upload?: boolean;
-  requires_labs?: boolean;
   requires_identity_verification?: boolean;
   min_age?: number;
   is_admin_template?: boolean;
