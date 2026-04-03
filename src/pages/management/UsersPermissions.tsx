@@ -37,9 +37,12 @@ export default function UsersPermissions() {
   const navigate = useNavigate();
   const canInviteUsers = useAuthStore((state) => state.user?.permissions?.includes('portal_user:invite'));
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (options?: { showLoader?: boolean }) => {
+    const showLoader = options?.showLoader ?? true;
     try {
-      setLoading(true);
+      if (showLoader) {
+        setLoading(true);
+      }
       const [usersData, rolesData] = await Promise.all([
         userManagementService.listUsers(),
         userManagementService.getAvailableRoles(),
@@ -54,7 +57,9 @@ export default function UsersPermissions() {
         variant: 'destructive',
       });
     } finally {
-      setLoading(false);
+      if (showLoader) {
+        setLoading(false);
+      }
     }
   }, [toast]);
 
@@ -64,7 +69,7 @@ export default function UsersPermissions() {
 
   const handleInviteUser = async (email: string, roleId: string, firstName?: string, lastName?: string) => {
     try {
-      const response = await userManagementService.inviteUser({
+      await userManagementService.inviteUser({
         email,
         role_id: roleId,
         first_name: firstName,
@@ -79,12 +84,9 @@ export default function UsersPermissions() {
       });
 
       // Reload data in background to show new user
-      loadData().catch(err => {
+      loadData({ showLoader: false }).catch(err => {
         console.error('Failed to reload users:', err);
       });
-
-      // Return response so modal can show invitation link
-      return response;
 
     } catch (error: any) {
       console.error('Failed to create invitation:', error);

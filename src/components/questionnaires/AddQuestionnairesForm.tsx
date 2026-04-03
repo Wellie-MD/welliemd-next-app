@@ -22,8 +22,8 @@ import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Trash2, Lock, GripVertical } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
-import { 
-  createTemplate, 
+import {
+  createTemplate,
   templateApi,
   updateTemplate,
   createQuestion,
@@ -73,11 +73,11 @@ const FIELD_MAPPINGS = [
   { value: "custom_qa", label: "Custom Q&A" },
 ]
 
-export default function AddQuestionnairesForm({ 
-  open, 
-  onOpenChange, 
+export default function AddQuestionnairesForm({
+  open,
+  onOpenChange,
   template,
-  onSuccess 
+  onSuccess
 }: AddQuestionnairesFormProps) {
   const [loading, setLoading] = useState(false)
   const [followupTemplates, setFollowupTemplates] = useState<QuestionnaireTemplate[]>([])
@@ -197,7 +197,7 @@ export default function AddQuestionnairesForm({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.name.trim()) {
       toast({
         title: "Validation Error",
@@ -230,16 +230,16 @@ export default function AddQuestionnairesForm({
 
     try {
       setLoading(true)
-      
+
       // Remove beluga_visit_type if it's empty
       const payload = {
         ...formData,
         beluga_visit_type: formData.beluga_visit_type.trim() === "" ? undefined : formData.beluga_visit_type,
         slug: (formData.slug || "").trim() === "" ? undefined : formData.slug,
       }
-      
+
       let createdTemplate: QuestionnaireTemplate
-      
+
       if (template) {
         createdTemplate = await updateTemplate(template.id, payload)
         toast({
@@ -248,7 +248,7 @@ export default function AddQuestionnairesForm({
         })
       } else {
         createdTemplate = await createTemplate(payload)
-        
+
         // Create questions for the new template
         if (questions.length > 0) {
           for (let i = 0; i < questions.length; i++) {
@@ -266,13 +266,13 @@ export default function AddQuestionnairesForm({
             await createQuestion(questionPayload)
           }
         }
-        
+
         toast({
           title: "Success",
           description: `Template created successfully${questions.length > 0 ? ` with ${questions.length} question(s)` : ""}`,
         })
       }
-      
+
       onSuccess()
     } catch (error: unknown) {
       toast({
@@ -293,8 +293,8 @@ export default function AddQuestionnairesForm({
             {template ? "Edit Template" : "Create New Template"}
           </DialogTitle>
           <DialogDescription>
-            {template 
-              ? "Update the template details below." 
+            {template
+              ? "Update the template details below."
               : "Create a new questionnaire template. All questions created will be read-only by default."}
           </DialogDescription>
         </DialogHeader>
@@ -476,7 +476,7 @@ export default function AddQuestionnairesForm({
           {!template && (
             <>
               <Separator className="my-6" />
-              
+
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -591,6 +591,7 @@ export default function AddQuestionnairesForm({
                             </div>
                           </div>
                         )}
+
 
                         {/* Toggles */}
                         <div className="space-y-3">
