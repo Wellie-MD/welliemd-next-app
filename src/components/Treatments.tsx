@@ -116,12 +116,10 @@ export default function Treatments() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Treatments</h1>
-          <p className="text-muted-foreground">Manage your current and past treatments</p>
-        </div>
+    <div className="space-y-4">
+      <div style={{ marginBottom: 18 }}>
+        <div className="km-page-title">Treatments</div>
+        <div style={{ fontSize: 13, color: 'var(--km-tm)', marginTop: 3 }}>Manage your current and past treatments</div>
       </div>
 
       {/* Start New Treatment Section */}

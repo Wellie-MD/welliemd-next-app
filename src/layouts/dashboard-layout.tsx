@@ -4,32 +4,22 @@ import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
 
-/**
- * Dashboard layout component that provides the main structure for authenticated pages
- * Includes header, sidebar, and main content area
- * Uses simple HTTP polling for updates (no WebSocket complexity)
- */
 const DashboardLayout: React.FC = () => {
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const closeMobileSidebar = useCallback(() => setIsMobileSidebarOpen(false), []);
   const toggleMobileSidebar = useCallback(() => setIsMobileSidebarOpen((prev) => !prev), []);
 
-  // Ensure drawer never sticks open as a default state on mount.
   useEffect(() => {
     closeMobileSidebar();
   }, [closeMobileSidebar]);
 
-  // Keep an explicit mobile/desktop mode and close drawer when switching to desktop.
   useEffect(() => {
     const handleResize = () => {
-      const nextIsMobile = window.innerWidth < 768;
+      const nextIsMobile = window.innerWidth < 1024;
       setIsMobile(nextIsMobile);
-      if (!nextIsMobile) {
-        closeMobileSidebar();
-      }
+      if (!nextIsMobile) closeMobileSidebar();
     };
-
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -37,20 +27,44 @@ const DashboardLayout: React.FC = () => {
 
   return (
     <NotificationsProvider>
-      <div className="min-h-screen bg-background overflow-x-hidden">
-        <Header 
+      <div
+        style={{
+          minHeight: "100vh",
+          overflowX: "hidden",
+          background: "var(--km-bg)",
+          color: "var(--km-t)",
+          fontFamily: "'Outfit', sans-serif",
+        }}
+      >
+        <Header
           onMenuClick={toggleMobileSidebar}
           isSidebarOpen={isMobileSidebarOpen}
           showMenuButton={isMobile}
         />
-        <div className="flex">
-          <Sidebar 
+
+        <div style={{ display: "flex", minHeight: "calc(100vh - 60px)" }}>
+          <Sidebar
             isMobile={isMobile}
             isMobileOpen={isMobileSidebarOpen}
             onMobileClose={closeMobileSidebar}
           />
-          <main className="flex-1 overflow-auto transition-all duration-300 pt-16 md:pt-0">
-            <div className="p-4 md:p-6">
+
+          <main
+            style={{
+              flex: 1,
+              minWidth: 0,
+              marginLeft: isMobile ? 0 : 240,
+              transition: "margin-left 0.3s",
+            }}
+          >
+            {/* kinmeds3: pg padding 24px 20px → 28px 28px → 32px 36px, max-width 680→800→900 */}
+            <div
+              style={{
+                padding: isMobile ? "24px 20px 60px" : "32px 36px 60px",
+                maxWidth: isMobile ? 680 : 800,
+                margin: "0 auto",
+              }}
+            >
               <Outlet />
             </div>
           </main>

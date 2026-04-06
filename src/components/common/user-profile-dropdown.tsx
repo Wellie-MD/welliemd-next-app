@@ -2,20 +2,16 @@ import { ChevronDown, User, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth';
 import { useDropdown } from '@/contexts/DropdownContext';
-import { useTheme } from 'next-themes';
-import { useMemo } from 'react';
 
-export const UserProfileDropdown = ({ className }: { className?: string }) => {
+interface UserProfileDropdownProps {
+  className?: string;
+  style?: React.CSSProperties;
+}
+
+export const UserProfileDropdown = ({ className, style }: UserProfileDropdownProps) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { isOpen, toggleDropdown } = useDropdown();
-  const { theme } = useTheme();
-  const isDark = useMemo(() => {
-    if (theme === 'dark') return true;
-    if (theme === 'light') return false;
-    if (typeof document === 'undefined') return false;
-    return document.documentElement.classList.contains('dark');
-  }, [theme]);
 
   const handleLogout = async () => {
     try {
@@ -32,39 +28,126 @@ export const UserProfileDropdown = ({ className }: { className?: string }) => {
     return user?.email || 'User';
   };
 
+  const getInitials = () => {
+    if (user?.first_name && user?.last_name) {
+      return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
+    }
+    return (user?.email?.[0] || 'U').toUpperCase();
+  };
+
   return (
-    <div className="relative">
+    <div style={{ position: 'relative' }}>
+      {/* Chip trigger */}
       <button
         onClick={() => toggleDropdown('profile')}
-        className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm ${className}`}
+        className={className}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '3px 9px 3px 3px',
+          borderRadius: 20,
+          border: '1px solid var(--km-b)',
+          background: 'var(--km-s2)',
+          cursor: 'pointer',
+          transition: 'all 0.2s',
+          ...style,
+        }}
       >
-        <span>{getDisplayName()}</span>
-        <ChevronDown className="h-4 w-4" />
+        {/* Avatar */}
+        <div
+          style={{
+            width: 24,
+            height: 24,
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #4f8ef7, #a78bfa)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 9,
+            fontWeight: 700,
+            color: '#fff',
+            flexShrink: 0,
+          }}
+        >
+          {getInitials()}
+        </div>
+        {/* Name */}
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--km-t)', whiteSpace: 'nowrap' }}>
+          {getDisplayName()}
+        </span>
+        <ChevronDown size={11} style={{ color: 'var(--km-tm)', flexShrink: 0 }} />
       </button>
 
+      {/* Dropdown */}
       {isOpen('profile') && (
         <div
-          className="absolute right-0 top-full mt-2 w-56 bg-white dark:!bg-[#0f1216] rounded-md shadow-lg border border-gray-200 dark:!border-slate-700 py-1 z-50"
-          style={isDark ? { backgroundColor: '#0f1216', borderColor: '#1f2329' } : undefined}
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: '100%',
+            marginTop: 8,
+            width: 200,
+            background: 'var(--km-s1)',
+            border: '1px solid var(--km-b)',
+            borderRadius: 'var(--km-r)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+            padding: 4,
+            zIndex: 50,
+          }}
         >
           <button
             onClick={() => {
               navigate('/dashboard/profile');
               toggleDropdown(null);
             }}
-            className="group profile-dropdown-item flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:!text-slate-100 hover:bg-gray-50 dark:hover:bg-slate-100 dark:hover:!text-black"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 9,
+              width: '100%',
+              padding: '10px 10px',
+              borderRadius: 'var(--km-rs)',
+              fontSize: 13,
+              fontWeight: 500,
+              color: 'var(--km-tm)',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'all 0.18s',
+              fontFamily: "'Outfit', sans-serif",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--km-s2)'; e.currentTarget.style.color = 'var(--km-t)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--km-tm)'; }}
           >
-            <User className="h-4 w-4 mr-3 dark:!text-slate-100 dark:group-hover:!text-black" />
+            <User size={15} />
             View Profile
           </button>
-          
-          <div className="border-t border-gray-100 dark:border-slate-800 my-1" />
-          
+
+          <div style={{ borderTop: '1px solid var(--km-b)', margin: '4px 0' }} />
+
           <button
             onClick={handleLogout}
-            className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 9,
+              width: '100%',
+              padding: '10px 10px',
+              borderRadius: 'var(--km-rs)',
+              fontSize: 13,
+              fontWeight: 500,
+              color: 'var(--km-re)',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'background 0.2s',
+              fontFamily: "'Outfit', sans-serif",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--km-rep)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
           >
-            <LogOut className="h-4 w-4 mr-3" />
+            <LogOut size={15} />
             Sign Out
           </button>
         </div>

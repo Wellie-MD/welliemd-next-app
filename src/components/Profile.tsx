@@ -204,7 +204,7 @@ export default function Profile() {
 
   if (isLoading) {
     return (
-      <div className="p-6 max-w-4xl mx-auto space-y-8">
+      <div className="space-y-6">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
@@ -216,9 +216,9 @@ export default function Profile() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-8">
+    <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Account Settings</h1>
+        <div className="km-page-title">Account Settings</div>
         <p className="text-muted-foreground mt-2">Manage your account information and preferences</p>
       </div>
 

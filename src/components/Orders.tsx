@@ -334,23 +334,25 @@ export default function Orders() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Orders</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <div className="km-page-title">
+            Orders
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--km-tm)', marginTop: 3 }}>
             {totalCount > 0 ? `${totalCount} order${totalCount !== 1 ? 's' : ''}` : 'View your order history'}
-          </p>
+          </div>
         </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
+        <button
+          className="km-btn km-btn-outline"
           onClick={handleRefresh}
           disabled={loading}
+          style={{ opacity: loading ? 0.6 : 1 }}
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
           Refresh
-        </Button>
+        </button>
       </div>
 
       {error && (

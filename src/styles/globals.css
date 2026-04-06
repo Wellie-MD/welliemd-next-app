@@ -1,7 +1,38 @@
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================ */
+/* Kinmeds3 Design System                       */
+/* ============================================ */
 :root {
   --font-size: 14px;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --radius: 0.625rem;
+
+  /* --- Kinmeds3 Palette (dark default) --- */
+  --km-bg: #0a0a0a;
+  --km-s1: #111;
+  --km-s2: #181818;
+  --km-s3: #222;
+  --km-b: rgba(255,255,255,0.07);
+  --km-bh: rgba(255,255,255,0.13);
+  --km-t: #f0f0f0;
+  --km-tm: #666;
+  --km-td: #333;
+  --km-ac: #4f8ef7;
+  --km-acp: rgba(79,142,247,0.12);
+  --km-gr: #22c55e;
+  --km-grp: rgba(34,197,94,0.12);
+  --km-am: #f59e0b;
+  --km-amp: rgba(245,158,11,0.12);
+  --km-pu: #a78bfa;
+  --km-pup: rgba(167,139,250,0.12);
+  --km-re: #ef4444;
+  --km-rep: rgba(239,68,68,0.1);
+  --km-r: 14px;
+  --km-rs: 10px;
+
+  /* --- shadcn/ui tokens (light default for :root) --- */
   --background: #ffffff;
   --foreground: oklch(0.145 0 0);
   --card: #ffffff;
@@ -22,15 +53,12 @@
   --input: transparent;
   --input-background: #f3f3f5;
   --switch-background: #cbced4;
-  --font-weight-medium: 500;
-  --font-weight-normal: 400;
   --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: #030213;
@@ -39,7 +67,7 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
-  
+
   /* Custom Patient Portal Colors */
   --header-primary: #98C6DE;
   --header-secondary: #7AB8D3;
@@ -50,46 +78,40 @@
   --light-blue: #E8F4FD;
   --soft-gray: #F8F9FA;
 
-  /* ============================================ */
   /* Dynamic Brand Colors (Set by BrandProvider) */
-  /* ============================================ */
-  /* These will be overridden at runtime based on client configuration */
-  
-  /* Hex format - for direct color usage */
   --brand-primary: #2563eb;
   --brand-secondary: #7c3aed;
   --brand-accent: #059669;
   --brand-neutral: #64748b;
-  
-  /* HSL format - for Tailwind opacity modifiers (e.g., bg-brand-primary-hsl/50) */
   --brand-primary-hsl: 221 83% 53%;
   --brand-secondary-hsl: 271 71% 60%;
   --brand-accent-hsl: 160 84% 39%;
   --brand-neutral-hsl: 215 20% 65%;
 }
 
+/* --- Dark mode: kinmeds3 dark palette --- */
 .dark {
-  --background: hsl(222.2 84% 4.9%);
-  --foreground: hsl(210 40% 98%);
-  --card: hsl(222.2 84% 4.9%);
-  --card-foreground: hsl(210 40% 98%);
-  --popover: hsl(222.2 84% 4.9%);
-  --popover-foreground: hsl(210 40% 98%);
-  --primary: hsl(210 40% 98%);
-  --primary-foreground: hsl(222.2 47.4% 11.2%);
-  --secondary: hsl(217.2 32.6% 17.5%);
-  --secondary-foreground: hsl(210 40% 98%);
-  --muted: hsl(217.2 32.6% 17.5%);
-  --muted-foreground: hsl(215 20.2% 65.1%);
-  --accent: hsl(217.2 32.6% 17.5%);
-  --accent-foreground: hsl(210 40% 98%);
-  --destructive: hsl(0 62.8% 30.6%);
-  --destructive-foreground: hsl(210 40% 98%);
-  --border: hsl(217.2 32.6% 17.5%);
-  --input: hsl(217.2 32.6% 17.5%);
-  --input-background: hsl(217.2 32.6% 17.5%);
-  --switch-background: hsl(217.2 32.6% 17.5%);
-  --ring: hsl(212.7 26.8% 83.9%);
+  --background: #0a0a0a;
+  --foreground: #f0f0f0;
+  --card: #111111;
+  --card-foreground: #f0f0f0;
+  --popover: #111111;
+  --popover-foreground: #f0f0f0;
+  --primary: #f0f0f0;
+  --primary-foreground: #0a0a0a;
+  --secondary: #181818;
+  --secondary-foreground: #f0f0f0;
+  --muted: #181818;
+  --muted-foreground: #666666;
+  --accent: #181818;
+  --accent-foreground: #f0f0f0;
+  --destructive: #ef4444;
+  --destructive-foreground: #f0f0f0;
+  --border: rgba(255,255,255,0.07);
+  --input: #181818;
+  --input-background: #181818;
+  --switch-background: #222;
+  --ring: rgba(79,142,247,0.5);
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   --chart-1: oklch(0.488 0.243 264.376);
@@ -97,57 +119,38 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: hsl(240 5.9% 10%);
-  --sidebar-foreground: hsl(240 4.8% 95.9%);
-  --sidebar-primary: hsl(224.3 76.3% 48%);
-  --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(240 3.7% 15.9%);
-  --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
-  --sidebar-border: hsl(240 3.7% 15.9%);
-  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+  --sidebar: #0d0d0d;
+  --sidebar-foreground: #f0f0f0;
+  --sidebar-primary: #4f8ef7;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(79,142,247,0.12);
+  --sidebar-accent-foreground: #4f8ef7;
+  --sidebar-border: rgba(255,255,255,0.07);
+  --sidebar-ring: rgba(79,142,247,0.5);
+
+  /* Kinmeds3 palette stays the same in dark */
+  --km-bg: #0a0a0a;
+  --km-s1: #111;
+  --km-s2: #181818;
+  --km-s3: #222;
+  --km-b: rgba(255,255,255,0.07);
+  --km-bh: rgba(255,255,255,0.13);
+  --km-t: #f0f0f0;
+  --km-tm: #666;
+  --km-td: #333;
 }
 
-/* Ensure profile dropdown hover stays readable in dark mode */
-.dark .profile-dropdown-item:hover {
-  background-color: #e2e8f0 !important;
-  color: #000000 !important;
-}
-
-.dark .profile-dropdown-item:hover svg {
-  color: #000000 !important;
-}
-
-/* Messages page dark-mode readability fixes */
-.dark .messages-search-input {
-  background-color: #ffffff !important;
-  color: #000000 !important;
-}
-
-.dark .messages-search-input::placeholder {
-  color: #94a3b8 !important;
-}
-
-.dark .messages-compose-input {
-  background-color: #ffffff !important;
-  color: #000000 !important;
-}
-
-.dark .messages-compose-input::placeholder {
-  color: #94a3b8 !important;
-}
-
-.dark .messages-chip-menu {
-  background-color: #e2e8f0 !important;
-  border-color: #94a3b8 !important;
-}
-
-.dark .messages-chip-option {
-  color: #000000 !important;
-}
-
-.dark .messages-chip-option:hover {
-  background-color: #cbd5f5 !important;
-  color: #000000 !important;
+/* --- Light mode: kinmeds3 warm cream --- */
+:root:not(.dark) {
+  --km-bg: #f4f2ee;
+  --km-s1: #fff;
+  --km-s2: #f0ece6;
+  --km-s3: #e8e4de;
+  --km-b: rgba(0,0,0,0.08);
+  --km-bh: rgba(0,0,0,0.15);
+  --km-t: #1a1a1a;
+  --km-tm: #888;
+  --km-td: #ccc;
 }
 
 @theme inline {
@@ -189,8 +192,7 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  
-  /* Custom Patient Portal Color Classes */
+
   --color-header-primary: var(--header-primary);
   --color-header-secondary: var(--header-secondary);
   --color-medical-blue: var(--medical-blue);
@@ -200,7 +202,6 @@
   --color-light-blue: var(--light-blue);
   --color-soft-gray: var(--soft-gray);
 
-  /* Brand Color Classes for Tailwind */
   --color-brand-primary: var(--brand-primary);
   --color-brand-secondary: var(--brand-secondary);
   --color-brand-accent: var(--brand-accent);
@@ -214,220 +215,227 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    -webkit-tap-highlight-color: transparent;
   }
-
   body {
     @apply bg-background text-foreground;
-  }
-}
-
-/**
- * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
- */
-@layer base {
-  :where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) {
-    h1 {
-      font-size: var(--text-2xl);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    h2 {
-      font-size: var(--text-xl);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    h3 {
-      font-size: var(--text-lg);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    h4 {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    p {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-normal);
-      line-height: 1.5;
-    }
-
-    label {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    button {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.5;
-    }
-
-    input {
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-normal);
-      line-height: 1.5;
-    }
+    font-family: 'Outfit', sans-serif;
   }
 }
 
 html {
   font-size: var(--font-size);
+  scroll-behavior: smooth;
 }
 
 /* Import the blog-specific styles */
 @import './blog.css';
 
 /* ============================================ */
-/* Brand Color Utility Classes */
+/* Kinmeds3 Component Classes (plain CSS)       */
 /* ============================================ */
-/* These custom utilities provide easy access to dynamic brand colors */
+
+/* --- Kinmeds3 Card --- */
+.km-card {
+  background: var(--km-s1);
+  border: 1px solid var(--km-b);
+  border-radius: var(--km-r);
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.km-card:hover { border-color: var(--km-bh); }
+
+/* --- Badges --- */
+.km-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.km-badge-green  { background: var(--km-grp); color: var(--km-gr); }
+.km-badge-blue   { background: var(--km-acp); color: var(--km-ac); }
+.km-badge-amber  { background: var(--km-amp); color: var(--km-am); }
+.km-badge-purple { background: var(--km-pup); color: var(--km-pu); }
+.km-badge-red    { background: var(--km-rep); color: var(--km-re); }
+.km-badge-gray   { background: var(--km-s3); color: var(--km-tm); }
+.km-badge-orange { background: rgba(249,115,22,0.12); color: #f97316; }
+
+/* --- Stat cards --- */
+.km-stat {
+  background: var(--km-s1);
+  border: 1px solid var(--km-b);
+  border-radius: var(--km-rs);
+  padding: 12px 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.km-stat:hover { border-color: var(--km-bh); }
+
+/* --- Buttons --- */
+.km-btn {
+  padding: 9px 16px;
+  border-radius: var(--km-rs);
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.km-btn-primary { background: var(--km-ac); color: #fff; }
+.km-btn-primary:hover { background: #3a7de6; }
+.km-btn-outline { background: var(--km-s2); color: var(--km-t); border: 1px solid var(--km-b); }
+.km-btn-outline:hover { background: var(--km-s3); }
+.km-btn-ghost { background: transparent; color: var(--km-tm); border: 1px solid var(--km-b); }
+.km-btn-ghost:hover { color: var(--km-t); background: var(--km-s2); }
+
+/* --- Form inputs --- */
+.km-input {
+  width: 100%;
+  background: var(--km-s2);
+  border: 1px solid var(--km-b);
+  border-radius: var(--km-rs);
+  padding: 10px 12px;
+  color: var(--km-t);
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.km-input:focus { border-color: var(--km-ac); }
+.km-input::placeholder { color: var(--km-tm); }
+
+/* --- Section card --- */
+.km-section {
+  background: var(--km-s1);
+  border: 1px solid var(--km-b);
+  border-radius: var(--km-r);
+  padding: 16px;
+}
+
+/* --- Empty state --- */
+.km-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 18px;
+  text-align: center;
+}
+
+/* --- Fade-up animation --- */
+@keyframes km-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.km-fade {
+  opacity: 0;
+  animation: km-fade-up 0.35s ease forwards;
+}
+.km-fade:nth-child(1) { animation-delay: 0.04s; }
+.km-fade:nth-child(2) { animation-delay: 0.08s; }
+.km-fade:nth-child(3) { animation-delay: 0.12s; }
+.km-fade:nth-child(4) { animation-delay: 0.16s; }
+.km-fade:nth-child(5) { animation-delay: 0.20s; }
+.km-fade:nth-child(6) { animation-delay: 0.24s; }
+.km-fade:nth-child(7) { animation-delay: 0.28s; }
+
+/* --- Quick action item --- */
+.km-qa-item {
+  background: var(--km-s2);
+  border: 1px solid var(--km-b);
+  border-radius: var(--km-rs);
+  padding: 14px 11px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.km-qa-item:hover {
+  background: var(--km-s3);
+  border-color: var(--km-bh);
+  transform: translateY(-1px);
+}
+
+/* --- Activity log --- */
+.km-alog-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+  position: relative;
+}
+.km-alog-item:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 14px;
+  top: 32px;
+  bottom: -8px;
+  width: 1.5px;
+  background: var(--km-b);
+}
+
+/* --- Page title (Playfair Display) --- */
+.km-page-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.4px;
+  color: var(--km-t);
+}
+@media (min-width: 1024px) {
+  .km-page-title { font-size: 28px; }
+}
+
+/* ============================================ */
+/* Brand Color Utilities                        */
+/* ============================================ */
 @layer utilities {
-  /* Text colors */
-  .text-brand-primary {
-    color: var(--brand-primary);
-  }
-  
-  .text-brand-secondary {
-    color: var(--brand-secondary);
-  }
-  
-  .text-brand-accent {
-    color: var(--brand-accent);
-  }
-  
-  .text-brand-neutral {
-    color: var(--brand-neutral);
-  }
+  .text-brand-primary { color: var(--brand-primary); }
+  .text-brand-secondary { color: var(--brand-secondary); }
+  .text-brand-accent { color: var(--brand-accent); }
+  .text-brand-neutral { color: var(--brand-neutral); }
+  .bg-brand-primary { background-color: var(--brand-primary); }
+  .bg-brand-secondary { background-color: var(--brand-secondary); }
+  .bg-brand-accent { background-color: var(--brand-accent); }
+  .bg-brand-neutral { background-color: var(--brand-neutral); }
+  .border-brand-primary { border-color: var(--brand-primary); }
+  .border-brand-secondary { border-color: var(--brand-secondary); }
+  .border-brand-accent { border-color: var(--brand-accent); }
+  .border-brand-neutral { border-color: var(--brand-neutral); }
+  .hover\:bg-brand-primary:hover { background-color: var(--brand-primary); }
+  .hover\:bg-brand-secondary:hover { background-color: var(--brand-secondary); }
+  .hover\:bg-brand-accent:hover { background-color: var(--brand-accent); }
+  .hover\:text-brand-primary:hover { color: var(--brand-primary); }
+  .hover\:text-brand-secondary:hover { color: var(--brand-secondary); }
+  .hover\:text-brand-accent:hover { color: var(--brand-accent); }
+  .hover\:border-brand-primary:hover { border-color: var(--brand-primary); }
+  .focus\:border-brand-primary:focus { border-color: var(--brand-primary); }
+  .focus\:ring-brand-primary:focus { --tw-ring-color: var(--brand-primary); }
+  .focus\:ring-brand-accent:focus { --tw-ring-color: var(--brand-accent); }
+  .active\:bg-brand-primary:active { background-color: var(--brand-primary); }
 
-  /* Background colors */
-  .bg-brand-primary {
-    background-color: var(--brand-primary);
-  }
-  
-  .bg-brand-secondary {
-    background-color: var(--brand-secondary);
-  }
-  
-  .bg-brand-accent {
-    background-color: var(--brand-accent);
-  }
-  
-  .bg-brand-neutral {
-    background-color: var(--brand-neutral);
-  }
-
-  /* Border colors */
-  .border-brand-primary {
-    border-color: var(--brand-primary);
-  }
-  
-  .border-brand-secondary {
-    border-color: var(--brand-secondary);
-  }
-  
-  .border-brand-accent {
-    border-color: var(--brand-accent);
-  }
-  
-  .border-brand-neutral {
-    border-color: var(--brand-neutral);
-  }
-
-  /* Hover states */
-  .hover\:bg-brand-primary:hover {
-    background-color: var(--brand-primary);
-  }
-  
-  .hover\:bg-brand-secondary:hover {
-    background-color: var(--brand-secondary);
-  }
-  
-  .hover\:bg-brand-accent:hover {
-    background-color: var(--brand-accent);
-  }
-  
-  .hover\:text-brand-primary:hover {
-    color: var(--brand-primary);
-  }
-  
-  .hover\:text-brand-secondary:hover {
-    color: var(--brand-secondary);
-  }
-  
-  .hover\:text-brand-accent:hover {
-    color: var(--brand-accent);
-  }
-
-  .hover\:border-brand-primary:hover {
-    border-color: var(--brand-primary);
-  }
-
-  /* Focus states */
-  .focus\:border-brand-primary:focus {
-    border-color: var(--brand-primary);
-  }
-  
-  .focus\:ring-brand-primary:focus {
-    --tw-ring-color: var(--brand-primary);
-  }
-  
-  .focus\:ring-brand-accent:focus {
-    --tw-ring-color: var(--brand-accent);
-  }
-
-  /* Active states */
-  .active\:bg-brand-primary:active {
-    background-color: var(--brand-primary);
-  }
-
-  /* Line clamp utilities */
-  .line-clamp-1 {
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 1;
-  }
-  
-  .line-clamp-2 {
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-  }
-  
-  .line-clamp-3 {
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-  }
+  .line-clamp-1 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; }
+  .line-clamp-2 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .line-clamp-3 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 }
 
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
+/* ============================================ */
+/* Scrollbar (dark-aware)                       */
+/* ============================================ */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--km-s3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--km-tm); }
+.dark ::-webkit-scrollbar-track { background: var(--km-bg); }
+.dark ::-webkit-scrollbar-thumb { background: var(--km-s3); }

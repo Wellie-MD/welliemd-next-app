@@ -562,7 +562,7 @@ export default function Messages() {
     <div className="h-screen flex flex-col p-6">
       <div className="flex items-center justify-between mb-6 flex-shrink-0">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Messages</h1>
+          <div className="km-page-title">Messages</div>
           <p className="text-muted-foreground">All messages (Doctor + Support) per visit</p>
         </div>
       </div>
