@@ -115,6 +115,17 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
         root.style.setProperty('--brand-accent-hsl', hexToHSL(brandSettings.accentColor));
         root.style.setProperty('--brand-neutral-hsl', hexToHSL(brandSettings.neutralColor));
         
+        // Bridge brand colors → kinmeds3 accent system
+        if (brandSettings.primaryColor) {
+          root.style.setProperty('--km-ac', brandSettings.primaryColor);
+          // Parse hex to create 12% opacity version for accent backgrounds
+          const hex = brandSettings.primaryColor.replace('#', '');
+          const r = parseInt(hex.substring(0, 2), 16);
+          const g = parseInt(hex.substring(2, 4), 16);
+          const b = parseInt(hex.substring(4, 6), 16);
+          root.style.setProperty('--km-acp', `rgba(${r},${g},${b},0.12)`);
+        }
+        
         setColors({
           primaryColor: brandSettings.primaryColor,
           secondaryColor: brandSettings.secondaryColor,

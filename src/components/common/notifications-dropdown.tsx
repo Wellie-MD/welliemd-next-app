@@ -30,7 +30,7 @@ function formatTimeAgo(timestamp: string): string {
   return date.toLocaleDateString();
 }
 
-export const NotificationsDropdown = ({ className }: { className?: string }) => {
+export const NotificationsDropdown = ({ className, style }: { className?: string; style?: React.CSSProperties }) => {
   const { isOpen, toggleDropdown } = useDropdown();
   const navigate = useNavigate();
   const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll } = useNotifications();
@@ -50,19 +50,20 @@ export const NotificationsDropdown = ({ className }: { className?: string }) => 
 
   return (
     <div className="relative">
-      <Button
-        variant="ghost"
-        size="icon"
-        className={`relative ${className}`}
+      <button
+        style={{
+          ...style
+        }}
+        className={className}
         onClick={() => toggleDropdown("notifications")}
       >
-        <Bell className="h-5 w-5" />
+        <Bell size={14} style={{ color: 'var(--km-tm)' }} />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 rounded-full text-xs text-white flex items-center justify-center font-medium">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
-      </Button>
+      </button>
 
       {isOpen("notifications") && (
         <div className="absolute w-max top-full mt-2 bg-white rounded-lg shadow-xl border border-gray-200 py-0 z-50 max-h-[480px] overflow-hidden flex flex-col" style={{right:'-100px'}}>
