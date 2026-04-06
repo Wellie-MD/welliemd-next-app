@@ -75,6 +75,8 @@ export default function Billing() {
   };
   const groupedInvoices = invoices;
 
+  const getDisplayDate = (inv: B2BInvoice) => inv.issued_at || inv.created_at;
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -202,6 +204,7 @@ export default function Billing() {
                     const amount = parseFloat(
                       (inv as any).total_amount ?? inv.amount ?? "0"
                     ).toFixed(2);
+                    const displayDate = getDisplayDate(inv);
                     const status = ((inv as any).is_overdue && inv.status !== "paid"
                       ? "overdue"
                       : inv.status || "-").toString();
@@ -213,8 +216,8 @@ export default function Billing() {
                         role="button"
                       >
                         <td className="px-6 py-4">
-                          {inv.issued_at
-                            ? new Date(inv.issued_at).toLocaleDateString()
+                          {displayDate
+                            ? new Date(displayDate).toLocaleDateString()
                             : "-"}
                         </td>
                         <td className="px-6 py-4 font-medium">
