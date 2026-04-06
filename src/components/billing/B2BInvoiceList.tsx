@@ -315,7 +315,7 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(invoice.issued_at)}
+                        {formatDate(invoice.issued_at || (invoice as any).created_at)}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDate(invoice.due_date)}
@@ -392,7 +392,7 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
               </div>
               <div className="rounded-md border p-3">
                 <div className="text-muted-foreground text-xs">Issued Date</div>
-                <div className="font-semibold">{formatDate(selected.issued_at)}</div>
+                <div className="font-semibold">{formatDate(selected.issued_at || (selected as any).created_at)}</div>
               </div>
               <div className="rounded-md border p-3">
                 <div className="text-muted-foreground text-xs">
