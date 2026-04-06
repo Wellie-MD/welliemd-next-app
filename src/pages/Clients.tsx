@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Plus, KeyRound } from 'lucide-react';
@@ -34,6 +34,12 @@ export default function Clients() {
     queryKey: ['clients'],
     queryFn: clientApi.list,
   });
+
+  const visibleClients = useMemo(
+    () => (clients || []).filter((client) => client.lifecycle_state !== 'infra_removed'),
+    [clients]
+  );
+  const infraRemovedCount = (clients || []).length - visibleClients.length;
 
   if (isLoading) {
     return (
@@ -100,6 +106,7 @@ export default function Clients() {
           <h2 className="text-2xl font-bold">All Clients</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Manage client organizations and their configurations
+            {infraRemovedCount > 0 ? ` · ${infraRemovedCount} infra-removed client${infraRemovedCount === 1 ? '' : 's'} hidden from the default view` : ''}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -116,7 +123,7 @@ export default function Clients() {
           </Button>
         </div>
       </div>
-      <ClientDataTable clients={clients || []} />
+      <ClientDataTable clients={visibleClients} />
     </div>
   );
 }

@@ -1,10 +1,12 @@
 // src/components/clients/ClientDataTable.tsx
 import React from 'react';
+import type { AxiosError } from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { DataTable } from '@/components/ui/data-table';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Client } from '@/api/clientApi';
-import { Building2, CheckCircle, XCircle, Pencil, AlertTriangle, Ban, ExternalLink } from 'lucide-react';
+import { Building2, CheckCircle, XCircle, Pencil, AlertTriangle, Ban, ExternalLink, Activity } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import axiosInstance from '@/api/axiosInstance';
 
@@ -20,6 +22,10 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => 
     navigate(`/dashboard/clients/edit/${client.id}`);
   };
 
+  const handleViewLifecycle = (client: Client) => {
+    navigate(`/dashboard/clients/${client.id}/lifecycle`);
+  };
+
   const handleImpersonate = async (client: Client) => {
     try {
       const { data } = await axiosInstance.post(`/clients/${client.id}/impersonate/`);
@@ -28,10 +34,11 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => 
         url.searchParams.set('impersonate_token', data.token);
         window.open(url.toString(), '_blank');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError<{ error?: string }>;
       toast({
         title: "Impersonation failed",
-        description: error.response?.data?.error || "Could not log in as client",
+        description: axiosError.response?.data?.error || "Could not log in as client",
         variant: "destructive",
       });
     }
@@ -89,6 +96,24 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => 
       ),
     },
     {
+      key: 'lifecycle_state',
+      label: 'Lifecycle',
+      headerClassName: 'w-1/6 text-center',
+      className: 'text-center',
+      render: (_: unknown, row: Client) => (
+        <div className="flex flex-col items-center gap-1">
+          <Badge variant={row.lifecycle_state === 'ready' ? 'default' : row.lifecycle_state === 'error' ? 'destructive' : 'secondary'}>
+            {row.lifecycle_state || 'draft'}
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            {row.latest_lifecycle_job_operation_type
+              ? `${row.latest_lifecycle_job_operation_type}:${row.latest_lifecycle_job_status || 'pending'}`
+              : row.provisioning_status || 'idle'}
+          </span>
+        </div>
+      ),
+    },
+    {
       key: 'b2b_subscription_status',
       label: 'Subscription Status',
       headerClassName: 'w-1/4 text-center',
@@ -138,6 +163,15 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => 
       className: 'text-right',
       render: (_: unknown, row: Client) => (
         <div className="flex justify-end gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleViewLifecycle(row)}
+            className="flex items-center gap-1 text-gray-600 hover:text-primary hover:bg-gray-100 dark:text-gray-400 dark:hover:text-primary dark:hover:bg-gray-800"
+          >
+            <Activity className="w-4 h-4" />
+            Lifecycle
+          </Button>
           <Button
             variant="ghost"
             size="sm"
