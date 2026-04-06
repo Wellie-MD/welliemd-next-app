@@ -90,7 +90,7 @@ const StepTimeline = ({
             <Badge variant={getBadgeVariant(step.status)}>{step.status}</Badge>
           </div>
           {step.error_payload && Object.keys(step.error_payload).length > 0 ? (
-            <div className="mt-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="mt-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive break-words whitespace-pre-wrap">
               {(step.error_payload.message as string) || "Step failed"}
             </div>
           ) : null}
