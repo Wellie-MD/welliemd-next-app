@@ -216,6 +216,20 @@ export const refundOrder = async (id: string, payload: OrderRefundRequest): Prom
   }
 }
 
+export const changeProduct = async (
+  orderId: string,
+  newProductId: number | string,
+  quantity?: number | string,
+  dryRun?: boolean
+): Promise<any> => {
+  const { data } = await api.post(`/orders/${orderId}/change-product/`, {
+    new_product_id: newProductId,
+    ...(quantity !== undefined ? { quantity } : {}),
+    ...(dryRun ? { dry_run: true } : {}),
+  })
+  return (data?.data || data)
+}
+
 export const ordersApi = {
   fetchOrders,
   fetchOrdersByPatient,
@@ -226,4 +240,5 @@ export const ordersApi = {
   deleteOrder,
   searchOrders,
   refundOrder,
+  changeProduct,
 }
