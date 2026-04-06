@@ -304,7 +304,7 @@ export default function ClientLifecycle() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
+      <div className="grid gap-6 xl:grid-cols-[1.3fr_0.9fr] xl:items-start">
         <Card>
           <CardHeader>
             <CardTitle>Lifecycle Timeline</CardTitle>
@@ -329,7 +329,7 @@ export default function ClientLifecycle() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="xl:sticky xl:top-6 xl:self-start">
           <CardHeader>
             <CardTitle>Active Infrastructure</CardTitle>
             <CardDescription>
