@@ -73,7 +73,29 @@ export default function Billing() {
     if (!pharmacy && !consult) return "-";
     return `Pharmacy: $${pharmacy.toFixed(2)} · Consult: $${consult.toFixed(2)}`;
   };
-  const groupedInvoices = invoices;
+  const groupedInvoices = useMemo(() => {
+    if (ordering !== "-issued_at" && ordering !== "issued_at") return invoices;
+
+    const direction = ordering === "-issued_at" ? -1 : 1;
+    const toTime = (value?: string) => (value ? new Date(value).getTime() : null);
+
+    return [...invoices].sort((a, b) => {
+      const aIssued = toTime(a.issued_at);
+      const bIssued = toTime(b.issued_at);
+
+      // Keep null issued_at rows at the bottom for both newest and oldest sorts.
+      if (aIssued === null && bIssued !== null) return 1;
+      if (aIssued !== null && bIssued === null) return -1;
+
+      if (aIssued !== null && bIssued !== null && aIssued !== bIssued) {
+        return (aIssued - bIssued) * direction;
+      }
+
+      const aCreated = toTime(a.created_at) ?? 0;
+      const bCreated = toTime(b.created_at) ?? 0;
+      return (aCreated - bCreated) * direction;
+    });
+  }, [invoices, ordering]);
 
   const getDisplayDate = (inv: B2BInvoice) => inv.issued_at || inv.created_at;
 
