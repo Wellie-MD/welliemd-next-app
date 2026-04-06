@@ -45,22 +45,39 @@ export function useClients(search: string = "") {
   async function load() {
     try {
       setLoading(true);
-      const { data } = await adminApi.get("/clients/", {
-        params: search ? { search } : undefined,
-      });
-
-      const list = Array.isArray(data?.results)
-        ? data.results
-        : Array.isArray(data)
-        ? data
-        : [];
+      
+      // Attempt to load from /clients/current/ first for tenant deployments
+      let list: any[] = [];
+      try {
+        const { data } = await adminApi.get("/clients/current/");
+        // If it's a list (unlikely for current, but safe), use it; else array wrap
+        list = Array.isArray(data?.results)
+          ? data.results
+          : Array.isArray(data)
+          ? data
+          : data.id ? [data] : [];
+      } catch (err: any) {
+        // Fallback to /clients/ if current doesn't work (e.g. some dev envs)
+        if (err.response?.status === 403 || err.response?.status === 404) {
+             const { data } = await adminApi.get("/clients/", {
+               params: search ? { search } : undefined,
+             });
+             list = Array.isArray(data?.results)
+               ? data.results
+               : Array.isArray(data)
+               ? data
+               : [];
+        } else {
+            throw err;
+        }
+      }
 
       const normalized: Client[] = list.map((c: any) => ({
         id: c.id,
         name: c.name,
         api_endpoint: ensureTrailingSlash(c.api_endpoint),
         admin_panel_domain: c.admin_panel_domain,
-        questionnaire_url: c.questionnaire_url, // ✅ keep as-is (don't force "")
+        questionnaire_url: c.questionnaire_url, // keep as-is (don't force "")
         user: c.user,
       }));
 
