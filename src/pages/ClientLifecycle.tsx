@@ -57,8 +57,10 @@ const getBlockers = (job?: LifecycleJob | null) => {
   return Array.isArray(blockers) ? (blockers as string[]) : [];
 };
 
+const ACTIVE_LIFECYCLE_STATUSES = new Set(["pending", "previewed", "running", "cancel_requested"]);
+
 const isTeardownCancellable = (job?: LifecycleJob | null) =>
-  Boolean(job && ["previewed", "pending", "running", "cancel_requested"].includes(job.status));
+  Boolean(job && ACTIVE_LIFECYCLE_STATUSES.has(job.status));
 
 const isTeardownRetryable = (job?: LifecycleJob | null) =>
   Boolean(job && ["failed", "blocked", "cancelled"].includes(job.status));
@@ -186,12 +188,29 @@ export default function ClientLifecycle() {
   const data = lifecycleQuery.data;
   const client = data?.client;
   const latestJob = data?.latest_job;
-  const latestTeardownJob = useMemo(
-    () => data?.jobs.find((job) => job.operation_type === "teardown") ?? null,
+  const teardownJobs = useMemo(
+    () => data?.jobs.filter((job) => job.operation_type === "teardown") ?? [],
     [data?.jobs]
   );
+  const activeTeardownJobs = useMemo(
+    () => teardownJobs.filter(isTeardownCancellable),
+    [teardownJobs]
+  );
+  const latestTeardownJob = activeTeardownJobs[0] ?? teardownJobs[0] ?? null;
   const teardownBlockers = getBlockers(latestTeardownJob);
   const requiredConfirmationText = (latestTeardownJob?.summary?.required_confirmation_text as string) || "";
+  const hasActiveLifecycleJob = useMemo(
+    () => Boolean(data?.jobs.some((job) => ACTIVE_LIFECYCLE_STATUSES.has(job.status))),
+    [data?.jobs]
+  );
+  const cancelAllTeardownJobs = async () => {
+    const jobsToCancel = [...activeTeardownJobs].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+    for (const teardownJob of jobsToCancel) {
+      await clientApi.cancelTeardown(client.id, { job_id: teardownJob.id });
+    }
+  };
 
   if (lifecycleQuery.isLoading) {
     return (
@@ -286,7 +305,7 @@ export default function ClientLifecycle() {
           <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
-              disabled={lifecycleMutation.isPending}
+              disabled={lifecycleMutation.isPending || hasActiveLifecycleJob}
               onClick={() => runAction(() => clientApi.retryProvisioning(client.id), "Provisioning retry queued.")}
             >
               {lifecycleMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
@@ -294,13 +313,18 @@ export default function ClientLifecycle() {
             </Button>
             <Button
               variant="outline"
-              disabled={lifecycleMutation.isPending}
+              disabled={lifecycleMutation.isPending || hasActiveLifecycleJob}
               onClick={() => runAction(() => clientApi.runVerification(client.id), "Verification job queued.")}
             >
               <TimerReset className="mr-2 h-4 w-4" />
               Run Verification
             </Button>
           </div>
+          {hasActiveLifecycleJob ? (
+            <p className="text-xs text-muted-foreground">
+              Cancel active teardown jobs before retrying provisioning or running verification.
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -389,6 +413,17 @@ export default function ClientLifecycle() {
                 onClick={() => runAction(() => clientApi.retryTeardown(client.id, { archive_bucket: archiveBucket, reason }), "Teardown preview regenerated.")}
               >
                 Retry Teardown
+              </Button>
+            ) : null}
+            {teardownJobs.length > 1 && activeTeardownJobs.length > 0 ? (
+              <Button
+                variant="destructive"
+                disabled={lifecycleMutation.isPending}
+                onClick={() =>
+                  runAction(cancelAllTeardownJobs, "All active teardown jobs were cancelled.")
+                }
+              >
+                Cancel All Teardown Jobs
               </Button>
             ) : null}
             {isTeardownCancellable(latestTeardownJob) ? (
