@@ -1,11 +1,5 @@
-/**
- * Notifications Context
- * 
- * Provides persistent storage for WebSocket notifications.
- * Notifications persist across page navigations via localStorage.
- */
-
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { apiClient } from '@/shared/api/client';
 
 export interface Notification {
   id: string;
@@ -25,36 +19,84 @@ interface NotificationsContextType {
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   clearAll: () => void;
+  refresh: () => Promise<void>;
 }
 
 const NotificationsContext = createContext<NotificationsContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'welliemd_patient_notifications';
+type InboxItem = {
+  id: string;
+  category?: string;
+  event_type?: string;
+  title?: string;
+  body?: string;
+  is_read?: boolean;
+  created_at?: string;
+  master_id?: string;
+  message_id?: number | null;
+};
 
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const dismissedIds = useRef<Set<string>>(new Set());
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    try {
-      const cached = localStorage.getItem(STORAGE_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        setNotifications(parsed);
-      }
-    } catch (error) {
-      console.error('Failed to load notifications from localStorage:', error);
-    }
+  const mapInboxToNotification = useCallback((item: InboxItem): Notification => {
+    return {
+      id: String(item.id),
+      type: item.event_type || item.category || 'message',
+      title: item.title || 'New notification',
+      message: item.body || '',
+      data: {
+        master_id: item.master_id || '',
+        message_id: item.message_id ?? null,
+      },
+      timestamp: item.created_at || new Date().toISOString(),
+      read: Boolean(item.is_read),
+      priority: 'normal',
+    };
   }, []);
 
-  // Save to localStorage whenever notifications change
-  useEffect(() => {
+  const refresh = useCallback(async () => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(notifications));
+      const res = await apiClient.get<InboxItem[]>('/notifications/', {
+        params: { limit: 20 },
+      });
+      const rows = Array.isArray(res.data) ? res.data : [];
+      const mapped = rows
+        .map(mapInboxToNotification)
+        .filter(n => !dismissedIds.current.has(n.id))
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setNotifications(mapped);
     } catch (error) {
-      console.error('Failed to save notifications to localStorage:', error);
+      console.error('Failed to load notifications from API:', error);
+      setNotifications([]);
     }
-  }, [notifications]);
+  }, [mapInboxToNotification]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
+      if (!mounted) return;
+      await refresh();
+    };
+
+    void load();
+    const id = window.setInterval(() => {
+      void load();
+    }, 30000);
+
+    const onFocus = () => void load();
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+
+    return () => {
+      mounted = false;
+      window.clearInterval(id);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [refresh]);
 
   const addNotification = useCallback((notification: Omit<Notification, 'id' | 'read'>) => {
     const newNotification: Notification = {
@@ -63,28 +105,25 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       read: false,
     };
 
-    setNotifications(prev => {
-      // Add to front, keep last 50 notifications
-      const updated = [newNotification, ...prev].slice(0, 50);
-      return updated;
-    });
+    setNotifications(prev => [newNotification, ...prev].slice(0, 50));
   }, []);
 
   const markAsRead = useCallback((id: string) => {
-    setNotifications(prev =>
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    );
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    void apiClient.post(`/notifications/${id}/read/`).catch(() => undefined);
   }, []);
 
   const markAllAsRead = useCallback(() => {
-    setNotifications(prev =>
-      prev.map(n => ({ ...n, read: true }))
-    );
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    void apiClient.post('/notifications/read-all/').catch(() => undefined);
   }, []);
 
   const clearAll = useCallback(() => {
-    setNotifications([]);
-    localStorage.removeItem(STORAGE_KEY);
+    setNotifications(prev => {
+      prev.forEach(n => dismissedIds.current.add(n.id));
+      return [];
+    });
+    void apiClient.post('/notifications/read-all/').catch(() => undefined);
   }, []);
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -98,6 +137,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         markAsRead,
         markAllAsRead,
         clearAll,
+        refresh,
       }}
     >
       {children}

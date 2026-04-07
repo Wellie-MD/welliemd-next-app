@@ -1,28 +1,17 @@
 import {
   MessageSquare,
   Package,
-  ClipboardList,
   FlaskConical,
   Search,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { FollowUpList } from "@/features/followups";
-import { AvailableTreatmentsList } from "@/features/treatments";
+import { ActiveTreatmentsList } from "@/components/ActiveTreatmentsList";
 import { useAuth } from "@/features/auth";
 import { VisitService } from "@/features/visits/services/visit.service";
 import { getOrders } from "@/shared/api/ordersApi";
 import { useNotifications } from "@/contexts/NotificationsContext";
-
-/* ─────────────────────────────────────────────
-   kinmeds3 reference spacing (from .pg, .card, .ch, .stats, .qagrid, etc.):
-   - card margin-bottom: 12px
-   - card header padding: 14px 14px 0
-   - card body padding: 14px
-   - stats gap: 8px, mb:12px, stat padding: 12px 10px
-   - qa grid gap: 8px
-   - greeting mb: ~20px
-   ───────────────────────────────────────────── */
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -81,208 +70,101 @@ export default function Dashboard() {
       </div>
 
       {/* ── Stats ── */}
-      <div
-        className="km-fade"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 8,
-          marginBottom: 12,
-        }}
-      >
-        {[
-          { label: "Treatments", color: "var(--km-ac)", path: "/dashboard/treatments", value: stats.treatments },
-          { label: "Orders", color: "var(--km-gr)", path: "/dashboard/orders", value: stats.orders },
-          { label: "Messages", color: "var(--km-am)", path: "/dashboard/messages", value: unreadCount },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className="km-stat"
-            onClick={() => navigate(s.path)}
-          >
-            <div
-              style={{
-                fontFamily: "'Playfair Display', serif",
-                fontSize: 22,
-                lineHeight: 1,
-                marginBottom: 3,
-                color: s.color,
-              }}
-            >
-              {s.value}
-            </div>
-            <div style={{ fontSize: 11, color: "var(--km-tm)", fontWeight: 500 }}>
-              <span
-                style={{
-                  display: "inline-block",
-                  width: 5,
-                  height: 5,
-                  borderRadius: "50%",
-                  background: s.color,
-                  marginRight: 3,
-                  verticalAlign: "middle",
-                  position: "relative",
-                  top: -1,
-                }}
-              />
-              {s.label}
-            </div>
+      <div className="km-stats-grid km-fade">
+        <div className="km-stat" onClick={() => navigate("/dashboard/treatments")}>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, lineHeight: 1, marginBottom: 3, color: "var(--km-ac)" }}>
+            {stats.treatments}
           </div>
-        ))}
+          <div style={{ fontSize: 11, color: "var(--km-tm)", fontWeight: 500, display: "flex", alignItems: "center", gap: 3 }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--km-ac)" }} />
+            Treatments
+          </div>
+        </div>
+        <div className="km-stat" onClick={() => navigate("/dashboard/orders")}>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, lineHeight: 1, marginBottom: 3, color: "var(--km-gr)" }}>
+            {stats.orders}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--km-tm)", fontWeight: 500, display: "flex", alignItems: "center", gap: 3 }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--km-gr)" }} />
+            Orders
+          </div>
+        </div>
+        <div className="km-stat" onClick={() => navigate("/dashboard/messages")}>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, lineHeight: 1, marginBottom: 3, color: "var(--km-am)" }}>
+            {unreadCount}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--km-tm)", fontWeight: 500, display: "flex", alignItems: "center", gap: 3 }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--km-am)" }} />
+            Messages
+          </div>
+        </div>
       </div>
 
       {/* ── Follow-Up Questionnaires ── */}
-      <div className="km-card km-fade" style={{ marginBottom: 12 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "14px 14px 0",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 7,
-                background: "var(--km-acp)",
-                color: "var(--km-ac)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <ClipboardList size={14} />
+      <div className="km-dash-card km-fade">
+        <div className="km-dash-ch">
+          <div className="km-dash-ctrow">
+            <div className="km-dash-ci blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+                <rect x="9" y="3" width="6" height="4" rx="1"/>
+                <path d="M9 12h6M9 16h4"/>
+              </svg>
             </div>
-            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--km-t)" }}>
-              Follow-Up Questionnaires
-            </span>
+            <span className="km-dash-ct">Follow-Up Questionnaires</span>
           </div>
+          <span className="km-badge km-badge-red" style={{ fontSize: 10 }}>2 pending</span>
         </div>
-        <div style={{ padding: 14 }}>
+        <div style={{ padding: "10px 14px 14px", display: "flex", flexDirection: "column", gap: 0 }}>
           <FollowUpList />
         </div>
       </div>
 
-      {/* ── Explore Treatments ── */}
-      <div className="km-card km-fade" style={{ marginBottom: 12 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "14px 14px 0",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 7,
-                background: "var(--km-grp)",
-                color: "var(--km-gr)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Search size={14} />
+      {/* ── Active Treatments ── */}
+      <div className="km-dash-card km-fade">
+        <div className="km-dash-ch">
+          <div className="km-dash-ctrow">
+            <div className="km-dash-ci purple">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18.5 2.5a2.121 2.121 0 013 3L7 20l-4 1 1-4L18.5 2.5z"/>
+              </svg>
             </div>
-            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--km-t)" }}>
-              Explore Treatments
-            </span>
+            <span className="km-dash-ct">Active Treatments</span>
           </div>
-          <span
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: "var(--km-ac)",
-              cursor: "pointer",
-              opacity: 0.85,
-            }}
-            onClick={() => navigate("/dashboard/explore")}
-            onMouseEnter={(e) => { (e.target as HTMLElement).style.opacity = "1"; }}
-            onMouseLeave={(e) => { (e.target as HTMLElement).style.opacity = "0.85"; }}
-          >
+          <span className="km-dash-va" onClick={() => navigate("/dashboard/treatments")}>
             View all
           </span>
         </div>
-        <div style={{ padding: 14 }}>
-          <AvailableTreatmentsList />
+        <div style={{ padding: "10px 14px 14px" }}>
+          <ActiveTreatmentsList />
         </div>
       </div>
 
       {/* ── Quick Actions ── */}
-      <div className="km-card km-fade" style={{ marginBottom: 12 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "14px 14px 0",
-          }}
-        >
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 7,
-              background: "var(--km-acp)",
-              color: "var(--km-ac)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Package size={14} />
+      <div className="km-dash-card km-fade">
+        <div className="km-dash-ch" style={{ paddingBottom: 4 }}>
+          <div className="km-dash-ctrow">
+            <div className="km-dash-ci blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>
+              </svg>
+            </div>
+            <span className="km-dash-ct">Quick Actions</span>
           </div>
-          <span style={{ fontSize: 14, fontWeight: 600, color: "var(--km-t)" }}>
-            Quick Actions
-          </span>
         </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(2, 1fr)",
-            gap: 8,
-            padding: 14,
-          }}
-        >
+        <div className="km-qagrid">
           {[
             { icon: MessageSquare, label: "Message", desc: "Contact your care team", path: "/dashboard/messages" },
             { icon: Package, label: "Orders", desc: "Track your deliveries", path: "/dashboard/orders" },
             { icon: FlaskConical, label: "Labs", desc: "View lab results", path: "/dashboard/labs" },
             { icon: Search, label: "Explore", desc: "Browse treatments", path: "/dashboard/explore" },
           ].map((qa) => (
-            <div
-              key={qa.label}
-              className="km-qa-item"
-              onClick={() => navigate(qa.path)}
-            >
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 10,
-                  background: "var(--km-acp)",
-                  color: "var(--km-ac)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <qa.icon size={18} />
+            <div key={qa.label} className="km-qaitem" onClick={() => navigate(qa.path)}>
+              <div className="km-qaico">
+                <qa.icon size={18} strokeWidth={1.8} />
               </div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--km-t)" }}>
-                {qa.label}
-              </div>
-              <div style={{ fontSize: 11, color: "var(--km-tm)", marginTop: -2 }}>
-                {qa.desc}
-              </div>
+              <div className="km-qalbl">{qa.label}</div>
+              <div className="km-qasub">{qa.desc}</div>
             </div>
           ))}
         </div>
