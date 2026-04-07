@@ -42,6 +42,7 @@ import CouponInsights from "./pages/CouponInsights";
 import Billing from "./pages/Billing";
 import ProductDoseMappings from "./pages/ProductDoseMappings";
 import ProductConfig from "./pages/ProductConfig";
+import Supplies from "./pages/Supplies";
 import ArchiveTemplates from "./pages/ArchiveTemplates";
 import ArchiveProducts from "./pages/ArchiveProducts";
 import ManageAccount from "./pages/ManageAccount";
@@ -115,6 +116,7 @@ const App = () => {
                     <Route path="/products/assign" element={<ProtectedRoute><ProductAssignment /></ProtectedRoute>} />
                     <Route path="/products/dose-mappings" element={<ProtectedRoute><ProductDoseMappings /></ProtectedRoute>} />
                     <Route path="/products/config" element={<ProtectedRoute><ProductConfig /></ProtectedRoute>} />
+                    <Route path="/products/supplies" element={<ProtectedRoute><Supplies /></ProtectedRoute>} />
                     <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
                     <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
                     <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} />

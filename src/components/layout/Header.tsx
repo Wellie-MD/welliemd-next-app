@@ -1,4 +1,6 @@
-import { Search, Bell, User, Store, LogOut } from "lucide-react"
+import { Search, Bell, User, Store, LogOut, CheckCircle2 } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { formatDistanceToNowStrict } from "date-fns"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -12,13 +14,35 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useAuthStore } from "@/store/useAuthStore"
 import { authService } from "@/services/authService"
+import api from "@/api/axiosInstance"
 import { useNavigate } from "react-router-dom"
 import { useSidebar } from "../ui/sidebar"
+import { useClients } from "@/hooks/useClients"
 // import { SidebarTrigger } from "../ui/sidebar"
 
 export function Header() {
   const user = useAuthStore((state) => state.user)
   const navigate = useNavigate()
+  const { clients } = useClients()
+  const [items, setItems] = useState<Array<{
+    id: string
+    title: string
+    body: string
+    master_id: string
+    client_id: string
+    client_name: string
+    created_at: string
+    is_read: boolean
+  }>>([])
+  const [seenIds, setSeenIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem("admin_seen_message_notifications")
+      const arr = raw ? (JSON.parse(raw) as string[]) : []
+      return new Set(arr)
+    } catch {
+      return new Set<string>()
+    }
+  })
 
   const handleLogout = async () => {
     await authService.logout()
@@ -30,6 +54,100 @@ export function Header() {
   }
 
   const { state } = useSidebar()
+
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchAll = async () => {
+      try {
+        const { data } = await api.get("/admin/dashboard/notifications/", {
+          params: { unread_only: false, limit: 20 },
+        })
+        const rows = Array.isArray(data) ? data : []
+        if (cancelled) return
+        const merged = rows
+          .map((r: any) => {
+            const clientId = r.source_client_id || ""
+            const clientName =
+              r.client_name || clients.find((c) => c.id === clientId)?.name || "Unknown Client"
+            const compositeId = `${clientId}:${String(r.id)}`
+            return {
+              id: String(r.id),
+              title: r.title || "New notification",
+              body: r.body || "",
+              master_id: r.master_id || "",
+              client_id: clientId,
+              client_name: clientName,
+              created_at: r.created_at || "",
+              is_read: seenIds.has(compositeId),
+            }
+          })
+          .filter((n) => !n.is_read)
+          .sort((a, b) => {
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        })
+        setItems(merged.slice(0, 20))
+      } catch {
+        if (!cancelled) setItems([])
+      }
+    }
+
+    void fetchAll()
+    const id = window.setInterval(fetchAll, 15000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [clients, seenIds])
+
+  const unreadCount = useMemo(() => items.filter((i) => !i.is_read).length, [items])
+
+  const handleNotificationClick = async (item: {
+    id: string
+    master_id: string
+    client_id: string
+    client_name: string
+  }) => {
+    const compositeId = `${item.client_id}:${item.id}`
+    setSeenIds((prev) => {
+      const next = new Set(prev)
+      next.add(compositeId)
+      try {
+        localStorage.setItem("admin_seen_message_notifications", JSON.stringify(Array.from(next)))
+      } catch {
+        // non-blocking
+      }
+      return next
+    })
+    setItems((prev) => prev.filter((it) => !(it.client_id === item.client_id && it.id === item.id)))
+    try {
+      await api.post(`/admin/dashboard/notifications/${item.id}/read/`, {
+        client_id: item.client_id,
+      })
+    } catch {
+      // non-blocking
+    }
+    navigate(`/dashboard/messages?client_id=${encodeURIComponent(item.client_id)}&master_id=${encodeURIComponent(item.master_id)}`)
+  }
+
+  const handleMarkAllRead = async () => {
+    try {
+      await api.post("/admin/dashboard/notifications/read-all/")
+    } catch {
+      // non-blocking
+    }
+    setItems([])
+    setSeenIds((prev) => {
+      const next = new Set(prev)
+      for (const n of items) next.add(`${n.client_id}:${n.id}`)
+      try {
+        localStorage.setItem("admin_seen_message_notifications", JSON.stringify(Array.from(next)))
+      } catch {
+        // non-blocking
+      }
+      return next
+    })
+  }
 
   return (
 <header className="h-16 bg-[#12517A] text-white flex items-center justify-between px-4">
@@ -63,9 +181,86 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-3">
-        <Button size="icon" variant="ghost" className="text-white-600 hover:bg-white/50">
-          <Bell className="h-4 w-4" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="icon" variant="ghost" className="relative text-white-600 hover:bg-white/50">
+              <Bell className="h-4 w-4" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-[10px] text-white flex items-center justify-center">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-[min(92vw,380px)] max-w-[380px] p-0 overflow-hidden rounded-2xl border border-slate-200 shadow-2xl">
+            <div className="flex items-center justify-between px-4 py-3 border-b bg-white">
+              <DropdownMenuLabel className="p-0 text-sm font-semibold">Notifications</DropdownMenuLabel>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  void handleMarkAllRead()
+                }}
+                className="text-xs font-medium text-blue-700 hover:text-blue-800 disabled:text-slate-400"
+                disabled={items.length === 0}
+              >
+                Mark all read
+              </button>
+            </div>
+            <div className="px-4 py-2 border-b bg-white">
+              <div className="text-xs font-medium text-sky-600">Activity</div>
+            </div>
+            <div className="max-h-[360px] overflow-y-auto">
+              {items.length === 0 ? (
+                <div className="px-4 py-6 text-center text-sm text-slate-500">No new notifications</div>
+              ) : (
+                items.slice(0, 10).map((item) => (
+                  <DropdownMenuItem
+                    key={`${item.client_id}:${item.id}`}
+                    className="cursor-pointer items-start py-3 px-4 border-b last:border-b-0 bg-white"
+                    onClick={() => handleNotificationClick(item)}
+                  >
+                    <div className="flex w-full items-start gap-3">
+                      <div className="mt-0.5 h-9 w-9 rounded-full bg-rose-100 text-rose-700 shrink-0 flex items-center justify-center text-xs font-semibold">
+                        {(item.title || item.client_name || "N").slice(0, 1).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-xs font-semibold truncate">{item.title}</div>
+                          <div className="text-[11px] text-slate-400">
+                            {item.created_at
+                              ? `${formatDistanceToNowStrict(new Date(item.created_at), { addSuffix: true })}`
+                              : ""}
+                          </div>
+                        </div>
+                        <div className="text-[11px] text-slate-400 truncate mt-0.5">{item.client_name}</div>
+                        <div className="text-xs text-muted-foreground line-clamp-2 mt-1">{item.body}</div>
+                      </div>
+                      <div className="pt-0.5">
+                        <CheckCircle2 className="h-4 w-4 text-sky-500" />
+                      </div>
+                    </div>
+                  </DropdownMenuItem>
+                ))
+              )}
+            </div>
+            <DropdownMenuSeparator />
+            <div className="px-4 py-2 bg-white">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  navigate("/dashboard/messages")
+                }}
+                className="w-full text-center text-xs font-medium text-slate-700 hover:text-slate-900 border rounded-lg py-2"
+              >
+                Open Messages
+              </button>
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

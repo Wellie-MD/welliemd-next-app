@@ -1,5 +1,6 @@
 // src/services/messageService.ts
 import api from "@/api/axiosInstance";
+import { useAuthStore } from "@/store/useAuthStore";
 
 /** Message shape returned by /messages/all/ across portals */
 export interface Message {
@@ -59,6 +60,38 @@ function join(base: string | undefined, path: string) {
   return b + p;
 }
 
+function normalizeTenantApiBase(apiEndpoint: string): string {
+  const normalized = apiEndpoint.endsWith("/") ? apiEndpoint : `${apiEndpoint}/`;
+  if (normalized.includes("/api/v1/") || normalized.endsWith("/api/v1")) {
+    return normalized.endsWith("/") ? normalized : `${normalized}/`;
+  }
+  return `${normalized}api/v1/`;
+}
+
+async function tenantRequest<T>(apiEndpoint: string, path: string, init?: RequestInit): Promise<T> {
+  const token = useAuthStore.getState().accessToken;
+  const url = join(normalizeTenantApiBase(apiEndpoint), path);
+
+  const headers = new Headers(init?.headers || {});
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  // Let browser set multipart boundary automatically for FormData
+  if (!(init?.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const res = await fetch(url, {
+    ...init,
+    headers,
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Tenant request failed (${res.status}): ${body || res.statusText}`);
+  }
+
+  return (await res.json()) as T;
+}
+
 // src/services/messageService.ts
 
 export async function uploadToAdminS3(files: File[]): Promise<NewAttachment[]> {
@@ -116,9 +149,15 @@ export async function uploadToAdminS3(files: File[]): Promise<NewAttachment[]> {
 
 
 export const messageService = {
-  async getAllMessages(apiEndpoint?: string): Promise<Message[]> {
-    const url = apiEndpoint ? join(apiEndpoint, "/api/v1/messages/all/") : "/messages/all/";
-    const { data } = await api.get<Message[]>(url);
+  async getAllMessages(apiEndpoint?: string, clientId?: string): Promise<Message[]> {
+    if (clientId) {
+      const { data } = await api.get<Message[]>(`/admin/dashboard/clients/${clientId}/messages/`);
+      return data;
+    }
+    if (apiEndpoint) {
+      return tenantRequest<Message[]>(apiEndpoint, "messages/all/");
+    }
+    const { data } = await api.get<Message[]>("/messages/all/");
     return data;
   },
 
@@ -130,6 +169,7 @@ export const messageService = {
     from_client?: boolean;
     from_super_admin?: boolean;
     apiEndpoint?: string;
+    clientId?: string;
 
     // EITHER: traditional attachments array (keep supporting it)
     attachments?: NewAttachment[];
@@ -140,9 +180,21 @@ export const messageService = {
     media_mime_type?: string;
     media_file_name?: string;
   }): Promise<{ sent: boolean; id: number }> {
-    const { apiEndpoint, ...body } = payload;
-    const url = apiEndpoint ? join(apiEndpoint, "/api/v1/messages/send/") : "/messages/send/";
-    const { data } = await api.post(url, body);
+    const { apiEndpoint, clientId, ...body } = payload;
+    if (clientId) {
+      const { data } = await api.post<{ sent: boolean; id: number }>(
+        `/admin/dashboard/clients/${clientId}/messages/`,
+        body
+      );
+      return data;
+    }
+    if (apiEndpoint) {
+      return tenantRequest<{ sent: boolean; id: number }>(apiEndpoint, "messages/send/", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+    }
+    const { data } = await api.post("/messages/send/", body);
     return data;
   },
 };
@@ -158,7 +210,6 @@ export async function sendMessageWithFiles(payload: {
   files: File[];
 }): Promise<{ sent: boolean; id: number; attachments?: NewAttachment[] }> {
   const { apiEndpoint, files, ...body } = payload;
-  const url = apiEndpoint ? join(apiEndpoint, "/api/v1/messages/send/") : "/messages/send/";
 
   const form = new FormData();
   Object.entries(body).forEach(([k, v]) => {
@@ -166,7 +217,18 @@ export async function sendMessageWithFiles(payload: {
   });
   files.forEach((f) => form.append("files", f));
 
-  const { data } = await api.post(url, form, {
+  if (apiEndpoint) {
+    return tenantRequest<{ sent: boolean; id: number; attachments?: NewAttachment[] }>(
+      apiEndpoint,
+      "messages/send/",
+      {
+        method: "POST",
+        body: form,
+      }
+    );
+  }
+
+  const { data } = await api.post("/messages/send/", form, {
     headers: { "Content-Type": "multipart/form-data" },
   });
   return data;

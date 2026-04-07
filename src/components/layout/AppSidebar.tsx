@@ -89,6 +89,7 @@ const menuSections = [
         icon: Package,
         children: [
           { title: "Products", url: "/dashboard/products" },
+          { title: "Supplies", url: "/dashboard/products/supplies" },
           { title: "Configuration", url: "/dashboard/products/config" }
         ]
       },

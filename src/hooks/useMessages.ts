@@ -15,7 +15,7 @@ function shallowEqualMessages(a: Message[], b: Message[]) {
   return true;
 }
 
-export function useMessages(apiEndpoint?: string, pollInterval: number = 5000) {
+export function useMessages(apiEndpoint?: string, pollInterval: number = 5000, clientId?: string) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +25,7 @@ export function useMessages(apiEndpoint?: string, pollInterval: number = 5000) {
 
     async function fetchMessages(isInitial = false) {
       try {
-        const res = await messageService.getAllMessages(apiEndpoint);
+        const res = await messageService.getAllMessages(apiEndpoint, clientId);
         if (cancelled) return;
         setError(null);
         setMessages((prev) => (shallowEqualMessages(prev, res) ? prev : res));
@@ -49,12 +49,12 @@ export function useMessages(apiEndpoint?: string, pollInterval: number = 5000) {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [apiEndpoint, pollInterval]);
+  }, [apiEndpoint, pollInterval, clientId]);
 
   const reload = () => {
     setLoading(true);
     messageService
-      .getAllMessages(apiEndpoint)
+      .getAllMessages(apiEndpoint, clientId)
       .then((res) =>
         setMessages((prev) => (shallowEqualMessages(prev, res) ? prev : res))
       )

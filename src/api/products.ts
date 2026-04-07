@@ -21,9 +21,21 @@ export interface Product {
   base_medication_name?: string;
   category?: number;
   category_name?: string;
-  product_type: "single" | "bundle";
+  product_type: "single" | "bundle" | "supply";
   bundle_products?: string[];
   bundle_product_names?: string[];
+  linked_supplies?: Array<{
+    id: number;
+    supply_product_id: number;
+    supply_product_name: string;
+    quantity: number;
+    is_included: boolean;
+    beluga_medicine_id?: string;
+    base_price?: string;
+    cost_to_client?: string | null;
+    shipping_cost_to_client?: string;
+  }>;
+  linked_parent_count?: number;
   ndc_number?: string;
   manufacturer_name?: string;
   purchase_type: "one_time" | "subscription";
@@ -94,7 +106,7 @@ export interface CreateProductPayload {
   name: string;
   description?: string;
   application_directions?: string;
-  product_type: "single" | "bundle";
+  product_type: "single" | "bundle" | "supply";
   purchase_type: "one_time" | "subscription";
   base_price: string | number;
   treatment: string;
@@ -109,7 +121,7 @@ export interface UpdateProductPayload {
 export interface ProductListParams {
   is_admin_product?: boolean;
   is_active?: boolean;
-  product_type?: "single" | "bundle";
+  product_type?: "single" | "bundle" | "supply";
   treatment?: string;
   rx_or_otc?: "rx" | "otc";
   purchase_type?: "one_time" | "subscription";
@@ -123,6 +135,7 @@ export interface ProductListParams {
 export const PRODUCT_TYPE_OPTIONS = [
   { value: "single", label: "Single" },
   { value: "bundle", label: "Bundle" },
+  { value: "supply", label: "Supply" },
 ];
 
 export const PURCHASE_TYPE_OPTIONS = [
