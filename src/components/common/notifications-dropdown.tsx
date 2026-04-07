@@ -33,16 +33,20 @@ function formatTimeAgo(timestamp: string): string {
 export const NotificationsDropdown = ({ className, style }: { className?: string; style?: React.CSSProperties }) => {
   const { isOpen, toggleDropdown } = useDropdown();
   const navigate = useNavigate();
-  const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll, refresh } = useNotifications();
 
   const handleNotificationClick = (notification: { id: string; type: string; data?: Record<string, unknown> }) => {
     markAsRead(notification.id);
     
-    // Navigate based on notification type
+    const masterId = typeof notification.data?.master_id === "string" ? notification.data.master_id : "";
+
+    // Route notifications to valid patient pages.
     if (notification.type === 'order_status_changed' && notification.data?.order_id) {
       navigate('/dashboard/orders');
+    } else if (masterId) {
+      navigate(`/dashboard/messages?masterId=${encodeURIComponent(masterId)}`);
     } else {
-      navigate('/dashboard/notifications');
+      navigate('/dashboard/messages');
     }
     
     toggleDropdown(null);
@@ -55,7 +59,11 @@ export const NotificationsDropdown = ({ className, style }: { className?: string
           ...style
         }}
         className={className}
-        onClick={() => toggleDropdown("notifications")}
+        onClick={() => {
+          const opening = !isOpen("notifications");
+          toggleDropdown("notifications");
+          if (opening) void refresh();
+        }}
       >
         <Bell size={14} style={{ color: 'var(--km-tm)' }} />
         {unreadCount > 0 && (
@@ -66,7 +74,7 @@ export const NotificationsDropdown = ({ className, style }: { className?: string
       </button>
 
       {isOpen("notifications") && (
-        <div className="absolute w-max top-full mt-2 bg-white rounded-lg shadow-xl border border-gray-200 py-0 z-50 max-h-[480px] overflow-hidden flex flex-col" style={{right:'-100px'}}>
+        <div className="absolute right-0 top-full mt-2 w-[92vw] min-w-[320px] max-w-[360px] sm:w-[360px] bg-white rounded-lg shadow-xl border border-gray-200 py-0 z-50 max-h-[480px] overflow-hidden flex flex-col">
           {/* Header */}
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
             <h3 className="text-sm font-semibold text-gray-900">
@@ -114,15 +122,15 @@ export const NotificationsDropdown = ({ className, style }: { className?: string
                       <Package className="h-4 w-4" />
                     </div>
                   </div>
-                  <div className="ml-3 flex-1 min-w-0">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <p className={`text-sm ${
+                    <div className="ml-3 flex-1 min-w-0">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                        <p className={`text-sm leading-5 break-words ${
                           notification.read ? 'text-gray-600' : 'text-gray-900 font-medium'
                         }`}>
                           {notification.title}
                         </p>
-                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                        <p className="text-xs text-gray-500 mt-1 line-clamp-2 break-words">
                           {notification.message}
                         </p>
                         <p className="text-xs text-gray-400 mt-1">
