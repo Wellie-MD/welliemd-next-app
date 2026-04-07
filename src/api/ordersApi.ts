@@ -244,6 +244,8 @@ export const changeProduct = async (
     ...(dryRun ? { dry_run: true } : {}),
   })
   return (data?.data || data)
+}
+
 export const updateOrderQuestionnaireImages = async (
   id: string,
   payload: UpdateQuestionnaireImagesPayload
