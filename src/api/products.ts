@@ -28,9 +28,26 @@ export interface Product {
   base_medication_name?: string;
 
   // Product Configuration
-  product_type: "single" | "bundle";
+  product_type: "single" | "bundle" | "supply";
   bundle_products?: string[]; // Product IDs
   bundle_product_names?: string[];
+  linked_supplies?: Array<{
+    id: number;
+    supply_product_id: number;
+    supply_product_name: string;
+    quantity: number;
+    is_included: boolean;
+    base_price?: string;
+    discounted_price?: string | null;
+    shipping_fee_patient?: string;
+    cost_to_client?: string | null;
+    shipping_cost_to_client?: string;
+  }>;
+  supply_usage_summary?: {
+    total_links: number;
+    included_links: number;
+    billable_links: number;
+  };
   ndc_number?: string;
   manufacturer_name?: string;
   purchase_type: "one_time" | "subscription";
@@ -118,7 +135,7 @@ export interface CreateProductPayload {
   description?: string;
   application_directions?: string;
   learn_more?: string;
-  product_type: "single" | "bundle";
+  product_type: "single" | "bundle" | "supply";
   bundle_products?: string[];
   ndc_number?: string;
   manufacturer_name?: string;
@@ -177,7 +194,7 @@ export interface UpdateProductPayload {
 
   // Admin-only fields (will be ignored for client users)
   name?: string;
-  product_type?: "single" | "bundle";
+  product_type?: "single" | "bundle" | "supply";
   bundle_products?: string[];
   ndc_number?: string;
   manufacturer_name?: string;
@@ -214,7 +231,7 @@ export interface UpdateProductPayload {
 export interface ProductListParams {
   is_admin_product?: boolean;
   is_active?: boolean;
-  product_type?: "single" | "bundle";
+  product_type?: "single" | "bundle" | "supply";
   treatment?: string;
   rx_or_otc?: "rx" | "otc";
   purchase_type?: "one_time" | "subscription";
@@ -309,6 +326,7 @@ export const productApi = {
 export const PRODUCT_TYPE_OPTIONS = [
   { value: "single", label: "Single" },
   { value: "bundle", label: "Bundle" },
+  { value: "supply", label: "Supply" },
 ];
 
 export const PURCHASE_TYPE_OPTIONS = [

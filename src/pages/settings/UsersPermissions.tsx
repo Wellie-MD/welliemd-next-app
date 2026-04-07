@@ -42,7 +42,9 @@ export default function UsersPermissions() {
         userManagementService.getAvailableRoles(),
       ]);
       setUsers(usersData);
-      setRoles(rolesData);
+      setRoles(
+        rolesData.filter((role) => ["Admin", "Customer Service"].includes(role.name))
+      );
     } catch (error) {
       toast({
         title: 'Error',

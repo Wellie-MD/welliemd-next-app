@@ -1,7 +1,8 @@
+import { ChangeProductModal, PendingProductChange } from "@/components/orders/ChangeProductModal"
 import { useState, useEffect, useMemo } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
-import { Order, ordersApi, PrescriptionMedication } from "@/api/ordersApi"
+import { Order, ordersApi } from "@/api/ordersApi"
 import { PatientResponsesModal } from "@/components/orders/PatientResponsesModal"
 import {
   User,
@@ -100,6 +101,9 @@ export default function OrderDetail() {
   const [refundReasonDescription, setRefundReasonDescription] = useState("")
   const [refundNotes, setRefundNotes] = useState("")
   const [refundLoading, setRefundLoading] = useState(false)
+  const [showChangeProductModal, setShowChangeProductModal] = useState(false)
+  const [pendingProductChange, setPendingProductChange] = useState<PendingProductChange | null>(null)
+  const [updateOrderLoading, setUpdateOrderLoading] = useState(false)
   const [showStatusDialog, setShowStatusDialog] = useState(false)
   const [newStatus, setNewStatus] = useState("")
   const [statusTrackingNumber, setStatusTrackingNumber] = useState("")
@@ -251,6 +255,29 @@ export default function OrderDetail() {
     fetchFn.then(setOrder).catch(() => {})
   }
 
+  const handleUpdateOrder = async () => {
+    if (!order?.id || !pendingProductChange) return
+    try {
+      setUpdateOrderLoading(true)
+      const updated = await ordersApi.changeProduct(
+        order.id,
+        pendingProductChange.productId,
+        quantity,
+      )
+      setOrder(updated)
+      setPendingProductChange(null)
+      toast({ title: "Order updated successfully" })
+      refetchOrder()
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+        "Failed to update order"
+      toast({ title: message, variant: "destructive" })
+    } finally {
+      setUpdateOrderLoading(false)
+    }
+  }
+
   const handleStatusUpdate = async () => {
     if (!order?.id || !newStatus) return
     if (newStatus === 'shipped' && !statusTrackingNumber.trim()) {
@@ -382,7 +409,8 @@ export default function OrderDetail() {
   })
   timelineItems.reverse()
 
-  const qty = order.prescription_medications?.[0]?.quantity ?? "1"
+  const selectedMedicines = (order as Order & { selected_medicines?: Array<{ quantity?: unknown }> }).selected_medicines
+  const qty = selectedMedicines?.[0]?.quantity ?? order.prescription_medications?.[0]?.quantity ?? "1"
   const parseMoney = (value?: string | number | null): number | null => {
     if (value === null || value === undefined || value === "") return null
     const parsed = Number.parseFloat(String(value))
@@ -426,10 +454,56 @@ export default function OrderDetail() {
       ? productSubtotalAfterDiscount / quantity
       : null
   const hasBreakdown = originalPrice != null || shippingFee != null || discountAmount > 0
-  const itemPrice = formatMoney(itemUnitPrice)
-  const lineTotalPrice = formatMoney(productSubtotalAfterDiscount)
-  const totalPrice = formatMoney(totalAmount)
-  const netTotalPrice = formatMoney(netTotalAmount)
+  const discountRatio =
+    originalPrice != null && originalPrice > 0 && discountAmount > 0
+      ? discountAmount / originalPrice
+      : 0
+
+  const previewOriginalPrice = pendingProductChange != null 
+    ? pendingProductChange.subtotal 
+    : originalPrice
+
+  const previewDiscountAmount = pendingProductChange != null 
+    ? pendingProductChange.discountAmount 
+    : discountAmount
+
+  const previewProductSubtotal = pendingProductChange != null
+    ? Math.max(0, pendingProductChange.subtotal - pendingProductChange.discountAmount)
+    : productSubtotalAfterDiscount
+
+  const previewShippingFee = pendingProductChange != null
+    ? pendingProductChange.shippingFee
+    : shippingFee
+
+  const previewTotal = pendingProductChange != null
+    ? pendingProductChange.newAmount
+    : totalAmount
+
+  const previewNetTotal = previewTotal != null
+    ? Math.max(0, previewTotal - refundedAmount)
+    : netTotalAmount
+
+  const displayProductName = pendingProductChange?.productName || order.product_name || "—"
+  const displayQuantity = String(qty)
+
+  const previewOriginalUnitPrice = pendingProductChange != null
+    ? pendingProductChange.unitPrice
+    : (originalPrice != null ? originalPrice / quantity : null)
+
+  const displayDiscountPerUnit = pendingProductChange != null
+    ? pendingProductChange.discountAmount / Math.max(quantity, 1)
+    : discountPerUnit
+
+  const displayItemUnitPrice = pendingProductChange != null
+    ? pendingProductChange.unitPrice - displayDiscountPerUnit
+    : itemUnitPrice
+
+  const displayLineTotal = previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount
+
+  const itemPrice = formatMoney(displayItemUnitPrice)
+  const lineTotalPrice = formatMoney(displayLineTotal)
+  const totalPrice = formatMoney(previewTotal)
+  const netTotalPrice = formatMoney(previewNetTotal)
 
   const TimelineIcon = ({ name, iconBg }: { name: TimelineItem["icon"]; iconBg: string }) => {
     const iconMap = {
@@ -480,6 +554,13 @@ export default function OrderDetail() {
           <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
             <div className="px-6 py-4 border-b bg-muted/50 flex justify-between items-center">
               <h3 className="font-semibold text-slate-900 dark:text-white">Product Details</h3>
+              <Button
+                size="sm"
+                onClick={handleUpdateOrder}
+                disabled={!pendingProductChange || updateOrderLoading}
+              >
+                {updateOrderLoading ? "Updating..." : "Update Order"}
+              </Button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -514,9 +595,14 @@ export default function OrderDetail() {
                           <Package className="h-6 w-6 text-slate-500 dark:text-slate-400" />
                         </div>
                         <div>
-                          <p className="font-medium text-slate-900 dark:text-white">
-                            {order.product_name || "—"}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-slate-900 dark:text-white">
+                              {displayProductName}
+                            </p>
+                            <Button variant="outline" size="sm" className="h-6 text-xs px-2 py-0" onClick={() => setShowChangeProductModal(true)}>
+                              Change
+                            </Button>
+                          </div>
                           <p className="text-xs text-slate-500 mt-0.5">
                             {order.prescription_medications?.[0]?.strength
                               ? `${order.prescription_medications[0].strength}`
@@ -532,21 +618,21 @@ export default function OrderDetail() {
                     </td>
                     <td className="px-6 py-4 text-right align-top text-slate-600 dark:text-slate-300">
                       <div className="flex flex-col items-end">
-                        {discountAmount > 0 && originalUnitPrice != null && (
+                        {previewDiscountAmount > 0 && previewOriginalUnitPrice != null && (
                           <span className="text-xs text-slate-400 line-through">
-                            ${formatMoney(originalUnitPrice)}
+                            ${formatMoney(previewOriginalUnitPrice)}
                           </span>
                         )}
                         <span>${itemPrice}</span>
-                        {discountAmount > 0 && (
+                        {previewDiscountAmount > 0 && (
                           <span className="text-[11px] text-green-600 dark:text-green-400 font-medium">
-                            Save ${formatMoney(discountPerUnit)} / unit
+                            Save ${formatMoney(displayDiscountPerUnit)} / unit
                           </span>
                         )}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right align-top text-slate-600 dark:text-slate-300">
-                      {qty}
+                      {displayQuantity}
                     </td>
                     <td className="px-6 py-4 text-right align-top font-medium text-slate-900 dark:text-white">
                       <div className="flex flex-col items-end">
@@ -557,17 +643,17 @@ export default function OrderDetail() {
                   </tr>
                 </tbody>
                 <tfoot className="bg-muted/30">
-                  {hasBreakdown && originalPrice != null && (
+                  {hasBreakdown && previewOriginalPrice != null && (
                     <tr>
                       <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
                         Product list price:
                       </td>
                       <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${originalPrice.toFixed(2)}
+                        ${previewOriginalPrice.toFixed(2)}
                       </td>
                     </tr>
                   )}
-                  {discountAmount > 0 && (
+                  {previewDiscountAmount > 0 && (
                     <tr>
                       <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={2}>
                         Product discount:
@@ -576,7 +662,7 @@ export default function OrderDetail() {
                         {appliedCouponCodes || "—"}
                       </td>
                       <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
-                        −${discountAmount.toFixed(2)}
+                        −${previewDiscountAmount.toFixed(2)}
                       </td>
                     </tr>
                   )}
@@ -590,13 +676,13 @@ export default function OrderDetail() {
                       </td>
                     </tr>
                   )}
-                  {hasBreakdown && shippingFee != null && (
+                  {(hasBreakdown || previewShippingFee != null) && (
                     <tr>
                       <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
                         Shipping:
                       </td>
                       <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${shippingFee.toFixed(2)}
+                        ${formatMoney(previewShippingFee)}
                       </td>
                     </tr>
                   )}
@@ -990,6 +1076,15 @@ export default function OrderDetail() {
         patientName={order.name || "Patient"}
         checkoutUrl={order.checkout_url}
       />
+      {order && (
+        <ChangeProductModal
+          order={order}
+          open={showChangeProductModal}
+          quantity={quantity}
+          onOpenChange={setShowChangeProductModal}
+          onApply={(change) => setPendingProductChange(change)}
+        />
+      )}
     </div>
   )
 }

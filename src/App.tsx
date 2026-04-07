@@ -29,8 +29,6 @@ const App = () => {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      const authStore = useAuthStore.getState();
-      authStore.clearExpiredSession();
       try {
         await authService.hydrateAuth();
       } catch (error) {
@@ -83,16 +81,18 @@ const App = () => {
           element={
             <ProtectedRoute>
               <BrandingProvider>
-                <SidebarProvider>
-                  <div className="min-h-screen flex w-full">
-                    <div className="flex-1 flex flex-col">
-                      <Header />
-                      <div className="flex flex-1">
-                        <SettingsLayout />
+                <MessagesProvider pollIntervalMs={30000}>
+                  <SidebarProvider>
+                    <div className="min-h-screen flex w-full">
+                      <div className="flex-1 flex flex-col">
+                        <Header />
+                        <div className="flex flex-1">
+                          <SettingsLayout />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </SidebarProvider>
+                  </SidebarProvider>
+                </MessagesProvider>
               </BrandingProvider>
             </ProtectedRoute>
           }
