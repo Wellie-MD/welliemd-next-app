@@ -442,7 +442,7 @@ export function PatientResponsesModal({
                 <ImageIcon className="h-4 w-4 text-primary" />
                 <h3 className="font-semibold text-lg">Uploaded Images</h3>
               </div>
-              {imageItems.length > 0 && (
+              {/* {imageItems.length > 0 && (
                 <Button
                   type="button"
                   size="sm"
@@ -451,7 +451,7 @@ export function PatientResponsesModal({
                 >
                   {isSavingImages ? "Saving..." : "Save"}
                 </Button>
-              )}
+              )} */}
             </div>
 
             {imageItems.length > 0 ? (
@@ -479,7 +479,7 @@ export function PatientResponsesModal({
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      {/* <div className="flex items-center gap-2">
                         <input
                           ref={(el) => {
                             fileInputRefs.current[idx] = el
@@ -513,7 +513,7 @@ export function PatientResponsesModal({
                           <Trash2 className="h-3.5 w-3.5" />
                           Remove
                         </Button>
-                      </div>
+                      </div> */}
                     </div>
                   )
                 })}
