@@ -12,25 +12,79 @@ import {
   ShieldAlert,
   Stethoscope,
   User,
+  Pencil,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PatientFollowUpStatus } from "@/components/followups/PatientFollowUpStatus";
+import { PermissionGate } from "@/components/auth/PermissionGate";
+import { Permissions } from "@/constants/permissions";
+import { useToast } from "@/hooks/use-toast";
 import { ordersApi, type Order } from "@/api/ordersApi";
 import { patientService, type Patient, type TreatmentEpisode } from "@/services/patientService";
+
+const buildInitialForm = (patient: Patient) => ({
+  first_name: patient.first_name || "",
+  last_name: patient.last_name || "",
+  email: patient.email || "",
+  phone: patient.phone || "",
+  sex: patient.sex || "Other",
+  address: patient.address || "",
+  address_line_2: patient.address_line_2 || "",
+  city: patient.city || "",
+  state: patient.state || "",
+  zip_code: patient.zip_code || "",
+  allergies: patient.allergies || "",
+  medical_conditions: patient.medical_conditions || "",
+  self_reported_meds: patient.self_reported_meds || "",
+});
 
 export default function PatientDetailPage() {
   const { patientId } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [episodes, setEpisodes] = useState<TreatmentEpisode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formState, setFormState] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
+    sex: "Other" as Patient["sex"],
+    address: "",
+    address_line_2: "",
+    city: "",
+    state: "",
+    zip_code: "",
+    allergies: "",
+    medical_conditions: "",
+    self_reported_meds: "",
+  });
 
   const loadData = useCallback(async () => {
     if (!patientId) return;
@@ -56,6 +110,12 @@ export default function PatientDetailPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (patient) {
+      setFormState(buildInitialForm(patient));
+    }
+  }, [patient?.id]);
 
   const ordersById = useMemo(() => {
     const map = new Map<string, Order>();
@@ -99,6 +159,38 @@ export default function PatientDetailPage() {
       episode.current_product_name ||
       "Treatment"
     );
+  };
+
+  const handleUpdate = async () => {
+    if (!patient?.id) return;
+
+    setSaving(true);
+    try {
+      const payload: Partial<Patient> = {
+        first_name: formState.first_name,
+        last_name: formState.last_name,
+        email: formState.email,
+        phone: formState.phone,
+        sex: formState.sex,
+        address: formState.address,
+        address_line_2: formState.address_line_2,
+        city: formState.city,
+        state: formState.state,
+        zip_code: formState.zip_code,
+        allergies: formState.allergies,
+        medical_conditions: formState.medical_conditions,
+        self_reported_meds: formState.self_reported_meds,
+      };
+      await patientService.updatePatient(patient.id, payload);
+      const updated = await patientService.getPatient(patient.id);
+      setPatient(updated);
+      toast({ title: "Patient updated" });
+      setEditOpen(false);
+    } catch (err: any) {
+      toast({ title: err?.message || "Failed to update patient", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -150,6 +242,12 @@ export default function PatientDetailPage() {
             </div>
 
             <div className="flex items-center gap-2">
+              <PermissionGate permission={Permissions.USER_UPDATE}>
+                <Button variant="outline" onClick={() => setEditOpen(true)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit Patient
+                </Button>
+              </PermissionGate>
               <Badge variant="outline" className="rounded-full border-slate-300 bg-slate-50 px-3 py-1 text-slate-700">
                 <ClipboardList className="mr-1.5 h-3.5 w-3.5" />
                 {episodes.length} Treatment{episodes.length === 1 ? "" : "s"}
@@ -405,6 +503,145 @@ export default function PatientDetailPage() {
           </div>
         </div>
       </div>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Patient</DialogTitle>
+            <DialogDescription>
+              Update contact and medical details for this patient.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-3 scrollbar-hide overscroll-contain">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">First Name</label>
+                <Input
+                  placeholder="First name"
+                  value={formState.first_name}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, first_name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Last Name</label>
+                <Input
+                  placeholder="Last name"
+                  value={formState.last_name}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, last_name: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground uppercase">Email</label>
+              <Input
+                placeholder="Email address"
+                value={formState.email}
+                onChange={(e) => setFormState((prev) => ({ ...prev, email: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Phone</label>
+                <Input
+                  placeholder="e.g. (555) 123-4567"
+                  value={formState.phone}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, phone: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Sex</label>
+                <Select
+                  value={formState.sex}
+                  onValueChange={(value) => setFormState((prev) => ({ ...prev, sex: value as Patient["sex"] }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground uppercase">Address</label>
+              <Input
+                placeholder="Street address"
+                value={formState.address}
+                onChange={(e) => setFormState((prev) => ({ ...prev, address: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground uppercase">Apt / Suite / Unit</label>
+              <Input
+                placeholder="Apartment, suite, unit, etc."
+                value={formState.address_line_2}
+                onChange={(e) => setFormState((prev) => ({ ...prev, address_line_2: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">City</label>
+                <Input
+                  placeholder="City"
+                  value={formState.city}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, city: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">State</label>
+                <Input
+                  placeholder="State"
+                  value={formState.state}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, state: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Zip Code</label>
+                <Input
+                  placeholder="Zip"
+                  value={formState.zip_code}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, zip_code: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground uppercase">Allergies</label>
+              <Textarea
+                placeholder="List allergies or note none"
+                value={formState.allergies}
+                onChange={(e) => setFormState((prev) => ({ ...prev, allergies: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground uppercase">Medical Conditions</label>
+              <Textarea
+                placeholder="Relevant conditions"
+                value={formState.medical_conditions}
+                onChange={(e) => setFormState((prev) => ({ ...prev, medical_conditions: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground uppercase">Current Medications</label>
+              <Textarea
+                placeholder="Current medications"
+                value={formState.self_reported_meds}
+                onChange={(e) => setFormState((prev) => ({ ...prev, self_reported_meds: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdate} disabled={saving}>
+              {saving ? "Saving..." : "Save changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
