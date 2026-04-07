@@ -26,6 +26,7 @@ import { useClients, type Client } from "@/hooks/useClients";
 
 import { isToday, isYesterday, isThisWeek, format, formatISO } from "date-fns";
 import { messageService, uploadToAdminS3, type NewAttachment } from "@/services/messageService";
+import { useSearchParams } from "react-router-dom";
 
 function getMessageGroupLabel(dateStr: string) {
   const date = new Date(dateStr);
@@ -133,12 +134,13 @@ function DocumentBubble({
 
 /* ==================== Component ==================== */
 export default function Messages() {
+  const [searchParams, setSearchParams] = useSearchParams();
   // 1) Admin: load clients
   const { clients, loading: loadingClients, error: clientsError } = useClients();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
   // 2) Load messages (admin hits selected client's API)
-  const { messages, loading, error } = useMessages(selectedClient?.api_endpoint, 5000);
+  const { messages, loading, error } = useMessages(undefined, 5000, selectedClient?.id);
 
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState("");
@@ -173,10 +175,18 @@ export default function Messages() {
 
   // Auto-pick first client
   useEffect(() => {
+    const targetClientId = searchParams.get("client_id");
+    if (!loadingClients && targetClientId && clients.length > 0) {
+      const match = clients.find((c) => c.id === targetClientId);
+      if (match) {
+        setSelectedClient(match);
+        return;
+      }
+    }
     if (!loadingClients && !selectedClient && clients.length > 0) {
       setSelectedClient(clients[0]);
     }
-  }, [loadingClients, clients, selectedClient]);
+  }, [loadingClients, clients, selectedClient, searchParams]);
 
   // Keep activeConversation in sync
   useEffect(() => {
@@ -197,6 +207,18 @@ export default function Messages() {
       setActiveConversation(conversations[0]);
     }
   }, [loading, conversations, activeConversation]);
+
+  useEffect(() => {
+    const targetMasterId = searchParams.get("master_id");
+    if (!targetMasterId || conversations.length === 0) return;
+    const match = conversations.find((c) => c.masterId === targetMasterId);
+    if (!match) return;
+    setActiveConversation(match);
+    const next = new URLSearchParams(searchParams);
+    next.delete("master_id");
+    next.delete("client_id");
+    setSearchParams(next, { replace: true });
+  }, [conversations, searchParams, setSearchParams]);
 
   // ===== Smart autoscroll =====
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
@@ -260,7 +282,7 @@ async function handleSend() {
         master_id: activeConversation.masterId,
         to: "support",
         from_super_admin: true as any,
-        apiEndpoint: selectedClient?.api_endpoint,
+        clientId: selectedClient?.id,
         content: text || (first ? "Attachment" : undefined),
 
         // <<< populate these (the key part you asked for)
@@ -310,7 +332,7 @@ async function handleSend() {
         master_id: activeConversation.masterId,
         to: "support",
         from_super_admin: true as any,
-        apiEndpoint: selectedClient?.api_endpoint,
+        clientId: selectedClient?.id,
 
         content: up.file_name || "Attachment",
         is_media: true,

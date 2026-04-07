@@ -6,6 +6,7 @@ export interface Client {
   id: string;               // UUID (string in your schema)
   name: string;
   api_endpoint: string;     // e.g. https://welliemdclient.welliemd.com/api/v1/
+  master_id_prefix?: string;
   admin_panel_domain?: string;
   user?: {
     email?: string;
@@ -37,6 +38,7 @@ export function useClients(search: string = "") {
         id: c.id,
         name: c.name,
         api_endpoint: ensureTrailingSlash(c.api_endpoint),
+        master_id_prefix: c.master_id_prefix,
         admin_panel_domain: c.admin_panel_domain,
         user: c.user,
       }));
