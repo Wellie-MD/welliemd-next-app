@@ -1,20 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
-import { Search, Grid3X3, List, Clock, Calendar, User, ArrowRight, Loader2, AlertCircle, BookOpen } from "lucide-react";
+import { Search, Grid2X2, Rows, Clock, Calendar, Loader2, AlertCircle, BookOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { resourcesApi, type BlogResource } from "@/features/resources/api";
-import "../styles/blog.css";
 
 export default function Blog() {
   const navigate = useNavigate();
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [blogPosts, setBlogPosts] = useState<BlogResource[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-
-  const formatAuthorName = (name: string) =>
-    (name || "").trim().split(/\s+/).map((p) => p ? p.charAt(0).toUpperCase() + p.slice(1) : p).join(" ");
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const fetchResources = useCallback(async () => {
     try {
@@ -24,7 +20,7 @@ export default function Blog() {
       if (searchQuery.trim()) params.search = searchQuery.trim();
       if (activeCategory === "saved") {
         params.is_bookmarked = true;
-      } else if (activeCategory) {
+      } else if (activeCategory && activeCategory !== "saved") {
         params.category = activeCategory;
       }
       const data = await resourcesApi.getAll(params);
@@ -41,202 +37,112 @@ export default function Blog() {
     return () => clearTimeout(debounce);
   }, [fetchResources]);
 
-  const categories = Array.from(new Set(blogPosts.map((p) => p.category).filter(Boolean)));
-
-  /* ────── Pill button style helper ────── */
-  const pillStyle = (isActive: boolean): React.CSSProperties => ({
-    padding: "7px 14px",
-    borderRadius: 20,
-    fontSize: 12,
-    fontWeight: 600,
-    cursor: "pointer",
-    border: "1px solid",
-    borderColor: isActive ? "var(--km-ac)" : "var(--km-b)",
-    background: isActive ? "var(--km-acp)" : "var(--km-s2)",
-    color: isActive ? "var(--km-ac)" : "var(--km-tm)",
-    transition: "all 0.18s",
-    fontFamily: "'Outfit', sans-serif",
-    whiteSpace: "nowrap" as const,
-  });
-
-  /* ────── Toggle button style helper ────── */
-  const toggleStyle = (isActive: boolean): React.CSSProperties => ({
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    border: "1px solid",
-    borderColor: isActive ? "var(--km-ac)" : "var(--km-b)",
-    background: isActive ? "var(--km-acp)" : "var(--km-s2)",
-    color: isActive ? "var(--km-ac)" : "var(--km-tm)",
-    transition: "all 0.18s",
-  });
+  const getEmojiForPost = (title: string) => {
+    const t = title.toLowerCase();
+    if (t.includes('weight loss')) return '🥗';
+    if (t.includes('mindful eating')) return '🧘';
+    if (t.includes('fitness') || t.includes('exercise')) return '🏋️';
+    return '📖';
+  };
 
   return (
-    <div>
-      {/* Page title */}
-      <div style={{ marginBottom: 18 }}>
-        <div
-          className="km-page-title"
-          style={{ marginBottom: 3 }}
-        >
-          Resources
-        </div>
-        <div style={{ fontSize: 13, color: "var(--km-tm)" }}>
-          Browse articles, tips, and wellness advice
-        </div>
+    <div className="pg" id="pg-resources">
+      <div className="km-fade" style={{ marginBottom: 12 }}>
+        <p className="km-page-title">Resources</p>
+        <p className="km-page-sub">Browse articles, tips, and wellness advice</p>
       </div>
 
-      {/* Search */}
-      <div className="search-bar-container" style={{ maxWidth: "100%", margin: "0 0 14px" }}>
-        <Search className="search-icon" />
+      <div className="km-swrap km-fade">
+        <Search size={18} style={{ color: 'var(--km-tm)' }} />
         <input
-          type="text"
-          placeholder="Search articles…"
+          className="km-sinp"
+          placeholder="Search for articles, tips, wellness advice..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="search-input"
         />
       </div>
 
-      {/* Filters row */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-        {/* Category pills */}
-        <button style={pillStyle(!activeCategory)} onClick={() => setActiveCategory(null)}>All</button>
-        <button style={pillStyle(activeCategory === "saved")} onClick={() => setActiveCategory("saved")}>Saved</button>
-        {categories.map((cat) => (
-          <button key={cat} style={pillStyle(activeCategory === cat)} onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}>
-            {cat}
-          </button>
-        ))}
-
-        {/* Spacer */}
-        <div style={{ flex: 1 }} />
-
-        {/* View toggle */}
-        {!loading && !error && blogPosts.length > 0 && (
-          <div style={{ display: "flex", gap: 4 }}>
-            <button style={toggleStyle(viewMode === "grid")} onClick={() => setViewMode("grid")} aria-label="Grid view">
-              <Grid3X3 size={14} />
-            </button>
-            <button style={toggleStyle(viewMode === "list")} onClick={() => setViewMode("list")} aria-label="List view">
-              <List size={14} />
-            </button>
+      <div 
+        className="km-fade" 
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}
+      >
+        <div className="km-rtags">
+          <span className={`km-rtag ${!activeCategory ? 'active' : ''}`} onClick={() => setActiveCategory(null)}>All</span>
+          <span className={`km-rtag ${activeCategory === 'saved' ? 'active' : ''}`} onClick={() => setActiveCategory('saved')}>Saved</span>
+          <span className={`km-rtag ${activeCategory === 'General' ? 'active' : ''}`} onClick={() => setActiveCategory('General')}>General</span>
+          <span className={`km-rtag ${activeCategory === 'Wellness Tips' ? 'active' : ''}`} onClick={() => setActiveCategory('Wellness Tips')}>Wellness Tips</span>
+        </div>
+        
+        <div className="km-rtoggle">
+          <div className={`km-rtbtn ${viewMode === 'grid' ? 'active' : ''}`} onClick={() => setViewMode('grid')}>
+            <Grid2X2 size={14} />
           </div>
-        )}
+          <div className={`km-rtbtn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')}>
+            <Rows size={14} />
+          </div>
+        </div>
       </div>
 
-      {/* Loading */}
-      {loading && (
-        <div className="km-empty" style={{ padding: "48px 18px" }}>
-          <Loader2 size={28} style={{ color: "var(--km-ac)", animation: "spin 1s linear infinite", marginBottom: 10 }} />
-          <div style={{ fontSize: 13, color: "var(--km-tm)" }}>Loading resources…</div>
+      {loading ? (
+        <div className="km-empty" style={{ padding: '48px 18px' }}>
+          <Loader2 size={24} className="animate-spin" style={{ color: 'var(--km-ac)', marginBottom: 12 }} />
+          <div className="km-et">Loading resources...</div>
         </div>
-      )}
-
-      {/* Error */}
-      {!loading && error && (
-        <div className="km-empty" style={{ padding: "48px 18px" }}>
-          <AlertCircle size={32} style={{ color: "var(--km-re)", marginBottom: 10 }} />
-          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--km-t)", marginBottom: 4 }}>{error}</div>
-          <button
-            onClick={fetchResources}
-            className="km-btn km-btn-primary"
-            style={{ marginTop: 8 }}
-          >
+      ) : error ? (
+        <div className="km-empty" style={{ padding: '48px 18px' }}>
+          <AlertCircle size={24} style={{ color: 'var(--km-re)', marginBottom: 12 }} />
+          <div className="km-et">Error loading resources</div>
+          <div className="km-es">{error}</div>
+          <button onClick={fetchResources} className="km-btn km-btn-outline" style={{ marginTop: 12 }}>
             Try Again
           </button>
         </div>
-      )}
-
-      {/* Empty */}
-      {!loading && !error && blogPosts.length === 0 && (
-        <div className="km-empty" style={{ padding: "48px 18px" }}>
-          <div
-            style={{
-              width: 46,
-              height: 46,
-              borderRadius: "50%",
-              background: "var(--km-s2)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 11,
-              color: "var(--km-td)",
-            }}
-          >
-            <BookOpen size={20} />
-          </div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--km-t)", marginBottom: 4 }}>No resources found</div>
-          <div style={{ fontSize: 12, color: "var(--km-tm)", lineHeight: 1.5, maxWidth: 210 }}>
-            We couldn't find any articles matching your criteria.
-          </div>
+      ) : blogPosts.length === 0 ? (
+        <div className="km-empty" style={{ padding: '48px 18px' }}>
+          <BookOpen size={24} style={{ color: 'var(--km-td)', marginBottom: 12 }} />
+          <div className="km-et">No resources found</div>
+          <div className="km-es">Try adjusting your search or filters.</div>
         </div>
-      )}
-
-      {/* Grid */}
-      {!loading && !error && blogPosts.length > 0 && (
-        <div className={viewMode === "grid" ? "blog-grid" : ""} style={viewMode === "list" ? { display: "flex", flexDirection: "column", gap: 8 } : undefined}>
+      ) : (
+        <div className={`km-fade ${viewMode === 'grid' ? 'km-rgrid' : 'km-rlist'}`}>
           {blogPosts.map((post) => (
-            <article
-              key={post.id}
-              className="blog-card"
+            <div 
+              key={post.id} 
+              className="km-ritem" 
               onClick={() => navigate(`/dashboard/blog/${post.id}`)}
-              style={viewMode === "list" ? { display: "flex", flexDirection: "row" } : undefined}
+              style={{ cursor: 'pointer' }}
             >
-              {/* Image */}
-              <div style={{ position: "relative", overflow: "hidden", ...(viewMode === "list" ? { width: 180, flexShrink: 0 } : {}) }}>
+              <div className="km-rimg-banner">
                 {post.cover_image ? (
-                  <img src={post.cover_image} alt={post.title} className="blog-card-image" style={viewMode === "list" ? { height: "100%", minHeight: 120 } : undefined} />
+                   <img src={post.cover_image} alt={post.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
-                  <div
-                    className="blog-card-image"
-                    style={{
-                      background: "var(--km-s2)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      ...(viewMode === "list" ? { height: "100%", minHeight: 120 } : {}),
-                    }}
-                  >
-                    <BookOpen size={28} style={{ color: "var(--km-td)" }} />
-                  </div>
+                  <span className="km-rimg-emoji">{getEmojiForPost(post.title)}</span>
                 )}
-                <div className="category-badge">{post.category}</div>
+              </div>
+              
+              <div className="km-rmeta-row">
+                <div className="km-rmeta-item">
+                  <Clock size={12} />
+                  <span>{post.read_time_minutes || 1} min read</span>
+                </div>
+                <div className="km-rmeta-item">
+                  <Calendar size={12} />
+                  <span>{post.published_at ? new Date(post.published_at).toLocaleDateString() : '4/7/2026'}</span>
+                </div>
+                <span className="km-rtag-meta">{post.category || 'General'}</span>
               </div>
 
-              {/* Content */}
-              <div className="blog-card-content" style={{ flex: 1 }}>
-                <div className="blog-card-meta">
-                  <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                    <Clock size={11} />
-                    <span>{post.read_time_minutes} min</span>
-                  </div>
-                  <span style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--km-td)" }} />
-                  <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                    <Calendar size={11} />
-                    <span>{post.published_at ? new Date(post.published_at).toLocaleDateString() : "Draft"}</span>
-                  </div>
-                </div>
+              <h2 className="km-rtitle-elegant">{post.title}</h2>
+              <p className="km-rdesc-elegant">{post.excerpt}</p>
 
-                <h2 className="blog-card-title">{post.title}</h2>
-                <p className="blog-card-excerpt">{post.excerpt}</p>
-
-                <div className="blog-card-author">
-                  <div className="author-info">
-                    <div className="author-avatar"><User size={12} /></div>
-                    <div>
-                      <div className="author-name">{formatAuthorName(post.author_name)}</div>
-                      <div className="author-role">Healthcare Professional</div>
-                    </div>
-                  </div>
-                  <ArrowRight size={14} style={{ color: "var(--km-ac)", opacity: 0.6 }} />
+              <div className="km-rauth-row">
+                <div className="km-ravatar">CK</div>
+                <div className="km-rauth-info">
+                  <span className="km-rauth-email">[email protected]</span>
+                  <span className="km-rauth-title">Healthcare Professional</span>
                 </div>
               </div>
-            </article>
+            </div>
           ))}
         </div>
       )}

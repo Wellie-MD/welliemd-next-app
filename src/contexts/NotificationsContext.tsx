@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { apiClient } from '@/shared/api/client';
 
 export interface Notification {
@@ -38,6 +38,7 @@ type InboxItem = {
 
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const dismissedIds = useRef<Set<string>>(new Set());
 
   const mapInboxToNotification = useCallback((item: InboxItem): Notification => {
     return {
@@ -63,6 +64,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       const rows = Array.isArray(res.data) ? res.data : [];
       const mapped = rows
         .map(mapInboxToNotification)
+        .filter(n => !dismissedIds.current.has(n.id))
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       setNotifications(mapped);
     } catch (error) {
@@ -117,8 +119,10 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   }, []);
 
   const clearAll = useCallback(() => {
-    // Keep semantics but map to "mark all as read" for server-backed inbox.
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setNotifications(prev => {
+      prev.forEach(n => dismissedIds.current.add(n.id));
+      return [];
+    });
     void apiClient.post('/notifications/read-all/').catch(() => undefined);
   }, []);
 

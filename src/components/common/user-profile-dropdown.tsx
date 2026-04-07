@@ -6,9 +6,10 @@ import { useDropdown } from '@/contexts/DropdownContext';
 interface UserProfileDropdownProps {
   className?: string;
   style?: React.CSSProperties;
+  compact?: boolean;
 }
 
-export const UserProfileDropdown = ({ className, style }: UserProfileDropdownProps) => {
+export const UserProfileDropdown = ({ className, style, compact = false }: UserProfileDropdownProps) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { isOpen, toggleDropdown } = useDropdown();
@@ -72,10 +73,12 @@ export const UserProfileDropdown = ({ className, style }: UserProfileDropdownPro
         >
           {getInitials()}
         </div>
-        {/* Name */}
-        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--km-t)', whiteSpace: 'nowrap' }}>
-          {getDisplayName()}
-        </span>
+        {/* Name — hidden on compact/mobile */}
+        {!compact && (
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--km-t)', whiteSpace: 'nowrap' }}>
+            {getDisplayName()}
+          </span>
+        )}
         <ChevronDown size={11} style={{ color: 'var(--km-tm)', flexShrink: 0 }} />
       </button>
 

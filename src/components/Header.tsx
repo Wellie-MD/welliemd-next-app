@@ -12,9 +12,10 @@ interface HeaderProps {
   onMenuClick: () => void;
   isSidebarOpen: boolean;
   showMenuButton?: boolean;
+  isMobile?: boolean;
 }
 
-export default function Header({ onMenuClick, isSidebarOpen, showMenuButton = false }: HeaderProps) {
+export default function Header({ onMenuClick, isSidebarOpen, showMenuButton = false, isMobile = false }: HeaderProps) {
   const { isAuthenticated } = useAuth();
   const { closeAll } = useDropdown();
   const { logos } = useBranding();
@@ -42,7 +43,7 @@ export default function Header({ onMenuClick, isSidebarOpen, showMenuButton = fa
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
         borderBottom: "1px solid var(--km-b)",
-        padding: "0 20px",
+        padding: isMobile ? "0 12px" : "0 20px",
         height: 60,
         display: "flex",
         alignItems: "center",
@@ -51,7 +52,7 @@ export default function Header({ onMenuClick, isSidebarOpen, showMenuButton = fa
     >
       <div ref={headerRef} style={{ display: "contents" }}>
         {/* Left: hamburger + brand */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}>
           {showMenuButton && (
             <button
               onClick={onMenuClick}
@@ -87,7 +88,7 @@ export default function Header({ onMenuClick, isSidebarOpen, showMenuButton = fa
         </div>
 
         {/* Right: theme + notifications + user */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 8 }}>
           {/* Theme toggle */}
           <button
             onClick={() => setTheme(isDark ? "light" : "dark")}
@@ -111,27 +112,11 @@ export default function Header({ onMenuClick, isSidebarOpen, showMenuButton = fa
           </button>
 
           {/* Notifications */}
-          <NotificationsDropdown
-            className=""
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              border: "1px solid var(--km-b)",
-              background: "var(--km-s2)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              color: "var(--km-tm)",
-              transition: "all 0.2s",
-              position: "relative" as const,
-            }}
-          />
+          <NotificationsDropdown />
 
           {/* User chip */}
           {isAuthenticated && (
-            <UserProfileDropdown className="" />
+            <UserProfileDropdown className="" compact={isMobile} />
           )}
         </div>
       </div>

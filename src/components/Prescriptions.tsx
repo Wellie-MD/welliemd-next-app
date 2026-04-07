@@ -1,10 +1,5 @@
 import { useState } from "react";
-import { Pill, Calendar, Clock, User, RefreshCw, AlertTriangle, CheckCircle } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Alert, AlertDescription } from "./ui/alert";
+import { Pill, RefreshCw, CheckCircle, Search } from "lucide-react";
 
 interface Prescription {
   id: number;
@@ -26,251 +21,179 @@ interface Prescription {
 
 export default function Prescriptions() {
   const [prescriptions] = useState<Prescription[]>([]);
+  const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const activePrescriptions = prescriptions.filter(p => p.status === 'active');
-  const expiredPrescriptions = prescriptions.filter(p => p.status === 'expired' || p.status === 'discontinued');
-  const pendingRefills = prescriptions.filter(p => p.refillRequestDate);
-
-  const getStatusColor = (status: string) => {
+  const activePrescriptions = prescriptions.filter(p => 
+    p.status === 'active' && 
+    p.medication.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  const expiredPrescriptions = prescriptions.filter(p => 
+    (p.status === 'expired' || p.status === 'discontinued') &&
+    p.medication.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
+  const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'expired':
-        return 'bg-red-100 text-red-800';
-      case 'discontinued':
-        return 'bg-gray-100 text-gray-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'active':       return 'km-badge km-badge-green';
+      case 'expired':      return 'km-badge km-badge-red';
+      case 'discontinued': return 'km-badge km-badge-gray';
+      case 'pending':      return 'km-badge km-badge-amber';
+      default:             return 'km-badge km-badge-gray';
     }
   };
 
-  const getCategoryColor = (category: string) => {
+  const getCategoryBadge = (category: string) => {
     switch (category) {
-      case 'chronic':
-        return 'bg-blue-100 text-blue-800';
-      case 'acute':
-        return 'bg-orange-100 text-orange-800';
-      case 'preventive':
-        return 'bg-purple-100 text-purple-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'chronic':    return 'km-badge km-badge-blue';
+      case 'acute':      return 'km-badge km-badge-orange';
+      case 'preventive': return 'km-badge km-badge-purple';
+      default:           return 'km-badge km-badge-gray';
     }
-  };
-
-  const needsRefillSoon = (prescription: Prescription) => {
-    return prescription.refillsRemaining <= 1 && prescription.status === 'active';
   };
 
   const PrescriptionCard = ({ prescription }: { prescription: Prescription }) => (
-    <Card className="mb-4">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start space-x-4 flex-1">
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <Pill className="h-6 w-6 text-blue-600" />
+    <div className="km-sc km-fade" style={{ padding: 16, marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 14 }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--km-acp)', color: 'var(--km-ac)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--km-b)' }}>
+          <Pill size={22} strokeWidth={1.8} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 3 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--km-t)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {prescription.medication}
             </div>
-            <div className="flex-1">
-              <div className="flex items-center space-x-2 mb-2">
-                <h3 className="font-semibold text-lg text-gray-900">{prescription.medication}</h3>
-                <Badge className={getStatusColor(prescription.status)}>
-                  {prescription.status.charAt(0).toUpperCase() + prescription.status.slice(1)}
-                </Badge>
-                <Badge className={getCategoryColor(prescription.category)}>
-                  {prescription.category.charAt(0).toUpperCase() + prescription.category.slice(1)}
-                </Badge>
-              </div>
-              
-              {prescription.genericName && prescription.genericName !== prescription.medication && (
-                <p className="text-sm text-gray-600 mb-2">Generic: {prescription.genericName}</p>
-              )}
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600 mb-3">
-                <div>
-                  <p><strong>Dosage:</strong> {prescription.dosage}</p>
-                  <p><strong>Frequency:</strong> {prescription.frequency}</p>
-                  <p><strong>Quantity:</strong> {prescription.quantity}</p>
-                </div>
-                <div>
-                  <div className="flex items-center">
-                    <User className="h-4 w-4 mr-1 text-gray-400" />
-                    <span>{prescription.prescribedBy}</span>
-                  </div>
-                  <div className="flex items-center mt-1">
-                    <Calendar className="h-4 w-4 mr-1 text-gray-400" />
-                    <span>Prescribed: {prescription.prescribedDate}</span>
-                  </div>
-                  <div className="flex items-center mt-1">
-                    <Clock className="h-4 w-4 mr-1 text-gray-400" />
-                    <span>Expires: {prescription.expiryDate}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-blue-50 p-3 rounded-lg mb-3">
-                <p className="text-sm text-blue-800">
-                  <strong>Instructions:</strong> {prescription.instructions}
-                </p>
-              </div>
-              
-              {prescription.sideEffects && prescription.sideEffects.length > 0 && (
-                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded mb-3">
-                  <p className="text-sm text-yellow-800">
-                    <strong>Common side effects:</strong> {prescription.sideEffects.join(', ')}
-                  </p>
-                </div>
-              )}
-              
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-600">
-                  <span className={`font-medium ${prescription.refillsRemaining <= 1 ? 'text-orange-600' : ''}`}>
-                    Refills remaining: {prescription.refillsRemaining}
-                  </span>
-                </div>
-                
-                {needsRefillSoon(prescription) && (
-                  <div className="flex items-center text-orange-600 text-sm">
-                    <AlertTriangle className="h-4 w-4 mr-1" />
-                    <span>Refill needed soon</span>
-                  </div>
-                )}
-              </div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <span className={getStatusBadge(prescription.status)}>{prescription.status}</span>
+              <span className={getCategoryBadge(prescription.category)}>{prescription.category}</span>
             </div>
           </div>
-          
-          <div className="flex flex-col space-y-2 ml-4">
-            {prescription.status === 'active' && prescription.refillsRemaining > 0 && (
-              <Button variant="outline" size="sm">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Request Refill
-              </Button>
-            )}
-            <Button variant="outline" size="sm">
-              View Details
-            </Button>
+          <div style={{ fontSize: 11, color: 'var(--km-tm)', fontWeight: 500 }}>
+            {prescription.genericName || 'Prescription medication'}
           </div>
         </div>
-        
-        {prescription.refillRequestDate && (
-          <div className="mt-4 p-3 bg-green-50 border-l-4 border-green-400 rounded">
-            <div className="flex items-center">
-              <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
-              <p className="text-sm text-green-800">
-                Refill requested on {prescription.refillRequestDate} - Processing
-              </p>
-            </div>
+      </div>
+
+      <div className="km-info-grid" style={{ marginBottom: 14 }}>
+        <div className="km-info-box">
+          <div className="km-info-label">Dosage</div>
+          <div className="km-info-value">{prescription.dosage}</div>
+        </div>
+        <div className="km-info-box">
+          <div className="km-info-label">Frequency</div>
+          <div className="km-info-value">{prescription.frequency}</div>
+        </div>
+        <div className="km-info-box">
+          <div className="km-info-label">Prescribed By</div>
+          <div className="km-info-value">{prescription.prescribedBy}</div>
+        </div>
+        <div className="km-info-box">
+          <div className="km-info-label">Expires</div>
+          <div className="km-info-value" style={{ fontFamily: 'monospace', fontSize: 11 }}>{prescription.expiryDate}</div>
+        </div>
+      </div>
+
+      <div className="km-vbox km-vbox-blue" style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 12, color: 'var(--km-tm)', lineHeight: 1.5 }}>
+          <strong style={{ color: 'var(--km-t)' }}>Instructions:</strong> {prescription.instructions}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ fontSize: 11, color: 'var(--km-tm)', fontWeight: 600 }}>
+          Refills remaining: <span style={{ color: prescription.refillsRemaining <= 1 ? 'var(--km-am)' : 'var(--km-t)' }}>{prescription.refillsRemaining}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {prescription.status === 'active' && prescription.refillsRemaining > 0 && (
+            <button className="km-btn km-btn-outline" style={{ fontSize: 11, padding: '5px 12px' }}>
+              <RefreshCw size={12} /> Refill
+            </button>
+          )}
+          <button className="km-btn km-btn-ghost" style={{ fontSize: 11, padding: '5px 12px' }}>
+            Details
+          </button>
+        </div>
+      </div>
+
+      {prescription.refillRequestDate && (
+        <div className="km-vbox km-vbox-green" style={{ marginTop: 14 }}>
+          <CheckCircle size={14} style={{ color: 'var(--km-gr)' }} />
+          <div style={{ fontSize: 12, color: 'var(--km-gr)', fontWeight: 500 }}>
+            Refill requested on {prescription.refillRequestDate}
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </div>
+      )}
+    </div>
   );
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Prescriptions</h1>
-          <p className="text-muted-foreground">Manage your medications and prescriptions</p>
-        </div>
-        <Button>
-          <Pill className="h-4 w-4 mr-2" />
-          Request New Prescription
-        </Button>
+    <div className="pg">
+      <div className="km-fade" style={{ marginBottom: 20 }}>
+        <h1 className="km-page-title">Prescriptions</h1>
+        <p className="km-page-sub">Manage your active medications and history</p>
       </div>
 
-      {/* Alerts for refills needed */}
-      {activePrescriptions.some(needsRefillSoon) && (
-        <Alert className="mb-6 border-orange-200 bg-orange-50">
-          <AlertTriangle className="h-4 w-4 text-orange-600" />
-          <AlertDescription className="text-orange-800">
-            You have {activePrescriptions.filter(needsRefillSoon).length} prescription(s) that need refills soon. 
-            Request refills to avoid running out of medication.
-          </AlertDescription>
-        </Alert>
-      )}
+      <div className="km-swrap km-fade" style={{ marginBottom: 14 }}>
+        <Search size={16} />
+        <input
+          className="km-sinp"
+          placeholder="Search prescriptions..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
 
-      {/* Pending refills alert */}
-      {pendingRefills.length > 0 && (
-        <Alert className="mb-6 border-blue-200 bg-blue-50">
-          <RefreshCw className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-800">
-            You have {pendingRefills.length} refill request(s) being processed by your pharmacy.
-          </AlertDescription>
-        </Alert>
-      )}
+      <div className="km-tabs km-fade" style={{ marginBottom: 16 }}>
+        <button 
+          className={`km-tab ${activeTab === 'active' ? 'active' : ''}`}
+          onClick={() => setActiveTab('active')}
+        >
+          Active ({activePrescriptions.length})
+        </button>
+        <button 
+          className={`km-tab ${activeTab === 'history' ? 'active' : ''}`}
+          onClick={() => setActiveTab('history')}
+        >
+          History ({expiredPrescriptions.length})
+        </button>
+      </div>
 
-      <Tabs defaultValue="active" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="active">
-            Active Prescriptions ({activePrescriptions.length})
-          </TabsTrigger>
-          <TabsTrigger value="history">
-            Prescription History ({expiredPrescriptions.length})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="active" className="space-y-4">
+      {activeTab === 'active' && (
+        <div className="km-fade">
           {activePrescriptions.length > 0 ? (
-            activePrescriptions.map((prescription) => (
-              <PrescriptionCard key={prescription.id} prescription={prescription} />
-            ))
+            activePrescriptions.map((p) => <PrescriptionCard key={p.id} prescription={p} />)
           ) : (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <Pill className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-2">No prescriptions found</h3>
-                <p className="text-muted-foreground">You currently have no active prescriptions.</p>
-              </CardContent>
-            </Card>
+            <div className="km-sc">
+              <div className="km-empty">
+                <div className="km-eic"><Pill size={20} /></div>
+                <div className="km-et">No active prescriptions</div>
+                <div className="km-es">You don't have any active medications at this time.</div>
+              </div>
+            </div>
           )}
-        </TabsContent>
-
-        <TabsContent value="history" className="space-y-4">
-          {expiredPrescriptions.length > 0 ? (
-            expiredPrescriptions.map((prescription) => (
-              <PrescriptionCard key={prescription.id} prescription={prescription} />
-            ))
-          ) : (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <Pill className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No prescription history</h3>
-                <p className="text-gray-600">You don't have any past prescriptions.</p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
-
-      {/* Quick Actions */}
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold text-foreground mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-6 text-center">
-              <RefreshCw className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-              <h3 className="font-medium text-foreground mb-1">Refill Prescriptions</h3>
-              <p className="text-sm text-muted-foreground">Request refills for existing medications</p>
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-6 text-center">
-              <Pill className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-              <h3 className="font-medium text-foreground mb-1">New Prescription</h3>
-              <p className="text-sm text-muted-foreground">Request a new prescription from your doctor</p>
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-6 text-center">
-              <User className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-              <h3 className="font-medium text-foreground mb-1">Pharmacy Info</h3>
-              <p className="text-sm text-muted-foreground">Update your preferred pharmacy</p>
-            </CardContent>
-          </Card>
         </div>
+      )}
+
+      {activeTab === 'history' && (
+        <div className="km-fade">
+          {expiredPrescriptions.length > 0 ? (
+            expiredPrescriptions.map((p) => <PrescriptionCard key={p.id} prescription={p} />)
+          ) : (
+            <div className="km-sc">
+              <div className="km-empty">
+                <div className="km-eic"><Pill size={20} /></div>
+                <div className="km-et">No history found</div>
+                <div className="km-es">Your past prescriptions will appear here.</div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="km-fade" style={{ marginTop: 20 }}>
+        <button className="km-btn km-btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
+          Request New Prescription
+        </button>
       </div>
     </div>
   );
