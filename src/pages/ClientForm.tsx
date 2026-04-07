@@ -68,6 +68,17 @@ const generateSecurePassword = (length = 20) => {
   return Array.from(bytes, (value) => alphabet[value % alphabet.length]).join("");
 };
 
+type ClientCreationDetails = {
+  clientId: string;
+  adminEmail: string;
+  adminPanelDomain: string;
+  apiEndpoint: string;
+  questionnaireUrl?: string;
+  customDomain?: string;
+  domain?: string;
+  subdomain?: string;
+};
+
 export default function ClientForm() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -79,6 +90,7 @@ export default function ClientForm() {
   const [generatedPassword, setGeneratedPassword] = useState("");
   const [clientName, setClientName] = useState("");
   const [createdClientId, setCreatedClientId] = useState<string | null>(null);
+  const [createdClientDetails, setCreatedClientDetails] = useState<ClientCreationDetails | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [hasPaymentMethod, setHasPaymentMethod] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -240,6 +252,16 @@ export default function ClientForm() {
       setGeneratedPassword(response.deployment_password);
       setClientName(response.client.name);
       setCreatedClientId(response.client.id);
+      setCreatedClientDetails({
+        clientId: response.client.id,
+        adminEmail: response.user.email,
+        adminPanelDomain: response.client.admin_panel_domain,
+        apiEndpoint: response.client.api_endpoint,
+        questionnaireUrl: response.client.questionnaire_url,
+        customDomain: response.client.custom_domain,
+        domain: response.client.domain,
+        subdomain: response.client.subdomain,
+      });
       setShowPasswordModal(true);
       toast({
         title: "Success",
@@ -572,7 +594,7 @@ export default function ClientForm() {
                             ? `${p}.api.welliemd.com`
                             : prev.domain,
                           api_endpoint: p
-                            ? `https://${p}.api.welliemd.com/api/v1/`
+                            ? `https://${p}.api.welliemd.com`
                             : prev.api_endpoint,
                           patient_portal_domain: patientPortalDomainTouched
                             ? prev.patient_portal_domain
@@ -662,7 +684,7 @@ export default function ClientForm() {
                 <CardDescription>
                   {isEditMode
                     ? "Admin user details (cannot be changed)"
-                    : "This user will be created with Admin role and can login to the client portal"}
+                    : "This user will be created as the client's Primary Owner and can log in with the password shown after submission"}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -969,7 +991,7 @@ export default function ClientForm() {
                           ? `https://${p}questionnaire.${baseDomain}`
                           : prev.subdomain,
                         api_endpoint: p
-                          ? `https://${p}api.${baseDomain}/api/v1/`
+                          ? `https://${p}api.${baseDomain}`
                           : prev.api_endpoint,
                         patient_portal_domain: p
                           ? `https://${p}patientportal.${baseDomain}`
@@ -1261,12 +1283,15 @@ export default function ClientForm() {
       </form>
 
       {/* Password Display Modal */}
-      <PasswordDisplayModal
-        open={showPasswordModal}
-        onClose={handlePasswordModalClose}
-        password={generatedPassword}
-        clientName={clientName}
-      />
+      {createdClientDetails ? (
+        <PasswordDisplayModal
+          open={showPasswordModal}
+          onClose={handlePasswordModalClose}
+          password={generatedPassword}
+          clientName={clientName}
+          clientDetails={createdClientDetails}
+        />
+      ) : null}
     </div>
   );
 }

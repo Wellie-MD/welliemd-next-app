@@ -13,11 +13,23 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 
+interface ClientDetails {
+  clientId: string;
+  adminEmail: string;
+  adminPanelDomain: string;
+  apiEndpoint: string;
+  questionnaireUrl?: string;
+  customDomain?: string;
+  domain?: string;
+  subdomain?: string;
+}
+
 interface PasswordDisplayModalProps {
   open: boolean;
   onClose: () => void;
   password: string;
   clientName: string;
+  clientDetails: ClientDetails;
 }
 
 export function PasswordDisplayModal({
@@ -25,6 +37,7 @@ export function PasswordDisplayModal({
   onClose,
   password,
   clientName,
+  clientDetails,
 }: PasswordDisplayModalProps) {
   const [copied, setCopied] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -48,12 +61,30 @@ export function PasswordDisplayModal({
   };
 
   const handleDownload = () => {
-    const content = `Client: ${clientName}\nDeployment Password: ${password}\n\nGenerated: ${new Date().toLocaleString()}\n\nIMPORTANT: Store this password securely. It will not be shown again.`;
+    const content = [
+      `Client: ${clientName}`,
+      `Client ID: ${clientDetails.clientId}`,
+      `Admin Email: ${clientDetails.adminEmail}`,
+      `Client Portal Domain: ${clientDetails.adminPanelDomain}`,
+      `API Endpoint: ${clientDetails.apiEndpoint}`,
+      clientDetails.questionnaireUrl ? `Questionnaire URL: ${clientDetails.questionnaireUrl}` : null,
+      clientDetails.customDomain ? `Custom Domain: ${clientDetails.customDomain}` : null,
+      clientDetails.domain ? `API Domain: ${clientDetails.domain}` : null,
+      clientDetails.subdomain ? `Questionnaire Host: ${clientDetails.subdomain}` : null,
+      "",
+      `Deployment Password: ${password}`,
+      "",
+      `Generated: ${new Date().toLocaleString()}`,
+      "",
+      "IMPORTANT: Store these credentials securely. They will not be shown again.",
+    ]
+      .filter(Boolean)
+      .join("\n");
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${clientName.replace(/\s+/g, "_")}_deployment_password.txt`;
+    a.download = `${clientName.replace(/\s+/g, "_")}_primary_owner_credentials.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -61,7 +92,7 @@ export function PasswordDisplayModal({
     
     toast({
       title: "Downloaded",
-      description: "Password saved to file",
+      description: "Credentials saved to file",
     });
   };
 
@@ -69,7 +100,7 @@ export function PasswordDisplayModal({
     if (!confirmed) {
       toast({
         title: "Confirmation Required",
-        description: "Please confirm that you have saved the password",
+        description: "Please confirm that you have saved the client details and deployment password",
         variant: "destructive",
       });
       return;
@@ -86,17 +117,56 @@ export function PasswordDisplayModal({
             Client Created Successfully!
           </DialogTitle>
           <DialogDescription>
-            Save the deployment password securely. It will not be shown again.
+            Save the client details and deployment password securely. They will not be shown again.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Client Name */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Client Name</Label>
-            <div className="p-3 bg-muted rounded-md">
-              <p className="font-semibold">{clientName}</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+              <Label className="text-sm font-medium">Client Name</Label>
+              <p className="break-all font-semibold">{clientName}</p>
             </div>
+            <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+              <Label className="text-sm font-medium">Client ID</Label>
+              <p className="break-all font-mono text-sm">{clientDetails.clientId}</p>
+            </div>
+            <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+              <Label className="text-sm font-medium">Admin Email</Label>
+              <p className="break-all font-mono text-sm">{clientDetails.adminEmail}</p>
+            </div>
+            <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+              <Label className="text-sm font-medium">Client Portal Domain</Label>
+              <p className="break-all font-mono text-sm">{clientDetails.adminPanelDomain}</p>
+            </div>
+            <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+              <Label className="text-sm font-medium">API Endpoint</Label>
+              <p className="break-all font-mono text-sm">{clientDetails.apiEndpoint}</p>
+            </div>
+            {clientDetails.questionnaireUrl ? (
+              <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                <Label className="text-sm font-medium">Questionnaire URL</Label>
+                <p className="break-all font-mono text-sm">{clientDetails.questionnaireUrl}</p>
+              </div>
+            ) : null}
+            {clientDetails.customDomain ? (
+              <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                <Label className="text-sm font-medium">Custom Domain</Label>
+                <p className="break-all font-mono text-sm">{clientDetails.customDomain}</p>
+              </div>
+            ) : null}
+            {clientDetails.domain ? (
+              <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                <Label className="text-sm font-medium">API Domain</Label>
+                <p className="break-all font-mono text-sm">{clientDetails.domain}</p>
+              </div>
+            ) : null}
+            {clientDetails.subdomain ? (
+              <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                <Label className="text-sm font-medium">Questionnaire Host</Label>
+                <p className="break-all font-mono text-sm">{clientDetails.subdomain}</p>
+              </div>
+            ) : null}
           </div>
 
           {/* Password Display */}
@@ -146,8 +216,8 @@ export function PasswordDisplayModal({
                 Important Security Notice
               </p>
               <p className="text-sm text-amber-800">
-                This password is shown only once and cannot be retrieved later. 
-                The admin user can login to the client portal using their email and this password.
+                This password is shown only once and cannot be retrieved later.
+                The client's Primary Owner account can log in to the client portal using the email above and this password.
                 Make sure to save it securely before closing this dialog.
               </p>
             </div>
@@ -164,7 +234,7 @@ export function PasswordDisplayModal({
               htmlFor="confirm"
               className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
             >
-              I have saved the deployment password securely
+              I have saved the client details and deployment password securely
             </Label>
           </div>
         </div>
