@@ -29,8 +29,6 @@ const App = () => {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      const authStore = useAuthStore.getState();
-      authStore.clearExpiredSession();
       try {
         await authService.hydrateAuth();
       } catch (error) {

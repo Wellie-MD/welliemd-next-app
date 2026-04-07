@@ -24,6 +24,7 @@ import {
 import { useClientMessages } from "@/contexts/MessagesContext";
 import { groupMessages, type Conversation } from "@/utils/groupMessages";
 import { useClients, type Client } from "@/hooks/useClients";
+import { useSearchParams } from "react-router-dom";
 
 import { patientService, type Patient } from "@/services/patientService";
 import { PatientDetailSheet } from "@/components/patients/PatientDetailSheet";
@@ -151,6 +152,7 @@ function DocumentBubble({
 // ====================================================================
 
 export default function Messages() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { messages, loading, error } = useClientMessages();
 
   // tabs: "patient" (normal support/doctor thread) and "support" (Beluga)
@@ -439,6 +441,21 @@ export default function Messages() {
       didAutoSelectRef.current = true;
     }
   }, [loading, conversations, activeConversation]);
+
+  useEffect(() => {
+    const targetMasterId = searchParams.get("master_id");
+    if (!targetMasterId || conversations.length === 0) return;
+
+    const match = conversations.find((c) => c.masterId === targetMasterId);
+    if (!match) return;
+
+    setActiveConversation(match);
+    didAutoSelectRef.current = true;
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("master_id");
+    setSearchParams(next, { replace: true });
+  }, [conversations, searchParams, setSearchParams]);
 
   useEffect(() => {
     if (activeConversation && !conversations.find((c) => c.id === activeConversation.id)) {

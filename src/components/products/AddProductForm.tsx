@@ -14,6 +14,12 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 
+const toMoney = (value?: string | number | null) => {
+  const num = typeof value === "number" ? value : Number(value ?? 0)
+  if (!Number.isFinite(num)) return "$0.00"
+  return `$${num.toFixed(2)}`
+}
+
 type ProductFormValues = {
   // Client-editable fields
   description?: string
@@ -59,6 +65,12 @@ export default function AddProductForm({
   const { register, handleSubmit, reset, setValue } = useForm<ProductFormValues>()
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
+  const isSupplyProduct = product?.product_type === "supply"
+  const supplyUsage = product?.supply_usage_summary
+  const isIncludedOnlySupply =
+    Boolean(isSupplyProduct) &&
+    Boolean(supplyUsage?.total_links && supplyUsage.total_links > 0) &&
+    Number(supplyUsage?.billable_links || 0) === 0
 
   // Load product data for editing
   useEffect(() => {
@@ -112,10 +124,12 @@ export default function AddProductForm({
       if (data.side_effects !== undefined) fd.append("side_effects", data.side_effects)
       if (data.quantity !== undefined) fd.append("quantity", data.quantity)
       
-      // Client-editable pricing fields
-      if (data.base_price !== undefined) fd.append("base_price", data.base_price)
-      if (data.shipping_fee_patient !== undefined) fd.append("shipping_fee_patient", data.shipping_fee_patient)
-      if (data.discounted_price !== undefined) fd.append("discounted_price", data.discounted_price)
+      // Client-editable pricing fields (lock when this supply is only used as Included)
+      if (!isIncludedOnlySupply) {
+        if (data.base_price !== undefined) fd.append("base_price", data.base_price)
+        if (data.shipping_fee_patient !== undefined) fd.append("shipping_fee_patient", data.shipping_fee_patient)
+        if (data.discounted_price !== undefined) fd.append("discounted_price", data.discounted_price)
+      }
       
       // Handle image upload
       if (data.product_image instanceof File) {
@@ -282,9 +296,62 @@ export default function AddProductForm({
             </div>
           </div>
 
+          {/* Linked Supplies (Read-only) */}
+          {!!product?.linked_supplies?.length && (
+            <div className="border rounded-lg p-4 bg-muted/30">
+              <h3 className="text-sm font-semibold mb-3 text-muted-foreground">
+                Linked Required Supplies (Read-only)
+              </h3>
+              <div className="space-y-2">
+                {product.linked_supplies.map((supply) => (
+                  // Patient charge must use patient-facing pricing fields (not admin reimbursement costs).
+                  // billed supply patient charge = (discounted/base + shipping_fee_patient) * qty
+                  // included supply patient charge = 0
+                  <div
+                    key={supply.id}
+                    className="grid grid-cols-1 md:grid-cols-5 gap-2 text-sm border rounded px-3 py-2 bg-background dark:bg-slate-900/60"
+                  >
+                    <div className="md:col-span-2 font-medium">{supply.supply_product_name}</div>
+                    <div>Qty: {supply.quantity}</div>
+                    <div>{supply.is_included ? "Included (no extra charge)" : "Billed separately"}</div>
+                    <div>
+                      {(() => {
+                        if (supply.is_included) return "Patient charge: Included";
+                        const qty = Number(supply.quantity || 1);
+                        const unitBase = Number(supply.base_price ?? 0);
+                        const unitDiscounted =
+                          supply.discounted_price !== undefined && supply.discounted_price !== null
+                            ? Number(supply.discounted_price)
+                            : null;
+                        const unitPatientPrice =
+                          unitDiscounted !== null && Number.isFinite(unitDiscounted) && unitDiscounted > 0
+                            ? unitDiscounted
+                            : unitBase;
+                        const unitShipping = Number(supply.shipping_fee_patient ?? 0);
+                        const total = (unitPatientPrice + unitShipping) * qty;
+                        return `Patient charge: ${toMoney(total)}`;
+                      })()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Supplies are configured by admin and automatically attached to this medication.
+                Included supplies do not add item or shipping charges to patient totals.
+              </p>
+            </div>
+          )}
+
           {/* Editable Pricing Fields - Client sets patient pricing */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold">Your Pricing (Editable)</h3>
+            {isSupplyProduct && (
+              <p className="text-xs text-muted-foreground">
+                {isIncludedOnlySupply
+                  ? "This supply is currently linked only as Included. Pricing is locked because it does not create patient charges in this mode."
+                  : "For supplies, these prices apply only when a parent product marks this supply as Billed separately. If marked Included, patient is charged $0 for that supply."}
+              </p>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="text-sm font-medium">Base Price (Patient)</label>
@@ -294,7 +361,12 @@ export default function AddProductForm({
                     type="number"
                     step="0.01"
                     {...register("base_price")} 
-                    className="border border-l-0 px-3 py-2 rounded-r w-full bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
+                    disabled={isIncludedOnlySupply}
+                    className={`border border-l-0 px-3 py-2 rounded-r w-full dark:border-slate-700 ${
+                      isIncludedOnlySupply
+                        ? "bg-muted text-muted-foreground cursor-not-allowed dark:bg-slate-900/60"
+                        : "bg-background text-foreground dark:bg-slate-900"
+                    }`}
                     placeholder="0.00"
                   />
                 </div>
@@ -309,7 +381,12 @@ export default function AddProductForm({
                     type="number"
                     step="0.01"
                     {...register("discounted_price")} 
-                    className="border border-l-0 px-3 py-2 rounded-r w-full bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
+                    disabled={isIncludedOnlySupply}
+                    className={`border border-l-0 px-3 py-2 rounded-r w-full dark:border-slate-700 ${
+                      isIncludedOnlySupply
+                        ? "bg-muted text-muted-foreground cursor-not-allowed dark:bg-slate-900/60"
+                        : "bg-background text-foreground dark:bg-slate-900"
+                    }`}
                     placeholder="0.00"
                   />
                 </div>
@@ -324,7 +401,12 @@ export default function AddProductForm({
                     type="number"
                     step="0.01"
                     {...register("shipping_fee_patient")} 
-                    className="border border-l-0 px-3 py-2 rounded-r w-full bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
+                    disabled={isIncludedOnlySupply}
+                    className={`border border-l-0 px-3 py-2 rounded-r w-full dark:border-slate-700 ${
+                      isIncludedOnlySupply
+                        ? "bg-muted text-muted-foreground cursor-not-allowed dark:bg-slate-900/60"
+                        : "bg-background text-foreground dark:bg-slate-900"
+                    }`}
                     placeholder="0.00"
                   />
                 </div>
