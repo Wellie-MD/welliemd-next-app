@@ -311,6 +311,22 @@ export interface LifecycleActionResponse {
   job: LifecycleJob;
 }
 
+export type TeardownS3Mode = "archive" | "purge";
+export type TeardownRdsSnapshotMode = "retain" | "purge";
+
+export interface TeardownOptionsPayload {
+  archive_bucket?: string;
+  reason?: string;
+  s3_mode?: TeardownS3Mode;
+  rds_snapshot_mode?: TeardownRdsSnapshotMode;
+  delete_client_record?: boolean;
+}
+
+export interface TeardownRequestPayload extends TeardownOptionsPayload {
+  preview_job_id?: string;
+  confirmation_text: string;
+}
+
 export const clientApi = {
   list: async (): Promise<Client[]> => {
     const allResults: unknown[] = [];
@@ -387,7 +403,7 @@ export const clientApi = {
 
   previewTeardown: async (
     id: string,
-    payload: { archive_bucket?: string; reason?: string }
+    payload: TeardownOptionsPayload
   ): Promise<LifecycleActionResponse> => {
     const { data } = await axiosInstance.post(`/clients/${id}/teardown/preview/`, payload);
     return data;
@@ -395,12 +411,7 @@ export const clientApi = {
 
   requestTeardown: async (
     id: string,
-    payload: {
-      preview_job_id?: string;
-      archive_bucket?: string;
-      reason?: string;
-      confirmation_text: string;
-    }
+    payload: TeardownRequestPayload
   ): Promise<LifecycleActionResponse> => {
     const { data } = await axiosInstance.post(`/clients/${id}/teardown/request/`, payload);
     return data;
@@ -416,7 +427,7 @@ export const clientApi = {
 
   retryTeardown: async (
     id: string,
-    payload: { archive_bucket?: string; reason?: string } = {}
+    payload: TeardownOptionsPayload = {}
   ): Promise<LifecycleActionResponse> => {
     const { data } = await axiosInstance.post(`/clients/${id}/teardown/retry/`, payload);
     return data;

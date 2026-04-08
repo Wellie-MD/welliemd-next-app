@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AxiosError } from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -18,6 +18,9 @@ import {
   type InfraResource,
   type LifecycleJob,
   type LifecycleStep,
+  type TeardownOptionsPayload,
+  type TeardownRdsSnapshotMode,
+  type TeardownS3Mode,
 } from "@/api/clientApi";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -25,8 +28,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 
@@ -56,6 +67,8 @@ const getBlockers = (job?: LifecycleJob | null) => {
   const blockers = job?.summary?.blockers;
   return Array.isArray(blockers) ? (blockers as string[]) : [];
 };
+
+const parseBoolean = (value: unknown) => value === true || value === "true" || value === 1 || value === "1";
 
 const ACTIVE_LIFECYCLE_STATUSES = new Set(["pending", "previewed", "running", "cancel_requested"]);
 
@@ -151,6 +164,9 @@ export default function ClientLifecycle() {
   const [archiveBucket, setArchiveBucket] = useState("");
   const [reason, setReason] = useState("");
   const [confirmationText, setConfirmationText] = useState("");
+  const [s3Mode, setS3Mode] = useState<TeardownS3Mode>("archive");
+  const [rdsSnapshotMode, setRdsSnapshotMode] = useState<TeardownRdsSnapshotMode>("retain");
+  const [deleteClientRecord, setDeleteClientRecord] = useState(false);
 
   const lifecycleQuery = useQuery<ClientLifecycleResponse>({
     queryKey: ["client-lifecycle", id],
@@ -197,12 +213,75 @@ export default function ClientLifecycle() {
     [teardownJobs]
   );
   const latestTeardownJob = activeTeardownJobs[0] ?? teardownJobs[0] ?? null;
+  const latestTeardownRequest = (latestTeardownJob?.request_payload || {}) as Record<string, unknown>;
   const teardownBlockers = getBlockers(latestTeardownJob);
   const requiredConfirmationText = (latestTeardownJob?.summary?.required_confirmation_text as string) || "";
+  const teardownSummaryModes = (latestTeardownJob?.summary?.teardown_modes as Record<string, unknown>) || {};
+  const requestedTeardownS3Mode =
+    (latestTeardownRequest.s3_mode as TeardownS3Mode | undefined) ||
+    (teardownSummaryModes.s3_mode as TeardownS3Mode | undefined) ||
+    "archive";
+  const requestedTeardownRdsSnapshotMode =
+    (latestTeardownRequest.rds_snapshot_mode as TeardownRdsSnapshotMode | undefined) ||
+    (teardownSummaryModes.rds_snapshot_mode as TeardownRdsSnapshotMode | undefined) ||
+    "retain";
+  const requestedDeleteClientRecord =
+    parseBoolean(latestTeardownRequest.delete_client_record) ||
+    parseBoolean(teardownSummaryModes.delete_client_record);
+  const effectiveTeardownS3Mode = deleteClientRecord ? "purge" : s3Mode;
+  const effectiveTeardownRdsSnapshotMode = deleteClientRecord ? "purge" : rdsSnapshotMode;
+  const archiveBucketRequired = effectiveTeardownS3Mode === "archive";
+  const hasArchiveBucket = !archiveBucketRequired || archiveBucket.trim().length > 0;
+  const teardownModeValid = !deleteClientRecord || (effectiveTeardownS3Mode === "purge" && effectiveTeardownRdsSnapshotMode === "purge");
   const hasActiveLifecycleJob = useMemo(
     () => Boolean(data?.jobs.some((job) => ACTIVE_LIFECYCLE_STATUSES.has(job.status))),
     [data?.jobs]
   );
+
+  useEffect(() => {
+    if (!latestTeardownJob) {
+      return;
+    }
+    setArchiveBucket(typeof latestTeardownRequest.archive_bucket === "string" ? latestTeardownRequest.archive_bucket : "");
+    setReason(typeof latestTeardownRequest.reason === "string" ? latestTeardownRequest.reason : "");
+    setS3Mode((latestTeardownRequest.s3_mode as TeardownS3Mode | undefined) || requestedTeardownS3Mode);
+    setRdsSnapshotMode(
+      (latestTeardownRequest.rds_snapshot_mode as TeardownRdsSnapshotMode | undefined) ||
+        requestedTeardownRdsSnapshotMode
+    );
+    setDeleteClientRecord(parseBoolean(latestTeardownRequest.delete_client_record) || requestedDeleteClientRecord);
+    setConfirmationText("");
+  }, [
+    latestTeardownJob?.id,
+    requestedDeleteClientRecord,
+    requestedTeardownRdsSnapshotMode,
+    requestedTeardownS3Mode,
+  ]);
+
+  useEffect(() => {
+    if (deleteClientRecord) {
+      setS3Mode("purge");
+      setRdsSnapshotMode("purge");
+      setArchiveBucket("");
+    }
+  }, [deleteClientRecord]);
+
+  useEffect(() => {
+    if (s3Mode === "purge") {
+      setArchiveBucket("");
+    }
+  }, [s3Mode]);
+
+  const teardownPayload: TeardownOptionsPayload = {
+    archive_bucket: effectiveTeardownS3Mode === "archive" ? archiveBucket.trim() : "",
+    reason,
+    s3_mode: effectiveTeardownS3Mode,
+    rds_snapshot_mode: effectiveTeardownRdsSnapshotMode,
+    delete_client_record: deleteClientRecord,
+  };
+
+  const teardownPreviewLabel = deleteClientRecord ? "Preview Hard Delete" : "Preview Teardown";
+  const teardownRequestLabel = deleteClientRecord ? "Request Hard Delete" : "Request Teardown";
   const cancelAllTeardownJobs = async () => {
     const jobsToCancel = [...activeTeardownJobs].sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -222,7 +301,28 @@ export default function ClientLifecycle() {
     );
   }
 
+  const lifecycleLoadError = lifecycleQuery.error as AxiosError<{ message?: string; detail?: string }> | null;
+  const lifecycleLoadStatus = lifecycleLoadError?.response?.status;
+
   if (lifecycleQuery.isError || !client) {
+    if (lifecycleLoadStatus === 404) {
+      return (
+        <div className="p-6">
+          <Alert>
+            <ShieldAlert className="h-4 w-4" />
+            <AlertTitle>Client record deleted</AlertTitle>
+            <AlertDescription>
+              This client record no longer exists. The teardown purge likely completed successfully.
+            </AlertDescription>
+          </Alert>
+          <div className="mt-4">
+            <Button variant="outline" onClick={() => navigate("/dashboard/clients")}>
+              Back to Clients
+            </Button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="p-6">
         <Alert variant="destructive">
@@ -373,19 +473,59 @@ export default function ClientLifecycle() {
             Danger Zone
           </CardTitle>
           <CardDescription>
-            Preview and request infra-only teardown. The client record stays for audit, but the tenant infrastructure is destroyed.
+            Preview and request teardown. Purge mode can also delete the client record and billing history after the infra is removed.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div className="space-y-2">
-              <Label htmlFor="archive-bucket">Archive Bucket</Label>
-              <Input
-                id="archive-bucket"
-                value={archiveBucket}
-                onChange={(event) => setArchiveBucket(event.target.value)}
-                placeholder="required when tenant assets live in S3"
-              />
+              <Label htmlFor="s3-mode">S3 Mode</Label>
+              <Select
+                value={s3Mode}
+                onValueChange={(value) => setS3Mode(value as TeardownS3Mode)}
+                disabled={deleteClientRecord}
+              >
+                <SelectTrigger id="s3-mode">
+                  <SelectValue placeholder="Select S3 mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="archive">Archive</SelectItem>
+                  <SelectItem value="purge">Purge</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="rds-snapshot-mode">RDS Snapshot Mode</Label>
+              <Select
+                value={rdsSnapshotMode}
+                onValueChange={(value) => setRdsSnapshotMode(value as TeardownRdsSnapshotMode)}
+                disabled={deleteClientRecord}
+              >
+                <SelectTrigger id="rds-snapshot-mode">
+                  <SelectValue placeholder="Select snapshot mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="retain">Retain final snapshot</SelectItem>
+                  <SelectItem value="purge">Purge without snapshot</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                <div>
+                  <Label htmlFor="delete-client-record" className="text-sm font-medium">
+                    Delete Client Record
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Hard-delete the control-plane row after teardown succeeds.
+                  </p>
+                </div>
+                <Switch
+                  id="delete-client-record"
+                  checked={deleteClientRecord}
+                  onCheckedChange={setDeleteClientRecord}
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="teardown-reason">Reason</Label>
@@ -398,19 +538,65 @@ export default function ClientLifecycle() {
             </div>
           </div>
 
+          {archiveBucketRequired ? (
+            <div className="space-y-2">
+              <Label htmlFor="archive-bucket">Archive Bucket</Label>
+              <Input
+                id="archive-bucket"
+                value={archiveBucket}
+                onChange={(event) => setArchiveBucket(event.target.value)}
+                placeholder="required when tenant assets live in S3"
+              />
+            </div>
+          ) : (
+            <Alert>
+              <AlertTitle>Archive bucket not required</AlertTitle>
+              <AlertDescription>
+                Purge mode skips the S3 archive copy step and deletes the tenant bucket directly.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {deleteClientRecord ? (
+            <Alert variant="destructive">
+              <ShieldAlert className="h-4 w-4" />
+              <AlertTitle>Hard delete enabled</AlertTitle>
+              <AlertDescription>
+                This will purge billing rows and delete the client record after teardown completes. Use purge mode only.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          <div className="rounded-md border bg-muted/40 p-3 text-sm">
+            <p className="font-medium">Selected teardown modes</p>
+            <p className="text-muted-foreground">
+              S3: {effectiveTeardownS3Mode} · RDS snapshot: {effectiveTeardownRdsSnapshotMode} · Delete client record: {deleteClientRecord ? "yes" : "no"}
+            </p>
+          </div>
+
           <div className="flex flex-wrap gap-2">
             <Button
               variant="destructive"
-              disabled={lifecycleMutation.isPending}
-              onClick={() => runAction(() => clientApi.previewTeardown(client.id, { archive_bucket: archiveBucket, reason }), "Teardown preview generated.")}
+              disabled={lifecycleMutation.isPending || !teardownModeValid || !hasArchiveBucket}
+              onClick={() =>
+                runAction(
+                  () => clientApi.previewTeardown(client.id, teardownPayload),
+                  "Teardown preview generated."
+                )
+              }
             >
-              Preview Teardown
+              {teardownPreviewLabel}
             </Button>
             {isTeardownRetryable(latestTeardownJob) ? (
               <Button
                 variant="outline"
-                disabled={lifecycleMutation.isPending}
-                onClick={() => runAction(() => clientApi.retryTeardown(client.id, { archive_bucket: archiveBucket, reason }), "Teardown preview regenerated.")}
+                disabled={lifecycleMutation.isPending || !teardownModeValid || !hasArchiveBucket}
+                onClick={() =>
+                  runAction(
+                    () => clientApi.retryTeardown(client.id, teardownPayload),
+                    "Teardown preview regenerated."
+                  )
+                }
               >
                 Retry Teardown
               </Button>
@@ -430,7 +616,12 @@ export default function ClientLifecycle() {
               <Button
                 variant="outline"
                 disabled={lifecycleMutation.isPending}
-                onClick={() => runAction(() => clientApi.cancelTeardown(client.id, { job_id: latestTeardownJob?.id }), "Teardown cancellation requested.")}
+                onClick={() =>
+                  runAction(
+                    () => clientApi.cancelTeardown(client.id, { job_id: latestTeardownJob?.id }),
+                    "Teardown cancellation requested."
+                  )
+                }
               >
                 Cancel Teardown
               </Button>
@@ -444,6 +635,15 @@ export default function ClientLifecycle() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={getBadgeVariant(latestTeardownJob.status)}>
                     Teardown {latestTeardownJob.status}
+                  </Badge>
+                  <Badge variant="outline">
+                    S3 {requestedTeardownS3Mode}
+                  </Badge>
+                  <Badge variant="outline">
+                    RDS {requestedTeardownRdsSnapshotMode}
+                  </Badge>
+                  <Badge variant="outline">
+                    {requestedDeleteClientRecord ? "Client delete on" : "Client delete off"}
                   </Badge>
                   {latestTeardownJob.preview_expires_at ? (
                     <span className="text-xs text-muted-foreground">
@@ -501,22 +701,23 @@ export default function ClientLifecycle() {
                     latestTeardownJob.status !== "previewed" ||
                     !requiredConfirmationText ||
                     confirmationText !== requiredConfirmationText ||
-                    teardownBlockers.length > 0
+                    teardownBlockers.length > 0 ||
+                    !teardownModeValid ||
+                    !hasArchiveBucket
                   }
                   onClick={() =>
                     runAction(
                       () =>
                         clientApi.requestTeardown(client.id, {
                           preview_job_id: latestTeardownJob.id,
-                          archive_bucket: archiveBucket,
-                          reason,
+                          ...teardownPayload,
                           confirmation_text: confirmationText,
                         }),
                       "Teardown requested. The grace period countdown is now active."
                     )
                   }
                 >
-                  Request Teardown
+                  {teardownRequestLabel}
                 </Button>
               </div>
             </>
