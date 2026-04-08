@@ -36,9 +36,10 @@ export default function Header({ onMenuClick, isSidebarOpen, showMenuButton = fa
   return (
     <header
       style={{
-        position: "sticky",
+        position: "fixed",
         top: 0,
         zIndex: 100,
+        width: "100%",
         background: isDark ? "rgba(10,10,10,0.9)" : "rgba(244,242,238,0.92)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
@@ -79,7 +80,7 @@ export default function Header({ onMenuClick, isSidebarOpen, showMenuButton = fa
           )}
 
           {logos?.square ? (
-            <img src={logos.square} alt={env.VITE_APP_NAME} style={{ height: 28, width: "auto", objectFit: "contain" }} />
+            <img src={logos.square} alt={env.VITE_APP_NAME} style={{ height: 28, width: "auto", objectFit: "contain", filter: isDark ? "brightness(0) invert(1)" : "none" }} />
           ) : (
             <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 500, color: "var(--km-t)" }}>
               {env.VITE_APP_NAME}

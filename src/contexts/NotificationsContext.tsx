@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { apiClient } from '@/shared/api/client';
+import { VisitService } from '@/features/visits/services/visit.service';
+import { MessageService, type RawMessage } from '@/features/messages/services/message.service';
 
 export interface Notification {
   id: string;
@@ -36,6 +38,31 @@ type InboxItem = {
   message_id?: number | null;
 };
 
+type MessageNotification = {
+  id: string;
+  type: 'doctor_message' | 'support_message' | 'super_support_message';
+  title: string;
+  message: string;
+  data: {
+    master_id: string;
+    message_id: number | string;
+    source: 'message';
+    chat_type: 'doctor' | 'support' | 'super_support';
+  };
+  timestamp: string;
+  read: boolean;
+  priority: 'normal';
+};
+
+function isInboundFor(type: 'doctor' | 'support', msg: RawMessage) {
+  if (type === 'doctor') return msg.isFromDoctor === true && (msg.chatType === 'doctor' || !msg.chatType);
+  return msg.isFromDoctor === true && (msg.chatType === 'support' || msg.chatType === 'super_support');
+}
+
+function byNewest(a: RawMessage, b: RawMessage) {
+  return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+}
+
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const dismissedIds = useRef<Set<string>>(new Set());
@@ -57,20 +84,113 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   }, []);
 
   const refresh = useCallback(async () => {
+    let mappedInbox: Notification[] = [];
     try {
       const res = await apiClient.get<InboxItem[]>('/notifications/', {
         params: { limit: 20 },
       });
       const rows = Array.isArray(res.data) ? res.data : [];
-      const mapped = rows
-        .map(mapInboxToNotification)
-        .filter(n => !dismissedIds.current.has(n.id))
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      setNotifications(mapped);
+      mappedInbox = rows.map(mapInboxToNotification);
     } catch (error) {
       console.error('Failed to load notifications from API:', error);
-      setNotifications([]);
     }
+
+    let mappedMessages: MessageNotification[] = [];
+    try {
+      const visits = await VisitService.getPatientVisits();
+      const collected: MessageNotification[] = [];
+
+      for (const visit of visits) {
+        const masterId = visit.master_id;
+        if (!masterId) continue;
+
+        const [docRaw, supRaw] = await Promise.all([
+          MessageService.getDoctorMessages(masterId),
+          MessageService.getSupportMessages(masterId),
+        ]);
+
+        const docMsgs = (docRaw ?? []).slice().sort(byNewest);
+        const supMsgs = (supRaw ?? []).slice().sort(byNewest);
+
+        const latestDocInboundUnread = docMsgs.find(
+          (m) => isInboundFor('doctor', m) && (m.readByPatient ?? m.read) === false
+        );
+        if (latestDocInboundUnread) {
+          collected.push({
+            id: `msg:${masterId}:${latestDocInboundUnread.id}`,
+            type: 'doctor_message',
+            title: `New message from Doctor`,
+            message: latestDocInboundUnread.content,
+            data: {
+              master_id: masterId,
+              message_id: latestDocInboundUnread.id,
+              source: 'message',
+              chat_type: 'doctor',
+            },
+            timestamp: latestDocInboundUnread.timestamp,
+            read: false,
+            priority: 'normal',
+          });
+        }
+
+        const latestSuperUnread = supMsgs.find(
+          (m) => m.chatType === 'super_support' && m.isFromDoctor === true && (m.readByPatient ?? m.read) === false
+        );
+        if (latestSuperUnread) {
+          collected.push({
+            id: `msg:${masterId}:${latestSuperUnread.id}`,
+            type: 'super_support_message',
+            title: `New message from Support`,
+            message: latestSuperUnread.content,
+            data: {
+              master_id: masterId,
+              message_id: latestSuperUnread.id,
+              source: 'message',
+              chat_type: 'super_support',
+            },
+            timestamp: latestSuperUnread.timestamp,
+            read: false,
+            priority: 'normal',
+          });
+        } else {
+          const latestSupportInboundUnread = supMsgs.find(
+            (m) => isInboundFor('support', m) && (m.readByPatient ?? m.read) === false
+          );
+          if (latestSupportInboundUnread) {
+            collected.push({
+              id: `msg:${masterId}:${latestSupportInboundUnread.id}`,
+              type: 'support_message',
+              title: `New message from Support`,
+              message: latestSupportInboundUnread.content,
+              data: {
+                master_id: masterId,
+                message_id: latestSupportInboundUnread.id,
+                source: 'message',
+                chat_type: 'support',
+              },
+              timestamp: latestSupportInboundUnread.timestamp,
+              read: false,
+              priority: 'normal',
+            });
+          }
+        }
+      }
+
+      mappedMessages = collected;
+    } catch (error) {
+      console.error('Failed to load message notifications:', error);
+    }
+
+    const deduped = new Map<string, Notification>();
+    [...mappedInbox, ...mappedMessages].forEach((n) => {
+      deduped.set(n.id, n as Notification);
+    });
+
+    const combined = Array.from(deduped.values())
+      .filter((n) => !dismissedIds.current.has(n.id))
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    setNotifications(combined);
   }, [mapInboxToNotification]);
 
   useEffect(() => {
@@ -109,14 +229,27 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   }, []);
 
   const markAsRead = useCallback((id: string) => {
+    const target = notifications.find((n) => n.id === id);
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+
+    if (target?.data?.source === 'message' && target.data?.message_id != null) {
+      void MessageService.markAsReadByPatient(target.data.message_id as string | number).catch(() => undefined);
+      return;
+    }
     void apiClient.post(`/notifications/${id}/read/`).catch(() => undefined);
-  }, []);
+  }, [notifications]);
 
   const markAllAsRead = useCallback(() => {
+    const unreadMessageIds = notifications
+      .filter((n) => !n.read && n.data?.source === 'message' && n.data?.message_id != null)
+      .map((n) => n.data.message_id as string | number);
+
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    unreadMessageIds.forEach((messageId) => {
+      void MessageService.markAsReadByPatient(messageId).catch(() => undefined);
+    });
     void apiClient.post('/notifications/read-all/').catch(() => undefined);
-  }, []);
+  }, [notifications]);
 
   const clearAll = useCallback(() => {
     setNotifications(prev => {

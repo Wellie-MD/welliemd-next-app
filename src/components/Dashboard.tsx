@@ -1,8 +1,8 @@
 import {
   MessageSquare,
   Package,
-  FlaskConical,
-  Search,
+  TestTubes,
+  Compass,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -12,21 +12,33 @@ import { useAuth } from "@/features/auth";
 import { VisitService } from "@/features/visits/services/visit.service";
 import { getOrders } from "@/shared/api/ordersApi";
 import { useNotifications } from "@/contexts/NotificationsContext";
+import { getPatientFollowUps } from "@/features/followups/api";
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning 👋";
+  if (hour < 17) return "Good afternoon ☀️";
+  if (hour < 21) return "Good evening 🌆";
+  return "Good night 🌙";
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const firstName = user?.first_name || "there";
   
+  const [statsLoading, setStatsLoading] = useState(true);
   const [stats, setStats] = useState({
     treatments: 0,
     orders: 0,
   });
+  const [pendingFollowUps, setPendingFollowUps] = useState<number | null>(null);
   const { unreadCount } = useNotifications();
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
+        setStatsLoading(true);
         const [visitsRes, ordersRes] = await Promise.all([
           VisitService.getPatientVisits(),
           getOrders(1, 1) // Just get the count
@@ -43,10 +55,26 @@ export default function Dashboard() {
         });
       } catch (error) {
         console.error("Failed to fetch dashboard stats", error);
+      } finally {
+        setStatsLoading(false);
       }
     };
     
     fetchStats();
+  }, []);
+
+  // Fetch pending follow-up count
+  useEffect(() => {
+    const fetchFollowUps = async () => {
+      try {
+        const data = await getPatientFollowUps();
+        const pending = (data || []).filter(f => ['CREATED', 'VIEWED', 'IN_PROGRESS'].includes(f.status));
+        setPendingFollowUps(pending.length);
+      } catch {
+        setPendingFollowUps(0);
+      }
+    };
+    fetchFollowUps();
   }, []);
 
   return (
@@ -54,7 +82,7 @@ export default function Dashboard() {
       {/* ── Greeting ── */}
       <div className="km-fade" style={{ paddingTop: 4, marginBottom: 20 }}>
         <div style={{ fontSize: 13, color: "var(--km-tm)", marginBottom: 2 }}>
-          Good morning 👋
+          {getGreeting()}
         </div>
         <div
           style={{
@@ -73,7 +101,7 @@ export default function Dashboard() {
       <div className="km-stats-grid km-fade">
         <div className="km-stat" onClick={() => navigate("/dashboard/treatments")}>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, lineHeight: 1, marginBottom: 3, color: "var(--km-ac)" }}>
-            {stats.treatments}
+            {statsLoading ? <span className="km-skel" style={{ width: 20, height: 20, display: 'inline-block', borderRadius: 4 }} /> : stats.treatments}
           </div>
           <div style={{ fontSize: 11, color: "var(--km-tm)", fontWeight: 500, display: "flex", alignItems: "center", gap: 3 }}>
             <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--km-ac)" }} />
@@ -82,7 +110,7 @@ export default function Dashboard() {
         </div>
         <div className="km-stat" onClick={() => navigate("/dashboard/orders")}>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, lineHeight: 1, marginBottom: 3, color: "var(--km-gr)" }}>
-            {stats.orders}
+            {statsLoading ? <span className="km-skel" style={{ width: 20, height: 20, display: 'inline-block', borderRadius: 4 }} /> : stats.orders}
           </div>
           <div style={{ fontSize: 11, color: "var(--km-tm)", fontWeight: 500, display: "flex", alignItems: "center", gap: 3 }}>
             <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--km-gr)" }} />
@@ -113,7 +141,9 @@ export default function Dashboard() {
             </div>
             <span className="km-dash-ct">Follow-Up Questionnaires</span>
           </div>
-          <span className="km-badge km-badge-red" style={{ fontSize: 10 }}>2 pending</span>
+          {pendingFollowUps !== null && pendingFollowUps > 0 && (
+            <span className="km-badge km-badge-red" style={{ fontSize: 10 }}>{pendingFollowUps} pending</span>
+          )}
         </div>
         <div style={{ padding: "10px 14px 14px", display: "flex", flexDirection: "column", gap: 0 }}>
           <FollowUpList />
@@ -156,8 +186,8 @@ export default function Dashboard() {
           {[
             { icon: MessageSquare, label: "Message", desc: "Contact your care team", path: "/dashboard/messages" },
             { icon: Package, label: "Orders", desc: "Track your deliveries", path: "/dashboard/orders" },
-            { icon: FlaskConical, label: "Labs", desc: "View lab results", path: "/dashboard/labs" },
-            { icon: Search, label: "Explore", desc: "Browse treatments", path: "/dashboard/explore" },
+            { icon: TestTubes, label: "Labs", desc: "View lab results", path: "/dashboard/labs" },
+            { icon: Compass, label: "Explore", desc: "Browse treatments", path: "/dashboard/explore" },
           ].map((qa) => (
             <div key={qa.label} className="km-qaitem" onClick={() => navigate(qa.path)}>
               <div className="km-qaico">

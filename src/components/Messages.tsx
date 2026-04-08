@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Search,
   Send,
@@ -43,6 +43,14 @@ const byTimeAsc = (a: RawMessage, b: RawMessage) => {
   if (isNaN(tA)) return 1;
   if (isNaN(tB)) return -1;
   return tA - tB;
+};
+
+const byTimeDesc = (a: RawMessage, b: RawMessage) => {
+  const tA = new Date(a.timestamp).getTime();
+  const tB = new Date(b.timestamp).getTime();
+  if (isNaN(tA)) return 1;
+  if (isNaN(tB)) return -1;
+  return tB - tA;
 };
 
 // function getMessageGroupLabel(dateStr: string) {
@@ -189,38 +197,77 @@ export default function Messages() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const visits = await VisitService.getPatientVisits();
-        const promises = visits.map(async (v) => {
-          const mId = v.master_id || v.id;
-          const raw = await MessageService.getAllMessages(mId);
-          return {
-            id: v.id,
-            masterId: mId,
-            label: v.visit_type || `Visit ${v.id}`,
-            messages: raw,
-          } as Conversation;
+  const loadConversations = useCallback(async () => {
+    try {
+      const visits = await VisitService.getPatientVisits();
+      const promises = visits.map(async (v) => {
+        const mId = v.master_id || v.id;
+        const raw = await MessageService.getAllMessages(mId);
+        return {
+          id: v.id,
+          masterId: mId,
+          label: v.visit_type || `Visit ${v.id}`,
+          messages: raw,
+        } as Conversation;
+      });
+      const results = await Promise.all(promises);
+      const nextConversations = results
+        .filter((c) => c != null)
+        .sort((a, b) => {
+          const aLatest = (a.messages || []).slice().sort(byTimeDesc)[0];
+          const bLatest = (b.messages || []).slice().sort(byTimeDesc)[0];
+          const aTime = aLatest ? new Date(aLatest.timestamp).getTime() : 0;
+          const bTime = bLatest ? new Date(bLatest.timestamp).getTime() : 0;
+          return bTime - aTime;
         });
-        const results = await Promise.all(promises);
-        const filteredResults = results.filter((c) => c != null);
-        console.log("MESSAGES_DEBUG: Conversations loaded:", filteredResults.length);
-        filteredResults.forEach(c => {
-          console.log(`MESSAGES_DEBUG: Chat ${c.id} has ${c.messages?.length || 0} messages`);
-        });
-        setConversations(filteredResults);
-        
-        // Auto-select first conversation if none selected
-        if (filteredResults.length > 0 && !selectedId) {
-          const firstId = filteredResults[0]?.id;
-          if (firstId) setSelectedId(firstId);
-        }
-      } catch (err) {
-        console.error("Failed to init messages", err);
-      }
-    })();
+
+      setConversations(nextConversations);
+      setSelectedId((prevSelected) => {
+        if (!nextConversations.length) return null;
+        if (!prevSelected) return nextConversations[0].id;
+        const stillExists = nextConversations.some((c) => c.id === prevSelected);
+        return stillExists ? prevSelected : nextConversations[0].id;
+      });
+    } catch (err) {
+      console.error("Failed to load messages", err);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadConversations();
+    const id = window.setInterval(() => void loadConversations(), 10000);
+    const onFocus = () => void loadConversations();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [loadConversations]);
+
+  // Auto-mark inbound messages as read when a conversation is selected
+  useEffect(() => {
+    if (!selectedId) return;
+    const chat = conversations.find(c => c.id === selectedId);
+    if (!chat) return;
+    const unreadInbound = chat.messages.filter(m => !m.readByPatient && isInboundForPatient(m));
+    if (unreadInbound.length === 0) return;
+
+    // Mark each unread message as read on the backend
+    unreadInbound.forEach(m => {
+      MessageService.markAsReadByPatient(m.id).catch(() => undefined);
+    });
+
+    // Update local state so blue dot disappears
+    setConversations(prev =>
+      prev.map(c =>
+        c.id === selectedId
+          ? { ...c, messages: c.messages.map(m => isInboundForPatient(m) ? { ...m, readByPatient: true } : m) }
+          : c
+      )
+    );
+  }, [selectedId, conversations.length]);
 
   useEffect(() => {
     // If selected chat gets updated, scroll to bottom
@@ -321,6 +368,7 @@ export default function Messages() {
       setComposeText("");
       setAttachedFiles([]);
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 40);
+      void loadConversations();
     } finally {
       setUploading(false);
     }
@@ -352,7 +400,7 @@ export default function Messages() {
         </div>
 
         {filtered.map(c => {
-          const lastMsg = c.messages?.[0]; // newest is first
+          const lastMsg = (c.messages || []).slice().sort(byTimeDesc)[0];
           const avText = c.label.substring(0, 2).toUpperCase();
           const pType = c.label.toUpperCase(); // Group by Treatment Type
           const isUnread = c.messages?.some(m => !m.readByPatient && isInboundForPatient(m));
@@ -361,14 +409,14 @@ export default function Messages() {
             <div key={c.id}>
               <div className="km-msg-group-label" style={{ padding: "16px 16px 8px", fontSize: '10px', color: 'var(--km-tm)' }}>{pType}</div>
               <div 
-                className={`km-mthread ${selectedId === c.id ? "msg-active" : ""}`}
+                className={`km-mthread ${selectedId === c.id ? "msg-active" : ""} ${isUnread ? "km-mthread-unread" : ""}`}
                 onClick={() => setSelectedId(c.id)}
-                style={{ position: 'relative' }}
+                style={{ position: 'relative', background: isUnread && selectedId !== c.id ? 'var(--km-acp)' : undefined }}
               >
-                <div className="km-mavt" style={{ background: 'var(--km-s2)', color: 'var(--km-gr)', fontWeight: 600 }}>{avText}</div>
+                <div className="km-mavt" style={{ background: isUnread ? 'var(--km-ac)' : 'var(--km-s2)', color: isUnread ? '#fff' : 'var(--km-gr)', fontWeight: 600 }}>{avText}</div>
                 <div className="km-mbody">
-                  <div className="km-mfrom" style={{ fontSize: '13px', fontWeight: 600 }}>{c.label} · {c.masterId.substring(0, 8)}</div>
-                  <div className="km-mprev" style={{ fontSize: '11px', color: 'var(--km-tm)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div className="km-mfrom" style={{ fontSize: '13px', fontWeight: isUnread ? 700 : 500, color: isUnread ? 'var(--km-t)' : 'var(--km-tm)' }}>{c.label} · {c.masterId.substring(0, 8)}</div>
+                  <div className="km-mprev" style={{ fontSize: '11px', color: isUnread ? 'var(--km-t)' : 'var(--km-tm)', fontWeight: isUnread ? 500 : 400, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {lastMsg ? lastMsg.content : "No messages yet"}
                   </div>
                 </div>

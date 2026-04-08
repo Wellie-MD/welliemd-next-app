@@ -44,7 +44,7 @@ const DashboardLayout: React.FC = () => {
           isMobile={isMobile}
         />
 
-        <div style={{ display: "flex", minHeight: "calc(100vh - 60px)" }}>
+        <div style={{ display: "flex", minHeight: "calc(100vh - 60px)", paddingTop: 60 }}>
           <Sidebar
             isMobile={isMobile}
             isMobileOpen={isMobileSidebarOpen}

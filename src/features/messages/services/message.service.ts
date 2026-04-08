@@ -11,6 +11,7 @@ export interface RawMessage {
   readByPatient?: boolean;
   masterId: string;
   senderName?: string;
+  isFromDoctor?: boolean;
 
   // From BE
   senderType?: "patient" | "doctor" | "support" | "super_support" | "beluga_support" | "unknown";
@@ -48,6 +49,7 @@ export const MessageService = {
         readByPatient: m.readByPatient ?? m.read_by_patient,
         masterId: m.master_id ?? m.masterId,
         senderName: m.sender_name ?? m.senderName,
+        isFromDoctor: m.isFromDoctor ?? m.is_from_doctor,
         senderType: m.senderType,
         side: m.side,
         message_type: msgType,

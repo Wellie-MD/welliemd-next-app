@@ -1,19 +1,19 @@
 import { useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
-  Home,
+  LayoutDashboard,
   MessageSquare,
   Calendar,
-  FlaskConical,
-  Search,
+  TestTubes,
+  Compass,
   Package,
   CreditCard,
-  BookOpen,
+  Newspaper,
   User,
   HelpCircle,
   LogOut,
   X,
-  Pen,
+  Stethoscope,
   LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/features/auth";
@@ -25,15 +25,15 @@ interface NavigationItem {
 }
 
 const navigationItems: NavigationItem[] = [
-  { icon: Home, label: "Dashboard", path: "/dashboard" },
+  { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
   { icon: MessageSquare, label: "Messages", path: "/dashboard/messages" },
-  { icon: Pen, label: "Treatments", path: "/dashboard/treatments" },
+  { icon: Stethoscope, label: "Treatments", path: "/dashboard/treatments" },
   { icon: Calendar, label: "Visits", path: "/dashboard/appointments" },
-  { icon: FlaskConical, label: "Labs", path: "/dashboard/labs" },
-  { icon: Search, label: "Explore Treatments", path: "/dashboard/explore" },
+  { icon: TestTubes, label: "Labs", path: "/dashboard/labs" },
+  { icon: Compass, label: "Explore Treatments", path: "/dashboard/explore" },
   { icon: Package, label: "Orders", path: "/dashboard/orders" },
   { icon: CreditCard, label: "Billing", path: "/dashboard/settings/payment-methods" },
-  { icon: BookOpen, label: "Resources", path: "/dashboard/blog" },
+  { icon: Newspaper, label: "Resources", path: "/dashboard/blog" },
   { icon: User, label: "Profile", path: "/dashboard/profile" },
   { icon: HelpCircle, label: "Help", path: "/dashboard/help" },
 ];
@@ -59,6 +59,8 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
   const fullName = user
     ? `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Patient"
     : "Patient";
+
+  const patientId = user?.id ? `ID: ${user.id.substring(0, 8)}` : "Patient";
 
   const NavItem = ({ item }: { item: NavigationItem }) => {
     const Icon = item.icon;
@@ -164,7 +166,7 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
             </div>
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "var(--km-t)" }}>{fullName}</div>
-              <div style={{ fontSize: 11, color: "var(--km-tm)" }}>{user?.email || "Patient"}</div>
+              <div style={{ fontSize: 11, color: "var(--km-tm)" }}>{patientId}</div>
             </div>
           </div>
 
@@ -223,7 +225,7 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
           left: 0,
           width: 285,
           height: "100vh",
-          background: "#0d0d0d",
+          background: "var(--km-s1)",
           borderRight: "1px solid var(--km-b)",
           zIndex: 300,
           display: "flex",
@@ -293,7 +295,7 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
           </div>
           <div>
             <div style={{ fontSize: 14, fontWeight: 600, color: "var(--km-t)" }}>{fullName}</div>
-            <div style={{ fontSize: 11, color: "var(--km-tm)", marginTop: 1 }}>{user?.email || "Patient"}</div>
+            <div style={{ fontSize: 11, color: "var(--km-tm)", marginTop: 1 }}>{patientId}</div>
           </div>
         </div>
 

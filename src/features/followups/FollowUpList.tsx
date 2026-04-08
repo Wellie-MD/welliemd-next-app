@@ -61,8 +61,8 @@ export function FollowUpList({ onStartFollowUp }: FollowUpListProps) {
     if (onStartFollowUp) {
       onStartFollowUp(f);
     } else {
-      // route to standalone app wrapper path if needed, e.g. /questionnaire/:id
-      navigate(`/questionnaire/${f.id}`);
+      // Route to the FollowUpRedirectPage which calls the API and redirects
+      navigate(`/follow-up/${f.id}`);
     }
   };
 
@@ -82,6 +82,11 @@ export function FollowUpList({ onStartFollowUp }: FollowUpListProps) {
                 <span className="km-badge km-badge-amber">Pending</span>
               )}
             </div>
+            {f.treatment_type && (
+              <div style={{ fontSize: 11, color: 'var(--km-tm)', marginTop: 2, fontWeight: 500 }}>
+                {f.treatment_type}
+              </div>
+            )}
             <div className="km-qcard-meta">
               <span>Sent {formatDate(f.created_at)}</span>
             </div>
