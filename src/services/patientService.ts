@@ -1,25 +1,40 @@
 import api from '../api/axiosInstance';
 
+const normalizePatientUpdateErrorMessage = (message: string): string => {
+    const normalized = message.trim().toLowerCase();
+    if (
+        normalized === 'this email is already in use.' ||
+        normalized === 'this email is already in use'
+    ) {
+        return 'This email address is already associated with another account.';
+    }
+    return message;
+};
+
 const extractApiErrorMessage = (error: any, fallback: string): string => {
     const data = error?.response?.data;
-    if (!data) return fallback;
+    if (!data) return normalizePatientUpdateErrorMessage(fallback);
 
-    if (typeof data.detail === 'string' && data.detail.trim()) return data.detail;
-    if (typeof data.message === 'string' && data.message.trim()) return data.message;
+    if (typeof data.detail === 'string' && data.detail.trim()) {
+        return normalizePatientUpdateErrorMessage(data.detail);
+    }
+    if (typeof data.message === 'string' && data.message.trim()) {
+        return normalizePatientUpdateErrorMessage(data.message);
+    }
 
     // DRF field-level errors format, e.g. { email: ["This email is already in use."] }
     if (typeof data === 'object') {
         for (const value of Object.values(data)) {
             if (Array.isArray(value) && typeof value[0] === 'string' && value[0].trim()) {
-                return value[0];
+                return normalizePatientUpdateErrorMessage(value[0]);
             }
             if (typeof value === 'string' && value.trim()) {
-                return value;
+                return normalizePatientUpdateErrorMessage(value);
             }
         }
     }
 
-    return fallback;
+    return normalizePatientUpdateErrorMessage(fallback);
 };
 
 export interface Patient {
