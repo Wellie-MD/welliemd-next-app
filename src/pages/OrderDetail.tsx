@@ -554,6 +554,7 @@ export default function OrderDetail() {
           <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
             <div className="px-6 py-4 border-b bg-muted/50 flex justify-between items-center">
               <h3 className="font-semibold text-slate-900 dark:text-white">Product Details</h3>
+              {/*
               <Button
                 size="sm"
                 onClick={handleUpdateOrder}
@@ -561,6 +562,7 @@ export default function OrderDetail() {
               >
                 {updateOrderLoading ? "Updating..." : "Update Order"}
               </Button>
+              */}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -599,9 +601,11 @@ export default function OrderDetail() {
                             <p className="font-medium text-slate-900 dark:text-white">
                               {displayProductName}
                             </p>
+                            {/*
                             <Button variant="outline" size="sm" className="h-6 text-xs px-2 py-0" onClick={() => setShowChangeProductModal(true)}>
                               Change
                             </Button>
+                            */}
                           </div>
                           <p className="text-xs text-slate-500 mt-0.5">
                             {order.prescription_medications?.[0]?.strength
