@@ -1,5 +1,27 @@
 import api from '../api/axiosInstance';
 
+const extractApiErrorMessage = (error: any, fallback: string): string => {
+    const data = error?.response?.data;
+    if (!data) return fallback;
+
+    if (typeof data.detail === 'string' && data.detail.trim()) return data.detail;
+    if (typeof data.message === 'string' && data.message.trim()) return data.message;
+
+    // DRF field-level errors format, e.g. { email: ["This email is already in use."] }
+    if (typeof data === 'object') {
+        for (const value of Object.values(data)) {
+            if (Array.isArray(value) && typeof value[0] === 'string' && value[0].trim()) {
+                return value[0];
+            }
+            if (typeof value === 'string' && value.trim()) {
+                return value;
+            }
+        }
+    }
+
+    return fallback;
+};
+
 export interface Patient {
     id: string;
     email: string;
@@ -115,11 +137,7 @@ export const patientService = {
             return response.data;
         } catch (error: any) {
             console.error(`Failed to update patient ${id}:`, error);
-            throw new Error(
-                error.response?.data?.detail ||
-                error.response?.data?.message ||
-                'Failed to update patient'
-            );
+            throw new Error(extractApiErrorMessage(error, 'Failed to update patient'));
         }
     },
 
