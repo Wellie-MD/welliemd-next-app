@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import {
   Dialog,
   DialogContent,
@@ -50,7 +50,16 @@ export function ChangeProductModal({
   const [isStaging, setIsStaging] = useState(false)
   const { toast } = useToast()
 
+  const currentProductId = order.product ? String(order.product) : ""
   const currentProductName = (order.product_name || "").trim().toLowerCase()
+  const orderTreatment = (order.treatment || "").trim().toLowerCase()
+  const currentProduct =
+    products.find((p) => String(p.id) === currentProductId) ||
+    products.find((p) => p.name.trim().toLowerCase() === currentProductName)
+  const currentTreatment = (currentProduct?.treatment || orderTreatment || "").trim().toLowerCase()
+  const availableProducts = currentTreatment
+    ? products.filter((p) => p.treatment.trim().toLowerCase() === currentTreatment)
+    : products
 
   useEffect(() => {
     if (open) {
@@ -59,16 +68,11 @@ export function ChangeProductModal({
     }
   }, [open])
 
-  useEffect(() => {
-    if (open) {
-      fetchProducts()
-    }
-  }, [open])
-
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
-      const resp: any = await productApi.listProducts({ page_size: 100 })
-      const items = resp.results || resp || []
+      const resp: unknown = await productApi.listProducts({ page_size: 100 })
+      const data = resp as { results?: Product[] } | Product[]
+      const items = Array.isArray(data) ? data : (data.results || [])
       setProducts(Array.isArray(items) ? items : [])
     } catch (err) {
       console.error(err)
@@ -78,19 +82,37 @@ export function ChangeProductModal({
         variant: "destructive",
       })
     }
-  }
-
-  const selectedProduct = products.find((p) => String(p.id) === selectedProductId)
-  const isSameProduct =
-    !!selectedProduct && selectedProduct.name.trim().toLowerCase() === currentProductName
+  }, [toast])
 
   useEffect(() => {
-    if (!open || selectedProductId || products.length === 0) return
-    const current = products.find((p) => p.name.trim().toLowerCase() === currentProductName)
+    if (open) {
+      fetchProducts()
+    }
+  }, [open, fetchProducts])
+
+  const selectedProduct = availableProducts.find((p) => String(p.id) === selectedProductId)
+  const isSameProduct = !!selectedProduct && (
+    (currentProductId && String(selectedProduct.id) === currentProductId) ||
+    selectedProduct.name.trim().toLowerCase() === currentProductName
+  )
+
+  useEffect(() => {
+    if (!open || selectedProductId || availableProducts.length === 0) return
+    const current = availableProducts.find((p) =>
+      (currentProductId && String(p.id) === currentProductId) ||
+      p.name.trim().toLowerCase() === currentProductName
+    )
     if (current) {
       setSelectedProductId(String(current.id))
     }
-  }, [open, selectedProductId, products, currentProductName])
+  }, [open, selectedProductId, availableProducts, currentProductId, currentProductName])
+
+  useEffect(() => {
+    if (!selectedProductId) return
+    if (!availableProducts.some((p) => String(p.id) === selectedProductId)) {
+      setSelectedProductId("")
+    }
+  }, [availableProducts, selectedProductId])
 
   const handleApply = async () => {
     if (!selectedProduct || !order.id) return
@@ -149,13 +171,18 @@ export function ChangeProductModal({
                 <SelectValue placeholder="Select a product" />
               </SelectTrigger>
               <SelectContent>
-                {products.map((p) => (
+                {availableProducts.map((p) => (
                   <SelectItem key={p.id} value={String(p.id)}>
                     {p.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {availableProducts.length === 0 && (
+              <p className="text-xs text-amber-500 mt-1">
+                No products found in the same treatment type for this order.
+              </p>
+            )}
             {isSameProduct && selectedProductId && (
               <p className="text-xs text-amber-500 mt-1">This is the current product.</p>
             )}
@@ -168,7 +195,7 @@ export function ChangeProductModal({
           </Button>
           <Button
             onClick={handleApply}
-            disabled={!selectedProductId || isSameProduct || isStaging}
+            disabled={!selectedProductId || isSameProduct || isStaging || availableProducts.length === 0}
           >
             {isStaging ? "Staging..." : "Stage Edit"}
           </Button>

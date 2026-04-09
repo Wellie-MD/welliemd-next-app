@@ -47,6 +47,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useToast } from "@/hooks/use-toast"
 import { PermissionGate } from "@/components/auth/PermissionGate"
 import { Permissions } from "@/constants/permissions"
@@ -237,7 +238,11 @@ export default function OrderDetail() {
     paymentStatus === "captured" ||
     paymentStatus === "approved" ||
     paymentStatus === "succeeded"
+  const hasLockedPaymentStatus = isAuthorized || isRefundable
+  const canChangeProduct = status === "created" && !hasLockedPaymentStatus
   const canRefundOrVoid = isAuthorized || isRefundable
+  const changeProductTooltip =
+    "Product change is available only while order status is Created and before payment authorization."
 
   const refundReasonOptions = [
     { value: "customer_request", label: "Customer Request" },
@@ -257,6 +262,13 @@ export default function OrderDetail() {
 
   const handleUpdateOrder = async () => {
     if (!order?.id || !pendingProductChange) return
+    if (!canChangeProduct) {
+      toast({
+        title: "Product change is locked once payment is authorized or order is no longer Created.",
+        variant: "destructive",
+      })
+      return
+    }
     try {
       setUpdateOrderLoading(true)
       const updated = await ordersApi.changeProduct(
@@ -554,13 +566,28 @@ export default function OrderDetail() {
           <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
             <div className="px-6 py-4 border-b bg-muted/50 flex justify-between items-center">
               <h3 className="font-semibold text-slate-900 dark:text-white">Product Details</h3>
-              <Button
-                size="sm"
-                onClick={handleUpdateOrder}
-                disabled={!pendingProductChange || updateOrderLoading}
-              >
-                {updateOrderLoading ? "Updating..." : "Update Order"}
-              </Button>
+              {canChangeProduct ? (
+                <Button
+                  size="sm"
+                  onClick={handleUpdateOrder}
+                  disabled={!pendingProductChange || updateOrderLoading}
+                >
+                  {updateOrderLoading ? "Updating..." : "Update Order"}
+                </Button>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex cursor-not-allowed">
+                      <Button size="sm" disabled className="pointer-events-none">
+                        Update Order
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-xs">
+                    {changeProductTooltip}
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -599,9 +626,34 @@ export default function OrderDetail() {
                             <p className="font-medium text-slate-900 dark:text-white">
                               {displayProductName}
                             </p>
-                            <Button variant="outline" size="sm" className="h-6 text-xs px-2 py-0" onClick={() => setShowChangeProductModal(true)}>
-                              Change
-                            </Button>
+                            {canChangeProduct ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 text-xs px-2 py-0"
+                                onClick={() => setShowChangeProductModal(true)}
+                              >
+                                Change
+                              </Button>
+                            ) : (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex cursor-not-allowed">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-6 text-xs px-2 py-0 pointer-events-none"
+                                      disabled
+                                    >
+                                      Change
+                                    </Button>
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs text-xs">
+                                  {changeProductTooltip}
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                           </div>
                           <p className="text-xs text-slate-500 mt-0.5">
                             {order.prescription_medications?.[0]?.strength

@@ -62,6 +62,7 @@ export interface PrescriptionMedication {
 
 export interface Order {
   id: string
+  product?: number | string | null
   display_id?: string
   order_id?: string | null
   coupon_code?: string | null
@@ -100,6 +101,7 @@ export interface Order {
   // Detail page: from PrescriptionEvent / Visit
   product_name?: string | null
   treatment_type?: string | null
+  treatment?: string | null
   doctor_name?: string | null
   prescription_medications?: PrescriptionMedication[]
   // Shipping address (patient address)
