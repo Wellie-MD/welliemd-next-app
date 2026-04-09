@@ -60,17 +60,19 @@ export function Header() {
 
     const fetchAll = async () => {
       try {
-        const { data } = await api.get("/admin/dashboard/notifications/", {
-          params: { unread_only: false, limit: 20 },
-        })
-        const rows = Array.isArray(data) ? data : []
+        const [listRes, countRes] = await Promise.all([
+          api.get("/admin/dashboard/notifications/", {
+            params: { unread_only: true, limit: 100 },
+          }),
+          api.get("/admin/dashboard/notifications/unread-count/"),
+        ])
+        const rows = Array.isArray(listRes.data) ? listRes.data : []
         if (cancelled) return
         const merged = rows
           .map((r: any) => {
             const clientId = r.source_client_id || ""
             const clientName =
               r.client_name || clients.find((c) => c.id === clientId)?.name || "Unknown Client"
-            const compositeId = `${clientId}:${String(r.id)}`
             return {
               id: String(r.id),
               title: r.title || "New notification",
@@ -79,14 +81,14 @@ export function Header() {
               client_id: clientId,
               client_name: clientName,
               created_at: r.created_at || "",
-              is_read: seenIds.has(compositeId),
+              is_read: false,
             }
           })
-          .filter((n) => !n.is_read)
           .sort((a, b) => {
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         })
-        setItems(merged.slice(0, 20))
+        setItems(merged.slice(0, 100))
+        setServerUnreadCount(Number(countRes.data?.unread_count || 0))
       } catch {
         if (!cancelled) setItems([])
       }
@@ -100,7 +102,59 @@ export function Header() {
     }
   }, [clients, seenIds])
 
-  const unreadCount = useMemo(() => items.filter((i) => !i.is_read).length, [items])
+  useEffect(() => {
+    const onSeen = (event: Event) => {
+      const custom = event as CustomEvent<{ compositeIds?: string[] }>;
+      const incoming = custom.detail?.compositeIds || [];
+      if (!incoming.length) return;
+
+      setSeenIds((prev) => {
+        const next = new Set(prev);
+        incoming.forEach((id) => next.add(id));
+        try {
+          localStorage.setItem("admin_seen_message_notifications", JSON.stringify(Array.from(next)));
+        } catch {
+          // non-blocking
+        }
+        return next;
+      });
+
+      setItems((prev) =>
+        prev.filter((it) => !incoming.includes(`${it.client_id}:${it.id}`))
+      );
+    };
+
+    window.addEventListener("admin:notifications-seen", onSeen as EventListener);
+    return () => {
+      window.removeEventListener("admin:notifications-seen", onSeen as EventListener);
+    };
+  }, []);
+
+  const [serverUnreadCount, setServerUnreadCount] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    const loadCount = async () => {
+      try {
+        const { data } = await api.get("/admin/dashboard/notifications/unread-count/")
+        if (cancelled) return
+        setServerUnreadCount(Number(data?.unread_count || 0))
+      } catch {
+        if (!cancelled) setServerUnreadCount(0)
+      }
+    }
+    void loadCount()
+    const id = window.setInterval(loadCount, 15000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [])
+
+  const unreadCount = useMemo(() => {
+    const localUnread = items.filter((i) => !i.is_read).length
+    return Math.max(localUnread, serverUnreadCount)
+  }, [items, serverUnreadCount])
 
   const handleNotificationClick = async (item: {
     id: string
@@ -120,6 +174,7 @@ export function Header() {
       return next
     })
     setItems((prev) => prev.filter((it) => !(it.client_id === item.client_id && it.id === item.id)))
+    setServerUnreadCount((c) => Math.max(0, c - 1))
     try {
       await api.post(`/admin/dashboard/notifications/${item.id}/read/`, {
         client_id: item.client_id,
@@ -137,6 +192,7 @@ export function Header() {
       // non-blocking
     }
     setItems([])
+    setServerUnreadCount(0)
     setSeenIds((prev) => {
       const next = new Set(prev)
       for (const n of items) next.add(`${n.client_id}:${n.id}`)
@@ -226,8 +282,8 @@ export function Header() {
                         {(item.title || item.client_name || "N").slice(0, 1).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="text-xs font-semibold truncate">{item.title}</div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="text-xs font-semibold leading-5 line-clamp-2 break-words">{item.title}</div>
                           <div className="text-[11px] text-slate-400">
                             {item.created_at
                               ? `${formatDistanceToNowStrict(new Date(item.created_at), { addSuffix: true })}`

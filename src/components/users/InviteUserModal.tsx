@@ -132,7 +132,14 @@ export function InviteUserModal({
                 <SelectContent>
                   {roles.map((role) => (
                     <SelectItem key={role.id} value={role.id}>
-                      {role.name}
+                      <div className="flex flex-col gap-1 py-1">
+                        <div className="font-medium">{role.name}</div>
+                        {role.description && (
+                          <div className="text-xs text-muted-foreground max-w-[300px] whitespace-normal">
+                            {role.description}
+                          </div>
+                        )}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>

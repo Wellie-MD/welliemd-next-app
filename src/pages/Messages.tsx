@@ -25,7 +25,12 @@ import { groupMessages, type Conversation } from "@/utils/groupMessages";
 import { useClients, type Client } from "@/hooks/useClients";
 
 import { isToday, isYesterday, isThisWeek, format, formatISO } from "date-fns";
-import { messageService, uploadToAdminS3, type NewAttachment } from "@/services/messageService";
+import {
+  messageService,
+  uploadToAdminS3,
+  type NewAttachment,
+  markAdminNotificationsReadForConversation,
+} from "@/services/messageService";
 import { useSearchParams } from "react-router-dom";
 
 function getMessageGroupLabel(dateStr: string) {
@@ -81,7 +86,7 @@ const DocIcon = ({ ext, mime }: { ext: string; mime?: string | null }) => {
   else if (["js", "ts", "py", "java", "c", "cpp", "json", "yml", "yaml", "html", "css"].includes(ext)) Icon = FileCode;
 
   return (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-800">
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-200">
       <Icon className="h-5 w-5" />
     </div>
   );
@@ -101,27 +106,27 @@ function DocumentBubble({
   const ext = getExt(derivedName);
 
   return (
-    <div className="w-[260px] lg:w-[320px] rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
+    <div className="w-[260px] lg:w-[320px] rounded-lg bg-white dark:bg-slate-900 shadow-sm ring-1 ring-gray-200 dark:ring-slate-700">
       <div className="p-3 flex items-start gap-3">
         <DocIcon ext={ext} mime={mime} />
         <div className="min-w-0">
           {/* filename/title intentionally omitted */}
           <div className="mt-1 flex items-center gap-2">
             {ext && (
-              <span className="inline-flex items-center rounded-full bg-gray-50 text-gray-700 px-2 py-0.5 text-[10px] uppercase tracking-wider">
+              <span className="inline-flex items-center rounded-full bg-gray-50 text-gray-700 dark:bg-slate-800 dark:text-slate-300 px-2 py-0.5 text-[10px] uppercase tracking-wider">
                 {ext}
               </span>
             )}
-            {mime && <span className="text-[11px] text-gray-500 truncate">{mime}</span>}
+            {mime && <span className="text-[11px] text-gray-500 dark:text-slate-400 truncate">{mime}</span>}
           </div>
         </div>
       </div>
-      <div className="flex items-center justify-center border-t px-3 py-2">
+      <div className="flex items-center justify-center border-t border-gray-200 dark:border-slate-700 px-3 py-2">
         <a
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 hover:text-gray-900"
+          className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100"
           title="Open in new tab"
         >
           <ExternalLink className="h-3.5 w-3.5" />
@@ -145,6 +150,7 @@ export default function Messages() {
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const sendInFlightRef = useRef(false);
 
   // Attachments (compose)
   const [files, setFiles] = useState<File[]>([]);
@@ -220,6 +226,38 @@ export default function Messages() {
     setSearchParams(next, { replace: true });
   }, [conversations, searchParams, setSearchParams]);
 
+  useEffect(() => {
+    if (!selectedClient?.id || !activeConversation?.masterId) return;
+    let cancelled = false;
+
+    (async () => {
+      const compositeIds = await markAdminNotificationsReadForConversation(
+        selectedClient.id,
+        activeConversation.masterId
+      );
+      if (cancelled || compositeIds.length === 0) return;
+
+      try {
+        const raw = localStorage.getItem("admin_seen_message_notifications");
+        const existing = raw ? (JSON.parse(raw) as string[]) : [];
+        const merged = Array.from(new Set([...existing, ...compositeIds]));
+        localStorage.setItem("admin_seen_message_notifications", JSON.stringify(merged));
+      } catch {
+        // no-op
+      }
+
+      window.dispatchEvent(
+        new CustomEvent("admin:notifications-seen", {
+          detail: { compositeIds },
+        })
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClient?.id, activeConversation?.id, activeConversation?.masterId, activeConversation?.messages]);
+
   // ===== Smart autoscroll =====
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const shouldStickRef = useRef(true);
@@ -260,9 +298,11 @@ export default function Messages() {
 
 
 async function handleSend() {
+  if (sendInFlightRef.current || sending) return;
   if (!activeConversation || (!newMessage.trim() && files.length === 0)) return;
 
   try {
+    sendInFlightRef.current = true;
     setSending(true);
     shouldStickRef.current = true;
 
@@ -379,6 +419,7 @@ async function handleSend() {
     console.error("Failed to send message", err);
   } finally {
     setSending(false);
+    sendInFlightRef.current = false;
   }
 }
 

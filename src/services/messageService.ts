@@ -125,6 +125,8 @@ export async function uploadToAdminS3(files: File[]): Promise<NewAttachment[]> {
         url,
         // support both snake_case and camelCase keys
         file_name:
+          it?.original_file_name ??
+          it?.originalFileName ??
           it?.file_name ??
           it?.fileName ??
           it?.name ??
@@ -232,4 +234,45 @@ export async function sendMessageWithFiles(payload: {
     headers: { "Content-Type": "multipart/form-data" },
   });
   return data;
+}
+
+export async function markAdminNotificationsReadForConversation(
+  clientId: string,
+  masterId: string
+): Promise<string[]> {
+  if (!clientId || !masterId) return [];
+
+  try {
+    const { data } = await api.get<any[]>("/admin/dashboard/notifications/", {
+      params: { unread_only: false, limit: 200 },
+    });
+    const rows = Array.isArray(data) ? data : [];
+    const normalizedMaster = String(masterId || "");
+    const targets = rows.filter(
+      (row: any) =>
+        String(row.source_client_id || "") === String(clientId) &&
+        String(
+          row.master_id ||
+          row.data?.master_id ||
+          row.payload?.master_id ||
+          ""
+        ) === normalizedMaster
+    );
+    if (!targets.length) return [];
+
+    const results = await Promise.all(
+      targets.map((row: any) =>
+        api
+          .post(`/admin/dashboard/notifications/${row.id}/read/`, { client_id: clientId })
+          .then(() => ({ ok: true, id: row.id }))
+          .catch(() => ({ ok: false, id: row.id }))
+      )
+    );
+
+    return results
+      .filter((r) => r.ok)
+      .map((r) => `${clientId}:${r.id}`);
+  } catch {
+    return [];
+  }
 }
