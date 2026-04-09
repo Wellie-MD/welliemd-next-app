@@ -1,11 +1,10 @@
 /**
  * Notifications Dropdown Component
  * 
- * Shows real-time notifications received via WebSocket.
- * Notifications persist in localStorage via NotificationsContext.
+ * Shows unread notifications (message + inbox) for patient users.
  */
 
-import { Check, Trash2, Package } from "lucide-react";
+import { CheckCircle2, Package } from "lucide-react";
 import { useDropdown } from "@/contexts/DropdownContext";
 import { useNavigate } from "react-router-dom";
 import { useNotifications } from "@/contexts/NotificationsContext";
@@ -32,7 +31,7 @@ function formatTimeAgo(timestamp: string): string {
 export const NotificationsDropdown = () => {
   const { isOpen, toggleDropdown } = useDropdown();
   const navigate = useNavigate();
-  const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll, refresh } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, refresh } = useNotifications();
 
   const handleNotificationClick = (notification: { id: string; type: string; data?: Record<string, unknown> }) => {
     markAsRead(notification.id);
@@ -74,17 +73,26 @@ export const NotificationsDropdown = () => {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="km-notif-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            Notifications {unreadCount > 0 && <span style={{ color: "var(--km-ac)" }}>({unreadCount})</span>}
-          </div>
-          {unreadCount > 0 && (
-            <div 
-              style={{ fontSize: 11, color: "var(--km-ac)", cursor: "pointer", display: "flex", alignItems: "center", gap: 3, fontWeight: 600 }}
-              onClick={markAllAsRead}
-            >
-              <Check size={11} strokeWidth={3} /> Mark all read
-            </div>
-          )}
+          <div>Notifications</div>
+          <button
+            type="button"
+            onClick={markAllAsRead}
+            disabled={notifications.length === 0}
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: notifications.length === 0 ? "var(--km-tm)" : "var(--km-ac)",
+              cursor: notifications.length === 0 ? "not-allowed" : "pointer",
+              background: "transparent",
+              border: "none",
+              padding: 0
+            }}
+          >
+            Mark all read
+          </button>
+        </div>
+        <div style={{ padding: "8px 14px", borderBottom: "1px solid var(--km-b)", fontSize: 12, fontWeight: 600, color: "var(--km-ac)" }}>
+          Activity
         </div>
 
         {notifications.length === 0 ? (
@@ -96,7 +104,7 @@ export const NotificationsDropdown = () => {
             <div className="km-notif-empty-sub">You'll receive updates about your orders here</div>
           </div>
         ) : (
-          <div style={{ maxHeight: 380, overflowY: "auto" }}>
+          <div style={{ maxHeight: 360, overflowY: "auto" }}>
             {notifications.map((notification) => (
               <div
                 key={notification.id}
@@ -146,36 +154,37 @@ export const NotificationsDropdown = () => {
                     {notification.message}
                   </div>
                 </div>
+                <div style={{ paddingTop: 2 }}>
+                  <CheckCircle2 size={16} color="var(--km-ac)" />
+                </div>
               </div>
             ))}
           </div>
         )}
 
-        {notifications.length > 0 && (
-          <div style={{ padding: 10, borderTop: "1px solid var(--km-b)", background: "var(--km-s1)" }}>
-            <div 
-              onClick={clearAll}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 5,
-                padding: "8px",
-                fontSize: 12,
-                fontWeight: 600,
-                color: "var(--km-re)",
-                cursor: "pointer",
-                borderRadius: "var(--km-rs)",
-                transition: "background 0.2s"
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = "var(--km-rep)"}
-              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-            >
-              <Trash2 size={12} strokeWidth={2.5} />
-              Clear all
-            </div>
-          </div>
-        )}
+        <div style={{ padding: 10, borderTop: "1px solid var(--km-b)", background: "var(--km-s1)" }}>
+          <button
+            type="button"
+            onClick={() => {
+              navigate('/dashboard/messages');
+              toggleDropdown(null);
+            }}
+            style={{
+              width: "100%",
+              textAlign: "center",
+              border: "1px solid var(--km-b)",
+              borderRadius: "var(--km-rs)",
+              padding: "8px",
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--km-t)",
+              background: "transparent",
+              cursor: "pointer",
+            }}
+          >
+            Open Messages
+          </button>
+        </div>
       </div>
     </>
   );

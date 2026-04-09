@@ -99,9 +99,20 @@ export const MessageService = {
   async uploadAttachment(file: File): Promise<{ url: string; fileName: string; mimeType: string; path: string }> {
     const form = new FormData();
     form.append("file", file);
-    const res = await apiClient.post(`/storage/upload/`, form, {
+    const res = await apiClient.post<{
+      url: string;
+      fileName: string;
+      mimeType: string;
+      path: string;
+      originalFileName?: string;
+      original_file_name?: string;
+    }>(`/storage/upload/`, form, {
       headers: { "Content-Type": "multipart/form-data" },
     });
-    return res.data;
+    const data = res.data;
+    return {
+      ...data,
+      fileName: data.originalFileName || data.original_file_name || file.name,
+    };
   },
 };

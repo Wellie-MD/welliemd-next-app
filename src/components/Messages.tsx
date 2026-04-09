@@ -36,6 +36,20 @@ interface Conversation {
   messages: RawMessage[]; // newest-first in state
 }
 
+const formatConversationLabel = (visitType?: string, masterId?: string) => {
+  const cleanedVisitType = (visitType || "").trim();
+  if (cleanedVisitType) return cleanedVisitType;
+  const shortMaster = (masterId || "").slice(0, 8);
+  return shortMaster ? `Visit ${shortMaster}` : "Visit";
+};
+
+const formatThreadPreview = (msg?: RawMessage) => {
+  if (!msg) return "No messages yet";
+  if (msg.is_media) return msg.file_name?.trim() || "Attachment";
+  const content = (msg.content || "").trim();
+  return content || "Message";
+};
+
 // --------------- Helpers ----------------
 const byTimeAsc = (a: RawMessage, b: RawMessage) => {
   const tA = new Date(a.timestamp).getTime();
@@ -193,6 +207,7 @@ export default function Messages() {
   // attachments (multi-select)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const sendInFlightRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -202,11 +217,16 @@ export default function Messages() {
       const visits = await VisitService.getPatientVisits();
       const promises = visits.map(async (v) => {
         const mId = v.master_id || v.id;
-        const raw = await MessageService.getAllMessages(mId);
+        let raw: RawMessage[] = [];
+        try {
+          raw = await MessageService.getAllMessages(mId);
+        } catch (error) {
+          console.warn("Failed loading messages for master id", mId, error);
+        }
         return {
           id: v.id,
           masterId: mId,
-          label: v.visit_type || `Visit ${v.id}`,
+          label: formatConversationLabel(v.visit_type, mId),
           messages: raw,
         } as Conversation;
       });
@@ -267,7 +287,10 @@ export default function Messages() {
           : c
       )
     );
-  }, [selectedId, conversations.length]);
+
+    // Keep bell dropdown synchronized with chat-read state immediately.
+    window.dispatchEvent(new CustomEvent("patient:notifications-refetch"));
+  }, [selectedId, conversations]);
 
   useEffect(() => {
     // If selected chat gets updated, scroll to bottom
@@ -277,6 +300,7 @@ export default function Messages() {
   }, [selectedId, conversations]);
 
   const handleSend = async () => {
+    if (sendInFlightRef.current || uploading) return;
     const selected = conversations.find(c => c.id === selectedId);
     if (!selected) return;
 
@@ -284,6 +308,7 @@ export default function Messages() {
     const hasFiles = attachedFiles.length > 0;
     if (!body && !hasFiles) return;
 
+    sendInFlightRef.current = true;
     setUploading(true);
     try {
       const uploads = await Promise.all(
@@ -371,6 +396,7 @@ export default function Messages() {
       void loadConversations();
     } finally {
       setUploading(false);
+      sendInFlightRef.current = false;
     }
   };
 
@@ -408,8 +434,8 @@ export default function Messages() {
           return (
             <div key={c.id}>
               <div className="km-msg-group-label" style={{ padding: "16px 16px 8px", fontSize: '10px', color: 'var(--km-tm)' }}>{pType}</div>
-              <div 
-                className={`km-mthread ${selectedId === c.id ? "msg-active" : ""} ${isUnread ? "km-mthread-unread" : ""}`}
+              <div
+                className={`km-mthread ${selectedId === c.id ? "msg-active" : ""} ${isUnread ? "unread" : ""}`}
                 onClick={() => setSelectedId(c.id)}
                 style={{ position: 'relative', background: isUnread && selectedId !== c.id ? 'var(--km-acp)' : undefined }}
               >
@@ -417,7 +443,7 @@ export default function Messages() {
                 <div className="km-mbody">
                   <div className="km-mfrom" style={{ fontSize: '13px', fontWeight: isUnread ? 700 : 500, color: isUnread ? 'var(--km-t)' : 'var(--km-tm)' }}>{c.label} · {c.masterId.substring(0, 8)}</div>
                   <div className="km-mprev" style={{ fontSize: '11px', color: isUnread ? 'var(--km-t)' : 'var(--km-tm)', fontWeight: isUnread ? 500 : 400, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {lastMsg ? lastMsg.content : "No messages yet"}
+                    {formatThreadPreview(lastMsg)}
                   </div>
                 </div>
                 <div style={{ textAlign: "right", flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>

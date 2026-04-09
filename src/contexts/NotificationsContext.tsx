@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { apiClient } from '@/shared/api/client';
 import { VisitService } from '@/features/visits/services/visit.service';
 import { MessageService, type RawMessage } from '@/features/messages/services/message.service';
@@ -20,7 +20,6 @@ interface NotificationsContextType {
   addNotification: (notification: Omit<Notification, 'id' | 'read'>) => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
-  clearAll: () => void;
   refresh: () => Promise<void>;
 }
 
@@ -54,6 +53,16 @@ type MessageNotification = {
   priority: 'normal';
 };
 
+function notificationIdentity(n: Notification): string {
+  const data = n.data || {};
+  const masterId = typeof data.master_id === "string" ? data.master_id : "";
+  const messageId = data.message_id as number | string | null | undefined;
+  if (masterId && messageId !== null && messageId !== undefined && String(messageId).trim() !== "") {
+    return `msg:${masterId}:${String(messageId)}`;
+  }
+  return `notif:${n.id}`;
+}
+
 function isInboundFor(type: 'doctor' | 'support', msg: RawMessage) {
   if (type === 'doctor') return msg.isFromDoctor === true && (msg.chatType === 'doctor' || !msg.chatType);
   return msg.isFromDoctor === true && (msg.chatType === 'support' || msg.chatType === 'super_support');
@@ -65,7 +74,6 @@ function byNewest(a: RawMessage, b: RawMessage) {
 
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const dismissedIds = useRef<Set<string>>(new Set());
 
   const mapInboxToNotification = useCallback((item: InboxItem): Notification => {
     return {
@@ -90,7 +98,11 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         params: { limit: 20 },
       });
       const rows = Array.isArray(res.data) ? res.data : [];
-      mappedInbox = rows.map(mapInboxToNotification);
+      // Message notifications are resolved from message endpoints (doctor/support)
+      // so read state always matches chat. Keep non-message inbox items here.
+      mappedInbox = rows
+        .filter((item) => item.message_id == null)
+        .map(mapInboxToNotification);
     } catch (error) {
       console.error('Failed to load notifications from API:', error);
     }
@@ -116,10 +128,11 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
           (m) => isInboundFor('doctor', m) && (m.readByPatient ?? m.read) === false
         );
         if (latestDocInboundUnread) {
+          const sender = (latestDocInboundUnread.senderName || '').trim() || 'Doctor';
           collected.push({
             id: `msg:${masterId}:${latestDocInboundUnread.id}`,
             type: 'doctor_message',
-            title: `New message from Doctor`,
+            title: `New message from ${sender}`,
             message: latestDocInboundUnread.content,
             data: {
               master_id: masterId,
@@ -137,10 +150,11 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
           (m) => m.chatType === 'super_support' && m.isFromDoctor === true && (m.readByPatient ?? m.read) === false
         );
         if (latestSuperUnread) {
+          const sender = (latestSuperUnread.senderName || '').trim() || 'Support';
           collected.push({
             id: `msg:${masterId}:${latestSuperUnread.id}`,
             type: 'super_support_message',
-            title: `New message from Support`,
+            title: `New message from ${sender}`,
             message: latestSuperUnread.content,
             data: {
               master_id: masterId,
@@ -157,10 +171,11 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
             (m) => isInboundFor('support', m) && (m.readByPatient ?? m.read) === false
           );
           if (latestSupportInboundUnread) {
+            const sender = (latestSupportInboundUnread.senderName || '').trim() || 'Support';
             collected.push({
               id: `msg:${masterId}:${latestSupportInboundUnread.id}`,
               type: 'support_message',
-              title: `New message from Support`,
+              title: `New message from ${sender}`,
               message: latestSupportInboundUnread.content,
               data: {
                 master_id: masterId,
@@ -182,12 +197,13 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     }
 
     const deduped = new Map<string, Notification>();
-    [...mappedInbox, ...mappedMessages].forEach((n) => {
-      deduped.set(n.id, n as Notification);
+    [...mappedMessages, ...mappedInbox].forEach((n) => {
+      const identity = notificationIdentity(n as Notification);
+      deduped.set(identity, n as Notification);
     });
 
     const combined = Array.from(deduped.values())
-      .filter((n) => !dismissedIds.current.has(n.id))
+      .filter((n) => !n.read)
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
     setNotifications(combined);
@@ -207,14 +223,17 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     }, 30000);
 
     const onFocus = () => void load();
+    const onRefetch = () => void load();
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onFocus);
+    window.addEventListener('patient:notifications-refetch', onRefetch);
 
     return () => {
       mounted = false;
       window.clearInterval(id);
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onFocus);
+      window.removeEventListener('patient:notifications-refetch', onRefetch);
     };
   }, [refresh]);
 
@@ -230,7 +249,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
 
   const markAsRead = useCallback((id: string) => {
     const target = notifications.find((n) => n.id === id);
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    setNotifications(prev => prev.filter(n => n.id !== id));
 
     if (target?.data?.source === 'message' && target.data?.message_id != null) {
       void MessageService.markAsReadByPatient(target.data.message_id as string | number).catch(() => undefined);
@@ -244,20 +263,12 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       .filter((n) => !n.read && n.data?.source === 'message' && n.data?.message_id != null)
       .map((n) => n.data.message_id as string | number);
 
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setNotifications([]);
     unreadMessageIds.forEach((messageId) => {
       void MessageService.markAsReadByPatient(messageId).catch(() => undefined);
     });
     void apiClient.post('/notifications/read-all/').catch(() => undefined);
   }, [notifications]);
-
-  const clearAll = useCallback(() => {
-    setNotifications(prev => {
-      prev.forEach(n => dismissedIds.current.add(n.id));
-      return [];
-    });
-    void apiClient.post('/notifications/read-all/').catch(() => undefined);
-  }, []);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -269,7 +280,6 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         addNotification,
         markAsRead,
         markAllAsRead,
-        clearAll,
         refresh,
       }}
     >
