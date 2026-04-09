@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
+import type { AxiosError } from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Save, Loader2, Info, AlertCircle, Eye, EyeOff, CreditCard } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Info, AlertCircle, Eye, EyeOff, CreditCard, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,6 +57,28 @@ const FieldInfo = ({ content }: { content: string }) => (
   </TooltipProvider>
 );
 
+const generateSecurePassword = (length = 20) => {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
+  const cryptoObj = globalThis.crypto;
+  if (!cryptoObj?.getRandomValues) {
+    return Array.from({ length }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
+  }
+  const bytes = new Uint32Array(length);
+  cryptoObj.getRandomValues(bytes);
+  return Array.from(bytes, (value) => alphabet[value % alphabet.length]).join("");
+};
+
+type ClientCreationDetails = {
+  clientId: string;
+  adminEmail: string;
+  adminPanelDomain: string;
+  apiEndpoint: string;
+  questionnaireUrl?: string;
+  customDomain?: string;
+  domain?: string;
+  subdomain?: string;
+};
+
 export default function ClientForm() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -66,6 +89,8 @@ export default function ClientForm() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState("");
   const [clientName, setClientName] = useState("");
+  const [createdClientId, setCreatedClientId] = useState<string | null>(null);
+  const [createdClientDetails, setCreatedClientDetails] = useState<ClientCreationDetails | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [hasPaymentMethod, setHasPaymentMethod] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -77,7 +102,7 @@ export default function ClientForm() {
     first_name: "",
     last_name: "",
     phone: "",
-    password: "",
+    password: generateSecurePassword(),
 
     // Client Basic Information
     name: "",
@@ -167,14 +192,6 @@ export default function ClientForm() {
     }
   }, [paymentMethodData]);
 
-  // Auto-generate password when first_name or last_name changes
-  useEffect(() => {
-    if (!isEditMode && formData.first_name && formData.last_name) {
-      const generatedPassword = `${formData.first_name}${formData.last_name}@123`.replace(/\s+/g, '');
-      setFormData((prev) => ({ ...prev, password: generatedPassword }));
-    }
-  }, [formData.first_name, formData.last_name, isEditMode]);
-
   // Populate form with existing data
   useEffect(() => {
     if (existingClient) {
@@ -231,17 +248,28 @@ export default function ClientForm() {
     mutationFn: (data: ClientCreatePayload) => clientApi.create(data),
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["client-lifecycle", response.client.id] });
       setGeneratedPassword(response.deployment_password);
       setClientName(response.client.name);
+      setCreatedClientId(response.client.id);
+      setCreatedClientDetails({
+        clientId: response.client.id,
+        adminEmail: response.user.email,
+        adminPanelDomain: response.client.admin_panel_domain,
+        apiEndpoint: response.client.api_endpoint,
+        questionnaireUrl: response.client.questionnaire_url,
+        customDomain: response.client.custom_domain,
+        domain: response.client.domain,
+        subdomain: response.client.subdomain,
+      });
       setShowPasswordModal(true);
       toast({
         title: "Success",
         description: response.message,
       });
-      navigate("/dashboard/clients");
     },
     onError: (error: unknown) => {
-      const resp = (error as any)?.response?.data || {};
+      const resp = (error as AxiosError<Record<string, unknown>>)?.response?.data || {};
       let message = "Failed to create client";
 
       // Check for field-specific validation errors (e.g., email already exists)
@@ -430,7 +458,7 @@ export default function ClientForm() {
 
   const handlePasswordModalClose = () => {
     setShowPasswordModal(false);
-    navigate("/dashboard/clients");
+    navigate(createdClientId ? `/dashboard/clients/${createdClientId}/lifecycle` : "/dashboard/clients");
   };
 
   if (isEditMode && isLoadingClient) {
@@ -467,19 +495,30 @@ export default function ClientForm() {
             </p>
           </div>
         </div>
-        <Button onClick={handleSubmit} disabled={isLoading}>
-          {isLoading ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              {isEditMode ? "Updating..." : "Creating..."}
-            </>
-          ) : (
-            <>
-              <Save className="h-4 w-4 mr-2" />
-              {isEditMode ? "Update Client" : "Create Client"}
-            </>
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          {isEditMode ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigate(`/dashboard/clients/${id}/lifecycle`)}
+            >
+              View Lifecycle
+            </Button>
+          ) : null}
+          <Button onClick={handleSubmit} disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {isEditMode ? "Updating..." : "Creating..."}
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                {isEditMode ? "Update Client" : "Create Client"}
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Form */}
@@ -551,8 +590,11 @@ export default function ClientForm() {
                             : derivedIframeDomain
                               ? [derivedIframeDomain]
                               : prev.allowed_iframe_domains,
+                          domain: p
+                            ? `${p}.api.welliemd.com`
+                            : prev.domain,
                           api_endpoint: p
-                            ? `https://${p}api.welliemd.com/api/v1/`
+                            ? `https://${p}.api.welliemd.com`
                             : prev.api_endpoint,
                           patient_portal_domain: patientPortalDomainTouched
                             ? prev.patient_portal_domain
@@ -642,7 +684,7 @@ export default function ClientForm() {
                 <CardDescription>
                   {isEditMode
                     ? "Admin user details (cannot be changed)"
-                    : "This user will be created with Admin role and can login to the client portal"}
+                    : "This user will be created as the client's Primary Owner and can log in with the password shown after submission"}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -750,7 +792,7 @@ export default function ClientForm() {
 
                 <div className="space-y-2">
                   <Label htmlFor="password">
-                    Password {!isEditMode && <span className="text-red-500">*</span>}
+                    Password
                   </Label>
                   <div className="relative">
                     <Input
@@ -761,23 +803,38 @@ export default function ClientForm() {
                         setFormData({ ...formData, password: e.target.value.replace(/\s+/g, '') })
                       }
                       placeholder={isEditMode ? "Leave blank to keep current password" : "Password"}
-                      required={!isEditMode}
+                      required={false}
                       disabled={isEditMode}
-                      className={validationErrors.password ? "border-red-500 pr-10" : "pr-10"}
+                      className={validationErrors.password ? "border-red-500 pr-24" : "pr-24"}
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Eye className="h-4 w-4 text-muted-foreground" />
-                      )}
-                    </Button>
+                    <div className="absolute right-0 top-0 flex h-full items-center">
+                      {!isEditMode ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-full px-2 hover:bg-transparent"
+                          onClick={() =>
+                            setFormData((prev) => ({ ...prev, password: generateSecurePassword() }))
+                          }
+                        >
+                          <RefreshCcw className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      ) : null}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                   {validationErrors.password && (
                     <p className="text-xs text-red-500">{validationErrors.password}</p>
@@ -934,7 +991,7 @@ export default function ClientForm() {
                           ? `https://${p}questionnaire.${baseDomain}`
                           : prev.subdomain,
                         api_endpoint: p
-                          ? `https://${p}api.${baseDomain}/api/v1/`
+                          ? `https://${p}api.${baseDomain}`
                           : prev.api_endpoint,
                         patient_portal_domain: p
                           ? `https://${p}patientportal.${baseDomain}`
@@ -1226,12 +1283,15 @@ export default function ClientForm() {
       </form>
 
       {/* Password Display Modal */}
-      <PasswordDisplayModal
-        open={showPasswordModal}
-        onClose={handlePasswordModalClose}
-        password={generatedPassword}
-        clientName={clientName}
-      />
+      {createdClientDetails ? (
+        <PasswordDisplayModal
+          open={showPasswordModal}
+          onClose={handlePasswordModalClose}
+          password={generatedPassword}
+          clientName={clientName}
+          clientDetails={createdClientDetails}
+        />
+      ) : null}
     </div>
   );
 }

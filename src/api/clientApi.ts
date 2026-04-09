@@ -1,6 +1,91 @@
 // src/api/clientApi.ts
 import axiosInstance from './axiosInstance';
 
+export type LifecycleState =
+  | 'draft'
+  | 'provisioning'
+  | 'ready'
+  | 'repairing'
+  | 'teardown_pending'
+  | 'tearing_down'
+  | 'infra_removed'
+  | 'error';
+
+export type ProvisioningStatus =
+  | 'idle'
+  | 'pending'
+  | 'running'
+  | 'partial_failed'
+  | 'failed'
+  | 'ready';
+
+export type TeardownStatus =
+  | 'idle'
+  | 'previewed'
+  | 'requested'
+  | 'scheduled'
+  | 'running'
+  | 'cancel_requested'
+  | 'cancelled'
+  | 'blocked'
+  | 'failed'
+  | 'completed';
+
+export interface LifecycleStep {
+  id: string;
+  name: string;
+  display_name: string;
+  step_order: number;
+  status: string;
+  is_required: boolean;
+  attempts: number;
+  input_payload: Record<string, unknown>;
+  output_payload: Record<string, unknown>;
+  error_payload: Record<string, unknown>;
+  logs: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LifecycleJob {
+  id: string;
+  operation_type: 'provision' | 'repair' | 'verify' | 'teardown';
+  status: string;
+  requested_by?: Client['user'];
+  task_id?: string | null;
+  current_step_name?: string;
+  request_payload: Record<string, unknown>;
+  summary: Record<string, unknown>;
+  error_payload: Record<string, unknown>;
+  preview_expires_at?: string | null;
+  grace_period_until?: string | null;
+  cancel_requested_at?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  steps: LifecycleStep[];
+}
+
+export interface InfraResource {
+  id: string;
+  provider: string;
+  region: string;
+  resource_type: string;
+  external_id: string;
+  human_label: string;
+  ownership_tags: Record<string, string>;
+  creation_source: string;
+  delete_strategy: string;
+  teardown_status: string;
+  metadata: Record<string, unknown>;
+  deleted_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Client {
   id: string;
   name: string;
@@ -51,6 +136,15 @@ export interface Client {
   b2b_subscription_status?: 'inactive' | 'active' | 'past_due' | 'canceled';
   b2b_cancel_at_period_end?: boolean;
   deployment_password?: string;
+  lifecycle_state?: LifecycleState;
+  provisioning_status?: ProvisioningStatus;
+  teardown_status?: TeardownStatus;
+  latest_lifecycle_job_id?: string | null;
+  latest_lifecycle_job_status?: string | null;
+  latest_lifecycle_job_operation_type?: string | null;
+  last_lifecycle_error?: Record<string, unknown> | null;
+  infra_removed_at?: string | null;
+  infra_removed_reason?: string;
 }
 
 export interface ClientCreatePayload {
@@ -152,6 +246,9 @@ export interface ClientCreateResponse {
     full_name: string;
   };
   deployment_password: string;
+  lifecycle_state: LifecycleState;
+  provisioning_status: ProvisioningStatus;
+  latest_lifecycle_job_id?: string | null;
   warning: string;
 }
 
@@ -202,11 +299,39 @@ export interface PaymentMethodResponse {
   status?: string;
 }
 
+export interface ClientLifecycleResponse {
+  client: Client;
+  latest_job: LifecycleJob | null;
+  jobs: LifecycleJob[];
+  active_resources: InfraResource[];
+}
+
+export interface LifecycleActionResponse {
+  success: boolean;
+  job: LifecycleJob;
+}
+
+export type TeardownS3Mode = "archive" | "purge";
+export type TeardownRdsSnapshotMode = "retain" | "purge";
+
+export interface TeardownOptionsPayload {
+  archive_bucket?: string;
+  reason?: string;
+  s3_mode?: TeardownS3Mode;
+  rds_snapshot_mode?: TeardownRdsSnapshotMode;
+  delete_client_record?: boolean;
+}
+
+export interface TeardownRequestPayload extends TeardownOptionsPayload {
+  preview_job_id?: string;
+  confirmation_text: string;
+}
+
 export const clientApi = {
   list: async (): Promise<Client[]> => {
     const allResults: unknown[] = [];
     let url: string | null = '/clients/';
-    let params: Record<string, string> = { page_size: '500' };
+    const params: Record<string, string> = { page_size: '500' };
     while (url) {
       const isFullUrl = url.startsWith('http');
       const { data } = await axiosInstance.get(isFullUrl ? url : '/clients/', isFullUrl ? {} : { params });
@@ -253,6 +378,58 @@ export const clientApi = {
 
   getPaymentMethod: async (id: string): Promise<PaymentMethodResponse> => {
     const { data } = await axiosInstance.get(`/internal/clients/${id}/payment-method/`);
+    return data;
+  },
+
+  getLifecycle: async (id: string): Promise<ClientLifecycleResponse> => {
+    const { data } = await axiosInstance.get(`/clients/${id}/lifecycle/`);
+    return data;
+  },
+
+  retryProvisioning: async (id: string): Promise<LifecycleActionResponse> => {
+    const { data } = await axiosInstance.post(`/clients/${id}/provisioning/retry/`);
+    return data;
+  },
+
+  retryProvisioningStep: async (id: string, stepName: string): Promise<LifecycleActionResponse> => {
+    const { data } = await axiosInstance.post(`/clients/${id}/provisioning/steps/${stepName}/retry/`);
+    return data;
+  },
+
+  runVerification: async (id: string): Promise<LifecycleActionResponse> => {
+    const { data } = await axiosInstance.post(`/clients/${id}/verification/run/`);
+    return data;
+  },
+
+  previewTeardown: async (
+    id: string,
+    payload: TeardownOptionsPayload
+  ): Promise<LifecycleActionResponse> => {
+    const { data } = await axiosInstance.post(`/clients/${id}/teardown/preview/`, payload);
+    return data;
+  },
+
+  requestTeardown: async (
+    id: string,
+    payload: TeardownRequestPayload
+  ): Promise<LifecycleActionResponse> => {
+    const { data } = await axiosInstance.post(`/clients/${id}/teardown/request/`, payload);
+    return data;
+  },
+
+  cancelTeardown: async (
+    id: string,
+    payload: { job_id?: string } = {}
+  ): Promise<LifecycleActionResponse> => {
+    const { data } = await axiosInstance.post(`/clients/${id}/teardown/cancel/`, payload);
+    return data;
+  },
+
+  retryTeardown: async (
+    id: string,
+    payload: TeardownOptionsPayload = {}
+  ): Promise<LifecycleActionResponse> => {
+    const { data } = await axiosInstance.post(`/clients/${id}/teardown/retry/`, payload);
     return data;
   },
 
@@ -369,12 +546,12 @@ export const clientApi = {
   /**
    * Trigger initial SaaS access charge for a client (custom billing engine).
    */
-  activateBilling: async (clientId: string): Promise<any> => {
+  activateBilling: async (clientId: string): Promise<unknown> => {
     const { data } = await axiosInstance.post(`/internal/clients/${clientId}/billing/activate/`);
     return data;
   },
 
-  cancelBilling: async (clientId: string, mode: 'immediate' | 'period_end'): Promise<any> => {
+  cancelBilling: async (clientId: string, mode: 'immediate' | 'period_end'): Promise<unknown> => {
     const { data } = await axiosInstance.post(`/internal/clients/${clientId}/billing/cancel/`, { mode });
     return data;
   },
