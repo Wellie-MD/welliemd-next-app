@@ -1075,6 +1075,19 @@ export default function OrderDetail() {
         patientResponses={order.patient_responses}
         patientName={order.name || "Patient"}
         checkoutUrl={order.checkout_url}
+        orderId={order.id}
+        onImagesSaved={(photos) => {
+          setOrder((prev) => {
+            if (!prev) return prev
+            return {
+              ...prev,
+              patient_responses: {
+                ...(prev.patient_responses || {}),
+                photos,
+              },
+            }
+          })
+        }}
       />
       {order && (
         <ChangeProductModal

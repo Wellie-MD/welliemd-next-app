@@ -20,7 +20,18 @@ export interface Client {
 
 function ensureTrailingSlash(url?: string) {
   if (!url) return "";
-  return url.endsWith("/") ? url : url + "/";
+  return url.endsWith("/") ? url : `${url}/`;
+}
+
+function normalizeUrlForComparison(url?: string): string {
+  if (!url) return "";
+  try {
+    let normalized = url.replace(/^https?:\/\//i, "");
+    normalized = normalized.replace(/\/+$/, "");
+    return normalized.toLowerCase();
+  } catch {
+    return url.toLowerCase().replace(/\/+$/, "");
+  }
 }
 
 export function useClients(search: string = "") {
@@ -32,11 +43,13 @@ export function useClients(search: string = "") {
   async function load() {
     try {
       setLoading(true);
-      // 1) Source of truth: authenticated user's bound client record from DB.
+      setError(null);
+
+      let meClientFromDb: Client | null = null;
       try {
         const { data: meClient } = await adminApi.get("/clients/me/");
         if (meClient?.id) {
-          setCurrentClient({
+          meClientFromDb = {
             id: meClient.id,
             name: meClient.name,
             api_endpoint: ensureTrailingSlash(meClient.api_endpoint),
@@ -45,40 +58,83 @@ export function useClients(search: string = "") {
             patient_portal_domain: meClient.patient_portal_domain,
             domain: meClient.domain,
             subdomain: meClient.subdomain,
-          });
-        } else {
-          setCurrentClient(null);
+            user: meClient.user,
+          };
         }
       } catch {
-        setCurrentClient(null);
+        meClientFromDb = null;
       }
 
-      // 2) Best-effort list load (some tenant runtimes may restrict /clients/ list).
+      let list: any[] = [];
       try {
-        const { data } = await adminApi.get("/clients/", {
-          params: search ? { search } : undefined,
-        });
-        const list = Array.isArray(data?.results)
+        const { data } = await adminApi.get("/clients/current/");
+        list = Array.isArray(data?.results)
           ? data.results
           : Array.isArray(data)
-          ? data
-          : [];
-        setClients(
-          list.map((c: any) => ({
-            id: c.id,
-            name: c.name,
-            api_endpoint: ensureTrailingSlash(c.api_endpoint),
-            admin_panel_domain: c.admin_panel_domain,
-            questionnaire_url: c.questionnaire_url,
-            patient_portal_domain: c.patient_portal_domain,
-            domain: c.domain,
-            subdomain: c.subdomain,
-            user: c.user,
-          }))
-        );
-      } catch {
-        setClients([]);
+            ? data
+            : data?.id
+              ? [data]
+              : [];
+      } catch (err: any) {
+        if (err?.response?.status === 403 || err?.response?.status === 404) {
+          const { data } = await adminApi.get("/clients/", {
+            params: search ? { search } : undefined,
+          });
+          list = Array.isArray(data?.results)
+            ? data.results
+            : Array.isArray(data)
+              ? data
+              : [];
+        } else {
+          throw err;
+        }
       }
+
+      const normalized: Client[] = list.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        api_endpoint: ensureTrailingSlash(c.api_endpoint),
+        admin_panel_domain: c.admin_panel_domain,
+        questionnaire_url: c.questionnaire_url,
+        patient_portal_domain: c.patient_portal_domain,
+        domain: c.domain,
+        subdomain: c.subdomain,
+        user: c.user,
+      }));
+
+      setClients(normalized);
+
+      if (meClientFromDb) {
+        const enriched = normalized.find((c) => c.id === meClientFromDb?.id);
+        setCurrentClient(enriched || meClientFromDb);
+        return;
+      }
+
+      const origin = window.location.origin;
+      const normalizedOrigin = normalizeUrlForComparison(origin);
+
+      let matched = normalized.find((c) => {
+        const candidate = normalizeUrlForComparison(c.admin_panel_domain);
+        return candidate === normalizedOrigin;
+      });
+
+      if (!matched) {
+        const originHostname = normalizeUrlForComparison(origin.split("://")[1] || origin);
+        matched = normalized.find((c) => {
+          if (!c.admin_panel_domain) return false;
+          const candidate = normalizeUrlForComparison(c.admin_panel_domain);
+          const candidateHostname = normalizeUrlForComparison(
+            c.admin_panel_domain.split("://")[1] || c.admin_panel_domain
+          );
+          return candidateHostname === originHostname || candidate === originHostname;
+        });
+      }
+
+      if (!matched && normalized.length === 1) {
+        matched = normalized[0];
+      }
+
+      setCurrentClient(matched || null);
     } catch (e: any) {
       setError(e?.message || "Failed to load clients");
     } finally {
