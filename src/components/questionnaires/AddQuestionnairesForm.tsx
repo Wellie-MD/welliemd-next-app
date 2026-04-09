@@ -454,22 +454,6 @@ export default function AddQuestionnairesForm({
                 }
               />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="min_age">Minimum Age</Label>
-              <Input
-                id="min_age"
-                type="number"
-                min={0}
-                max={120}
-                value={formData.min_age || 18}
-                onChange={(e) => setFormData({ ...formData, min_age: parseInt(e.target.value) || 0 })}
-                placeholder="18"
-              />
-              <p className="text-xs text-muted-foreground">
-                Patients must be at least this age to complete the questionnaire. Set to 0 to disable age check.
-              </p>
-            </div>
           </div>
 
           {/* Question Builder Section */}
