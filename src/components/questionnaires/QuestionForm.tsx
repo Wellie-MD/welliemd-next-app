@@ -349,7 +349,6 @@ export function QuestionForm({
   const [includeOtherOption, setIncludeOtherOption] = useState(false);
   const [bmiMin, setBmiMin] = useState<number | "">("");
   const [dobMinAge, setDobMinAge] = useState<number | "">(18);
-  const [dobMaxAge, setDobMaxAge] = useState<number | "">(65);
   const [isHidden, setIsHidden] = useState(false);
 
   // Labs in-person mapping state
@@ -576,9 +575,6 @@ export function QuestionForm({
       ) {
         if (validationRules?.min_age !== undefined) {
           setDobMinAge(validationRules.min_age);
-        }
-        if (validationRules?.max_age !== undefined) {
-          setDobMaxAge(validationRules.max_age);
         }
       }
 
@@ -1074,7 +1070,6 @@ export function QuestionForm({
         // Add DOB age eligibility config
         validationRules = {
           min_age: dobMinAge !== "" ? dobMinAge : undefined,
-          max_age: dobMaxAge !== "" ? dobMaxAge : undefined,
         };
       } else if (
         formData.question_type === "number" &&
@@ -1489,7 +1484,7 @@ export function QuestionForm({
               <p className="text-xs text-muted-foreground">
                 Set age constraints for eligibility. Patients outside these limits will be disqualified.
               </p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="min_age">Minimum Age</Label>
                   <Input
@@ -1504,23 +1499,9 @@ export function QuestionForm({
                     placeholder="e.g., 18"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="max_age">Maximum Age</Label>
-                  <Input
-                    id="max_age"
-                    type="number"
-                    min="0"
-                    max="120"
-                    value={dobMaxAge}
-                    onChange={(e) =>
-                      setDobMaxAge(e.target.value === "" ? "" : Number(e.target.value))
-                    }
-                    placeholder="e.g., 65"
-                  />
-                </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Leave empty if no constraint. Common: min 18, max 65
+                Leave empty if no constraint. Common: min 18
               </p>
             </div>
           )}
