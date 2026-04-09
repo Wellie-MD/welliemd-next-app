@@ -44,7 +44,7 @@ export function Header() {
 
   const loadNotifications = useCallback(async () => {
     const [listRes, countRes] = await Promise.all([
-      api.get("/notifications/", { params: { unread_only: true, limit: 8 } }),
+      api.get("/notifications/", { params: { unread_only: true, limit: 100 } }),
       api.get("/notifications/unread-count/"),
     ])
     const nextItems = Array.isArray(listRes.data) ? listRes.data : []
@@ -93,6 +93,16 @@ export function Header() {
   useEffect(() => {
     void loadNotifications()
   }, [messages.length, loadNotifications])
+
+  useEffect(() => {
+    const onRefetch = () => {
+      void loadNotifications()
+    }
+    window.addEventListener("client:notifications-refetch", onRefetch)
+    return () => {
+      window.removeEventListener("client:notifications-refetch", onRefetch)
+    }
+  }, [loadNotifications])
 
   const handleLogout = async () => {
     await authService.logout()
@@ -206,8 +216,8 @@ export function Header() {
                         {(n.title || "N").slice(0, 1).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="text-xs font-semibold truncate">{n.title}</div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="text-xs font-semibold leading-5 line-clamp-2 break-words">{n.title}</div>
                           <div className="text-[11px] text-slate-400">
                             {n.created_at
                               ? `${formatDistanceToNowStrict(new Date(n.created_at), { addSuffix: true })}`
