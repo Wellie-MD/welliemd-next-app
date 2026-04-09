@@ -569,10 +569,7 @@ export function QuestionForm({
       }
 
       // Extract DOB age eligibility config
-      if (
-        question.question_type === "date" &&
-        question.beluga_field_mapping === "date_of_birth"
-      ) {
+      if (question.question_type === "date") {
         if (validationRules?.min_age !== undefined) {
           setDobMinAge(validationRules.min_age);
         }
@@ -1063,10 +1060,7 @@ export function QuestionForm({
         validationRules = {
           bmi_min: bmiMin !== "" ? bmiMin : undefined,
         };
-      } else if (
-        formData.question_type === "date" &&
-        formData.beluga_field_mapping === "date_of_birth"
-      ) {
+      } else if (formData.question_type === "date") {
         // Add DOB age eligibility config
         validationRules = {
           min_age: dobMinAge !== "" ? dobMinAge : undefined,
@@ -1477,8 +1471,7 @@ export function QuestionForm({
           )}
 
           {/* Date of Birth Age Eligibility Settings */}
-          {formData.question_type === "date" &&
-            formData.beluga_field_mapping === "date_of_birth" && (
+          {formData.question_type === "date" && (
             <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
               <h3 className="font-semibold text-sm">Age Eligibility Settings</h3>
               <p className="text-xs text-muted-foreground">
