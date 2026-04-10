@@ -45,6 +45,14 @@ export interface Message {
     width?: number;
     height?: number;
   }>;
+  delivery_status?: "sending" | "sent" | "failed";
+}
+export interface SendMessageResult {
+  sent?: boolean;
+  id?: number;
+  queued?: boolean;
+  request_id?: string;
+  status?: "sending" | "sent" | "failed";
 }
 export type NewAttachment = {
   url: string;
@@ -181,17 +189,17 @@ export const messageService = {
     media_url?: string;
     media_mime_type?: string;
     media_file_name?: string;
-  }): Promise<{ sent: boolean; id: number }> {
+  }): Promise<SendMessageResult> {
     const { apiEndpoint, clientId, ...body } = payload;
     if (clientId) {
-      const { data } = await api.post<{ sent: boolean; id: number }>(
+      const { data } = await api.post<SendMessageResult>(
         `/admin/dashboard/clients/${clientId}/messages/`,
         body
       );
       return data;
     }
     if (apiEndpoint) {
-      return tenantRequest<{ sent: boolean; id: number }>(apiEndpoint, "messages/send/", {
+      return tenantRequest<SendMessageResult>(apiEndpoint, "messages/send/", {
         method: "POST",
         body: JSON.stringify(body),
       });

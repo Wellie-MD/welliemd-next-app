@@ -145,7 +145,7 @@ export default function Messages() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
   // 2) Load messages (admin hits selected client's API)
-  const { messages, loading, error } = useMessages(undefined, 5000, selectedClient?.id);
+  const { messages, loading, error } = useMessages(undefined, 20000, selectedClient?.id);
 
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState("");
@@ -188,11 +188,16 @@ export default function Messages() {
         setSelectedClient(match);
         return;
       }
+      // Guard stale client ids to avoid repeated 404 poll loops.
+      const next = new URLSearchParams(searchParams);
+      next.delete("client_id");
+      next.delete("master_id");
+      setSearchParams(next, { replace: true });
     }
     if (!loadingClients && !selectedClient && clients.length > 0) {
       setSelectedClient(clients[0]);
     }
-  }, [loadingClients, clients, selectedClient, searchParams]);
+  }, [loadingClients, clients, selectedClient, searchParams, setSearchParams]);
 
   // Keep activeConversation in sync
   useEffect(() => {
@@ -352,6 +357,7 @@ async function handleSend() {
         media_url: first?.url,
         media_mime_type: first?.mime_type,
         media_file_name: first?.file_name,
+        delivery_status: resp?.status || (resp?.queued ? "sending" : "sent"),
       };
 
       setActiveConversation((prev) =>
@@ -397,6 +403,7 @@ async function handleSend() {
         media_url: up.url,
         media_mime_type: up.mime_type,
         media_file_name: up.file_name,
+        delivery_status: resp?.status || (resp?.queued ? "sending" : "sent"),
       };
 
       setActiveConversation((prev) =>
@@ -678,6 +685,7 @@ async function handleSend() {
                                     hour: "2-digit",
                                     minute: "2-digit",
                                   })}
+                                  {m.side === "right" && m.delivery_status ? ` • ${m.delivery_status}` : ""}
                                 </div>
                               </div>
                             </div>

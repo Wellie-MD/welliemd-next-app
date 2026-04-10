@@ -1,5 +1,5 @@
 import { Search, Bell, User, Store, LogOut, CheckCircle2 } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { formatDistanceToNowStrict } from "date-fns"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -43,6 +43,8 @@ export function Header() {
       return new Set<string>()
     }
   })
+  const notifInFlightRef = useRef(false)
+  const notifErrorStreakRef = useRef(0)
 
   const handleLogout = async () => {
     await authService.logout()
@@ -59,6 +61,8 @@ export function Header() {
     let cancelled = false
 
     const fetchAll = async () => {
+      if (notifInFlightRef.current) return
+      notifInFlightRef.current = true
       try {
         const [listRes, countRes] = await Promise.all([
           api.get("/admin/dashboard/notifications/", {
@@ -89,18 +93,44 @@ export function Header() {
         })
         setItems(merged.slice(0, 100))
         setServerUnreadCount(Number(countRes.data?.unread_count || 0))
+        notifErrorStreakRef.current = 0
       } catch {
+        notifErrorStreakRef.current += 1
         if (!cancelled) setItems([])
+      } finally {
+        notifInFlightRef.current = false
       }
     }
 
     void fetchAll()
-    const id = window.setInterval(fetchAll, 30000)
+    const getDelay = () => {
+      const hiddenFactor = typeof document !== "undefined" && document.hidden ? 3 : 1
+      const backoffFactor = Math.min(2 ** Math.min(notifErrorStreakRef.current, 3), 8)
+      const jitter = Math.floor(Math.random() * 1200)
+      return 30000 * hiddenFactor * backoffFactor + jitter
+    }
+    let timer = window.setTimeout(function tick() {
+      void fetchAll().finally(() => {
+        timer = window.setTimeout(tick, getDelay())
+      })
+    }, getDelay())
+
+    const onVisibility = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(function tick() {
+        void fetchAll().finally(() => {
+          timer = window.setTimeout(tick, getDelay())
+        })
+      }, getDelay())
+    }
+    document.addEventListener("visibilitychange", onVisibility)
+
     return () => {
       cancelled = true
-      window.clearInterval(id)
+      document.removeEventListener("visibilitychange", onVisibility)
+      window.clearTimeout(timer)
     }
-  }, [clients, seenIds])
+  }, [clients])
 
   useEffect(() => {
     const onSeen = (event: Event) => {
