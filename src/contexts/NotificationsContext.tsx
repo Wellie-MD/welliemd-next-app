@@ -53,6 +53,14 @@ type MessageNotification = {
   priority: 'normal';
 };
 
+function displaySenderName(senderName: string | undefined, fallback: 'Doctor' | 'Support') {
+  const raw = (senderName || '').trim();
+  if (!raw) return fallback;
+  // Avoid showing raw email-like values in patient notifications.
+  if (raw.includes('@')) return fallback;
+  return raw;
+}
+
 function notificationIdentity(n: Notification): string {
   const data = n.data || {};
   const masterId = typeof data.master_id === "string" ? data.master_id : "";
@@ -124,70 +132,49 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         const docMsgs = (docRaw ?? []).slice().sort(byNewest);
         const supMsgs = (supRaw ?? []).slice().sort(byNewest);
 
-        const latestDocInboundUnread = docMsgs.find(
+        const docUnread = docMsgs.filter(
           (m) => isInboundFor('doctor', m) && (m.readByPatient ?? m.read) === false
         );
-        if (latestDocInboundUnread) {
-          const sender = (latestDocInboundUnread.senderName || '').trim() || 'Doctor';
+        for (const msg of docUnread) {
+          const sender = displaySenderName(msg.senderName, 'Doctor');
           collected.push({
-            id: `msg:${masterId}:${latestDocInboundUnread.id}`,
+            id: `msg:${masterId}:${msg.id}`,
             type: 'doctor_message',
             title: `New message from ${sender}`,
-            message: latestDocInboundUnread.content,
+            message: msg.content,
             data: {
               master_id: masterId,
-              message_id: latestDocInboundUnread.id,
+              message_id: msg.id,
               source: 'message',
               chat_type: 'doctor',
             },
-            timestamp: latestDocInboundUnread.timestamp,
+            timestamp: msg.timestamp,
             read: false,
             priority: 'normal',
           });
         }
 
-        const latestSuperUnread = supMsgs.find(
-          (m) => m.chatType === 'super_support' && m.isFromDoctor === true && (m.readByPatient ?? m.read) === false
+        const supportUnread = supMsgs.filter(
+          (m) => isInboundFor('support', m) && (m.readByPatient ?? m.read) === false
         );
-        if (latestSuperUnread) {
-          const sender = (latestSuperUnread.senderName || '').trim() || 'Support';
+        for (const msg of supportUnread) {
+          const isSuper = msg.chatType === 'super_support';
+          const sender = displaySenderName(msg.senderName, 'Support');
           collected.push({
-            id: `msg:${masterId}:${latestSuperUnread.id}`,
-            type: 'super_support_message',
+            id: `msg:${masterId}:${msg.id}`,
+            type: isSuper ? 'super_support_message' : 'support_message',
             title: `New message from ${sender}`,
-            message: latestSuperUnread.content,
+            message: msg.content,
             data: {
               master_id: masterId,
-              message_id: latestSuperUnread.id,
+              message_id: msg.id,
               source: 'message',
-              chat_type: 'super_support',
+              chat_type: isSuper ? 'super_support' : 'support',
             },
-            timestamp: latestSuperUnread.timestamp,
+            timestamp: msg.timestamp,
             read: false,
             priority: 'normal',
           });
-        } else {
-          const latestSupportInboundUnread = supMsgs.find(
-            (m) => isInboundFor('support', m) && (m.readByPatient ?? m.read) === false
-          );
-          if (latestSupportInboundUnread) {
-            const sender = (latestSupportInboundUnread.senderName || '').trim() || 'Support';
-            collected.push({
-              id: `msg:${masterId}:${latestSupportInboundUnread.id}`,
-              type: 'support_message',
-              title: `New message from ${sender}`,
-              message: latestSupportInboundUnread.content,
-              data: {
-                master_id: masterId,
-                message_id: latestSupportInboundUnread.id,
-                source: 'message',
-                chat_type: 'support',
-              },
-              timestamp: latestSupportInboundUnread.timestamp,
-              read: false,
-              priority: 'normal',
-            });
-          }
         }
       }
 
@@ -206,7 +193,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       .filter((n) => !n.read)
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-    setNotifications(combined);
+    setNotifications(combined.slice(0, 50));
   }, [mapInboxToNotification]);
 
   useEffect(() => {

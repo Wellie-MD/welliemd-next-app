@@ -4,7 +4,7 @@
  * Shows unread notifications (message + inbox) for patient users.
  */
 
-import { CheckCircle2, Package } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { useDropdown } from "@/contexts/DropdownContext";
 import { useNavigate } from "react-router-dom";
 import { useNotifications } from "@/contexts/NotificationsContext";
@@ -48,6 +48,13 @@ export const NotificationsDropdown = () => {
     }
     
     toggleDropdown(null);
+  };
+
+  const getBadgeLabel = (title: string) => {
+    const t = title.toLowerCase();
+    if (t.includes("doctor")) return "D";
+    if (t.includes("support")) return "S";
+    return "N";
   };
 
   return (
@@ -104,7 +111,7 @@ export const NotificationsDropdown = () => {
             <div className="km-notif-empty-sub">You'll receive updates about your orders here</div>
           </div>
         ) : (
-          <div style={{ maxHeight: 360, overflowY: "auto" }}>
+          <div style={{ maxHeight: 360, overflowY: "auto", overflowX: "hidden" }}>
             {notifications.map((notification) => (
               <div
                 key={notification.id}
@@ -117,7 +124,8 @@ export const NotificationsDropdown = () => {
                   borderBottom: "1px solid var(--km-b)",
                   cursor: "pointer",
                   background: !notification.read ? "rgba(79, 142, 247, 0.05)" : "transparent",
-                  transition: "background 0.2s"
+                  transition: "background 0.2s",
+                  overflowX: "hidden",
                 }}
                 onMouseEnter={(e) => {
                   if (notification.read) e.currentTarget.style.background = "var(--km-s2)";
@@ -138,23 +146,23 @@ export const NotificationsDropdown = () => {
                   flexShrink: 0,
                   marginTop: 2
                 }}>
-                  <Package size={16} strokeWidth={1.8} />
+                  <span style={{ fontSize: 12, fontWeight: 700 }}>{getBadgeLabel(notification.title)}</span>
                 </div>
                 
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 2 }}>
-                    <div style={{ fontSize: 13, fontWeight: !notification.read ? 700 : 500, color: "var(--km-t)", lineHeight: 1.3 }}>
+                <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 2, gap: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: !notification.read ? 700 : 500, color: "var(--km-t)", lineHeight: 1.3, flex: 1, minWidth: 0, wordBreak: "break-word" }}>
                       {notification.title}
                     </div>
-                    <div style={{ fontSize: 11, color: "var(--km-tm)", flexShrink: 0, marginLeft: 8 }}>
+                    <div style={{ fontSize: 11, color: "var(--km-tm)", flexShrink: 0, width: 62, textAlign: "right", lineHeight: 1.25 }}>
                       {formatTimeAgo(notification.timestamp)}
                     </div>
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--km-tm)", lineHeight: 1.4, opacity: 0.9 }}>
+                  <div style={{ fontSize: 12, color: "var(--km-tm)", lineHeight: 1.4, opacity: 0.9, wordBreak: "break-word" }}>
                     {notification.message}
                   </div>
                 </div>
-                <div style={{ paddingTop: 2 }}>
+                <div style={{ paddingTop: 2, flexShrink: 0 }}>
                   <CheckCircle2 size={16} color="var(--km-ac)" />
                 </div>
               </div>

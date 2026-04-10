@@ -314,14 +314,16 @@ body.light .km-nbtn {
   position: fixed;
   top: 64px;
   right: 12px;
-  width: 300px;
+  width: min(360px, calc(100vw - 24px));
   background: var(--km-s1);
   border: 1px solid var(--km-b);
   border-radius: var(--km-r);
   box-shadow: 0 8px 32px rgba(0, 0, 0, .4);
   z-index: 999;
   display: none;
-  overflow: hidden
+  overflow: hidden;
+  overflow-x: hidden;
+  max-height: calc(100vh - 84px)
 }
 
 .km-notif-panel.open {
