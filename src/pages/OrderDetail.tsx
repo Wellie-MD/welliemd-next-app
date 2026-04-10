@@ -257,7 +257,7 @@ export default function OrderDetail() {
   const refetchOrder = () => {
     if (!orderId) return
     const fetchFn = isUuid(orderId) ? ordersApi.fetchOrder(orderId) : ordersApi.fetchOrderByOrderId(orderId)
-    fetchFn.then(setOrder).catch(() => {})
+    fetchFn.then(setOrder).catch(() => { })
   }
 
   const handleUpdateOrder = async () => {
@@ -471,12 +471,12 @@ export default function OrderDetail() {
       ? discountAmount / originalPrice
       : 0
 
-  const previewOriginalPrice = pendingProductChange != null 
-    ? pendingProductChange.subtotal 
+  const previewOriginalPrice = pendingProductChange != null
+    ? pendingProductChange.subtotal
     : originalPrice
 
-  const previewDiscountAmount = pendingProductChange != null 
-    ? pendingProductChange.discountAmount 
+  const previewDiscountAmount = pendingProductChange != null
+    ? pendingProductChange.discountAmount
     : discountAmount
 
   const previewProductSubtotal = pendingProductChange != null
@@ -487,9 +487,13 @@ export default function OrderDetail() {
     ? pendingProductChange.shippingFee
     : shippingFee
 
+  const calculatedTotal = hasBreakdown
+    ? ((productSubtotalAfterDiscount ?? 0) + (shippingFee ?? 0))
+    : totalAmount
+
   const previewTotal = pendingProductChange != null
     ? pendingProductChange.newAmount
-    : totalAmount
+    : calculatedTotal
 
   const previewNetTotal = previewTotal != null
     ? Math.max(0, previewTotal - refundedAmount)
