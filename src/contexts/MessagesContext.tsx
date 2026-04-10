@@ -50,6 +50,8 @@ export function MessagesProvider({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const maxIdRef = useRef(0);
+  const inFlightRef = useRef(false);
+  const errorStreakRef = useRef(0);
 
   const fetchMessages = useCallback(
     async (isInitial = false) => {
@@ -59,7 +61,9 @@ export function MessagesProvider({
         if (isInitial) setLoading(false);
         return;
       }
+      if (inFlightRef.current) return;
       try {
+        inFlightRef.current = true;
         if (isInitial) setLoading(true);
         setError(null);
         const useIncremental = !isInitial && maxIdRef.current > 0;
@@ -77,10 +81,13 @@ export function MessagesProvider({
           const batchMax = res.reduce((acc, m) => Math.max(acc, m.id), 0);
           maxIdRef.current = Math.max(maxIdRef.current, batchMax);
         }
+        errorStreakRef.current = 0;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Failed to load messages";
         setError(msg);
+        errorStreakRef.current += 1;
       } finally {
+        inFlightRef.current = false;
         if (isInitial) setLoading(false);
       }
     },
@@ -101,8 +108,12 @@ export function MessagesProvider({
     if (!isAuthenticated) return;
 
     const hiddenDelay = Math.max(pollIntervalMs * 4, 120000);
-    const getDelay = () =>
-      typeof document !== "undefined" && document.hidden ? hiddenDelay : pollIntervalMs;
+    const getDelay = () => {
+      const base = typeof document !== "undefined" && document.hidden ? hiddenDelay : pollIntervalMs;
+      const backoff = Math.min(2 ** Math.min(errorStreakRef.current, 3), 8);
+      const jitter = Math.floor(Math.random() * 800);
+      return base * backoff + jitter;
+    };
 
     let timer: ReturnType<typeof setTimeout>;
 

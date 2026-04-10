@@ -41,27 +41,36 @@ export function Header() {
   const [unreadCount, setUnreadCount] = useState(0)
   const lastUnreadCountRef = useRef(0)
   const lastTopNotificationIdRef = useRef<string>("")
+  const notifInFlightRef = useRef(false)
+  const notifErrorStreakRef = useRef(0)
 
   const loadNotifications = useCallback(async () => {
-    const [listRes, countRes] = await Promise.all([
-      api.get("/notifications/", { params: { unread_only: true, limit: 100 } }),
-      api.get("/notifications/unread-count/"),
-    ])
-    const nextItems = Array.isArray(listRes.data) ? listRes.data : []
-    const nextUnread = Number(countRes.data?.unread_count || 0)
-    const nextTopId = nextItems.length ? String(nextItems[0]?.id || "") : ""
+    if (notifInFlightRef.current) return
+    notifInFlightRef.current = true
+    try {
+      const [listRes, countRes] = await Promise.all([
+        api.get("/notifications/", { params: { unread_only: true, limit: 100 } }),
+        api.get("/notifications/unread-count/"),
+      ])
+      const nextItems = Array.isArray(listRes.data) ? listRes.data : []
+      const nextUnread = Number(countRes.data?.unread_count || 0)
+      const nextTopId = nextItems.length ? String(nextItems[0]?.id || "") : ""
 
-    const shouldSyncMessages =
-      nextUnread > lastUnreadCountRef.current || (nextTopId && nextTopId !== lastTopNotificationIdRef.current)
+      const shouldSyncMessages =
+        nextUnread > lastUnreadCountRef.current || (nextTopId && nextTopId !== lastTopNotificationIdRef.current)
 
-    setNotifications(nextItems)
-    setUnreadCount(nextUnread)
+      setNotifications(nextItems)
+      setUnreadCount(nextUnread)
 
-    lastUnreadCountRef.current = nextUnread
-    lastTopNotificationIdRef.current = nextTopId
+      lastUnreadCountRef.current = nextUnread
+      lastTopNotificationIdRef.current = nextTopId
 
-    if (shouldSyncMessages) {
-      void reload()
+      if (shouldSyncMessages) {
+        void reload()
+      }
+      notifErrorStreakRef.current = 0
+    } finally {
+      notifInFlightRef.current = false
     }
   }, [reload])
 
@@ -90,10 +99,24 @@ export function Header() {
   }, [loadNotifications])
 
   useEffect(() => {
-    const id = window.setInterval(() => {
+    let timer = 0
+    const getDelay = () => {
+      const hiddenFactor = typeof document !== "undefined" && document.hidden ? 3 : 1
+      const backoffFactor = Math.min(2 ** Math.min(notifErrorStreakRef.current, 3), 8)
+      const jitter = Math.floor(Math.random() * 1200)
+      return 30000 * hiddenFactor * backoffFactor + jitter
+    }
+    const tick = () => {
       void loadNotifications()
-    }, 30000)
-    return () => window.clearInterval(id)
+        .catch(() => {
+          notifErrorStreakRef.current += 1
+        })
+        .finally(() => {
+          timer = window.setTimeout(tick, getDelay())
+        })
+    }
+    timer = window.setTimeout(tick, getDelay())
+    return () => window.clearTimeout(timer)
   }, [loadNotifications])
 
   useEffect(() => {
