@@ -95,7 +95,7 @@ export function Header() {
     }
 
     void fetchAll()
-    const id = window.setInterval(fetchAll, 15000)
+    const id = window.setInterval(fetchAll, 30000)
     return () => {
       cancelled = true
       window.clearInterval(id)
@@ -131,25 +131,6 @@ export function Header() {
   }, []);
 
   const [serverUnreadCount, setServerUnreadCount] = useState(0)
-
-  useEffect(() => {
-    let cancelled = false
-    const loadCount = async () => {
-      try {
-        const { data } = await api.get("/admin/dashboard/notifications/unread-count/")
-        if (cancelled) return
-        setServerUnreadCount(Number(data?.unread_count || 0))
-      } catch {
-        if (!cancelled) setServerUnreadCount(0)
-      }
-    }
-    void loadCount()
-    const id = window.setInterval(loadCount, 15000)
-    return () => {
-      cancelled = true
-      window.clearInterval(id)
-    }
-  }, [])
 
   const unreadCount = useMemo(() => {
     const localUnread = items.filter((i) => !i.is_read).length
