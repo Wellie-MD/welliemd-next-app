@@ -238,12 +238,13 @@ export default function OrderDetail() {
     paymentStatus === "captured" ||
     paymentStatus === "approved" ||
     paymentStatus === "succeeded"
-  const hasTransaction = !!order.paymentTransactionId || !!order.transaction_id || !!order.transaction
-  const isPending = paymentStatus === "pending"
-  const canChangeProduct = status === "created" && isPending && hasTransaction
+  const isLocked = isAuthorized || isRefundable
+  const isPending = paymentStatus === "pending" || !paymentStatus
+  const isAllowedStatus = status === "created" || status === "payment_pending"
+  const canChangeProduct = isAllowedStatus && !isLocked
   const canRefundOrVoid = isAuthorized || isRefundable
   const changeProductTooltip =
-    "Product change is available only while order status is Created and payment status is Pending."
+    "Product change is available only while order status is Created or Payment Pending and payment status is Pending."
 
   const refundReasonOptions = [
     { value: "customer_request", label: "Customer Request" },
