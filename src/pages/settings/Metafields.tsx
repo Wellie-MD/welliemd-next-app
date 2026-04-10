@@ -2,8 +2,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Info, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { socialTagsApi, type SocialTags } from "@/api/socialTagsApi"
 import { useSocialTags } from "@/hooks/useSocialTags"
@@ -122,21 +121,6 @@ export default function Metafields() {
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-foreground">Metafields</h1>
       </div>
-
-      {/* Development Notice */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Add Metafields to your pages</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertDescription>
-              This feature is still in development and is coming soon.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
 
       {/* GTM Tag Section */}
       <Card>

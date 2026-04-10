@@ -28,7 +28,7 @@ export function Header() {
   const { state } = useSidebar()
   const { logos, isLoading } = useBranding()
   const { theme, setTheme } = useTheme()
-  const { messages, reload } = useClientMessages()
+  const { reload } = useClientMessages()
   const isDark = theme === "dark"
   const [notifications, setNotifications] = useState<Array<{
     id: string
@@ -89,10 +89,12 @@ export function Header() {
     }
   }, [loadNotifications])
 
-  // Sync bell updates with chat stream updates so notifications don't lead messages.
   useEffect(() => {
-    void loadNotifications()
-  }, [messages.length, loadNotifications])
+    const id = window.setInterval(() => {
+      void loadNotifications()
+    }, 30000)
+    return () => window.clearInterval(id)
+  }, [loadNotifications])
 
   useEffect(() => {
     const onRefetch = () => {
