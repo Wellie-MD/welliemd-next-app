@@ -52,14 +52,22 @@ export function ChangeProductModal({
 
   const currentProductId = order.product ? String(order.product) : ""
   const currentProductName = (order.product_name || "").trim().toLowerCase()
+  // Use order.treatment (from backend) as the source of truth for treatment type.
+  // This avoids the pagination problem: if the current product isn't in the fetched
+  // page of results, we'd have no treatment to filter by and would show all products.
   const orderTreatment = (order.treatment || "").trim().toLowerCase()
   const currentProduct =
     products.find((p) => String(p.id) === currentProductId) ||
     products.find((p) => p.name.trim().toLowerCase() === currentProductName)
+  // Prefer the treatment from the fetched product object, but always fall back to
+  // order.treatment (which is directly sourced from product.treatment in the backend
+  // serializer and is always present on the order object).
   const currentTreatment = (currentProduct?.treatment || orderTreatment || "").trim().toLowerCase()
+  // IMPORTANT: if we have no treatment to filter by, show empty list rather than all
+  // products — showing everything would be incorrect and confusing.
   const availableProducts = currentTreatment
     ? products.filter((p) => p.treatment.trim().toLowerCase() === currentTreatment)
-    : products
+    : []
 
   useEffect(() => {
     if (open) {
@@ -70,7 +78,16 @@ export function ChangeProductModal({
 
   const fetchProducts = useCallback(async () => {
     try {
-      const resp: unknown = await productApi.listProducts({ page_size: 100 })
+      // Pass the treatment type as a query param so the backend filters server-side.
+      // This is far more reliable than fetching all products and filtering client-side,
+      // because client-side filtering breaks when the product list is paginated and
+      // the current order's product isn't in the fetched page.
+      const treatmentFilter = (order.treatment || "").trim().toLowerCase()
+      const params: Record<string, unknown> = { page_size: 1000, is_active: true }
+      if (treatmentFilter) {
+        params.treatment = treatmentFilter
+      }
+      const resp: unknown = await productApi.listProducts(params)
       const data = resp as { results?: Product[] } | Product[]
       const items = Array.isArray(data) ? data : (data.results || [])
       setProducts(Array.isArray(items) ? items : [])
@@ -82,7 +99,7 @@ export function ChangeProductModal({
         variant: "destructive",
       })
     }
-  }, [toast])
+  }, [toast, order.treatment])
 
   useEffect(() => {
     if (open) {
@@ -116,13 +133,13 @@ export function ChangeProductModal({
 
   const handleApply = async () => {
     if (!selectedProduct || !order.id) return
-    
+
     setIsStaging(true)
     try {
       const dryRunRes = await changeProduct(order.id, selectedProduct.id, quantity, true)
-      
+
       const pricing = dryRunRes?.pricing || {}
-      
+
       onApply({
         productId: String(selectedProduct.id),
         productName: selectedProduct.name,
@@ -163,7 +180,7 @@ export function ChangeProductModal({
             <p className="text-sm font-medium text-slate-500">Current Product</p>
             <p className="text-sm">{order.product_name || "N/A"}</p>
           </div>
-          
+
           <div className="space-y-2">
             <p className="text-sm font-medium text-slate-500">New Product</p>
             <Select value={selectedProductId} onValueChange={setSelectedProductId}>
