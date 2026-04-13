@@ -49,6 +49,7 @@ import ArchiveProducts from "./pages/ArchiveProducts";
 import ManageAccount from "./pages/ManageAccount";
 import UsersPermissions from "./pages/management/UsersPermissions";
 import MasterKeyAccess from "./pages/MasterKeyAccess";
+import CrossTenantAccessUsers from "./pages/CrossTenantAccessUsers";
 
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -90,8 +91,6 @@ const App = () => {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/register" element={<RegisterInvitation />} />
-        
-        {/* Master Key Access - no auth required, accessed via email link */}
         <Route path="/admin/master-key/access/:token" element={<MasterKeyAccess />} />
         
         {/* Dashboard routes */}
@@ -108,6 +107,7 @@ const App = () => {
                     <Route path="/clients/create" element={<ProtectedRoute><ClientForm /></ProtectedRoute>} />
                     <Route path="/clients/edit/:id" element={<ProtectedRoute><ClientForm /></ProtectedRoute>} />
                     <Route path="/clients/:id/lifecycle" element={<ProtectedRoute><ClientLifecycle /></ProtectedRoute>} />
+                    <Route path="/access-users" element={<ProtectedRoute><CrossTenantAccessUsers /></ProtectedRoute>} />
                     <Route path="/treatments" element={<ProtectedRoute><Treatments /></ProtectedRoute>} />
                     <Route path="/treatments/configurations" element={<ProtectedRoute><TreatmentConfigurations /></ProtectedRoute>} />
                     <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
