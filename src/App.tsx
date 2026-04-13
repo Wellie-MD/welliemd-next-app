@@ -50,6 +50,7 @@ import ManageAccount from "./pages/ManageAccount";
 import UsersPermissions from "./pages/management/UsersPermissions";
 import MasterKeyAccess from "./pages/MasterKeyAccess";
 import CrossTenantAccessUsers from "./pages/CrossTenantAccessUsers";
+import ClientPerformance from "./pages/ClientPerformance";
 
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -120,6 +121,7 @@ const App = () => {
                     <Route path="/products/config" element={<ProtectedRoute><ProductConfig /></ProtectedRoute>} />
                     <Route path="/products/supplies" element={<ProtectedRoute><Supplies /></ProtectedRoute>} />
                     <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+                    <Route path="/analytics/performance" element={<ProtectedRoute><ClientPerformance /></ProtectedRoute>} />
                     <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
                     <Route path="/analytics/cohorts" element={<ProtectedRoute><AnalyticsCohorts /></ProtectedRoute>} />
                     <Route path="/analytics/reports" element={<ProtectedRoute><AnalyticsReports /></ProtectedRoute>} />
