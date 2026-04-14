@@ -13,6 +13,10 @@ export interface Visit {
   submitted_at: string | null;
   created_at: string;
   updated_at: string;
+  assigned_template?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 export interface PatientVisitsResponse {

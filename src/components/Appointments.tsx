@@ -15,6 +15,18 @@ import { Loader2, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { VisitService, Visit } from "@/features/visits/services/visit.service";
 
+/** Get the display name for a treatment — prefer template name over visit_type slug */
+function getTreatmentName(visit: Visit): string {
+  if (visit.assigned_template?.name) {
+    return visit.assigned_template.name;
+  }
+  return visit.visit_type
+    .replace(/([A-Z])/g, " $1")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
+
 // Status → badge config per kinmeds3
 const STATUS_CONFIG: Record<string, { label: string; css: string }> = {
   submitted:            { label: "Submitted",       css: "km-badge km-badge-blue" },
@@ -216,7 +228,7 @@ export default function Appointments() {
                               background: dotColor, flexShrink: 0,
                             }} />
                             <span style={{ fontSize: 13, fontWeight: 700 }}>
-                              {visit.visit_type}
+                              {getTreatmentName(visit)}
                             </span>
                           </div>
                           <div style={{
