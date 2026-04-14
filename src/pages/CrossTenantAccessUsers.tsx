@@ -66,9 +66,14 @@ export default function CrossTenantAccessUsers() {
     queryKey: ["cross-tenant-access-users"],
     queryFn: clientApi.listAccessUsers,
   });
+  const { data: retryMetrics, isLoading: isRetryMetricsLoading } = useQuery({
+    queryKey: ["cross-tenant-access-retry-metrics"],
+    queryFn: clientApi.getAccessUserRetryMetrics,
+  });
 
   const refetchUsers = () => {
     queryClient.invalidateQueries({ queryKey: ["cross-tenant-access-users"] });
+    queryClient.invalidateQueries({ queryKey: ["cross-tenant-access-retry-metrics"] });
   };
 
   const createMutation = useMutation({
@@ -131,47 +136,87 @@ export default function CrossTenantAccessUsers() {
   });
 
   const aggregateMetrics = useMemo(() => {
-    let totalNodes = 0;
+    const clientWorstStatus = new Map<string, "failed" | "pending" | "success" | "skipped">();
+    const recentFailuresByClient = new Map<
+      string,
+      { users: Set<string>; client: string; error: string; clientId: string; updatedAt: string }
+    >();
+
+    users.forEach((user) => {
+      if (!user.sync_statuses) return;
+      user.sync_statuses
+        .forEach((s) => {
+          const current = s.status as "failed" | "pending" | "success" | "skipped";
+          const prev = clientWorstStatus.get(s.client);
+          const rank = { failed: 3, pending: 2, success: 1, skipped: 0 } as const;
+          if (!prev || rank[current] > rank[prev]) {
+            clientWorstStatus.set(s.client, current);
+          }
+        });
+
+      user.sync_statuses
+        .filter((s) => s.status === "failed")
+        .forEach((s) => {
+          const key = s.client;
+          const nextUpdatedAt = s.updated_at || "";
+          const existing = recentFailuresByClient.get(key);
+
+          if (!existing) {
+            recentFailuresByClient.set(key, {
+              users: new Set([user.email]),
+              client: s.client_name || s.client,
+              clientId: s.client,
+              error: s.last_error,
+              updatedAt: nextUpdatedAt,
+            });
+            return;
+          }
+
+          existing.users.add(user.email);
+          // Keep the newest failure detail so the alert reflects latest disruption.
+          if (nextUpdatedAt && (!existing.updatedAt || nextUpdatedAt > existing.updatedAt)) {
+            existing.error = s.last_error;
+            existing.updatedAt = nextUpdatedAt;
+          }
+        });
+    });
+
+    const totalNodes = clientWorstStatus.size;
     let successfulSyncs = 0;
     let pendingSyncs = 0;
     let failedSyncs = 0;
-    const recentFailures: { user: string; client: string; error: string; clientId: string }[] = [];
-
-    users.forEach((user) => {
-      const summary = user.sync_status_summary || { pending: 0, success: 0, failed: 0 };
-      totalNodes += (summary.pending + summary.success + summary.failed);
-      successfulSyncs += summary.success;
-      pendingSyncs += summary.pending;
-      failedSyncs += summary.failed;
-
-      if (user.sync_statuses) {
-        user.sync_statuses
-          .filter(s => s.status === 'failed')
-          .forEach(s => {
-            if (recentFailures.length < 5) {
-              recentFailures.push({
-                user: user.email,
-                client: s.client_name || s.client,
-                clientId: s.client,
-                error: s.last_error
-              });
-            }
-          });
-      }
+    clientWorstStatus.forEach((status) => {
+      if (status === "failed") failedSyncs += 1;
+      else if (status === "pending") pendingSyncs += 1;
+      else successfulSyncs += 1;
     });
 
     const healthRate = totalNodes > 0 ? (successfulSyncs / totalNodes) * 100 : 100;
 
+    const recentFailures = Array.from(recentFailuresByClient.values())
+      .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))
+      .slice(0, 5)
+      .map((entry) => {
+        const users = Array.from(entry.users);
+        return {
+          client: entry.client,
+          clientId: entry.clientId,
+          error: entry.error,
+          user: users.length > 1 ? `${users[0]} +${users.length - 1} more` : users[0] || "",
+        };
+      });
+
     return {
       kpis: [
-        { title: "Total Ecosystem Nodes", value: totalNodes.toString(), change: "-", trend: "neutral" as const },
-        { title: "Sync Health Rate", value: `${healthRate.toFixed(1)}%`, change: "-", trend: healthRate > 95 ? "up" as const : "neutral" as const },
-        { title: "Pending Queue", value: pendingSyncs.toString(), change: "-", trend: pendingSyncs > 0 ? "down" as const : "neutral" as const },
-        { title: "Critical Failures", value: failedSyncs.toString(), change: "-", trend: failedSyncs > 0 ? "down" as const : "neutral" as const },
+        { title: "Total Client Connections", value: totalNodes.toString(), change: "-", trend: "neutral" as const },
+        { title: "Connection Success Rate", value: `${healthRate.toFixed(1)}%`, change: "-", trend: healthRate > 95 ? "up" as const : "neutral" as const },
+        { title: "Waiting to Sync", value: pendingSyncs.toString(), change: "-", trend: pendingSyncs > 0 ? "down" as const : "neutral" as const },
+        { title: "Needs Attention", value: failedSyncs.toString(), change: "-", trend: failedSyncs > 0 ? "down" as const : "neutral" as const },
+        { title: "Auto-Retry Runs", value: String(retryMetrics?.auto_retry_runs ?? 0), change: "-", trend: "neutral" as const },
       ],
-      recentFailures
+      recentFailures,
     };
-  }, [users]);
+  }, [users, retryMetrics?.auto_retry_runs]);
 
   const sortedUsers = useMemo(
     () => [...users].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
@@ -186,7 +231,7 @@ export default function CrossTenantAccessUsers() {
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Cross-Tenant Access Users</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Runtime-managed super admin users synchronized to tenant environments.
+              Manage shared admin access across all client environments.
             </p>
           </div>
           <div className="hidden md:flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100">
@@ -197,8 +242,8 @@ export default function CrossTenantAccessUsers() {
 
         {/* Sync Intelligence Dashboard */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {isLoading ? (
-            Array.from({ length: 4 }).map((_, i) => (
+          {isLoading || isRetryMetricsLoading ? (
+            Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-32 rounded-2xl w-full" />
             ))
           ) : (
@@ -207,12 +252,20 @@ export default function CrossTenantAccessUsers() {
             ))
           )}
         </div>
+        {!isLoading && !isRetryMetricsLoading && (
+          <p className="text-xs text-muted-foreground px-1">
+            Last Auto-Retry Time:{" "}
+            {retryMetrics?.last_auto_retry_at
+              ? new Date(retryMetrics.last_auto_retry_at).toLocaleString()
+              : "Never"}
+          </p>
+        )}
 
         {/* Global Diagnostic Summary */}
         {!isLoading && aggregateMetrics.recentFailures.length > 0 && (
           <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-900 rounded-2xl shadow-sm">
             <AlertTriangle className="h-4 w-4 text-red-600" />
-            <AlertTitle className="font-bold">Sync Disruptions Detected</AlertTitle>
+            <AlertTitle className="font-bold">Connection Issues Detected</AlertTitle>
             <AlertDescription className="mt-2 text-sm opacity-90">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
                 {aggregateMetrics.recentFailures.map((failure, i) => (

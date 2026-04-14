@@ -263,6 +263,11 @@ export interface CrossTenantAccessUser {
   updated_at: string;
 }
 
+export interface CrossTenantAccessRetryMetrics {
+  auto_retry_runs: number;
+  last_auto_retry_at: string | null;
+}
+
 export interface ClientCreateResponse {
   success: boolean;
   message: string;
@@ -585,6 +590,11 @@ export const clientApi = {
 
   listAccessUsers: async (): Promise<CrossTenantAccessUser[]> => {
     const { data } = await axiosInstance.get('/admin/access-users/');
+    return data;
+  },
+
+  getAccessUserRetryMetrics: async (): Promise<CrossTenantAccessRetryMetrics> => {
+    const { data } = await axiosInstance.get('/admin/access-users/retry-metrics/');
     return data;
   },
 
