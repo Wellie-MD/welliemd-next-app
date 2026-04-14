@@ -433,13 +433,6 @@ export const clientApi = {
     return data;
   },
 
-  changeDomain: async (id: string, newDomain: string): Promise<{ success: boolean; message: string; task_id: string; old_domain: string; new_domain: string }> => {
-    const { data } = await axiosInstance.post(`/clients/${id}/change-domain/`, {
-      new_domain: newDomain,
-    });
-    return data;
-  },
-
   // LEGACY: Stripe-managed subscription creation path.
   // Prefer custom billing config + billing activation APIs.
   createSubscription: async (
