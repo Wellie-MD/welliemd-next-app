@@ -4,7 +4,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Phone,
@@ -139,6 +138,7 @@ function DocumentBubble({
 
 /* ==================== Component ==================== */
 export default function Messages() {
+  const MAX_COMPOSER_HEIGHT_PX = 140;
   const [searchParams, setSearchParams] = useSearchParams();
   // 1) Admin: load clients
   const { clients, loading: loadingClients, error: clientsError } = useClients();
@@ -151,6 +151,7 @@ export default function Messages() {
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const sendInFlightRef = useRef(false);
+  const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Attachments (compose)
   const [files, setFiles] = useState<File[]>([]);
@@ -178,6 +179,19 @@ export default function Messages() {
   };
 
   const conversations = groupMessages(messages);
+
+  const resizeComposer = () => {
+    const el = messageInputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const nextHeight = Math.min(el.scrollHeight, MAX_COMPOSER_HEIGHT_PX);
+    el.style.height = `${Math.max(48, nextHeight)}px`;
+    el.style.overflowY = el.scrollHeight > MAX_COMPOSER_HEIGHT_PX ? "auto" : "hidden";
+  };
+
+  useEffect(() => {
+    resizeComposer();
+  }, [newMessage]);
 
   // Auto-pick first client
   useEffect(() => {
@@ -746,13 +760,21 @@ async function handleSend() {
                   />
 
                   {/* input */}
-                  <Input
+                  <textarea
+                    ref={messageInputRef}
                     placeholder="Type your message here..."
-                    className="flex-1 h-12 text-base px-6 rounded-full border focus:ring-2 focus:ring-blue-400"
+                    rows={1}
+                    className="flex-1 text-base px-6 py-3 rounded-2xl border focus:ring-2 focus:ring-blue-400 resize-none leading-6 max-h-[140px]"
                     value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
+                    onChange={(e) => {
+                      setNewMessage(e.target.value)
+                      resizeComposer()
+                    }}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") handleSend();
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                      }
                     }}
                   />
 
