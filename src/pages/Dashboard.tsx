@@ -2,8 +2,23 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, Eye, DollarSign, ChevronLeft, ChevronRight } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ShoppingCart, Eye, DollarSign, ChevronLeft, ChevronRight, CalendarIcon, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import {
+  format,
+  subDays,
+  startOfYear,
+  endOfYear,
+  isSameDay,
+  subMonths
+} from 'date-fns';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { SalesChart } from "@/components/dashboard/SalesChart";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
@@ -13,6 +28,25 @@ import { PaymentTable } from "@/components/dashboard/PaymentTable";
 import { useAdminDashboard } from "@/hooks/useAdminDashboard";
 import { Metric } from "@/types/dashboard";
 import mockData from "@/data/mockData.json";
+
+interface DateRange {
+  from: Date;
+  to: Date;
+}
+
+const PRESET_RANGES = [
+  { label: '7 D', getValue: () => ({ from: subDays(new Date(), 6), to: new Date() }) },
+  { label: '30 D', getValue: () => ({ from: subDays(new Date(), 29), to: new Date() }) },
+  { label: '90 D', getValue: () => ({ from: subDays(new Date(), 89), to: new Date() }) },
+  { label: 'YTD', getValue: () => ({ from: startOfYear(new Date()), to: new Date() }) },
+  {
+    label: 'Last Year',
+    getValue: () => ({
+      from: startOfYear(subMonths(new Date(), 12)),
+      to: endOfYear(subMonths(new Date(), 12)),
+    }),
+  },
+];
 
 const getMetricByTitle = (kpis: Metric[], titles: string[]) =>
   kpis.find((kpi) => titles.includes(kpi.title));
@@ -76,8 +110,21 @@ const normalizeAdminKpis = (
 };
 
 export default function Dashboard() {
+  const [dateRange, setDateRange] = useState<DateRange>(PRESET_RANGES[1].getValue());
+
   // Fetch dashboard data from API
-  const { dashboardData, loading, error, refetch } = useAdminDashboard();
+  const { dashboardData, loading, error, refetch } = useAdminDashboard({
+    start_date: format(dateRange.from, 'yyyy-MM-dd'),
+    end_date: format(dateRange.to, 'yyyy-MM-dd'),
+  });
+
+  const activeRangeLabel = useMemo(() => {
+    const match = PRESET_RANGES.find(p => {
+      const r = p.getValue();
+      return isSameDay(r.from, dateRange.from) && isSameDay(r.to, dateRange.to);
+    });
+    return match?.label || null;
+  }, [dateRange]);
 
   // Use API data if available, otherwise fallback to mock data
   const dashboard = dashboardData || mockData.dashboard;
@@ -177,24 +224,62 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 space-y-4 w-full min-w-0 overflow-x-hidden">
-      <div className="flex items-center justify-between min-w-0">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center justify-between min-w-0">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-          {dashboardWindowLabel ? (
-            <p className="text-sm text-muted-foreground hidden">{dashboardWindowLabel}</p>
-          ) : null}
-          <p className="text-xs text-muted-foreground hidden">{chartWindowLabel}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {dateRange.from && dateRange.to
+              ? `${format(dateRange.from, 'MMM d, yyyy')} — ${format(dateRange.to, 'MMM d, yyyy')}`
+              : 'Select range'}
+          </p>
         </div>
-        {/* {dashboardData && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={refetch}
-            disabled={loading}
-          >
-            {loading ? "Refreshing..." : "Refresh"}
+
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Quick presets */}
+          <div className="flex items-center rounded-lg border bg-muted/40 p-0.5 hidden sm:flex">
+            {PRESET_RANGES.map(p => (
+              <button
+                key={p.label}
+                onClick={() => setDateRange(p.getValue())}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
+                  activeRangeLabel === p.label
+                    ? 'bg-white text-gray-800 shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Calendar */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                <CalendarIcon className="h-3.5 w-3.5" />
+                Custom
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange.from}
+                selected={{ from: dateRange.from, to: dateRange.to }}
+                onSelect={(range: any) =>
+                  range?.from && setDateRange({ from: range.from, to: range.to || range.from })
+                }
+                numberOfMonths={2}
+              />
+            </PopoverContent>
+          </Popover>
+
+          {/* Actions */}
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={refetch} disabled={loading}>
+            <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
           </Button>
-        )} */}
+        </div>
       </div>
 
       {/* KPI Cards - Horizontally Scrollable */}
