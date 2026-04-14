@@ -134,7 +134,7 @@ function CompletionCell({
               </Badge>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Shipped</p>
+              <p>Completed checkouts (captured payments)</p>
             </TooltipContent>
           </Tooltip>
           <Tooltip>
@@ -144,7 +144,7 @@ function CompletionCell({
               </Badge>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Pending</p>
+              <p>Payment pending (not captured yet)</p>
             </TooltipContent>
           </Tooltip>
         </div>
@@ -439,6 +439,7 @@ export default function AnalyticsReports() {
                 </button>
               )}
             </Badge>
+            <Badge variant="outline">Captured payments exclude pending/authorized/failed/canceled</Badge>
           </div>
         </CardContent>
       </Card>
@@ -450,7 +451,7 @@ export default function AnalyticsReports() {
       )}
 
       {aggregates && (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-7">
           <SummaryCard
             title="Total Orders"
             value={aggregates.summary.totalOrders}
@@ -459,11 +460,25 @@ export default function AnalyticsReports() {
             chipTone="bg-blue-100"
           />
           <SummaryCard
-            title="Total Sales"
-            value={`$${aggregates.summary.totalSales.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+            title="Captured Payments"
+            value={`$${aggregates.summary.capturedPaymentsAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
             icon={DollarSign}
             iconTone="text-emerald-600"
             chipTone="bg-emerald-100"
+          />
+          <SummaryCard
+            title="Completed Checkouts"
+            value={aggregates.summary.completedCheckouts}
+            icon={ShoppingCart}
+            iconTone="text-amber-600"
+            chipTone="bg-amber-100"
+          />
+          <SummaryCard
+            title="Payment Pending"
+            value={aggregates.summary.paymentPending}
+            icon={ShoppingCart}
+            iconTone="text-orange-600"
+            chipTone="bg-orange-100"
           />
           <SummaryCard
             title="States"
@@ -573,9 +588,9 @@ export default function AnalyticsReports() {
                       <TableRow>
                         <TableHead>State</TableHead>
                         <TableHead className="text-right">Orders</TableHead>
-                        <TableHead className="text-right">Sales</TableHead>
+                        <TableHead className="text-right">Captured Payments</TableHead>
                         <TableHead className="text-right">Avg Order</TableHead>
-                        <TableHead className="text-right">Fulfillment</TableHead>
+                        <TableHead className="text-right">Checkout Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -586,12 +601,12 @@ export default function AnalyticsReports() {
                         >
                           <TableCell className="font-medium">{item.state}</TableCell>
                           <TableCell className="text-right">{item.totalOrders}</TableCell>
-                          <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">${item.capturedPaymentsAmount.toLocaleString()}</TableCell>
                           <TableCell className="text-right">${item.averageOrderValue.toFixed(2)}</TableCell>
                           <TableCell className="text-right">
                             <CompletionCell
-                              completed={item.completedOrders}
-                              pending={item.pendingOrders}
+                              completed={item.completedCheckouts}
+                              pending={item.paymentPending}
                               total={item.totalOrders}
                             />
                           </TableCell>
@@ -627,9 +642,9 @@ export default function AnalyticsReports() {
                       <TableRow>
                         <TableHead>Pharmacy</TableHead>
                         <TableHead className="text-right">Orders</TableHead>
-                        <TableHead className="text-right">Sales</TableHead>
+                        <TableHead className="text-right">Captured Payments</TableHead>
                         <TableHead className="text-right">Avg Order</TableHead>
-                        <TableHead className="text-right">Fulfillment</TableHead>
+                        <TableHead className="text-right">Checkout Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -640,12 +655,12 @@ export default function AnalyticsReports() {
                         >
                           <TableCell className="font-medium">{item.pharmacy}</TableCell>
                           <TableCell className="text-right">{item.totalOrders}</TableCell>
-                          <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">${item.capturedPaymentsAmount.toLocaleString()}</TableCell>
                           <TableCell className="text-right">${item.averageOrderValue.toFixed(2)}</TableCell>
                           <TableCell className="text-right">
                             <CompletionCell
-                              completed={item.completedOrders}
-                              pending={item.pendingOrders}
+                              completed={item.completedCheckouts}
+                              pending={item.paymentPending}
                               total={item.totalOrders}
                             />
                           </TableCell>
@@ -683,7 +698,7 @@ export default function AnalyticsReports() {
                       <TableHead>Product Variant</TableHead>
                       <TableHead className="text-right">Orders</TableHead>
                       <TableHead className="text-right">Quantity</TableHead>
-                      <TableHead className="text-right">Sales</TableHead>
+                      <TableHead className="text-right">Captured Payments</TableHead>
                       <TableHead className="text-right">Avg Price</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -706,7 +721,7 @@ export default function AnalyticsReports() {
                           </TableCell>
                           <TableCell className="text-right">{item.totalOrders}</TableCell>
                           <TableCell className="text-right">{item.totalQuantity}</TableCell>
-                          <TableCell className="text-right">${item.totalSales.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">${item.capturedPaymentsAmount.toLocaleString()}</TableCell>
                           <TableCell className="text-right">${item.averagePrice.toFixed(2)}</TableCell>
                         </TableRow>
                       )

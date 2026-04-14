@@ -18,7 +18,13 @@ export interface AnalyticsData {
     unique: number;
     totalPageviews: number;
     bounceRate: number;
-    visitDuration: string;
+    averageDuration: string;
+    visitDuration?: string;
+  };
+  checkoutMetrics?: {
+    completedCheckouts: number;
+    capturedPaymentsAmount: number;
+    paymentPending: number;
   };
   chartData: Array<{
     time: string;
@@ -43,8 +49,11 @@ export interface AnalyticsData {
     checking: number;
     purchased: number;
   };
-  totalCheckouts: number;
-  totalSales: number;
+  completedCheckouts: number;
+  capturedPaymentsAmount: number;
+  paymentPending: number;
+  totalCheckouts?: number;
+  totalSales?: number;
 }
 
 export interface QueryParams {
