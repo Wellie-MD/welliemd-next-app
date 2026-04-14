@@ -49,7 +49,7 @@ const settingsMenuItems = [
   { title: "Notification Templates", url: "/dashboard/settings/notification-templates", icon: Mail },
   { title: "Policies", url: "/dashboard/settings/policies", icon: Shield },
   { title: "Metafields", url: "/dashboard/settings/metafields", icon: Tag },
-  // { title: "Domains", url: "/dashboard/settings/domains", icon: Globe }, /* Domains tab removed on request: https://telehealthknysys.atlassian.net/browse/KAN-3 */
+  { title: "Domains", url: "/dashboard/settings/domains", icon: Globe },
   { title: "Brand", url: "/dashboard/settings/brand", icon: Palette },
   { title: "Webhooks", url: "/dashboard/settings/webhooks-apis", icon: Webhook },
   { title: "Analytics and SEO", url: "/dashboard/settings/analytics-seo", icon: TrendingUp },
