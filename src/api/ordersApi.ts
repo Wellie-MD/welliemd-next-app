@@ -101,6 +101,7 @@ export interface Order {
   email?: string
   phone?: string
   pharmacy_display?: string | null
+  pharmacy_name?: string | null
   orderDate?: string | null
   datePrescribed?: string | null
   datePrintedShipped?: string | null

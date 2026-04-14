@@ -52,6 +52,7 @@ import { useToast } from "@/hooks/use-toast"
 import { PermissionGate } from "@/components/auth/PermissionGate"
 import { Permissions } from "@/constants/permissions"
 import { cn } from "@/lib/utils"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const statusColors: Record<string, string> = {
   created: "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600",
@@ -388,21 +389,20 @@ export default function OrderDetail() {
     })
   }
   if (order.paymentDate) {
-    const reimbursementParts: string[] = []
-    if (order.medication_cost_to_client) reimbursementParts.push(`Medication Cost: ${order.medication_cost_to_client}`)
-    if (order.consult_cost_to_client) {
-      const consultLabel = order.consult_type === 'sync' ? 'Sync Consult Cost' : 'Async Consult Cost'
-      reimbursementParts.push(`${consultLabel}: ${order.consult_cost_to_client}`)
-    }
-    if (order.shipping_fee_to_client) reimbursementParts.push(`Shipping Fee: ${order.shipping_fee_to_client}`)
+    const normalizedPaymentStatus = (order.paymentStatus || "").toLowerCase()
+    let paymentTitle = "Payment Updated"
+    if (normalizedPaymentStatus === "authorized") paymentTitle = "Patient Payment Authorized"
+    else if (["captured", "approved", "succeeded"].includes(normalizedPaymentStatus)) paymentTitle = "Patient Payment Captured"
+    else if (["failed", "declined", "error"].includes(normalizedPaymentStatus)) paymentTitle = "Patient Payment Failed"
+    else if (normalizedPaymentStatus === "voided") paymentTitle = "Patient Authorization Voided"
+    else if (normalizedPaymentStatus === "refunded") paymentTitle = "Patient Payment Refunded"
+
     timelineItems.push({
-      title: "Order Reimbursement Billing Success",
+      title: paymentTitle,
       date: formatDateTime(order.paymentDate),
-      description: reimbursementParts.length > 0
-        ? `$${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount || '0.00'} (${reimbursementParts.join(', ')})`
-        : (order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal)
-          ? `$${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal}`
-          : undefined,
+      description: (order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount)
+        ? `$${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount}`
+        : undefined,
       icon: "payments",
       iconBg: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800",
     })
@@ -433,9 +433,9 @@ export default function OrderDetail() {
       iconBg: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800",
     })
   }
-  if (order.visitStatus || order.treatment_type) {
+  if (order.visitStatus || order.mrn) {
     timelineItems.push({
-      title: "Followup Visit Created",
+      title: "Visit Created",
       date: formatDateTime(order.orderDate),
       description: order.provider_network ? `Provider: ${order.provider_network}` : undefined,
       icon: "medical_services",
@@ -563,6 +563,11 @@ export default function OrderDetail() {
     order.prescription_medications?.[0]?.name ||
     null
   const chargeableAmountSource = order.chargeable_amount_source || "requested_medicine"
+  const pharmacyDisplayName =
+    order.pharmacy_name ||
+    order.pharmacy_display ||
+    order.booking_location ||
+    "—"
 
   const previewOriginalUnitPrice = pendingProductChange != null
     ? pendingProductChange.unitPrice
@@ -742,6 +747,9 @@ export default function OrderDetail() {
                           </p>
                           <p className="text-xs text-slate-500 mt-0.5">
                             Prescribed: <span className="text-slate-700 dark:text-slate-300">{prescribedMedicineName || "Awaiting provider decision"}</span>
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Doctor: <span className="text-slate-700 dark:text-slate-300">{order.doctor_name || "—"}</span>
                           </p>
                           {order.provider_network && (
                             <span className="inline-flex items-center mt-2 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
@@ -942,48 +950,154 @@ export default function OrderDetail() {
 
         {/* Right column */}
         <div className="lg:col-span-4 space-y-6">
-          {/* Visit Details */}
-          <div className="bg-card rounded-xl shadow-sm border p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-slate-400" />
-                Visit Details
-              </h3>
-              <Button size="sm" variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 text-xs">
-                Track
-              </Button>
-            </div>
-            <div className="flex items-start gap-4 mb-4">
-              <div className="h-12 w-12 rounded-full bg-red-50 dark:bg-red-900/20 text-red-500 flex items-center justify-center">
-                <Stethoscope className="h-6 w-6" />
+          {/* Medical + Pharmacy Tabs */}
+          <div className="bg-card rounded-xl shadow-sm border p-4 sm:p-6">
+            <Tabs defaultValue="medical" className="w-full">
+              <div className="px-4 pt-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+                <TabsList className="h-10 grid grid-cols-3 w-full sm:w-auto p-1">
+                  <TabsTrigger value="product" className="h-8 text-xs sm:text-sm leading-none">Product</TabsTrigger>
+                  <TabsTrigger value="medical" className="h-8 text-xs sm:text-sm leading-none">Medical</TabsTrigger>
+                  <TabsTrigger value="pharmacy" className="h-8 text-xs sm:text-sm leading-none">Pharmacy</TabsTrigger>
+                </TabsList>
+                <Button size="sm" variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 text-xs h-8 px-3">
+                  Track
+                </Button>
               </div>
-              <div>
-                <h4 className="font-medium text-slate-900 dark:text-white">
-                  {order.provider_network || "Medical Network"}
-                </h4>
-                <p className="text-xs text-slate-500 mt-1">
-                  Provider: <span className="text-slate-700 dark:text-slate-300">{order.doctor_name || order.provider_network || "—"}</span>
-                </p>
-                {order.prescription_source_received_at && (
+
+              <TabsContent value="product" className="space-y-4 mt-0">
+                <div className="p-3 bg-muted/40 rounded-lg border">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Product</p>
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">{displayProductName}</p>
                   <p className="text-xs text-slate-500 mt-1">
-                    RX Received: <span className="text-slate-700 dark:text-slate-300">{formatDateTime(order.prescription_source_received_at)}</span>
+                    Requested: <span className="text-slate-700 dark:text-slate-300">{requestedMedicineName}</span>
                   </p>
-                )}
-                {order.prescription_source_event_id && (
-                  <p className="text-[11px] text-slate-500 mt-1 break-all">
-                    RX Event ID: <span className="font-mono text-slate-700 dark:text-slate-300">{order.prescription_source_event_id}</span>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Prescribed: <span className="text-slate-700 dark:text-slate-300">{prescribedMedicineName || "Awaiting provider decision"}</span>
                   </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Doctor: <span className="text-slate-700 dark:text-slate-300">{order.doctor_name || "—"}</span>
+                  </p>
+                </div>
+                <div className="p-3 bg-muted/40 rounded-lg border">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Pricing</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
+                    Subtotal: <span className="text-slate-700 dark:text-slate-200 font-medium">${productSubtotalPrice}</span>
+                  </p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                    Shipping: <span className="text-slate-700 dark:text-slate-200 font-medium">${formatMoney(previewShippingFee)}</span>
+                  </p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                    Total: <span className="text-slate-700 dark:text-slate-200 font-semibold">${netTotalPrice}</span>
+                  </p>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="medical" className="space-y-4 mt-0">
+                <div className="flex items-start gap-4">
+                  <div className="h-14 w-14 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-500 flex items-center justify-center shrink-0">
+                    <Stethoscope className="h-7 w-7" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="font-semibold text-slate-900 dark:text-white text-base">
+                      {order.provider_network || "Medical Network"}
+                    </h4>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      Provider: <span className="text-slate-700 dark:text-slate-300 font-medium">{order.doctor_name || order.provider_network || "—"}</span>
+                    </p>
+                    {order.prescription_source_received_at && (
+                      <p className="text-sm text-slate-500 mt-1">
+                        RX Received: <span className="text-slate-700 dark:text-slate-300">{formatDateTime(order.prescription_source_received_at)}</span>
+                      </p>
+                    )}
+                    {order.prescription_source_event_id && (
+                      <p className="text-xs text-slate-500 mt-2 break-all">
+                        RX Event ID: <span className="font-mono text-slate-600 dark:text-slate-400">{order.prescription_source_event_id}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {(order.mrn || order.visitStatus) && (
+                  <div className="p-4 bg-muted/50 rounded-lg border border-border/50">
+                    <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-1">Master ID</p>
+                    <p className="text-sm font-mono text-slate-700 dark:text-slate-300 break-all leading-relaxed">
+                      {order.mrn || order.visitStatus || "—"}
+                    </p>
+                  </div>
                 )}
-              </div>
-            </div>
-            {(order.mrn || order.visitStatus) && (
-              <div className="p-3 bg-muted/50 rounded-lg border">
-                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Master ID</p>
-                <p className="text-xs font-mono text-slate-700 dark:text-slate-300 break-all">
-                  {order.mrn || order.visitStatus || "—"}
-                </p>
-              </div>
-            )}
+              </TabsContent>
+
+              <TabsContent value="pharmacy" className="space-y-4 mt-0">
+                <div className="p-4 bg-muted/40 rounded-lg border border-border/50">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-2">Pharmacy</p>
+                  <p className="text-base font-semibold text-slate-900 dark:text-white">{pharmacyDisplayName}</p>
+                  {order.booking_location && (
+                    <p className="text-sm text-slate-500 mt-1 flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {order.booking_location}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">Prescription Details</p>
+                  {(order.prescription_medications || []).length > 0 ? (
+                    <div className="space-y-3">
+                      {(order.prescription_medications || []).map((med, idx) => (
+                        <div key={`pharm-med-${idx}`} className="rounded-lg border p-4 bg-background/60 shadow-sm">
+                          <p className="font-medium text-slate-900 dark:text-white">{med.name || "Medication"}</p>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-sm text-slate-500">
+                            <span className="flex items-center gap-1">
+                              <span className="text-slate-400">Strength:</span>
+                              <span className="text-slate-700 dark:text-slate-300 font-medium">{med.strength || "—"}</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="text-slate-400">Qty:</span>
+                              <span className="text-slate-700 dark:text-slate-300 font-medium">{med.quantity || "—"}</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="text-slate-400">Refills:</span>
+                              <span className="text-slate-700 dark:text-slate-300 font-medium">{med.refills || "0"}</span>
+                            </span>
+                          </div>
+                          {(med.rxId || med.medId) && (
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-slate-500">
+                              {med.rxId && (
+                                <span className="flex items-center gap-1">
+                                  <span>RX ID:</span>
+                                  <span className="font-mono text-slate-600 dark:text-slate-400">{med.rxId}</span>
+                                </span>
+                              )}
+                              {med.medId && (
+                                <span className="flex items-center gap-1">
+                                  <span>Med ID:</span>
+                                  <span className="font-mono text-slate-600 dark:text-slate-400">{med.medId}</span>
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500 italic bg-muted/30 p-3 rounded-lg">No pharmacy prescription details available yet.</p>
+                  )}
+                </div>
+                <div className="p-4 bg-muted/40 rounded-lg border border-border/50">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-3">Fulfillment</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-xs text-slate-500 mb-0.5">Tracking Number</p>
+                      <p className="font-mono text-slate-700 dark:text-slate-300 text-xs break-all">{order.tracking_number || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500 mb-0.5">Status</p>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+                        {statusDisplay}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
 
           {/* Booking Info */}
