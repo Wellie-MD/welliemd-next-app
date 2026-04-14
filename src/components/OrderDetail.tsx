@@ -97,7 +97,7 @@ type TimelineStep = {
 function buildTimeline(order: PatientOrder): TimelineStep[] {
   const ordered = formatDate(order.created_at);
   const prescribed = formatDate(order.prescribed_at);
-  const amount = `$${order.amount}`;
+  const amount = `$${order.chargeable_amount || order.amount}`;
 
   // Map backend status → kinmeds3 display status
   const statusMap: Record<string, string> = {
@@ -315,6 +315,9 @@ export default function OrderDetail() {
   const ref = order.order_id || order.display_id;
   const statusConfig = STATUS_CONFIG[order.status] || { label: order.status, badgeClass: 'km-badge km-badge-gray' };
   const timeline = buildTimeline(order);
+  const requestedMedicineName = order.requested_medicine_name || order.product_name;
+  const prescribedMedicineName = order.prescribed_medicine_name || null;
+  const displayAmount = order.chargeable_amount || order.amount;
 
   return (
     <div className="pg" id="pg-orderdetail">
@@ -349,11 +352,11 @@ export default function OrderDetail() {
       <div className="km-fade" style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: 16, background: 'var(--km-s1)', borderRadius: 12, marginBottom: 10, border: '1px solid var(--km-b)' }}>
         <div style={{
           width: 56, height: 56, borderRadius: 12,
-          background: getProductIconBg(order.product_name),
+          background: getProductIconBg(prescribedMedicineName || requestedMedicineName),
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           flexShrink: 0, border: '1px solid var(--km-b)',
         }}>
-          <ProductIcon productName={order.product_name} />
+          <ProductIcon productName={prescribedMedicineName || requestedMedicineName} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Main Product Title - Hide ONLY if diff shown (per kinmeds3) */}
@@ -369,7 +372,7 @@ export default function OrderDetail() {
                   Requested
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--km-re)', lineHeight: 1.35 }}>
-                  {order.product_name}
+                  {requestedMedicineName}
                 </div>
               </div>
               
@@ -390,13 +393,13 @@ export default function OrderDetail() {
                   Prescribed
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--km-gr)', lineHeight: 1.35 }}>
-                  {order.product_name}
+                  {prescribedMedicineName || 'Awaiting provider decision'}
                 </div>
               </div>
             </div>
           ) : (
             <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.4, marginBottom: 4 }}>
-              {order.product_name}
+              {requestedMedicineName}
             </div>
           )}
 
@@ -485,7 +488,7 @@ export default function OrderDetail() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderBottom: '1px solid var(--km-b)' }}>
           <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>Amount</span>
-          <span style={{ fontSize: 15, fontWeight: 800 }}>${order.amount}</span>
+          <span style={{ fontSize: 15, fontWeight: 800 }}>${displayAmount}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px' }}>
           <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>Ordered</span>
@@ -515,4 +518,3 @@ export default function OrderDetail() {
     </div>
   );
 }
-

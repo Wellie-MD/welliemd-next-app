@@ -764,7 +764,12 @@ body.light .km-nbtn {
   color: var(--km-t);
   font-family: 'Outfit', sans-serif;
   font-size: 13px;
-  outline: none
+  outline: none;
+  resize: none;
+  line-height: 1.4;
+  min-height: 42px;
+  max-height: 140px;
+  overflow-y: hidden
 }
 
 .km-cinp::placeholder {

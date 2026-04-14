@@ -196,6 +196,7 @@ function DocumentBubble({
 }
 
 export default function Messages() {
+  const MAX_COMPOSER_HEIGHT_PX = 140;
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -212,8 +213,22 @@ export default function Messages() {
   const [uploading, setUploading] = useState(false);
   const sendInFlightRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const composeInputRef = useRef<HTMLTextAreaElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const resizeComposer = useCallback(() => {
+    const el = composeInputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const nextHeight = Math.min(el.scrollHeight, MAX_COMPOSER_HEIGHT_PX);
+    el.style.height = `${Math.max(42, nextHeight)}px`;
+    el.style.overflowY = el.scrollHeight > MAX_COMPOSER_HEIGHT_PX ? "auto" : "hidden";
+  }, []);
+
+  useEffect(() => {
+    resizeComposer();
+  }, [composeText, resizeComposer]);
 
   const loadConversations = useCallback(async () => {
     try {
@@ -644,9 +659,11 @@ export default function Messages() {
                 <ChevronDown size={12} strokeWidth={2.5} />
               </div>
 
-              <input 
+              <textarea
+                ref={composeInputRef}
                 className="km-cinp" 
                 placeholder="Type a message..." 
+                rows={1}
                 value={composeText}
                 onChange={(e) => setComposeText(e.target.value)}
                 onKeyDown={(e) => {
