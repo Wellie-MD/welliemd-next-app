@@ -275,11 +275,9 @@ export default function ProductAssignment() {
       if (result.successful > 0) {
         toast({
           title: "Success",
-          description: `Re-assigned ${
-            result.successful
-          } product(s) successfully${
-            result.failed > 0 ? `, ${result.failed} failed` : ""
-          }`,
+          description: `Re-assigned ${result.successful
+            } product(s) successfully${result.failed > 0 ? `, ${result.failed} failed` : ""
+            }`,
         });
         clearAllSelections();
 
@@ -347,7 +345,7 @@ export default function ProductAssignment() {
             Back
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">Assign Products to Clients</h1>
+            <h1 className="text-2xl font-bold dark:text-slate-100">Assign Products to Clients</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Select products and clients to create assignments
             </p>
@@ -383,9 +381,9 @@ export default function ProductAssignment() {
 
       {/* Selection Summary */}
       {(selectedProducts.size > 0 || selectedClients.size > 0) && (
-        <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-slate-900/40 border border-blue-200 dark:border-slate-800 rounded-lg">
           <div className="flex-1">
-            <p className="text-sm font-medium text-blue-900">
+            <p className="text-sm font-medium text-blue-900 dark:text-slate-100">
               {selectedProducts.size} product(s) selected •{" "}
               {selectedClients.size} client(s) selected
             </p>
@@ -399,10 +397,10 @@ export default function ProductAssignment() {
       {/* Dual List Transfer Interface */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Products List */}
-        <div className="border rounded-lg bg-white shadow-sm flex flex-col">
-          <div className="p-4 border-b bg-gray-50">
+        <div className="border rounded-lg bg-white dark:bg-slate-900 shadow-sm flex flex-col dark:border-slate-800">
+          <div className="p-4 border-b bg-gray-50 dark:bg-slate-900/50 dark:border-slate-800">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold">Products</h2>
+              <h2 className="text-lg font-semibold dark:text-slate-100">Products</h2>
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
@@ -455,11 +453,10 @@ export default function ProductAssignment() {
                     <div
                       key={product.id}
                       onClick={() => toggleProduct(product.id)}
-                      className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                        selectedProducts.has(product.id)
-                          ? "bg-blue-50 border-2 border-blue-500"
-                          : "hover:bg-gray-50 border-2 border-transparent"
-                      }`}
+                      className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${selectedProducts.has(product.id)
+                          ? "bg-blue-50 border-2 border-blue-500 dark:bg-slate-800"
+                          : "hover:bg-gray-50 dark:hover:bg-slate-800 border-2 border-transparent"
+                        }`}
                     >
                       <Checkbox
                         checked={selectedProducts.has(product.id)}
@@ -469,7 +466,7 @@ export default function ProductAssignment() {
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <p className="font-medium text-sm truncate">
+                          <p className="font-medium text-sm truncate dark:text-slate-100">
                             {product.name}
                           </p>
                           {product.is_active && (
@@ -535,7 +532,7 @@ export default function ProductAssignment() {
 
           {/* Load More Button */}
           {hasMoreProducts && !productSearch && (
-            <div className="px-3 py-2 border-t">
+            <div className="px-3 py-2 border-t dark:border-slate-800">
               <Button
                 variant="outline"
                 size="sm"
@@ -555,7 +552,7 @@ export default function ProductAssignment() {
             </div>
           )}
 
-          <div className="p-3 border-t bg-gray-50 text-sm text-muted-foreground">
+          <div className="p-3 border-t bg-gray-50 dark:bg-slate-900/50 dark:border-slate-800 text-sm text-muted-foreground">
             {selectedProducts.size} of {filteredProducts.length} selected
             {totalProducts > 0 && !productSearch && (
               <span className="ml-2 text-xs">
@@ -566,10 +563,10 @@ export default function ProductAssignment() {
         </div>
 
         {/* Clients List */}
-        <div className="border rounded-lg bg-white shadow-sm flex flex-col">
-          <div className="p-4 border-b bg-gray-50">
+        <div className="border rounded-lg bg-white dark:bg-slate-900 shadow-sm flex flex-col dark:border-slate-800">
+          <div className="p-4 border-b bg-gray-50 dark:bg-slate-900/50 dark:border-slate-800">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold">Clients</h2>
+              <h2 className="text-lg font-semibold dark:text-slate-100">Clients</h2>
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
@@ -620,11 +617,10 @@ export default function ProductAssignment() {
                     <div
                       key={client.id}
                       onClick={() => toggleClient(client.id)}
-                      className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                        selectedClients.has(client.id)
-                          ? "bg-blue-50 border-2 border-blue-500"
-                          : "hover:bg-gray-50 border-2 border-transparent"
-                      }`}
+                      className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${selectedClients.has(client.id)
+                          ? "bg-blue-50 border-2 border-blue-500 dark:bg-slate-800"
+                          : "hover:bg-gray-50 dark:hover:bg-slate-800 border-2 border-transparent"
+                        }`}
                     >
                       <Checkbox
                         checked={selectedClients.has(client.id)}
@@ -634,7 +630,7 @@ export default function ProductAssignment() {
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="font-medium text-sm truncate">
+                          <p className="font-medium text-sm truncate dark:text-slate-100">
                             {client.name}
                           </p>
                           {client.is_active && (
@@ -662,7 +658,7 @@ export default function ProductAssignment() {
             </div>
           </div>
 
-          <div className="p-3 border-t bg-gray-50 text-sm text-muted-foreground">
+          <div className="p-3 border-t bg-gray-50 dark:bg-slate-900/50 dark:border-slate-800 text-sm text-muted-foreground">
             {selectedClients.size} of {filteredClients.length} selected
           </div>
         </div>

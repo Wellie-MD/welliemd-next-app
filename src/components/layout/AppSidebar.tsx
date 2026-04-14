@@ -212,21 +212,24 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar collapsible="icon" className="border-r">
+    <Sidebar
+      collapsible="icon"
+      className="border-r flex flex-col h-full overflow-hidden dark:border-slate-800 dark:[&_[data-sidebar=sidebar]]:bg-background dark:[&_[data-sidebar=sidebar]]:text-foreground"
+    >
       <div className="flex w-full justify-between p-4">
         <SidebarLogo />
-        <SidebarTrigger className="text-gray-600 hover:bg-white/50 rounded-md p-1" />
+        <SidebarTrigger className="text-gray-600 dark:text-slate-100 hover:bg-white/50 dark:hover:bg-slate-900/40 rounded-md p-1" />
       </div>
       <SidebarContent className="overflow-y-auto overflow-x-hidden scrollbar-hide pb-4">
         {menuSections.map((section, sectionIndex) => (
           <SidebarGroup key={section.label} className={collapsed ? "mb-2" : "mb-6"}>
             {!collapsed && (
-              <SidebarGroupLabel className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              <SidebarGroupLabel className="text-xs font-semibold text-gray-400 dark:text-slate-200 uppercase tracking-wider">
                 {section.label}
               </SidebarGroupLabel>
             )}
             {collapsed && sectionIndex > 0 && (
-              <div className="w-full h-px bg-gray-200 my-2 mx-2"></div>
+              <div className="w-full h-px bg-gray-200 dark:bg-slate-800/80 my-2 mx-2"></div>
             )}
             <SidebarGroupContent>
               <SidebarMenu className="space-y-1">
@@ -245,13 +248,13 @@ export function AppSidebar() {
                                   group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
                                   ${collapsed ? "p-2 justify-center" : "px-3 py-2.5 justify-between"}
                                   ${isActive
-                                    ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm"
-                                    : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
+                                    ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm dark:bg-slate-900/30 dark:text-slate-100"
+                                    : "text-gray-600 dark:text-slate-100 hover:text-[#12517A] dark:hover:text-slate-100 hover:bg-[#F8FBFC] dark:hover:bg-slate-900/30"
                                   }
                                 `}
                               >
                                 <div className="flex items-center min-w-0">
-                                  <item.icon className={`h-5 w-5 flex-shrink-0 ${isActive ? "text-[#12517A]" : "text-gray-500 group-hover:text-[#12517A]"
+                                  <item.icon className={`h-5 w-5 flex-shrink-0 ${isActive ? "text-[#12517A] dark:text-slate-100" : "text-gray-500 dark:text-slate-100 group-hover:text-[#12517A]"
                                     }`} />
                                   {!collapsed && (
                                     <span className="ml-3 font-medium truncate">
@@ -264,7 +267,7 @@ export function AppSidebar() {
                                     className={`
                                       h-4 w-4 transition-all duration-200 ease-in-out flex-shrink-0
                                       ${isOpen ? "transform rotate-0" : "transform -rotate-90"}
-                                      ${isActive ? "text-[#12517A]" : "text-gray-400 group-hover:text-[#12517A]"}
+                                      ${isActive ? "text-[#12517A] dark:text-slate-100" : "text-gray-400 dark:text-slate-200 group-hover:text-[#12517A]"}
                                     `}
                                   />
                                 )}
@@ -272,7 +275,7 @@ export function AppSidebar() {
                             </CollapsibleTrigger>
                             {!collapsed && (
                               <CollapsibleContent className="transition-all duration-300 ease-in-out">
-                                <div className="ml-6 mt-2 space-y-1 border-l border-gray-200 pl-4">
+                                <div className="ml-6 mt-2 space-y-1 border-l border-gray-200 dark:border-slate-800 pl-4">
                                   {item.children.map((child) => (
                                     <SidebarMenuButton key={child.title} asChild>
                                       <NavLink
@@ -280,8 +283,8 @@ export function AppSidebar() {
                                         className={`
                                           flex items-center w-full px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
                                           ${currentPath === child.url
-                                            ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm border-l-2 border-[#12517A] -ml-[1px]"
-                                            : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
+                                            ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm border-l-2 border-[#12517A] dark:border-slate-300 -ml-[1px] dark:bg-slate-900/30 dark:text-slate-100"
+                                            : "text-gray-600 dark:text-slate-100 hover:text-[#12517A] dark:hover:text-slate-100 hover:bg-[#F8FBFC] dark:hover:bg-slate-900/30"
                                           }
                                         `}
                                       >
@@ -301,18 +304,18 @@ export function AppSidebar() {
                               to={item.url}
                               end
                               className={`
-                                group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
-                                ${collapsed ? "p-2 justify-center" : "px-3 py-2.5"}
-                                ${currentPath === item.url
-                                  ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm"
-                                  : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
+                                  group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
+                                  ${collapsed ? "p-2 justify-center" : "px-3 py-2.5"}
+                                  ${currentPath === item.url
+                                  ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm dark:bg-slate-900/30 dark:text-slate-100"
+                                  : "text-gray-600 dark:text-slate-100 hover:text-[#12517A] dark:hover:text-slate-100 hover:bg-[#F8FBFC] dark:hover:bg-slate-900/30"
                                 }
-                              `}
+                                `}
                             >
                               <item.icon
                                 className={`h-5 w-5 flex-shrink-0 ${currentPath === item.url
-                                    ? "text-[#12517A]"
-                                    : "text-gray-500 group-hover:text-[#12517A]"
+                                  ? "text-[#12517A] dark:text-slate-100"
+                                  : "text-gray-500 dark:text-slate-100 group-hover:text-[#12517A]"
                                   }`}
                               />
                               {!collapsed && (

@@ -1,5 +1,6 @@
-import { Search, Bell, User, Store, LogOut, CheckCircle2 } from "lucide-react"
+import { Search, Bell, User, Store, LogOut, Moon, Sun, CheckCircle2 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useTheme } from "next-themes"
 import { formatDistanceToNowStrict } from "date-fns"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -22,6 +23,8 @@ import { useClients } from "@/hooks/useClients"
 
 export function Header() {
   const user = useAuthStore((state) => state.user)
+  const { theme, setTheme } = useTheme()
+  const isDark = theme === "dark"
   const navigate = useNavigate()
   const { clients } = useClients()
   const [items, setItems] = useState<Array<{
@@ -89,8 +92,8 @@ export function Header() {
             }
           })
           .sort((a, b) => {
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        })
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          })
         setItems(merged.slice(0, 100))
         setServerUnreadCount(Number(countRes.data?.unread_count || 0))
         notifErrorStreakRef.current = 0
@@ -217,17 +220,17 @@ export function Header() {
   }
 
   return (
-<header className="h-16 bg-[#12517A] text-white flex items-center justify-between px-4">
+    <header className="h-16 bg-[#12517A] dark:bg-slate-800 text-white flex items-center justify-between px-4 border-b dark:border-slate-700 transition-colors duration-200">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-           {state === "collapsed" && (
-          <img 
-            src="/welliemd_logo.png" 
-            alt="Welliemd" 
-            className="h-8 w-auto cursor-pointer"
-            onClick={handleLogoClick}
-          />
-           )}
+          {state === "collapsed" && (
+            <img
+              src="/welliemd_logo.png"
+              alt="Welliemd"
+              className="h-8 w-auto cursor-pointer"
+              onClick={handleLogoClick}
+            />
+          )}
         </div>
         {/* <SidebarTrigger className="text-white-600 hover:bg-white/50 rounded-md p-1" /> */}
       </div>
@@ -237,10 +240,10 @@ export function Header() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
           <Input
             placeholder="Search"
-            className="pl-10 bg-white border-gray-300 text-gray-800 placeholder:text-gray-500 focus:border-blue-500 focus:ring-blue-500"
+            className="pl-10 bg-white dark:bg-slate-900/50 border-gray-300 dark:border-slate-700 text-gray-800 dark:text-slate-100 placeholder:text-gray-500 dark:placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500"
           />
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-            <kbd className="px-2 py-1 text-xs bg-gray-200 rounded text-gray-600">
+            <kbd className="px-2 py-1 text-xs bg-gray-200 dark:bg-slate-700 rounded text-gray-600 dark:text-slate-300">
               Ctrl K
             </kbd>
           </div>
@@ -250,7 +253,7 @@ export function Header() {
       <div className="flex items-center gap-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="ghost" className="relative text-white-600 hover:bg-white/50">
+            <Button size="icon" variant="ghost" className="relative text-white hover:bg-white/20 dark:hover:bg-slate-700/50">
               <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-[10px] text-white flex items-center justify-center">
@@ -259,9 +262,9 @@ export function Header() {
               )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[min(92vw,380px)] max-w-[380px] p-0 overflow-hidden rounded-2xl border border-slate-200 shadow-2xl">
-            <div className="flex items-center justify-between px-4 py-3 border-b bg-white">
-              <DropdownMenuLabel className="p-0 text-sm font-semibold">Notifications</DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-[min(92vw,380px)] max-w-[380px] p-0 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl">
+            <div className="flex items-center justify-between px-4 py-3 border-b bg-white dark:bg-slate-950">
+              <DropdownMenuLabel className="p-0 text-sm font-semibold text-gray-900 dark:text-slate-100">Notifications</DropdownMenuLabel>
               <button
                 type="button"
                 onClick={(e) => {
@@ -275,8 +278,8 @@ export function Header() {
                 Mark all read
               </button>
             </div>
-            <div className="px-4 py-2 border-b bg-white">
-              <div className="text-xs font-medium text-sky-600">Activity</div>
+            <div className="px-4 py-2 border-b bg-white dark:bg-slate-950">
+              <div className="text-xs font-medium text-sky-600 dark:text-sky-400">Activity</div>
             </div>
             <div className="max-h-[360px] overflow-y-auto">
               {items.length === 0 ? (
@@ -285,17 +288,17 @@ export function Header() {
                 items.slice(0, 10).map((item) => (
                   <DropdownMenuItem
                     key={`${item.client_id}:${item.id}`}
-                    className="cursor-pointer items-start py-3 px-4 border-b last:border-b-0 bg-white"
+                    className="cursor-pointer items-start py-3 px-4 border-b last:border-b-0 bg-white dark:bg-slate-950 hover:bg-gray-50 dark:hover:bg-slate-900"
                     onClick={() => handleNotificationClick(item)}
                   >
                     <div className="flex w-full items-start gap-3">
-                      <div className="mt-0.5 h-9 w-9 rounded-full bg-rose-100 text-rose-700 shrink-0 flex items-center justify-center text-xs font-semibold">
+                      <div className="mt-0.5 h-9 w-9 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 shrink-0 flex items-center justify-center text-xs font-semibold">
                         {(item.title || item.client_name || "N").slice(0, 1).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="text-xs font-semibold leading-5 line-clamp-2 break-words">{item.title}</div>
-                          <div className="text-[11px] text-slate-400">
+                          <div className="text-xs font-semibold leading-5 line-clamp-2 break-words text-gray-900 dark:text-slate-100">{item.title}</div>
+                          <div className="text-[11px] text-slate-400 dark:text-slate-500">
                             {item.created_at
                               ? `${formatDistanceToNowStrict(new Date(item.created_at), { addSuffix: true })}`
                               : ""}
@@ -312,8 +315,8 @@ export function Header() {
                 ))
               )}
             </div>
-            <DropdownMenuSeparator />
-            <div className="px-4 py-2 bg-white">
+            <DropdownMenuSeparator className="dark:bg-slate-800" />
+            <div className="px-4 py-2 bg-white dark:bg-slate-950">
               <button
                 type="button"
                 onClick={(e) => {
@@ -321,39 +324,49 @@ export function Header() {
                   e.stopPropagation()
                   navigate("/dashboard/messages")
                 }}
-                className="w-full text-center text-xs font-medium text-slate-700 hover:text-slate-900 border rounded-lg py-2"
+                className="w-full text-center text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 border dark:border-slate-800 rounded-lg py-2"
               >
                 Open Messages
               </button>
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
-        
+
+        <Button
+          size="icon"
+          variant="ghost"
+          className="text-white hover:bg-white/20 dark:hover:bg-slate-700/50"
+          onClick={() => setTheme(isDark ? "light" : "dark")}
+          aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </Button>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 focus-visible:ring-0">
-              <Avatar className="h-8 w-8">
+            <Button variant="ghost" className="flex items-center gap-2 focus-visible:ring-0 text-white hover:bg-white/20 dark:hover:bg-slate-700/50">
+              <Avatar className="h-8 w-8 ring-1 ring-white/20">
                 <AvatarImage src={user?.avatar_url || ""} alt={user?.full_name} />
-                <AvatarFallback>
+                <AvatarFallback className="bg-white/10 text-white">
                   {user?.full_name?.charAt(0).toUpperCase() || user?.first_name?.charAt(0).toUpperCase() || "U"}
                 </AvatarFallback>
               </Avatar>
               <span className="hidden sm:inline-block font-medium">{user?.full_name || "User"}</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate('/dashboard/manage-account')}>
+          <DropdownMenuContent align="end" className="w-56 dark:bg-slate-900 dark:border-slate-800">
+            <DropdownMenuLabel className="dark:text-slate-100">My Account</DropdownMenuLabel>
+            <DropdownMenuSeparator className="dark:bg-slate-800" />
+            <DropdownMenuItem onClick={() => navigate('/dashboard/manage-account')} className="dark:text-slate-300 dark:focus:bg-slate-800">
               <User className="mr-2 h-4 w-4" />
               <span>Manage account</span>
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem className="dark:text-slate-300 dark:focus:bg-slate-800">
               <Store className="mr-2 h-4 w-4" />
               <span>Stores</span>
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout}>
+            <DropdownMenuSeparator className="dark:bg-slate-800" />
+            <DropdownMenuItem onClick={handleLogout} className="dark:text-slate-300 dark:focus:bg-slate-800">
               <LogOut className="mr-2 h-4 w-4" />
               <span>Logout</span>
             </DropdownMenuItem>

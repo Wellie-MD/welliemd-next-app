@@ -47,7 +47,7 @@ const normalizeAdminKpis = (
       title: "Total Growth By Net Profit %",
       value: profitGrowthValue,
       change: netProfitGrowth?.change ?? profitGrowthValue,
-      trend: netProfitGrowth?.trend ?? netProfit?.trend ?? "neutral",
+      trend: (netProfitGrowth?.trend ?? netProfit?.trend ?? "neutral") as "up" | "down" | "neutral",
     },
     {
       title: "Number of Active Patients",
@@ -82,7 +82,7 @@ export default function Dashboard() {
   // Use API data if available, otherwise fallback to mock data
   const dashboard = dashboardData || mockData.dashboard;
   const normalizedKpis = normalizeAdminKpis(
-    dashboard.kpis,
+    dashboard.kpis as Metric[],
     (dashboard as typeof dashboard & { patientSummary?: { active_patients: number; inactive_patients: number; dropoff_patients: number } }).patientSummary,
   );
 
@@ -151,10 +151,10 @@ export default function Dashboard() {
     return (
       <div className="p-4 space-y-4 w-full min-w-0 overflow-x-hidden">
         <div className="flex items-center justify-between min-w-0">
-          <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-slate-100">Dashboard</h1>
         </div>
         <div className="flex items-center justify-center h-64">
-          <p className="text-gray-600">Loading dashboard data...</p>
+          <p className="text-gray-600 dark:text-slate-400">Loading dashboard data...</p>
         </div>
       </div>
     );
@@ -165,7 +165,7 @@ export default function Dashboard() {
     return (
       <div className="p-4 space-y-4 w-full min-w-0 overflow-x-hidden">
         <div className="flex items-center justify-between min-w-0">
-          <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-slate-100">Dashboard</h1>
         </div>
         <div className="flex flex-col items-center justify-center h-64 space-y-4">
           <p className="text-red-600">Failed to load dashboard data</p>
@@ -179,7 +179,7 @@ export default function Dashboard() {
     <div className="p-4 space-y-4 w-full min-w-0 overflow-x-hidden">
       <div className="flex items-center justify-between min-w-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-slate-100">Dashboard</h1>
           {dashboardWindowLabel ? (
             <p className="text-sm text-muted-foreground hidden">{dashboardWindowLabel}</p>
           ) : null}
@@ -202,7 +202,7 @@ export default function Dashboard() {
         {canScrollLeft && (
           <button
             onClick={() => scrollMetrics("left")}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-md border border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all duration-200 -ml-3"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white dark:bg-slate-800 shadow-md border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-500 transition-all duration-200 -ml-3"
             aria-label="Scroll metrics left"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -230,7 +230,7 @@ export default function Dashboard() {
         {canScrollRight && (
           <button
             onClick={() => scrollMetrics("right")}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-md border border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all duration-200 -mr-3"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white dark:bg-slate-800 shadow-md border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-500 transition-all duration-200 -mr-3"
             aria-label="Scroll metrics right"
           >
             <ChevronRight className="w-4 h-4" />

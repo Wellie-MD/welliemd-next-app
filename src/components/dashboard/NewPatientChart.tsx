@@ -34,10 +34,10 @@ export function NewPatientChart({ data }: NewPatientChartProps) {
   }
 
   return (
-    <Card className="rounded-2xl border-border/70 bg-gradient-to-br from-primary/5 via-background to-blue-50/30 shadow-sm w-full h-full">
+    <Card className="rounded-2xl border-border/70 bg-gradient-to-br from-primary/5 via-background to-blue-50/30 dark:to-slate-900/40 shadow-sm w-full h-full">
       <CardHeader className="flex flex-row items-start justify-between">
         <div>
-          <CardTitle className="text-gray-800">Total Clients (Last 12 Months)</CardTitle>
+          <CardTitle className="text-gray-800 dark:text-slate-100">Total Clients (Last 12 Months)</CardTitle>
           <p className="text-xs text-muted-foreground pt-1">Rolling 12 months</p>
         </div>
         <div className="flex flex-col items-end gap-1 text-xs text-muted-foreground">
@@ -48,7 +48,7 @@ export function NewPatientChart({ data }: NewPatientChartProps) {
           <Button
             variant="ghost"
             size="sm"
-            className="text-blue-600 hover:text-blue-700"
+            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
             onClick={() => navigate("/dashboard/clients")}
           >
             View All
@@ -59,23 +59,23 @@ export function NewPatientChart({ data }: NewPatientChartProps) {
         {hasData ? (
           <div className="w-full">
             <div className="mb-3 grid grid-cols-3 gap-2 text-xs">
-              <div className="rounded-md border bg-white/70 px-2 py-1.5">
+              <div className="rounded-md border bg-white/70 dark:bg-slate-900/70 px-2 py-1.5">
                 <div className="text-muted-foreground">Total</div>
-                <div className="font-semibold text-gray-900">{total.toLocaleString()}</div>
+                <div className="font-semibold text-gray-900 dark:text-slate-100">{total.toLocaleString()}</div>
               </div>
-              <div className="rounded-md border bg-white/70 px-2 py-1.5">
+              <div className="rounded-md border bg-white/70 dark:bg-slate-900/70 px-2 py-1.5">
                 <div className="text-muted-foreground">Avg / mo</div>
-                <div className="font-semibold text-gray-900">{Math.round(average).toLocaleString()}</div>
+                <div className="font-semibold text-gray-900 dark:text-slate-100">{Math.round(average).toLocaleString()}</div>
               </div>
-              <div className="rounded-md border bg-white/70 px-2 py-1.5">
+              <div className="rounded-md border bg-white/70 dark:bg-slate-900/70 px-2 py-1.5">
                 <div className="text-muted-foreground">Latest</div>
-                <div className="font-semibold text-gray-900">{latest.toLocaleString()}</div>
+                <div className="font-semibold text-gray-900 dark:text-slate-100">{latest.toLocaleString()}</div>
               </div>
             </div>
-            <div className="h-[320px] rounded-md border bg-background/70 p-2">
+            <div className="h-[320px] rounded-md border bg-background/70 dark:bg-slate-900/60 p-2">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data} margin={{ top: 12, right: 22, left: 8, bottom: 4 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" className="dark:opacity-10" />
                   <XAxis
                     dataKey="month"
                     axisLine={false}
@@ -98,9 +98,9 @@ export function NewPatientChart({ data }: NewPatientChartProps) {
                     content={({ active, payload, label }) => {
                       if (!active || !payload?.length) return null
                       return (
-                        <div className="rounded-md border bg-white px-3 py-2 text-xs shadow">
-                          <div className="font-medium text-gray-900">{formatMonth(String(label))}</div>
-                          <div className="text-gray-600">Clients: {Number(payload[0].value || 0).toLocaleString()}</div>
+                        <div className="rounded-md border bg-white dark:bg-slate-900 px-3 py-2 text-xs shadow">
+                          <div className="font-medium text-gray-900 dark:text-slate-100">{formatMonth(String(label))}</div>
+                          <div className="text-gray-600 dark:text-slate-300">Clients: {Number(payload[0].value || 0).toLocaleString()}</div>
                         </div>
                       )
                     }}

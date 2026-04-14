@@ -175,7 +175,7 @@ export default function Supplies() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Supplies</h1>
+          <h1 className="text-2xl font-bold dark:text-slate-100">Supplies</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Dedicated supplies catalog for needles, syringes, and related items.
           </p>
@@ -192,18 +192,18 @@ export default function Supplies() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard title="Total Supplies" value={String(totalCount)} className="bg-muted/30" />
+        <StatCard title="Total Supplies" value={String(totalCount)} className="bg-muted/30 dark:bg-slate-900/40" />
         <StatCard
           title="Active Supplies"
           value={String(supplies.filter((p) => p.is_active).length)}
-          className="bg-muted/30"
+          className="bg-muted/30 dark:bg-slate-900/40"
         />
         <StatCard
           title="Linked To Products"
           value={String(
             supplies.filter((p) => Number((p as any).linked_parent_count || 0) > 0).length
           )}
-          className="bg-muted/30"
+          className="bg-muted/30 dark:bg-slate-900/40"
         />
       </div>
 

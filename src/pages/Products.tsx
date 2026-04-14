@@ -337,8 +337,8 @@ export default function Products() {
           v === "one_time"
             ? "One Time"
             : v === "subscription"
-            ? "Subscription"
-            : v || "-";
+              ? "Subscription"
+              : v || "-";
         return <Badge variant="secondary">{formatted}</Badge>;
       },
     },
@@ -392,7 +392,7 @@ export default function Products() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Products</h1>
+          <h1 className="text-2xl font-bold dark:text-slate-100">Products</h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
             <span>Products</span>
             <span>›</span>
@@ -423,7 +423,7 @@ export default function Products() {
         <StatCard
           title="Total Products"
           value={`${totalCount}`}
-          className="bg-muted/30 md:col-span-3 md:max-w-md"
+          className="bg-muted/30 dark:bg-slate-900/40 md:col-span-3 md:max-w-md"
         />
       </div>
 
@@ -440,7 +440,7 @@ export default function Products() {
       />
 
       {/* Category Filter */}
-      <div className="flex items-center gap-4 bg-muted/30 p-4 rounded-lg">
+      <div className="flex items-center gap-4 bg-muted/30 dark:bg-slate-900/40 p-4 rounded-lg">
         <div className="flex-1 max-w-xs">
           <label className="text-sm font-medium mb-2 block">
             Filter by Category

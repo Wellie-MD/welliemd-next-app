@@ -12,14 +12,14 @@ interface StatCardProps {
 
 export function StatCard({ title, value, change, trend = "neutral", className }: StatCardProps) {
   const TrendIcon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus
-  
+
   return (
     <Card className={cn("border rounded-lg overflow-hidden", className)}>
       <CardContent className="p-4">
         <div className="space-y-1">
-          <p className="text-sm font-bolder text-gray-500">{title}</p>
+          <p className="text-sm font-bolder text-gray-500 dark:text-slate-400">{title}</p>
           <div className="flex items-center justify-between">
-            <p className="text-xl font-semibold text-gray-900">{value}</p>
+            <p className="text-xl font-semibold text-gray-900 dark:text-slate-100">{value}</p>
             {change && (
               <div className={cn(
                 "flex items-center gap-1 text-sm font-medium",
