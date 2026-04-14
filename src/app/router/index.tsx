@@ -83,6 +83,7 @@ export const AppRouter: React.FC = () => {
             
             {/* Settings and Help pages */}
             <Route path="settings" element={<Settings />} />
+            <Route path="billing" element={<PaymentMethodsPage />} />
             <Route path="settings/payment-methods" element={<PaymentMethodsPage />} />
             <Route path="help" element={<Help />} />
           </Route>

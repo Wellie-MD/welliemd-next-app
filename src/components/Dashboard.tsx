@@ -25,7 +25,15 @@ function getGreeting(): string {
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const firstName = user?.first_name || "there";
+  const firstName = user?.first_name || "";
+  const lastName = user?.last_name || "";
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  
+  // Sanitize display name - avoid showing system IDs, UUIDs, or email addresses
+  const isValidName = fullName.length > 1 && 
+    !fullName.includes('@') &&
+    !/^[0-9a-f]{8}-/.test(fullName); // reject UUID-like strings
+  const safeName = isValidName ? fullName : "there";
   
   const [statsLoading, setStatsLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -91,9 +99,14 @@ export default function Dashboard() {
             fontWeight: 500,
             letterSpacing: -0.4,
             color: "var(--km-t)",
+            maxWidth: "100%",
+            wordWrap: "break-word",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
           }}
         >
-          {firstName}
+          {safeName}
         </div>
       </div>
 

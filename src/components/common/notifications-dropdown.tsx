@@ -50,11 +50,12 @@ export const NotificationsDropdown = () => {
     toggleDropdown(null);
   };
 
-  const getBadgeLabel = (title: string) => {
+  const getBadgeLabel = (title: string, type: string) => {
     const t = title.toLowerCase();
-    if (t.includes("doctor")) return "D";
-    if (t.includes("support")) return "S";
-    return "N";
+    if (type.includes('order') || t.includes('order')) return 'O';
+    if (t.includes('doctor')) return 'D';
+    if (t.includes('support')) return 'S';
+    return 'N';
   };
 
   return (
@@ -111,7 +112,11 @@ export const NotificationsDropdown = () => {
             <div className="km-notif-empty-sub">You'll receive updates about your orders here</div>
           </div>
         ) : (
-          <div style={{ maxHeight: 360, overflowY: "auto", overflowX: "hidden" }}>
+          <div style={{ 
+            maxHeight: 360, 
+            overflowY: "auto", 
+            overflowX: "hidden"
+          }}>
             {notifications.map((notification) => (
               <div
                 key={notification.id}
@@ -125,7 +130,6 @@ export const NotificationsDropdown = () => {
                   cursor: "pointer",
                   background: !notification.read ? "rgba(79, 142, 247, 0.05)" : "transparent",
                   transition: "background 0.2s",
-                  overflowX: "hidden",
                 }}
                 onMouseEnter={(e) => {
                   if (notification.read) e.currentTarget.style.background = "var(--km-s2)";
@@ -146,24 +150,26 @@ export const NotificationsDropdown = () => {
                   flexShrink: 0,
                   marginTop: 2
                 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700 }}>{getBadgeLabel(notification.title)}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700 }}>{getBadgeLabel(notification.title, notification.type)}</span>
                 </div>
                 
                 <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 2, gap: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4, gap: 8 }}>
                     <div style={{ fontSize: 13, fontWeight: !notification.read ? 700 : 500, color: "var(--km-t)", lineHeight: 1.3, flex: 1, minWidth: 0, wordBreak: "break-word" }}>
                       {notification.title}
                     </div>
-                    <div style={{ fontSize: 11, color: "var(--km-tm)", flexShrink: 0, width: 62, textAlign: "right", lineHeight: 1.25 }}>
-                      {formatTimeAgo(notification.timestamp)}
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                      <div style={{ fontSize: 10, color: "var(--km-tm)", whiteSpace: "nowrap" }}>
+                        {formatTimeAgo(notification.timestamp)}
+                      </div>
+                      {!notification.read && (
+                        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--km-ac)", flexShrink: 0 }} />
+                      )}
                     </div>
                   </div>
                   <div style={{ fontSize: 12, color: "var(--km-tm)", lineHeight: 1.4, opacity: 0.9, wordBreak: "break-word" }}>
                     {notification.message}
                   </div>
-                </div>
-                <div style={{ paddingTop: 2, flexShrink: 0 }}>
-                  <CheckCircle2 size={16} color="var(--km-ac)" />
                 </div>
               </div>
             ))}

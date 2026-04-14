@@ -208,9 +208,9 @@ function TreatmentCard({ treatment, onStart, isStarting, formatDate, compact }: 
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--km-ac)" strokeWidth="1.8"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0112 2a8 8 0 018 8.2c0 7.3-8 11.8-8 11.8z"/></svg>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 2 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 2 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--km-t)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{treatment.name}</div>
-            <span className="km-badge km-badge-blue" style={{ fontSize: 10 }}>Entry</span>
+            <span className="km-badge km-badge-blue" style={{ fontSize: 10 }}>Available</span>
           </div>
           <div style={{ fontSize: 11, color: 'var(--km-tm)', lineHeight: 1.4 }}>
             {treatment.description || "Start your journey with a short intake questionnaire."}

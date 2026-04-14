@@ -17,22 +17,50 @@ const STATUS_CONFIG: Record<string, { label: string; css: string }> = {
   created:            { label: 'Created',            css: 'km-badge km-badge-gray' },
   order_created:      { label: 'Order Created',      css: 'km-badge km-badge-gray' },
   processing:         { label: 'Processing',         css: 'km-badge km-badge-gray' },
+  payment_authorized:{ label: 'Payment Authorized', css: 'km-badge km-badge-blue' },
+  payment_captured:  { label: 'Payment Captured',   css: 'km-badge km-badge-blue' },
+  payment_pending:   { label: 'Payment Pending',    css: 'km-badge km-badge-amber' },
+  payment_failed:     { label: 'Payment Failed',    css: 'km-badge km-badge-red' },
   visit_pending:      { label: 'Visit Pending',      css: 'km-badge km-badge-amber' },
   visit_scheduled:    { label: 'Visit Scheduled',    css: 'km-badge km-badge-blue' },
   visit_rescheduled:  { label: 'Visit Rescheduled',  css: 'km-badge km-badge-amber' },
   visit_failed:       { label: 'Visit Failed',       css: 'km-badge km-badge-red' },
   visit_cancelled:    { label: 'Visit Cancelled',    css: 'km-badge km-badge-red' },
   consult_canceled:   { label: 'Canceled',           css: 'km-badge km-badge-red' },
-  referred:           { label: 'Referred',           css: 'km-badge km-badge-orange' },
-  prescribed:         { label: 'Prescribed',         css: 'km-badge km-badge-orange' },
+  referred:           { label: 'Referred',          css: 'km-badge km-badge-purple' },
+  prescribed:         { label: 'Prescribed',         css: 'km-badge km-badge-blue' },
   billing_pending:    { label: 'Billing Pending',    css: 'km-badge km-badge-amber' },
   rx_sent:            { label: 'Rx Sent',            css: 'km-badge km-badge-green' },
+  in_transit:         { label: 'In Transit',        css: 'km-badge km-badge-blue' },
+  out_for_delivery:   { label: 'Out for Delivery',   css: 'km-badge km-badge-amber' },
+  delivered:          { label: 'Delivered',          css: 'km-badge km-badge-green' },
   shipped:            { label: 'Shipped',            css: 'km-badge km-badge-green' },
+  completed:          { label: 'Completed',          css: 'km-badge km-badge-green' },
   refunded:           { label: 'Refunded',           css: 'km-badge km-badge-green' },
   no_show:            { label: 'No Show',            css: 'km-badge km-badge-red' },
   canceled:           { label: 'Cancelled',          css: 'km-badge km-badge-red' },
   cancelled:          { label: 'Cancelled',          css: 'km-badge km-badge-red' },
+  failed:             { label: 'Failed',            css: 'km-badge km-badge-red' },
 };
+
+function getProductIcon(productName: string): string {
+  const name = productName?.toLowerCase() || '';
+  
+  // Pen injectors (GLP-1 medications)
+  if (name.includes('wegovy') || name.includes('ozempic') || name.includes('rybelsus') || name.includes('trulicity') || name.includes('mounjaro') || name.includes('zepbound')) return '🖊️';
+  // Injection vials
+  if (name.includes('sermorelin') || name.includes('nad+') || name.includes('bpc-157') || name.includes('tb-500') || name.includes('injection')) return '💉';
+  // Capsules/pills
+  if (name.includes('glutathione') || name.includes('semaglutide') || name.includes('glp-1') || name.includes('lipotropic') || name.includes('vitamin')) return '💊';
+  // Tablets
+  if (name.includes('sildenafil') || name.includes('viagra') || name.includes('tadalafil') || name.includes('cialis') || name.includes('finasteride') || name.includes('propecia')) return '💊';
+  // Topical
+  if (name.includes('cream') || name.includes('gel') || name.includes('topical')) return '🧴';
+  // Supplements
+  if (name.includes(' NAC ') || name.includes('coq10') || name.includes('magnesium') || name.includes('zinc') || name.includes('b-complex')) return '🌿';
+  
+  return '💊'; // Default
+}
 
 function OrderStatusBadge({ status }: { status: string }) {
   const config = STATUS_CONFIG[status] || { label: status, css: 'km-badge km-badge-gray' };
@@ -41,12 +69,13 @@ function OrderStatusBadge({ status }: { status: string }) {
 
 function OrderListItem({ order, onClick }: { order: PatientOrder; onClick: () => void }) {
   const ref = getOrderReference(order);
+  const icon = getProductIcon(order.product_name);
 
   return (
     <div onClick={onClick} style={{ cursor: "pointer" }}>
       <div className="km-oitem">
         <div className="km-oimg" style={{ background: 'var(--km-s3)', fontSize: 20 }}>
-          💊
+          {icon}
         </div>
         <div className="km-oileft">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
@@ -126,7 +155,7 @@ export default function Orders() {
     try {
       setLoading(true);
       setError(null);
-      const response = await getOrders(pageNum);
+      const response = await getOrders(pageNum, 12); // Load 12 orders per batch
       setOrders(prev => append ? [...prev, ...response.results] : response.results);
       setHasMore(response.next !== null);
       setTotalCount(response.count);

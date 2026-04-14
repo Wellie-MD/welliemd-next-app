@@ -74,20 +74,20 @@ function LabResultCard({ result, isExpanded, onToggle }: LabResultCardProps) {
                     <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--km-b)' }}>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
                             <div style={{ flex: 1, minWidth: '40%' }}>
-                                <div style={{ fontSize: 11, color: 'var(--km-tm)', marginBottom: 2 }}>Report Date</div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Report Date</div>
                                 <div style={{ fontSize: 13, fontWeight: 600 }}>{formatDate(result.report_date)}</div>
                             </div>
                             <div style={{ flex: 1, minWidth: '40%' }}>
-                                <div style={{ fontSize: 11, color: 'var(--km-tm)', marginBottom: 2 }}>Sample Source</div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sample Source</div>
                                 <div style={{ fontSize: 13, fontWeight: 600 }}>{result.sample_source || 'N/A'}</div>
                             </div>
                             <div style={{ flex: 1, minWidth: '40%' }}>
-                                <div style={{ fontSize: 11, color: 'var(--km-tm)', marginBottom: 2 }}>Test to Treat</div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Test to Treat</div>
                                 <div style={{ fontSize: 13, fontWeight: 600 }}>{result.test_to_treat ? 'Yes' : 'No'}</div>
                             </div>
                             <div style={{ flex: 1, minWidth: '40%' }}>
-                                <div style={{ fontSize: 11, color: 'var(--km-tm)', marginBottom: 2 }}>Submission Status</div>
-                                <div style={{ fontSize: 13, fontWeight: 600 }}>{result.submission_status || 'Not submitted'}</div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Submission Status</div>
+                                <div style={{ fontSize: 13, fontWeight: 600 }}>{result.submission_status || 'N/A'}</div>
                             </div>
                         </div>
                     </div>
@@ -141,19 +141,19 @@ function SubmissionCard({ submission, isExpanded, onToggle }: SubmissionCardProp
                     <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--km-b)' }}>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
                             <div style={{ flex: 1, minWidth: '40%' }}>
-                                <div style={{ fontSize: 11, color: 'var(--km-tm)', marginBottom: 2 }}>Test to Treat</div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Test to Treat</div>
                                 <div style={{ fontSize: 13, fontWeight: 600 }}>{submission.test_to_treat ? 'Yes' : 'No'}</div>
                             </div>
                             <div style={{ flex: 1, minWidth: '40%' }}>
-                                <div style={{ fontSize: 11, color: 'var(--km-tm)', marginBottom: 2 }}>Master ID</div>
-                                <div style={{ fontSize: 11, fontWeight: 600, fontFamily: 'monospace' }}>{submission.master_id || 'N/A'}</div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Master ID</div>
+                                <div style={{ fontSize: 12, fontWeight: 600, fontFamily: 'monospace' }}>{submission.master_id || 'N/A'}</div>
                             </div>
                             <div style={{ flex: 1, minWidth: '40%' }}>
-                                <div style={{ fontSize: 11, color: 'var(--km-tm)', marginBottom: 2 }}>Beluga Visit ID</div>
-                                <div style={{ fontSize: 11, fontWeight: 600, fontFamily: 'monospace' }}>{submission.beluga_visit_id || 'N/A'}</div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Beluga Visit ID</div>
+                                <div style={{ fontSize: 12, fontWeight: 600, fontFamily: 'monospace' }}>{submission.beluga_visit_id || 'N/A'}</div>
                             </div>
                             <div style={{ flex: 1, minWidth: '40%' }}>
-                                <div style={{ fontSize: 11, color: 'var(--km-tm)', marginBottom: 2 }}>Submitted At</div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Submitted At</div>
                                 <div style={{ fontSize: 13, fontWeight: 600 }}>{formatDate(submission.submitted_at)}</div>
                             </div>
                         </div>

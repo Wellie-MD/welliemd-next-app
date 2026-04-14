@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Search,
   Send,
@@ -196,8 +197,10 @@ function DocumentBubble({
 
 export default function Messages() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const hasInitiallyLoaded = useRef(false);
 
   const [composeText, setComposeText] = useState("");
   const [composeTo, setComposeTo] = useState<ChatRecipient>("doctor"); // default support
@@ -242,12 +245,14 @@ export default function Messages() {
         });
 
       setConversations(nextConversations);
-      setSelectedId((prevSelected) => {
-        if (!nextConversations.length) return null;
-        if (!prevSelected) return nextConversations[0].id;
-        const stillExists = nextConversations.some((c) => c.id === prevSelected);
-        return stillExists ? prevSelected : nextConversations[0].id;
-      });
+      // Only auto-select first conversation on desktop (>= 768px), not mobile, and only after first load
+      if (!hasInitiallyLoaded.current && nextConversations.length > 0) {
+        hasInitiallyLoaded.current = true;
+        const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
+        if (isDesktop) {
+          setSelectedId(nextConversations[0].id);
+        }
+      }
     } catch (err) {
       console.error("Failed to load messages", err);
     }
@@ -294,10 +299,38 @@ export default function Messages() {
 
   useEffect(() => {
     // If selected chat gets updated, scroll to bottom
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 50);
+    const scrollToBottom = () => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: "auto" });
+      }
+    };
+    // Multiple attempts to ensure scroll works on mobile
+    scrollToBottom();
+    setTimeout(scrollToBottom, 150);
+    setTimeout(scrollToBottom, 300);
   }, [selectedId, conversations]);
+
+  // Handle masterId from URL params - only on mobile when navigated from notification
+  // Do NOT auto-select on initial page load
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  
+  useEffect(() => {
+    // Only run after initial load has happened
+    if (!hasInitiallyLoaded.current) return;
+    
+    const masterIdFromUrl = searchParams.get('masterId');
+    // Only open chat if navigated from notification with masterId on mobile
+    if (isMobile && masterIdFromUrl && conversations.length > 0) {
+      const conv = conversations.find(c => c.masterId === masterIdFromUrl);
+      if (conv && conv.id !== selectedId) {
+        setSelectedId(conv.id);
+        // Clear URL param to prevent re-selection
+        setSearchParams({}, { replace: true });
+      }
+    }
+    // Note: We do NOT auto-reset selectedId to null on mobile anymore
+    // User must explicitly close chat via back button
+  }, [searchParams, conversations, selectedId, setSearchParams, isMobile]);
 
   const handleSend = async () => {
     if (sendInFlightRef.current || uploading) return;
@@ -421,6 +454,12 @@ export default function Messages() {
               placeholder="Search messages..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onFocus={() => {
+                // On mobile, close chat panel when search gets focus
+                if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                  setSelectedId(null);
+                }
+              }}
             />
           </div>
         </div>

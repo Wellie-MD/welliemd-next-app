@@ -212,11 +212,11 @@ export default function PaymentMethodsPage() {
 
       <div className="km-grid">
         {/* PAYMENT METHODS */}
-        <div className="km-sc km-fade fd">
-          <div className="km-sct">Payment methods</div>
-          <div className="km-scs">
-            Keep your cards up to date for uninterrupted treatment deliveries and plan renewals.
-          </div>
+          <div className="km-sc km-fade fd">
+            <div className="km-sct">Payment methods</div>
+            <div className="km-scs" style={{ fontSize: 13, lineHeight: 1.5 }}>
+              Keep your cards up to date for uninterrupted treatment deliveries and plan renewals.
+            </div>
           
           {canCreate && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -394,8 +394,8 @@ export default function PaymentMethodsPage() {
           {/* BILLING TIPS */}
           <div className="km-sc km-fade fd">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-              <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--km-s2)', border: '1px solid var(--km-b)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Sparkles size={18} style={{ color: 'var(--km-t)' }} strokeWidth={1.8} />
+              <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--km-acp)', border: '1px solid var(--km-b)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--km-ac)" strokeWidth="1.8"><path d="M12 2v1M12 21v1M4.22 4.22l.71.71M18.36 18.36l.71.71M1 12h1M21 12h1M4.22 19.78l.71-.71M18.36 5.64l.71-.71"/><circle cx="12" cy="12" r="4"/></svg>
               </div>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--km-t)', marginBottom: 2 }}>Billing tips</div>

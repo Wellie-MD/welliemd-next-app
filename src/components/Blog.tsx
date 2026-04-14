@@ -114,7 +114,7 @@ export default function Blog() {
             >
               <div className="km-rimg-banner">
                 {post.cover_image ? (
-                   <img src={post.cover_image} alt={post.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                   <img src={post.cover_image} alt={post.title} />
                 ) : (
                   <span className="km-rimg-emoji">{getEmojiForPost(post.title)}</span>
                 )}
@@ -136,9 +136,9 @@ export default function Blog() {
               <p className="km-rdesc-elegant">{post.excerpt}</p>
 
               <div className="km-rauth-row">
-                <div className="km-ravatar">CK</div>
+                <div className="km-ravatar">{post.author_name ? post.author_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'HC'}</div>
                 <div className="km-rauth-info">
-                  <span className="km-rauth-email">[email protected]</span>
+                  <span className="km-rauth-email">{post.author_name || 'Healthcare Professional'}</span>
                   <span className="km-rauth-title">Healthcare Professional</span>
                 </div>
               </div>

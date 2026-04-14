@@ -24,6 +24,7 @@ export default function ExploreTreatments() {
           marginBottom: 16,
           background: "linear-gradient(135deg, rgba(79,142,247,0.08), rgba(167,139,250,0.06))",
           borderColor: "rgba(79,142,247,0.15)",
+          borderRadius: "var(--km-r)",
         }}
       >
         <div style={{ padding: 14, display: "flex", alignItems: "center", gap: 11 }}>
@@ -45,7 +46,7 @@ export default function ExploreTreatments() {
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--km-t)", marginBottom: 2 }}>
               How it works
             </div>
-            <div style={{ fontSize: 12, color: "var(--km-tm)", lineHeight: 1.5 }}>
+            <div style={{ fontSize: 12, fontWeight: 500, color: "var(--km-tm)", lineHeight: 1.5 }}>
               Select a treatment, complete a short intake questionnaire, and a licensed provider
               will review your case. Visit type may vary based on your state.
             </div>

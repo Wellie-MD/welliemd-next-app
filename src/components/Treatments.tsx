@@ -45,6 +45,15 @@ export default function Treatments() {
     });
   };
 
+  // Format visit type indicator (Async, Sync, Scheduled)
+  const getVisitTypeLabel = (visitType: string | null) => {
+    if (!visitType) return "Async";
+    const type = visitType.toLowerCase();
+    if (type === "async") return "Async";
+    if (type === "sync" || type === "scheduled") return "Sync";
+    return visitType || "Async";
+  };
+
   // Compute an upcoming visit date (30 days after last visit as estimate)
   const getUpcomingDate = (visit: Visit) => {
     const base = visit.submitted_at || visit.created_at;
@@ -133,11 +142,9 @@ export default function Treatments() {
                       <Edit2 size={18} style={{ strokeWidth: 1.8 }} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="km-atx-name">{visit.visit_type}</div>
+                      <div className="km-atx-name">{visit.visit_type || 'Active Treatment'}</div>
                       <div className="km-atx-meta">
-                        Started {formatDate(visit.created_at)}
-                        {visit.visit_type && " · "}
-                        {visit.visit_type === "async" || !visit.visit_type ? "Async" : visit.visit_type}
+                        Started {formatDate(visit.created_at)} · {getVisitTypeLabel(visit.visit_type)}
                       </div>
                     </div>
                     <span className="km-badge km-badge-blue">Active</span>

@@ -84,10 +84,18 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const mapInboxToNotification = useCallback((item: InboxItem): Notification => {
+    let rawTitle = item.title || 'New notification';
+    // Sanitize titles that look like system-generated IDs or contain @ symbols
+    // Patterns like: "knysys-a -b -f -5-3", "abc-1-2-3", etc.
+    const isSystemId = /^([a-z0-9]+-){2,}[a-z0-9-]+$/i.test(rawTitle.trim()) || 
+                       /^knysys/i.test(rawTitle) ||
+                       rawTitle.includes('@') ||
+                       /^[a-z0-9]+\s*[-–]\s*[a-z0-9]/.test(rawTitle);
+    const sanitizedTitle = isSystemId ? 'New notification' : rawTitle;
     return {
       id: String(item.id),
       type: item.event_type || item.category || 'message',
-      title: item.title || 'New notification',
+      title: sanitizedTitle,
       message: item.body || '',
       data: {
         master_id: item.master_id || '',

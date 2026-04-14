@@ -16,21 +16,34 @@ const DashboardLayout: React.FC = () => {
   }, [closeMobileSidebar]);
 
   useEffect(() => {
+    const setViewportVar = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--app-vh', `${vh}px`);
+    };
+
+    setViewportVar();
+
     const handleResize = () => {
       const nextIsMobile = window.innerWidth < 1024;
       setIsMobile(nextIsMobile);
+      setViewportVar();
       if (!nextIsMobile) closeMobileSidebar();
     };
+
     handleResize();
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
   }, [closeMobileSidebar]);
 
   return (
     <NotificationsProvider>
       <div
         style={{
-          minHeight: "100vh",
+          minHeight: "calc(var(--app-vh, 1vh) * 100)",
           overflowX: "hidden",
           background: "var(--km-bg)",
           color: "var(--km-t)",
@@ -44,7 +57,7 @@ const DashboardLayout: React.FC = () => {
           isMobile={isMobile}
         />
 
-        <div style={{ display: "flex", minHeight: "calc(100vh - 60px)", paddingTop: 60 }}>
+        <div style={{ display: "flex", minHeight: "calc((var(--app-vh, 1vh) * 100) - 60px)", paddingTop: 60 }}>
           <Sidebar
             isMobile={isMobile}
             isMobileOpen={isMobileSidebarOpen}
@@ -66,7 +79,7 @@ const DashboardLayout: React.FC = () => {
                 padding: 0,
                 maxWidth: '100%',
                 margin: 0,
-                height: 'calc(100vh - 60px)'
+                height: 'calc((var(--app-vh, 1vh) * 100) - 60px)'
               } : {
                 padding: isMobile ? "24px 20px 60px" : "32px 36px 60px",
                 maxWidth: isMobile ? 680 : 800,

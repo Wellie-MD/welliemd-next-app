@@ -89,18 +89,30 @@ export default function BlogPost() {
       <div className="km-fade" style={{ marginBottom: 20 }}>
         <button
           onClick={() => navigate('/dashboard/blog')}
-          className="km-btn km-btn-ghost"
-          style={{ padding: '4px 0', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, color: 'var(--km-tm)' }}
+          style={{ 
+            display: 'inline-flex', 
+            alignItems: 'center', 
+            gap: 6, 
+            color: 'var(--km-t)',
+            background: 'var(--km-s2)',
+            border: '1px solid var(--km-b)',
+            borderRadius: 'var(--km-rs)',
+            padding: '6px 12px',
+            fontSize: 13,
+            fontWeight: 500,
+            cursor: 'pointer',
+          }}
         >
-          <ArrowLeft size={14} /> Back to Resources
+          <ArrowLeft size={14} />
+          <span>Back to Resources</span>
         </button>
       </div>
 
       <div className="km-fade fd">
         <div className="km-ritem" style={{ cursor: 'default', marginBottom: 0 }}>
-          <div className="km-rimg-banner" style={{ height: 240, borderRadius: 12 }}>
+          <div className="km-rimg-banner" style={{ borderRadius: 12 }}>
             {post.cover_image ? (
-               <img src={post.cover_image} alt={post.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+               <img src={post.cover_image} alt={post.title} />
             ) : (
               <span className="km-rimg-emoji" style={{ fontSize: 64 }}>📖</span>
             )}
@@ -122,9 +134,9 @@ export default function BlogPost() {
 
           <div className="km-rauth-row" style={{ padding: '20px 0', borderTop: '1px solid var(--km-b)', borderBottom: '1px solid var(--km-b)', marginBottom: 24, justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div className="km-ravatar">CK</div>
+              <div className="km-ravatar">{post.author_name ? post.author_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'HC'}</div>
               <div className="km-rauth-info">
-                <span className="km-rauth-email">[email protected]</span>
+                <span className="km-rauth-email">{post.author_name || 'Healthcare Professional'}</span>
                 <span className="km-rauth-title">Healthcare Professional</span>
               </div>
             </div>
@@ -148,8 +160,7 @@ export default function BlogPost() {
           </div>
 
           <div 
-             className="km-article-content prose dark:prose-invert max-w-none"
-             style={{ fontSize: 16, lineHeight: 1.7, color: 'var(--km-t)', paddingBottom: 40 }}
+             className="km-article-content"
              dangerouslySetInnerHTML={{ __html: post.content }} 
           />
         </div>
