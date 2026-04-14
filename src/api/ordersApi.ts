@@ -60,6 +60,28 @@ export interface PrescriptionMedication {
   rxId?: string
 }
 
+export interface OrderPricingSupplyLineItem {
+  id?: string | number
+  name?: string
+  quantity?: number
+  unit_price?: string
+  shipping_fee?: string
+  is_included?: boolean
+}
+
+export interface OrderPricing {
+  medication_subtotal?: string
+  supplies_subtotal?: string
+  shipping_total?: string
+  subtotal_before_discount?: string
+  discount_total?: string
+  gross_total?: string
+  grand_total?: string
+  payable_amount?: string
+  currency?: string
+  supply_line_items?: OrderPricingSupplyLineItem[]
+}
+
 export interface Order {
   id: string
   product?: number | string | null
@@ -90,6 +112,9 @@ export interface Order {
   address?: string | null
   orderStatus?: string | null
   orderTotal?: string | null
+  grand_total?: string | null
+  payable_amount?: string | null
+  pricing?: OrderPricing | null
   original_price?: string | null
   discount_amount?: string | null
   shipping_fee?: string | null
@@ -103,9 +128,15 @@ export interface Order {
   treatment_type?: string | null
   treatment?: string | null
   doctor_name?: string | null
+  requested_medicines?: PrescriptionMedication[]
+  prescribed_medicines?: PrescriptionMedication[]
+  chargeable_amount_source?: "requested_medicine" | "prescribed_medicine" | "requested_medicine_fallback" | null
   booking_scheduled_at?: string | null
   booking_location?: string | null
   prescription_medications?: PrescriptionMedication[]
+  prescription_source_event_id?: string | null
+  prescription_source_received_at?: string | null
+  prescription_source_created_at?: string | null
   // Shipping address (patient address)
   shipping_address?: string | null
   // B2B reimbursement cost fields

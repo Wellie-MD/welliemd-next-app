@@ -16,6 +16,13 @@ export interface PortalUser {
     invitation_expires_at?: string;  // ISO datetime string
 }
 
+export const getDisplayRole = (user: PortalUser): string => {
+    if (Array.isArray(user.roles) && user.roles.includes('Super Admin')) {
+        return 'Super Admin';
+    }
+    return user.primary_role || 'No Role';
+};
+
 export interface Role {
     id: string;
     name: string;

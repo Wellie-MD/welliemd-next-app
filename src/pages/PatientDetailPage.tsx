@@ -161,6 +161,19 @@ export default function PatientDetailPage() {
     );
   };
 
+  const getCanonicalOrderAmount = (order?: Order | null) => {
+    if (!order) return "-"
+    const raw =
+      order.pricing?.grand_total ||
+      order.grand_total ||
+      order.payable_amount ||
+      order.orderTotal ||
+      order.amount
+    const value = Number.parseFloat(String(raw ?? ""))
+    if (!Number.isFinite(value)) return "-"
+    return `$${value.toFixed(2)}`
+  }
+
   const handleUpdate = async () => {
     if (!patient?.id) return;
 
@@ -418,7 +431,7 @@ export default function PatientDetailPage() {
                                         </Link>
                                       </td>
                                       <td className="p-2 text-slate-700">{currentOrder.product_name || "-"}</td>
-                                      <td className="p-2 font-semibold text-slate-900">{currentOrder.orderTotal || currentOrder.amount || "-"}</td>
+                                      <td className="p-2 font-semibold text-slate-900">{getCanonicalOrderAmount(currentOrder)}</td>
                                       <td className="p-2">
                                         <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize ${getOrderStatusTone(currentOrder.orderStatus || currentOrder.status)}`}>
                                           {currentOrder.orderStatus || currentOrder.status || "-"}
@@ -473,7 +486,7 @@ export default function PatientDetailPage() {
                                   </Link>
                                 </td>
                                 <td className="p-3 text-slate-700">{order.product_name || "-"}</td>
-                                <td className="p-3 font-semibold text-slate-900">{order.orderTotal || order.amount || "-"}</td>
+                                <td className="p-3 font-semibold text-slate-900">{getCanonicalOrderAmount(order)}</td>
                                 <td className="p-3 text-slate-700">
                                   {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : "-"}
                                 </td>

@@ -95,7 +95,15 @@ function normalizeCaseInsensitive(value: unknown): string {
 }
 
 function parseOrderAmount(order: any): number {
-  return parseFloat(order.orderTotal || order.amount || order.total || '0');
+  return parseFloat(
+    order?.pricing?.grand_total ||
+    order?.grand_total ||
+    order?.payable_amount ||
+    order?.orderTotal ||
+    order?.amount ||
+    order?.total ||
+    '0'
+  );
 }
 
 function getOrderState(order: any): string {

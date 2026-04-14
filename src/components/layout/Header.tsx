@@ -22,6 +22,15 @@ import { useClientMessages } from "@/contexts/MessagesContext"
 import api from "@/api/axiosInstance"
 // import { SidebarTrigger } from "../ui/sidebar"
 
+const formatNotificationTime = (raw: string): string => {
+  if (!raw) return ""
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) return ""
+  const elapsedMs = Date.now() - date.getTime()
+  if (elapsedMs >= 0 && elapsedMs < 60_000) return "Just now"
+  return formatDistanceToNowStrict(date, { addSuffix: true })
+}
+
 export function Header() {
   const user = useAuthStore((state) => state.user)
   const navigate = useNavigate()
@@ -245,7 +254,7 @@ export function Header() {
                           <div className="text-xs font-semibold leading-5 line-clamp-2 break-words">{n.title}</div>
                           <div className="text-[11px] text-slate-400">
                             {n.created_at
-                              ? `${formatDistanceToNowStrict(new Date(n.created_at), { addSuffix: true })}`
+                              ? formatNotificationTime(n.created_at)
                               : ""}
                           </div>
                         </div>

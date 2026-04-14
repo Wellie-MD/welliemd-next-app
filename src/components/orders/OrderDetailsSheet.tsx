@@ -140,9 +140,16 @@ export function OrderDetailsSheet({
     return Number.isNaN(amount) ? 0 : amount
   }, [order?.totalRefunded])
   const orderTotal = useMemo(() => {
-    const amount = order?.orderTotal ? parseFloat(order.orderTotal) : parseFloat(order?.amount || "0")
+    const amount = parseFloat(
+      order?.pricing?.grand_total ||
+      order?.grand_total ||
+      order?.payable_amount ||
+      order?.orderTotal ||
+      order?.amount ||
+      "0"
+    )
     return Number.isNaN(amount) ? 0 : amount
-  }, [order?.orderTotal, order?.amount])
+  }, [order?.pricing?.grand_total, order?.grand_total, order?.payable_amount, order?.orderTotal, order?.amount])
   const netCollected = Math.max(0, orderTotal - totalRefunded)
 
   const refundReasonOptions = [
@@ -305,10 +312,25 @@ export function OrderDetailsSheet({
                     label="Date Printed/Shipped"
                     value={formatDate(order.datePrintedShipped)}
                   />
+                  <InfoItem 
+                    icon={<CreditCard className="h-4 w-4" />} 
+                    label="Order Total" 
+                    value={`$${netCollected.toFixed(2)}`}
+                  />
                   <InfoItem
                     icon={<CreditCard className="h-4 w-4" />}
-                    label="Order Total"
-                    value={order.orderTotal ? `$${netCollected.toFixed(2)}` : undefined}
+                    label="Subtotal (Before Discount)"
+                    value={order?.pricing?.subtotal_before_discount ? `$${order.pricing.subtotal_before_discount}` : undefined}
+                  />
+                  <InfoItem
+                    icon={<CreditCard className="h-4 w-4" />}
+                    label="Discount"
+                    value={order?.pricing?.discount_total ? `-$${order.pricing.discount_total}` : undefined}
+                  />
+                  <InfoItem
+                    icon={<Truck className="h-4 w-4" />}
+                    label="Shipping"
+                    value={order?.pricing?.shipping_total ? `$${order.pricing.shipping_total}` : undefined}
                   />
                   {totalRefunded > 0 && (
                     <InfoItem

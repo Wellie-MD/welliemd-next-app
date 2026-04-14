@@ -4,7 +4,6 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Phone,
@@ -152,6 +151,7 @@ function DocumentBubble({
 // ====================================================================
 
 export default function Messages() {
+  const MAX_COMPOSER_HEIGHT_PX = 140;
   const [searchParams, setSearchParams] = useSearchParams();
   const { messages, loading, error } = useClientMessages();
 
@@ -162,6 +162,7 @@ export default function Messages() {
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const sendInFlightRef = useRef(false);
+  const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   // For patient profile sheet
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -202,6 +203,19 @@ export default function Messages() {
 
   // beluga support cache
   const [belugaCache, setBelugaCache] = useState<Record<string, Message[]>>({});
+
+  const resizeComposer = () => {
+    const el = messageInputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const nextHeight = Math.min(el.scrollHeight, MAX_COMPOSER_HEIGHT_PX);
+    el.style.height = `${Math.max(48, nextHeight)}px`;
+    el.style.overflowY = el.scrollHeight > MAX_COMPOSER_HEIGHT_PX ? "auto" : "hidden";
+  };
+
+  useEffect(() => {
+    resizeComposer();
+  }, [newMessage]);
 
   useEffect(() => {
     const masterId = activeConversation?.masterId;
@@ -981,12 +995,22 @@ export default function Messages() {
               {/* Composer */}
               <div className="p-4 border-t shrink-0">
                 <div className="flex items-center gap-3">
-                  <Input
+                  <textarea
+                    ref={messageInputRef}
                     placeholder="Type your message here…"
-                    className="flex-1 text-base px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-400"
+                    rows={1}
+                    className="flex-1 text-base px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-400 resize-none leading-6 max-h-[140px]"
                     value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                    onChange={(e) => {
+                      setNewMessage(e.target.value)
+                      resizeComposer()
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSend()
+                      }
+                    }}
                   />
 
                   {/* (hidden) emoji button */}

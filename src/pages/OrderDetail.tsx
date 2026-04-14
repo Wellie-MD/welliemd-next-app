@@ -399,8 +399,10 @@ export default function OrderDetail() {
       title: "Order Reimbursement Billing Success",
       date: formatDateTime(order.paymentDate),
       description: reimbursementParts.length > 0
-        ? `$${order.orderTotal || '0.00'} (${reimbursementParts.join(', ')})`
-        : order.orderTotal ? `$${order.orderTotal}` : undefined,
+        ? `$${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount || '0.00'} (${reimbursementParts.join(', ')})`
+        : (order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal)
+          ? `$${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal}`
+          : undefined,
       icon: "payments",
       iconBg: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800",
     })
@@ -462,10 +464,16 @@ export default function OrderDetail() {
 
   const quantityRaw = Number.parseFloat(String(qty))
   const quantity = Number.isFinite(quantityRaw) && quantityRaw > 0 ? quantityRaw : 1
-  const originalPrice = parseMoney(order.original_price)
-  const shippingFee = parseMoney(order.shipping_fee)
-  const discountAmount = parseMoney(order.discount_amount) ?? 0
-  const totalAmount = parseMoney(order.orderTotal ?? order.amount)
+  const originalPrice = parseMoney(order.pricing?.subtotal_before_discount ?? order.original_price)
+  const shippingFee = parseMoney(order.pricing?.shipping_total ?? order.shipping_fee)
+  const discountAmount = parseMoney(order.pricing?.discount_total ?? order.discount_amount) ?? 0
+  const totalAmount = parseMoney(
+    order.pricing?.grand_total ??
+    order.grand_total ??
+    order.payable_amount ??
+    order.orderTotal ??
+    order.amount
+  )
   const refundedAmount = parseMoney(order.totalRefunded) ?? 0
   const netTotalAmount =
     totalAmount != null
@@ -493,10 +501,28 @@ export default function OrderDetail() {
       ? productSubtotalAfterDiscount / quantity
       : null
   const hasBreakdown = originalPrice != null || shippingFee != null || discountAmount > 0
-  const discountRatio =
-    originalPrice != null && originalPrice > 0 && discountAmount > 0
-      ? discountAmount / originalPrice
-      : 0
+  const supplyLineItems = Array.isArray(order.pricing?.supply_line_items)
+    ? order.pricing?.supply_line_items
+    : []
+  const hasNonIncludedSupplies = supplyLineItems.some((supply) => !supply?.is_included)
+  const pricingMedicationSubtotal = parseMoney(order.pricing?.medication_subtotal)
+  const pricingSuppliesSubtotal = parseMoney(order.pricing?.supplies_subtotal)
+  const fallbackSuppliesSubtotal = supplyLineItems.reduce((acc, supply) => {
+    const qty = Number.parseFloat(String(supply.quantity ?? 1))
+    const safeQty = Number.isFinite(qty) && qty > 0 ? qty : 1
+    const unitPrice = parseMoney(supply.unit_price) ?? 0
+    return acc + (supply.is_included ? 0 : unitPrice * safeQty)
+  }, 0)
+  const suppliesSubtotalBeforeDiscount =
+    pricingSuppliesSubtotal != null ? pricingSuppliesSubtotal : fallbackSuppliesSubtotal
+  const medicationSubtotalAfterDiscount =
+    productSubtotalAfterDiscount != null
+      ? Math.max(0, productSubtotalAfterDiscount - suppliesSubtotalBeforeDiscount)
+      : null
+  const medicationOriginalSubtotal =
+    medicationSubtotalAfterDiscount != null
+      ? medicationSubtotalAfterDiscount + discountAmount
+      : null
 
   const previewOriginalPrice = pendingProductChange != null
     ? pendingProductChange.subtotal
@@ -528,10 +554,19 @@ export default function OrderDetail() {
 
   const displayProductName = pendingProductChange?.productName || order.product_name || "—"
   const displayQuantity = String(qty)
+  const requestedMedicineName =
+    order.requested_medicines?.[0]?.name ||
+    order.product_name ||
+    "—"
+  const prescribedMedicineName =
+    order.prescribed_medicines?.[0]?.name ||
+    order.prescription_medications?.[0]?.name ||
+    null
+  const chargeableAmountSource = order.chargeable_amount_source || "requested_medicine"
 
   const previewOriginalUnitPrice = pendingProductChange != null
     ? pendingProductChange.unitPrice
-    : (originalPrice != null ? originalPrice / quantity : null)
+    : (medicationOriginalSubtotal != null ? medicationOriginalSubtotal / quantity : null)
 
   const displayDiscountPerUnit = pendingProductChange != null
     ? pendingProductChange.discountAmount / Math.max(quantity, 1)
@@ -539,12 +574,23 @@ export default function OrderDetail() {
 
   const displayItemUnitPrice = pendingProductChange != null
     ? pendingProductChange.unitPrice - displayDiscountPerUnit
-    : itemUnitPrice
+    : hasNonIncludedSupplies
+      ? ((pricingMedicationSubtotal != null ? pricingMedicationSubtotal : medicationSubtotalAfterDiscount) != null
+        ? (pricingMedicationSubtotal != null ? pricingMedicationSubtotal : medicationSubtotalAfterDiscount) / quantity
+        : itemUnitPrice)
+      : (medicationSubtotalAfterDiscount != null ? medicationSubtotalAfterDiscount / quantity : itemUnitPrice)
 
-  const displayLineTotal = previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount
+  const displayLineTotal = pendingProductChange != null
+    ? (previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount)
+    : hasNonIncludedSupplies
+      ? ((pricingMedicationSubtotal != null ? pricingMedicationSubtotal : medicationSubtotalAfterDiscount) != null
+        ? (pricingMedicationSubtotal != null ? pricingMedicationSubtotal : medicationSubtotalAfterDiscount)
+        : (previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount))
+      : (medicationSubtotalAfterDiscount != null ? medicationSubtotalAfterDiscount : (previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount))
 
   const itemPrice = formatMoney(displayItemUnitPrice)
   const lineTotalPrice = formatMoney(displayLineTotal)
+  const productSubtotalPrice = formatMoney(previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount)
   const totalPrice = formatMoney(previewTotal)
   const netTotalPrice = formatMoney(previewNetTotal)
 
@@ -691,6 +737,12 @@ export default function OrderDetail() {
                               ? `${order.prescription_medications[0].strength}`
                               : order.treatment_type || ""}
                           </p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Requested: <span className="text-slate-700 dark:text-slate-300">{requestedMedicineName}</span>
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Prescribed: <span className="text-slate-700 dark:text-slate-300">{prescribedMedicineName || "Awaiting provider decision"}</span>
+                          </p>
                           {order.provider_network && (
                             <span className="inline-flex items-center mt-2 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
                               {order.provider_network}
@@ -701,13 +753,13 @@ export default function OrderDetail() {
                     </td>
                     <td className="px-6 py-4 text-right align-top text-slate-600 dark:text-slate-300">
                       <div className="flex flex-col items-end">
-                        {previewDiscountAmount > 0 && previewOriginalUnitPrice != null && (
+                        {previewDiscountAmount > 0 && previewOriginalUnitPrice != null && !hasNonIncludedSupplies && (
                           <span className="text-xs text-slate-400 line-through">
                             ${formatMoney(previewOriginalUnitPrice)}
                           </span>
                         )}
                         <span>${itemPrice}</span>
-                        {previewDiscountAmount > 0 && (
+                        {previewDiscountAmount > 0 && !hasNonIncludedSupplies && (
                           <span className="text-[11px] text-green-600 dark:text-green-400 font-medium">
                             Save ${formatMoney(displayDiscountPerUnit)} / unit
                           </span>
@@ -724,6 +776,34 @@ export default function OrderDetail() {
                       </div>
                     </td>
                   </tr>
+                  {supplyLineItems.map((supply, idx) => {
+                    const qty = Number.parseFloat(String(supply.quantity ?? 1))
+                    const safeQty = Number.isFinite(qty) && qty > 0 ? qty : 1
+                    const unitPrice = parseMoney(supply.unit_price) ?? 0
+                    const lineTotal = (supply.is_included ? 0 : unitPrice * safeQty)
+                    return (
+                      <tr key={`supply-${idx}`} className="bg-slate-50/40 dark:bg-slate-800/40">
+                        <td className="px-6 py-3 text-sm text-slate-700 dark:text-slate-300">
+                          <div className="flex items-center gap-2">
+                            <Package className="h-4 w-4 text-slate-400" />
+                            <span>{supply.name || "Supply item"}</span>
+                            {supply.is_included && (
+                              <span className="rounded bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 text-[10px]">Included</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-3 text-right text-sm text-slate-700 dark:text-slate-300">
+                          {supply.is_included ? "$0.00" : `$${formatMoney(unitPrice)}`}
+                        </td>
+                        <td className="px-6 py-3 text-right text-sm text-slate-700 dark:text-slate-300">
+                          {safeQty}
+                        </td>
+                        <td className="px-6 py-3 text-right text-sm font-medium text-slate-900 dark:text-white">
+                          ${formatMoney(lineTotal)}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
                 <tfoot className="bg-muted/30">
                   {hasBreakdown && previewOriginalPrice != null && (
@@ -738,11 +818,8 @@ export default function OrderDetail() {
                   )}
                   {previewDiscountAmount > 0 && (
                     <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={2}>
-                        Product discount:
-                      </td>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400">
-                        {appliedCouponCodes || "—"}
+                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                        Product discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}:
                       </td>
                       <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
                         −${previewDiscountAmount.toFixed(2)}
@@ -755,7 +832,7 @@ export default function OrderDetail() {
                         Product subtotal:
                       </td>
                       <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${lineTotalPrice}
+                        ${productSubtotalPrice}
                       </td>
                     </tr>
                   )}
@@ -790,7 +867,11 @@ export default function OrderDetail() {
                       <div className="flex flex-col items-end">
                         <span>${netTotalPrice}</span>
                         <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
-                          Product + shipping
+                          {chargeableAmountSource === "prescribed_medicine"
+                            ? "Prescribed medicine + shipping"
+                            : chargeableAmountSource === "requested_medicine_fallback"
+                              ? "Requested medicine fallback + shipping"
+                              : "Requested medicine + shipping"}
                         </span>
                       </div>
                     </td>
@@ -883,6 +964,16 @@ export default function OrderDetail() {
                 <p className="text-xs text-slate-500 mt-1">
                   Provider: <span className="text-slate-700 dark:text-slate-300">{order.doctor_name || order.provider_network || "—"}</span>
                 </p>
+                {order.prescription_source_received_at && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    RX Received: <span className="text-slate-700 dark:text-slate-300">{formatDateTime(order.prescription_source_received_at)}</span>
+                  </p>
+                )}
+                {order.prescription_source_event_id && (
+                  <p className="text-[11px] text-slate-500 mt-1 break-all">
+                    RX Event ID: <span className="font-mono text-slate-700 dark:text-slate-300">{order.prescription_source_event_id}</span>
+                  </p>
+                )}
               </div>
             </div>
             {(order.mrn || order.visitStatus) && (
