@@ -34,12 +34,7 @@ interface InviteResponse {
 interface InviteUserModalProps {
   open: boolean;
   onClose: () => void;
-  onInvite: (
-    email: string,
-    roleId: string,
-    firstName?: string,
-    lastName?: string
-  ) => Promise<InviteResponse | void>;
+  onInvite: (email: string, roleId: string) => Promise<InviteResponse | void>;
   roles: Role[];
 }
 

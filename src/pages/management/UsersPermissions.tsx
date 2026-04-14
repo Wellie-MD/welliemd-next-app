@@ -67,13 +67,11 @@ export default function UsersPermissions() {
     loadData();
   }, [loadData]);
 
-  const handleInviteUser = async (email: string, roleId: string, firstName?: string, lastName?: string) => {
+  const handleInviteUser = async (email: string, roleId: string) => {
     try {
       await userManagementService.inviteUser({
         email,
         role_id: roleId,
-        first_name: firstName,
-        last_name: lastName,
       });
 
       // Show success message
