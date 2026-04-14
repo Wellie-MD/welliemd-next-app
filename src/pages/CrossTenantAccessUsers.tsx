@@ -66,9 +66,14 @@ export default function CrossTenantAccessUsers() {
     queryKey: ["cross-tenant-access-users"],
     queryFn: clientApi.listAccessUsers,
   });
+  const { data: retryMetrics, isLoading: isRetryMetricsLoading } = useQuery({
+    queryKey: ["cross-tenant-access-retry-metrics"],
+    queryFn: clientApi.getAccessUserRetryMetrics,
+  });
 
   const refetchUsers = () => {
     queryClient.invalidateQueries({ queryKey: ["cross-tenant-access-users"] });
+    queryClient.invalidateQueries({ queryKey: ["cross-tenant-access-retry-metrics"] });
   };
 
   const createMutation = useMutation({
@@ -131,23 +136,24 @@ export default function CrossTenantAccessUsers() {
   });
 
   const aggregateMetrics = useMemo(() => {
-    let totalNodes = 0;
-    let successfulSyncs = 0;
-    let pendingSyncs = 0;
-    let failedSyncs = 0;
+    const clientWorstStatus = new Map<string, "failed" | "pending" | "success" | "skipped">();
     const recentFailuresByClient = new Map<
       string,
       { users: Set<string>; client: string; error: string; clientId: string; updatedAt: string }
     >();
 
     users.forEach((user) => {
-      const summary = user.sync_status_summary || { pending: 0, success: 0, failed: 0 };
-      totalNodes += (summary.pending + summary.success + summary.failed);
-      successfulSyncs += summary.success;
-      pendingSyncs += summary.pending;
-      failedSyncs += summary.failed;
-
       if (!user.sync_statuses) return;
+      user.sync_statuses
+        .forEach((s) => {
+          const current = s.status as "failed" | "pending" | "success" | "skipped";
+          const prev = clientWorstStatus.get(s.client);
+          const rank = { failed: 3, pending: 2, success: 1, skipped: 0 } as const;
+          if (!prev || rank[current] > rank[prev]) {
+            clientWorstStatus.set(s.client, current);
+          }
+        });
+
       user.sync_statuses
         .filter((s) => s.status === "failed")
         .forEach((s) => {
@@ -175,6 +181,16 @@ export default function CrossTenantAccessUsers() {
         });
     });
 
+    const totalNodes = clientWorstStatus.size;
+    let successfulSyncs = 0;
+    let pendingSyncs = 0;
+    let failedSyncs = 0;
+    clientWorstStatus.forEach((status) => {
+      if (status === "failed") failedSyncs += 1;
+      else if (status === "pending") pendingSyncs += 1;
+      else successfulSyncs += 1;
+    });
+
     const healthRate = totalNodes > 0 ? (successfulSyncs / totalNodes) * 100 : 100;
 
     const recentFailures = Array.from(recentFailuresByClient.values())
@@ -196,10 +212,11 @@ export default function CrossTenantAccessUsers() {
         { title: "Connection Success Rate", value: `${healthRate.toFixed(1)}%`, change: "-", trend: healthRate > 95 ? "up" as const : "neutral" as const },
         { title: "Waiting to Sync", value: pendingSyncs.toString(), change: "-", trend: pendingSyncs > 0 ? "down" as const : "neutral" as const },
         { title: "Needs Attention", value: failedSyncs.toString(), change: "-", trend: failedSyncs > 0 ? "down" as const : "neutral" as const },
+        { title: "Auto-Retry Runs", value: String(retryMetrics?.auto_retry_runs ?? 0), change: "-", trend: "neutral" as const },
       ],
       recentFailures,
     };
-  }, [users]);
+  }, [users, retryMetrics?.auto_retry_runs]);
 
   const sortedUsers = useMemo(
     () => [...users].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
@@ -225,8 +242,8 @@ export default function CrossTenantAccessUsers() {
 
         {/* Sync Intelligence Dashboard */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {isLoading ? (
-            Array.from({ length: 4 }).map((_, i) => (
+          {isLoading || isRetryMetricsLoading ? (
+            Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-32 rounded-2xl w-full" />
             ))
           ) : (
@@ -235,6 +252,14 @@ export default function CrossTenantAccessUsers() {
             ))
           )}
         </div>
+        {!isLoading && !isRetryMetricsLoading && (
+          <p className="text-xs text-muted-foreground px-1">
+            Last Auto-Retry Time:{" "}
+            {retryMetrics?.last_auto_retry_at
+              ? new Date(retryMetrics.last_auto_retry_at).toLocaleString()
+              : "Never"}
+          </p>
+        )}
 
         {/* Global Diagnostic Summary */}
         {!isLoading && aggregateMetrics.recentFailures.length > 0 && (
