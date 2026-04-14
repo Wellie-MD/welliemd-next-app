@@ -135,7 +135,10 @@ export default function CrossTenantAccessUsers() {
     let successfulSyncs = 0;
     let pendingSyncs = 0;
     let failedSyncs = 0;
-    const recentFailures: { user: string; client: string; error: string; clientId: string }[] = [];
+    const recentFailuresByClient = new Map<
+      string,
+      { users: Set<string>; client: string; error: string; clientId: string; updatedAt: string }
+    >();
 
     users.forEach((user) => {
       const summary = user.sync_status_summary || { pending: 0, success: 0, failed: 0 };
@@ -144,32 +147,57 @@ export default function CrossTenantAccessUsers() {
       pendingSyncs += summary.pending;
       failedSyncs += summary.failed;
 
-      if (user.sync_statuses) {
-        user.sync_statuses
-          .filter(s => s.status === 'failed')
-          .forEach(s => {
-            if (recentFailures.length < 5) {
-              recentFailures.push({
-                user: user.email,
-                client: s.client_name || s.client,
-                clientId: s.client,
-                error: s.last_error
-              });
-            }
-          });
-      }
+      if (!user.sync_statuses) return;
+      user.sync_statuses
+        .filter((s) => s.status === "failed")
+        .forEach((s) => {
+          const key = s.client;
+          const nextUpdatedAt = s.updated_at || "";
+          const existing = recentFailuresByClient.get(key);
+
+          if (!existing) {
+            recentFailuresByClient.set(key, {
+              users: new Set([user.email]),
+              client: s.client_name || s.client,
+              clientId: s.client,
+              error: s.last_error,
+              updatedAt: nextUpdatedAt,
+            });
+            return;
+          }
+
+          existing.users.add(user.email);
+          // Keep the newest failure detail so the alert reflects latest disruption.
+          if (nextUpdatedAt && (!existing.updatedAt || nextUpdatedAt > existing.updatedAt)) {
+            existing.error = s.last_error;
+            existing.updatedAt = nextUpdatedAt;
+          }
+        });
     });
 
     const healthRate = totalNodes > 0 ? (successfulSyncs / totalNodes) * 100 : 100;
 
+    const recentFailures = Array.from(recentFailuresByClient.values())
+      .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""))
+      .slice(0, 5)
+      .map((entry) => {
+        const users = Array.from(entry.users);
+        return {
+          client: entry.client,
+          clientId: entry.clientId,
+          error: entry.error,
+          user: users.length > 1 ? `${users[0]} +${users.length - 1} more` : users[0] || "",
+        };
+      });
+
     return {
       kpis: [
-        { title: "Total Ecosystem Nodes", value: totalNodes.toString(), change: "-", trend: "neutral" as const },
-        { title: "Sync Health Rate", value: `${healthRate.toFixed(1)}%`, change: "-", trend: healthRate > 95 ? "up" as const : "neutral" as const },
-        { title: "Pending Queue", value: pendingSyncs.toString(), change: "-", trend: pendingSyncs > 0 ? "down" as const : "neutral" as const },
-        { title: "Critical Failures", value: failedSyncs.toString(), change: "-", trend: failedSyncs > 0 ? "down" as const : "neutral" as const },
+        { title: "Total Client Connections", value: totalNodes.toString(), change: "-", trend: "neutral" as const },
+        { title: "Connection Success Rate", value: `${healthRate.toFixed(1)}%`, change: "-", trend: healthRate > 95 ? "up" as const : "neutral" as const },
+        { title: "Waiting to Sync", value: pendingSyncs.toString(), change: "-", trend: pendingSyncs > 0 ? "down" as const : "neutral" as const },
+        { title: "Needs Attention", value: failedSyncs.toString(), change: "-", trend: failedSyncs > 0 ? "down" as const : "neutral" as const },
       ],
-      recentFailures
+      recentFailures,
     };
   }, [users]);
 
@@ -186,7 +214,7 @@ export default function CrossTenantAccessUsers() {
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Cross-Tenant Access Users</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Runtime-managed super admin users synchronized to tenant environments.
+              Manage shared admin access across all client environments.
             </p>
           </div>
           <div className="hidden md:flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100">
@@ -212,7 +240,7 @@ export default function CrossTenantAccessUsers() {
         {!isLoading && aggregateMetrics.recentFailures.length > 0 && (
           <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-900 rounded-2xl shadow-sm">
             <AlertTriangle className="h-4 w-4 text-red-600" />
-            <AlertTitle className="font-bold">Sync Disruptions Detected</AlertTitle>
+            <AlertTitle className="font-bold">Connection Issues Detected</AlertTitle>
             <AlertDescription className="mt-2 text-sm opacity-90">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1">
                 {aggregateMetrics.recentFailures.map((failure, i) => (
