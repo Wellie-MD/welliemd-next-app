@@ -1,17 +1,20 @@
-import { useState, useEffect } from "react";
-import { getAdminDashboardOverview, DashboardData } from "@/api/dashboardApi";
+import { useState, useEffect, useCallback } from "react";
+import { getAdminDashboardOverview, DashboardData, DashboardOverviewParams } from "@/api/dashboardApi";
 
-export const useAdminDashboard = () => {
+export const useAdminDashboard = (params?: DashboardOverviewParams) => {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(
     null,
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const loadDashboard = async () => {
+  // Memoize params to avoid infinite loops if passed as inline object
+  const paramsStr = JSON.stringify(params);
+
+  const loadDashboard = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getAdminDashboardOverview();
+      const data = await getAdminDashboardOverview(params);
       console.log({ data });
 
       setDashboardData(data);
@@ -22,7 +25,7 @@ export const useAdminDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [paramsStr]); // react to param changes
 
   useEffect(() => {
     loadDashboard();
@@ -33,7 +36,7 @@ export const useAdminDashboard = () => {
     }, 300000); // 5 minutes
 
     return () => clearInterval(interval);
-  }, []);
+  }, [loadDashboard]);
 
   return {
     dashboardData,

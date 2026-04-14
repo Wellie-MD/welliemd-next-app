@@ -88,9 +88,15 @@ export interface DashboardData {
  * @returns Promise<DashboardData> - Complete dashboard data
  * @throws Error if request fails
  */
-export async function getAdminDashboardOverview(): Promise<DashboardData> {
+export interface DashboardOverviewParams {
+  start_date?: string;
+  end_date?: string;
+  client_id?: string;
+}
+
+export async function getAdminDashboardOverview(params?: DashboardOverviewParams): Promise<DashboardData> {
   try {
-    const { data } = await axiosInstance.get<DashboardData>('/admin/dashboard/overview/');
+    const { data } = await axiosInstance.get<DashboardData>('/admin/dashboard/overview/', { params });
     return data;
   } catch (error: any) {
     console.error('Failed to fetch admin dashboard overview:', error);
