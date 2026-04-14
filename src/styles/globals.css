@@ -1685,16 +1685,17 @@ body.light .km-nbtn {
 
 /* --- Tabs (pill style) --- */
 .km-tabs {
-  display: inline-flex;
+  display: flex;
   background: var(--km-s2);
   border: 1px solid var(--km-b);
   border-radius: 9px;
   padding: 3px;
-  gap: 2px;
+  gap: 3px;
 }
 
 .km-tab {
-  padding: 7px 16px;
+  flex: 1;
+  padding: 7px 10px;
   border-radius: 7px;
   font-size: 12px;
   font-weight: 600;
@@ -1705,6 +1706,7 @@ body.light .km-nbtn {
   font-family: 'Outfit', sans-serif;
   transition: all 0.2s;
   white-space: nowrap;
+  text-align: center;
 }
 
 .km-tab:hover {
@@ -2582,6 +2584,7 @@ body.light .km-nbtn {
   display: flex;
   flex-direction: column;
   transition: transform 0.2s, box-shadow 0.2s;
+  overflow: hidden;
 }
 
 .km-ritem:hover {
@@ -2663,6 +2666,8 @@ body.light .km-nbtn {
   font-weight: 700;
   color: var(--km-t);
   margin-bottom: 6px;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .km-rdesc-elegant {
@@ -2674,6 +2679,8 @@ body.light .km-nbtn {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .km-rauth-row {

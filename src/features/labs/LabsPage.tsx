@@ -18,15 +18,15 @@ function formatDate(dateString: string | null): string {
 function getSubmissionStatusIcon(status: string | null) {
     switch (status?.toLowerCase()) {
         case 'completed':
-            return <CheckCircle className="h-4 w-4 text-green-500" />;
+            return <CheckCircle size={16} style={{ color: 'var(--km-gr)' }} />;
         case 'submitted':
-            return <Clock className="h-4 w-4 text-blue-500" />;
+            return <Clock size={16} style={{ color: 'var(--km-ac)' }} />;
         case 'pending':
-            return <AlertCircle className="h-4 w-4 text-yellow-500" />;
+            return <AlertCircle size={16} style={{ color: 'var(--km-am)' }} />;
         case 'failed':
-            return <XCircle className="h-4 w-4 text-red-500" />;
+            return <XCircle size={16} style={{ color: 'var(--km-re)' }} />;
         default:
-            return <Clock className="h-4 w-4 text-gray-500" />;
+            return <Clock size={16} style={{ color: 'var(--km-tm)' }} />;
     }
 }
 
@@ -272,7 +272,7 @@ export default function LabsPage() {
 
     return (
         <div className="pg" id="pg-labs">
-            <p className="km-page-title km-fade">Labs</p>
+            <p className="km-page-title km-fade" style={{ fontFamily: "'Playfair Display', serif", fontSize: 32 }}>Labs</p>
             <p className="km-page-sub km-fade">View your lab results and submissions</p>
             
             <div className="km-swrap km-fade" style={{ marginBottom: 14 }}>

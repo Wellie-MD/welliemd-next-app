@@ -5,16 +5,17 @@
  * - Visit type legend (Async / Scheduled dots)
  * - Month group headers (Uppercase, bold)
  * - Visit cards with type dot, name, master_id, status badge
- * - Action-required amber boxes for pending visits
- * - Full-width grey action button
+ * - Action-required amber boxes for pending/dropped visits
+ * - Full-width "Complete Questionnaire" button
  * - Completed visits with subtle opacity
  */
 
 import { useEffect, useState } from "react";
 import { Loader2, AlertCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { VisitService, Visit } from "@/features/visits/services/visit.service";
 
-// Status → km-badge mapping
+// Status → badge config per kinmeds3
 const STATUS_CONFIG: Record<string, { label: string; css: string }> = {
   submitted:            { label: "Submitted",       css: "km-badge km-badge-blue" },
   approved:             { label: "Approved",        css: "km-badge km-badge-green" },
@@ -41,9 +42,11 @@ const STATUS_CONFIG: Record<string, { label: string; css: string }> = {
 };
 
 export default function Appointments() {
+  const navigate = useNavigate();
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [resumingId, setResumingId] = useState<string | null>(null);
 
   useEffect(() => {
     loadVisits();
@@ -56,10 +59,29 @@ export default function Appointments() {
       const data = await VisitService.getPatientVisits();
       data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setVisits(data);
-    } catch (err) {
+    } catch {
       setError("Failed to load visits. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResume = async (visitId: string) => {
+    setResumingId(visitId);
+    try {
+      const result = await VisitService.resumeQuestionnaire(visitId);
+      if (result.success && result.questionnaire_url) {
+        window.location.assign(result.questionnaire_url);
+      } else if (result.can_restart) {
+        // Session expired or not found — redirect to start fresh
+        navigate('/dashboard/treatments');
+      } else {
+        setError(result.error || 'Could not resume questionnaire.');
+      }
+    } catch {
+      navigate('/dashboard/treatments');
+    } finally {
+      setResumingId(null);
     }
   };
 
@@ -72,6 +94,15 @@ export default function Appointments() {
     });
   };
 
+  const formatTime = (d: string | null) => {
+    if (!d) return "";
+    return new Date(d).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
   const groupByMonth = (visits: Visit[]) => {
     const groups: { label: string; visits: Visit[] }[] = [];
     const map = new Map<string, Visit[]>();
@@ -79,7 +110,7 @@ export default function Appointments() {
     for (const v of visits) {
       const d = new Date(v.created_at);
       const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, "0")}`;
-      const label = d.toLocaleDateString("en-US", { year: "numeric", month: "long" }).toUpperCase();
+      const label = d.toLocaleDateString("en-US", { year: "numeric", month: "long" });
       if (!map.has(key)) {
         map.set(key, []);
         groups.push({ label, visits: map.get(key)! });
@@ -92,8 +123,15 @@ export default function Appointments() {
   const getStatusConfig = (status: string) =>
     STATUS_CONFIG[status.toLowerCase()] || { label: status, css: "km-badge km-badge-gray" };
 
-  const isPending = (v: Visit) =>
+  // Statuses that need action (dropped/incomplete questionnaire)
+  const needsAction = (v: Visit) =>
     ["pending", "visit_pending", "in_review", "submitted"].includes(v.status.toLowerCase());
+
+  const isCompleted = (v: Visit) =>
+    v.status.toLowerCase() === "completed";
+
+  const isScheduled = (v: Visit) =>
+    (v.visit_type || "").toLowerCase().includes("scheduled");
 
   const monthGroups = groupByMonth(visits);
 
@@ -104,20 +142,21 @@ export default function Appointments() {
         <p className="km-page-sub">All visits across your treatments</p>
       </div>
 
+      {/* Legend */}
       <div className="km-fade" style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--km-tm)' }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6' }} />
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--km-ac)' }} />
           Async
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--km-tm)' }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#8b5cf6' }} />
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--km-pu)' }} />
           Scheduled
         </div>
       </div>
 
       {loading ? (
         <div className="km-empty" style={{ padding: '60px 0' }}>
-          <Loader2 size={24} className="animate-spin" style={{ color: 'var(--km-ac)' }} />
+          <Loader2 size={24} style={{ color: 'var(--km-ac)', animation: 'spin 2s linear infinite' }} />
           <div className="km-et" style={{ marginTop: 12 }}>Loading your visits...</div>
         </div>
       ) : error ? (
@@ -134,70 +173,108 @@ export default function Appointments() {
       ) : (
         <div className="km-fade">
           {monthGroups.map((group) => (
-            <div key={group.label} style={{ marginBottom: 32 }}>
-              <p style={{ fontSize: 11, fontWeight: 800, color: 'var(--km-tm)', marginBottom: 12, letterSpacing: '0.05em' }}>
+            <div key={group.label}>
+              {/* Month header */}
+              <div className="km-fade" style={{
+                fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+                letterSpacing: '.5px', color: 'var(--km-tm)',
+                marginBottom: 8, marginTop: 6,
+              }}>
                 {group.label}
-              </p>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {group.visits.map((visit) => {
-                  const status = getStatusConfig(visit.status);
-                  const isScheduled = (visit.visit_type || "").toLowerCase().includes("scheduled");
-                  const pending = isPending(visit);
-                  const completed = visit.status.toLowerCase() === 'completed';
+              </div>
 
-                  return (
-                    <div 
-                      key={visit.id} 
-                      className="km-sc" 
-                      style={{ 
-                        padding: 20, 
-                        opacity: completed ? 0.7 : 1,
-                        border: pending ? '1px solid var(--km-am)' : '1px solid var(--km-b)',
-                        boxShadow: pending ? '0 4px 12px rgba(251, 191, 36, 0.05)' : 'none'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: pending ? 16 : 0 }}>
-                        <div style={{ display: 'flex', gap: 10 }}>
-                          <div style={{ 
-                            width: 8, 
-                            height: 8, 
-                            borderRadius: '50%', 
-                            background: isScheduled ? '#8b5cf6' : '#3b82f6',
-                            marginTop: 6
-                          }} />
-                          <div>
-                            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--km-t)', marginBottom: 4 }}>
+              {group.visits.map((visit) => {
+                const status = getStatusConfig(visit.status);
+                const pending = needsAction(visit);
+                const completed = isCompleted(visit);
+                const scheduled = isScheduled(visit);
+                const dotColor = scheduled ? 'var(--km-pu)' : 'var(--km-ac)';
+
+                return (
+                  <div
+                    key={visit.id}
+                    className="km-sc km-fade"
+                    style={{
+                      marginBottom: 8,
+                      opacity: completed ? 0.75 : 1,
+                      borderColor: pending
+                        ? 'rgba(245, 158, 11, 0.25)'
+                        : 'var(--km-b)',
+                    }}
+                  >
+                    <div style={{ padding: 14 }}>
+                      {/* Header row: dot + name + meta | badge */}
+                      <div style={{
+                        display: 'flex', alignItems: 'flex-start',
+                        justifyContent: 'space-between', gap: 10,
+                        marginBottom: pending ? 10 : 0,
+                      }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                            <div style={{
+                              width: 7, height: 7, borderRadius: '50%',
+                              background: dotColor, flexShrink: 0,
+                            }} />
+                            <span style={{ fontSize: 13, fontWeight: 700 }}>
                               {visit.visit_type}
-                            </p>
-                            <p style={{ fontSize: 12, color: 'var(--km-tm)', fontFamily: 'monospace' }}>
-                              {(visit.master_id || "wellie-00000").toLowerCase()} · {isScheduled ? "Scheduled" : "Async"} · {formatDate(visit.created_at)}
-                            </p>
+                            </span>
+                          </div>
+                          <div style={{
+                            fontSize: 11, color: 'var(--km-tm)',
+                            marginLeft: 13, fontFamily: 'monospace',
+                          }}>
+                            {(visit.master_id || "wellie-00000").toLowerCase()}
+                            {' · '}
+                            {scheduled ? 'Scheduled' : 'Async'}
+                            {scheduled && visit.submitted_at
+                              ? ` · ${formatDate(visit.submitted_at)} · ${formatTime(visit.submitted_at)}`
+                              : ` · ${formatDate(visit.created_at)}`
+                            }
                           </div>
                         </div>
                         <span className={status.css}>{status.label}</span>
                       </div>
 
+                      {/* Action required box for pending/dropped visits */}
                       {pending && (
-                        <div className="km-fade" style={{ marginTop: 16 }}>
-                          <div className="km-vbox-warning">
-                            <p className="km-vbox-warning-title">Action required</p>
-                            <p className="km-vbox-warning-desc">
-                              Complete your follow-up questionnaire to {isScheduled ? 'unlock scheduling' : 'continue care'}
-                            </p>
+                        <>
+                          <div style={{
+                            background: 'var(--km-amp)',
+                            border: '1px solid rgba(245, 158, 11, 0.2)',
+                            borderRadius: 8,
+                            padding: '10px 12px',
+                            marginBottom: 10,
+                          }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--km-am)', marginBottom: 2 }}>
+                              Action required
+                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--km-tm)' }}>
+                              {scheduled
+                                ? 'Complete your questionnaire to unlock scheduling'
+                                : 'Complete your questionnaire to continue care'
+                              }
+                            </div>
                           </div>
-                          <button 
+                          <button
                             className="km-btn-large-grey"
-                            onClick={() => alert("Redirecting to questionnaire...")}
+                            disabled={resumingId === visit.id}
+                            onClick={() => handleResume(visit.id)}
                           >
-                            Complete Questionnaire
+                            {resumingId === visit.id ? (
+                              <>
+                                <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', marginRight: 8 }} />
+                                Resuming…
+                              </>
+                            ) : (
+                              'Complete Questionnaire'
+                            )}
                           </button>
-                        </div>
+                        </>
                       )}
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>
