@@ -2504,14 +2504,14 @@ body.light .km-nbtn {
 }
 
 .km-btn-large-grey {
-  background: #e5e7eb;
-  border: 1px solid #d1d5db;
+  background: var(--km-s3);
+  border: 1px solid var(--km-b);
   border-radius: 8px;
   width: 100%;
   padding: 10px;
   font-size: 13px;
   font-weight: 600;
-  color: #374151;
+  color: var(--km-t);
   text-align: center;
   cursor: pointer;
   transition: all 0.2s;
@@ -2521,8 +2521,21 @@ body.light .km-nbtn {
 }
 
 .km-btn-large-grey:hover {
-  background: #d1d5db;
-  border-color: #9ca3af;
+  background: var(--km-ac);
+  border-color: var(--km-ac);
+  color: #fff;
+}
+
+body.light .km-btn-large-grey {
+  background: #e2e0dc;
+  border-color: #ccc8c0;
+  color: #1a1a1a;
+}
+
+body.light .km-btn-large-grey:hover {
+  background: var(--km-ac);
+  border-color: var(--km-ac);
+  color: #fff;
 }
 
 .km-rtags {
