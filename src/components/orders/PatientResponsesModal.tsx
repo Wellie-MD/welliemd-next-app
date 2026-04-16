@@ -19,6 +19,9 @@ interface PatientResponsesModalProps {
   onImagesSaved?: (photos: QuestionnairePhoto[]) => void
 }
 
+const isGeneratedImageQuestion = (value: string | null | undefined) =>
+  /^Uploaded Image \d+$/i.test(String(value || "").trim())
+
 export function PatientResponsesModal({
   open,
   onOpenChange,
@@ -63,12 +66,12 @@ export function PatientResponsesModal({
     if (nextItems.length === 0) {
       const legacyUploads = (patientResponses as Record<string, unknown> | null | undefined)?._image_uploads
       if (Array.isArray(legacyUploads)) {
-        legacyUploads.forEach((legacyItem, idx) => {
+        legacyUploads.forEach((legacyItem) => {
           if (!legacyItem || typeof legacyItem !== "object") return
           const legacy = legacyItem as Record<string, unknown>
           nextItems.push({
-            question: `Uploaded Image ${idx + 1}`,
-            question_id: "",
+            question: String(legacy.question || "").trim(),
+            question_id: String(legacy.question_id || ""),
             mime: String(legacy.mime || "image/jpeg"),
             data: typeof legacy.data === "string" ? legacy.data : "",
           })
@@ -148,7 +151,7 @@ export function PatientResponsesModal({
     setIsSavingImages(true)
     try {
       const payloadPhotos = imageItems.map((item) => ({
-        question: item.question || "",
+        question: isGeneratedImageQuestion(item.question) ? "" : item.question || "",
         question_id: item.question_id || "",
         mime: item.mime || "image/jpeg",
         data: item.data || "",
