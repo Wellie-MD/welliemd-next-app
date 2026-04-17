@@ -4,7 +4,6 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Phone,
@@ -24,6 +23,7 @@ import {
 import { useClientMessages } from "@/contexts/MessagesContext";
 import { groupMessages, type Conversation } from "@/utils/groupMessages";
 import { useClients, type Client } from "@/hooks/useClients";
+import { useSearchParams } from "react-router-dom";
 
 import { patientService, type Patient } from "@/services/patientService";
 import { PatientDetailSheet } from "@/components/patients/PatientDetailSheet";
@@ -97,7 +97,7 @@ const DocIcon = ({ ext, mime }: { ext: string; mime?: string | null }) => {
   else if (["js", "ts", "py", "java", "c", "cpp", "json", "yml", "yaml", "html", "css"].includes(ext)) Icon = FileCode;
 
   return (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-800">
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-200">
       <Icon className="h-5 w-5" />
     </div>
   );
@@ -115,30 +115,30 @@ function DocumentBubble({
   const ext = getExt(name);
   const display = name || "Attachment";
   return (
-    <div className="w-[260px] lg:w-[320px] rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
+    <div className="w-[260px] lg:w-[320px] rounded-lg bg-white dark:bg-slate-900 shadow-sm ring-1 ring-gray-200 dark:ring-slate-700">
       <div className="p-3 flex items-start gap-3">
         <DocIcon ext={ext} mime={mime} />
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-gray-900 break-words line-clamp-2">
+          <div className="text-sm font-semibold text-gray-900 dark:text-slate-100 break-words line-clamp-2">
             {display}
           </div>
           <div className="mt-1 flex items-center gap-2">
             {ext && (
-              <span className="inline-flex items-center rounded-full bg-gray-50 text-gray-700 px-2 py-0.5 text-[10px] uppercase tracking-wider">
+              <span className="inline-flex items-center rounded-full bg-gray-50 text-gray-700 dark:bg-slate-800 dark:text-slate-300 px-2 py-0.5 text-[10px] uppercase tracking-wider">
                 {ext}
               </span>
             )}
-            {mime && <span className="text-[11px] text-gray-500 truncate">{mime}</span>}
+            {mime && <span className="text-[11px] text-gray-500 dark:text-slate-400 truncate">{mime}</span>}
           </div>
         </div>
       </div>
       {/* Centered “Open” only, opens in new tab */}
-      <div className="flex items-center justify-center border-t px-3 py-2">
+      <div className="flex items-center justify-center border-t border-gray-200 dark:border-slate-700 px-3 py-2">
         <a
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 hover:text-gray-900"
+          className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100"
           title="Open in new tab"
         >
           <ExternalLink className="h-3.5 w-3.5" />
@@ -151,6 +151,8 @@ function DocumentBubble({
 // ====================================================================
 
 export default function Messages() {
+  const MAX_COMPOSER_HEIGHT_PX = 140;
+  const [searchParams, setSearchParams] = useSearchParams();
   const { messages, loading, error } = useClientMessages();
 
   // tabs: "patient" (normal support/doctor thread) and "support" (Beluga)
@@ -159,6 +161,8 @@ export default function Messages() {
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const sendInFlightRef = useRef(false);
+  const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   // For patient profile sheet
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -199,6 +203,19 @@ export default function Messages() {
 
   // beluga support cache
   const [belugaCache, setBelugaCache] = useState<Record<string, Message[]>>({});
+
+  const resizeComposer = () => {
+    const el = messageInputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const nextHeight = Math.min(el.scrollHeight, MAX_COMPOSER_HEIGHT_PX);
+    el.style.height = `${Math.max(48, nextHeight)}px`;
+    el.style.overflowY = el.scrollHeight > MAX_COMPOSER_HEIGHT_PX ? "auto" : "hidden";
+  };
+
+  useEffect(() => {
+    resizeComposer();
+  }, [newMessage]);
 
   useEffect(() => {
     const masterId = activeConversation?.masterId;
@@ -392,6 +409,21 @@ export default function Messages() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConversation?.messages, activeConversation?.id]);
 
+  useEffect(() => {
+    if (!activeConversation?.masterId) return;
+    let cancelled = false;
+    (async () => {
+      const updated = await messageService.markNotificationsReadForMaster(activeConversation.masterId);
+      if (cancelled) return;
+      if (updated > 0) {
+        window.dispatchEvent(new Event("client:notifications-refetch"));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeConversation?.id, activeConversation?.masterId, activeConversation?.messages]);
+
   const hasNewMap: Record<string, boolean> = useMemo(() => {
     const map: Record<string, boolean> = {};
     if (!initialLoadDoneRef.current) return map;
@@ -441,6 +473,21 @@ export default function Messages() {
   }, [loading, conversations, activeConversation]);
 
   useEffect(() => {
+    const targetMasterId = searchParams.get("master_id");
+    if (!targetMasterId || conversations.length === 0) return;
+
+    const match = conversations.find((c) => c.masterId === targetMasterId);
+    if (!match) return;
+
+    setActiveConversation(match);
+    didAutoSelectRef.current = true;
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("master_id");
+    setSearchParams(next, { replace: true });
+  }, [conversations, searchParams, setSearchParams]);
+
+  useEffect(() => {
     if (activeConversation && !conversations.find((c) => c.id === activeConversation.id)) {
       if (conversations.length > 0) setActiveConversation(conversations[0]);
       else setActiveConversation(null);
@@ -487,6 +534,7 @@ export default function Messages() {
     setAttachedFiles((prev) => prev.filter((_, i) => i !== idx));
 
   async function handleSend() {
+    if (sendInFlightRef.current || sending || uploading) return;
     if (!activeConversation) return;
 
     const text = newMessage.trim();
@@ -496,6 +544,7 @@ export default function Messages() {
     if (tab === "support") {
       if (!text) return;
       try {
+        sendInFlightRef.current = true;
         setSending(true);
         await messageService.sendMessage({
           master_id: activeConversation.masterId,
@@ -529,6 +578,7 @@ export default function Messages() {
         console.error("Failed to send beluga message", err);
       } finally {
         setSending(false);
+        sendInFlightRef.current = false;
       }
       return;
     }
@@ -536,6 +586,7 @@ export default function Messages() {
     // Patient tab: attachments allowed
     if (!text && !hasFiles) return;
 
+    sendInFlightRef.current = true;
     setSending(true);
     setUploading(true);
     try {
@@ -643,6 +694,7 @@ export default function Messages() {
     } finally {
       setUploading(false);
       setSending(false);
+      sendInFlightRef.current = false;
     }
   }
 
@@ -943,12 +995,22 @@ export default function Messages() {
               {/* Composer */}
               <div className="p-4 border-t shrink-0">
                 <div className="flex items-center gap-3">
-                  <Input
+                  <textarea
+                    ref={messageInputRef}
                     placeholder="Type your message here…"
-                    className="flex-1 text-base px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-400"
+                    rows={1}
+                    className="flex-1 text-base px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-400 resize-none leading-6 max-h-[140px]"
                     value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                    onChange={(e) => {
+                      setNewMessage(e.target.value)
+                      resizeComposer()
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSend()
+                      }
+                    }}
                   />
 
                   {/* (hidden) emoji button */}

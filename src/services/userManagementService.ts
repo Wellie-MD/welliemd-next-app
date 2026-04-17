@@ -16,6 +16,13 @@ export interface PortalUser {
     invitation_expires_at?: string;  // ISO datetime string
 }
 
+export const getDisplayRole = (user: PortalUser): string => {
+    if (Array.isArray(user.roles) && user.roles.includes('Super Admin')) {
+        return 'Super Admin';
+    }
+    return user.primary_role || 'No Role';
+};
+
 export interface Role {
     id: string;
     name: string;
@@ -33,6 +40,16 @@ export interface AssignRoleRequest {
     role_id: string;
 }
 
+const DEFAULT_ROLE_DESCRIPTIONS: Record<string, string> = {
+    Admin: 'Full administrative access to manage users, settings, and operational workflows.',
+    'Customer Service': 'Can manage conversations and operational support workflows without full admin controls.',
+};
+
+const withRoleDescriptionFallback = (role: Role): Role => ({
+    ...role,
+    description: (role.description || '').trim() || DEFAULT_ROLE_DESCRIPTIONS[role.name] || 'Standard access for this role.',
+});
+
 export const userManagementService = {
     /**
      * List all portal users with their roles
@@ -47,7 +64,7 @@ export const userManagementService = {
      */
     getAvailableRoles: async (): Promise<Role[]> => {
         const { data } = await api.get('/portal-users/available_roles/');
-        return data;
+        return Array.isArray(data) ? data.map(withRoleDescriptionFallback) : [];
     },
 
     /**

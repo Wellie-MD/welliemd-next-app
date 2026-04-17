@@ -52,6 +52,7 @@ import { useToast } from "@/hooks/use-toast"
 import { PermissionGate } from "@/components/auth/PermissionGate"
 import { Permissions } from "@/constants/permissions"
 import { cn } from "@/lib/utils"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const statusColors: Record<string, string> = {
   created: "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600",
@@ -380,19 +381,20 @@ export default function OrderDetail() {
     })
   }
   if (order.paymentDate) {
-    const reimbursementParts: string[] = []
-    if (order.medication_cost_to_client) reimbursementParts.push(`Medication Cost: ${order.medication_cost_to_client}`)
-    if (order.consult_cost_to_client) {
-      const consultLabel = order.consult_type === 'sync' ? 'Sync Consult Cost' : 'Async Consult Cost'
-      reimbursementParts.push(`${consultLabel}: ${order.consult_cost_to_client}`)
-    }
-    if (order.shipping_fee_to_client) reimbursementParts.push(`Shipping Fee: ${order.shipping_fee_to_client}`)
+    const normalizedPaymentStatus = (order.paymentStatus || "").toLowerCase()
+    let paymentTitle = "Payment Updated"
+    if (normalizedPaymentStatus === "authorized") paymentTitle = "Patient Payment Authorized"
+    else if (["captured", "approved", "succeeded"].includes(normalizedPaymentStatus)) paymentTitle = "Patient Payment Captured"
+    else if (["failed", "declined", "error"].includes(normalizedPaymentStatus)) paymentTitle = "Patient Payment Failed"
+    else if (normalizedPaymentStatus === "voided") paymentTitle = "Patient Authorization Voided"
+    else if (normalizedPaymentStatus === "refunded") paymentTitle = "Patient Payment Refunded"
+
     timelineItems.push({
-      title: "Order Reimbursement Billing Success",
+      title: paymentTitle,
       date: formatDateTime(order.paymentDate),
-      description: reimbursementParts.length > 0
-        ? `$${order.orderTotal || '0.00'} (${reimbursementParts.join(', ')})`
-        : order.orderTotal ? `$${order.orderTotal}` : undefined,
+      description: (order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount)
+        ? `$${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount}`
+        : undefined,
       icon: "payments",
       iconBg: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800",
     })
@@ -406,9 +408,9 @@ export default function OrderDetail() {
       iconBg: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800",
     })
   }
-  if (order.visitStatus || order.treatment_type) {
+  if (order.visitStatus || order.mrn) {
     timelineItems.push({
-      title: "Followup Visit Created",
+      title: "Visit Created",
       date: formatDateTime(order.orderDate),
       description: order.provider_network ? `Provider: ${order.provider_network}` : undefined,
       icon: "medical_services",
@@ -437,10 +439,16 @@ export default function OrderDetail() {
 
   const quantityRaw = Number.parseFloat(String(qty))
   const quantity = Number.isFinite(quantityRaw) && quantityRaw > 0 ? quantityRaw : 1
-  const originalPrice = parseMoney(order.original_price)
-  const shippingFee = parseMoney(order.shipping_fee)
-  const discountAmount = parseMoney(order.discount_amount) ?? 0
-  const totalAmount = parseMoney(order.orderTotal ?? order.amount)
+  const originalPrice = parseMoney(order.pricing?.subtotal_before_discount ?? order.original_price)
+  const shippingFee = parseMoney(order.pricing?.shipping_total ?? order.shipping_fee)
+  const discountAmount = parseMoney(order.pricing?.discount_total ?? order.discount_amount) ?? 0
+  const totalAmount = parseMoney(
+    order.pricing?.grand_total ??
+    order.grand_total ??
+    order.payable_amount ??
+    order.orderTotal ??
+    order.amount
+  )
   const refundedAmount = parseMoney(order.totalRefunded) ?? 0
   const netTotalAmount =
     totalAmount != null
@@ -468,10 +476,28 @@ export default function OrderDetail() {
       ? productSubtotalAfterDiscount / quantity
       : null
   const hasBreakdown = originalPrice != null || shippingFee != null || discountAmount > 0
-  const discountRatio =
-    originalPrice != null && originalPrice > 0 && discountAmount > 0
-      ? discountAmount / originalPrice
-      : 0
+  const supplyLineItems = Array.isArray(order.pricing?.supply_line_items)
+    ? order.pricing?.supply_line_items
+    : []
+  const hasNonIncludedSupplies = supplyLineItems.some((supply) => !supply?.is_included)
+  const pricingMedicationSubtotal = parseMoney(order.pricing?.medication_subtotal)
+  const pricingSuppliesSubtotal = parseMoney(order.pricing?.supplies_subtotal)
+  const fallbackSuppliesSubtotal = supplyLineItems.reduce((acc, supply) => {
+    const qty = Number.parseFloat(String(supply.quantity ?? 1))
+    const safeQty = Number.isFinite(qty) && qty > 0 ? qty : 1
+    const unitPrice = parseMoney(supply.unit_price) ?? 0
+    return acc + (supply.is_included ? 0 : unitPrice * safeQty)
+  }, 0)
+  const suppliesSubtotalBeforeDiscount =
+    pricingSuppliesSubtotal != null ? pricingSuppliesSubtotal : fallbackSuppliesSubtotal
+  const medicationSubtotalAfterDiscount =
+    productSubtotalAfterDiscount != null
+      ? Math.max(0, productSubtotalAfterDiscount - suppliesSubtotalBeforeDiscount)
+      : null
+  const medicationOriginalSubtotal =
+    medicationSubtotalAfterDiscount != null
+      ? medicationSubtotalAfterDiscount + discountAmount
+      : null
 
   const previewOriginalPrice = pendingProductChange != null
     ? pendingProductChange.subtotal
@@ -503,10 +529,48 @@ export default function OrderDetail() {
 
   const displayProductName = pendingProductChange?.productName || order.product_name || "—"
   const displayQuantity = String(qty)
+  const requestedMedicineName =
+    order.requested_medicines?.[0]?.name ||
+    order.product_name ||
+    "—"
+  const rawPrescribedMedicineName =
+    order.prescribed_medicines?.[0]?.name ||
+    order.prescription_medications?.[0]?.name ||
+    null
+  const prescribedNameNormalized = rawPrescribedMedicineName?.trim().toLowerCase()
+  const isSameMedicinePlaceholder =
+    prescribedNameNormalized === "same med" ||
+    prescribedNameNormalized === "same medicine" ||
+    prescribedNameNormalized === "same medication"
+  const prescribedMedicineName = isSameMedicinePlaceholder
+    ? requestedMedicineName
+    : rawPrescribedMedicineName
+  const chargeableAmountSource = order.chargeable_amount_source || "requested_medicine"
+  const requestedPillClass =
+    "inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
+  const prescribedPillClass =
+    "inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300"
+  const amountSourcePillClass =
+    chargeableAmountSource === "prescribed_medicine"
+      ? "inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300"
+      : chargeableAmountSource === "requested_medicine_fallback"
+        ? "inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-rose-800 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-300"
+        : "inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
+  const amountSourceLabel =
+    chargeableAmountSource === "prescribed_medicine"
+      ? "Prescribed (Doctor Final)"
+      : chargeableAmountSource === "requested_medicine_fallback"
+        ? "Requested Fallback"
+        : "Requested (Original)"
+  const pharmacyDisplayName =
+    order.pharmacy_name ||
+    order.pharmacy_display ||
+    order.booking_location ||
+    "—"
 
   const previewOriginalUnitPrice = pendingProductChange != null
     ? pendingProductChange.unitPrice
-    : (originalPrice != null ? originalPrice / quantity : null)
+    : (medicationOriginalSubtotal != null ? medicationOriginalSubtotal / quantity : null)
 
   const displayDiscountPerUnit = pendingProductChange != null
     ? pendingProductChange.discountAmount / Math.max(quantity, 1)
@@ -514,12 +578,23 @@ export default function OrderDetail() {
 
   const displayItemUnitPrice = pendingProductChange != null
     ? pendingProductChange.unitPrice - displayDiscountPerUnit
-    : itemUnitPrice
+    : hasNonIncludedSupplies
+      ? ((pricingMedicationSubtotal != null ? pricingMedicationSubtotal : medicationSubtotalAfterDiscount) != null
+        ? (pricingMedicationSubtotal != null ? pricingMedicationSubtotal : medicationSubtotalAfterDiscount) / quantity
+        : itemUnitPrice)
+      : (medicationSubtotalAfterDiscount != null ? medicationSubtotalAfterDiscount / quantity : itemUnitPrice)
 
-  const displayLineTotal = previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount
+  const displayLineTotal = pendingProductChange != null
+    ? (previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount)
+    : hasNonIncludedSupplies
+      ? ((pricingMedicationSubtotal != null ? pricingMedicationSubtotal : medicationSubtotalAfterDiscount) != null
+        ? (pricingMedicationSubtotal != null ? pricingMedicationSubtotal : medicationSubtotalAfterDiscount)
+        : (previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount))
+      : (medicationSubtotalAfterDiscount != null ? medicationSubtotalAfterDiscount : (previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount))
 
   const itemPrice = formatMoney(displayItemUnitPrice)
   const lineTotalPrice = formatMoney(displayLineTotal)
+  const productSubtotalPrice = formatMoney(previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount)
   const totalPrice = formatMoney(previewTotal)
   const netTotalPrice = formatMoney(previewNetTotal)
 
@@ -666,6 +741,19 @@ export default function OrderDetail() {
                               ? `${order.prescription_medications[0].strength}`
                               : order.treatment_type || ""}
                           </p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Requested (Original):{" "}
+                            <span className={requestedPillClass}>{requestedMedicineName}</span>
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Prescribed (Doctor Final):{" "}
+                            <span className={prescribedPillClass}>
+                              {prescribedMedicineName || "Awaiting provider decision"}
+                            </span>
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Doctor: <span className="text-slate-700 dark:text-slate-300">{order.doctor_name || "—"}</span>
+                          </p>
                           {order.provider_network && (
                             <span className="inline-flex items-center mt-2 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
                               {order.provider_network}
@@ -676,13 +764,13 @@ export default function OrderDetail() {
                     </td>
                     <td className="px-6 py-4 text-right align-top text-slate-600 dark:text-slate-300">
                       <div className="flex flex-col items-end">
-                        {previewDiscountAmount > 0 && previewOriginalUnitPrice != null && (
+                        {previewDiscountAmount > 0 && previewOriginalUnitPrice != null && !hasNonIncludedSupplies && (
                           <span className="text-xs text-slate-400 line-through">
                             ${formatMoney(previewOriginalUnitPrice)}
                           </span>
                         )}
                         <span>${itemPrice}</span>
-                        {previewDiscountAmount > 0 && (
+                        {previewDiscountAmount > 0 && !hasNonIncludedSupplies && (
                           <span className="text-[11px] text-green-600 dark:text-green-400 font-medium">
                             Save ${formatMoney(displayDiscountPerUnit)} / unit
                           </span>
@@ -699,6 +787,34 @@ export default function OrderDetail() {
                       </div>
                     </td>
                   </tr>
+                  {supplyLineItems.map((supply, idx) => {
+                    const qty = Number.parseFloat(String(supply.quantity ?? 1))
+                    const safeQty = Number.isFinite(qty) && qty > 0 ? qty : 1
+                    const unitPrice = parseMoney(supply.unit_price) ?? 0
+                    const lineTotal = (supply.is_included ? 0 : unitPrice * safeQty)
+                    return (
+                      <tr key={`supply-${idx}`} className="bg-slate-50/40 dark:bg-slate-800/40">
+                        <td className="px-6 py-3 text-sm text-slate-700 dark:text-slate-300">
+                          <div className="flex items-center gap-2">
+                            <Package className="h-4 w-4 text-slate-400" />
+                            <span>{supply.name || "Supply item"}</span>
+                            {supply.is_included && (
+                              <span className="rounded bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 text-[10px]">Included</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-3 text-right text-sm text-slate-700 dark:text-slate-300">
+                          {supply.is_included ? "$0.00" : `$${formatMoney(unitPrice)}`}
+                        </td>
+                        <td className="px-6 py-3 text-right text-sm text-slate-700 dark:text-slate-300">
+                          {safeQty}
+                        </td>
+                        <td className="px-6 py-3 text-right text-sm font-medium text-slate-900 dark:text-white">
+                          ${formatMoney(lineTotal)}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
                 <tfoot className="bg-muted/30">
                   {hasBreakdown && previewOriginalPrice != null && (
@@ -713,11 +829,8 @@ export default function OrderDetail() {
                   )}
                   {previewDiscountAmount > 0 && (
                     <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={2}>
-                        Product discount:
-                      </td>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400">
-                        {appliedCouponCodes || "—"}
+                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                        Product discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}:
                       </td>
                       <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
                         −${previewDiscountAmount.toFixed(2)}
@@ -730,7 +843,7 @@ export default function OrderDetail() {
                         Product subtotal:
                       </td>
                       <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${lineTotalPrice}
+                        ${productSubtotalPrice}
                       </td>
                     </tr>
                   )}
@@ -764,8 +877,11 @@ export default function OrderDetail() {
                     <td className="px-6 py-3 text-right font-bold text-primary border-t border-border">
                       <div className="flex flex-col items-end">
                         <span>${netTotalPrice}</span>
-                        <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
-                          Product + shipping
+                        <span className="mt-1 text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                          Amount Source:
+                        </span>
+                        <span className={`mt-1 text-[11px] ${amountSourcePillClass}`}>
+                          {amountSourceLabel} + shipping
                         </span>
                       </div>
                     </td>
@@ -836,38 +952,164 @@ export default function OrderDetail() {
 
         {/* Right column */}
         <div className="lg:col-span-4 space-y-6">
-          {/* Visit Details */}
-          <div className="bg-card rounded-xl shadow-sm border p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-slate-400" />
-                Visit Details
-              </h3>
-              <Button size="sm" variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 text-xs">
-                Track
-              </Button>
-            </div>
-            <div className="flex items-start gap-4 mb-4">
-              <div className="h-12 w-12 rounded-full bg-red-50 dark:bg-red-900/20 text-red-500 flex items-center justify-center">
-                <Stethoscope className="h-6 w-6" />
+          {/* Medical + Pharmacy Tabs */}
+          <div className="bg-card rounded-xl shadow-sm border p-4 sm:p-6">
+            <Tabs defaultValue="medical" className="w-full">
+              <div className="px-4 pt-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+                <TabsList className="h-10 grid grid-cols-3 w-full sm:w-auto p-1">
+                  <TabsTrigger value="product" className="h-8 text-xs sm:text-sm leading-none">Product</TabsTrigger>
+                  <TabsTrigger value="medical" className="h-8 text-xs sm:text-sm leading-none">Medical</TabsTrigger>
+                  <TabsTrigger value="pharmacy" className="h-8 text-xs sm:text-sm leading-none">Pharmacy</TabsTrigger>
+                </TabsList>
+                <Button size="sm" variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 text-xs h-8 px-3">
+                  Track
+                </Button>
               </div>
-              <div>
-                <h4 className="font-medium text-slate-900 dark:text-white">
-                  {order.provider_network || "Medical Network"}
-                </h4>
-                <p className="text-xs text-slate-500 mt-1">
-                  Provider: <span className="text-slate-700 dark:text-slate-300">{order.doctor_name || order.provider_network || "—"}</span>
-                </p>
-              </div>
-            </div>
-            {(order.mrn || order.visitStatus) && (
-              <div className="p-3 bg-muted/50 rounded-lg border">
-                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Master ID</p>
-                <p className="text-xs font-mono text-slate-700 dark:text-slate-300 break-all">
-                  {order.mrn || order.visitStatus || "—"}
-                </p>
-              </div>
-            )}
+
+              <TabsContent value="product" className="space-y-4 mt-0">
+                <div className="p-3 bg-muted/40 rounded-lg border">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Product</p>
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">{displayProductName}</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Requested (Original):{" "}
+                    <span className={requestedPillClass}>{requestedMedicineName}</span>
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Prescribed (Doctor Final):{" "}
+                    <span className={prescribedPillClass}>
+                      {prescribedMedicineName || "Awaiting provider decision"}
+                    </span>
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Doctor: <span className="text-slate-700 dark:text-slate-300">{order.doctor_name || "—"}</span>
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Amount Source:{" "}
+                    <span className={amountSourcePillClass}>
+                      {amountSourceLabel}
+                    </span>
+                  </p>
+                </div>
+                <div className="p-3 bg-muted/40 rounded-lg border">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Pricing</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
+                    Subtotal: <span className="text-slate-700 dark:text-slate-200 font-medium">${productSubtotalPrice}</span>
+                  </p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                    Shipping: <span className="text-slate-700 dark:text-slate-200 font-medium">${formatMoney(previewShippingFee)}</span>
+                  </p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                    Total: <span className="text-slate-700 dark:text-slate-200 font-semibold">${netTotalPrice}</span>
+                  </p>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="medical" className="space-y-4 mt-0">
+                <div className="flex items-start gap-4">
+                  <div className="h-14 w-14 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-500 flex items-center justify-center shrink-0">
+                    <Stethoscope className="h-7 w-7" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="font-semibold text-slate-900 dark:text-white text-base">
+                      {order.provider_network || "Medical Network"}
+                    </h4>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      Provider: <span className="text-slate-700 dark:text-slate-300 font-medium">{order.doctor_name || order.provider_network || "—"}</span>
+                    </p>
+                    {order.prescription_source_received_at && (
+                      <p className="text-sm text-slate-500 mt-1">
+                        RX Received: <span className="text-slate-700 dark:text-slate-300">{formatDateTime(order.prescription_source_received_at)}</span>
+                      </p>
+                    )}
+                    {order.prescription_source_event_id && (
+                      <p className="text-xs text-slate-500 mt-2 break-all">
+                        RX Event ID: <span className="font-mono text-slate-600 dark:text-slate-400">{order.prescription_source_event_id}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {(order.mrn || order.visitStatus) && (
+                  <div className="p-4 bg-muted/50 rounded-lg border border-border/50">
+                    <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-1">Master ID</p>
+                    <p className="text-sm font-mono text-slate-700 dark:text-slate-300 break-all leading-relaxed">
+                      {order.mrn || order.visitStatus || "—"}
+                    </p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="pharmacy" className="space-y-4 mt-0">
+                <div className="p-4 bg-muted/40 rounded-lg border border-border/50">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-2">Pharmacy</p>
+                  <p className="text-base font-semibold text-slate-900 dark:text-white">{pharmacyDisplayName}</p>
+                  {order.booking_location && (
+                    <p className="text-sm text-slate-500 mt-1 flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {order.booking_location}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">Prescription Details</p>
+                  {(order.prescription_medications || []).length > 0 ? (
+                    <div className="space-y-3">
+                      {(order.prescription_medications || []).map((med, idx) => (
+                        <div key={`pharm-med-${idx}`} className="rounded-lg border p-4 bg-background/60 shadow-sm">
+                          <p className="font-medium text-slate-900 dark:text-white">{med.name || "Medication"}</p>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-sm text-slate-500">
+                            <span className="flex items-center gap-1">
+                              <span className="text-slate-400">Strength:</span>
+                              <span className="text-slate-700 dark:text-slate-300 font-medium">{med.strength || "—"}</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="text-slate-400">Qty:</span>
+                              <span className="text-slate-700 dark:text-slate-300 font-medium">{med.quantity || "—"}</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="text-slate-400">Refills:</span>
+                              <span className="text-slate-700 dark:text-slate-300 font-medium">{med.refills || "0"}</span>
+                            </span>
+                          </div>
+                          {(med.rxId || med.medId) && (
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-slate-500">
+                              {med.rxId && (
+                                <span className="flex items-center gap-1">
+                                  <span>RX ID:</span>
+                                  <span className="font-mono text-slate-600 dark:text-slate-400">{med.rxId}</span>
+                                </span>
+                              )}
+                              {med.medId && (
+                                <span className="flex items-center gap-1">
+                                  <span>Med ID:</span>
+                                  <span className="font-mono text-slate-600 dark:text-slate-400">{med.medId}</span>
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500 italic bg-muted/30 p-3 rounded-lg">No pharmacy prescription details available yet.</p>
+                  )}
+                </div>
+                <div className="p-4 bg-muted/40 rounded-lg border border-border/50">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-3">Fulfillment</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-xs text-slate-500 mb-0.5">Tracking Number</p>
+                      <p className="font-mono text-slate-700 dark:text-slate-300 text-xs break-all">{order.tracking_number || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500 mb-0.5">Status</p>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+                        {statusDisplay}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
 
           {/* Patient Details */}

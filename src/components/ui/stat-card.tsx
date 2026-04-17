@@ -7,10 +7,11 @@ interface StatCardProps {
   value: string
   change?: string
   trend?: "up" | "down" | "neutral"
+  helperText?: string
   className?: string
 }
 
-export function StatCard({ title, value, change, trend = "neutral", className }: StatCardProps) {
+export function StatCard({ title, value, change, trend = "neutral", helperText, className }: StatCardProps) {
   const TrendIcon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus
   
   return (
@@ -32,6 +33,9 @@ export function StatCard({ title, value, change, trend = "neutral", className }:
               </div>
             )}
           </div>
+          {helperText && (
+            <p className="text-xs text-muted-foreground">{helperText}</p>
+          )}
         </div>
       </CardContent>
     </Card>

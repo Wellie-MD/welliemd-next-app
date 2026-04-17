@@ -76,20 +76,12 @@ function removeInjectedTag(containerId: string): void {
 }
 
 /**
- * Hook to inject social platform tags (GTM, Facebook, TikTok) into the <head> section
- * Fetches tags from API and injects them as scripts on mount
+ * Hook to inject the configured tracking JS into the <head> section.
+ * The portal only uses the custom global JS payload.
  */
 export function useSocialTags() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const injectedRef = useRef<{
-    gtm: boolean;
-    facebook: boolean;
-    tiktok: boolean;
-  }>({
-    gtm: false,
-    facebook: false,
-    tiktok: false,
-  });
+  const injectedRef = useRef(false);
 
   useEffect(() => {
     // Only try to inject tags if user is authenticated
@@ -103,44 +95,18 @@ export function useSocialTags() {
       try {
         const tags = await socialTagsApi.getCurrent();
 
-        // Handle GTM tag - remove if empty, inject if exists
-        if (tags.gtm_tag && tags.gtm_tag.trim()) {
-          if (!injectedRef.current.gtm) {
-            injectHtmlIntoHead(tags.gtm_tag, 'gtm-tag-container');
-            injectedRef.current.gtm = true;
+        if (tags.custom_global_js && tags.custom_global_js.trim()) {
+          if (!injectedRef.current) {
+            injectHtmlIntoHead(tags.custom_global_js, 'custom-global-js-container');
+            injectedRef.current = true;
           }
         } else {
-          // Tag is empty or doesn't exist - remove it if present
-          removeInjectedTag('gtm-tag-container');
-          injectedRef.current.gtm = false;
-        }
-
-        // Handle Facebook tag - remove if empty, inject if exists
-        if (tags.facebook_tag && tags.facebook_tag.trim()) {
-          if (!injectedRef.current.facebook) {
-            injectHtmlIntoHead(tags.facebook_tag, 'facebook-tag-container');
-            injectedRef.current.facebook = true;
-          }
-        } else {
-          // Tag is empty or doesn't exist - remove it if present
-          removeInjectedTag('facebook-tag-container');
-          injectedRef.current.facebook = false;
-        }
-
-        // Handle TikTok tag - remove if empty, inject if exists
-        if (tags.tiktok_tag && tags.tiktok_tag.trim()) {
-          if (!injectedRef.current.tiktok) {
-            injectHtmlIntoHead(tags.tiktok_tag, 'tiktok-tag-container');
-            injectedRef.current.tiktok = true;
-          }
-        } else {
-          // Tag is empty or doesn't exist - remove it if present
-          removeInjectedTag('tiktok-tag-container');
-          injectedRef.current.tiktok = false;
+          removeInjectedTag('custom-global-js-container');
+          injectedRef.current = false;
         }
       } catch (error) {
         // Silently fail - tags are optional
-        console.warn('Failed to load social tags:', error);
+        console.warn('Failed to load tracking JS:', error);
       }
     };
 
@@ -151,50 +117,24 @@ export function useSocialTags() {
     // Cleanup function
     return () => {
       isMounted = false;
-      // Remove injected tags on unmount
-      removeInjectedTag('gtm-tag-container');
-      removeInjectedTag('facebook-tag-container');
-      removeInjectedTag('tiktok-tag-container');
-      
-      injectedRef.current = { gtm: false, facebook: false, tiktok: false };
+      removeInjectedTag('custom-global-js-container');
+      injectedRef.current = false;
     };
   }, [isAuthenticated]); // Re-run when authentication state changes
 
-  // Function to refresh tags (can be called after saving)
+  // Function to refresh tracking JS (can be called after saving)
   const refreshTags = async () => {
     try {
       const tags = await socialTagsApi.getCurrent();
-      
-      // Remove existing containers
-      removeInjectedTag('gtm-tag-container');
-      removeInjectedTag('facebook-tag-container');
-      removeInjectedTag('tiktok-tag-container');
-      
-      injectedRef.current = { gtm: false, facebook: false, tiktok: false };
-      
-      // Re-inject tags only if they exist and are not empty
-      if (tags.gtm_tag && tags.gtm_tag.trim()) {
-        injectHtmlIntoHead(tags.gtm_tag, 'gtm-tag-container');
-        injectedRef.current.gtm = true;
-      } else {
-        injectedRef.current.gtm = false;
-      }
-      
-      if (tags.facebook_tag && tags.facebook_tag.trim()) {
-        injectHtmlIntoHead(tags.facebook_tag, 'facebook-tag-container');
-        injectedRef.current.facebook = true;
-      } else {
-        injectedRef.current.facebook = false;
-      }
-      
-      if (tags.tiktok_tag && tags.tiktok_tag.trim()) {
-        injectHtmlIntoHead(tags.tiktok_tag, 'tiktok-tag-container');
-        injectedRef.current.tiktok = true;
-      } else {
-        injectedRef.current.tiktok = false;
+      removeInjectedTag('custom-global-js-container');
+      injectedRef.current = false;
+
+      if (tags.custom_global_js && tags.custom_global_js.trim()) {
+        injectHtmlIntoHead(tags.custom_global_js, 'custom-global-js-container');
+        injectedRef.current = true;
       }
     } catch (error) {
-      console.warn('Failed to refresh social tags:', error);
+      console.warn('Failed to refresh tracking JS:', error);
     }
   };
 

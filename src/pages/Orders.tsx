@@ -379,6 +379,7 @@ export default function Orders() {
         data={filteredOrders.map(o => ({
           ...o,
           patient_name: o.patient?.full_name || o.name || o.email || '-',
+          orderTotal: o.pricing?.grand_total || o.grand_total || o.payable_amount || o.orderTotal || o.amount || '0.00',
         }))}
         columns={orderColumns.map(col => {
           // Canonical order number (matches invoice/admin priority).

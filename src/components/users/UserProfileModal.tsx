@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { User, Mail, Shield, Copy, Link, Clock, CheckCircle, AlertCircle } from "lucide-react";
-import { PortalUser } from '@/services/userManagementService';
+import { PortalUser, getDisplayRole } from '@/services/userManagementService';
 import { useToast } from '@/hooks/use-toast';
 
 interface UserProfileModalProps {
@@ -79,7 +79,7 @@ export function UserProfileModal({ open, onClose, user }: UserProfileModalProps)
             </Label>
             <div>
               <Badge variant="secondary" className="text-sm">
-                {user.primary_role}
+                {getDisplayRole(user)}
               </Badge>
             </div>
           </div>

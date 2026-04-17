@@ -4,6 +4,18 @@ import { useAuthStore } from "../store/useAuthStore";
 // const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://knysysapi.welliemd.com/api/v1";
 
+declare module "axios" {
+  export interface AxiosRequestConfig<D = any> {
+    skipAuthRedirect?: boolean;
+    _retry?: boolean;
+  }
+
+  export interface InternalAxiosRequestConfig<D = any> {
+    skipAuthRedirect?: boolean;
+    _retry?: boolean;
+  }
+}
+
 let isHydrating = false;
 
 if (!apiBaseUrl) {
@@ -45,6 +57,7 @@ axiosInstance.interceptors.response.use(
 
     const originalRequest = error.config;
     const authStore = useAuthStore.getState();
+    const skipAuthRedirect = Boolean(originalRequest?.skipAuthRedirect);
     
     // Skip token refresh for auth-related endpoints
     const isAuthEndpoint = originalRequest?.url?.includes('/auth/');
@@ -53,6 +66,9 @@ axiosInstance.interceptors.response.use(
     
     // If this is a 401 from the refresh token endpoint, log the user out
     if (error.response?.status === 401 && isTokenRefresh) {
+      if (skipAuthRedirect) {
+        return Promise.reject(error);
+      }
       console.error('Refresh token failed, logging out');
       const { authService } = await import('../services/authService');
       await authService.logout();
@@ -62,6 +78,9 @@ axiosInstance.interceptors.response.use(
     
     // Handle 401 errors for non-auth endpoints when we have an active session
     if (error.response?.status === 401 && !isAuthEndpoint && authStore.isAuthenticated) {
+      if (skipAuthRedirect) {
+        return Promise.reject(error);
+      }
       // If this is a retry that failed, log out
       if (originalRequest._retry) {
         console.error('Failed to refresh token after retry, logging out');

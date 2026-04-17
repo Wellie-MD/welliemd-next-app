@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { VisitorChart } from "@/components/analytics/VisitorChart"
 import { getAnalytics, getTreatments, getProductGroups } from "@/api/analyticsApi"
-import { Loader2, CalendarIcon, X, Filter, Activity, Users, ShoppingBag, DollarSign } from "lucide-react"
+import { Loader2, CalendarIcon, X, Filter, Activity, Users, ShoppingBag, DollarSign, CircleHelp } from "lucide-react"
 import { format, subDays, startOfDay, endOfDay } from "date-fns"
 import { cn } from "@/lib/utils"
 
@@ -21,12 +22,40 @@ function FilterChip({ label, value }: { label: string; value: string }) {
   )
 }
 
-function MetricCard({ title, value, icon: Icon, tone }: { title: string; value: string | number; icon: React.ComponentType<{ className?: string }>; tone: string }) {
+function MetricCard({
+  title,
+  value,
+  icon: Icon,
+  tone,
+  tooltip,
+}: {
+  title: string
+  value: string | number
+  icon: React.ComponentType<{ className?: string }>
+  tone: string
+  tooltip?: string
+}) {
   return (
     <Card className="border-border/70 shadow-sm transition-colors hover:border-primary/30">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</CardTitle>
+          <CardTitle className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {title}
+            {tooltip && (
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" aria-label={`${title} help`}>
+                      <CircleHelp className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[220px] text-xs">
+                    {tooltip}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </CardTitle>
           <div className={cn("rounded-md p-1.5", tone)}>
             <Icon className="h-4 w-4" />
           </div>
@@ -113,6 +142,13 @@ export default function Analytics() {
 
   const formatOrderLabel = (count: number) => `${count} order${count === 1 ? "" : "s"}`
 
+  const completedCheckouts = analytics?.completedCheckouts ?? analytics?.checkoutMetrics?.completedCheckouts ?? analytics?.totalCheckouts ?? 0
+  const capturedPaymentsAmount = analytics?.capturedPaymentsAmount ?? analytics?.checkoutMetrics?.capturedPaymentsAmount ?? analytics?.totalSales ?? 0
+  const paymentPending = analytics?.paymentPending ?? analytics?.checkoutMetrics?.paymentPending ?? analytics?.customerBehavior?.checking ?? 0
+  const averageVisitDuration = analytics?.visitors?.averageDuration || analytics?.visitors?.visitDuration || "0m 0s"
+  const returningVisitors = Math.max((analytics?.visitors?.total ?? 0) - (analytics?.visitors?.unique ?? 0), 0)
+  const isUniqueVisitorSignalWeak = (analytics?.visitors?.total ?? 0) > 0 && analytics?.visitors?.total === analytics?.visitors?.unique
+
   const setQuickRange = (next: "day" | "week" | "month" | "year") => {
     setPeriod(next)
     setCustomDateRange({ from: undefined, to: undefined })
@@ -185,13 +221,13 @@ export default function Analytics() {
               <Filter className="mr-1 h-3 w-3" />
               {hasActiveFilters ? "Filters Applied" : "Default View"}
             </Badge>
-            <Badge variant="outline">Sales: Captured Payments Only</Badge>
+            <Badge variant="outline">Captured Payments: successful captures only</Badge>
             <Badge variant="outline">
               {format(startOfDay(dateRange.from), "MMM dd, yyyy")} - {format(endOfDay(dateRange.to), "MMM dd, yyyy")}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">
-            Treatment/Product filters apply to sales metrics. Visitor trend represents overall traffic in the selected date range.
+            Treatment/product filters apply to checkout and payment metrics. Captured payments exclude pending, authorized, failed, and canceled states.
           </p>
         </CardContent>
       </Card>
@@ -322,19 +358,56 @@ export default function Analytics() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard title="Total Visitors" value={analytics.visitors.total.toLocaleString()} icon={Users} tone="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300" />
-        <MetricCard title="Unique Visitors" value={analytics.visitors.unique.toLocaleString()} icon={Activity} tone="bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300" />
-        <MetricCard title="Total Checkouts" value={analytics.totalCheckouts} icon={ShoppingBag} tone="bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300" />
-        <MetricCard title="Total Sales" value={`$${analytics.totalSales.toLocaleString()}`} icon={DollarSign} tone="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300" />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <MetricCard
+          title="Total Visitors"
+          value={analytics.visitors.total.toLocaleString()}
+          icon={Users}
+          tone="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300"
+          tooltip="Total tracked sessions in the selected range."
+        />
+        <MetricCard
+          title="Unique Visitors"
+          value={analytics.visitors.unique.toLocaleString()}
+          icon={Activity}
+          tone="bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300"
+          tooltip="Distinct session_key identities in the selected range."
+        />
+        <MetricCard
+          title="Completed Checkouts"
+          value={completedCheckouts}
+          icon={ShoppingBag}
+          tone="bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300"
+          tooltip="Orders with successful payment capture only (captured/approved/succeeded)."
+        />
+        <MetricCard
+          title="Payment Pending"
+          value={paymentPending}
+          icon={ShoppingBag}
+          tone="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300"
+          tooltip="Checkout intents not captured yet (pending or authorized payments, or checkout-in-progress without capture)."
+        />
+        <MetricCard
+          title="Captured Payments"
+          value={`$${capturedPaymentsAmount.toLocaleString()}`}
+          icon={DollarSign}
+          tone="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300"
+          tooltip="Sum of amounts for successful payment captures only."
+        />
       </div>
+
+      {isUniqueVisitorSignalWeak && (
+        <p className="-mt-1 text-xs text-muted-foreground">
+          Unique visitors are currently based on distinct session keys, so this can match total visitors when each session is unique.
+        </p>
+      )}
 
       {(analytics.salesByTreatment?.length > 0 || analytics.salesByProductGroup?.length > 0) && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {analytics.salesByTreatment && analytics.salesByTreatment.length > 0 && (
             <Card className="border-border/70 shadow-sm">
               <CardHeader>
-                <CardTitle>{selectedTreatment ? "Selected Treatment Sales" : "Sales by Treatment"}</CardTitle>
+                <CardTitle>{selectedTreatment ? "Selected Treatment Captured Payments" : "Captured Payments by Treatment"}</CardTitle>
                 {selectedTreatment ? (
                   <p className="text-sm text-muted-foreground">
                     Filtered to <span className="font-medium text-foreground">{treatmentFilterLabel}</span>. Share is 100% by definition within the current filtered result set.
@@ -368,7 +441,7 @@ export default function Analytics() {
           {analytics.salesByProductGroup && analytics.salesByProductGroup.length > 0 && (
             <Card className="border-border/70 shadow-sm">
               <CardHeader>
-                <CardTitle>{selectedProductGroup ? "Selected Product Group Sales" : "Sales by Product Group"}</CardTitle>
+                <CardTitle>{selectedProductGroup ? "Selected Product Group Captured Payments" : "Captured Payments by Product Group"}</CardTitle>
                 {selectedProductGroup ? (
                   <p className="text-sm text-muted-foreground">
                     Filtered to <span className="font-medium text-foreground">{productGroupFilterLabel}</span>. Share is 100% by definition within the current filtered result set.
@@ -403,14 +476,24 @@ export default function Analytics() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
         <div className="lg:col-span-3">
-          <VisitorChart data={analytics.chartData} />
+          <VisitorChart
+            data={analytics.chartData}
+            summary={{
+              totalVisitors: analytics.visitors.total,
+              uniqueVisitors: analytics.visitors.unique,
+            }}
+          />
         </div>
         <div className="space-y-4">
           <StatCard title="Total Visitors" value={analytics.visitors.total.toLocaleString()} className="border border-blue-100 bg-gradient-to-r from-blue-50 to-white shadow-sm dark:border-blue-900/40 dark:from-blue-950/40 dark:to-slate-900/40" />
-          <StatCard title="Unique Visitors" value={analytics.visitors.unique.toLocaleString()} className="border border-indigo-100 bg-gradient-to-r from-indigo-50 to-white shadow-sm dark:border-indigo-900/40 dark:from-indigo-950/40 dark:to-slate-900/40" />
-          <StatCard title="Total Pageviews" value={analytics.visitors.totalPageviews.toLocaleString()} className="border border-amber-100 bg-gradient-to-r from-amber-50 to-white shadow-sm dark:border-amber-900/40 dark:from-amber-950/40 dark:to-slate-900/40" />
+          <StatCard
+            title="Unique Visitors"
+            value={analytics.visitors.unique.toLocaleString()}
+            className="border border-indigo-100 bg-gradient-to-r from-indigo-50 to-white shadow-sm dark:border-indigo-900/40 dark:from-indigo-950/40 dark:to-slate-900/40"
+          />
+          <StatCard title="Returning Visitors" value={returningVisitors.toLocaleString()} className="border border-amber-100 bg-gradient-to-r from-amber-50 to-white shadow-sm dark:border-amber-900/40 dark:from-amber-950/40 dark:to-slate-900/40" />
           <StatCard title="Bounce Rate" value={`${analytics.visitors.bounceRate}%`} className="border border-rose-100 bg-gradient-to-r from-rose-50 to-white shadow-sm dark:border-rose-900/40 dark:from-rose-950/40 dark:to-slate-900/40" />
-          <StatCard title="Visit Duration" value={analytics.visitors.visitDuration} className="border border-emerald-100 bg-gradient-to-r from-emerald-50 to-white shadow-sm dark:border-emerald-900/40 dark:from-emerald-950/40 dark:to-slate-900/40" />
+          <StatCard title="Average Visit Duration" value={averageVisitDuration} className="border border-emerald-100 bg-gradient-to-r from-emerald-50 to-white shadow-sm dark:border-emerald-900/40 dark:from-emerald-950/40 dark:to-slate-900/40" />
         </div>
       </div>
 
@@ -441,19 +524,19 @@ export default function Analytics() {
         <div className="grid grid-cols-2 gap-4">
           <Card className="border-border/70 bg-gradient-to-r from-primary/5 to-background dark:from-primary/10 dark:to-slate-900/40 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-base">Total Checkouts</CardTitle>
+              <CardTitle className="text-base">Completed Checkouts</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{analytics.totalCheckouts}</p>
+              <p className="text-2xl font-bold">{completedCheckouts}</p>
             </CardContent>
           </Card>
 
           <Card className="border-border/70 bg-gradient-to-r from-emerald-50 to-background dark:from-emerald-950/40 dark:to-slate-900/40 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-base">Total Sales</CardTitle>
+              <CardTitle className="text-base">Captured Payments</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold text-green-600 dark:text-emerald-300">${analytics.totalSales.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-emerald-300">${capturedPaymentsAmount.toLocaleString()}</p>
             </CardContent>
           </Card>
         </div>
