@@ -102,6 +102,13 @@ export default function CouponCodes() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [linkCoupon, setLinkCoupon] = useState<Coupon | null>(null)
 
+  // ✨ NEW: Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [totalCount, setTotalCount] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [loading, setLoading] = useState(false)
+
   // ✨ NEW: deletion modal state
   const [pendingDelete, setPendingDelete] = useState<Coupon | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -111,14 +118,49 @@ export default function CouponCodes() {
     [products]
   )
 
-  const fetchCoupons = async () => {
+  const fetchCoupons = useCallback(async () => {
     try {
-      const res = await axiosInstance.get("/coupons/")
+      setLoading(true)
+      
+      const params = new URLSearchParams()
+      params.append("page", currentPage.toString())
+      params.append("page_size", pageSize.toString())
+      
+      if (searchTerm) {
+        params.append("search", searchTerm)
+      }
+      
+      if (activeStatusFilter !== "All") {
+        params.append("status", activeStatusFilter)
+      }
+      
+      if (activeTypeFilter === "Fixed Amount") {
+        params.append("type", "fixed")
+      } else if (activeTypeFilter === "Percent") {
+        params.append("type", "percent")
+      }
+      
+      if (activeUsageFilter !== "All") {
+        params.append("usage", activeUsageFilter)
+      }
+      
+      if (date?.from) {
+        params.append("created_at_from", date.from.toISOString())
+      }
+      if (date?.to) {
+        params.append("created_at_to", date.to.toISOString())
+      }
+
+      const res = await axiosInstance.get(`/coupons/?${params.toString()}`)
       setCoupons(res.data?.results || [])
+      setTotalCount(res.data?.count || 0)
+      setTotalPages(Math.ceil((res.data?.count || 0) / pageSize))
     } catch (error) {
       console.error("Failed to fetch coupons:", error)
+    } finally {
+      setLoading(false)
     }
-  }
+  }, [currentPage, pageSize, searchTerm, activeStatusFilter, activeTypeFilter, activeUsageFilter, date])
 
   const fetchProducts = async () => {
     try {
@@ -131,58 +173,21 @@ export default function CouponCodes() {
 
   useEffect(() => {
     fetchCoupons()
+  }, [fetchCoupons, refreshKey])
+
+  useEffect(() => {
     fetchProducts()
   }, [])
 
+  // reset to page 1 on filter change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, activeStatusFilter, activeTypeFilter, activeUsageFilter, date])
+
+  // Use coupons directly from state since filtering is mostly done server-side now.
   const filteredCoupons = useMemo(() => {
-    return coupons.filter(coupon => {
-      const matchesSearch = !searchTerm || 
-        coupon.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        coupon.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        coupon.id.toLowerCase().includes(searchTerm.toLowerCase())
-
-      const matchesStatus = activeStatusFilter === "All" || 
-        (activeStatusFilter === "Active" && coupon.is_active) ||
-        (activeStatusFilter === "Inactive" && !coupon.is_active)
-
-      const matchesType = activeTypeFilter === "All" || 
-        (activeTypeFilter === "Fixed Amount" && coupon.type === "fixed") ||
-        (activeTypeFilter === "Percent" && coupon.type === "percent")
-
-      let matchesUsage = true
-      if (activeUsageFilter !== "All") {
-        const now = new Date()
-        const expired = coupon.expires_at && new Date(coupon.expires_at) < now
-        switch (activeUsageFilter) {
-          case "Used":
-            matchesUsage = coupon.total_used > 0
-            break
-          case "Unused":
-            matchesUsage = coupon.total_used === 0
-            break
-          case "Expired":
-            matchesUsage = expired || false
-            break
-        }
-      }
-
-      let matchesDateRange = true
-      if (date?.from || date?.to) {
-        if (coupon.created_at) {
-          const couponDate = new Date(coupon.created_at)
-          if (date.from && date.to) {
-            matchesDateRange = isWithinInterval(couponDate, { start: date.from, end: date.to })
-          } else if (date.from) {
-            matchesDateRange = couponDate >= date.from
-          } else if (date.to) {
-            matchesDateRange = couponDate <= date.to
-          }
-        }
-      }
-
-      return matchesSearch && matchesStatus && matchesType && matchesUsage && matchesDateRange
-    })
-  }, [coupons, searchTerm, activeStatusFilter, activeTypeFilter, activeUsageFilter, date, refreshKey])
+    return coupons
+  }, [coupons])
 
   const filters = [
     ...statusFilters.map(status => ({
@@ -399,6 +404,18 @@ export default function CouponCodes() {
         onResetFilters={handleResetFilters}
         onExport={handleExport}
         onRefresh={handleRefresh}
+        loading={loading}
+        pagination={{
+          currentPage,
+          totalPages,
+          pageSize,
+          totalCount,
+          onPageChange: setCurrentPage,
+          onPageSizeChange: (newPageSize) => {
+            setPageSize(newPageSize)
+            setCurrentPage(1)
+          }
+        }}
       />
 
       <CouponLinksModal
