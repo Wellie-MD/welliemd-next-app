@@ -1,5 +1,6 @@
 // src/hooks/useClients.ts
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import type { AxiosError } from "axios";
 import adminApi from "@/api/adminApi";
 
 export interface Client {
@@ -7,8 +8,8 @@ export interface Client {
   name: string;
   api_endpoint: string;
   admin_panel_domain?: string;
-  questionnaire_url?: string;
   patient_portal_domain?: string;
+  questionnaire_url?: string;
   domain?: string;
   subdomain?: string;
   user?: {
@@ -34,21 +35,73 @@ function normalizeUrlForComparison(url?: string): string {
   }
 }
 
+type ClientApiRecord = {
+  id: string;
+  name: string;
+  api_endpoint?: string;
+  admin_panel_domain?: string;
+  patient_portal_domain?: string;
+  questionnaire_url?: string;
+  domain?: string;
+  subdomain?: string;
+  user?: Client["user"];
+};
+
+function toClientRecord(value: unknown): ClientApiRecord | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  if (!record.id) return null;
+
+  return {
+    id: String(record.id),
+    name: typeof record.name === "string" ? record.name : "",
+    api_endpoint: typeof record.api_endpoint === "string" ? record.api_endpoint : undefined,
+    admin_panel_domain: typeof record.admin_panel_domain === "string" ? record.admin_panel_domain : undefined,
+    patient_portal_domain: typeof record.patient_portal_domain === "string" ? record.patient_portal_domain : undefined,
+    questionnaire_url: typeof record.questionnaire_url === "string" ? record.questionnaire_url : undefined,
+    domain: typeof record.domain === "string" ? record.domain : undefined,
+    subdomain: typeof record.subdomain === "string" ? record.subdomain : undefined,
+    user: record.user && typeof record.user === "object" ? (record.user as Client["user"]) : undefined,
+  };
+}
+
+function toClientList(data: unknown): ClientApiRecord[] {
+  if (Array.isArray(data)) {
+    return data.map(toClientRecord).filter((client): client is ClientApiRecord => Boolean(client));
+  }
+  if (data && typeof data === "object") {
+    const record = data as Record<string, unknown>;
+    if (Array.isArray(record.results)) {
+      return record.results.map(toClientRecord).filter((client): client is ClientApiRecord => Boolean(client));
+    }
+    const client = toClientRecord(data);
+    return client ? [client] : [];
+  }
+  return [];
+}
+
+function hasStatus(error: unknown, statuses: number[]) {
+  const axiosError = error as AxiosError;
+  const status = axiosError.response?.status;
+  return typeof status === "number" && statuses.includes(status);
+}
+
 export function useClients(search: string = "") {
   const [clients, setClients] = useState<Client[]>([]);
   const [currentClient, setCurrentClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
       let meClientFromDb: Client | null = null;
       try {
-        const { data: meClient } = await adminApi.get("/clients/me/");
-        if (meClient?.id) {
+        const { data } = await adminApi.get<unknown>("/clients/me/");
+        const meClient = toClientRecord(data);
+        if (meClient) {
           meClientFromDb = {
             id: meClient.id,
             name: meClient.name,
@@ -65,32 +118,22 @@ export function useClients(search: string = "") {
         meClientFromDb = null;
       }
 
-      let list: any[] = [];
+      let list: ClientApiRecord[] = [];
       try {
-        const { data } = await adminApi.get("/clients/current/");
-        list = Array.isArray(data?.results)
-          ? data.results
-          : Array.isArray(data)
-            ? data
-            : data?.id
-              ? [data]
-              : [];
-      } catch (err: any) {
-        if (err?.response?.status === 403 || err?.response?.status === 404) {
-          const { data } = await adminApi.get("/clients/", {
+        const { data } = await adminApi.get<unknown>("/clients/current/");
+        list = toClientList(data);
+      } catch (err: unknown) {
+        if (hasStatus(err, [403, 404])) {
+          const { data } = await adminApi.get<unknown>("/clients/", {
             params: search ? { search } : undefined,
           });
-          list = Array.isArray(data?.results)
-            ? data.results
-            : Array.isArray(data)
-              ? data
-              : [];
+          list = toClientList(data);
         } else {
           throw err;
         }
       }
 
-      const normalized: Client[] = list.map((c: any) => ({
+      const normalized: Client[] = list.map((c) => ({
         id: c.id,
         name: c.name,
         api_endpoint: ensureTrailingSlash(c.api_endpoint),
@@ -135,16 +178,16 @@ export function useClients(search: string = "") {
       }
 
       setCurrentClient(matched || null);
-    } catch (e: any) {
-      setError(e?.message || "Failed to load clients");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to load clients");
     } finally {
       setLoading(false);
     }
-  }
+  }, [search]);
 
   useEffect(() => {
     load();
-  }, [search]);
+  }, [load]);
 
   return { clients, currentClient, loading, error, reload: load };
 }

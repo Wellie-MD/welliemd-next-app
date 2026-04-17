@@ -107,7 +107,7 @@ export interface Order {
   datePrintedShipped?: string | null
   paymentDate?: string | null
   mrn?: string | null
-  product_name?: string
+  product_name?:string
   paymentStatus?: string | null
   visitStatus?: string | null
   address?: string | null

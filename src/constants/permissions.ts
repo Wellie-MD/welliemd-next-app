@@ -15,6 +15,10 @@ export const Permissions = {
     BILLING_VIEW: 'billing:view',
     BILLING_UPDATE: 'billing:update',
 
+    // Client domain management
+    CLIENT_DOMAIN_VIEW: 'client_domain:view',
+    CLIENT_DOMAIN_MANAGE: 'client_domain:manage',
+
     // Orders
     ORDER_LIST: 'order:list',
     ORDER_VIEW: 'order:view',

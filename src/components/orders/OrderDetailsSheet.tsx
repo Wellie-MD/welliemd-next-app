@@ -11,11 +11,11 @@ import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Order, ordersApi } from "@/api/ordersApi"
 import { PatientResponsesModal } from "./PatientResponsesModal"
-import {
-  User,
-  Mail,
-  Phone,
-  MapPin,
+import { 
+  User, 
+  Mail, 
+  Phone, 
+  MapPin, 
   Calendar,
   Package,
   FileText,
@@ -67,12 +67,8 @@ const statusColors: Record<string, string> = {
   created: "bg-gray-100 text-gray-800",
   processing: "bg-blue-100 text-blue-800",
   visit_failed: "bg-red-100 text-red-800",
-  payment_pending: "bg-amber-100 text-amber-800",
   visit_pending: "bg-yellow-100 text-yellow-800",
-  consult_scheduled: "bg-sky-100 text-sky-800",
-  consult_rescheduled: "bg-indigo-100 text-indigo-800",
   consult_canceled: "bg-red-100 text-red-800",
-  no_show: "bg-rose-100 text-rose-800",
   referred: "bg-purple-100 text-purple-800",
   prescribed: "bg-green-100 text-green-800",
   billing_pending: "bg-orange-100 text-orange-800",
@@ -86,12 +82,8 @@ const statusLabels: Record<string, string> = {
   created: "Created",
   processing: "Processing",
   visit_failed: "Visit Failed",
-  payment_pending: "Payment Pending",
   visit_pending: "Visit Pending",
-  consult_scheduled: "Consult Scheduled",
-  consult_rescheduled: "Consult Rescheduled",
   consult_canceled: "Consult Canceled",
-  no_show: "No Show",
   referred: "Referred",
   prescribed: "Prescribed",
   billing_pending: "Billing Pending",
@@ -287,32 +279,32 @@ export function OrderDetailsSheet({
                   Patient Information
                 </h3>
                 <div className="bg-muted/40 rounded-lg p-4 space-y-3">
-                  <InfoItem
-                    icon={<User className="h-4 w-4" />}
-                    label="Name"
-                    value={order.name}
+                  <InfoItem 
+                    icon={<User className="h-4 w-4" />} 
+                    label="Name" 
+                    value={order.name} 
                   />
-                  <InfoItem
-                    icon={<Mail className="h-4 w-4" />}
-                    label="Email"
-                    value={order.email}
+                  <InfoItem 
+                    icon={<Mail className="h-4 w-4" />} 
+                    label="Email" 
+                    value={order.email} 
                   />
-                  <InfoItem
-                    icon={<Phone className="h-4 w-4" />}
-                    label="Phone"
-                    value={order.phone}
+                  <InfoItem 
+                    icon={<Phone className="h-4 w-4" />} 
+                    label="Phone" 
+                    value={order.phone} 
                   />
-                  <InfoItem
-                    icon={<MapPin className="h-4 w-4" />}
-                    label="Address"
-                    value={order.address}
+                  <InfoItem 
+                    icon={<MapPin className="h-4 w-4" />} 
+                    label="Address" 
+                    value={order.address} 
                     allowWrap
                   />
                   {order.mrn && (
-                    <InfoItem
-                      icon={<FileText className="h-4 w-4" />}
-                      label="MRN"
-                      value={order.mrn}
+                    <InfoItem 
+                      icon={<FileText className="h-4 w-4" />} 
+                      label="MRN" 
+                      value={order.mrn} 
                     />
                   )}
                 </div>
@@ -327,20 +319,20 @@ export function OrderDetailsSheet({
                   Order Information
                 </h3>
                 <div className="bg-muted/40 rounded-lg p-4 space-y-3">
-                  <InfoItem
-                    icon={<Calendar className="h-4 w-4" />}
-                    label="Order Date"
-                    value={formatDate(order.orderDate)}
+                  <InfoItem 
+                    icon={<Calendar className="h-4 w-4" />} 
+                    label="Order Date" 
+                    value={formatDate(order.orderDate)} 
                   />
-                  <InfoItem
-                    icon={<Calendar className="h-4 w-4" />}
-                    label="Date Prescribed"
-                    value={formatDate(order.datePrescribed)}
+                  <InfoItem 
+                    icon={<Calendar className="h-4 w-4" />} 
+                    label="Date Prescribed" 
+                    value={formatDate(order.datePrescribed)} 
                   />
-                  <InfoItem
-                    icon={<Calendar className="h-4 w-4" />}
-                    label="Date Printed/Shipped"
-                    value={formatDate(order.datePrintedShipped)}
+                  <InfoItem 
+                    icon={<Calendar className="h-4 w-4" />} 
+                    label="Date Printed/Shipped" 
+                    value={formatDate(order.datePrintedShipped)} 
                   />
                   <InfoItem 
                     icon={<CreditCard className="h-4 w-4" />} 
@@ -404,24 +396,24 @@ export function OrderDetailsSheet({
                   Payment & Visit Status
                 </h3>
                 <div className="bg-muted/40 rounded-lg p-4 space-y-3">
-                  <InfoItem
-                    icon={<CreditCard className="h-4 w-4" />}
-                    label="Payment Status"
+                  <InfoItem 
+                    icon={<CreditCard className="h-4 w-4" />} 
+                    label="Payment Status" 
                     value={
                       totalRefunded > 0
                         ? (totalRefunded >= orderTotal ? "Refunded" : "Partially Refunded")
                         : order.paymentStatus
-                    }
+                    } 
                   />
-                  <InfoItem
-                    icon={<Calendar className="h-4 w-4" />}
-                    label="Payment Date"
-                    value={formatDate(order.paymentDate)}
+                  <InfoItem 
+                    icon={<Calendar className="h-4 w-4" />} 
+                    label="Payment Date" 
+                    value={formatDate(order.paymentDate)} 
                   />
-                  <InfoItem
-                    icon={<ClipboardList className="h-4 w-4" />}
-                    label="Visit Status"
-                    value={order.visitStatus}
+                  <InfoItem 
+                    icon={<ClipboardList className="h-4 w-4" />} 
+                    label="Visit Status" 
+                    value={order.visitStatus} 
                   />
                   {isRefundable && (
                     <InfoItem
@@ -453,16 +445,16 @@ export function OrderDetailsSheet({
                   Fulfillment
                 </h3>
                 <div className="bg-muted/40 rounded-lg p-4 space-y-3">
-                  <InfoItem
-                    icon={<Building2 className="h-4 w-4" />}
-                    label="Pharmacy"
-                    value={order.pharmacy_display}
+                  <InfoItem 
+                    icon={<Building2 className="h-4 w-4" />} 
+                    label="Pharmacy" 
+                    value={order.pharmacy_display} 
                     allowWrap
                   />
-                  <InfoItem
-                    icon={<Truck className="h-4 w-4" />}
-                    label="Tracking Number"
-                    value={order.tracking_number}
+                  <InfoItem 
+                    icon={<Truck className="h-4 w-4" />} 
+                    label="Tracking Number" 
+                    value={order.tracking_number} 
                   />
                 </div>
               </section>
@@ -471,7 +463,7 @@ export function OrderDetailsSheet({
 
               {/* Patient Responses Button */}
               <section>
-                <Button
+                <Button 
                   onClick={() => setShowPatientResponses(true)}
                   className="w-full"
                   variant="outline"
@@ -601,9 +593,9 @@ export function OrderDetailsSheet({
 }
 
 // Helper component for displaying info items
-function InfoItem({
-  icon,
-  label,
+function InfoItem({ 
+  icon, 
+  label, 
   value,
   allowWrap = false,
   tone = "neutral",

@@ -18,6 +18,10 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
         Permissions.BILLING_VIEW,
         Permissions.BILLING_UPDATE,
 
+        // Client domain management
+        Permissions.CLIENT_DOMAIN_VIEW,
+        Permissions.CLIENT_DOMAIN_MANAGE,
+
         // Orders
         Permissions.ORDER_LIST,
         Permissions.ORDER_VIEW,
@@ -60,6 +64,10 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
         Permissions.PORTAL_USER_UPDATE,
         Permissions.PORTAL_USER_DELETE,
         Permissions.PORTAL_USER_ASSIGN_ROLE,
+
+        // Client domain management
+        Permissions.CLIENT_DOMAIN_VIEW,
+        Permissions.CLIENT_DOMAIN_MANAGE,
         Permissions.ORDER_LIST,
         Permissions.ORDER_VIEW,
         Permissions.ORDER_UPDATE,

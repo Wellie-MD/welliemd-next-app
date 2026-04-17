@@ -40,6 +40,8 @@ import {
 } from "@/components/ui/tooltip"
 import { useBranding } from "@/contexts/BrandingContext"
 
+const isCustomDomainFeatureEnabled = import.meta.env.VITE_ENABLE_CUSTOM_DOMAINS === 'true';
+
 const settingsMenuItems = [
   { title: "Store Details", url: "/dashboard/settings/store-details", icon: Store },
   { title: "Users and Permissions", url: "/dashboard/settings/users-permissions", icon: Users },
@@ -47,14 +49,14 @@ const settingsMenuItems = [
   { title: "Notifications", url: "/dashboard/settings/notifications", icon: Bell },
   { title: "Policies", url: "/dashboard/settings/policies", icon: Shield },
   { title: "Metafields", url: "/dashboard/settings/metafields", icon: Tag },
-  // { title: "Domains", url: "/dashboard/settings/domains", icon: Globe }, /* Domains tab removed on request: https://telehealthknysys.atlassian.net/browse/KAN-3 */
+  { title: "Domains", url: "/dashboard/settings/domains", icon: Globe },
   { title: "Brand", url: "/dashboard/settings/brand", icon: Palette },
   { title: "Webhooks", url: "/dashboard/settings/webhooks-apis", icon: Webhook },
   { title: "Analytics and SEO", url: "/dashboard/settings/analytics-seo", icon: TrendingUp },
   { title: "Email and Sending Domain", url: "/dashboard/settings/email-domain", icon: Globe },
   { title: "Beluga Settings", url: "/dashboard/settings/beluga-settings", icon: Cloud },
   { title: "Patient Resources", url: "/dashboard/settings/patient-resources", icon: BookOpen },
-]
+].filter(item => isCustomDomainFeatureEnabled ? true : item.title !== "Domains")
 
 export function SettingsSidebar({
   collapsed,
@@ -103,17 +105,17 @@ export function SettingsSidebar({
       <div className={`flex w-full p-4 ${collapsed ? "justify-center" : "justify-between"
         }`}>
         {!collapsed && !isLoading && logos?.square && (
-  <div className="brand-logo-shell">
-    <img
-      src={logos.square}
-      alt="Logo"
-      className="h-8 w-auto max-w-[200px] object-contain"
-      onError={(e) => {
-        e.currentTarget.style.display = "none"
-      }}
-    />
-  </div>
-)}
+          <div className="brand-logo-shell">
+            <img
+              src={logos.square}
+              alt="Logo"
+              className="h-8 w-auto max-w-[200px] object-contain"
+              onError={(e) => {
+                e.currentTarget.style.display = "none"
+              }}
+            />
+          </div>
+        )}
 
         {/* <SidebarTrigger className="text-gray-600 hover:bg-white/50 rounded-md p-1" /> */}
         <button
