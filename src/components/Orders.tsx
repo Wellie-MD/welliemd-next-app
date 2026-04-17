@@ -1,242 +1,139 @@
 /**
- * Patient Orders Page
- * 
- * Displays a list of the patient's orders with status badges, tracking info,
- * and a modal for viewing order details.
+ * Patient Orders Page — kinmeds3 design system
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Package, ExternalLink, RefreshCw, AlertCircle, Truck, CheckCircle2, Clock, XCircle, Pill } from 'lucide-react';
-
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Package, RefreshCw, AlertCircle, Truck,
+} from 'lucide-react';
 
-import { getOrders, getOrder, PatientOrder } from '@/shared/api/ordersApi';
+import { getOrders, PatientOrder } from '@/shared/api/ordersApi';
 
 const getOrderReference = (order: PatientOrder) => order.order_id || order.display_id;
 
-// Status badge configuration
-const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: typeof Package }> = {
-  created: { label: 'Created', variant: 'secondary', icon: Clock },
-  processing: { label: 'Processing', variant: 'secondary', icon: Clock },
-  visit_pending: { label: 'Pending Review', variant: 'secondary', icon: Clock },
-  visit_failed: { label: 'Visit Failed', variant: 'destructive', icon: XCircle },
-  consult_canceled: { label: 'Canceled', variant: 'destructive', icon: XCircle },
-  referred: { label: 'Referred', variant: 'outline', icon: AlertCircle },
-  prescribed: { label: 'Prescribed', variant: 'default', icon: Pill },
-  billing_pending: { label: 'Billing Pending', variant: 'secondary', icon: Clock },
-  rx_sent: { label: 'Rx Sent', variant: 'default', icon: CheckCircle2 },
-  shipped: { label: 'Shipped', variant: 'default', icon: Truck },
-  canceled: { label: 'Canceled', variant: 'destructive', icon: XCircle },
+// Status badge mapping → km-badge-* classes (text only, no icons)
+const STATUS_CONFIG: Record<string, { label: string; css: string }> = {
+  created:            { label: 'Created',            css: 'km-badge km-badge-gray' },
+  order_created:      { label: 'Order Created',      css: 'km-badge km-badge-gray' },
+  processing:         { label: 'Processing',         css: 'km-badge km-badge-gray' },
+  payment_authorized:{ label: 'Payment Authorized', css: 'km-badge km-badge-blue' },
+  payment_captured:  { label: 'Payment Captured',   css: 'km-badge km-badge-blue' },
+  payment_pending:   { label: 'Payment Pending',    css: 'km-badge km-badge-amber' },
+  payment_failed:     { label: 'Payment Failed',    css: 'km-badge km-badge-red' },
+  visit_pending:      { label: 'Visit Pending',      css: 'km-badge km-badge-amber' },
+  visit_scheduled:    { label: 'Visit Scheduled',    css: 'km-badge km-badge-blue' },
+  visit_rescheduled:  { label: 'Visit Rescheduled',  css: 'km-badge km-badge-amber' },
+  visit_failed:       { label: 'Visit Failed',       css: 'km-badge km-badge-red' },
+  visit_cancelled:    { label: 'Visit Cancelled',    css: 'km-badge km-badge-red' },
+  consult_canceled:   { label: 'Canceled',           css: 'km-badge km-badge-red' },
+  referred:           { label: 'Referred',          css: 'km-badge km-badge-purple' },
+  prescribed:         { label: 'Prescribed',         css: 'km-badge km-badge-blue' },
+  billing_pending:    { label: 'Billing Pending',    css: 'km-badge km-badge-amber' },
+  rx_sent:            { label: 'Rx Sent',            css: 'km-badge km-badge-green' },
+  in_transit:         { label: 'In Transit',        css: 'km-badge km-badge-blue' },
+  out_for_delivery:   { label: 'Out for Delivery',   css: 'km-badge km-badge-amber' },
+  delivered:          { label: 'Delivered',          css: 'km-badge km-badge-green' },
+  shipped:            { label: 'Shipped',            css: 'km-badge km-badge-green' },
+  completed:          { label: 'Completed',          css: 'km-badge km-badge-green' },
+  refunded:           { label: 'Refunded',           css: 'km-badge km-badge-green' },
+  no_show:            { label: 'No Show',            css: 'km-badge km-badge-red' },
+  canceled:           { label: 'Cancelled',          css: 'km-badge km-badge-red' },
+  cancelled:          { label: 'Cancelled',          css: 'km-badge km-badge-red' },
+  failed:             { label: 'Failed',            css: 'km-badge km-badge-red' },
 };
 
-function OrderStatusBadge({ status }: { status: string }) {
-  const config = STATUS_CONFIG[status] || { label: status, variant: 'outline' as const, icon: Package };
-  const Icon = config.icon;
+function getProductIcon(productName: string): string {
+  const name = productName?.toLowerCase() || '';
   
-  return (
-    <Badge variant={config.variant} className="flex items-center gap-1">
-      <Icon className="h-3 w-3" />
-      {config.label}
-    </Badge>
-  );
+  // Pen injectors (GLP-1 medications)
+  if (name.includes('wegovy') || name.includes('ozempic') || name.includes('rybelsus') || name.includes('trulicity') || name.includes('mounjaro') || name.includes('zepbound')) return '🖊️';
+  // Injection vials
+  if (name.includes('sermorelin') || name.includes('nad+') || name.includes('bpc-157') || name.includes('tb-500') || name.includes('injection')) return '💉';
+  // Capsules/pills
+  if (name.includes('glutathione') || name.includes('semaglutide') || name.includes('glp-1') || name.includes('lipotropic') || name.includes('vitamin')) return '💊';
+  // Tablets
+  if (name.includes('sildenafil') || name.includes('viagra') || name.includes('tadalafil') || name.includes('cialis') || name.includes('finasteride') || name.includes('propecia')) return '💊';
+  // Topical
+  if (name.includes('cream') || name.includes('gel') || name.includes('topical')) return '🧴';
+  // Supplements
+  if (name.includes(' NAC ') || name.includes('coq10') || name.includes('magnesium') || name.includes('zinc') || name.includes('b-complex')) return '🌿';
+  
+  return '💊'; // Default
 }
 
-function OrderCard({ order, onClick }: { order: PatientOrder; onClick: () => void }) {
-  const orderReference = getOrderReference(order);
+function OrderStatusBadge({ status }: { status: string }) {
+  const config = STATUS_CONFIG[status] || { label: status, css: 'km-badge km-badge-gray' };
+  return <span className={config.css}>{config.label}</span>;
+}
+
+function OrderListItem({ order, onClick }: { order: PatientOrder; onClick: () => void }) {
+  const ref = getOrderReference(order);
+  const icon = getProductIcon(order.product_name);
 
   return (
-    <Card 
-      className="cursor-pointer hover:shadow-md transition-shadow"
-      onClick={onClick}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-foreground">{orderReference}</span>
-              <OrderStatusBadge status={order.status} />
-            </div>
-            <p className="text-sm text-gray-600">{order.product_name}</p>
-            {order.pharmacy_name && (
-              <p className="text-xs text-gray-500">{order.pharmacy_name}</p>
-            )}
-          </div>
-          <div className="text-right">
-            <p className="font-medium text-foreground">${order.amount}</p>
-            <p className="text-xs text-gray-500">
-              {new Date(order.created_at).toLocaleDateString()}
-            </p>
-          </div>
+    <div onClick={onClick} style={{ cursor: "pointer" }}>
+      <div className="km-oitem">
+        <div className="km-oimg" style={{ background: 'var(--km-s3)', fontSize: 20 }}>
+          {icon}
         </div>
-        
-        {order.status === 'shipped' && order.tracking_number && (
-          <div className="mt-3 pt-3 border-t border-gray-100">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Truck className="h-4 w-4" />
-                <span>Tracking: {order.tracking_number}</span>
-              </div>
+        <div className="km-oileft">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+            <span className="km-oiid" style={{ marginBottom: 0 }}>{ref}</span>
+            <OrderStatusBadge status={order.status} />
+          </div>
+          <div className="km-oinm">{order.product_name}</div>
+          <div className="km-oiph">{order.pharmacy_name || '—'}</div>
+        </div>
+        <div className="km-oiright">
+          <div className="km-oiamt">${order.amount}</div>
+          <div className="km-oidt">{new Date(order.created_at).toLocaleDateString()}</div>
+        </div>
+      </div>
+
+      {order.status === 'shipped' && order.tracking_number && (
+        <div style={{ padding: '0 14px 14px' }}>
+          <div className="km-vbox km-vbox-amber" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Truck size={14} style={{ color: 'var(--km-am)', flexShrink: 0 }} />
+            <div style={{ flex: 1, fontSize: 12 }}>
+              <span style={{ fontWeight: 600 }}>Tracking: </span>
+              <span style={{ color: 'var(--km-tm)', fontFamily: 'monospace' }}>{order.tracking_number}</span>
               {order.tracking_url && (
                 <a
                   href={order.tracking_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-700"
+                  style={{ color: 'var(--km-ac)', marginLeft: 8, fontWeight: 600 }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <ExternalLink className="h-4 w-4" />
+                  Track package →
                 </a>
               )}
             </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function OrderDetailModal({ 
-  order, 
-  open, 
-  onClose 
-}: { 
-  order: PatientOrder | null; 
-  open: boolean; 
-  onClose: () => void;
-}) {
-  if (!order) return null;
-  const orderReference = getOrderReference(order);
-  
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Order {orderReference}
-          </DialogTitle>
-          <DialogDescription>
-            Order details and tracking information
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-500">Status</span>
-            <OrderStatusBadge status={order.status} />
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-500">Product</span>
-            <span className="text-sm font-medium">{order.product_name}</span>
-          </div>
-          
-          {order.pharmacy_name && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500">Pharmacy</span>
-              <span className="text-sm font-medium">{order.pharmacy_name}</span>
-            </div>
-          )}
-          
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-500">Amount</span>
-            <span className="text-sm font-medium">${order.amount}</span>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-500">Ordered</span>
-            <span className="text-sm font-medium">
-              {new Date(order.created_at).toLocaleDateString()}
-            </span>
-          </div>
-          
-          {order.prescribed_at && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500">Prescribed</span>
-              <span className="text-sm font-medium">
-                {new Date(order.prescribed_at).toLocaleDateString()}
-              </span>
-            </div>
-          )}
-          
-          {order.shipped_at && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-500">Shipped</span>
-              <span className="text-sm font-medium">
-                {new Date(order.shipped_at).toLocaleDateString()}
-              </span>
-            </div>
-          )}
-          
-          {order.tracking_number && (
-            <div className="pt-4 border-t border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Tracking Number</p>
-                  <p className="text-sm font-medium">{order.tracking_number}</p>
-                </div>
-                {order.tracking_url && (
-                  <Button variant="outline" size="sm" asChild>
-                    <a
-                      href={order.tracking_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Track
-                    </a>
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
         </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function OrdersEmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <Package className="h-12 w-12 text-gray-300 mb-4" />
-      <h3 className="text-lg font-medium text-gray-900 mb-2">No orders yet</h3>
-      <p className="text-gray-600 text-sm">
-        Your orders will appear here once you make a purchase.
-      </p>
+      )}
     </div>
   );
 }
 
 function OrdersLoadingSkeleton() {
   return (
-    <div className="space-y-4">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {[1, 2, 3].map((i) => (
-        <Card key={i}>
-          <CardContent className="p-4">
-            <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <Skeleton className="h-5 w-32" />
-                <Skeleton className="h-4 w-48" />
-              </div>
-              <div className="text-right space-y-2">
-                <Skeleton className="h-5 w-16" />
-                <Skeleton className="h-4 w-20" />
-              </div>
+        <div key={i} className="km-card" style={{ padding: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div className="km-skel" style={{ width: 36, height: 36, borderRadius: 10 }} />
+            <div style={{ flex: 1 }}>
+              <div className="km-skel" style={{ width: '60%', height: 14, marginBottom: 6 }} />
+              <div className="km-skel" style={{ width: '40%', height: 10 }} />
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <div className="km-skel" style={{ width: 50, height: 14, marginBottom: 6, marginLeft: 'auto' }} />
+              <div className="km-skel" style={{ width: 60, height: 10, marginLeft: 'auto' }} />
+            </div>
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -244,11 +141,10 @@ function OrdersLoadingSkeleton() {
 
 export default function Orders() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<PatientOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedOrder, setSelectedOrder] = useState<PatientOrder | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
@@ -259,9 +155,7 @@ export default function Orders() {
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await getOrders(pageNum);
-      
+      const response = await getOrders(pageNum, 12); // Load 12 orders per batch
       setOrders(prev => append ? [...prev, ...response.results] : response.results);
       setHasMore(response.next !== null);
       setTotalCount(response.count);
@@ -274,136 +168,98 @@ export default function Orders() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders]);
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
-  // Handle order_id from URL query param (e.g., from email/SMS notifications)
+  // Handle order_id from URL → navigate to detail sub-page
   useEffect(() => {
-    const fetchOrderById = async () => {
-      if (!orderIdFromUrl || fetchedOrderRef.current === orderIdFromUrl) {
-        return;
-      }
-      
+    if (orderIdFromUrl && fetchedOrderRef.current !== orderIdFromUrl) {
       fetchedOrderRef.current = orderIdFromUrl;
-      
-      try {
-        const order = await getOrder(orderIdFromUrl);
-        setSelectedOrder(order);
-        setModalOpen(true);
-      } catch (err) {
-        console.error('Failed to fetch order from URL:', err);
-        // Don't show error - just don't open modal
-      }
-    };
-
-    if (orderIdFromUrl) {
-      fetchOrderById();
+      navigate(`/dashboard/orders/${orderIdFromUrl}`, { replace: true });
     }
-  }, [orderIdFromUrl]);
+  }, [orderIdFromUrl, navigate]);
 
-  // Simple polling: Auto-refresh orders every 10 seconds for background updates
-  // This is more reliable than WebSocket for healthcare apps
+  // Polling
   useEffect(() => {
-    const pollInterval = setInterval(() => {
-      console.log('🔄 Auto-refreshing orders (10s polling)...');
-      fetchOrders(page);
-    }, 10000); // 10 seconds
-
-    return () => clearInterval(pollInterval);
+    const timer = setInterval(() => fetchOrders(page), 10000);
+    return () => clearInterval(timer);
   }, [fetchOrders, page]);
 
   const handleOrderClick = (order: PatientOrder) => {
-    setSelectedOrder(order);
-    setModalOpen(true);
-  };
-
-  const handleModalClose = () => {
-    setModalOpen(false);
-    setSelectedOrder(null);
+    navigate(`/dashboard/orders/${order.id}`);
   };
 
   const handleLoadMore = () => {
-    if (hasMore && !loading) {
-      fetchOrders(page + 1, true);
-    }
-  };
-
-  const handleRefresh = () => {
-    fetchOrders(1, false);
+    if (hasMore && !loading) fetchOrders(page + 1, true);
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div id="pg-orders">
+      {/* Header */}
+      <div className="km-fade" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Orders</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {totalCount > 0 ? `${totalCount} order${totalCount !== 1 ? 's' : ''}` : 'View your order history'}
+          <p className="km-page-title">Orders</p>
+          <p className="km-page-sub">
+            {totalCount > 0 ? `${totalCount} orders` : 'View your order history'}
           </p>
         </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={handleRefresh}
+        <button
+          className="km-btn km-btn-ghost"
+          onClick={() => fetchOrders(1, false)}
           disabled={loading}
+          style={{ opacity: loading ? 0.6 : 1 }}
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           Refresh
-        </Button>
+        </button>
       </div>
 
+      {/* Error */}
       {error && (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="p-4 flex items-center gap-3 text-red-800">
-            <AlertCircle className="h-5 w-5 text-red-600" />
-            <span>{error}</span>
-            <Button variant="outline" size="sm" onClick={handleRefresh} className="ml-auto">
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="km-vbox km-vbox-red km-fade" style={{ marginBottom: 14 }}>
+          <AlertCircle size={14} style={{ color: 'var(--km-re)', flexShrink: 0, marginTop: 1 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ color: 'var(--km-t)', fontWeight: 600, marginBottom: 2 }}>Sync error</div>
+            <div style={{ color: 'var(--km-tm)', fontSize: 12 }}>{error}</div>
+          </div>
+          <button className="km-btn km-btn-ghost" style={{ fontSize: 11, padding: '2px 0' }} onClick={() => fetchOrders(1)}>
+            Retry
+          </button>
+        </div>
       )}
 
+      {/* Body */}
       {loading && orders.length === 0 ? (
         <OrdersLoadingSkeleton />
       ) : orders.length === 0 ? (
-        <Card>
-          <CardContent>
-            <OrdersEmptyState />
-          </CardContent>
-        </Card>
+        <div className="km-sc km-fade">
+          <div className="km-empty" style={{ padding: '36px 18px' }}>
+            <div className="km-eic">
+              <Package size={20} />
+            </div>
+            <div className="km-et">No orders yet</div>
+            <div className="km-es">Your orders will appear here once you make a purchase.</div>
+          </div>
+        </div>
       ) : (
         <>
-          <div className="space-y-4">
+          <div className="km-sc km-fade fd">
             {orders.map((order) => (
-              <OrderCard 
-                key={order.id} 
-                order={order} 
-                onClick={() => handleOrderClick(order)} 
-              />
+              <OrderListItem key={order.id} order={order} onClick={() => handleOrderClick(order)} />
             ))}
           </div>
-          
+
           {hasMore && (
-            <div className="text-center">
-              <Button 
-                variant="outline" 
+            <div className="km-fade" style={{ textAlign: 'center', marginTop: 16 }}>
+              <span
                 onClick={handleLoadMore}
-                disabled={loading}
+                style={{ fontSize: 13, color: 'var(--km-ac)', fontWeight: 600, cursor: loading ? 'wait' : 'pointer' }}
               >
-                {loading ? 'Loading...' : 'Load More'}
-              </Button>
+                {loading ? 'Loading...' : 'Load more orders →'}
+              </span>
             </div>
           )}
         </>
       )}
-
-      <OrderDetailModal 
-        order={selectedOrder} 
-        open={modalOpen} 
-        onClose={handleModalClose} 
-      />
     </div>
   );
 }

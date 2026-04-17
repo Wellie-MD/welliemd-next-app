@@ -1,10 +1,5 @@
 import { useState, useEffect } from 'react';
 import { TestTube, Calendar, Search, ChevronDown, ChevronUp, AlertCircle, CheckCircle, Clock, XCircle } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getLabResults, getLabSubmissions, type LabResult, type LabSubmission } from './api';
 
 function formatDate(dateString: string | null): string {
@@ -20,59 +15,18 @@ function formatDate(dateString: string | null): string {
     }
 }
 
-function getStatusIndicatorColor(indicator: string | null): string {
-    switch (indicator?.toUpperCase()) {
-        case 'H':
-            return 'bg-red-100 text-red-800';
-        case 'L':
-            return 'bg-yellow-100 text-yellow-800';
-        case 'N':
-            return 'bg-green-100 text-green-800';
-        default:
-            return 'bg-gray-100 text-gray-800';
-    }
-}
-
-function getStatusIndicatorLabel(indicator: string | null): string {
-    switch (indicator?.toUpperCase()) {
-        case 'H':
-            return 'High';
-        case 'L':
-            return 'Low';
-        case 'N':
-            return 'Normal';
-        default:
-            return 'N/A';
-    }
-}
-
 function getSubmissionStatusIcon(status: string | null) {
     switch (status?.toLowerCase()) {
         case 'completed':
-            return <CheckCircle className="h-4 w-4 text-green-500" />;
+            return <CheckCircle size={16} style={{ color: 'var(--km-gr)' }} />;
         case 'submitted':
-            return <Clock className="h-4 w-4 text-blue-500" />;
+            return <Clock size={16} style={{ color: 'var(--km-ac)' }} />;
         case 'pending':
-            return <AlertCircle className="h-4 w-4 text-yellow-500" />;
+            return <AlertCircle size={16} style={{ color: 'var(--km-am)' }} />;
         case 'failed':
-            return <XCircle className="h-4 w-4 text-red-500" />;
+            return <XCircle size={16} style={{ color: 'var(--km-re)' }} />;
         default:
-            return <Clock className="h-4 w-4 text-gray-500" />;
-    }
-}
-
-function getSubmissionStatusColor(status: string | null): string {
-    switch (status?.toLowerCase()) {
-        case 'completed':
-            return 'bg-green-100 text-green-800';
-        case 'submitted':
-            return 'bg-blue-100 text-blue-800';
-        case 'pending':
-            return 'bg-yellow-100 text-yellow-800';
-        case 'failed':
-            return 'bg-red-100 text-red-800';
-        default:
-            return 'bg-gray-100 text-gray-800';
+            return <Clock size={16} style={{ color: 'var(--km-tm)' }} />;
     }
 }
 
@@ -84,67 +38,62 @@ interface LabResultCardProps {
 
 function LabResultCard({ result, isExpanded, onToggle }: LabResultCardProps) {
     return (
-        <Card className="mb-4">
-            <CardContent className="p-4">
+        <div className="km-card km-fade" style={{ marginBottom: 16 }}>
+            <div style={{ padding: 14 }}>
                 <div 
-                className="flex items-center justify-between cursor-pointer"
-                onClick={onToggle}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+                    onClick={onToggle}
                 >
-                    <div className="flex items-center space-x-4">
-                        <div className="p-2 bg-blue-50 rounded-lg">
-                            <TestTube className="h-5 w-5 text-blue-600" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ padding: 8, background: 'var(--km-s2)', borderRadius: 8, flexShrink: 0, border: '1px solid var(--km-b)' }}>
+                            <TestTube size={18} style={{ color: 'var(--km-t)' }} />
                         </div>
                         <div>
-                            <h3 className="font-semibold text-gray-900">{result.test_name}</h3>
-                            <p className="text-sm text-gray-500">
+                            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--km-t)' }}>{result.test_name}</div>
+                            <div style={{ fontSize: 12, color: 'var(--km-tm)' }}>
                                 {result.sample_source || 'Sample type N/A'} • {formatDate(result.screening_date)}
-                            </p>
+                            </div>
                         </div>
                     </div>
-                    <div className="flex items-center space-x-3">
-                        <div className="text-right">
-                            <p className="font-semibold text-gray-900">{result.test_result} {result.test_result_units}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--km-ac)' }}>{result.test_result} {result.test_result_units}</div>
                             {result.reference_range && (
-                                <p className="text-xs text-gray-500">Ref: {result.reference_range}</p>
+                                <div style={{ fontSize: 11, color: 'var(--km-tm)' }}>Ref: {result.reference_range}</div>
                             )}
                         </div>
-                        {result.status_indicator && (
-                            <Badge className={getStatusIndicatorColor(result.status_indicator)}>
-                                {getStatusIndicatorLabel(result.status_indicator)}
-                            </Badge>
-                        )}
                         {isExpanded ? (
-                            <ChevronUp className="h-5 w-5 text-gray-400" />
+                            <ChevronUp size={18} style={{ color: 'var(--km-tm)' }} />
                         ) : (
-                            <ChevronDown className="h-5 w-5 text-gray-400" />
+                            <ChevronDown size={18} style={{ color: 'var(--km-tm)' }} />
                         )}
                     </div>
                 </div>
                 
                 {isExpanded && (
-                    <div className="mt-4 pt-4 border-t border-gray-100">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                            <div>
-                                <p className="text-gray-500">Report Date</p>
-                                <p className="font-medium">{formatDate(result.report_date)}</p>
+                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--km-b)' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+                            <div style={{ flex: 1, minWidth: '40%' }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Report Date</div>
+                                <div style={{ fontSize: 13, fontWeight: 600 }}>{formatDate(result.report_date)}</div>
                             </div>
-                            <div>
-                                <p className="text-gray-500">Sample Source</p>
-                                <p className="font-medium">{result.sample_source || 'N/A'}</p>
+                            <div style={{ flex: 1, minWidth: '40%' }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sample Source</div>
+                                <div style={{ fontSize: 13, fontWeight: 600 }}>{result.sample_source || 'N/A'}</div>
                             </div>
-                            <div>
-                                <p className="text-gray-500">Test to Treat</p>
-                                <p className="font-medium">{result.test_to_treat ? 'Yes' : 'No'}</p>
+                            <div style={{ flex: 1, minWidth: '40%' }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Test to Treat</div>
+                                <div style={{ fontSize: 13, fontWeight: 600 }}>{result.test_to_treat ? 'Yes' : 'No'}</div>
                             </div>
-                            <div>
-                                <p className="text-gray-500">Submission Status</p>
-                                <p className="font-medium">{result.submission_status || 'Not submitted'}</p>
+                            <div style={{ flex: 1, minWidth: '40%' }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Submission Status</div>
+                                <div style={{ fontSize: 13, fontWeight: 600 }}>{result.submission_status || 'N/A'}</div>
                             </div>
                         </div>
                     </div>
                 )}
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 }
 
@@ -156,93 +105,83 @@ interface SubmissionCardProps {
 
 function SubmissionCard({ submission, isExpanded, onToggle }: SubmissionCardProps) {
     return (
-        <Card className="mb-4">
-            <CardContent className="p-4">
+        <div className="km-card km-fade" style={{ marginBottom: 16 }}>
+            <div style={{ padding: 14 }}>
                 <div 
-                className="flex items-center justify-between cursor-pointer"
-                onClick={onToggle}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+                    onClick={onToggle}
                 >
-                    <div className="flex items-center space-x-4">
-                        <div className="p-2 bg-purple-50 rounded-lg">
-                            <Calendar className="h-5 w-5 text-purple-600" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ padding: 8, background: 'var(--km-pup)', borderRadius: 8, flexShrink: 0, border: '1px solid rgba(167,139,250,0.2)' }}>
+                            <Calendar size={18} style={{ color: 'var(--km-pu)' }} />
                         </div>
                         <div>
-                            <h3 className="font-semibold text-gray-900">
+                            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--km-t)' }}>
                                 Lab Submission {submission.id.slice(0, 8)}
-                            </h3>
-                            <p className="text-sm text-gray-500">
+                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--km-tm)' }}>
                                 {submission.lab_results.length} result{submission.lab_results.length !== 1 ? 's' : ''} • {formatDate(submission.created_at)}
-                            </p>
+                            </div>
                         </div>
                     </div>
-                    <div className="flex items-center space-x-3">
-                        <div className="flex items-center space-x-2">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             {getSubmissionStatusIcon(submission.submission_status)}
-                            <Badge className={getSubmissionStatusColor(submission.submission_status)}>
-                                {submission.submission_status || 'Unknown'}
-                            </Badge>
+                            <span style={{ fontSize: 12, fontWeight: 600 }}>{submission.submission_status || 'Unknown'}</span>
                         </div>
                         {isExpanded ? (
-                            <ChevronUp className="h-5 w-5 text-gray-400" />
+                            <ChevronUp size={18} style={{ color: 'var(--km-tm)' }} />
                         ) : (
-                            <ChevronDown className="h-5 w-5 text-gray-400" />
+                            <ChevronDown size={18} style={{ color: 'var(--km-tm)' }} />
                         )}
                     </div>
                 </div>
                 
                 {isExpanded && (
-                    <div className="mt-4 pt-4 border-t border-gray-100">
-                        <div className="space-y-3">
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                <div>
-                                    <p className="text-gray-500">Test to Treat</p>
-                                    <p className="font-medium">{submission.test_to_treat ? 'Yes' : 'No'}</p>
-                                </div>
-                                <div>
-                                    <p className="text-gray-500">Master ID</p>
-                                    <p className="font-medium font-mono text-xs">{submission.master_id || 'N/A'}</p>
-                                </div>
-                                <div>
-                                    <p className="text-gray-500">Beluga Visit ID</p>
-                                    <p className="font-medium font-mono text-xs">{submission.beluga_visit_id || 'N/A'}</p>
-                                </div>
-                                <div>
-                                    <p className="text-gray-500">Submitted At</p>
-                                    <p className="font-medium">{formatDate(submission.submitted_at)}</p>
+                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--km-b)' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
+                            <div style={{ flex: 1, minWidth: '40%' }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Test to Treat</div>
+                                <div style={{ fontSize: 13, fontWeight: 600 }}>{submission.test_to_treat ? 'Yes' : 'No'}</div>
+                            </div>
+                            <div style={{ flex: 1, minWidth: '40%' }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Master ID</div>
+                                <div style={{ fontSize: 12, fontWeight: 600, fontFamily: 'monospace' }}>{submission.master_id || 'N/A'}</div>
+                            </div>
+                            <div style={{ flex: 1, minWidth: '40%' }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Beluga Visit ID</div>
+                                <div style={{ fontSize: 12, fontWeight: 600, fontFamily: 'monospace' }}>{submission.beluga_visit_id || 'N/A'}</div>
+                            </div>
+                            <div style={{ flex: 1, minWidth: '40%' }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Submitted At</div>
+                                <div style={{ fontSize: 13, fontWeight: 600 }}>{formatDate(submission.submitted_at)}</div>
+                            </div>
+                        </div>
+                        
+                        {submission.lab_results.length > 0 && (
+                            <div>
+                                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Lab Results</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    {submission.lab_results.map((result) => (
+                                        <div key={result.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--km-s2)', borderRadius: 8, border: '1px solid var(--km-b)' }}>
+                                            <span style={{ fontSize: 13, fontWeight: 600 }}>{result.test_name}</span>
+                                            <span style={{ fontSize: 13 }}>{result.test_result} {result.test_result_units}</span>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
-                            
-                            {submission.lab_results.length > 0 && (
-                                <div className="mt-4">
-                                    <h4 className="font-medium text-gray-900 mb-2">Lab Results</h4>
-                                    <div className="space-y-2">
-                                        {submission.lab_results.map((result) => (
-                                            <div key={result.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                                                <span className="text-sm font-medium">{result.test_name}</span>
-                                                <div className="flex items-center space-x-2">
-                                                    <span className="text-sm">{result.test_result} {result.test_result_units}</span>
-                                                    {result.status_indicator && (
-                                                        <Badge className={getStatusIndicatorColor(result.status_indicator)}>
-                                                            {getStatusIndicatorLabel(result.status_indicator)}
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                            
-                            {submission.error_details && (
-                                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                                    <p className="text-sm text-red-800">{submission.error_details}</p>
-                                </div>
-                            )}
-                        </div>
+                        )}
+                        
+                        {submission.error_details && (
+                            <div className="km-vbox km-vbox-red" style={{ marginTop: 12 }}>
+                                <AlertCircle size={14} style={{ color: 'var(--km-re)', flexShrink: 0, marginTop: 1 }} />
+                                <div style={{ fontSize: 12, color: 'var(--km-re)' }}>{submission.error_details}</div>
+                            </div>
+                        )}
                     </div>
                 )}
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 }
 
@@ -252,6 +191,7 @@ export default function LabsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [activeTab, setActiveTab] = useState<'results' | 'submissions'>('results');
     const [expandedResult, setExpandedResult] = useState<string | null>(null);
     const [expandedSubmission, setExpandedSubmission] = useState<string | null>(null);
 
@@ -299,14 +239,13 @@ export default function LabsPage() {
 
     if (loading) {
         return (
-            <div className="p-6">
-                <div className="animate-pulse">
-                    <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-                    <div className="space-y-4">
-                        {[1, 2, 3].map((i) => (
-                            <div key={i} className="h-24 bg-gray-200 rounded"></div>
-                        ))}
-                    </div>
+            <div className="pg" id="pg-labs">
+                <p className="km-page-title km-fade">Labs</p>
+                <p className="km-page-sub km-fade">View your lab results and submissions</p>
+                <div className="km-card km-fade" style={{ padding: 14 }}>
+                    <div className="km-skel" style={{ width: '30%', height: 20, marginBottom: 12 }}></div>
+                    <div className="km-skel" style={{ width: '100%', height: 40, marginBottom: 12 }}></div>
+                    <div className="km-skel" style={{ width: '100%', height: 40 }}></div>
                 </div>
             </div>
         );
@@ -314,51 +253,55 @@ export default function LabsPage() {
 
     if (error) {
         return (
-            <div className="p-6">
-                <Card>
-                    <CardContent className="p-12 text-center">
-                        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Labs</h3>
-                        <p className="text-gray-600 mb-4">{error}</p>
-                        <Button onClick={loadData}>Try Again</Button>
-                    </CardContent>
-                </Card>
+            <div className="pg" id="pg-labs">
+                <p className="km-page-title km-fade">Labs</p>
+                <p className="km-page-sub km-fade">View your lab results and submissions</p>
+                <div className="km-vbox km-vbox-red km-fade">
+                    <AlertCircle size={14} style={{ color: 'var(--km-re)', flexShrink: 0, marginTop: 1 }} />
+                    <div style={{ flex: 1 }}>
+                        <div style={{ color: 'var(--km-t)', fontWeight: 600, marginBottom: 2 }}>Error Loading Labs</div>
+                        <div style={{ color: 'var(--km-tm)' }}>{error}</div>
+                        <button className="km-btn km-btn-outline" style={{ marginTop: 8, fontSize: 11, padding: '5px 12px' }} onClick={loadData}>
+                            Try Again
+                        </button>
+                    </div>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h1 className="text-2xl font-semibold text-foreground">Labs</h1>
-                    <p className="text-muted-foreground">View your lab results and submissions</p>
-                </div>
+        <div className="pg" id="pg-labs">
+            <p className="km-page-title km-fade" style={{ fontFamily: "'Playfair Display', serif", fontSize: 32 }}>Labs</p>
+            <p className="km-page-sub km-fade">View your lab results and submissions</p>
+            
+            <div className="km-swrap km-fade" style={{ marginBottom: 14 }}>
+                <Search size={16} />
+                <input
+                    className="km-sinp"
+                    placeholder="Search lab results..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+            
+            <div className="km-tabs km-fade" style={{ marginBottom: 16 }}>
+                <button 
+                    className={`km-tab ${activeTab === 'results' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('results')}
+                >
+                    Lab Results ({filteredResults.length})
+                </button>
+                <button 
+                    className={`km-tab ${activeTab === 'submissions' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('submissions')}
+                >
+                    Submissions ({filteredSubmissions.length})
+                </button>
             </div>
 
-            <div className="mb-6">
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <Input
-                        placeholder="Search lab results..."
-                        className="pl-10"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
-            </div>
-
-            <Tabs defaultValue="results" className="space-y-6">
-                <TabsList>
-                    <TabsTrigger value="results">
-                        Lab Results ({filteredResults.length})
-                    </TabsTrigger>
-                    <TabsTrigger value="submissions">
-                        Submissions ({filteredSubmissions.length})
-                    </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="results" className="space-y-4">
+            {activeTab === 'results' && (
+                <div className="km-fade">
                     {filteredResults.length > 0 ? (
                         filteredResults.map((result) => (
                             <LabResultCard
@@ -369,21 +312,25 @@ export default function LabsPage() {
                             />
                         ))
                     ) : (
-                        <Card>
-                            <CardContent className="p-12 text-center">
-                                <TestTube className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                                <h3 className="text-lg font-medium text-gray-900 mb-2">No lab results available</h3>
-                                <p className="text-gray-600">
+                        <div className="km-sc">
+                            <div className="km-empty">
+                                <div className="km-eic">
+                                    <TestTube size={20} />
+                                </div>
+                                <div className="km-et">No lab results</div>
+                                <div className="km-es">
                                     {searchTerm 
                                         ? 'No results match your search criteria.' 
                                         : "You don't have any lab results yet."}
-                                </p>
-                            </CardContent>
-                        </Card>
+                                </div>
+                            </div>
+                        </div>
                     )}
-                </TabsContent>
+                </div>
+            )}
 
-                <TabsContent value="submissions" className="space-y-4">
+            {activeTab === 'submissions' && (
+                <div className="km-fade">
                     {filteredSubmissions.length > 0 ? (
                         filteredSubmissions.map((submission) => (
                             <SubmissionCard
@@ -394,20 +341,22 @@ export default function LabsPage() {
                             />
                         ))
                     ) : (
-                        <Card>
-                            <CardContent className="p-12 text-center">
-                                <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                                <h3 className="text-lg font-medium text-gray-900 mb-2">No lab submissions</h3>
-                                <p className="text-gray-600">
+                        <div className="km-sc">
+                            <div className="km-empty">
+                                <div className="km-eic">
+                                    <Calendar size={20} />
+                                </div>
+                                <div className="km-et">No lab submissions</div>
+                                <div className="km-es">
                                     {searchTerm 
                                         ? 'No submissions match your search criteria.' 
                                         : "You don't have any lab submissions yet."}
-                                </p>
-                            </CardContent>
-                        </Card>
+                                </div>
+                            </div>
+                        </div>
                     )}
-                </TabsContent>
-            </Tabs>
+                </div>
+            )}
         </div>
     );
 }

@@ -140,9 +140,9 @@ export default function Settings() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold">Settings</h1>
+        <div className="km-page-title">Settings</div>
         <p className="text-muted-foreground">Manage your account settings and preferences.</p>
       </div>
 

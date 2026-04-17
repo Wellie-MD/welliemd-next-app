@@ -1,12 +1,10 @@
 /**
  * Notifications Dropdown Component
  * 
- * Shows real-time notifications received via WebSocket.
- * Notifications persist in localStorage via NotificationsContext.
+ * Shows unread notifications (message + inbox) for patient users.
  */
 
-import { Bell, Check, Trash2, Package } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { CheckCircle2 } from "lucide-react";
 import { useDropdown } from "@/contexts/DropdownContext";
 import { useNavigate } from "react-router-dom";
 import { useNotifications } from "@/contexts/NotificationsContext";
@@ -30,131 +28,178 @@ function formatTimeAgo(timestamp: string): string {
   return date.toLocaleDateString();
 }
 
-export const NotificationsDropdown = ({ className }: { className?: string }) => {
+export const NotificationsDropdown = () => {
   const { isOpen, toggleDropdown } = useDropdown();
   const navigate = useNavigate();
-  const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, refresh } = useNotifications();
 
   const handleNotificationClick = (notification: { id: string; type: string; data?: Record<string, unknown> }) => {
     markAsRead(notification.id);
     
-    // Navigate based on notification type
+    const masterId = typeof notification.data?.master_id === "string" ? notification.data.master_id : "";
+
+    // Route notifications
     if (notification.type === 'order_status_changed' && notification.data?.order_id) {
       navigate('/dashboard/orders');
+    } else if (masterId) {
+      navigate(`/dashboard/messages?masterId=${encodeURIComponent(masterId)}`);
     } else {
-      navigate('/dashboard/notifications');
+      navigate('/dashboard/messages');
     }
     
     toggleDropdown(null);
   };
 
+  const getBadgeLabel = (title: string, type: string) => {
+    const t = title.toLowerCase();
+    if (type.includes('order') || t.includes('order')) return 'O';
+    if (t.includes('doctor')) return 'D';
+    if (t.includes('support')) return 'S';
+    return 'N';
+  };
+
   return (
-    <div className="relative">
-      <Button
-        variant="ghost"
-        size="icon"
-        className={`relative ${className}`}
-        onClick={() => toggleDropdown("notifications")}
+    <>
+      <div
+        className="km-nbtn"
+        onClick={(e) => {
+          e.stopPropagation();
+          const opening = !isOpen("notifications");
+          toggleDropdown("notifications");
+          if (opening) void refresh();
+        }}
       >
-        <Bell className="h-5 w-5" />
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 rounded-full text-xs text-white flex items-center justify-center font-medium">
-            {unreadCount > 9 ? '9+' : unreadCount}
-          </span>
-        )}
-      </Button>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
+        </svg>
+        {unreadCount > 0 && <div className="km-ndot"></div>}
+      </div>
 
-      {isOpen("notifications") && (
-        <div className="absolute w-max top-full mt-2 bg-white rounded-lg shadow-xl border border-gray-200 py-0 z-50 max-h-[480px] overflow-hidden flex flex-col" style={{right:'-100px'}}>
-          {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-            <h3 className="text-sm font-semibold text-gray-900">
-              Notifications {unreadCount > 0 && <span className="text-blue-600">({unreadCount})</span>}
-            </h3>
-            {unreadCount > 0 && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  markAllAsRead();
-                }}
-                className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
-              >
-                <Check className="h-3 w-3" />
-                Mark all read
-              </button>
-            )}
+      <div 
+        className={`km-notif-panel ${isOpen("notifications") ? "open" : ""}`} 
+        id="notifPanel"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="km-notif-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>Notifications</div>
+          <button
+            type="button"
+            onClick={markAllAsRead}
+            disabled={notifications.length === 0}
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: notifications.length === 0 ? "var(--km-tm)" : "var(--km-ac)",
+              cursor: notifications.length === 0 ? "not-allowed" : "pointer",
+              background: "transparent",
+              border: "none",
+              padding: 0
+            }}
+          >
+            Mark all read
+          </button>
+        </div>
+        <div style={{ padding: "8px 14px", borderBottom: "1px solid var(--km-b)", fontSize: 12, fontWeight: 600, color: "var(--km-ac)" }}>
+          Activity
+        </div>
+
+        {notifications.length === 0 ? (
+          <div className="km-notif-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
+            </svg>
+            <div className="km-notif-empty-title">No notifications yet</div>
+            <div className="km-notif-empty-sub">You'll receive updates about your orders here</div>
           </div>
-
-          {/* Notifications List */}
-          <div className="flex-1 overflow-y-auto">
-            {notifications.length === 0 ? (
-              <div className="py-12 px-4 text-center">
-                <Bell className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                <p className="text-sm font-medium text-gray-900">No notifications yet</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  You'll receive updates about your orders here
-                </p>
-              </div>
-            ) : (
-              notifications.map((notification) => (
-                <button
-                  key={notification.id}
-                  onClick={() => handleNotificationClick(notification)}
-                  className={`flex items-start w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-50 last:border-b-0 transition-colors ${
-                    !notification.read ? 'bg-blue-50/50' : ''
-                  }`}
-                >
-                  <div className="flex-shrink-0 mt-0.5">
-                    <div className={`p-2 rounded-full ${
-                      notification.priority === 'high' || notification.priority === 'urgent'
-                        ? 'bg-green-100 text-green-600'
-                        : 'bg-blue-100 text-blue-600'
-                    }`}>
-                      <Package className="h-4 w-4" />
+        ) : (
+          <div style={{ 
+            maxHeight: 360, 
+            overflowY: "auto", 
+            overflowX: "hidden"
+          }}>
+            {notifications.map((notification) => (
+              <div
+                key={notification.id}
+                onClick={() => handleNotificationClick(notification)}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 12,
+                  padding: "12px 14px",
+                  borderBottom: "1px solid var(--km-b)",
+                  cursor: "pointer",
+                  background: !notification.read ? "rgba(79, 142, 247, 0.05)" : "transparent",
+                  transition: "background 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  if (notification.read) e.currentTarget.style.background = "var(--km-s2)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = !notification.read ? "rgba(79, 142, 247, 0.05)" : "transparent";
+                }}
+              >
+                <div style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 9,
+                  background: notification.priority === 'urgent' ? "var(--km-rep)" : "var(--km-acp)",
+                  color: notification.priority === 'urgent' ? "var(--km-re)" : "var(--km-ac)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  marginTop: 2
+                }}>
+                  <span style={{ fontSize: 12, fontWeight: 700 }}>{getBadgeLabel(notification.title, notification.type)}</span>
+                </div>
+                
+                <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4, gap: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: !notification.read ? 700 : 500, color: "var(--km-t)", lineHeight: 1.3, flex: 1, minWidth: 0, wordBreak: "break-word" }}>
+                      {notification.title}
                     </div>
-                  </div>
-                  <div className="ml-3 flex-1 min-w-0">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <p className={`text-sm ${
-                          notification.read ? 'text-gray-600' : 'text-gray-900 font-medium'
-                        }`}>
-                          {notification.title}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                          {notification.message}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {formatTimeAgo(notification.timestamp)}
-                        </p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                      <div style={{ fontSize: 10, color: "var(--km-tm)", whiteSpace: "nowrap" }}>
+                        {formatTimeAgo(notification.timestamp)}
                       </div>
                       {!notification.read && (
-                        <div className="h-2 w-2 bg-blue-500 rounded-full ml-2 mt-1.5 flex-shrink-0" />
+                        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--km-ac)", flexShrink: 0 }} />
                       )}
                     </div>
                   </div>
-                </button>
-              ))
-            )}
+                  <div style={{ fontSize: 12, color: "var(--km-tm)", lineHeight: 1.4, opacity: 0.9, wordBreak: "break-word" }}>
+                    {notification.message}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
+        )}
 
-          {/* Footer */}
-          {notifications.length > 0 && (
-            <div className="border-t border-gray-100 p-2 bg-gray-50">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  clearAll();
-                }}
-                className="w-full flex items-center justify-center px-4 py-2 text-xs text-red-600 hover:bg-red-50 rounded-md transition-colors"
-              >
-                <Trash2 className="h-3 w-3 mr-1" />
-                Clear all notifications
-              </button>
-            </div>
-          )}
+        <div style={{ padding: 10, borderTop: "1px solid var(--km-b)", background: "var(--km-s1)" }}>
+          <button
+            type="button"
+            onClick={() => {
+              navigate('/dashboard/messages');
+              toggleDropdown(null);
+            }}
+            style={{
+              width: "100%",
+              textAlign: "center",
+              border: "1px solid var(--km-b)",
+              borderRadius: "var(--km-rs)",
+              padding: "8px",
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--km-t)",
+              background: "transparent",
+              cursor: "pointer",
+            }}
+          >
+            Open Messages
+          </button>
         </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 };

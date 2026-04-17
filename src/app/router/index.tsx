@@ -18,11 +18,14 @@ const Messages = React.lazy(() => import('@/components/Messages'));
 const MedicalRecords = React.lazy(() => import('@/components/MedicalRecords'));
 const Appointments = React.lazy(() => import('@/components/Appointments'));
 const Orders = React.lazy(() => import('@/components/Orders'));
+const OrderDetail = React.lazy(() => import('@/components/OrderDetail'));
 const Settings = React.lazy(() => import('@/components/Settings'));
 const PaymentMethodsPage = React.lazy(() => import('@/components/payments/PaymentMethodsPage'));
 const Blog = React.lazy(() => import('@/components/Blog'));
 const BlogPost = React.lazy(() => import('@/components/BlogPost'));
 const Labs = React.lazy(() => import('@/features/labs/LabsPage'));
+const ExploreTreatments = React.lazy(() => import('@/components/ExploreTreatments'));
+const Help = React.lazy(() => import('@/components/Help'));
 
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -72,20 +75,17 @@ export const AppRouter: React.FC = () => {
             <Route path="treatments" element={<Treatments />} />
             <Route path="messages" element={<Messages />} />
             <Route path="orders" element={<Orders />} />
+            <Route path="orders/:orderId" element={<OrderDetail />} />
             <Route path="blog" element={<Blog />} />
             <Route path="blog/:id" element={<BlogPost />} />
             <Route path="labs" element={<Labs />} />
+            <Route path="explore" element={<ExploreTreatments />} />
             
             {/* Settings and Help pages */}
             <Route path="settings" element={<Settings />} />
+            <Route path="billing" element={<PaymentMethodsPage />} />
             <Route path="settings/payment-methods" element={<PaymentMethodsPage />} />
-            
-            <Route path="help" element={
-              <div className="p-6">
-                <h1 className="text-2xl font-semibold">Help & Support</h1>
-                <p className="text-muted-foreground">Get help and find answers to common questions.</p>
-              </div>
-            } />
+            <Route path="help" element={<Help />} />
           </Route>
 
           {/* Default redirects */}

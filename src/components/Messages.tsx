@@ -1,11 +1,10 @@
-// src/components/Messages.tsx
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
-  Send,
   Search,
-  AtSign,
+  Send,
   X,
   ChevronDown,
   Paperclip,
@@ -17,21 +16,14 @@ import {
   FileVideo,
   FileCode,
   ExternalLink,
-  Download as DownloadIcon,
 } from "lucide-react";
-
-import { Card, CardContent, CardHeader } from "./ui/card";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { Separator } from "./ui/separator";
 
 import {
   MessageService,
   type RawMessage,
   type ChatRecipient,
 } from "@/features/messages/services/message.service";
-import { VisitService, type Visit } from "@/features/visits/services/visit.service";
+import { VisitService } from "@/features/visits/services/visit.service";
 import { useAuth } from "@/features/auth";
 import { env } from "@/config/env";
 
@@ -45,32 +37,61 @@ interface Conversation {
   messages: RawMessage[]; // newest-first in state
 }
 
+const formatConversationLabel = (visitType?: string, masterId?: string) => {
+  const cleanedVisitType = (visitType || "").trim();
+  if (cleanedVisitType) return cleanedVisitType;
+  const shortMaster = (masterId || "").slice(0, 8);
+  return shortMaster ? `Visit ${shortMaster}` : "Visit";
+};
+
+const formatThreadPreview = (msg?: RawMessage) => {
+  if (!msg) return "No messages yet";
+  if (msg.is_media) return msg.file_name?.trim() || "Attachment";
+  const content = (msg.content || "").trim();
+  return content || "Message";
+};
+
 // --------------- Helpers ----------------
-const byTimeAsc = (a: RawMessage, b: RawMessage) =>
-  new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+const byTimeAsc = (a: RawMessage, b: RawMessage) => {
+  const tA = new Date(a.timestamp).getTime();
+  const tB = new Date(b.timestamp).getTime();
+  if (isNaN(tA)) return 1;
+  if (isNaN(tB)) return -1;
+  return tA - tB;
+};
 
-const byTimeDesc = (a: RawMessage, b: RawMessage) =>
-  new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+const byTimeDesc = (a: RawMessage, b: RawMessage) => {
+  const tA = new Date(a.timestamp).getTime();
+  const tB = new Date(b.timestamp).getTime();
+  if (isNaN(tA)) return 1;
+  if (isNaN(tB)) return -1;
+  return tB - tA;
+};
 
-function getMessageGroupLabel(dateStr: string) {
-  const date = new Date(dateStr);
-  if (isToday(date)) return "Today";
-  if (isYesterday(date)) return "Yesterday";
-  if (isThisWeek(date)) return format(date, "EEEE");
-  return format(date, "MMM d, yyyy");
-}
+// function getMessageGroupLabel(dateStr: string) {
+//   const date = new Date(dateStr);
+//   if (isToday(date)) return "Today";
+//   if (isYesterday(date)) return "Yesterday";
+//   if (isThisWeek(date)) return format(date, "EEEE");
+//   return format(date, "MMM d, yyyy");
+// }
 
 function groupMessagesByDate<T extends { timestamp: string }>(messages: T[]) {
   const groups: Record<string, T[]> = {};
   messages.forEach((msg) => {
-    const dateKey = formatISO(new Date(msg.timestamp), { representation: "date" });
-    if (!groups[dateKey]) groups[dateKey] = [];
-    groups[dateKey].push(msg);
+    try {
+      const date = new Date(msg.timestamp);
+      if (isNaN(date.getTime())) return;
+      const dateKey = formatISO(date, { representation: "date" });
+      if (!groups[dateKey]) groups[dateKey] = [];
+      groups[dateKey].push(msg);
+    } catch (e) {
+      console.warn("Invalid message timestamp", msg.timestamp);
+    }
   });
   return groups;
 }
 
-// Inbound relative to the patient
 function isInboundForPatient(m: RawMessage) {
   return (
     m.senderType === "doctor" ||
@@ -79,6 +100,7 @@ function isInboundForPatient(m: RawMessage) {
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function routeLabel(m: RawMessage) {
   if (m.senderType === "patient") {
     if (m.chatType === "doctor") return "to Doctor";
@@ -94,26 +116,15 @@ function routeLabel(m: RawMessage) {
 
 const isImage = (mime?: string) => (mime ?? "").startsWith("image/");
 
-// Helper function to detect URLs and make them clickable
 function linkifyText(text: string): React.ReactNode {
   if (!text) return null;
-  
-  // URL regex pattern
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match;
-  
   while ((match = urlRegex.exec(text)) !== null) {
-    // Add text before the URL
-    if (match.index > lastIndex) {
-      parts.push(text.substring(lastIndex, match.index));
-    }
-    
-    // Add clickable link
+    if (match.index > lastIndex) parts.push(text.substring(lastIndex, match.index));
     const url = match[0];
-    const isBookingLink = url.includes('bookingstaging.belugahealth.com') || url.includes('booking.belugahealth.com');
-    
     parts.push(
       <a
         key={match.index}
@@ -127,31 +138,20 @@ function linkifyText(text: string): React.ReactNode {
         <ExternalLink className="inline-block ml-1 w-3 h-3" />
       </a>
     );
-    
     lastIndex = match.index + match[0].length;
   }
-  
-  // Add remaining text
-  if (lastIndex < text.length) {
-    parts.push(text.substring(lastIndex));
-  }
-  
-  // If no URLs found, return original text
-  if (parts.length === 0) {
-    return text;
-  }
-  
+  if (lastIndex < text.length) parts.push(text.substring(lastIndex));
+  if (parts.length === 0) return text;
   return <>{parts}</>;
 }
 
-// ---- NEW: tiny helpers for doc UI (non-images) ----
 const getExt = (name?: string) => {
   if (!name) return "";
   const dot = name.lastIndexOf(".");
   return dot >= 0 ? name.slice(dot + 1).toLowerCase() : "";
 };
 
-const DocIcon = ({ ext, mime }: { ext: string; mime?: string }) => {
+const DocIcon = ({ ext, mime }: { ext: string; mime?: string | undefined }) => {
   const m = (mime || "").toLowerCase();
   if (m.startsWith("audio/")) return <FileAudio className="h-5 w-5" />;
   if (m.startsWith("video/")) return <FileVideo className="h-5 w-5" />;
@@ -164,356 +164,254 @@ const DocIcon = ({ ext, mime }: { ext: string; mime?: string }) => {
   return <FileIcon className="h-5 w-5" />;
 };
 
-// ---- NEW: document attachment bubble ----
 function DocumentBubble({
   url,
   name,
   mime,
 }: {
   url: string;
-  name?: string | null;
-  mime?: string | null;
+  name?: string | null | undefined;
+  mime?: string | null | undefined;
 }) {
   const ext = getExt(name || undefined);
   const display = name || "Attachment";
   return (
-    <div className="w-[260px] lg:w-[320px] rounded-md bg-white shadow-sm ring-1 ring-gray-200">
-      <div className="p-3 flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-800">
+    <div style={{ maxWidth: 260, borderRadius: 8, background: "var(--km-s1)", border: "1px solid var(--km-b)", overflow: "hidden" }}>
+      <div style={{ padding: 12, display: "flex", alignItems: "flex-start", gap: 10 }}>
+        <div style={{ width: 36, height: 36, background: "var(--km-s2)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <DocIcon ext={ext} mime={mime || undefined} />
         </div>
-        <div className="min-w-0">
-          <div className="text-sm font-medium text-gray-900 break-words line-clamp-2">
-            {display}
-          </div>
-          <div className="mt-0.5 flex items-center gap-2">
-            {ext && (
-              <span className="inline-flex items-center rounded-full border bg-gray-50 px-2 py-0.5 text-[10px] uppercase tracking-wider text-gray-600">
-                {ext}
-              </span>
-            )}
-            {mime && (
-              <span className="text-[10px] text-gray-500 truncate">{mime}</span>
-            )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--km-t)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{display}</div>
+          <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+            {ext && <span style={{ fontSize: 10, background: "var(--km-s2)", padding: "2px 6px", borderRadius: 12, textTransform: "uppercase", fontWeight: 600 }}>{ext}</span>}
           </div>
         </div>
       </div>
-      <div className="flex items-center justify-center border-t px-3 py-2 text-gray-600 hover:text-gray-800">
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-md font-medium text-gray-700 hover:text-gray-900"
-          title="Open in new tab"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          Open
-        </a>
-      </div>
-
+      <a href={url} target="_blank" rel="noopener noreferrer" style={{ display: "block", textAlign: "center", padding: "8px", borderTop: "1px solid var(--km-b)", fontSize: 12, fontWeight: 600, color: "var(--km-t)", background: "var(--km-s2)", textDecoration: "none" }}>
+        Open Attachment
+      </a>
     </div>
   );
 }
 
 export default function Messages() {
+  const MAX_COMPOSER_HEIGHT_PX = 140;
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selected, setSelected] = useState<Conversation | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const hasInitiallyLoaded = useRef(false);
 
   const [composeText, setComposeText] = useState("");
   const [composeTo, setComposeTo] = useState<ChatRecipient>("doctor"); // default support
+  const [showRouting, setShowRouting] = useState(false);
   const [search, setSearch] = useState("");
 
   // attachments (multi-select)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const sendInFlightRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const composeInputRef = useRef<HTMLTextAreaElement>(null);
 
-  // smart scroll
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [isNearBottom, setIsNearBottom] = useState(true);
-  const prevCountRef = useRef(0);
-  const isUserScrollingRef = useRef(false);
 
-  // ---- NEW: highlight + last-seen maps
-  const [highlightedChats, setHighlightedChats] = useState<Record<string, boolean>>({});
-  const lastSeenLatestIdRef = useRef<Record<string, string | number>>({});
-
-  const scrollToBottom = (force = false) => {
-    if (force || isNearBottom) messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const checkNearBottom = () => {
-    const el = scrollContainerRef.current;
-    if (!el) return false;
-    const threshold = 150;
-    return el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
-  };
-
-  const onScroll = () => {
-    isUserScrollingRef.current = true;
-    setIsNearBottom(checkNearBottom());
-    setTimeout(() => (isUserScrollingRef.current = false), 120);
-  };
-
-  // Initial load: one conversation per visit using /messages/all/
-  useEffect(() => {
-    (async () => {
-      const visits: Visit[] = await VisitService.getPatientVisits();
-      const convs: Conversation[] = [];
-
-      for (const v of visits) {
-        if (!v.master_id) continue;
-        const all = await MessageService.getAllMessages(v.master_id);
-        const newestFirst = [...all].sort(byTimeDesc);
-        convs.push({
-          id: v.master_id,
-          masterId: v.master_id,
-          label: `${v.visit_type} — Chat`,
-          messages: newestFirst,
-        });
-      }
-
-      setConversations(convs);
-
-      // seed last-seen id map
-      const seed: Record<string, string | number> = {};
-      for (const c of convs) {
-        const latest = c.messages?.[0];
-        if (latest) seed[c.id] = latest.id;
-      }
-      lastSeenLatestIdRef.current = seed;
-
-      if (convs[0]) {
-        setSelected(convs[0]);
-
-        // mark inbound unread as read
-        const inboundUnread = convs[0].messages.filter(
-          (m) => isInboundForPatient(m) && (m.readByPatient ?? m.read) === false
-        );
-        if (inboundUnread.length) {
-          await Promise.all(inboundUnread.map((m) => MessageService.markAsReadByPatient(m.id)));
-        }
-
-        setTimeout(() => scrollToBottom(true), 100);
-        prevCountRef.current = convs[0].messages.length;
-      }
-    })();
+  const resizeComposer = useCallback(() => {
+    const el = composeInputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const nextHeight = Math.min(el.scrollHeight, MAX_COMPOSER_HEIGHT_PX);
+    el.style.height = `${Math.max(42, nextHeight)}px`;
+    el.style.overflowY = el.scrollHeight > MAX_COMPOSER_HEIGHT_PX ? "auto" : "hidden";
   }, []);
 
-  // Polling only the selected conversation (existing behavior)
   useEffect(() => {
-    if (!selected) return;
-    const timer = setInterval(async () => {
-      const fresh = await MessageService.getAllMessages(selected.masterId);
-      const newestFirst = [...fresh].sort(byTimeDesc);
+    resizeComposer();
+  }, [composeText, resizeComposer]);
 
-      const inboundUnread = newestFirst.filter(
-        (m) => isInboundForPatient(m) && (m.readByPatient ?? m.read) === false
-      );
-      if (inboundUnread.length) {
-        await Promise.all(inboundUnread.map((m) => MessageService.markAsReadByPatient(m.id)));
-      }
-
-      setConversations((prev) =>
-        prev.map((c) => (c.id === selected.id ? { ...c, messages: newestFirst } : c))
-      );
-      setSelected((prev) => (prev ? { ...prev, messages: newestFirst } : prev));
-
-      if (!isUserScrollingRef.current) {
-        const nowCount = newestFirst.length;
-        const prevCount = prevCountRef.current;
-        if (nowCount > prevCount && prevCount > 0) setTimeout(() => scrollToBottom(false), 50);
-        prevCountRef.current = nowCount;
-      }
-
-      const latest = newestFirst?.[0];
-      if (latest) lastSeenLatestIdRef.current[selected.id] = latest.id;
-    }, 10000);  // Poll every 10 seconds
-
-    return () => clearInterval(timer);
-  }, [selected]);
-
-  // ---- NEW: Global refresher (no auto-timeout; highlight clears only on click)
-  useEffect(() => {
-    if (!conversations.length) return;
-
-    const timer = setInterval(async () => {
-      const list = [...conversations];
-
-      for (const conv of list) {
-        if (!conv?.id) continue;
-
-        const fresh = await MessageService.getAllMessages(conv.masterId);
-        const newestFirst = [...fresh].sort(byTimeDesc);
-        const latest = newestFirst?.[0];
-        if (!latest) continue;
-
-        const lastSeenId = lastSeenLatestIdRef.current[conv.id];
-        const isNew = lastSeenId !== undefined && latest.id !== lastSeenId;
-
-        if (isNew) {
-          // update messages + move to top
-          setConversations((prev) => {
-            const updated = prev.map((c) =>
-              c.id === conv.id ? { ...c, messages: newestFirst } : c
-            );
-            const found = updated.find((c) => c.id === conv.id);
-            if (!found) return updated;
-            return [found, ...updated.filter((c) => c.id !== conv.id)];
-          });
-
-          lastSeenLatestIdRef.current[conv.id] = latest.id;
-
-          // highlight only if not the open chat and it's inbound
-          if (selected?.id !== conv.id && isInboundForPatient(latest)) {
-            setHighlightedChats((prev) => ({ ...prev, [conv.id]: true }));
-          }
-        } else if (lastSeenId === undefined && latest) {
-          lastSeenLatestIdRef.current[conv.id] = latest.id;
+  const loadConversations = useCallback(async () => {
+    try {
+      const visits = await VisitService.getPatientVisits();
+      const promises = visits.map(async (v) => {
+        const mId = v.master_id || v.id;
+        let raw: RawMessage[] = [];
+        try {
+          raw = await MessageService.getAllMessages(mId);
+        } catch (error) {
+          console.warn("Failed loading messages for master id", mId, error);
         }
-      }
-    }, 10000);  // Poll every 10 seconds
-
-    return () => clearInterval(timer);
-  }, [conversations, selected]);
-
-  const selectConversation = async (c: Conversation) => {
-    setSelected({ ...c });
-    // clear highlight on open
-    setHighlightedChats((prev) => ({ ...prev, [c.id]: false }));
-
-    const latest = c.messages?.[0];
-    if (latest) lastSeenLatestIdRef.current[c.id] = latest.id;
-
-    setTimeout(() => scrollToBottom(true), 80);
-
-    // Mark inbound-unread as read
-    const inboundUnread = c.messages.filter(
-      (m) => isInboundForPatient(m) && (m.readByPatient ?? m.read) === false
-    );
-    if (inboundUnread.length) {
-      await Promise.all(inboundUnread.map((m) => MessageService.markAsReadByPatient(m.id)));
-    }
-  };
-
-  // ----- Chip menu -----
-  const [showChipMenu, setShowChipMenu] = useState(false);
-  const chipRef = useRef<HTMLDivElement | null>(null);
-  const chipMenuRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const onDocClick = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (
-        chipRef.current &&
-        !chipRef.current.contains(target) &&
-        chipMenuRef.current &&
-        !chipMenuRef.current.contains(target)
-      ) {
-        setShowChipMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, []);
-
-  // ----- Attachments -----
-  const openFilePicker = () => fileInputRef.current?.click();
-
-  const onChooseFile: React.ChangeEventHandler<HTMLInputElement> = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-
-    setAttachedFiles((prev) => {
-      const next = [...prev];
-      files.forEach((f) => {
-        const key = `${f.name}_${f.size}_${f.lastModified}`;
-        const exists = next.some((x) => `${x.name}_${x.size}_${x.lastModified}` === key);
-        if (!exists) next.push(f);
+        return {
+          id: v.id,
+          masterId: mId,
+          label: formatConversationLabel(v.visit_type, mId),
+          messages: raw,
+        } as Conversation;
       });
-      return next;
+      const results = await Promise.all(promises);
+      const nextConversations = results
+        .filter((c) => c != null)
+        .sort((a, b) => {
+          const aLatest = (a.messages || []).slice().sort(byTimeDesc)[0];
+          const bLatest = (b.messages || []).slice().sort(byTimeDesc)[0];
+          const aTime = aLatest ? new Date(aLatest.timestamp).getTime() : 0;
+          const bTime = bLatest ? new Date(bLatest.timestamp).getTime() : 0;
+          return bTime - aTime;
+        });
+
+      setConversations(nextConversations);
+      // Only auto-select first conversation on desktop (>= 768px), not mobile, and only after first load
+      if (!hasInitiallyLoaded.current && nextConversations.length > 0) {
+        hasInitiallyLoaded.current = true;
+        const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
+        if (isDesktop) {
+          setSelectedId(nextConversations[0].id);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load messages", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadConversations();
+    const id = window.setInterval(() => void loadConversations(), 10000);
+    const onFocus = () => void loadConversations();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [loadConversations]);
+
+  // Auto-mark inbound messages as read when a conversation is selected
+  useEffect(() => {
+    if (!selectedId) return;
+    const chat = conversations.find(c => c.id === selectedId);
+    if (!chat) return;
+    const unreadInbound = chat.messages.filter(m => !m.readByPatient && isInboundForPatient(m));
+    if (unreadInbound.length === 0) return;
+
+    // Mark each unread message as read on the backend
+    unreadInbound.forEach(m => {
+      MessageService.markAsReadByPatient(m.id).catch(() => undefined);
     });
 
-    e.currentTarget.value = "";
-  };
+    // Update local state so blue dot disappears
+    setConversations(prev =>
+      prev.map(c =>
+        c.id === selectedId
+          ? { ...c, messages: c.messages.map(m => isInboundForPatient(m) ? { ...m, readByPatient: true } : m) }
+          : c
+      )
+    );
 
-  const removeFile = (idx: number) =>
-    setAttachedFiles((prev) => prev.filter((_, i) => i !== idx));
+    // Keep bell dropdown synchronized with chat-read state immediately.
+    window.dispatchEvent(new CustomEvent("patient:notifications-refetch"));
+  }, [selectedId, conversations]);
 
-  // ----- Send -----
-  const send = async () => {
+  useEffect(() => {
+    // If selected chat gets updated, scroll to bottom
+    const scrollToBottom = () => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: "auto" });
+      }
+    };
+    // Multiple attempts to ensure scroll works on mobile
+    scrollToBottom();
+    setTimeout(scrollToBottom, 150);
+    setTimeout(scrollToBottom, 300);
+  }, [selectedId, conversations]);
+
+  // Handle masterId from URL params - only on mobile when navigated from notification
+  // Do NOT auto-select on initial page load
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  
+  useEffect(() => {
+    // Only run after initial load has happened
+    if (!hasInitiallyLoaded.current) return;
+    
+    const masterIdFromUrl = searchParams.get('masterId');
+    // Only open chat if navigated from notification with masterId on mobile
+    if (isMobile && masterIdFromUrl && conversations.length > 0) {
+      const conv = conversations.find(c => c.masterId === masterIdFromUrl);
+      if (conv && conv.id !== selectedId) {
+        setSelectedId(conv.id);
+        // Clear URL param to prevent re-selection
+        setSearchParams({}, { replace: true });
+      }
+    }
+    // Note: We do NOT auto-reset selectedId to null on mobile anymore
+    // User must explicitly close chat via back button
+  }, [searchParams, conversations, selectedId, setSearchParams, isMobile]);
+
+  const handleSend = async () => {
+    if (sendInFlightRef.current || uploading) return;
+    const selected = conversations.find(c => c.id === selectedId);
     if (!selected) return;
 
     const body = composeText.trim();
     const hasFiles = attachedFiles.length > 0;
     if (!body && !hasFiles) return;
 
+    sendInFlightRef.current = true;
     setUploading(true);
     try {
-      // 1) upload all files
       const uploads = await Promise.all(
         attachedFiles.map((f) => MessageService.uploadAttachment(f))
       );
 
-      const makeOptimistic = (opts: {
-        content: string;
-        is_media?: boolean;
-        media_url?: string;
-        mime_type?: string;
-        file_name?: string;
-        chatTo: ChatRecipient;
-      }): RawMessage => ({
-        id: Date.now() + Math.random(),
-        content: opts.content,
-        timestamp: new Date().toISOString(),
-        read: true,
-        readByPatient: true,
-        masterId: selected.masterId,
-        senderType: "patient",
-        side: "left",
-        chatType: opts.chatTo,
-        is_media: !!opts.is_media,
-        media_url: opts.media_url,
-        mime_type: opts.mime_type,
-        file_name: opts.file_name,
-      });
+      const makeOptimistic = (opts: { content: string; is_media?: boolean; media_url?: string; mime_type?: string; file_name?: string; chatTo: ChatRecipient; }): RawMessage => {
+        const msg: any = {
+          id: Date.now() + Math.random(),
+          content: opts.content,
+          timestamp: new Date().toISOString(),
+          read: true,
+          readByPatient: true,
+          masterId: selected.masterId,
+          senderType: "patient",
+          side: "left", // patient replies show nicely
+          chatType: opts.chatTo,
+          is_media: !!opts.is_media,
+        };
+        if (opts.media_url) msg.media_url = opts.media_url;
+        if (opts.mime_type) msg.mime_type = opts.mime_type;
+        if (opts.file_name) msg.file_name = opts.file_name;
+        return msg;
+      };
 
       const optimistic: RawMessage[] = [];
 
-      // 2) text + first file
       if (body) {
         const first = uploads[0];
-        await MessageService.sendMessage({
+        
+        const payload: any = {
           master_id: selected.masterId,
           to: composeTo,
           content: body,
           is_media: !!first,
-          media_url: first?.url,
-          media_mime_type: first?.mimeType,
-          media_file_name: first?.fileName,
-          ...(user?.first_name != null && { first_name: user.first_name }),
-          ...(user?.last_name != null && { last_name: user.last_name }),
           app_name: env.VITE_APP_NAME,
-        });
+        };
+        if (first?.url) payload.media_url = first.url;
+        if (first?.mimeType) payload.media_mime_type = first.mimeType;
+        if (first?.fileName) payload.media_file_name = first.fileName;
+        if (user?.first_name) payload.first_name = user.first_name;
+        if (user?.last_name) payload.last_name = user.last_name;
 
-        optimistic.push(
-          makeOptimistic({
-            content: body,
-            is_media: !!first,
-            media_url: first?.url,
-            mime_type: first?.mimeType,
-            file_name: first?.fileName,
-            chatTo: composeTo,
-          })
-        );
+        await MessageService.sendMessage(payload);
 
+        const optOptsMain: any = { content: body, is_media: !!first, chatTo: composeTo };
+        if (first?.url) optOptsMain.media_url = first.url;
+        if (first?.mimeType) optOptsMain.mime_type = first.mimeType;
+        if (first?.fileName) optOptsMain.file_name = first.fileName;
+        optimistic.push(makeOptimistic(optOptsMain));
         if (first) uploads.shift();
       }
 
-      // 3) remaining files
       for (const up of uploads) {
-        await MessageService.sendMessage({
+        const payload: any = {
           master_id: selected.masterId,
           to: composeTo,
           content: up.fileName || "Attachment",
@@ -521,35 +419,32 @@ export default function Messages() {
           media_url: up.url,
           media_mime_type: up.mimeType,
           media_file_name: up.fileName,
-          ...(user?.first_name != null && { first_name: user.first_name }),
-          ...(user?.last_name != null && { last_name: user.last_name }),
           app_name: env.VITE_APP_NAME,
-        });
+        };
+        if (user?.first_name) payload.first_name = user.first_name;
+        if (user?.last_name) payload.last_name = user.last_name;
 
-        optimistic.push(
-          makeOptimistic({
-            content: up.fileName || "Attachment",
-            is_media: true,
-            media_url: up.url,
-            mime_type: up.mimeType,
-            file_name: up.fileName,
-            chatTo: composeTo,
-          })
-        );
+        await MessageService.sendMessage(payload);
+        
+        const optOpts: any = { content: up.fileName || "Attachment", is_media: true, chatTo: composeTo };
+        if (up.url) optOpts.media_url = up.url;
+        if (up.mimeType) optOpts.mime_type = up.mimeType;
+        if (up.fileName) optOpts.file_name = up.fileName;
+        optimistic.push(makeOptimistic(optOpts));
       }
 
-      // 4) update UI
       const next = [...optimistic, ...(selected.messages || [])];
-      setSelected((prev) => (prev ? { ...prev, messages: next } : prev));
       setConversations((prev) =>
         prev.map((c) => (c.id === selected.id ? { ...c, messages: next } : c))
       );
 
       setComposeText("");
       setAttachedFiles([]);
-      setTimeout(() => scrollToBottom(true), 40);
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 40);
+      void loadConversations();
     } finally {
       setUploading(false);
+      sendInFlightRef.current = false;
     }
   };
 
@@ -558,323 +453,266 @@ export default function Messages() {
     [conversations, search]
   );
 
+  const selectedChat = conversations.find(c => c.id === selectedId);
+
   return (
-    <div className="h-screen flex flex-col p-6">
-      <div className="flex items-center justify-between mb-6 flex-shrink-0">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Messages</h1>
-          <p className="text-muted-foreground">All messages (Doctor + Support) per visit</p>
+    <div className="km-msg-layout">
+      {/* THREAD LIST PANEL */}
+      <div className="km-msg-list-panel">
+        <div style={{ padding: "20px 16px 12px", borderBottom: "1px solid var(--km-b)" }}>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 500, marginBottom: 12 }}>Messages</div>
+          <div className="km-swrap" style={{ marginBottom: 0, position: "relative" }}>
+            <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 14, height: 14, color: "var(--km-tm)" }} />
+            <input 
+              className="km-sinp" 
+              style={{ width: "100%", background: "var(--km-s2)", border: "1px solid var(--km-b)", borderRadius: "var(--km-rs)", padding: "10px 13px 10px 36px", color: "var(--km-t)", fontSize: 13, outline: "none" }}
+              placeholder="Search messages..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onFocus={() => {
+                // On mobile, close chat panel when search gets focus
+                if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                  setSelectedId(null);
+                }
+              }}
+            />
+          </div>
         </div>
+
+        {filtered.map(c => {
+          const lastMsg = (c.messages || []).slice().sort(byTimeDesc)[0];
+          const avText = c.label.substring(0, 2).toUpperCase();
+          const pType = c.label.toUpperCase(); // Group by Treatment Type
+          const isUnread = c.messages?.some(m => !m.readByPatient && isInboundForPatient(m));
+          
+          return (
+            <div key={c.id}>
+              <div className="km-msg-group-label" style={{ padding: "16px 16px 8px", fontSize: '10px', color: 'var(--km-tm)' }}>{pType}</div>
+              <div
+                className={`km-mthread ${selectedId === c.id ? "msg-active" : ""} ${isUnread ? "unread" : ""}`}
+                onClick={() => setSelectedId(c.id)}
+                style={{ position: 'relative', background: isUnread && selectedId !== c.id ? 'var(--km-acp)' : undefined }}
+              >
+                <div className="km-mavt" style={{ background: isUnread ? 'var(--km-ac)' : 'var(--km-s2)', color: isUnread ? '#fff' : 'var(--km-gr)', fontWeight: 600 }}>{avText}</div>
+                <div className="km-mbody">
+                  <div className="km-mfrom" style={{ fontSize: '13px', fontWeight: isUnread ? 700 : 500, color: isUnread ? 'var(--km-t)' : 'var(--km-tm)' }}>{c.label} · {c.masterId.substring(0, 8)}</div>
+                  <div className="km-mprev" style={{ fontSize: '11px', color: isUnread ? 'var(--km-t)' : 'var(--km-tm)', fontWeight: isUnread ? 500 : 400, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {formatThreadPreview(lastMsg)}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                  <div className="km-mtime" style={{ fontSize: '10px', color: 'var(--km-tm)' }}>{lastMsg ? format(new Date(lastMsg.timestamp), "MMM d") : ""}</div>
+                  {isUnread && <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--km-ac)', boxShadow: '0 0 0 2px var(--km-bg)' }}></div>}
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[700px] overflow-hidden">
-        {/* Sidebar */}
-        <Card className="lg:col-span-1 flex flex-col overflow-hidden dark:bg-slate-950/40">
-          <CardHeader className="pb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Search..."
-                className="pl-10 dark:bg-white dark:!text-black dark:placeholder:text-slate-400 messages-search-input"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+      {/* CHAT PANEL */}
+      <div className={`km-msg-chat-panel ${selectedId ? 'open' : ''}`}>
+        
+        {/* Empty state (desktop) */}
+        {!selectedChat && (
+          <div className="km-msg-empty-state">
+            <div style={{ fontSize: 36, marginBottom: 12 }}>💬</div>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Select a conversation</div>
+            <div style={{ fontSize: 13, color: "var(--km-tm)" }}>Choose a thread from the list to start reading</div>
+          </div>
+        )}
+
+        {/* Active chat */}
+        {selectedChat && (
+          <>
+            
+            {/* Chat header */}
+            <div className="km-msg-chat-header">
+              <button className="km-msg-back-btn" onClick={() => setSelectedId(null)}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <div className="km-mavt" style={{ width: 34, height: 34, fontSize: 11 }}>
+                {selectedChat.label.substring(0,2).toUpperCase()}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 700 }}>{selectedChat.label}</div>
+                <div style={{ fontSize: 11, color: "var(--km-tm)" }}>Doctor + Support · Unified thread</div>
+              </div>
             </div>
-          </CardHeader>
-          <CardContent className="p-0 flex-1 overflow-y-auto">
-            {filtered.map((c) => {
-              const isSelected = selected?.id === c.id;
-              const last = c.messages?.[0];
-              const isHighlighted = highlightedChats[c.id] === true;
 
-              return (
-                <div
-                  key={c.id}
-                  className={`relative p-4 cursor-pointer border-l-4 flex items-start transition-colors ${
-                    isSelected
-                      ? "bg-slate-100 dark:bg-slate-900 border-blue-600"
-                      : isHighlighted
-                      ? "bg-slate-50 dark:bg-slate-900/70 border-blue-500"
-                      : "hover:bg-slate-50 dark:hover:bg-slate-900/60 border-transparent"
-                  }`}
-                  onClick={() => {
-                    selectConversation(c);
-                    setHighlightedChats((prev) => ({ ...prev, [c.id]: false }));
-                  }}
-                >
-                  <div className="relative mr-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage />
-                      <AvatarFallback>CH</AvatarFallback>
-                    </Avatar>
-                    {isHighlighted && (
-                      <span
-                        aria-hidden
-                        className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-blue-600 ring-2 ring-white"
-                        title="New message"
-                      />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className={`truncate ${isHighlighted ? "font-semibold text-foreground" : "font-medium text-foreground"}`}>
-                        {c.label}
-                      </p>
-                      {last && (
-                        <span className="ml-2 shrink-0 text-xs text-muted-foreground">
-                          {new Date(last.timestamp).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      )}
-                    </div>
-                    <p className={`text-xs truncate ${
-                      isHighlighted ? "text-foreground font-medium" : "text-muted-foreground"
-                    }`}>
-                      {last?.content}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-
-        {/* Chat window */}
-        <Card className="lg:col-span-2 flex flex-col min-h-0 overflow-hidden dark:bg-slate-950/40">
-          {selected && (
-            <>
-              <CardHeader className="pb-4 flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage />
-                      <AvatarFallback>CH</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h3 className="font-medium text-foreground">{selected.label}</h3>
-                      <p className="text-sm text-muted-foreground">Unified thread</p>
-                    </div>
-                  </div>
-                </div>
-                <Separator />
-              </CardHeader>
-
-              <CardContent
-                ref={scrollContainerRef}
-                className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0"
-                onScroll={onScroll}
-              >
-                {(() => {
-                  const chronological = [...(selected.messages || [])].sort(byTimeAsc);
-                  const grouped = groupMessagesByDate(chronological);
-                  const days = Object.keys(grouped).sort(
-                    (a, b) => new Date(a).getTime() - new Date(b).getTime()
-                  );
-
-                  return days.map((day) => (
-                    <div key={day}>
-                      <div className="flex justify-center my-4">
-                        <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-slate-200 shadow-sm">
-                          {getMessageGroupLabel(day)}
-                        </span>
+            {/* Messages */}
+            <div className="km-cwrap" style={{ flex: 1, overflowY: "auto" }}>
+              {(() => {
+                const arr = [...(selectedChat.messages || [])].sort(byTimeAsc);
+                const grouped = groupMessagesByDate(arr);
+                return Object.keys(grouped).map((dateKey) => {
+                  const msgs = grouped[dateKey];
+                  return (
+                    <div key={dateKey} style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                      <div className="km-cdiv">
+                        {isToday(new Date(dateKey)) ? "Today" : isYesterday(new Date(dateKey)) ? "Yesterday" : format(new Date(dateKey), "MMM d")}
                       </div>
-                      <div className="space-y-4">
-                        {grouped[day].map((m) => {
-                          const isMe = m.side ? m.side === "left" : m.senderType === "patient";
-                          const alignment = isMe ? "justify-end" : "justify-start";
-                          let bubble = isMe ? "bg-blue-600 text-white" : "bg-gray-100 dark:bg-slate-900 text-gray-900 dark:text-slate-100";
-                          let sub = isMe ? "text-blue-100" : "text-gray-500 dark:text-slate-400";
+                      {msgs && msgs.map((m) => {
+                        const isMe = !isInboundForPatient(m);
+                        const nameStr = m.senderType === "doctor" ? "Doctor" : m.senderType === "support" || m.senderType === "super_support" ? "Support" : "You";
 
-                          if (!isMe && m.senderType === "super_support") {
-                            bubble = "bg-purple-100 text-purple-800";
-                            sub = "text-purple-700";
-                          } else if (!isMe && m.senderType === "support") {
-                            bubble = "bg-purple-100 text-purple-800";
-                            sub = "text-purple-700";
-                          }
-
-                          return (
-                            <div key={m.id} className={`flex ${alignment}`}>
-                              <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubble}`}>
-                                <div className="space-y-2">
-                                  {m.content && (
-                                    <p className="text-sm whitespace-pre-wrap break-words">
-                                      {linkifyText(m.content)}
-                                    </p>
-                                  )}
-                                  {m.is_media && m.media_url && (
+                        return (
+                          <div key={m.id} className={`km-cbwrap ${isMe ? 'me' : ''}`} style={{ marginBottom: 16 }}>
+                            {!isMe && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div style={{ fontSize: '11px', color: 'var(--km-tm)', marginLeft: 44 }}>
+                                  {nameStr} · {format(new Date(m.timestamp), "MMM d, h:mm a")}
+                                </div>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                                  <div className="km-cavsm" style={{ width: 32, height: 32, flexShrink: 0, background: 'var(--km-s2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: 'var(--km-ac)' }}>
+                                    {m.senderType === "doctor" ? "DR" : "SP"}
+                                  </div>
+                                  <div className={`km-bub them ${m.senderType === "support" || m.senderType === "super_support" ? "sup" : ""}`} style={{ maxWidth: '80%', padding: '12px 16px', borderRadius: '12px', fontSize: '13px', lineHeight: 1.5 }}>
+                                    {m.is_media ? (
+                                      isImage(m.mime_type) ? (
+                                        <a href={m.media_url} target="_blank" rel="noopener noreferrer">
+                                          <img src={m.media_url} alt="Attachment" style={{ maxWidth: 200, borderRadius: 8 }} />
+                                        </a>
+                                      ) : (
+                                        <DocumentBubble url={m.media_url!} name={m.file_name} mime={m.mime_type} />
+                                      )
+                                    ) : (
+                                      <div style={{ whiteSpace: "pre-wrap" }}>{linkifyText(m.content)}</div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            {isMe && (
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                                <div className="km-bub me" style={{ maxWidth: '80%', padding: '12px 16px', borderRadius: '12px', fontSize: '13px', lineHeight: 1.5, background: 'var(--km-ac)', color: '#fff' }}>
+                                  {m.is_media ? (
                                     isImage(m.mime_type) ? (
-                                      <a
-                                        href={m.media_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="block"
-                                        title={m.file_name || "Open image"}
-                                      >
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img
-                                          src={m.media_url}
-                                          alt={m.file_name || "attachment"}
-                                          className="rounded-md max-h-60 object-contain"
-                                        />
+                                      <a href={m.media_url} target="_blank" rel="noopener noreferrer">
+                                        <img src={m.media_url} alt="Attachment" style={{ maxWidth: 200, borderRadius: 8 }} />
                                       </a>
                                     ) : (
-                                      <div className="mb-1">
-                                        <DocumentBubble
-                                          url={m.media_url}
-                                          name={m.file_name || m.content}
-                                          mime={m.mime_type}
-                                        />
-                                      </div>
+                                      <DocumentBubble url={m.media_url!} name={m.file_name} mime={m.mime_type} />
                                     )
+                                  ) : (
+                                    <div style={{ whiteSpace: "pre-wrap" }}>{linkifyText(m.content)}</div>
                                   )}
                                 </div>
-
-                                <p className={`text-xs mt-1 ${sub}`}>
-                                  {routeLabel(m)} •{" "}
-                                  {new Date(m.timestamp).toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
-                                </p>
+                                <div style={{ fontSize: '11px', color: 'var(--km-tm)', marginRight: 4 }}>
+                                  You · {format(new Date(m.timestamp), "MMM d, h:mm a")}
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                  ));
-                })()}
-                <div ref={messagesEndRef} />
-              </CardContent>
+                  );
+                });
+              })()}
+              <div ref={messagesEndRef} />
+            </div>
 
-              {/* Composer */}
-              <div className="p-4 border-t bg-white dark:bg-slate-900 flex-shrink-0">
-                <div className="flex items-center gap-2 max-w-3xl mx-auto w-full">
-                  {/* Selected recipient chip (clickable) */}
-                  <div className="relative" ref={chipRef}>
-                    <button
-                      type="button"
-                      onClick={() => setShowChipMenu((v) => !v)}
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs text-gray-700 dark:!text-black bg-white dark:bg-slate-200 hover:bg-gray-50 dark:hover:bg-slate-300 relative z-30 messages-chip-trigger"
-                      title="Recipient"
-                    >
-                      <AtSign className="h-3.5 w-3.5" />
-                      <span className="capitalize">{composeTo}</span>
-                      <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
-                    </button>
-
-                    {showChipMenu && (
-                      <div
-                        ref={chipMenuRef}
-                        className="fixed bg-white dark:bg-slate-200 border dark:border-slate-400 rounded-md shadow-md w-40 overflow-hidden z-[9999] messages-chip-menu"
-                        style={{
-                          left: chipRef.current
-                            ? `${chipRef.current.getBoundingClientRect().left}px`
-                            : 0,
-                          top: chipRef.current
-                            ? `${chipRef.current.getBoundingClientRect().top - 90}px`
-                            : 0,
-                        }}
-                      >
-                        <button
-                          className={`w-full text-left px-3 py-2 text-gray-700 dark:!text-black hover:bg-gray-50 dark:hover:bg-slate-300 messages-chip-option ${
-                            composeTo === "doctor" ? "bg-gray-50 dark:bg-slate-300 font-medium" : ""
-                          }`}
-                          onClick={() => {
-                            setComposeTo("doctor");
-                            setShowChipMenu(false);
-                          }}
-                        >
-                          @ Doctor
-                        </button>
-                        <button
-                          className={`w-full text-left px-3 py-2 text-gray-700 dark:!text-black hover:bg-gray-50 dark:hover:bg-slate-300 messages-chip-option ${
-                            composeTo === "support" ? "bg-gray-50 dark:bg-slate-300 font-medium" : ""
-                          }`}
-                          onClick={() => {
-                            setComposeTo("support");
-                            setShowChipMenu(false);
-                          }}
-                        >
-                          @ Support
-                        </button>
-                      </div>
-                    )}
+            {/* Input Options (File Attachment Previews) */}
+            {attachedFiles.length > 0 && (
+              <div style={{ padding: "8px 14px", background: "var(--km-s2)", borderTop: "1px solid var(--km-b)", display: "flex", gap: 8, overflowX: "auto" }}>
+                {attachedFiles.map((file, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--km-s1)", border: "1px solid var(--km-b)", padding: "4px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600 }}>
+                    <Paperclip size={12} />
+                    <span style={{ maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
+                    <X size={12} style={{ cursor: "pointer", color: "var(--km-re)" }} onClick={() => setAttachedFiles(prev => prev.filter((_, idx) => idx !== i))} />
                   </div>
+                ))}
+              </div>
+            )}
 
-                  {/* Message text */}
-                  <div className="relative flex-1">
-                    <Input
-                      placeholder="Type your message…"
-                      value={composeText}
-                      onChange={(e) => setComposeText(e.target.value)}
-                      className="rounded-full border px-4 py-2 text-sm dark:bg-white dark:!text-black dark:placeholder:text-slate-400 messages-compose-input"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          send();
-                        }
-                      }}
-                    />
-                  </div>
-
-                  {/* Attach + Send */}
-                  <div className="flex items-center gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      className="hidden"
-                      accept={"image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"}
-                      multiple
-                      onChange={onChooseFile}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={openFilePicker}
-                      disabled={uploading}
-                      title="Attach images or documents"
-                      className="rounded-full"
+            {/* Input Bar */}
+            <div className="km-cibar">
+              {showRouting && (
+                <div style={{ position: "absolute", bottom: 54, left: 14, background: "var(--km-s1)", border: "1px solid var(--km-b)", borderRadius: "var(--km-rs)", boxShadow: "0 4px 20px rgba(0,0,0,.3)", overflow: "hidden", minWidth: 140, zIndex: 10 }}>
+                  <div style={{ padding: 6 }}>
+                    <div 
+                      onClick={() => { setComposeTo("doctor"); setShowRouting(false); }}
+                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 500, background: composeTo === "doctor" ? "var(--km-s2)" : "transparent" }}
                     >
-                      <Paperclip className="h-4 w-4" />
-                    </Button>
-
-                    <Button onClick={send} className="px-6" disabled={uploading}>
-                      <Send className="h-4 w-4 mr-2" />
-                      {uploading ? "Sending…" : "Send"}
-                    </Button>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      @ Doctor
+                    </div>
+                    <div 
+                      onClick={() => { setComposeTo("support"); setShowRouting(false); }}
+                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 500, background: composeTo === "support" ? "var(--km-s2)" : "transparent" }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                      @ Support
+                    </div>
                   </div>
                 </div>
+              )}
 
-                {/* Selected files preview (chips) */}
-                {attachedFiles.length > 0 && (
-                  <div className="max-w-3xl mx-auto mt-2 flex flex-wrap gap-2">
-                    {attachedFiles.map((f, idx) => (
-                      <span
-                        key={`${f.name}_${f.size}_${f.lastModified}`}
-                        className="inline-flex items-center gap-2 text-xs px-2 py-1 border rounded-full bg-gray-50"
-                      >
-                        {f.type?.startsWith("image/") ? "Image:" : "File:"} {f.name}
-                        <button
-                          onClick={() => removeFile(idx)}
-                          className="ml-1 hover:text-red-600"
-                          title="Remove"
-                          type="button"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
+              <div 
+                className="km-ctosel" 
+                onClick={() => setShowRouting(!showRouting)}
+                style={composeTo === "doctor" ? { background: "var(--km-acp)", color: "var(--km-ac)", borderColor: "var(--km-ac)" } : {}}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span>@ {composeTo === "doctor" ? "Doctor" : "Support"}</span>
+                <ChevronDown size={12} strokeWidth={2.5} />
               </div>
-            </>
-          )}
-        </Card>
+
+              <textarea
+                ref={composeInputRef}
+                className="km-cinp" 
+                placeholder="Type a message..." 
+                rows={1}
+                value={composeText}
+                onChange={(e) => setComposeText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+              />
+              
+              <div 
+                className="km-cattch" 
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Paperclip strokeWidth={2.5} />
+              </div>
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                style={{ display: 'none' }}
+                ref={fileInputRef}
+                onChange={(e) => {
+                  if (e.target.files) {
+                    setAttachedFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                  }
+                }}
+              />
+
+              <button 
+                className="km-csend" 
+                onClick={handleSend}
+                disabled={uploading}
+                style={{ opacity: uploading ? 0.6 : 1 }}
+              >
+                {uploading ? (
+                  <span style={{ fontSize: 13 }}>Sending...</span>
+                ) : (
+                  <>
+                    <Send strokeWidth={2.5} /> <span>Send</span>
+                  </>
+                )}
+              </button>
+            </div>
+            
+          </>
+        )}
       </div>
+
     </div>
   );
 }

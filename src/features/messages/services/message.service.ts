@@ -11,6 +11,7 @@ export interface RawMessage {
   readByPatient?: boolean;
   masterId: string;
   senderName?: string;
+  isFromDoctor?: boolean;
 
   // From BE
   senderType?: "patient" | "doctor" | "support" | "super_support" | "beluga_support" | "unknown";
@@ -48,6 +49,7 @@ export const MessageService = {
         readByPatient: m.readByPatient ?? m.read_by_patient,
         masterId: m.master_id ?? m.masterId,
         senderName: m.sender_name ?? m.senderName,
+        isFromDoctor: m.isFromDoctor ?? m.is_from_doctor,
         senderType: m.senderType,
         side: m.side,
         message_type: msgType,
@@ -97,9 +99,20 @@ export const MessageService = {
   async uploadAttachment(file: File): Promise<{ url: string; fileName: string; mimeType: string; path: string }> {
     const form = new FormData();
     form.append("file", file);
-    const res = await apiClient.post(`/storage/upload/`, form, {
+    const res = await apiClient.post<{
+      url: string;
+      fileName: string;
+      mimeType: string;
+      path: string;
+      originalFileName?: string;
+      original_file_name?: string;
+    }>(`/storage/upload/`, form, {
       headers: { "Content-Type": "multipart/form-data" },
     });
-    return res.data;
+    const data = res.data;
+    return {
+      ...data,
+      fileName: data.originalFileName || data.original_file_name || file.name,
+    };
   },
 };

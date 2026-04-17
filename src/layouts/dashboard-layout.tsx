@@ -1,56 +1,91 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
 
-/**
- * Dashboard layout component that provides the main structure for authenticated pages
- * Includes header, sidebar, and main content area
- * Uses simple HTTP polling for updates (no WebSocket complexity)
- */
 const DashboardLayout: React.FC = () => {
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const location = useLocation();
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const closeMobileSidebar = useCallback(() => setIsMobileSidebarOpen(false), []);
   const toggleMobileSidebar = useCallback(() => setIsMobileSidebarOpen((prev) => !prev), []);
 
-  // Ensure drawer never sticks open as a default state on mount.
   useEffect(() => {
     closeMobileSidebar();
   }, [closeMobileSidebar]);
 
-  // Keep an explicit mobile/desktop mode and close drawer when switching to desktop.
   useEffect(() => {
+    const setViewportVar = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--app-vh', `${vh}px`);
+    };
+
+    setViewportVar();
+
     const handleResize = () => {
-      const nextIsMobile = window.innerWidth < 768;
+      const nextIsMobile = window.innerWidth < 1024;
       setIsMobile(nextIsMobile);
-      if (!nextIsMobile) {
-        closeMobileSidebar();
-      }
+      setViewportVar();
+      if (!nextIsMobile) closeMobileSidebar();
     };
 
     handleResize();
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
   }, [closeMobileSidebar]);
 
   return (
     <NotificationsProvider>
-      <div className="min-h-screen bg-background overflow-x-hidden">
-        <Header 
+      <div
+        style={{
+          minHeight: "calc(var(--app-vh, 1vh) * 100)",
+          overflowX: "hidden",
+          background: "var(--km-bg)",
+          color: "var(--km-t)",
+          fontFamily: "'Outfit', sans-serif",
+        }}
+      >
+        <Header
           onMenuClick={toggleMobileSidebar}
           isSidebarOpen={isMobileSidebarOpen}
           showMenuButton={isMobile}
+          isMobile={isMobile}
         />
-        <div className="flex">
-          <Sidebar 
+
+        <div style={{ display: "flex", minHeight: "calc((var(--app-vh, 1vh) * 100) - 60px)", paddingTop: 60 }}>
+          <Sidebar
             isMobile={isMobile}
             isMobileOpen={isMobileSidebarOpen}
             onMobileClose={closeMobileSidebar}
           />
-          <main className="flex-1 overflow-auto transition-all duration-300 pt-16 md:pt-0">
-            <div className="p-4 md:p-6">
+
+          <main
+            style={{
+              flex: 1,
+              minWidth: 0,
+              marginLeft: isMobile ? 0 : 240,
+              transition: "margin-left 0.3s",
+            }}
+          >
+            {/* kinmeds3: pg padding 24px 20px → 28px 28px → 32px 36px, max-width 680→800→900 */}
+            <div
+              className={location.pathname.includes('/messages') ? '' : 'km-pg'}
+              style={location.pathname.includes('/messages') ? {
+                padding: 0,
+                maxWidth: '100%',
+                margin: 0,
+                height: 'calc((var(--app-vh, 1vh) * 100) - 60px)'
+              } : {
+                padding: isMobile ? "24px 20px 60px" : "32px 36px 60px",
+                maxWidth: isMobile ? 680 : 800,
+                margin: "0 auto",
+              }}
+            >
               <Outlet />
             </div>
           </main>

@@ -8,7 +8,6 @@
  */
 import { useEffect, useState } from 'react';
 import { getAvailableTreatments, startNewTreatment, AvailableTreatment } from './api';
-import { Button } from '@/components/ui/button';
 
 interface AvailableTreatmentsListProps {
   onStartTreatment?: (treatment: AvailableTreatment) => void;
@@ -76,21 +75,27 @@ export function AvailableTreatmentsList({ onStartTreatment }: AvailableTreatment
 
   if (loading) {
     return (
-      <div className="p-6 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        <span className="ml-3 text-muted-foreground">Loading treatments...</span>
+      <div className="km-sc km-fade" style={{ padding: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="km-skel" style={{ width: 32, height: 32, borderRadius: 8 }} />
+          <div style={{ flex: 1 }}>
+            <div className="km-skel" style={{ width: '40%', height: 14, marginBottom: 4 }} />
+            <div className="km-skel" style={{ width: '60%', height: 11 }} />
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6">
-        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-lg p-4">
-          <p className="text-red-700 dark:text-red-200">{error}</p>
+      <div className="km-vbox km-vbox-red km-fade">
+        <div style={{ flex: 1 }}>
+          <div style={{ color: 'var(--km-t)', fontWeight: 600, marginBottom: 2 }}>{error}</div>
           <button
             onClick={loadTreatments}
-            className="mt-2 text-sm text-red-600 dark:text-red-300 hover:text-red-800 dark:hover:text-red-200 underline"
+            className="km-btn km-btn-ghost"
+            style={{ padding: '2px 0', fontSize: 11 }}
           >
             Try again
           </button>
@@ -101,16 +106,16 @@ export function AvailableTreatmentsList({ onStartTreatment }: AvailableTreatment
 
   if (treatments.length === 0) {
     return (
-      <div className="p-6 text-center">
-        <div className="text-gray-400 dark:text-slate-500 mb-2">
-          <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-          </svg>
+      <div className="km-sc km-fade">
+        <div className="km-empty" style={{ padding: '36px 18px' }}>
+          <div className="km-eic">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+            </svg>
+          </div>
+          <div className="km-et">No treatments available</div>
+          <div className="km-es">Contact your provider for more information.</div>
         </div>
-        <p className="text-muted-foreground">No treatments available.</p>
-        <p className="text-sm text-muted-foreground mt-1">
-          Contact your provider for more information.
-        </p>
       </div>
     );
   }
@@ -120,14 +125,14 @@ export function AvailableTreatmentsList({ onStartTreatment }: AvailableTreatment
   const blockedTreatments = treatments.filter(t => !t.can_start);
 
   return (
-    <div className="space-y-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Available Treatments */}
       {availableTreatments.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold text-foreground mb-3">
-            Available ({availableTreatments.length})
-          </h3>
-          <div className="space-y-4">
+          <div className="fd" style={{ fontSize: 11, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '.5px' }}>
+            Available Treatments
+          </div>
+          <div className="fd" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {availableTreatments.map((treatment) => (
               <TreatmentCard
                 key={treatment.id}
@@ -142,11 +147,11 @@ export function AvailableTreatmentsList({ onStartTreatment }: AvailableTreatment
 
       {/* Blocked Treatments */}
       {blockedTreatments.length > 0 && (
-        <div>
-          <h3 className="text-sm font-medium text-muted-foreground mb-2">
-            Recently Completed ({blockedTreatments.length})
-          </h3>
-          <div className="space-y-3 opacity-70">
+        <div style={{ opacity: 0.7 }}>
+          <div className="fd" style={{ fontSize: 11, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '.5px' }}>
+            Recently Completed Treatments
+          </div>
+          <div className="fd" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {blockedTreatments.map((treatment) => (
               <TreatmentCard
                 key={treatment.id}
@@ -173,76 +178,58 @@ interface TreatmentCardProps {
 function TreatmentCard({ treatment, onStart, isStarting, formatDate, compact }: TreatmentCardProps) {
   if (compact) {
     return (
-      <div className="flex items-center justify-between py-3 px-4 bg-muted/70 rounded-lg">
-        <div className="flex items-center gap-3">
-          <span className="text-lg">💊</span>
-          <div>
-            <span className="text-sm font-medium text-foreground">{treatment.name}</span>
-            {treatment.days_remaining !== null && treatment.days_remaining > 0 && (
-              <span className="text-xs text-muted-foreground ml-2">
-                Available in {treatment.days_remaining} days
-              </span>
-            )}
+      <div className="km-etx-card km-fade" style={{ padding: '12px 14px', cursor: 'default' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 18 }}>💊</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--km-t)' }}>{treatment.name}</div>
+              {treatment.days_remaining !== null && treatment.days_remaining > 0 && (
+                <div style={{ fontSize: 11, color: 'var(--km-re)', marginTop: 2, fontWeight: 500 }}>
+                  Wait {treatment.days_remaining} days
+                </div>
+              )}
+            </div>
           </div>
+          {treatment.blocked_until && formatDate && (
+            <div style={{ fontSize: 11, color: 'var(--km-tm)', fontWeight: 600, fontFamily: 'monospace' }}>
+              {formatDate(treatment.blocked_until)}
+            </div>
+          )}
         </div>
-        {treatment.blocked_until && formatDate && (
-          <span className="text-xs text-muted-foreground">
-            {formatDate(treatment.blocked_until)}
-          </span>
-        )}
       </div>
     );
   }
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 hover:shadow-md transition-shadow">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2 mb-1">
-            <span className="text-xl">💊</span>
-            <h4 className="font-medium text-foreground break-words">{treatment.name}</h4>
-            {treatment.can_start ? (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-emerald-900/50 text-green-800 dark:text-emerald-200">
-                ✅ Available
-              </span>
-            ) : (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300">
-                ⏳ Wait {treatment.days_remaining} days
-              </span>
-            )}
-          </div>
-          
-          {treatment.description && (
-            <p className="text-sm text-muted-foreground mb-2 ml-7 break-words">
-              {treatment.description}
-            </p>
-          )}
-          
-          {treatment.treatment_type && (
-            <span className="text-xs text-muted-foreground ml-7">
-              Type: {treatment.treatment_type}
-            </span>
-          )}
+    <div className="km-etx-card km-fade">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--km-acp)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--km-b)' }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--km-ac)" strokeWidth="1.8"><path d="M12 22s-8-4.5-8-11.8A8 8 0 0112 2a8 8 0 018 8.2c0 7.3-8 11.8-8 11.8z"/></svg>
         </div>
-        
-        {treatment.can_start && onStart && (
-          <Button
-            onClick={onStart}
-            disabled={isStarting}
-            size="sm"
-            className="w-full md:w-auto md:ml-4 shrink-0 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
-          >
-            {isStarting ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
-                Starting...
-              </span>
-            ) : (
-              'Start'
-            )}
-          </Button>
-        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 2 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--km-t)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{treatment.name}</div>
+            <span className="km-badge km-badge-blue" style={{ fontSize: 10 }}>Available</span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--km-tm)', lineHeight: 1.4 }}>
+            {treatment.description || "Start your journey with a short intake questionnaire."}
+          </div>
+        </div>
       </div>
+      {treatment.can_start && onStart && (
+        <button
+          className="km-etx-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            onStart();
+          }}
+          disabled={isStarting}
+          style={{ opacity: isStarting ? 0.7 : 1, marginTop: 4 }}
+        >
+          {isStarting ? "Initializing..." : "Get Started"}
+        </button>
+      )}
     </div>
   );
 }

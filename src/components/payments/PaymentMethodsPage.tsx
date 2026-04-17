@@ -202,234 +202,219 @@ export default function PaymentMethodsPage() {
   };
 
   return (
-    <div className="min-h-screen px-4 py-10 md:px-10">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Button asChild variant="ghost">
-            <Link to="/dashboard/settings" className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Settings
-            </Link>
-          </Button>
-          <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Secure billing</span>
-        </div>
+    <div className="pg" id="pg-billing">
+      <div className="km-fade" style={{ marginBottom: 18 }}>
+        <p className="km-page-title">Billing</p>
+        <p className="km-page-sub" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <ShieldCheck size={12} /> Secure Billing
+        </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <Card className="border-border shadow-sm">
-          <CardHeader className="space-y-3">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <CardTitle className="text-3xl">Payment methods</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Keep your cards up to date for uninterrupted treatment deliveries and plan renewals.
-                </p>
-              </div>
-              {canCreate && (
-                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="gap-2" disabled={limitReached}>
-                      <Pencil className="h-4 w-4" />
-                      Add another card
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-xl">
-                    <DialogHeader>
-                      <DialogTitle className="text-2xl">Add a new card</DialogTitle>
-                      <DialogDescription>
-                        We use {gatewayLabel} to safely store your payment method.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="mt-4 space-y-4">
-                      {renderGatewayForm()}
-                      <Button onClick={handleSave} disabled={saving || !activeGateway} className="w-full">
-                        {saving ? 'Saving…' : 'Save card'}
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              )}
+      <div className="km-grid">
+        {/* PAYMENT METHODS */}
+          <div className="km-sc km-fade fd">
+            <div className="km-sct">Payment methods</div>
+            <div className="km-scs" style={{ fontSize: 13, lineHeight: 1.5 }}>
+              Keep your cards up to date for uninterrupted treatment deliveries and plan renewals.
             </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {limitReached && (
-              <div className="rounded-lg border border-dashed border-border bg-background p-3 text-xs text-muted-foreground">
+          
+          {canCreate && (
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <button className="km-btn km-btn-primary" disabled={limitReached} style={{ marginBottom: 18, gap: 8 }}>
+                  <Pencil size={14} />
+                  Add another card
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-w-xl km-billing-dialog">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl" style={{ fontFamily: "'Playfair Display', serif" }}>Add a new card</DialogTitle>
+                  <DialogDescription>
+                    We use {gatewayLabel} to safely store your payment method.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="mt-4 space-y-4">
+                  {renderGatewayForm()}
+                  <button onClick={handleSave} disabled={saving || !activeGateway} className="km-btn km-btn-primary" style={{ width: '100%', justifyContent: 'center', borderRadius: 10, padding: '10px 16px' }}>
+                    {saving ? 'Saving…' : 'Save card'}
+                  </button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {limitReached && (
+            <div className="km-vbox km-vbox-amber" style={{ marginBottom: 16 }}>
+              <div className="km-vsub">
                 You have reached the maximum of {paymentMethodLimit} saved cards. Remove a card before adding another.
               </div>
-            )}
-            {!canList ? (
-              <div className="rounded-lg border border-border bg-background p-6 text-sm text-muted-foreground">
-                You do not have permission to manage payment methods.
-              </div>
-            ) : loading ? (
-              <div className="rounded-lg border border-dashed border-border bg-background p-6 text-sm text-muted-foreground">
-                Loading payment methods…
-              </div>
-            ) : methods.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border bg-background p-6 text-sm text-muted-foreground">
-                No payment methods on file. Add a card to get started.
-              </div>
-            ) : (
-              <div className="space-y-8">
-                <section className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-foreground">Default card</p>
-                    <span className="text-xs text-muted-foreground">Used for automatic payments</span>
-                  </div>
-                  {defaultMethods.length === 0 ? (
-                    <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-                      No default card set.
-                    </div>
-                  ) : (
-                    defaultMethods.map((method) => (
-                      <div key={method.id} className="rounded-xl border border-primary/30 bg-primary/5 p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-4">
-                          <div className="flex items-center gap-4">
-                            <div className="flex h-10 w-14 items-center justify-center rounded-lg border border-primary/30 bg-background px-2">
-                              <img
-                                src={resolveCardIcon(method.card_brand)}
-                                alt={method.card_brand || 'card'}
-                                className="h-6 w-full object-contain"
-                              />
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold">
-                                {(method.card_brand || 'Card').replace(/\b\w/g, (c) => c.toUpperCase())}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {method.masked_card_number || '••••'}
-                                {method.card_expiry_month && method.card_expiry_year
-                                  ? ` • Exp ${method.card_expiry_month}/${method.card_expiry_year}`
-                                  : ''}
-                                {method.billing_postal_code ? ` • ZIP ${method.billing_postal_code}` : ''}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                              Default
-                            </span>
-                            {canDelete && (
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                disabled={methods.length <= 1}
-                                title={methods.length <= 1 ? 'Add another card before removing this one.' : 'Remove payment method'}
-                                onClick={() => handleDelete(method.id)}
-                              >
-                                Remove
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                        {methods.length <= 1 && (
-                          <p className="mt-3 text-xs text-muted-foreground">
-                            Add a new payment method before removing this one.
-                          </p>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </section>
+            </div>
+          )}
 
-                <section className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-foreground">Other cards</p>
-                    <span className="text-xs text-muted-foreground">Available for manual selection</span>
-                  </div>
-                  {otherMethods.length === 0 ? (
-                    <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-                      No additional cards.
-                    </div>
-                  ) : (
-                    otherMethods.map((method) => (
-                      <div key={method.id} className="rounded-xl border border-border bg-background p-4">
-                        <div className="flex flex-wrap items-center justify-between gap-4">
-                          <div className="flex items-center gap-4">
-                            <div className="flex h-10 w-14 items-center justify-center rounded-lg border border-border bg-background px-2">
-                              <img
-                                src={resolveCardIcon(method.card_brand)}
-                                alt={method.card_brand || 'card'}
-                                className="h-6 w-full object-contain"
-                              />
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold">
-                                {(method.card_brand || 'Card').replace(/\b\w/g, (c) => c.toUpperCase())}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {method.masked_card_number || '••••'}
-                                {method.card_expiry_month && method.card_expiry_year
-                                  ? ` • Exp ${method.card_expiry_month}/${method.card_expiry_year}`
-                                  : ''}
-                                {method.billing_postal_code ? ` • ZIP ${method.billing_postal_code}` : ''}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            {canUpdate && (
-                              <Button variant="outline" size="sm" onClick={() => handleSetDefault(method.id)}>
-                                Make Default
-                              </Button>
-                            )}
-                            {canDelete && (
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                disabled={methods.length <= 1}
-                                title={methods.length <= 1 ? 'Add another card before removing this one.' : 'Remove payment method'}
-                                onClick={() => handleDelete(method.id)}
-                              >
-                                Remove
-                              </Button>
-                            )}
-                          </div>
+          {!canList ? (
+            <div className="km-vbox km-vbox-red">
+               <div className="km-vsub">You do not have permission to manage payment methods.</div>
+            </div>
+          ) : loading ? (
+            <div className="km-vbox km-vbox-gray">
+              <div className="km-vsub">Loading payment methods…</div>
+            </div>
+          ) : methods.length === 0 ? (
+            <div className="km-vbox km-vbox-gray">
+              <div className="km-vsub">No payment methods on file. Add a card to get started.</div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {/* Default Card */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--km-t)' }}>Default card</span>
+                  <span style={{ fontSize: 11, color: 'var(--km-tm)' }}>Used for automatic payments</span>
+                </div>
+                {defaultMethods.map((method) => (
+                  <div key={method.id} style={{ background: 'var(--km-s2)', border: '1px solid var(--km-b)', borderRadius: 'var(--km-rs)', padding: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                      <div style={{ width: 46, height: 32, borderRadius: 6, background: 'var(--km-s3)', border: '1px solid var(--km-b)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <img
+                          src={resolveCardIcon(method.card_brand)}
+                          alt={method.card_brand || 'card'}
+                          style={{ height: 18, width: 26, objectFit: 'contain' }}
+                        />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--km-t)', marginBottom: 2 }}>
+                          {(method.card_brand || 'Card').replace(/\b\w/g, (c) => c.toUpperCase())}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--km-tm)' }}>
+                          {method.masked_card_number || '••••'}
+                          {method.card_expiry_month && method.card_expiry_year
+                            ? ` · Exp ${method.card_expiry_month}/${method.card_expiry_year}`
+                            : ''}
+                          {method.billing_postal_code ? ` · ZIP ${method.billing_postal_code}` : ''}
                         </div>
                       </div>
-                    ))
-                  )}
-                </section>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                      <span className="km-badge km-badge-blue" style={{ fontSize: 11 }}>Default</span>
+                      {canDelete && methods.length > 1 && (
+                        <button
+                          className="km-btn"
+                          style={{ padding: '5px 12px', fontSize: 12, background: 'var(--km-rep)', color: 'var(--km-re)', border: '1px solid rgba(239,68,68,0.2)' }}
+                          onClick={() => handleDelete(method.id)}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    {methods.length <= 1 && (
+                      <div style={{ fontSize: 11, color: 'var(--km-tm)', padding: '8px 10px', background: 'var(--km-s3)', borderRadius: 7 }}>
+                        Add a new payment method before removing this one.
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        <div className="space-y-6">
-          <Card className="border-border shadow-sm">
-            <CardContent className="space-y-4 p-6">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <ShieldCheck className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold">Secure by design</p>
-                  <p className="text-xs text-muted-foreground">Cards are tokenized and never stored on our servers.</p>
+              {/* Other Cards */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--km-t)' }}>Other cards</span>
+                  <span style={{ fontSize: 11, color: 'var(--km-tm)' }}>Available for manual selection</span>
                 </div>
+                {otherMethods.length === 0 ? (
+                  <div style={{ background: 'var(--km-s2)', border: '1px solid var(--km-b)', borderRadius: 'var(--km-rs)', padding: 14, fontSize: 13, color: 'var(--km-tm)' }}>
+                    No additional cards.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                     {otherMethods.map((method) => (
+                        <div key={method.id} style={{ background: 'var(--km-s2)', border: '1px solid var(--km-b)', borderRadius: 'var(--km-rs)', padding: 14 }}>
+                           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                              <div style={{ width: 46, height: 32, borderRadius: 6, background: 'var(--km-s3)', border: '1px solid var(--km-b)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <img
+                                  src={resolveCardIcon(method.card_brand)}
+                                  alt={method.card_brand || 'card'}
+                                  style={{ height: 18, width: 26, objectFit: 'contain' }}
+                                />
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--km-t)', marginBottom: 2 }}>
+                                  {(method.card_brand || 'Card').replace(/\b\w/g, (c) => c.toUpperCase())}
+                                </div>
+                                <div style={{ fontSize: 11, color: 'var(--km-tm)' }}>
+                                  {method.masked_card_number || '••••'}
+                                  {method.card_expiry_month && method.card_expiry_year
+                                    ? ` · Exp ${method.card_expiry_month}/${method.card_expiry_year}`
+                                    : ''}
+                                </div>
+                              </div>
+                           </div>
+                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              {canUpdate && (
+                                <button className="km-btn km-btn-outline" style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => handleSetDefault(method.id)}>
+                                  Make Default
+                                </button>
+                              )}
+                              {canDelete && (
+                                <button
+                                  className="km-btn"
+                                  style={{ padding: '5px 12px', fontSize: 12, background: 'var(--km-rep)', color: 'var(--km-re)', border: '1px solid rgba(239,68,68,0.2)' }}
+                                  onClick={() => handleDelete(method.id)}
+                                >
+                                  Remove
+                                </button>
+                              )}
+                           </div>
+                        </div>
+                     ))}
+                  </div>
+                )}
               </div>
-              <div className="rounded-xl border border-border bg-background p-4 text-xs text-muted-foreground">
-                Active gateway: <span className="font-semibold text-foreground">{gatewayLabel}</span>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          )}
+        </div>
 
-          <Card className="border-border shadow-sm">
-            <CardContent className="space-y-4 p-6">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground">
-                  <Sparkles className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold">Billing tips</p>
-                  <p className="text-xs text-muted-foreground">Use a card with enough balance for monthly renewals.</p>
-                </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {/* SECURE BY DESIGN */}
+          <div className="km-sc km-fade fd">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+              <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--km-t)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <ShieldCheck size={18} style={{ color: 'var(--km-bg)' }} strokeWidth={2.5} />
               </div>
-              <ul className="space-y-2 text-xs text-muted-foreground">
-                <li>• Update cards before they expire.</li>
-                <li>• Keep one default card for automated charges.</li>
-                <li>• Reach support for billing disputes.</li>
-              </ul>
-            </CardContent>
-          </Card>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--km-t)', marginBottom: 2 }}>Secure by design</div>
+                <div style={{ fontSize: 12, color: 'var(--km-tm)' }}>Cards are tokenized and never stored on our servers.</div>
+              </div>
+            </div>
+            <div style={{ background: 'var(--km-s2)', border: '1px solid var(--km-b)', borderRadius: 'var(--km-rs)', padding: '12px 14px', fontSize: 13, color: 'var(--km-tm)' }}>
+              Active gateway: <strong style={{ color: 'var(--km-t)' }}>{gatewayLabel}</strong>
+            </div>
+          </div>
+
+          {/* BILLING TIPS */}
+          <div className="km-sc km-fade fd">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+              <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--km-acp)', border: '1px solid var(--km-b)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--km-ac)" strokeWidth="1.8"><path d="M12 2v1M12 21v1M4.22 4.22l.71.71M18.36 18.36l.71.71M1 12h1M21 12h1M4.22 19.78l.71-.71M18.36 5.64l.71-.71"/><circle cx="12" cy="12" r="4"/></svg>
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--km-t)', marginBottom: 2 }}>Billing tips</div>
+                <div style={{ fontSize: 12, color: 'var(--km-tm)' }}>Use a card with enough balance for monthly renewals.</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                'Update cards before they expire.',
+                'Keep one default card for automated charges.',
+                'Reach support for billing disputes.'
+              ].map((tip, idx) => (
+                <div key={idx} style={{ fontSize: 13, color: 'var(--km-tm)', display: 'flex', alignItems: 'flex-start', gap: 7 }}>
+                  <span style={{ color: 'var(--km-ac)', marginTop: 1 }}>·</span>
+                  {tip}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>

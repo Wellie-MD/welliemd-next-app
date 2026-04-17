@@ -1,122 +1,216 @@
-import { Calendar, MessageSquare, FileText, ClipboardList, Pill } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Button } from "./ui/button";
+import {
+  MessageSquare,
+  Package,
+  TestTubes,
+  Compass,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { FollowUpList } from "@/features/followups";
-import { AvailableTreatmentsList } from "@/features/treatments";
+import { ActiveTreatmentsList } from "@/components/ActiveTreatmentsList";
+import { useAuth } from "@/features/auth";
+import { VisitService } from "@/features/visits/services/visit.service";
+import { getOrders } from "@/shared/api/ordersApi";
+import { useNotifications } from "@/contexts/NotificationsContext";
+import { getPatientFollowUps } from "@/features/followups/api";
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning 👋";
+  if (hour < 17) return "Good afternoon ☀️";
+  if (hour < 21) return "Good evening 🌆";
+  return "Good night 🌙";
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const firstName = user?.first_name || "";
+  const lastName = user?.last_name || "";
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  
+  // Sanitize display name - avoid showing system IDs, UUIDs, or email addresses
+  const isValidName = fullName.length > 1 && 
+    !fullName.includes('@') &&
+    !/^[0-9a-f]{8}-/.test(fullName); // reject UUID-like strings
+  const safeName = isValidName ? fullName : "there";
+  
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [stats, setStats] = useState({
+    treatments: 0,
+    orders: 0,
+  });
+  const [pendingFollowUps, setPendingFollowUps] = useState<number | null>(null);
+  const { unreadCount } = useNotifications();
 
-  const handleNavigation = (path: string) => {
-    navigate(path);
-  };
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setStatsLoading(true);
+        const [visitsRes, ordersRes] = await Promise.all([
+          VisitService.getPatientVisits(),
+          getOrders(1, 1) // Just get the count
+        ]);
+        
+        // Active treatments = non-completed/cancelled visits
+        const activeTreatmentsCount = visitsRes.filter(v => 
+          !['completed', 'cancelled'].includes(v.status.toLowerCase())
+        ).length;
+        
+        setStats({
+          treatments: activeTreatmentsCount,
+          orders: ordersRes.count || 0
+        });
+      } catch (error) {
+        console.error("Failed to fetch dashboard stats", error);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+    
+    fetchStats();
+  }, []);
+
+  // Fetch pending follow-up count
+  useEffect(() => {
+    const fetchFollowUps = async () => {
+      try {
+        const data = await getPatientFollowUps();
+        const pending = (data || []).filter(f => ['CREATED', 'VIEWED', 'IN_PROGRESS'].includes(f.status));
+        setPendingFollowUps(pending.length);
+      } catch {
+        setPendingFollowUps(0);
+      }
+    };
+    fetchFollowUps();
+  }, []);
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+    <div>
+      {/* ── Greeting ── */}
+      <div className="km-fade" style={{ paddingTop: 4, marginBottom: 20 }}>
+        <div style={{ fontSize: 13, color: "var(--km-tm)", marginBottom: 2 }}>
+          {getGreeting()}
+        </div>
+        <div
+          style={{
+            fontFamily: "'Playfair Display', serif",
+            fontSize: 26,
+            fontWeight: 500,
+            letterSpacing: -0.4,
+            color: "var(--km-t)",
+            maxWidth: "100%",
+            wordWrap: "break-word",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {safeName}
+        </div>
       </div>
 
-      {/* Follow-Up Questionnaires Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <ClipboardList className="h-5 w-5 text-blue-600" />
-            <CardTitle className="text-lg font-medium text-foreground">Follow-Up Questionnaires</CardTitle>
+      {/* ── Stats ── */}
+      <div className="km-stats-grid km-fade">
+        <div className="km-stat" onClick={() => navigate("/dashboard/treatments")}>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, lineHeight: 1, marginBottom: 3, color: "var(--km-ac)" }}>
+            {statsLoading ? <span className="km-skel" style={{ width: 20, height: 20, display: 'inline-block', borderRadius: 4 }} /> : stats.treatments}
           </div>
-        </CardHeader>
-        <CardContent>
+          <div style={{ fontSize: 11, color: "var(--km-tm)", fontWeight: 500, display: "flex", alignItems: "center", gap: 3 }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--km-ac)" }} />
+            Treatments
+          </div>
+        </div>
+        <div className="km-stat" onClick={() => navigate("/dashboard/orders")}>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, lineHeight: 1, marginBottom: 3, color: "var(--km-gr)" }}>
+            {statsLoading ? <span className="km-skel" style={{ width: 20, height: 20, display: 'inline-block', borderRadius: 4 }} /> : stats.orders}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--km-tm)", fontWeight: 500, display: "flex", alignItems: "center", gap: 3 }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--km-gr)" }} />
+            Orders
+          </div>
+        </div>
+        <div className="km-stat" onClick={() => navigate("/dashboard/messages")}>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, lineHeight: 1, marginBottom: 3, color: "var(--km-am)" }}>
+            {unreadCount}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--km-tm)", fontWeight: 500, display: "flex", alignItems: "center", gap: 3 }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--km-am)" }} />
+            Messages
+          </div>
+        </div>
+      </div>
+
+      {/* ── Follow-Up Questionnaires ── */}
+      <div className="km-dash-card km-fade">
+        <div className="km-dash-ch">
+          <div className="km-dash-ctrow">
+            <div className="km-dash-ci blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+                <rect x="9" y="3" width="6" height="4" rx="1"/>
+                <path d="M9 12h6M9 16h4"/>
+              </svg>
+            </div>
+            <span className="km-dash-ct">Follow-Up Questionnaires</span>
+          </div>
+          {pendingFollowUps !== null && pendingFollowUps > 0 && (
+            <span className="km-badge km-badge-red" style={{ fontSize: 10 }}>{pendingFollowUps} pending</span>
+          )}
+        </div>
+        <div style={{ padding: "10px 14px 14px", display: "flex", flexDirection: "column", gap: 0 }}>
           <FollowUpList />
-        </CardContent>
-      </Card>
-
-      {/* Start New Treatment Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Pill className="h-5 w-5 text-green-600" />
-            <CardTitle className="text-lg font-medium text-foreground">Start New Treatment</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <AvailableTreatmentsList />
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Upcoming Dates */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-medium text-foreground">Upcoming dates</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Calendar className="h-12 w-12 text-gray-300 dark:text-slate-600 mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No upcoming dates</h3>
-              <p className="text-muted-foreground text-sm">There are no upcoming dates at the moment.</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Treatments */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-medium text-foreground">Treatments</CardTitle>
-              <Button 
-                variant="link" 
-                className="text-blue-600 dark:text-blue-300 p-0 hover:text-blue-700 dark:hover:text-blue-200"
-                onClick={() => handleNavigation('/dashboard/treatments')}
-              >
-                View all
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Calendar className="h-12 w-12 text-gray-300 dark:text-slate-600 mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No active treatments</h3>
-              <p className="text-muted-foreground text-sm">There are not active treatments at the moment.</p>
-            </div>
-          </CardContent>
-        </Card>
+        </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => handleNavigation('/dashboard/appointments')}
-        >
-          <CardContent className="p-6 text-center">
-            <Calendar className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-            <h3 className="font-medium text-foreground mb-1">Schedule Appointment</h3>
-            <p className="text-sm text-muted-foreground">Book your next visit</p>
-          </CardContent>
-        </Card>
+      {/* ── Active Treatments ── */}
+      <div className="km-dash-card km-fade">
+        <div className="km-dash-ch">
+          <div className="km-dash-ctrow">
+            <div className="km-dash-ci purple">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18.5 2.5a2.121 2.121 0 013 3L7 20l-4 1 1-4L18.5 2.5z"/>
+              </svg>
+            </div>
+            <span className="km-dash-ct">Active Treatments</span>
+          </div>
+          <span className="km-dash-va" onClick={() => navigate("/dashboard/treatments")}>
+            View all
+          </span>
+        </div>
+        <div style={{ padding: "10px 14px 14px" }}>
+          <ActiveTreatmentsList />
+        </div>
+      </div>
 
-        <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => handleNavigation('/dashboard/messages')}
-        >
-          <CardContent className="p-6 text-center">
-            <MessageSquare className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-            <h3 className="font-medium text-foreground mb-1">Send Message</h3>
-            <p className="text-sm text-muted-foreground">Contact your doctor</p>
-          </CardContent>
-        </Card>
-
-        <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => handleNavigation('/dashboard/medical-records')}
-        >
-          <CardContent className="p-6 text-center">
-            <FileText className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-            <h3 className="font-medium text-foreground mb-1">Medical Records</h3>
-            <p className="text-sm text-muted-foreground">Check your medical records</p>
-          </CardContent>
-        </Card>
+      {/* ── Quick Actions ── */}
+      <div className="km-dash-card km-fade">
+        <div className="km-dash-ch" style={{ paddingBottom: 4 }}>
+          <div className="km-dash-ctrow">
+            <div className="km-dash-ci blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>
+              </svg>
+            </div>
+            <span className="km-dash-ct">Quick Actions</span>
+          </div>
+        </div>
+        <div className="km-qagrid">
+          {[
+            { icon: MessageSquare, label: "Message", desc: "Contact your care team", path: "/dashboard/messages" },
+            { icon: Package, label: "Orders", desc: "Track your deliveries", path: "/dashboard/orders" },
+            { icon: TestTubes, label: "Labs", desc: "View lab results", path: "/dashboard/labs" },
+            { icon: Compass, label: "Explore", desc: "Browse treatments", path: "/dashboard/explore" },
+          ].map((qa) => (
+            <div key={qa.label} className="km-qaitem" onClick={() => navigate(qa.path)}>
+              <div className="km-qaico">
+                <qa.icon size={18} strokeWidth={1.8} />
+              </div>
+              <div className="km-qalbl">{qa.label}</div>
+              <div className="km-qasub">{qa.desc}</div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

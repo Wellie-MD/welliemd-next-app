@@ -1,30 +1,27 @@
-import { useEffect, useRef } from "react";
-import { Menu, Moon, Sun, X } from "lucide-react";
+import { useRef, useEffect } from "react";
+import { Sun, Moon } from "lucide-react";
 import { UserProfileDropdown } from "./common/user-profile-dropdown";
 import { NotificationsDropdown } from "./common/notifications-dropdown";
 import { useAuth } from "@/features/auth";
 import { useDropdown } from "@/contexts/DropdownContext";
-import { MessagesDropdown } from "@/components/common/messages-dropdown";
 import { env } from "@/config/env";
 import { useBranding } from "@/features/branding/hooks/useBranding";
 import { useTheme } from "next-themes";
-
-
 
 interface HeaderProps {
   onMenuClick: () => void;
   isSidebarOpen: boolean;
   showMenuButton?: boolean;
+  isMobile?: boolean;
 }
 
-export default function Header({ onMenuClick, isSidebarOpen, showMenuButton = false }: HeaderProps) {
+export default function Header({ onMenuClick, isSidebarOpen, showMenuButton = false, isMobile = false }: HeaderProps) {
   const { isAuthenticated } = useAuth();
   const { closeAll } = useDropdown();
   const { logos } = useBranding();
   const { theme, setTheme } = useTheme();
   const isDark = theme === "dark";
   const headerRef = useRef<HTMLDivElement>(null);
-  const userThemeOverrideKey = "welliemd_patient_theme_user_set";
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -32,77 +29,95 @@ export default function Header({ onMenuClick, isSidebarOpen, showMenuButton = fa
         closeAll();
       }
     };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [closeAll]);
 
   return (
-    <header style={{ backgroundColor: 'var(--brand-primary)' }} className="px-6 py-4 border-b border-white/20">
-      <div className="flex items-center justify-between">
-        {/* Left side - Hamburger menu (mobile only) and Logo */}
-        <div className="flex items-center space-x-2 md:space-x-4">
-          {/* Hamburger menu for mobile only */}
+    <header
+      style={{
+        position: "fixed",
+        top: 0,
+        zIndex: 100,
+        width: "100%",
+        background: isDark ? "rgba(10,10,10,0.9)" : "rgba(244,242,238,0.92)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        borderBottom: "1px solid var(--km-b)",
+        padding: isMobile ? "0 12px" : "0 20px",
+        height: 60,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+      }}
+    >
+      <div ref={headerRef} style={{ display: "contents" }}>
+        {/* Left: hamburger + brand */}
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}>
           {showMenuButton && (
             <button
               onClick={onMenuClick}
-              className="block p-2 text-white hover:bg-white/10 rounded-lg transition-colors navbar"
+              style={{
+                width: 32,
+                height: 32,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 4,
+                cursor: "pointer",
+                borderRadius: 8,
+                border: "1px solid var(--km-b)",
+                background: "var(--km-s2)",
+                transition: "all 0.2s",
+              }}
               aria-label="Toggle menu"
             >
-              {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+              <span style={{ display: "block", width: 14, height: 1.5, background: "var(--km-tm)", borderRadius: 2 }} />
+              <span style={{ display: "block", width: 14, height: 1.5, background: "var(--km-tm)", borderRadius: 2 }} />
+              <span style={{ display: "block", width: 14, height: 1.5, background: "var(--km-tm)", borderRadius: 2 }} />
             </button>
           )}
-          
-          <div>
-            {logos?.square ? (
-              <div className="brand-logo-shell">
-                <img 
-                  src={logos.square} 
-                  alt={env.VITE_APP_NAME} 
-                  className="h-10 w-auto object-contain"
-                />
-              </div>
-            ) : (
-              <h1 className="text-white text-2xl font-semibold truncate max-w-[240px]">
-                {env.VITE_APP_NAME}
-              </h1>
-            )}
-          </div>
-        </div>
-        
-        {/* Search bar  */}
-        {/* <div className="hidden md:flex items-center space-x-4 flex-1 max-w-md mx-8">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60 h-4 w-4" />
-            <Input
-              placeholder="Search..."
-              className="pl-10 bg-white/10 border-white/20 text-white placeholder-white/60 focus:bg-white/20"
-            />
-          </div>
-        </div> */}
-        
-        {/* Right side - Icons */}
-        <div ref={headerRef} className="flex items-center space-x-1 md:space-x-2">
-          <MessagesDropdown className="text-white hover:bg-white/10 hidden md:block" />
-          
-          <NotificationsDropdown className="text-white hover:bg-white/10" />
 
+          {logos?.square ? (
+            <img src={logos.square} alt={env.VITE_APP_NAME} style={{ height: 28, width: "auto", objectFit: "contain", filter: isDark ? "brightness(0) invert(1)" : "none" }} />
+          ) : (
+            <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 500, color: "var(--km-t)" }}>
+              {env.VITE_APP_NAME}
+            </span>
+          )}
+        </div>
+
+        {/* Right: theme + notifications + user */}
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 8 }}>
+          {/* Theme toggle */}
           <button
-            type="button"
-            className="p-2 rounded-lg text-white hover:bg-white/10 transition-colors"
-            onClick={() => {
-              localStorage.setItem(userThemeOverrideKey, "true");
-              setTheme(isDark ? "light" : "dark");
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            className="km-nbtn"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              border: "1px solid var(--km-b)",
+              background: "var(--km-s2)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              color: "var(--km-tm)",
+              transition: "all 0.2s",
             }}
             aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
           >
-            {isDark ? <Sun size={18} /> : <Moon size={18} />}
+            {isDark ? <Sun size={14} /> : <Moon size={14} />}
           </button>
-          
+
+          {/* Notifications */}
+          <NotificationsDropdown />
+
+          {/* User chip */}
           {isAuthenticated && (
-            <UserProfileDropdown className="text-white hover:bg-white/10" />
+            <UserProfileDropdown className="" compact={isMobile} />
           )}
         </div>
       </div>

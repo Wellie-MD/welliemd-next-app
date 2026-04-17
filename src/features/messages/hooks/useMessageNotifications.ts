@@ -109,7 +109,7 @@ export function useMessageNotifications() {
     };
 
     load();
-    const i = setInterval(load, 10000); // Poll every 10 seconds
+    const i = setInterval(load, 30000); // Poll every 30 seconds
     return () => {
       alive = false;
       clearInterval(i);
