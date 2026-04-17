@@ -10,7 +10,6 @@ import { StatCard } from "@/components/ui/stat-card"
 import { DateRange } from "react-day-picker"
 import { isWithinInterval, parseISO, format } from "date-fns"
 import {
-  TREATMENT_OPTIONS,
   PURCHASE_TYPE_OPTIONS,
   RX_OTC_OPTIONS,
   PRODUCT_TYPE_OPTIONS,
@@ -46,7 +45,6 @@ function dateOnly(iso?: string) {
 const getRow = <T,>(...args: unknown[]): T => (args.length >= 2 ? args[1] : args[0])
 
 const statusFilters = ["All", "Active", "Inactive"];
-const treatmentFilters = ["All Treatments", ...TREATMENT_OPTIONS.map(opt => opt.label)];
 const purchaseTypeFilters = ["All Types", ...PURCHASE_TYPE_OPTIONS.map(opt => opt.label)];
 const rxOtcFilters = ["All", ...RX_OTC_OPTIONS.map(opt => opt.label)];
 
@@ -68,6 +66,10 @@ export default function Products() {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [categorySearch, setCategorySearch] = useState("");
   const [date, setDate] = useState<DateRange | undefined>();
+  // Dynamic treatment options loaded from the analytics API — derived from actual DB values.
+  // This automatically includes any free-text treatment slug (e.g. "branded_weight_loss").
+  const [treatmentOptions, setTreatmentOptions] = useState<{ id: string; name: string }[]>([]);
+  const treatmentFilters = ["All Treatments", ...treatmentOptions.map(t => t.name)];
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -100,17 +102,10 @@ export default function Products() {
           params.is_active = activeStatusFilter === "Active";
         }
 
-        // Add treatment filter
+        // Add treatment filter — use the slug (id) directly from treatmentOptions
         if (activeTreatmentFilter !== "All Treatments") {
-          const treatmentMapping: Record<string, string> = {
-            "Weight Loss": "weight_loss",
-            Glutathione: "glutathione",
-            ED: "ed",
-            "GLP Microdosing": "glp_microdosing",
-            Sermorelin: "sermorelin",
-            "NAD+": "nad_plus",
-          };
-          params.treatment = treatmentMapping[activeTreatmentFilter];
+          const matched = treatmentOptions.find(t => t.name === activeTreatmentFilter);
+          if (matched) params.treatment = matched.id;
         }
 
         // Add purchase type filter
@@ -182,6 +177,13 @@ export default function Products() {
   useEffect(() => {
     fetchProducts(1);
     fetchCategories();
+    // Fetch dynamic treatment options from the analytics API.
+    axiosInstance.get("/analytics/filters/treatments/")
+      .then(res => {
+        const data = Array.isArray(res.data) ? res.data : (res.data?.results ?? []);
+        setTreatmentOptions(data);
+      })
+      .catch(e => console.error("Failed to fetch treatment options:", e));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -337,8 +339,8 @@ export default function Products() {
           v === "one_time"
             ? "One Time"
             : v === "subscription"
-            ? "Subscription"
-            : v || "-";
+              ? "Subscription"
+              : v || "-";
         return <Badge variant="secondary">{formatted}</Badge>;
       },
     },

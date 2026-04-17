@@ -23,7 +23,6 @@ import { productApi, Product } from "@/api/products";
 import {
   PRODUCT_TYPE_OPTIONS,
   PURCHASE_TYPE_OPTIONS,
-  TREATMENT_OPTIONS,
   RX_OTC_OPTIONS,
   RX_DRUG_FORM_OPTIONS,
 } from "@/api/products";
@@ -34,51 +33,21 @@ import { listDoseMappings, ProductDoseMapping } from "@/api/productDoseMappings"
 import { templateApi } from "@/api/questionnaires";
 
 type TreatmentOption = {
-  value: string;
-  label: string;
+  value: string;  // slug, e.g. "branded_weight_loss"
+  label: string;  // original text, e.g. "Branded Weight Loss"
 };
 
-const normalizeTreatmentKey = (value: string): string =>
-  value
+/**
+ * Convert a free-text treatment label (e.g. "Branded Weight Loss") to a slug
+ * (e.g. "branded_weight_loss") suitable for storing in Product.treatment.
+ */
+const labelToSlug = (label: string): string =>
+  label
     .trim()
     .toLowerCase()
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ");
-
-const buildQuestionnaireTreatmentOptions = (
-  questionnaireTreatmentTypes: string[]
-): TreatmentOption[] => {
-  const baseByNormalizedLabel = new Map(
-    TREATMENT_OPTIONS.map((opt) => [normalizeTreatmentKey(opt.label), opt] as const)
-  );
-  const options: TreatmentOption[] = [];
-  const seen = new Set<string>();
-
-  const uniqueQuestionnaireTypes = Array.from(
-    new Set(
-      questionnaireTreatmentTypes
-        .map((value) => value.trim())
-        .filter((value) => value.length > 0)
-    )
-  ).sort((a, b) => a.localeCompare(b));
-
-  for (const treatmentType of uniqueQuestionnaireTypes) {
-    const normalizedLabel = normalizeTreatmentKey(treatmentType);
-    if (!normalizedLabel) continue;
-
-    const mappedOption = baseByNormalizedLabel.get(normalizedLabel);
-    if (!mappedOption) continue;
-    if (seen.has(mappedOption.value)) continue;
-
-    options.push({
-      value: mappedOption.value,
-      label: treatmentType,
-    });
-    seen.add(mappedOption.value);
-  }
-
-  return options;
-};
+    .replace(/\+/g, "_plus")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 
 interface ProductFormModalProps {
   open: boolean;
@@ -107,6 +76,7 @@ export function ProductFormModal({
   const [supplyProducts, setSupplyProducts] = useState<Product[]>([]);
   const [linkedSupplies, setLinkedSupplies] = useState<LinkedSupplyRow[]>([]);
   const [treatmentOptions, setTreatmentOptions] = useState<TreatmentOption[]>([]);
+  const [loadingTreatmentOptions, setLoadingTreatmentOptions] = useState(false);
   const [loadingDoseMappings, setLoadingDoseMappings] = useState(false);
   // Track the category for which dose mappings were loaded
   const doseMappingsLoadedForCategoryRef = useRef<number | null>(null);
@@ -181,26 +151,68 @@ export function ProductFormModal({
     }
   }, [open]);
 
-  // Load treatment options only from questionnaire treatment_type values
+  // Load treatment options from questionnaire treatment_type values.
+  // Uses a simple slug-derivation approach so ANY free-text value is supported:
+  //   label = original text (e.g. "Branded Weight Loss")
+  //   value = slugified version (e.g. "branded_weight_loss") stored in Product.treatment
+  // Backwards compat: if the current product's treatment slug is not in the
+  // questionnaire list, it is appended as an extra option so the select isn't blank.
   useEffect(() => {
     const fetchTreatmentOptions = async () => {
+      setLoadingTreatmentOptions(true);
       try {
         const templates = await templateApi.listTemplates();
-        const questionnaireTreatmentTypes = (templates || [])
-          .map((template) => template.treatment_type || "")
-          .filter(Boolean);
+        const uniqueLabels = Array.from(
+          new Set(
+            (templates || [])
+              .map((t) => (t.treatment_type || "").trim())
+              .filter(Boolean)
+          )
+        ).sort((a, b) => a.localeCompare(b));
 
-        setTreatmentOptions(buildQuestionnaireTreatmentOptions(questionnaireTreatmentTypes));
+        const derivedMap = new Map<string, string>();
+        uniqueLabels.forEach((label) => {
+          const value = labelToSlug(label);
+          if (!derivedMap.has(value)) {
+            derivedMap.set(value, label);
+          }
+        });
+
+        const derived: TreatmentOption[] = Array.from(derivedMap.entries()).map(([value, label]) => ({
+          value,
+          label,
+        }));
+
+        // Backwards-compat: if editing a product whose treatment slug isn't in
+        // the derived list, add it so the existing value still shows as selected.
+        if (product?.treatment) {
+          const existingSlug = product.treatment;
+          const alreadyPresent = derived.some((o) => o.value === existingSlug);
+          if (!alreadyPresent) {
+            let label = existingSlug.replace(/_plus$/g, "+").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+            if (existingSlug === "nad_plus") label = "NAD+";
+            if (existingSlug === "ed") label = "ED";
+
+            derived.push({
+              value: existingSlug,
+              label: label,
+            });
+          }
+        }
+
+        setTreatmentOptions(derived);
       } catch (error) {
         console.error("Failed to fetch questionnaire treatment types:", error);
         setTreatmentOptions([]);
+      } finally {
+        setLoadingTreatmentOptions(false);
       }
     };
 
     if (open) {
       fetchTreatmentOptions();
     }
-  }, [open]);
+  }, [open, product?.treatment]);
 
   // Fetch dose mappings when category changes
   useEffect(() => {
@@ -209,7 +221,7 @@ export function ProductFormModal({
     if (open && formData.category) {
       setLoadingDoseMappings(true);
     }
-    
+
     const fetchDoseMappings = async () => {
       if (!formData.category) {
         setDoseMappings([]);
@@ -234,7 +246,7 @@ export function ProductFormModal({
         setLoadingDoseMappings(false);
       }
     };
-    
+
     if (open) {
       fetchDoseMappings();
     }
@@ -247,18 +259,18 @@ export function ProductFormModal({
     if (loadingDoseMappings) {
       return;
     }
-    
+
     // Skip validation during initial form load
     if (isInitialLoadRef.current) {
       return;
     }
-    
+
     // Only validate when dose mappings are loaded for the current category
     // This prevents premature validation while waiting for API response
     if (doseMappingsLoadedForCategoryRef.current !== formData.category) {
       return;
     }
-    
+
     // Only reset if we have a dose_mapping selected and dose mappings have been loaded
     if (formData.dose_mapping && doseMappings.length > 0) {
       const isValid = doseMappings.some(dm => dm.id === formData.dose_mapping);
@@ -274,10 +286,10 @@ export function ProductFormModal({
 
   // Mark initial load as complete once dose mappings are loaded for the product's category
   useEffect(() => {
-    if (isInitialLoadRef.current && 
-        !loadingDoseMappings && 
-        product && 
-        doseMappingsLoadedForCategoryRef.current === formData.category) {
+    if (isInitialLoadRef.current &&
+      !loadingDoseMappings &&
+      product &&
+      doseMappingsLoadedForCategoryRef.current === formData.category) {
       isInitialLoadRef.current = false;
     }
   }, [loadingDoseMappings, formData.category, product]);
@@ -288,7 +300,7 @@ export function ProductFormModal({
       isInitialLoadRef.current = true;
       doseMappingsLoadedForCategoryRef.current = null;
     }
-    
+
     if (product) {
       setFormData({
         name: product.name || "",
@@ -465,7 +477,7 @@ export function ProductFormModal({
           {/* Basic Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Basic Information</h3>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
                 <Label htmlFor="name">
@@ -577,9 +589,18 @@ export function ProductFormModal({
                 <Select
                   value={formData.treatment}
                   onValueChange={(value) => setFormData({ ...formData, treatment: value })}
+                  disabled={loadingTreatmentOptions}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue
+                      placeholder={
+                        loadingTreatmentOptions
+                          ? "Loading treatments..."
+                          : treatmentOptions.length === 0
+                            ? "No treatments found"
+                            : "Select treatment"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {treatmentOptions.map((opt) => (
@@ -587,6 +608,11 @@ export function ProductFormModal({
                         {opt.label}
                       </SelectItem>
                     ))}
+                    {treatmentOptions.length === 0 && !loadingTreatmentOptions && (
+                      <div className="p-2 text-sm text-muted-foreground text-center">
+                        No treatment types found in questionnaires
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -618,7 +644,7 @@ export function ProductFormModal({
           {/* Pricing */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Pricing</h3>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="cost_to_client">Medication Cost to Client ($)</Label>
@@ -673,7 +699,7 @@ export function ProductFormModal({
           {/* Product Details */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Product Details</h3>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="manufacturer_name">Manufacturer</Label>
@@ -797,7 +823,7 @@ export function ProductFormModal({
           {/* Integration */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Integration</h3>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="beluga_medicine_id">
@@ -828,7 +854,7 @@ export function ProductFormModal({
           {formData.product_type !== "supply" && (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Product Configuration</h3>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
                 <Label htmlFor="titration_category">Titration Category / Regimen</Label>
@@ -852,10 +878,10 @@ export function ProductFormModal({
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={
-                      !formData.category 
-                        ? "Select a category first" 
-                        : loadingDoseMappings 
-                          ? "Loading dose levels..." 
+                      !formData.category
+                        ? "Select a category first"
+                        : loadingDoseMappings
+                          ? "Loading dose levels..."
                           : "Select dose level (optional)"
                     } />
                   </SelectTrigger>
@@ -1012,7 +1038,7 @@ export function ProductFormModal({
           {/* Settings */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Settings</h3>
-            
+
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label htmlFor="is_active">Active</Label>
