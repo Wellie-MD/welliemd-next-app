@@ -8,6 +8,9 @@ export interface Visit {
   visit_type: string;
   status: string;
   master_id: string;
+  order_status?: string | null;
+  order_type?: string | null;
+  checkout_url?: string | null;
   consents_signed: boolean;
   beluga_visit_id: string;
   submitted_at: string | null;

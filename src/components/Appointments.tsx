@@ -29,6 +29,7 @@ function getTreatmentName(visit: Visit): string {
 
 // Status → badge config per kinmeds3
 const STATUS_CONFIG: Record<string, { label: string; css: string }> = {
+  draft:                { label: "Pending",         css: "km-badge km-badge-amber" },
   submitted:            { label: "Submitted",       css: "km-badge km-badge-blue" },
   approved:             { label: "Approved",        css: "km-badge km-badge-green" },
   in_review:            { label: "In Review",       css: "km-badge km-badge-amber" },
@@ -135,9 +136,15 @@ export default function Appointments() {
   const getStatusConfig = (status: string) =>
     STATUS_CONFIG[status.toLowerCase()] || { label: status, css: "km-badge km-badge-gray" };
 
+  const canCompleteCheckout = (v: Visit) => {
+    const isDraft = v.status.toLowerCase() === 'draft';
+    const canPay = ['created', 'payment_pending'].includes((v.order_status || '').toLowerCase());
+    return isDraft && canPay && Boolean(v.checkout_url);
+  };
+
   // Statuses that need action (dropped/incomplete questionnaire)
   const needsAction = (v: Visit) =>
-    ["pending", "visit_pending", "in_review", "submitted"].includes(v.status.toLowerCase());
+    canCompleteCheckout(v) || ["pending", "visit_pending", "in_review", "submitted"].includes(v.status.toLowerCase());
 
   const isCompleted = (v: Visit) =>
     v.status.toLowerCase() === "completed";
@@ -198,6 +205,7 @@ export default function Appointments() {
               {group.visits.map((visit) => {
                 const status = getStatusConfig(visit.status);
                 const pending = needsAction(visit);
+                const checkoutPending = canCompleteCheckout(visit);
                 const completed = isCompleted(visit);
                 const scheduled = isScheduled(visit);
                 const dotColor = scheduled ? 'var(--km-pu)' : 'var(--km-ac)';
@@ -263,14 +271,19 @@ export default function Appointments() {
                             <div style={{ fontSize: 12, color: 'var(--km-tm)' }}>
                               {scheduled
                                 ? 'Complete your questionnaire to unlock scheduling'
-                                : 'Complete your questionnaire to continue care'
-                              }
+                                : 'Complete your questionnaire to continue care'}
                             </div>
                           </div>
                           <button
                             className="km-btn-large-grey"
                             disabled={resumingId === visit.id}
-                            onClick={() => handleResume(visit.id)}
+                            onClick={() => {
+                              if (checkoutPending && visit.checkout_url) {
+                                window.location.assign(visit.checkout_url);
+                                return;
+                              }
+                              void handleResume(visit.id);
+                            }}
                           >
                             {resumingId === visit.id ? (
                               <>

@@ -41,6 +41,7 @@ export interface PatientOrder {
     chargeable_amount_source?: 'requested_medicine' | 'prescribed_medicine' | 'requested_medicine_fallback';
     requested_medicine_name?: string | null;
     prescribed_medicine_name?: string | null;
+    doctor_name?: string | null;
     created_at: string;
     prescribed_at: string | null;
     shipped_at: string | null;

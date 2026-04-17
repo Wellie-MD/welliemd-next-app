@@ -1014,86 +1014,99 @@ body.light .km-nbtn {
 
 /* --- Questionnaires (.qcard) --- */
 .km-qcard {
-  border-radius: 10px;
-  padding: 12px 14px;
-  background: var(--km-s1);
-  /* Use primary surface so it contrasts with bg */
+  border-radius: var(--km-rs);
+  padding: 13px 14px;
+  background: var(--km-s2);
   border: 1px solid var(--km-b);
   margin-bottom: 8px;
-  transition: all 0.2s;
 }
 
 .km-qcard.urgent {
   border-color: rgba(239, 68, 68, 0.3);
-  background: rgba(239, 68, 68, 0.02);
+  background: rgba(239, 68, 68, 0.04);
 }
 
 .km-qcard.inprog {
-  border-color: rgba(79, 142, 247, 0.3);
-  background: rgba(79, 142, 247, 0.02);
+  border-color: rgba(79, 142, 247, 0.25);
+  background: rgba(79, 142, 247, 0.04);
 }
 
 .km-qcard-top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 6px;
+  gap: 10px;
+  margin-bottom: 5px;
 }
 
 .km-qcard-name {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .km-qcard-meta {
   font-size: 11px;
   color: var(--km-tm);
-  margin-bottom: 4px;
+  margin-bottom: 7px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .km-qcard-expiry {
   font-size: 11px;
+  color: var(--km-re);
   font-weight: 600;
   display: flex;
   align-items: center;
   gap: 3px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .km-qcard-expiry svg {
-  width: 11px;
-  height: 11px;
+  width: 10px;
+  height: 10px;
 }
 
-.km-qcard.urgent .km-qcard-expiry {
+.km-qcard-expiry.due {
   color: var(--km-am);
 }
 
-.km-qcard.inprog .km-qcard-expiry {
+.km-qcard-access {
+  font-size: 11px;
   color: var(--km-tm);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.km-qcard-access svg {
+  width: 10px;
+  height: 10px;
+}
+
+.km-qcard-access.expiring {
+  color: var(--km-re);
 }
 
 .km-qbtn {
   width: 100%;
-  padding: 10px;
+  padding: 9px;
+  background: var(--km-ac);
+  border: none;
   border-radius: 8px;
+  color: #fff;
+  font-family: 'Outfit', sans-serif;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  border: none;
-  font-family: inherit;
-  transition: all 0.2s;
+  transition: background 0.2s;
 }
 
-.km-qbtn-p {
-  background: var(--km-ac);
-  color: #fff;
-}
-
-.km-qbtn-s {
-  background: var(--km-s2);
-  color: var(--km-t);
-  border: 1px solid var(--km-b);
+.km-qbtn:hover {
+  background: #3a7de6;
 }
 
 /* --- Badges --- */
@@ -1285,6 +1298,18 @@ body.light .km-nbtn {
 }
 
 .km-qbtn-cont:hover {
+  background: var(--km-ac);
+  color: #fff;
+  border-color: var(--km-ac);
+}
+
+:root:not(.dark) .km-qbtn-cont {
+  background: #e2e0dc;
+  color: #1a1a1a;
+  border-color: #ccc8c0;
+}
+
+:root:not(.dark) .km-qbtn-cont:hover {
   background: var(--km-ac);
   color: #fff;
   border-color: var(--km-ac);

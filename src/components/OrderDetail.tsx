@@ -316,7 +316,14 @@ export default function OrderDetail() {
   const statusConfig = STATUS_CONFIG[order.status] || { label: order.status, badgeClass: 'km-badge km-badge-gray' };
   const timeline = buildTimeline(order);
   const requestedMedicineName = order.requested_medicine_name || order.product_name;
-  const prescribedMedicineName = order.prescribed_medicine_name || null;
+  const rawPrescribedMedicineName = order.prescribed_medicine_name || null;
+  const prescribedNameNormalized = rawPrescribedMedicineName?.trim().toLowerCase();
+  const prescribedMedicineName =
+    prescribedNameNormalized === 'same med' ||
+    prescribedNameNormalized === 'same medicine' ||
+    prescribedNameNormalized === 'same medication'
+      ? requestedMedicineName
+      : rawPrescribedMedicineName;
   const displayAmount = order.chargeable_amount || order.amount;
 
   return (
@@ -484,7 +491,7 @@ export default function OrderDetail() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderBottom: '1px solid var(--km-b)' }}>
           <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>Prescribed by</span>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Healthcare Professional</span>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>{order.doctor_name || 'Healthcare Professional'}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderBottom: '1px solid var(--km-b)' }}>
           <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>Amount</span>

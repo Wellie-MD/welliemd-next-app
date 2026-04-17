@@ -57,6 +57,20 @@ export function FollowUpList({ onStartFollowUp }: FollowUpListProps) {
     });
   };
 
+  const resolveAccessInfo = (followUp: FollowUp) => {
+    const expiryDate = followUp.link_expires_at || followUp.expires_at;
+    if (!expiryDate) {
+      return {
+        label: 'Access',
+        value: 'Active until completion',
+      };
+    }
+    return {
+      label: 'Access expires',
+      value: formatDate(expiryDate),
+    };
+  };
+
   const handleStart = (f: FollowUp) => {
     if (onStartFollowUp) {
       onStartFollowUp(f);
@@ -71,6 +85,10 @@ export function FollowUpList({ onStartFollowUp }: FollowUpListProps) {
       {pendingFollowUps.map((f) => {
         const inProgress = f.status === 'IN_PROGRESS';
         const cardClass = inProgress ? 'km-qcard inprog' : 'km-qcard urgent';
+        const accessInfo = resolveAccessInfo(f);
+        const accessClass = accessInfo.label === 'Access expires'
+          ? 'km-qcard-access expiring'
+          : 'km-qcard-access';
         
         return (
           <div key={f.id} className={cardClass}>
@@ -90,14 +108,19 @@ export function FollowUpList({ onStartFollowUp }: FollowUpListProps) {
             <div className="km-qcard-meta">
               <span>Sent {formatDate(f.created_at)}</span>
             </div>
-            <div className="km-qcard-expiry">
+            {f.due_date && (
+              <div className="km-qcard-expiry due">
+                <Clock size={11} strokeWidth={2} />
+                <span>Due date {formatDate(f.due_date)}</span>
+              </div>
+            )}
+            <div className={accessClass}>
               <Clock size={11} strokeWidth={2} />
-              Due {formatDate(f.expires_at)}
+              {accessInfo.label}: {accessInfo.value}
             </div>
             <button 
-              className={inProgress ? 'km-qbtn km-qbtn-p' : 'km-qbtn km-qbtn-p'}
+              className={inProgress ? 'km-qbtn km-qbtn-cont' : 'km-qbtn'}
               onClick={() => handleStart(f)}
-              style={!inProgress ? { background: 'var(--km-ac)', color: '#fff' } : {}}
             >
               {inProgress ? 'Continue' : 'Start Questionnaire'}
             </button>
