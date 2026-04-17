@@ -489,11 +489,6 @@ export default function Analytics() {
           <StatCard
             title="Unique Visitors"
             value={analytics.visitors.unique.toLocaleString()}
-            helperText={
-              typeof analytics.visitors.uniqueByIp === "number"
-                ? `IP-level unique: ${analytics.visitors.uniqueByIp.toLocaleString()}`
-                : undefined
-            }
             className="border border-indigo-100 bg-gradient-to-r from-indigo-50 to-white shadow-sm dark:border-indigo-900/40 dark:from-indigo-950/40 dark:to-slate-900/40"
           />
           <StatCard title="Returning Visitors" value={returningVisitors.toLocaleString()} className="border border-amber-100 bg-gradient-to-r from-amber-50 to-white shadow-sm dark:border-amber-900/40 dark:from-amber-950/40 dark:to-slate-900/40" />
