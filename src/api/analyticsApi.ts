@@ -16,6 +16,7 @@ export interface AnalyticsData {
   visitors: {
     total: number;
     unique: number;
+    uniqueByIp?: number;
     totalPageviews: number;
     bounceRate: number;
     averageDuration: string;

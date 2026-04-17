@@ -146,6 +146,7 @@ export default function Analytics() {
   const capturedPaymentsAmount = analytics?.capturedPaymentsAmount ?? analytics?.checkoutMetrics?.capturedPaymentsAmount ?? analytics?.totalSales ?? 0
   const paymentPending = analytics?.paymentPending ?? analytics?.checkoutMetrics?.paymentPending ?? analytics?.customerBehavior?.checking ?? 0
   const averageVisitDuration = analytics?.visitors?.averageDuration || analytics?.visitors?.visitDuration || "0m 0s"
+  const returningVisitors = Math.max((analytics?.visitors?.total ?? 0) - (analytics?.visitors?.unique ?? 0), 0)
   const isUniqueVisitorSignalWeak = (analytics?.visitors?.total ?? 0) > 0 && analytics?.visitors?.total === analytics?.visitors?.unique
 
   const setQuickRange = (next: "day" | "week" | "month" | "year") => {
@@ -475,12 +476,27 @@ export default function Analytics() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
         <div className="lg:col-span-3">
-          <VisitorChart data={analytics.chartData} />
+          <VisitorChart
+            data={analytics.chartData}
+            summary={{
+              totalVisitors: analytics.visitors.total,
+              uniqueVisitors: analytics.visitors.unique,
+            }}
+          />
         </div>
         <div className="space-y-4">
           <StatCard title="Total Visitors" value={analytics.visitors.total.toLocaleString()} className="border border-blue-100 bg-gradient-to-r from-blue-50 to-white shadow-sm dark:border-blue-900/40 dark:from-blue-950/40 dark:to-slate-900/40" />
-          <StatCard title="Unique Visitors" value={analytics.visitors.unique.toLocaleString()} className="border border-indigo-100 bg-gradient-to-r from-indigo-50 to-white shadow-sm dark:border-indigo-900/40 dark:from-indigo-950/40 dark:to-slate-900/40" />
-          <StatCard title="Total Pageviews" value={analytics.visitors.totalPageviews.toLocaleString()} className="border border-amber-100 bg-gradient-to-r from-amber-50 to-white shadow-sm dark:border-amber-900/40 dark:from-amber-950/40 dark:to-slate-900/40" />
+          <StatCard
+            title="Unique Visitors"
+            value={analytics.visitors.unique.toLocaleString()}
+            helperText={
+              typeof analytics.visitors.uniqueByIp === "number"
+                ? `IP-level unique: ${analytics.visitors.uniqueByIp.toLocaleString()}`
+                : undefined
+            }
+            className="border border-indigo-100 bg-gradient-to-r from-indigo-50 to-white shadow-sm dark:border-indigo-900/40 dark:from-indigo-950/40 dark:to-slate-900/40"
+          />
+          <StatCard title="Returning Visitors" value={returningVisitors.toLocaleString()} className="border border-amber-100 bg-gradient-to-r from-amber-50 to-white shadow-sm dark:border-amber-900/40 dark:from-amber-950/40 dark:to-slate-900/40" />
           <StatCard title="Bounce Rate" value={`${analytics.visitors.bounceRate}%`} className="border border-rose-100 bg-gradient-to-r from-rose-50 to-white shadow-sm dark:border-rose-900/40 dark:from-rose-950/40 dark:to-slate-900/40" />
           <StatCard title="Average Visit Duration" value={averageVisitDuration} className="border border-emerald-100 bg-gradient-to-r from-emerald-50 to-white shadow-sm dark:border-emerald-900/40 dark:from-emerald-950/40 dark:to-slate-900/40" />
         </div>
