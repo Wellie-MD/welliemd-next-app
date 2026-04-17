@@ -237,6 +237,7 @@ function UserCard({ user, roles, onAssignRole, onDeactivate, onClick, primaryOwn
   const initials = `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
   const fullName = `${user.first_name} ${user.last_name}`;
   const displayRole = getDisplayRole(user);
+  const isSuperAdmin = displayRole === 'Super Admin';
   const isPrimaryOwner = displayRole === 'Primary Owner';
 
   const copyToClipboard = async (text: string, e: React.MouseEvent) => {
@@ -307,7 +308,7 @@ function UserCard({ user, roles, onAssignRole, onDeactivate, onClick, primaryOwn
         {getStatusBadge()}
         <Badge variant="secondary">{displayRole}</Badge>
 
-        {(!isPrimaryOwner || primaryOwnerCount > 1) && (
+        {!isSuperAdmin && (!isPrimaryOwner || primaryOwnerCount > 1) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

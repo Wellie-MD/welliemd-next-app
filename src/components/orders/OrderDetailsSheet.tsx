@@ -150,6 +150,27 @@ export function OrderDetailsSheet({
     )
     return Number.isNaN(amount) ? 0 : amount
   }, [order?.pricing?.grand_total, order?.grand_total, order?.payable_amount, order?.orderTotal, order?.amount])
+  const requestedMedicineName =
+    order?.requested_medicines?.[0]?.name ||
+    order?.product_name ||
+    "—"
+  const rawPrescribedMedicineName =
+    order?.prescribed_medicines?.[0]?.name ||
+    order?.prescription_medications?.[0]?.name ||
+    null
+  const prescribedNameNormalized = rawPrescribedMedicineName?.trim().toLowerCase()
+  const prescribedMedicineName =
+    prescribedNameNormalized === "same med" ||
+    prescribedNameNormalized === "same medicine" ||
+    prescribedNameNormalized === "same medication"
+      ? requestedMedicineName
+      : rawPrescribedMedicineName
+  const chargeableSourceLabel =
+    order?.chargeable_amount_source === "prescribed_medicine"
+      ? "Prescribed Pricing"
+      : order?.chargeable_amount_source === "requested_medicine_fallback"
+        ? "Requested Fallback Pricing"
+        : "Requested Pricing"
   const netCollected = Math.max(0, orderTotal - totalRefunded)
 
   const refundReasonOptions = [
@@ -200,8 +221,14 @@ export function OrderDetailsSheet({
       toast({
         title: isAuthorized ? "Authorization voided" : "Refund processed",
       })
-    } catch (error: any) {
-      const message = error?.response?.data?.detail || "Failed to process refund"
+    } catch (error: unknown) {
+      const message =
+        error &&
+        typeof error === "object" &&
+        "response" in error &&
+        (error as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          ? (error as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : "Failed to process refund"
       toast({ title: message, variant: "destructive" })
     } finally {
       setRefundLoading(false)
@@ -216,8 +243,11 @@ export function OrderDetailsSheet({
       setShowDeleteDialog(false)
       onOpenChange(false)
       toast({ title: "Order deleted" })
-    } catch (error: any) {
-      const message = error?.message || "Failed to delete order"
+    } catch (error: unknown) {
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String((error as { message?: string }).message || "Failed to delete order")
+          : "Failed to delete order"
       toast({ title: message, variant: "destructive" })
     } finally {
       setDeleteLoading(false)
@@ -316,6 +346,29 @@ export function OrderDetailsSheet({
                     icon={<CreditCard className="h-4 w-4" />} 
                     label="Order Total" 
                     value={`$${netCollected.toFixed(2)}`}
+                  />
+                  <InfoItem
+                    icon={<Package className="h-4 w-4" />}
+                    label="Requested (Original)"
+                    value={requestedMedicineName}
+                    tone="requested"
+                  />
+                  <InfoItem
+                    icon={<Package className="h-4 w-4" />}
+                    label="Prescribed (Doctor Final)"
+                    value={prescribedMedicineName || "Awaiting provider decision"}
+                    tone="prescribed"
+                  />
+                  <InfoItem
+                    icon={<ClipboardList className="h-4 w-4" />}
+                    label="Doctor"
+                    value={order.doctor_name || "—"}
+                  />
+                  <InfoItem
+                    icon={<CreditCard className="h-4 w-4" />}
+                    label="Amount Source"
+                    value={chargeableSourceLabel}
+                    tone="source"
                   />
                   <InfoItem
                     icon={<CreditCard className="h-4 w-4" />}
@@ -553,20 +606,35 @@ function InfoItem({
   label,
   value,
   allowWrap = false,
+  tone = "neutral",
 }: {
   icon: React.ReactNode
   label: string
   value?: string | null
   allowWrap?: boolean
+  tone?: "neutral" | "requested" | "prescribed" | "source"
 }) {
+  const toneClass =
+    tone === "requested"
+      ? "border-amber-200 bg-amber-50 text-amber-800"
+      : tone === "prescribed"
+        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+        : tone === "source"
+          ? "border-sky-200 bg-sky-50 text-sky-800"
+          : "border-transparent bg-transparent text-foreground"
+
   return (
     <div className="flex items-start gap-3">
       <div className="text-muted-foreground mt-0.5">{icon}</div>
       <div className="flex-1 min-w-0">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className={`text-sm font-medium ${allowWrap ? 'break-words' : 'truncate sm:break-words'}`}>
+        <div
+          className={`mt-0.5 inline-flex max-w-full items-center rounded-md border px-2 py-0.5 text-sm font-medium ${toneClass} ${
+            allowWrap ? "break-words" : "truncate sm:break-words"
+          }`}
+        >
           {value || "-"}
-        </p>
+        </div>
       </div>
     </div>
   )

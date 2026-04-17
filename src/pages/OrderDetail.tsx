@@ -558,11 +558,35 @@ export default function OrderDetail() {
     order.requested_medicines?.[0]?.name ||
     order.product_name ||
     "—"
-  const prescribedMedicineName =
+  const rawPrescribedMedicineName =
     order.prescribed_medicines?.[0]?.name ||
     order.prescription_medications?.[0]?.name ||
     null
+  const prescribedNameNormalized = rawPrescribedMedicineName?.trim().toLowerCase()
+  const isSameMedicinePlaceholder =
+    prescribedNameNormalized === "same med" ||
+    prescribedNameNormalized === "same medicine" ||
+    prescribedNameNormalized === "same medication"
+  const prescribedMedicineName = isSameMedicinePlaceholder
+    ? requestedMedicineName
+    : rawPrescribedMedicineName
   const chargeableAmountSource = order.chargeable_amount_source || "requested_medicine"
+  const requestedPillClass =
+    "inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
+  const prescribedPillClass =
+    "inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300"
+  const amountSourcePillClass =
+    chargeableAmountSource === "prescribed_medicine"
+      ? "inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300"
+      : chargeableAmountSource === "requested_medicine_fallback"
+        ? "inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-rose-800 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-300"
+        : "inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
+  const amountSourceLabel =
+    chargeableAmountSource === "prescribed_medicine"
+      ? "Prescribed (Doctor Final)"
+      : chargeableAmountSource === "requested_medicine_fallback"
+        ? "Requested Fallback"
+        : "Requested (Original)"
   const pharmacyDisplayName =
     order.pharmacy_name ||
     order.pharmacy_display ||
@@ -743,10 +767,14 @@ export default function OrderDetail() {
                               : order.treatment_type || ""}
                           </p>
                           <p className="text-xs text-slate-500 mt-1">
-                            Requested: <span className="text-slate-700 dark:text-slate-300">{requestedMedicineName}</span>
+                            Requested (Original):{" "}
+                            <span className={requestedPillClass}>{requestedMedicineName}</span>
                           </p>
                           <p className="text-xs text-slate-500 mt-0.5">
-                            Prescribed: <span className="text-slate-700 dark:text-slate-300">{prescribedMedicineName || "Awaiting provider decision"}</span>
+                            Prescribed (Doctor Final):{" "}
+                            <span className={prescribedPillClass}>
+                              {prescribedMedicineName || "Awaiting provider decision"}
+                            </span>
                           </p>
                           <p className="text-xs text-slate-500 mt-0.5">
                             Doctor: <span className="text-slate-700 dark:text-slate-300">{order.doctor_name || "—"}</span>
@@ -874,12 +902,11 @@ export default function OrderDetail() {
                     <td className="px-6 py-3 text-right font-bold text-primary border-t border-border">
                       <div className="flex flex-col items-end">
                         <span>${netTotalPrice}</span>
-                        <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
-                          {chargeableAmountSource === "prescribed_medicine"
-                            ? "Prescribed medicine + shipping"
-                            : chargeableAmountSource === "requested_medicine_fallback"
-                              ? "Requested medicine fallback + shipping"
-                              : "Requested medicine + shipping"}
+                        <span className="mt-1 text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                          Amount Source:
+                        </span>
+                        <span className={`mt-1 text-[11px] ${amountSourcePillClass}`}>
+                          {amountSourceLabel} + shipping
                         </span>
                       </div>
                     </td>
@@ -969,13 +996,23 @@ export default function OrderDetail() {
                   <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Product</p>
                   <p className="text-sm font-medium text-slate-900 dark:text-white">{displayProductName}</p>
                   <p className="text-xs text-slate-500 mt-1">
-                    Requested: <span className="text-slate-700 dark:text-slate-300">{requestedMedicineName}</span>
+                    Requested (Original):{" "}
+                    <span className={requestedPillClass}>{requestedMedicineName}</span>
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
-                    Prescribed: <span className="text-slate-700 dark:text-slate-300">{prescribedMedicineName || "Awaiting provider decision"}</span>
+                    Prescribed (Doctor Final):{" "}
+                    <span className={prescribedPillClass}>
+                      {prescribedMedicineName || "Awaiting provider decision"}
+                    </span>
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
                     Doctor: <span className="text-slate-700 dark:text-slate-300">{order.doctor_name || "—"}</span>
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Amount Source:{" "}
+                    <span className={amountSourcePillClass}>
+                      {amountSourceLabel}
+                    </span>
                   </p>
                 </div>
                 <div className="p-3 bg-muted/40 rounded-lg border">
