@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, Eye, DollarSign, MoreHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShoppingCart, Eye, DollarSign, MoreHorizontal, ChevronLeft, ChevronRight, CalendarIcon, RefreshCw } from "lucide-react";
 import mockData from "@/data/mockData.json";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { SalesChart } from "@/components/dashboard/SalesChart";
@@ -14,23 +14,91 @@ import { DataTable } from "@/components/dashboard/DataTable";
 import { PaymentTable } from "@/components/dashboard/PaymentTable";
 import { DashboardData } from "@/types/dashboard";
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { fetchClientPaymentHistory } from "@/api/paymentTransactionsApi";
+import {
+  format,
+  subDays,
+  startOfYear,
+  endOfYear,
+  isSameDay,
+  subMonths,
+  startOfDay,
+  endOfDay,
+  parseISO,
+  isWithinInterval,
+} from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 import { fetchOrders } from "@/api/ordersApi";
 import { fetchDashboardCharts } from "@/api/dashboardApi";
 import { useDashboardMetrics } from "@/hooks/useDashboardMetrics";
 
+interface DateRange {
+  from: Date;
+  to: Date;
+}
+
+interface DashboardPaymentRow {
+  rawDate: string;
+  date: string;
+  patientId: string;
+  patientName: string;
+  orderNumber: string;
+  totalAmount: string;
+  discount: string;
+  amountPaid: string;
+}
+
+interface DashboardOrderRow {
+  date: string;
+  deliveryDate?: string | null;
+  orderNumber: string;
+  name?: string | null;
+  product?: string | null;
+  pharmacy?: string | null;
+  amount?: string | null;
+}
+
+const PRESET_RANGES = [
+  { label: "7 D", getValue: () => ({ from: subDays(new Date(), 6), to: new Date() }) },
+  { label: "30 D", getValue: () => ({ from: subDays(new Date(), 29), to: new Date() }) },
+  { label: "90 D", getValue: () => ({ from: subDays(new Date(), 89), to: new Date() }) },
+  { label: "YTD", getValue: () => ({ from: startOfYear(new Date()), to: new Date() }) },
+  {
+    label: "Last Year",
+    getValue: () => ({
+      from: startOfYear(subMonths(new Date(), 12)),
+      to: endOfYear(subMonths(new Date(), 12)),
+    }),
+  },
+];
+
+const extractChartPointDate = (point: { month?: string; day?: string }) => {
+  if (point.day) {
+    const parsedDay = parseISO(point.day);
+    return Number.isNaN(parsedDay.getTime()) ? null : parsedDay;
+  }
+  if (point.month) {
+    const parsedMonth = parseISO(`${point.month}-01`);
+    return Number.isNaN(parsedMonth.getTime()) ? null : parsedMonth;
+  }
+  return null;
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [dateRange, setDateRange] = useState<DateRange>(PRESET_RANGES[1].getValue());
 
   const { dashboard } = mockData as { dashboard: DashboardData };
 
-  const [paymentData, setPaymentData] = useState<any[]>([]);
+  const [paymentData, setPaymentData] = useState<DashboardPaymentRow[]>([]);
   const [loadingPayments, setLoadingPayments] = useState(true);
-  const [ordersData, setOrdersData] = useState<any[]>([]);
+  const [ordersData, setOrdersData] = useState<DashboardOrderRow[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
-  const [chartData, setChartData] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<DashboardData["salesChartData"]>([]);
   const [loadingCharts, setLoadingCharts] = useState(true);
 
   const metricsScrollRef = useRef<HTMLDivElement>(null);
@@ -60,23 +128,24 @@ export default function Dashboard() {
     el.scrollBy({ left: direction === "right" ? scrollAmount : -scrollAmount, behavior: "smooth" });
   }, []);
 
-  const { kpiData, patientSummary, metrics } = useDashboardMetrics({
-    fallbackKpis: dashboard.kpis
+  const { kpiData, patientSummary, metrics, loading: loadingMetrics, refetch: refetchMetrics } = useDashboardMetrics({
+    fallbackKpis: dashboard.kpis,
+    filters: {
+      start_date: format(dateRange.from, "yyyy-MM-dd"),
+      end_date: format(dateRange.to, "yyyy-MM-dd"),
+    },
   });
 
-  const dashboardWindowLabel = metrics?.period
-    ? `Window: ${new Date(metrics.period.start).toLocaleDateString()} - ${new Date(metrics.period.end).toLocaleDateString()}`
-    : null;
-  const chartWindowLabel = "Charts: Monthly trend for last 12 months";
-  const dashboardWindowPayments = (paymentData || []).filter((item) => {
-    if (!metrics?.period) return true;
-    const rawDate = item.rawDate || item.date;
-    if (!rawDate) return false;
-    const d = new Date(rawDate);
-    const start = new Date(`${metrics.period.start}T00:00:00`);
-    const end = new Date(`${metrics.period.end}T23:59:59.999`);
-    return d >= start && d <= end;
-  });
+  const activeRangeLabel = useMemo(() => {
+    const match = PRESET_RANGES.find((preset) => {
+      const range = preset.getValue();
+      return isSameDay(range.from, dateRange.from) && isSameDay(range.to, dateRange.to);
+    });
+    return match?.label || null;
+  }, [dateRange]);
+
+  const chartWindowLabel = `${format(dateRange.from, "MMM d, yyyy")} - ${format(dateRange.to, "MMM d, yyyy")}`;
+  const comparisonLabel = metrics?.period ? "vs previous period" : undefined;
 
   // Re-evaluate scroll arrows whenever kpiData changes
   useEffect(() => {
@@ -102,7 +171,6 @@ export default function Dashboard() {
   }, [metrics]);
 
   useEffect(() => {
-    // fetchOrders
     const loadPaymentHistory = async () => {
       try {
         const response = await fetchClientPaymentHistory();
@@ -130,7 +198,10 @@ export default function Dashboard() {
     };
     const loadOrderHistory = async () => {
       try {
-        const response = await fetchOrders();
+        const response = await fetchOrders({
+          date_from: format(dateRange.from, "yyyy-MM-dd"),
+          date_to: format(dateRange.to, "yyyy-MM-dd"),
+        });
 
         // Transform API data to match table format and limit to 8 records
         const transformedData = response.results.slice(0, 8).map((item) => ({
@@ -155,7 +226,10 @@ export default function Dashboard() {
 
     const loadChartData = async () => {
       try {
-        const response = await fetchDashboardCharts();
+        const response = await fetchDashboardCharts(undefined, {
+          start_date: format(dateRange.from, "yyyy-MM-dd"),
+          end_date: format(dateRange.to, "yyyy-MM-dd"),
+        });
         setChartData(response);
       } catch (error) {
         console.error("Failed to load chart data:", error);
@@ -175,7 +249,15 @@ export default function Dashboard() {
     loadPaymentHistory();
     loadOrderHistory();
     loadChartData();
-  }, [dashboard.payments, dashboard.salesChartData, dashboard.revenueChartData, dashboard.newPatientChartData]);
+  }, [
+    dashboard.payments,
+    dashboard.orderHistory,
+    dashboard.salesChartData,
+    dashboard.revenueChartData,
+    dashboard.newPatientChartData,
+    dateRange.from,
+    dateRange.to,
+  ]);
 
 
   const handleViewMore = (section: string) => {
@@ -203,6 +285,46 @@ export default function Dashboard() {
     // Here you would typically navigate to order details
   };
 
+  const filteredChartData = useMemo(
+    () =>
+      (chartData || []).filter((point) => {
+        const pointDate = extractChartPointDate(point);
+        if (!pointDate) return false;
+        return isWithinInterval(pointDate, {
+          start: startOfDay(dateRange.from),
+          end: endOfDay(dateRange.to),
+        });
+      }),
+    [chartData, dateRange.from, dateRange.to],
+  );
+
+  const filteredPaymentData = useMemo(
+    () =>
+      (paymentData || []).filter((item) => {
+        const rawDate = item.rawDate || item.date;
+        if (!rawDate) return false;
+        const parsedDate = new Date(rawDate);
+        return isWithinInterval(parsedDate, {
+          start: new Date(`${format(dateRange.from, "yyyy-MM-dd")}T00:00:00`),
+          end: new Date(`${format(dateRange.to, "yyyy-MM-dd")}T23:59:59.999`),
+        });
+      }),
+    [paymentData, dateRange.from, dateRange.to],
+  );
+
+  const filteredOrderData = useMemo(
+    () =>
+      (ordersData || []).filter((item) => {
+        if (!item.date) return false;
+        const parsedDate = new Date(item.date);
+        return isWithinInterval(parsedDate, {
+          start: new Date(`${format(dateRange.from, "yyyy-MM-dd")}T00:00:00`),
+          end: new Date(`${format(dateRange.to, "yyyy-MM-dd")}T23:59:59.999`),
+        });
+      }),
+    [ordersData, dateRange.from, dateRange.to],
+  );
+
   const orderHistoryColumns = [
     { key: "date", label: "Date" },
     { key: "orderNumber", label: "Order#" },
@@ -223,13 +345,64 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 space-y-4 w-full min-w-0 overflow-x-hidden">
-      <div className="flex items-center justify-between min-w-0">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center justify-between min-w-0">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-slate-100">Dashboard</h1>
-          {dashboardWindowLabel ? (
-            <p className="text-sm text-muted-foreground hidden">{dashboardWindowLabel}</p>
-          ) : null}
-          <p className="text-xs text-muted-foreground hidden">{chartWindowLabel}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {dateRange.from && dateRange.to
+              ? `${format(dateRange.from, "MMM d, yyyy")} — ${format(dateRange.to, "MMM d, yyyy")}`
+              : "Select range"}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center rounded-lg border bg-muted/40 p-0.5 hidden sm:flex">
+            {PRESET_RANGES.map((preset) => (
+              <button
+                key={preset.label}
+                onClick={() => setDateRange(preset.getValue())}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                  activeRangeLabel === preset.label
+                    ? "bg-white text-gray-800 shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                <CalendarIcon className="h-3.5 w-3.5" />
+                Custom
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange.from}
+                selected={{ from: dateRange.from, to: dateRange.to }}
+                onSelect={(range: { from?: Date; to?: Date } | undefined) =>
+                  range?.from && setDateRange({ from: range.from, to: range.to || range.from })
+                }
+                numberOfMonths={2}
+              />
+            </PopoverContent>
+          </Popover>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            onClick={refetchMetrics}
+            disabled={loadingMetrics || loadingCharts}
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", (loadingMetrics || loadingCharts) && "animate-spin")} />
+          </Button>
         </div>
       </div>
 
@@ -258,7 +431,7 @@ export default function Dashboard() {
                 // onClick={() => handleKPIClick(kpi)}
                 className="cursor-pointer"
               >
-                <MetricCard metric={kpi} />
+                <MetricCard metric={kpi} comparisonLabel={comparisonLabel} />
               </div>
             ))}
           </div>
@@ -279,7 +452,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 w-full min-w-0">
         {/* Total Sales Chart */}
         <div className="w-full min-w-0">
-          <SalesChart data={loadingCharts ? [] : chartData} />
+          <SalesChart data={loadingCharts ? [] : filteredChartData} subtitle={chartWindowLabel} />
         </div>
 
         {/* Live Summary */}
@@ -343,14 +516,14 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 w-full min-w-0">
         {/* Net Revenue Chart */}
         <div className="w-full min-w-0">
-          <RevenueChart data={loadingCharts ? [] : chartData} />
+          <RevenueChart data={loadingCharts ? [] : filteredChartData} subtitle={chartWindowLabel} />
         </div>
 
         {/* Messages and New Patient */}
         <div className="w-full min-w-0">
 
           {/* New Patient Chart */}
-          <NewPatientChart data={loadingCharts ? [] : chartData} />
+          <NewPatientChart data={loadingCharts ? [] : filteredChartData} subtitle={chartWindowLabel} />
         </div>
       </div>
 
@@ -359,14 +532,14 @@ export default function Dashboard() {
         <div className="w-full min-w-0">
           <DataTable 
             title="Order History" 
-            data={ordersData || dashboard.orderHistory} 
+            data={loadingOrders ? [] : (filteredOrderData || dashboard.orderHistory)} 
             columns={orderHistoryColumns} 
           />
         </div>
         <div className="w-full min-w-0">
           <PaymentTable 
             title="Payment (KPI Window)" 
-            data={loadingPayments ? [] : (metrics?.period ? dashboardWindowPayments : (paymentData || dashboard.payments))} 
+            data={loadingPayments ? [] : (filteredPaymentData || dashboard.payments)} 
             columns={paymentColumns} 
           />
         </div>

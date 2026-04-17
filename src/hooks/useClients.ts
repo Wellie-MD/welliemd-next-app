@@ -10,6 +10,8 @@ export interface Client {
   admin_panel_domain?: string;
   patient_portal_domain?: string;
   questionnaire_url?: string;
+  domain?: string;
+  subdomain?: string;
   user?: {
     email?: string;
     first_name?: string;
@@ -19,20 +21,15 @@ export interface Client {
 
 function ensureTrailingSlash(url?: string) {
   if (!url) return "";
-  return url.endsWith("/") ? url : url + "/";
+  return url.endsWith("/") ? url : `${url}/`;
 }
 
-// Normalize URL for comparison (remove trailing slashes, convert to lowercase, remove protocol)
 function normalizeUrlForComparison(url?: string): string {
   if (!url) return "";
   try {
-    // Remove protocol if present
     let normalized = url.replace(/^https?:\/\//i, "");
-    // Remove trailing slashes
     normalized = normalized.replace(/\/+$/, "");
-    // Convert to lowercase for case-insensitive comparison
-    normalized = normalized.toLowerCase();
-    return normalized;
+    return normalized.toLowerCase();
   } catch {
     return url.toLowerCase().replace(/\/+$/, "");
   }
@@ -45,6 +42,8 @@ type ClientApiRecord = {
   admin_panel_domain?: string;
   patient_portal_domain?: string;
   questionnaire_url?: string;
+  domain?: string;
+  subdomain?: string;
   user?: Client["user"];
 };
 
@@ -60,6 +59,8 @@ function toClientRecord(value: unknown): ClientApiRecord | null {
     admin_panel_domain: typeof record.admin_panel_domain === "string" ? record.admin_panel_domain : undefined,
     patient_portal_domain: typeof record.patient_portal_domain === "string" ? record.patient_portal_domain : undefined,
     questionnaire_url: typeof record.questionnaire_url === "string" ? record.questionnaire_url : undefined,
+    domain: typeof record.domain === "string" ? record.domain : undefined,
+    subdomain: typeof record.subdomain === "string" ? record.subdomain : undefined,
     user: record.user && typeof record.user === "object" ? (record.user as Client["user"]) : undefined,
   };
 }
@@ -94,21 +95,41 @@ export function useClients(search: string = "") {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      
-      // Attempt to load from /clients/current/ first for tenant deployments
+      setError(null);
+
+      let meClientFromDb: Client | null = null;
+      try {
+        const { data } = await adminApi.get<unknown>("/clients/me/");
+        const meClient = toClientRecord(data);
+        if (meClient) {
+          meClientFromDb = {
+            id: meClient.id,
+            name: meClient.name,
+            api_endpoint: ensureTrailingSlash(meClient.api_endpoint),
+            admin_panel_domain: meClient.admin_panel_domain,
+            questionnaire_url: meClient.questionnaire_url,
+            patient_portal_domain: meClient.patient_portal_domain,
+            domain: meClient.domain,
+            subdomain: meClient.subdomain,
+            user: meClient.user,
+          };
+        }
+      } catch {
+        meClientFromDb = null;
+      }
+
       let list: ClientApiRecord[] = [];
       try {
         const { data } = await adminApi.get<unknown>("/clients/current/");
         list = toClientList(data);
       } catch (err: unknown) {
-        // Fallback to /clients/ if current doesn't work (e.g. some dev envs)
         if (hasStatus(err, [403, 404])) {
-             const { data } = await adminApi.get<unknown>("/clients/", {
-               params: search ? { search } : undefined,
-             });
-             list = toClientList(data);
+          const { data } = await adminApi.get<unknown>("/clients/", {
+            params: search ? { search } : undefined,
+          });
+          list = toClientList(data);
         } else {
-            throw err;
+          throw err;
         }
       }
 
@@ -117,92 +138,43 @@ export function useClients(search: string = "") {
         name: c.name,
         api_endpoint: ensureTrailingSlash(c.api_endpoint),
         admin_panel_domain: c.admin_panel_domain,
+        questionnaire_url: c.questionnaire_url,
         patient_portal_domain: c.patient_portal_domain,
-        questionnaire_url: c.questionnaire_url, // keep as-is (don't force "")
+        domain: c.domain,
+        subdomain: c.subdomain,
         user: c.user,
       }));
 
       setClients(normalized);
 
-      // Enhanced client matching with better logging and fallbacks
+      if (meClientFromDb) {
+        const enriched = normalized.find((c) => c.id === meClientFromDb?.id);
+        setCurrentClient(enriched || meClientFromDb);
+        return;
+      }
+
       const origin = window.location.origin;
       const normalizedOrigin = normalizeUrlForComparison(origin);
-      
-      console.log("[useClients] Client Matching Debug:", {
-        windowOrigin: origin,
-        normalizedOrigin,
-        totalClients: normalized.length,
-        clientsList: normalized.map(c => ({
-          id: c.id,
-          name: c.name,
-          admin_panel_domain: c.admin_panel_domain,
-          questionnaire_url: c.questionnaire_url,
-          normalizedDomain: normalizeUrlForComparison(c.admin_panel_domain),
-        })),
-      });
 
-      // Try exact match first (case-insensitive, ignoring trailing slashes)
       let matched = normalized.find((c) => {
         const candidate = normalizeUrlForComparison(c.admin_panel_domain);
-        const isMatch = candidate === normalizedOrigin;
-        if (isMatch) {
-          console.log("[useClients] ✅ Exact match found:", {
-            clientName: c.name,
-            clientId: c.id,
-            adminDomain: c.admin_panel_domain,
-            normalizedCandidate: candidate,
-            normalizedOrigin,
-          });
-        }
-        return isMatch;
+        return candidate === normalizedOrigin;
       });
 
-      // Fallback: Try matching without protocol
       if (!matched) {
-        console.log("[useClients] No exact match, trying fallback matching...");
+        const originHostname = normalizeUrlForComparison(origin.split("://")[1] || origin);
         matched = normalized.find((c) => {
           if (!c.admin_panel_domain) return false;
           const candidate = normalizeUrlForComparison(c.admin_panel_domain);
-          // Try matching just the hostname part
-          const originHostname = normalizeUrlForComparison(origin.split('://')[1] || origin);
-          const candidateHostname = normalizeUrlForComparison(c.admin_panel_domain.split('://')[1] || c.admin_panel_domain);
-          const isMatch = candidateHostname === originHostname || candidate === originHostname;
-          if (isMatch) {
-            console.log("[useClients] ✅ Fallback match found:", {
-              clientName: c.name,
-              clientId: c.id,
-              adminDomain: c.admin_panel_domain,
-              candidateHostname,
-              originHostname,
-            });
-          }
-          return isMatch;
+          const candidateHostname = normalizeUrlForComparison(
+            c.admin_panel_domain.split("://")[1] || c.admin_panel_domain
+          );
+          return candidateHostname === originHostname || candidate === originHostname;
         });
       }
 
-      // Last resort: Use first client if only one exists
       if (!matched && normalized.length === 1) {
-        console.log("[useClients] ⚠️ No match found, using first (and only) client as fallback");
         matched = normalized[0];
-      }
-
-      if (matched) {
-        console.log("[useClients] ✅ Final matched client:", {
-          id: matched.id,
-          name: matched.name,
-          admin_panel_domain: matched.admin_panel_domain,
-          questionnaire_url: matched.questionnaire_url,
-          hasQuestionnaireUrl: !!matched.questionnaire_url,
-        });
-      } else {
-        console.warn("[useClients] ❌ No client matched! This may cause issues with affiliate links.", {
-          origin,
-          normalizedOrigin,
-          availableClients: normalized.map(c => ({
-            name: c.name,
-            admin_panel_domain: c.admin_panel_domain,
-          })),
-        });
       }
 
       setCurrentClient(matched || null);

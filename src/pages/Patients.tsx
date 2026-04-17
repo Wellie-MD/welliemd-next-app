@@ -24,6 +24,16 @@ interface PatientTableRow {
   lastOrder: string
 }
 
+const getPatientStatusLabel = (engagementStatus?: string) => {
+  const normalized = (engagementStatus || "").trim().toLowerCase()
+  if (normalized === "active") return "Active"
+  if (normalized === "inactive") return "Inactive"
+  if (normalized === "dropoff" || normalized === "drop_off" || normalized === "abandon") {
+    return "Drop-off"
+  }
+  return "-"
+}
+
 const transformPatientData = (patient: Patient, productName?: string, visitStatus?: string): PatientTableRow => {
   const lastOrderDate = patient.last_order_at ? format(new Date(patient.last_order_at), 'dd/MM/yyyy') : '-'
   const lastOrderRef = patient.last_order_id ? `#${patient.last_order_id}` : (patient.last_order_display_id ? `#${patient.last_order_display_id}` : '')
@@ -39,7 +49,7 @@ const transformPatientData = (patient: Patient, productName?: string, visitStatu
     phone: patient.phone,
     orders: patient.orders_count ?? 0,
     location: patient.city && patient.state ? `${patient.city}, ${patient.state}` : patient.state || "-",
-    patientStatus: patient.engagement_status === 'active' ? 'Active' : patient.engagement_status === 'inactive' ? 'Inactive' : '-',
+    patientStatus: getPatientStatusLabel(patient.engagement_status),
     visitStatus: visitStatus || "-",
     lastOrder: lastOrderLabel,
   }

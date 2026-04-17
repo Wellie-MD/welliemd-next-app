@@ -9,18 +9,20 @@ import {
   Legend,
   Dot,
   CartesianGrid,
-  Line,
 } from "recharts"
 
 interface VisitorChartProps {
   data: any[]
+  summary?: {
+    totalVisitors: number
+    uniqueVisitors: number
+  }
 }
 
 interface ChartPoint {
   time: string
   totalVisitors: number
   uniqueVisitors: number
-  totalPageviews: number
 }
 
 const CustomDot = (props: any) => {
@@ -74,13 +76,12 @@ function VisitorTooltip({ active, payload, label }: any) {
   )
 }
 
-export function VisitorChart({ data }: VisitorChartProps) {
+export function VisitorChart({ data, summary }: VisitorChartProps) {
   const chartData: ChartPoint[] = Array.isArray(data)
     ? data.map((point) => ({
         time: String(point?.time ?? ""),
         totalVisitors: Number(point?.totalVisitors || 0),
         uniqueVisitors: Number(point?.uniqueVisitors || 0),
-        totalPageviews: Number(point?.totalPageviews || 0),
       }))
     : []
 
@@ -88,47 +89,36 @@ export function VisitorChart({ data }: VisitorChartProps) {
   const hasNonZeroSeries = hasData && chartData.some((point) => {
     const total = point.totalVisitors
     const unique = point.uniqueVisitors
-    const pages = point.totalPageviews
-    return total > 0 || unique > 0 || pages > 0
+    return total > 0 || unique > 0
   })
-  const maxVisitors = chartData.reduce((max, point) => Math.max(max, point.totalVisitors, point.uniqueVisitors), 0)
-  const maxPageviews = chartData.reduce((max, point) => Math.max(max, point.totalPageviews), 0)
-  const useDualAxis = maxPageviews > Math.max(1, maxVisitors) * 1.35
   const totalVisitors = chartData.reduce((sum, point) => sum + point.totalVisitors, 0)
   const totalUniqueVisitors = chartData.reduce((sum, point) => sum + point.uniqueVisitors, 0)
-  const totalPageviews = chartData.reduce((sum, point) => sum + point.totalPageviews, 0)
   const totalPoints = chartData.length
+  const totalVisitorsDisplay = Number(summary?.totalVisitors ?? totalVisitors)
+  const totalUniqueVisitorsDisplay = Number(summary?.uniqueVisitors ?? totalUniqueVisitors)
 
   return (
     <Card className="border-border/70 bg-gradient-to-br from-primary/5 via-background to-blue-50/30 dark:from-primary/10 dark:to-slate-900/40 shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <CardTitle className="text-lg font-medium">Visitors Trend</CardTitle>
-          <p className="text-xs text-muted-foreground">
-            {useDualAxis
-              ? "Pageviews are shown on a separate scale for accurate comparison."
-              : "All series use the same scale."}
-          </p>
+          <p className="text-xs text-muted-foreground">Total vs unique visitors over time.</p>
         </div>
       </CardHeader>
       <CardContent>
         {hasData && (
-          <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
             <div className="rounded-md border bg-white/70 dark:bg-slate-900/70 dark:border-slate-700 px-2 py-1.5 text-xs">
               <div className="text-muted-foreground">Data Points</div>
               <div className="font-semibold">{formatNumber(totalPoints)}</div>
             </div>
             <div className="rounded-md border bg-white/70 dark:bg-slate-900/70 dark:border-slate-700 px-2 py-1.5 text-xs">
               <div className="text-muted-foreground">Total Visitors</div>
-              <div className="font-semibold">{formatNumber(totalVisitors)}</div>
+              <div className="font-semibold">{formatNumber(totalVisitorsDisplay)}</div>
             </div>
             <div className="rounded-md border bg-white/70 dark:bg-slate-900/70 dark:border-slate-700 px-2 py-1.5 text-xs">
               <div className="text-muted-foreground">Unique Visitors</div>
-              <div className="font-semibold">{formatNumber(totalUniqueVisitors)}</div>
-            </div>
-            <div className="rounded-md border bg-white/70 dark:bg-slate-900/70 dark:border-slate-700 px-2 py-1.5 text-xs">
-              <div className="text-muted-foreground">Pageviews</div>
-              <div className="font-semibold">{formatNumber(totalPageviews)}</div>
+              <div className="font-semibold">{formatNumber(totalUniqueVisitorsDisplay)}</div>
             </div>
           </div>
         )}
@@ -144,10 +134,6 @@ export function VisitorChart({ data }: VisitorChartProps) {
                   <linearGradient id="tvGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10B981" stopOpacity={0.35} />
                     <stop offset="95%" stopColor="#10B981" stopOpacity={0.02} />
-                  </linearGradient>
-                  <linearGradient id="pvGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#F59E0B" stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
@@ -168,17 +154,6 @@ export function VisitorChart({ data }: VisitorChartProps) {
                   domain={[0, "auto"]}
                   dx={-10}
                 />
-                {useDualAxis && (
-                  <YAxis
-                    yAxisId="pageviews"
-                    orientation="right"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: '#64748B', fontSize: 11 }}
-                    allowDecimals={false}
-                    domain={[0, "auto"]}
-                  />
-                )}
                 <Tooltip 
                   content={<VisitorTooltip />}
                 />
@@ -212,30 +187,6 @@ export function VisitorChart({ data }: VisitorChartProps) {
                   dot={<CustomDot stroke="#10B981" />}
                   activeDot={{ r: 6, strokeWidth: 2 }}
                 />
-                {useDualAxis ? (
-                  <Line
-                    type="monotone"
-                    dataKey="totalPageviews"
-                    yAxisId="pageviews"
-                    stroke="#F59E0B"
-                    strokeWidth={2}
-                    dot={<CustomDot stroke="#F59E0B" />}
-                    activeDot={{ r: 6, strokeWidth: 2 }}
-                    name="Total Pageviews"
-                  />
-                ) : (
-                  <Area 
-                  type="monotone" 
-                  dataKey="totalPageviews" 
-                  yAxisId="visitors"
-                  stroke="#F59E0B"
-                  fill="url(#pvGradient)"
-                  strokeWidth={2}
-                  name="Total Pageviews"
-                  dot={<CustomDot stroke="#F59E0B" />}
-                  activeDot={{ r: 6, strokeWidth: 2 }}
-                />
-                )}
               </ComposedChart>
             </ResponsiveContainer>
           ) : (

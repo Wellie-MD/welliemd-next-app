@@ -133,6 +133,35 @@ export default function InvoicesPage() {
     return p;
   }, [ordering, search, fromDate, toDate, status]);
 
+  const displayedInvoices = useMemo(() => {
+    if (ordering !== "-issued_at" && ordering !== "issued_at") {
+      return invoices;
+    }
+
+    const direction = ordering === "-issued_at" ? -1 : 1;
+    const toTime = (value?: string) => (value ? new Date(value).getTime() : null);
+    const getDisplayTime = (inv: any) => toTime(inv?.issued_at || inv?.created_at);
+
+    return [...invoices].sort((a: any, b: any) => {
+      // Sort by the same date used in the table display column.
+      const aDisplayTime = getDisplayTime(a);
+      const bDisplayTime = getDisplayTime(b);
+
+      // Keep rows with no displayable date at the bottom for both sorts.
+      if (aDisplayTime === null && bDisplayTime !== null) return 1;
+      if (aDisplayTime !== null && bDisplayTime === null) return -1;
+
+      if (aDisplayTime !== null && bDisplayTime !== null && aDisplayTime !== bDisplayTime) {
+        return (aDisplayTime - bDisplayTime) * direction;
+      }
+
+      // Stable tie-breaker.
+      const aCreated = toTime(a?.created_at) ?? 0;
+      const bCreated = toTime(b?.created_at) ?? 0;
+      return (aCreated - bCreated) * direction;
+    });
+  }, [invoices, ordering]);
+
   const loadInvoices = async () => {
     setLoading(true);
     const res: InvoiceListResponse = await billingService.getInvoices(activeTab, page, 25, params);
@@ -360,7 +389,7 @@ export default function InvoicesPage() {
                     </td>
                   </tr>
                 )}
-                {invoices.map((inv: any) => {
+                {displayedInvoices.map((inv: any) => {
                   const effectiveStatus = inv.is_overdue && inv.status !== "paid" ? "overdue" : (inv.status || "-");
                   return (
                     <tr

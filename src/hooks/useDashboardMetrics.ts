@@ -1,22 +1,25 @@
 import { useState, useEffect } from 'react';
-import { fetchDashboardMetrics } from '@/api/dashboardApi';
+import { fetchDashboardMetrics, DashboardFilters } from '@/api/dashboardApi';
 import { DashboardMetrics, Metric } from '@/types/dashboard';
 import mockData from "@/data/mockData.json";
 
 interface UseDashboardMetricsProps {
     fallbackKpis: Metric[];
+    filters?: DashboardFilters;
 }
 
-export const useDashboardMetrics = ({ fallbackKpis }: UseDashboardMetricsProps) => {
+export const useDashboardMetrics = ({ fallbackKpis, filters }: UseDashboardMetricsProps) => {
     const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<unknown>(null);
+    const filtersKey = JSON.stringify(filters || {});
 
     useEffect(() => {
         const loadMetrics = async () => {
             try {
                 setLoading(true);
-                const data = await fetchDashboardMetrics();
+                const parsedFilters = JSON.parse(filtersKey) as DashboardFilters;
+                const data = await fetchDashboardMetrics(parsedFilters);
                 setMetrics(data);
                 setError(null);
             } catch (err) {
@@ -28,7 +31,7 @@ export const useDashboardMetrics = ({ fallbackKpis }: UseDashboardMetricsProps) 
         };
 
         loadMetrics();
-    }, []);
+    }, [filtersKey]);
 
     const safeNumber = (value: number | undefined) => (typeof value === "number" ? value : 0);
     const growth = safeNumber(metrics?.growth_percentage);
@@ -195,7 +198,8 @@ export const useDashboardMetrics = ({ fallbackKpis }: UseDashboardMetricsProps) 
         refetch: async () => {
             setLoading(true);
             try {
-                const data = await fetchDashboardMetrics();
+                const parsedFilters = JSON.parse(filtersKey) as DashboardFilters;
+                const data = await fetchDashboardMetrics(parsedFilters);
                 setMetrics(data);
                 setError(null);
             } catch (err) {
