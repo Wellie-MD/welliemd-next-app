@@ -2,15 +2,20 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, Eye, DollarSign, ChevronLeft, ChevronRight, CalendarIcon, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarIcon, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   format,
   subDays,
   startOfYear,
   endOfYear,
   isSameDay,
-  subMonths
+  subMonths,
+  startOfDay,
+  endOfDay,
+  parseISO,
+  isWithinInterval,
 } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -23,16 +28,28 @@ import { MetricCard } from "@/components/dashboard/MetricCard";
 import { SalesChart } from "@/components/dashboard/SalesChart";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { NewPatientChart } from "@/components/dashboard/NewPatientChart";
-import { DataTable } from "@/components/dashboard/DataTable";
-import { PaymentTable } from "@/components/dashboard/PaymentTable";
 import { useAdminDashboard } from "@/hooks/useAdminDashboard";
 import { Metric } from "@/types/dashboard";
+import type { B2BInvoice } from "@/types/b2bBilling";
+import { clientApi } from "@/api/clientApi";
 import mockData from "@/data/mockData.json";
 
 interface DateRange {
   from: Date;
   to: Date;
 }
+
+const extractChartPointDate = (point: { month?: string; day?: string }) => {
+  if (point.day) {
+    const parsedDay = parseISO(point.day);
+    return Number.isNaN(parsedDay.getTime()) ? null : parsedDay;
+  }
+  if (point.month) {
+    const parsedMonth = parseISO(`${point.month}-01`);
+    return Number.isNaN(parsedMonth.getTime()) ? null : parsedMonth;
+  }
+  return null;
+};
 
 const PRESET_RANGES = [
   { label: '7 D', getValue: () => ({ from: subDays(new Date(), 6), to: new Date() }) },
@@ -53,6 +70,42 @@ const getMetricByTitle = (kpis: Metric[], titles: string[]) =>
 
 const stripLeadingPlus = (value: string) => value.replace(/^\+/, "");
 
+const formatLabel = (value?: string | null) =>
+  (value || "-")
+    .toString()
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+
+const formatMoney = (value?: string | number | null) => {
+  const n = Number(value || 0);
+  return Number.isFinite(n) ? `$${n.toFixed(2)}` : "$0.00";
+};
+
+const formatBreakdown = (inv: B2BInvoice) => {
+  const items = (inv as any).line_items ?? [];
+  if (!Array.isArray(items) || items.length === 0) return "-";
+
+  const pharmacy = items
+    .filter((li: any) => ["medication_reimbursement", "shipping_cost"].includes(li.item_type))
+    .reduce((sum: number, li: any) => sum + Number(li.total_amount || li.unit_price || 0), 0);
+  const consult = items
+    .filter((li: any) => li.item_type === "consultation")
+    .reduce((sum: number, li: any) => sum + Number(li.total_amount || li.unit_price || 0), 0);
+  const usage = items
+    .filter((li: any) => ["saas_base_monthly", "active_patient", "saas_usage_patient"].includes(li.item_type))
+    .reduce((sum: number, li: any) => sum + Number(li.total_amount || li.unit_price || 0), 0);
+
+  if (inv.invoice_type === "reimbursement") {
+    if (!pharmacy && !consult) return "-";
+    return `Pharmacy: ${formatMoney(pharmacy)} · Consult: ${formatMoney(consult)}`;
+  }
+  if (inv.invoice_type === "saas_fee") {
+    if (!usage) return "-";
+    return `Usage: ${formatMoney(usage)}`;
+  }
+  return "-";
+};
+
 const normalizeAdminKpis = (
   kpis: Metric[],
   patientSummary?: {
@@ -67,6 +120,8 @@ const normalizeAdminKpis = (
   const profitRatio = getMetricByTitle(kpis, ["Profit Ratio %", "Profit Ratio"]);
   const revenueGrowth = getMetricByTitle(kpis, ["Total Growth By Revenue %", "Total Growth By Revenue"]);
   const netProfitGrowth = getMetricByTitle(kpis, ["Total Growth By Net Profit %"]);
+  const reimbursementInvoices = getMetricByTitle(kpis, ["Reimbursement Invoices"]);
+  const saasInvoices = getMetricByTitle(kpis, ["SaaS Invoices"]);
 
   const profitGrowthValue = netProfitGrowth?.value
     ?? (netProfit ? stripLeadingPlus(netProfit.change) : "0.0%");
@@ -101,10 +156,27 @@ const normalizeAdminKpis = (
       change: "0.0%",
       trend: "neutral",
     },
+    {
+      title: "Reimbursement Invoices",
+      value: reimbursementInvoices?.value ?? "0",
+      change: reimbursementInvoices?.change ?? "0.0%",
+      trend: reimbursementInvoices?.trend ?? "neutral",
+    },
+    {
+      title: "SaaS Invoices",
+      value: saasInvoices?.value ?? "0",
+      change: saasInvoices?.change ?? "0.0%",
+      trend: saasInvoices?.trend ?? "neutral",
+    },
   ].filter(Boolean) as Metric[];
 
   const requiredTitles = new Set(required.map((metric) => metric.title.toLowerCase()));
-  const extras = kpis.filter((metric) => !requiredTitles.has(metric.title.toLowerCase()));
+  const hiddenLegacyTitles = new Set(["total sales", "total orders"]);
+  const extras = kpis.filter(
+    (metric) =>
+      !requiredTitles.has(metric.title.toLowerCase()) &&
+      !hiddenLegacyTitles.has(metric.title.toLowerCase()),
+  );
 
   return [...required, ...extras];
 };
@@ -162,36 +234,75 @@ export default function Dashboard() {
   useEffect(() => {
     const id = setTimeout(updateScrollButtons, 50);
     return () => clearTimeout(id);
-  }, [normalizedKpis, updateScrollButtons]);
-  const dashboardWindowLabel = dashboard?.period
-    ? `KPI window: ${new Date(dashboard.period.start).toLocaleDateString()} - ${new Date(dashboard.period.end).toLocaleDateString()}`
-    : null;
-  const chartWindowLabel = "Charts: Monthly trend for last 12 months";
+  }, [normalizedKpis, updateScrollButtons]);  const chartWindowLabel = `${format(dateRange.from, "MMM d, yyyy")} - ${format(dateRange.to, "MMM d, yyyy")}`;
+  const comparisonLabel = dashboard?.period ? "vs previous period" : undefined;
 
-  const handleViewMore = (section: string) => {
-    console.log(`View more clicked for ${section}`);
-  };
+  const filteredSalesChartData = useMemo(
+    () =>
+      (dashboard?.salesChartData || []).filter((point) => {
+        const pointDate = extractChartPointDate(point);
+        if (!pointDate) return false;
+        return isWithinInterval(pointDate, {
+          start: startOfDay(dateRange.from),
+          end: endOfDay(dateRange.to),
+        });
+      }),
+    [dashboard?.salesChartData, dateRange.from, dateRange.to],
+  );
 
-  const handleKPIClick = (metric: any) => {
+  const filteredRevenueChartData = useMemo(
+    () =>
+      (dashboard?.revenueChartData || []).filter((point) => {
+        const pointDate = extractChartPointDate(point);
+        if (!pointDate) return false;
+        return isWithinInterval(pointDate, {
+          start: startOfDay(dateRange.from),
+          end: endOfDay(dateRange.to),
+        });
+      }),
+    [dashboard?.revenueChartData, dateRange.from, dateRange.to],
+  );
+
+  const filteredNewClientChartData = useMemo(
+    () =>
+      (dashboard?.newClientChartData || []).filter((point) => {
+        const pointDate = extractChartPointDate(point);
+        if (!pointDate) return false;
+        return isWithinInterval(pointDate, {
+          start: startOfDay(dateRange.from),
+          end: endOfDay(dateRange.to),
+        });
+      }),
+    [dashboard?.newClientChartData, dateRange.from, dateRange.to],
+  );
+
+  const { data: invoicesData } = useQuery({
+    queryKey: [
+      "adminDashboardInvoices",
+      format(dateRange.from, "yyyy-MM-dd"),
+      format(dateRange.to, "yyyy-MM-dd"),
+    ],
+    queryFn: () =>
+      clientApi.getAllB2BInvoices({
+        ordering: "-issued_at",
+        page: 1,
+        page_size: 100,
+        issued_at_after: format(dateRange.from, "yyyy-MM-dd"),
+        issued_at_before: format(dateRange.to, "yyyy-MM-dd"),
+      }),
+  });
+
+  const invoiceResults = (invoicesData?.results || []) as B2BInvoice[];
+  const reimbursementRows = invoiceResults
+    .filter((inv) => inv.invoice_type === "reimbursement")
+    .slice(0, 8);
+  const saasRows = invoiceResults
+    .filter((inv) => inv.invoice_type === "saas_fee")
+    .slice(0, 8);
+
+  const handleKPIClick = (metric: Metric) => {
     console.log(`KPI clicked: ${metric.title}`);
   };
-
-  const orderHistoryColumns = [
-    { key: "date", label: "Date" },
-    { key: "order_number", label: "Order#" },
-    { key: "patient_name", label: "Patient Name" },
-    { key: "product_name", label: "Product" },
-    { key: "pharmacy_name", label: "Pharmacy" },
-    { key: "amount", label: "Amount" },
-  ];
-
-  const paymentColumns = [
-    { key: "date", label: "Date" },
-    { key: "patient_name", label: "Patient Name" },
-    { key: "order_number", label: "Order#" },
-    { key: "total_amount", label: "Total Amount" },
-    { key: "amount_paid", label: "Amount Paid" },
-  ];
 
   // Show loading state
   if (loading && !dashboard) {
@@ -267,7 +378,7 @@ export default function Dashboard() {
                 mode="range"
                 defaultMonth={dateRange.from}
                 selected={{ from: dateRange.from, to: dateRange.to }}
-                onSelect={(range: any) =>
+                onSelect={(range: { from?: Date; to?: Date } | undefined) =>
                   range?.from && setDateRange({ from: range.from, to: range.to || range.from })
                 }
                 numberOfMonths={2}
@@ -306,7 +417,7 @@ export default function Dashboard() {
                 onClick={() => handleKPIClick(kpi)}
                 className="cursor-pointer"
               >
-                <MetricCard metric={kpi} />
+                <MetricCard metric={kpi} comparisonLabel={comparisonLabel} />
               </div>
             ))}
           </div>
@@ -326,7 +437,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1  gap-4 w-full min-w-0">
         {/* Total Sales Chart */}
         <div className="w-full min-w-0">
-          <SalesChart data={dashboard.salesChartData} />
+          <SalesChart data={filteredSalesChartData} subtitle={chartWindowLabel} />
         </div>
 
         {/* Live Summary */}
@@ -381,30 +492,118 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 w-full min-w-0">
         {/* Net Revenue Chart */}
         <div className="w-full min-w-0">
-          <RevenueChart data={dashboard.revenueChartData} />
+          <RevenueChart data={filteredRevenueChartData} subtitle={chartWindowLabel} />
         </div>
 
         {/* Total Clients Chart */}
         <div className="w-full min-w-0">
-          <NewPatientChart data={dashboard.newClientChartData || []} />
+          <NewPatientChart data={filteredNewClientChartData} subtitle={chartWindowLabel} />
         </div>
       </div>
 
-      {/* Bottom Tables */}
+      {/* Bottom Tables (Admin Invoice Views) */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 w-full min-w-0">
         <div className="w-full min-w-0">
-          <DataTable
-            title="Order History"
-            data={dashboard.orderHistory}
-            columns={orderHistoryColumns}
-          />
+          <Card className="rounded-2xl shadow-md bg-white">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Reimbursement Invoices</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-xs uppercase text-muted-foreground">
+                    <tr className="border-b">
+                      <th className="text-left py-2 pr-3">Date</th>
+                      <th className="text-left py-2 pr-3">Invoice</th>
+                      <th className="text-left py-2 pr-3">Client</th>
+                      <th className="text-left py-2 pr-3">Status</th>
+                      <th className="text-left py-2 pr-3">Breakdown</th>
+                      <th className="text-right py-2">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reimbursementRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-4 text-muted-foreground">
+                          No reimbursement invoices in selected range.
+                        </td>
+                      </tr>
+                    ) : (
+                      reimbursementRows.map((inv) => {
+                        const displayDate = inv.issued_at || inv.created_at;
+                        const status = ((inv as any).is_overdue && inv.status !== "paid"
+                          ? "overdue"
+                          : inv.status || "-").toString();
+                        return (
+                          <tr key={inv.id} className="border-b last:border-0">
+                            <td className="py-2 pr-3">
+                              {displayDate ? new Date(displayDate).toLocaleDateString() : "-"}
+                            </td>
+                            <td className="py-2 pr-3 font-medium">{inv.invoice_number}</td>
+                            <td className="py-2 pr-3">{(inv as any).client_name || "-"}</td>
+                            <td className="py-2 pr-3">{formatLabel(status)}</td>
+                            <td className="py-2 pr-3 text-muted-foreground">{formatBreakdown(inv)}</td>
+                            <td className="py-2 text-right font-medium">{formatMoney(inv.total_amount)}</td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
         </div>
         <div className="w-full min-w-0">
-          <PaymentTable
-            title="Payment (KPI Window)"
-            data={dashboard.payments}
-            columns={paymentColumns}
-          />
+          <Card className="rounded-2xl shadow-md bg-white">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">SaaS Invoices</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="text-xs uppercase text-muted-foreground">
+                    <tr className="border-b">
+                      <th className="text-left py-2 pr-3">Date</th>
+                      <th className="text-left py-2 pr-3">Invoice</th>
+                      <th className="text-left py-2 pr-3">Client</th>
+                      <th className="text-left py-2 pr-3">Status</th>
+                      <th className="text-left py-2 pr-3">Breakdown</th>
+                      <th className="text-right py-2">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {saasRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-4 text-muted-foreground">
+                          No SaaS invoices in selected range.
+                        </td>
+                      </tr>
+                    ) : (
+                      saasRows.map((inv) => {
+                        const displayDate = inv.issued_at || inv.created_at;
+                        const status = ((inv as any).is_overdue && inv.status !== "paid"
+                          ? "overdue"
+                          : inv.status || "-").toString();
+                        return (
+                          <tr key={inv.id} className="border-b last:border-0">
+                            <td className="py-2 pr-3">
+                              {displayDate ? new Date(displayDate).toLocaleDateString() : "-"}
+                            </td>
+                            <td className="py-2 pr-3 font-medium">{inv.invoice_number}</td>
+                            <td className="py-2 pr-3">{(inv as any).client_name || "-"}</td>
+                            <td className="py-2 pr-3">{formatLabel(status)}</td>
+                            <td className="py-2 pr-3 text-muted-foreground">{formatBreakdown(inv)}</td>
+                            <td className="py-2 text-right font-medium">{formatMoney(inv.total_amount)}</td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

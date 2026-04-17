@@ -54,9 +54,17 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useAuthStore } from "@/store/useAuthStore";
 
 export default function CrossTenantAccessUsers() {
   const queryClient = useQueryClient();
+  const authUser = useAuthStore((state) => state.user);
+  const canViewAccessUsers = Boolean(
+    authUser?.is_platform_owner || authUser?.can_access_cross_tenant_access_users
+  );
+  const canDeactivateAccessUsers = Boolean(
+    authUser?.is_platform_owner || authUser?.can_deactivate_cross_tenant_access_users
+  );
   const [form, setForm] = useState({
     email: "",
   });
@@ -64,10 +72,12 @@ export default function CrossTenantAccessUsers() {
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["cross-tenant-access-users"],
     queryFn: clientApi.listAccessUsers,
+    enabled: canViewAccessUsers,
   });
   const { data: retryMetrics, isLoading: isRetryMetricsLoading } = useQuery({
     queryKey: ["cross-tenant-access-retry-metrics"],
     queryFn: clientApi.getAccessUserRetryMetrics,
+    enabled: canViewAccessUsers,
   });
 
   const refetchUsers = () => {
@@ -115,8 +125,12 @@ export default function CrossTenantAccessUsers() {
       toast({ title: "User deactivated", description: "Tenant deactivation sync queued." });
       refetchUsers();
     },
-    onError: () => {
-      toast({ title: "Deactivate failed", description: "Unable to deactivate user.", variant: "destructive" });
+    onError: (error: any) => {
+      toast({
+        title: "Deactivate failed",
+        description: error?.response?.data?.detail || error?.response?.data?.error || "Unable to deactivate user.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -222,6 +236,19 @@ export default function CrossTenantAccessUsers() {
     () => [...users].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     [users]
   );
+
+  if (!canViewAccessUsers) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive">
+          <AlertTitle>Access Restricted</AlertTitle>
+          <AlertDescription>
+            Platform owner has not granted you access to Cross-Tenant Access Users.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider>
@@ -462,31 +489,38 @@ export default function CrossTenantAccessUsers() {
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {user.is_active ? (
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <div className="flex items-center px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg cursor-pointer">
-                                    <UserX className="h-3.5 w-3.5 mr-2" />
-                                    Deactivate User
-                                  </div>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent className="rounded-2xl border-none shadow-2xl">
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle className="text-xl font-bold text-gray-900">Confirm Deactivation</AlertDialogTitle>
-                                    <AlertDialogDescription className="text-gray-600">
-                                      This will immediately revoke access for <span className="font-bold">{user.email}</span> across all {total} connected tenants. This action will be queued for the next sync cycle.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel className="rounded-xl border-gray-200">Cancel</AlertDialogCancel>
-                                    <AlertDialogAction 
-                                      className="rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-100"
-                                      onClick={() => deactivateMutation.mutate(user.id)}
-                                    >
-                                      Deactivate Access
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
+                              canDeactivateAccessUsers ? (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <div className="flex items-center px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg cursor-pointer">
+                                      <UserX className="h-3.5 w-3.5 mr-2" />
+                                      Deactivate User
+                                    </div>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent className="rounded-2xl border-none shadow-2xl">
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle className="text-xl font-bold text-gray-900">Confirm Deactivation</AlertDialogTitle>
+                                      <AlertDialogDescription className="text-gray-600">
+                                        This will immediately revoke access for <span className="font-bold">{user.email}</span> across all {total} connected tenants. This action will be queued for the next sync cycle.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel className="rounded-xl border-gray-200">Cancel</AlertDialogCancel>
+                                      <AlertDialogAction 
+                                        className="rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-100"
+                                        onClick={() => deactivateMutation.mutate(user.id)}
+                                      >
+                                        Deactivate Access
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              ) : (
+                                <DropdownMenuItem disabled className="rounded-lg text-xs">
+                                  <UserX className="h-3.5 w-3.5 mr-2" />
+                                  Deactivate User (No permission)
+                                </DropdownMenuItem>
+                              )
                             ) : (
                               <DropdownMenuItem 
                                 className="rounded-lg text-xs font-medium cursor-pointer text-green-600"

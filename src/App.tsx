@@ -54,7 +54,10 @@ import ClientPerformance from "./pages/ClientPerformance";
 
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
-  const { isAuthenticated } = useAuthStore();
+  const { user } = useAuthStore();
+  const canAccessCrossTenantUsers = Boolean(
+    user?.is_platform_owner || user?.can_access_cross_tenant_access_users
+  );
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -108,7 +111,18 @@ const App = () => {
                     <Route path="/clients/create" element={<ProtectedRoute><ClientForm /></ProtectedRoute>} />
                     <Route path="/clients/edit/:id" element={<ProtectedRoute><ClientForm /></ProtectedRoute>} />
                     <Route path="/clients/:id/lifecycle" element={<ProtectedRoute><ClientLifecycle /></ProtectedRoute>} />
-                    <Route path="/access-users" element={<ProtectedRoute><CrossTenantAccessUsers /></ProtectedRoute>} />
+                    <Route
+                      path="/access-users"
+                      element={
+                        <ProtectedRoute>
+                          {canAccessCrossTenantUsers ? (
+                            <CrossTenantAccessUsers />
+                          ) : (
+                            <Navigate to="/dashboard" replace />
+                          )}
+                        </ProtectedRoute>
+                      }
+                    />
                     <Route path="/treatments" element={<ProtectedRoute><Treatments /></ProtectedRoute>} />
                     <Route path="/treatments/configurations" element={<ProtectedRoute><TreatmentConfigurations /></ProtectedRoute>} />
                     <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />

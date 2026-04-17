@@ -8,9 +8,14 @@ import { clientApi } from '@/api/clientApi';
 import { ClientDataTable } from '@/components/clients/ClientDataTable';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export default function Clients() {
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
+  const canAccessUsersPage = Boolean(
+    user?.is_platform_owner || user?.can_access_cross_tenant_access_users
+  );
   
   const { data: clients, isLoading, isError } = useQuery({
     queryKey: ['clients'],
@@ -34,10 +39,12 @@ export default function Clients() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button disabled>
-              <ShieldCheck className="h-4 w-4 mr-2" />
-              Access Users
-            </Button>
+            {canAccessUsersPage && (
+              <Button disabled>
+                <ShieldCheck className="h-4 w-4 mr-2" />
+                Access Users
+              </Button>
+            )}
             <Button onClick={() => navigate('/dashboard/clients/create')}>
               <Plus className="h-4 w-4 mr-2" />
               Create Client
@@ -64,10 +71,12 @@ export default function Clients() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button disabled>
-              <ShieldCheck className="h-4 w-4 mr-2" />
-              Access Users
-            </Button>
+            {canAccessUsersPage && (
+              <Button disabled>
+                <ShieldCheck className="h-4 w-4 mr-2" />
+                Access Users
+              </Button>
+            )}
             <Button onClick={() => navigate('/dashboard/clients/create')}>
               <Plus className="h-4 w-4 mr-2" />
               Create Client
@@ -92,10 +101,12 @@ export default function Clients() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={() => navigate('/dashboard/access-users')}>
-            <ShieldCheck className="h-4 w-4 mr-2" />
-            Access Users
-          </Button>
+          {canAccessUsersPage && (
+            <Button onClick={() => navigate('/dashboard/access-users')}>
+              <ShieldCheck className="h-4 w-4 mr-2" />
+              Access Users
+            </Button>
+          )}
           <Button onClick={() => navigate('/dashboard/clients/create')}>
             <Plus className="h-4 w-4 mr-2" />
             Create Client

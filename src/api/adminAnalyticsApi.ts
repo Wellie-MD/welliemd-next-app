@@ -8,6 +8,9 @@ export interface ClientAnalyticsKPIs {
   inactive_patients: number;
   dropoff_patients: number;
   total_visits: number;
+  visit_count_async?: number;
+  visit_count_sync?: number;
+  visit_count_unknown?: number;
   avg_order_value: number;
   product_cost: number;
   shipping_cost: number;
@@ -18,6 +21,10 @@ export interface ClientRevenue {
   patient_fees: number;
   reimbursement: number;
   total: number;
+  expense_total: number;
+  visit_expense?: number;
+  profit: number;
+  margin_pct: number;
 }
 
 export interface ClientAnalyticsRow {
@@ -40,10 +47,35 @@ export interface ClientAnalyticsResponse {
     total_clients_active: number;
     total_patients: number;
     total_revenue: number;
+    total_profit: number;
     avg_order_value: number;
   };
   orders_trend: Array<{ month: string; count: number }>;
+  orders_trend_breakdown?: Array<{
+    month: string;
+    client_id: string;
+    client_name: string;
+    pharmacy_name: string;
+    count: number;
+  }>;
   revenue_trend: Array<{ month: string; value: number }>;
+  revenue_trend_breakdown?: Array<{
+    month: string;
+    client_id: string;
+    client_name: string;
+    pharmacy_name: string;
+    value: number;
+  }>;
+  pharmacy_performance: Array<{
+    client_id: string;
+    client_name: string;
+    pharmacy_name: string;
+    revenue: number;
+    profit: number;
+    margin_pct: number;
+    orders: number;
+    captured: number;
+  }>;
 }
 
 export interface ClientAnalyticsParams {
