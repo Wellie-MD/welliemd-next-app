@@ -546,6 +546,18 @@ export default function OrderDetail() {
     ? requestedMedicineName
     : rawPrescribedMedicineName
   const chargeableAmountSource = order.chargeable_amount_source || "requested_medicine"
+  const orderLifecycleStatus = String(order.orderStatus || order.status || "").toLowerCase()
+  const isLikelyLegacyPrescribed =
+    Boolean(order.datePrescribed) ||
+    chargeableAmountSource === "prescribed_medicine" ||
+    ["prescribed", "rx_sent", "shipped", "completed", "delivered"].includes(orderLifecycleStatus)
+  const legacyPrescribedFallbackName =
+    requestedMedicineName && requestedMedicineName !== "—"
+      ? requestedMedicineName
+      : "Legacy prescribed order"
+  const prescribedMedicineDisplayName =
+    prescribedMedicineName ||
+    (isLikelyLegacyPrescribed ? legacyPrescribedFallbackName : "Awaiting provider decision")
   const requestedPillClass =
     "inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
   const prescribedPillClass =
@@ -748,7 +760,7 @@ export default function OrderDetail() {
                           <p className="text-xs text-slate-500 mt-0.5">
                             Prescribed (Doctor Final):{" "}
                             <span className={prescribedPillClass}>
-                              {prescribedMedicineName || "Awaiting provider decision"}
+                              {prescribedMedicineDisplayName}
                             </span>
                           </p>
                           <p className="text-xs text-slate-500 mt-0.5">
@@ -977,7 +989,7 @@ export default function OrderDetail() {
                   <p className="text-xs text-slate-500 mt-1">
                     Prescribed (Doctor Final):{" "}
                     <span className={prescribedPillClass}>
-                      {prescribedMedicineName || "Awaiting provider decision"}
+                      {prescribedMedicineDisplayName}
                     </span>
                   </p>
                   <p className="text-xs text-slate-500 mt-1">

@@ -157,10 +157,23 @@ export function OrderDetailsSheet({
     prescribedNameNormalized === "same medication"
       ? requestedMedicineName
       : rawPrescribedMedicineName
+  const chargeableAmountSource = order?.chargeable_amount_source || "requested_medicine"
+  const orderLifecycleStatus = String(order?.orderStatus || order?.status || "").toLowerCase()
+  const isLikelyLegacyPrescribed =
+    Boolean(order?.datePrescribed) ||
+    chargeableAmountSource === "prescribed_medicine" ||
+    ["prescribed", "rx_sent", "shipped", "completed", "delivered"].includes(orderLifecycleStatus)
+  const legacyPrescribedFallbackName =
+    requestedMedicineName && requestedMedicineName !== "—"
+      ? requestedMedicineName
+      : "Legacy prescribed order"
+  const prescribedMedicineDisplayName =
+    prescribedMedicineName ||
+    (isLikelyLegacyPrescribed ? legacyPrescribedFallbackName : "Awaiting provider decision")
   const chargeableSourceLabel =
-    order?.chargeable_amount_source === "prescribed_medicine"
+    chargeableAmountSource === "prescribed_medicine"
       ? "Prescribed Pricing"
-      : order?.chargeable_amount_source === "requested_medicine_fallback"
+      : chargeableAmountSource === "requested_medicine_fallback"
         ? "Requested Fallback Pricing"
         : "Requested Pricing"
   const netCollected = Math.max(0, orderTotal - totalRefunded)
@@ -348,7 +361,7 @@ export function OrderDetailsSheet({
                   <InfoItem
                     icon={<Package className="h-4 w-4" />}
                     label="Prescribed (Doctor Final)"
-                    value={prescribedMedicineName || "Awaiting provider decision"}
+                    value={prescribedMedicineDisplayName}
                     tone="prescribed"
                   />
                   <InfoItem
