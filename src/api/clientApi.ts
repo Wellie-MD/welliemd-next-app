@@ -266,6 +266,8 @@ export interface CrossTenantAccessUser {
 export interface CrossTenantAccessRetryMetrics {
   auto_retry_runs: number;
   last_auto_retry_at: string | null;
+  scheduler_runs: number;
+  last_scheduler_run_at: string | null;
 }
 
 export interface ClientCreateResponse {

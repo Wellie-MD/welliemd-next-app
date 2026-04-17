@@ -150,7 +150,12 @@ export interface AdminOrder {
   status: string;
   status_display: string;
   amount: number;
+  chargeable_amount?: string | number | null;
+  chargeable_amount_source?: 'requested_medicine' | 'prescribed_medicine' | 'requested_medicine_fallback' | null;
   discount_amount: number;
+  requested_medicine_name?: string | null;
+  prescribed_medicine_name?: string | null;
+  doctor_name?: string | null;
   payment_status: 'paid' | 'pending' | 'failed';
   created_at: string;
   prescribed_at: string | null;

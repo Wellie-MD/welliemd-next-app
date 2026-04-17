@@ -59,7 +59,6 @@ export default function CrossTenantAccessUsers() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
     email: "",
-    phone: "",
   });
 
   const { data: users = [], isLoading } = useQuery({
@@ -80,7 +79,7 @@ export default function CrossTenantAccessUsers() {
     mutationFn: (payload: Partial<CrossTenantAccessUser>) => clientApi.createAccessUser(payload),
     onSuccess: () => {
       toast({ title: "Access user created", description: "Successfully provisioned and queued for initial sync." });
-      setForm({ email: "", phone: "" });
+      setForm({ email: "" });
       refetchUsers();
     },
     onError: () => {
@@ -212,11 +211,12 @@ export default function CrossTenantAccessUsers() {
         { title: "Connection Success Rate", value: `${healthRate.toFixed(1)}%`, change: "-", trend: healthRate > 95 ? "up" as const : "neutral" as const },
         { title: "Waiting to Sync", value: pendingSyncs.toString(), change: "-", trend: pendingSyncs > 0 ? "down" as const : "neutral" as const },
         { title: "Needs Attention", value: failedSyncs.toString(), change: "-", trend: failedSyncs > 0 ? "down" as const : "neutral" as const },
-        { title: "Auto-Retry Runs", value: String(retryMetrics?.auto_retry_runs ?? 0), change: "-", trend: "neutral" as const },
+        { title: "Retry Job Runs", value: String(retryMetrics?.scheduler_runs ?? 0), change: "-", trend: "neutral" as const },
+        { title: "Auto-Retry Actions", value: String(retryMetrics?.auto_retry_runs ?? 0), change: "-", trend: "neutral" as const },
       ],
       recentFailures,
     };
-  }, [users, retryMetrics?.auto_retry_runs]);
+  }, [users, retryMetrics?.auto_retry_runs, retryMetrics?.scheduler_runs]);
 
   const sortedUsers = useMemo(
     () => [...users].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
@@ -243,7 +243,7 @@ export default function CrossTenantAccessUsers() {
         {/* Sync Intelligence Dashboard */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {isLoading || isRetryMetricsLoading ? (
-            Array.from({ length: 5 }).map((_, i) => (
+            Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-32 rounded-2xl w-full" />
             ))
           ) : (
@@ -253,12 +253,20 @@ export default function CrossTenantAccessUsers() {
           )}
         </div>
         {!isLoading && !isRetryMetricsLoading && (
-          <p className="text-xs text-muted-foreground px-1">
-            Last Auto-Retry Time:{" "}
-            {retryMetrics?.last_auto_retry_at
-              ? new Date(retryMetrics.last_auto_retry_at).toLocaleString()
-              : "Never"}
-          </p>
+          <>
+            <p className="text-xs text-muted-foreground px-1">
+              Last Retry Job Run:{" "}
+              {retryMetrics?.last_scheduler_run_at
+                ? new Date(retryMetrics.last_scheduler_run_at).toLocaleString()
+                : "Never"}
+            </p>
+            <p className="text-xs text-muted-foreground px-1">
+              Last Auto-Retry Time:{" "}
+              {retryMetrics?.last_auto_retry_at
+                ? new Date(retryMetrics.last_auto_retry_at).toLocaleString()
+                : "Never"}
+            </p>
+          </>
         )}
 
         {/* Global Diagnostic Summary */}
@@ -309,12 +317,7 @@ export default function CrossTenantAccessUsers() {
                   onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                 />
               </div>
-              <Input
-                placeholder="Phone (Optional)"
-                className="bg-white border-gray-200 rounded-xl focus-visible:ring-blue-500 h-11 md:w-64"
-                value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-              />
+              {/* Phone removed — cross-tenant access provisioning uses email only */}
               <Button
                 type="submit"
                 className="rounded-xl h-11 px-6 shadow-md shadow-primary/20 transition-all active:scale-95"
@@ -386,7 +389,6 @@ export default function CrossTenantAccessUsers() {
                         </div>
                         <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground font-medium">
                           <span>{user.first_name} {user.last_name}</span>
-                          {user.phone && <><span className="w-0.5 h-0.5 rounded-full bg-gray-300" /><span>{user.phone}</span></>}
                         </div>
                       </div>
 
