@@ -1,34 +1,21 @@
 "use client"
 
-import { useMemo, useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Plus, KeyRound } from 'lucide-react';
+import { Plus, ShieldCheck } from 'lucide-react';
 import { clientApi } from '@/api/clientApi';
 import { ClientDataTable } from '@/components/clients/ClientDataTable';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { toast } from '@/hooks/use-toast';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export default function Clients() {
   const navigate = useNavigate();
-  const [isSendingKey, setIsSendingKey] = useState(false);
-
-  const masterkeyMutation = useMutation({
-    mutationFn: clientApi.sendMasterKeyEmail,
-    onMutate: () => setIsSendingKey(true),
-    onSettled: () => setIsSendingKey(false),
-    onSuccess: (data) => {
-      toast({ title: 'Email sent', description: data.message });
-    },
-    onError: () => {
-      toast({
-        title: 'Failed to send',
-        description: 'Could not send master key email. Please try again.',
-        variant: 'destructive',
-      });
-    },
-  });
+  const user = useAuthStore((state) => state.user);
+  const canAccessUsersPage = Boolean(
+    user?.is_platform_owner || user?.can_access_cross_tenant_access_users
+  );
   
   const { data: clients, isLoading, isError } = useQuery({
     queryKey: ['clients'],
@@ -52,10 +39,12 @@ export default function Clients() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button disabled>
-              <KeyRound className="h-4 w-4 mr-2" />
-              Get Master Key
-            </Button>
+            {canAccessUsersPage && (
+              <Button disabled>
+                <ShieldCheck className="h-4 w-4 mr-2" />
+                Access Users
+              </Button>
+            )}
             <Button onClick={() => navigate('/dashboard/clients/create')}>
               <Plus className="h-4 w-4 mr-2" />
               Create Client
@@ -82,10 +71,12 @@ export default function Clients() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button disabled>
-              <KeyRound className="h-4 w-4 mr-2" />
-              Get Master Key
-            </Button>
+            {canAccessUsersPage && (
+              <Button disabled>
+                <ShieldCheck className="h-4 w-4 mr-2" />
+                Access Users
+              </Button>
+            )}
             <Button onClick={() => navigate('/dashboard/clients/create')}>
               <Plus className="h-4 w-4 mr-2" />
               Create Client
@@ -110,13 +101,12 @@ export default function Clients() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            onClick={() => masterkeyMutation.mutate()}
-            disabled={isSendingKey}
-          >
-            <KeyRound className="h-4 w-4 mr-2" />
-            {isSendingKey ? 'Sending…' : 'Get Master Key'}
-          </Button>
+          {canAccessUsersPage && (
+            <Button onClick={() => navigate('/dashboard/access-users')}>
+              <ShieldCheck className="h-4 w-4 mr-2" />
+              Access Users
+            </Button>
+          )}
           <Button onClick={() => navigate('/dashboard/clients/create')}>
             <Plus className="h-4 w-4 mr-2" />
             Create Client

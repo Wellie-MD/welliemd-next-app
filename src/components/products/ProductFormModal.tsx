@@ -54,17 +54,27 @@ interface ProductFormModalProps {
   onOpenChange: (open: boolean) => void;
   product?: Product | null;
   onSuccess: () => void;
+  defaultProductType?: "single" | "bundle" | "supply";
 }
+
+type LinkedSupplyRow = {
+  supply_product_id: number;
+  quantity: number;
+  is_included: boolean;
+};
 
 export function ProductFormModal({
   open,
   onOpenChange,
   product,
   onSuccess,
+  defaultProductType = "single",
 }: ProductFormModalProps) {
   const [loading, setLoading] = useState(false);
   const [pharmacies, setPharmacies] = useState<any[]>([]);
   const [doseMappings, setDoseMappings] = useState<ProductDoseMapping[]>([]);
+  const [supplyProducts, setSupplyProducts] = useState<Product[]>([]);
+  const [linkedSupplies, setLinkedSupplies] = useState<LinkedSupplyRow[]>([]);
   const [treatmentOptions, setTreatmentOptions] = useState<TreatmentOption[]>([]);
   const [loadingTreatmentOptions, setLoadingTreatmentOptions] = useState(false);
   const [loadingDoseMappings, setLoadingDoseMappings] = useState(false);
@@ -81,7 +91,7 @@ export function ProductFormModal({
     dose_mapping: null as number | null,
     titration_category: null as number | null,
     pharmacy: null as string | null,
-    product_type: "single",
+    product_type: defaultProductType,
     purchase_type: "one_time",
     treatment: "weight_loss",
     rx_or_otc: "rx",
@@ -119,6 +129,25 @@ export function ProductFormModal({
     };
     if (open) {
       fetchPharmacies();
+    }
+  }, [open]);
+
+  useEffect(() => {
+    const fetchSupplyProducts = async () => {
+      try {
+        const supplies = await productApi.listProducts({
+          product_type: "supply",
+          is_active: true,
+          page_size: 300,
+        });
+        setSupplyProducts((supplies || []) as Product[]);
+      } catch (error) {
+        console.error("Failed to fetch supply products:", error);
+        setSupplyProducts([]);
+      }
+    };
+    if (open) {
+      fetchSupplyProducts();
     }
   }, [open]);
 
@@ -307,6 +336,14 @@ export function ProductFormModal({
         allow_client_modifications: product.allow_client_modifications !== undefined ? product.allow_client_modifications : true,
         sync_to_tenants: product.sync_to_tenants || false,
       });
+      const existingLinks = ((product as any).linked_supplies || []) as any[];
+      setLinkedSupplies(
+        existingLinks.map((row) => ({
+          supply_product_id: Number(row.supply_product_id),
+          quantity: Number(row.quantity || 1),
+          is_included: Boolean(row.is_included),
+        }))
+      );
     } else {
       // Reset form for new product
       setFormData({
@@ -318,7 +355,7 @@ export function ProductFormModal({
         dose_mapping: null,
         titration_category: null,
         pharmacy: null,
-        product_type: "single",
+        product_type: defaultProductType,
         purchase_type: "one_time",
         treatment: "weight_loss",
         rx_or_otc: "rx",
@@ -343,8 +380,15 @@ export function ProductFormModal({
         allow_client_modifications: true,
         sync_to_tenants: false,
       });
+      setLinkedSupplies([]);
     }
-  }, [product, open]);
+  }, [product, open, defaultProductType]);
+
+  useEffect(() => {
+    if (formData.product_type === "supply" && linkedSupplies.length > 0) {
+      setLinkedSupplies([]);
+    }
+  }, [formData.product_type, linkedSupplies.length]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -379,6 +423,14 @@ export function ProductFormModal({
         shipping_cost_to_welliemd: parseFloat(formData.shipping_cost_to_welliemd),
         rx_quantity: parseFloat(formData.rx_quantity),
         quantity: parseInt(formData.quantity),
+        linked_supplies_payload:
+          formData.product_type === "supply"
+            ? []
+            : linkedSupplies.map((row) => ({
+                supply_product_id: row.supply_product_id,
+                quantity: row.quantity,
+                is_included: row.is_included,
+              })),
       };
 
       if (product) {
@@ -531,6 +583,7 @@ export function ProductFormModal({
                 </Select>
               </div>
 
+              {formData.product_type !== "supply" && (
               <div>
                 <Label htmlFor="treatment">Treatment</Label>
                 <Select
@@ -563,7 +616,9 @@ export function ProductFormModal({
                   </SelectContent>
                 </Select>
               </div>
+              )}
 
+              {formData.product_type !== "supply" && (
               <div>
                 <Label htmlFor="rx_or_otc">RX/OTC</Label>
                 <Select
@@ -582,6 +637,7 @@ export function ProductFormModal({
                   </SelectContent>
                 </Select>
               </div>
+              )}
             </div>
           </div>
 
@@ -665,6 +721,7 @@ export function ProductFormModal({
                 />
               </div>
 
+              {formData.product_type !== "supply" && (
               <div>
                 <Label htmlFor="rx_drug_form">Drug Form</Label>
                 <Select
@@ -683,7 +740,9 @@ export function ProductFormModal({
                   </SelectContent>
                 </Select>
               </div>
+              )}
 
+              {formData.product_type !== "supply" && (
               <div>
                 <Label htmlFor="rx_quantity">RX Quantity</Label>
                 <Input
@@ -695,7 +754,9 @@ export function ProductFormModal({
                   onChange={(e) => setFormData({ ...formData, rx_quantity: e.target.value })}
                 />
               </div>
+              )}
 
+              {formData.product_type !== "supply" && (
               <div>
                 <Label htmlFor="rx_drug_strength">Drug Strength</Label>
                 <Input
@@ -705,7 +766,9 @@ export function ProductFormModal({
                   placeholder="e.g., 5mg/ml, 10mg"
                 />
               </div>
+              )}
 
+              {formData.product_type !== "supply" && (
               <div>
                 <Label htmlFor="rx_days_supply">Days Supply</Label>
                 <Input
@@ -716,7 +779,9 @@ export function ProductFormModal({
                   onChange={(e) => setFormData({ ...formData, rx_days_supply: parseInt(e.target.value) })}
                 />
               </div>
+              )}
 
+              {formData.product_type !== "supply" && (
               <div>
                 <Label htmlFor="refills">Refills</Label>
                 <Input
@@ -727,6 +792,7 @@ export function ProductFormModal({
                   onChange={(e) => setFormData({ ...formData, refills: parseInt(e.target.value) })}
                 />
               </div>
+              )}
 
               <div>
                 <Label htmlFor="quantity">Inventory Quantity</Label>
@@ -739,6 +805,7 @@ export function ProductFormModal({
                 />
               </div>
 
+              {formData.product_type !== "supply" && (
               <div>
                 <Label htmlFor="followup_days_after">Follow-up Days After</Label>
                 <Input
@@ -749,6 +816,7 @@ export function ProductFormModal({
                   onChange={(e) => setFormData({ ...formData, followup_days_after: parseInt(e.target.value) })}
                 />
               </div>
+              )}
             </div>
           </div>
 
@@ -783,6 +851,7 @@ export function ProductFormModal({
           </div>
 
           {/* Simplified Product Configuration */}
+          {formData.product_type !== "supply" && (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Product Configuration</h3>
 
@@ -836,6 +905,135 @@ export function ProductFormModal({
               </div>
             </div>
           </div>
+          )}
+
+          {/* Linked Required Supplies */}
+          {formData.product_type !== "supply" && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Linked Required Supplies</h3>
+              <p className="text-sm text-muted-foreground">
+                Attach supply SKUs to this medication. Mark a supply as included when the patient should not be charged for that item or its shipping.
+              </p>
+
+              <div className="space-y-3">
+                {linkedSupplies.map((row, idx) => {
+                  const selectedSupply = supplyProducts.find(
+                    (p) => Number(p.id) === Number(row.supply_product_id)
+                  );
+                  const unitCost = Number(selectedSupply?.cost_to_client ?? selectedSupply?.base_price ?? 0);
+                  const unitShipping = Number(selectedSupply?.shipping_cost_to_client ?? 0);
+                  const qty = Number(row.quantity || 1);
+                  const totalCharge = (unitCost + unitShipping) * qty;
+                  return (
+                    <div key={`${row.supply_product_id}-${idx}`} className="grid grid-cols-12 gap-2 items-center">
+                      <div className="col-span-6">
+                        <Select
+                          value={String(row.supply_product_id)}
+                          onValueChange={(value) => {
+                            const next = [...linkedSupplies];
+                            next[idx] = {
+                              ...next[idx],
+                              supply_product_id: Number(value),
+                            };
+                            setLinkedSupplies(next);
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select supply product" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {supplyProducts
+                              .filter((p) => Number(p.id) !== Number(product?.id))
+                              .map((supply) => (
+                              <SelectItem key={String(supply.id)} value={String(supply.id)}>
+                                {supply.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="col-span-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          value={row.quantity}
+                          onChange={(e) => {
+                            const next = [...linkedSupplies];
+                            next[idx] = {
+                              ...next[idx],
+                              quantity: Math.max(1, parseInt(e.target.value || "1", 10)),
+                            };
+                            setLinkedSupplies(next);
+                          }}
+                        />
+                      </div>
+                      <div className="col-span-3 flex items-center gap-2">
+                        <Switch
+                          checked={row.is_included}
+                          onCheckedChange={(checked) => {
+                            const next = [...linkedSupplies];
+                            next[idx] = {
+                              ...next[idx],
+                              is_included: checked,
+                            };
+                            setLinkedSupplies(next);
+                          }}
+                        />
+                        <span className="text-sm">
+                          {row.is_included ? "Included (no extra charge)" : "Billed separately"}
+                        </span>
+                      </div>
+                      <div className="col-span-1 flex justify-end">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => setLinkedSupplies(linkedSupplies.filter((_, i) => i !== idx))}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                      {selectedSupply && (
+                        <div className="col-span-12 text-xs text-muted-foreground">
+                          {row.is_included
+                            ? `${selectedSupply.name} • Qty ${qty} • Included supply • No extra admin charge • No patient charge`
+                            : `${selectedSupply.name} • Qty ${qty} • Cost to Client $${unitCost.toFixed(2)} • Shipping $${unitShipping.toFixed(2)} • Admin charge: $${totalCharge.toFixed(2)} • Patient charge: billed separately`}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {!!linkedSupplies.length && (
+                <div className="text-xs text-muted-foreground border rounded-md px-3 py-2 bg-muted/30">
+                  Included supplies: {linkedSupplies.filter((row) => row.is_included).length} •
+                  Billable supplies: {linkedSupplies.filter((row) => !row.is_included).length}
+                </div>
+              )}
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  if (!supplyProducts.length) return;
+                  const firstAvailable = supplyProducts.find((s) =>
+                    !linkedSupplies.some((row) => Number(row.supply_product_id) === Number(s.id))
+                  );
+                  if (!firstAvailable) return;
+                  setLinkedSupplies([
+                    ...linkedSupplies,
+                    {
+                      supply_product_id: Number(firstAvailable.id),
+                      quantity: 1,
+                      is_included: false,
+                    },
+                  ]);
+                }}
+              >
+                Add Supply
+              </Button>
+            </div>
+          )}
 
           {/* Settings */}
           <div className="space-y-4">

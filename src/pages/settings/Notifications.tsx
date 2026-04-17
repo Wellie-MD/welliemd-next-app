@@ -1,8 +1,9 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { fetchNotificationPreferences, saveNotificationPreferences } from "@/api/notificationPreferencesApi"
 
 interface NotificationPreferences {
   [key: string]: {
@@ -88,15 +89,50 @@ export default function Notifications() {
     pharmacyOrderFlag: { email: false, sms: false, slack: false },
     pharmacyOrderNotes: { email: false, sms: false, slack: false }
   })
+  const syncTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const persisted = await fetchNotificationPreferences()
+        if (!mounted || !persisted || Object.keys(persisted).length === 0) return
+        setPreferences((prev) => ({ ...prev, ...persisted }))
+      } catch {
+        // Keep local defaults if API fetch fails.
+      }
+    })()
+    return () => {
+      mounted = false
+      if (syncTimerRef.current) {
+        window.clearTimeout(syncTimerRef.current)
+      }
+    }
+  }, [])
+
+  const scheduleSave = (next: NotificationPreferences) => {
+    if (syncTimerRef.current) window.clearTimeout(syncTimerRef.current)
+    syncTimerRef.current = window.setTimeout(async () => {
+      try {
+        await saveNotificationPreferences(next)
+      } catch {
+        // Keep UI responsive even if save fails.
+      }
+    }, 400)
+  }
 
   const togglePreference = (key: string, type: 'email' | 'sms' | 'slack') => {
-    setPreferences(prev => ({
-      ...prev,
-      [key]: {
-        ...prev[key],
-        [type]: !prev[key][type]
+    setPreferences(prev => {
+      const next = {
+        ...prev,
+        [key]: {
+          ...prev[key],
+          [type]: !prev[key][type]
+        }
       }
-    }))
+      scheduleSave(next)
+      return next
+    })
   }
 
   const toggleAllInSection = (keys: string[], type: 'email' | 'sms' | 'slack', value: boolean) => {
@@ -107,6 +143,7 @@ export default function Notifications() {
           updated[key][type] = value
         }
       })
+      scheduleSave(updated)
       return updated
     })
   }

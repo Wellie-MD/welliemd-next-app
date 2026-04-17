@@ -10,6 +10,9 @@ interface User {
   phone?: string;
   avatar_url?: string;
   permissions?: string[];
+  is_platform_owner?: boolean;
+  can_access_cross_tenant_access_users?: boolean;
+  can_deactivate_cross_tenant_access_users?: boolean;
 }
 
 interface AuthState {

@@ -88,9 +88,15 @@ export interface DashboardData {
  * @returns Promise<DashboardData> - Complete dashboard data
  * @throws Error if request fails
  */
-export async function getAdminDashboardOverview(): Promise<DashboardData> {
+export interface DashboardOverviewParams {
+  start_date?: string;
+  end_date?: string;
+  client_id?: string;
+}
+
+export async function getAdminDashboardOverview(params?: DashboardOverviewParams): Promise<DashboardData> {
   try {
-    const { data } = await axiosInstance.get<DashboardData>('/admin/dashboard/overview/');
+    const { data } = await axiosInstance.get<DashboardData>('/admin/dashboard/overview/', { params });
     return data;
   } catch (error: any) {
     console.error('Failed to fetch admin dashboard overview:', error);
@@ -144,7 +150,12 @@ export interface AdminOrder {
   status: string;
   status_display: string;
   amount: number;
+  chargeable_amount?: string | number | null;
+  chargeable_amount_source?: 'requested_medicine' | 'prescribed_medicine' | 'requested_medicine_fallback' | null;
   discount_amount: number;
+  requested_medicine_name?: string | null;
+  prescribed_medicine_name?: string | null;
+  doctor_name?: string | null;
   payment_status: 'paid' | 'pending' | 'failed';
   created_at: string;
   prescribed_at: string | null;

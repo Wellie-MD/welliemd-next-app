@@ -236,6 +236,40 @@ export interface ClientUpdatePayload {
   is_active?: boolean;
 }
 
+export interface AccessUserSyncStatus {
+  id: string;
+  client: string;
+  client_name: string;
+  status: 'pending' | 'success' | 'failed' | 'skipped';
+  last_error: string;
+  last_attempt_at: string | null;
+  synced_at: string | null;
+  updated_at: string;
+}
+
+export interface CrossTenantAccessUser {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  is_active: boolean;
+  sync_scope: 'all_clients' | 'selected_clients';
+  target_client_ids: string[];
+  tenant_role: string;
+  sync_status_summary?: Record<string, number>;
+  sync_statuses?: AccessUserSyncStatus[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CrossTenantAccessRetryMetrics {
+  auto_retry_runs: number;
+  last_auto_retry_at: string | null;
+  scheduler_runs: number;
+  last_scheduler_run_at: string | null;
+}
+
 export interface ClientCreateResponse {
   success: boolean;
   message: string;
@@ -549,17 +583,21 @@ export const clientApi = {
     return data;
   },
 
-  /**
-   * Send master key credentials to the requesting admin user's email.
-   */
+  listAccessUsers: async (): Promise<CrossTenantAccessUser[]> => {
+    const { data } = await axiosInstance.get('/admin/access-users/');
+    return data;
+  },
+
+  getAccessUserRetryMetrics: async (): Promise<CrossTenantAccessRetryMetrics> => {
+    const { data } = await axiosInstance.get('/admin/access-users/retry-metrics/');
+    return data;
+  },
+
   sendMasterKeyEmail: async (): Promise<{ message: string }> => {
     const { data } = await axiosInstance.post('/admin/send-masterkey-email/');
     return data;
   },
 
-  /**
-   * Access master key credentials via one-time token.
-   */
   accessMasterKey: async (token: string): Promise<{
     email: string;
     password: string;
@@ -567,6 +605,52 @@ export const clientApi = {
     requested_by: string | null;
   }> => {
     const { data } = await axiosInstance.get(`/admin/masterkey/access/${token}/`);
+    return data;
+  },
+
+  createAccessUser: async (payload: Partial<CrossTenantAccessUser>): Promise<{
+    access_user: CrossTenantAccessUser;
+    queued: boolean;
+    queued_tenants: number;
+    task_id: string;
+    request_id: string;
+  }> => {
+    const { data } = await axiosInstance.post('/admin/access-users/', payload);
+    return data;
+  },
+
+  updateAccessUser: async (
+    accessUserId: string,
+    payload: Partial<CrossTenantAccessUser>
+  ): Promise<CrossTenantAccessUser> => {
+    const { data } = await axiosInstance.patch(`/admin/access-users/${accessUserId}/`, payload);
+    return data;
+  },
+
+  deactivateAccessUser: async (
+    accessUserId: string,
+    clientIds?: string[]
+  ): Promise<{ queued: boolean; task_id: string; request_id: string }> => {
+    const { data } = await axiosInstance.post(`/admin/access-users/${accessUserId}/deactivate/`, {
+      client_ids: clientIds,
+    });
+    return data;
+  },
+
+  syncAccessUser: async (
+    accessUserId: string,
+    clientIds?: string[]
+  ): Promise<{ queued: boolean; task_id: string; request_id: string; queued_tenants?: number }> => {
+    const { data } = await axiosInstance.post(`/admin/access-users/${accessUserId}/sync/`, {
+      client_ids: clientIds,
+    });
+    return data;
+  },
+
+  inviteAccessUser: async (
+    accessUserId: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const { data } = await axiosInstance.post(`/admin/access-users/${accessUserId}/invite/`);
     return data;
   },
 };

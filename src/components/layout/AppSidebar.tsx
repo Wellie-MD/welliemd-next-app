@@ -64,15 +64,13 @@ const menuSections = [
       },
       { title: "Payments", url: "/dashboard/payments", icon: CreditCard },
       { title: "Messenger", url: "/dashboard/messages", icon: MessageSquare },
-      // { 
-      //   title: "Analytics", 
-      //   icon: TrendingUp,
-      //   children: [
-      //     { title: "Live View", url: "/dashboard/analytics/live" },
-      //     { title: "Reports", url: "/dashboard/analytics/reports" },
-      //     { title: "Cohorts", url: "/dashboard/analytics/cohorts" }
-      //   ]
-      // },
+      { 
+        title: "Analytics", 
+        icon: TrendingUp,
+        children: [
+          { title: "Client Performance", url: "/dashboard/analytics/performance" },
+        ]
+      },
       // { title: "Prescriptions", url: "/dashboard/prescriptions", icon: ScrollText } // --- Removed on request: https://telehealthknysys.atlassian.net/browse/KAN-3 --
     ]
   },
@@ -89,6 +87,7 @@ const menuSections = [
         icon: Package,
         children: [
           { title: "Products", url: "/dashboard/products" },
+          { title: "Supplies", url: "/dashboard/products/supplies" },
           { title: "Configuration", url: "/dashboard/products/config" }
         ]
       },

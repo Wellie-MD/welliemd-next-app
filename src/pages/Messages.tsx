@@ -4,7 +4,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Phone,
@@ -25,7 +24,13 @@ import { groupMessages, type Conversation } from "@/utils/groupMessages";
 import { useClients, type Client } from "@/hooks/useClients";
 
 import { isToday, isYesterday, isThisWeek, format, formatISO } from "date-fns";
-import { messageService, uploadToAdminS3, type NewAttachment } from "@/services/messageService";
+import {
+  messageService,
+  uploadToAdminS3,
+  type NewAttachment,
+  markAdminNotificationsReadForConversation,
+} from "@/services/messageService";
+import { useSearchParams } from "react-router-dom";
 
 function getMessageGroupLabel(dateStr: string) {
   const date = new Date(dateStr);
@@ -80,7 +85,7 @@ const DocIcon = ({ ext, mime }: { ext: string; mime?: string | null }) => {
   else if (["js", "ts", "py", "java", "c", "cpp", "json", "yml", "yaml", "html", "css"].includes(ext)) Icon = FileCode;
 
   return (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-800">
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-200">
       <Icon className="h-5 w-5" />
     </div>
   );
@@ -100,27 +105,27 @@ function DocumentBubble({
   const ext = getExt(derivedName);
 
   return (
-    <div className="w-[260px] lg:w-[320px] rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
+    <div className="w-[260px] lg:w-[320px] rounded-lg bg-white dark:bg-slate-900 shadow-sm ring-1 ring-gray-200 dark:ring-slate-700">
       <div className="p-3 flex items-start gap-3">
         <DocIcon ext={ext} mime={mime} />
         <div className="min-w-0">
           {/* filename/title intentionally omitted */}
           <div className="mt-1 flex items-center gap-2">
             {ext && (
-              <span className="inline-flex items-center rounded-full bg-gray-50 text-gray-700 px-2 py-0.5 text-[10px] uppercase tracking-wider">
+              <span className="inline-flex items-center rounded-full bg-gray-50 text-gray-700 dark:bg-slate-800 dark:text-slate-300 px-2 py-0.5 text-[10px] uppercase tracking-wider">
                 {ext}
               </span>
             )}
-            {mime && <span className="text-[11px] text-gray-500 truncate">{mime}</span>}
+            {mime && <span className="text-[11px] text-gray-500 dark:text-slate-400 truncate">{mime}</span>}
           </div>
         </div>
       </div>
-      <div className="flex items-center justify-center border-t px-3 py-2">
+      <div className="flex items-center justify-center border-t border-gray-200 dark:border-slate-700 px-3 py-2">
         <a
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 hover:text-gray-900"
+          className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 dark:text-slate-300 hover:text-gray-900 dark:hover:text-slate-100"
           title="Open in new tab"
         >
           <ExternalLink className="h-3.5 w-3.5" />
@@ -133,16 +138,20 @@ function DocumentBubble({
 
 /* ==================== Component ==================== */
 export default function Messages() {
+  const MAX_COMPOSER_HEIGHT_PX = 140;
+  const [searchParams, setSearchParams] = useSearchParams();
   // 1) Admin: load clients
   const { clients, loading: loadingClients, error: clientsError } = useClients();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
   // 2) Load messages (admin hits selected client's API)
-  const { messages, loading, error } = useMessages(selectedClient?.api_endpoint, 5000);
+  const { messages, loading, error } = useMessages(undefined, 20000, selectedClient?.id);
 
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const sendInFlightRef = useRef(false);
+  const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Attachments (compose)
   const [files, setFiles] = useState<File[]>([]);
@@ -171,12 +180,38 @@ export default function Messages() {
 
   const conversations = groupMessages(messages);
 
+  const resizeComposer = () => {
+    const el = messageInputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const nextHeight = Math.min(el.scrollHeight, MAX_COMPOSER_HEIGHT_PX);
+    el.style.height = `${Math.max(48, nextHeight)}px`;
+    el.style.overflowY = el.scrollHeight > MAX_COMPOSER_HEIGHT_PX ? "auto" : "hidden";
+  };
+
+  useEffect(() => {
+    resizeComposer();
+  }, [newMessage]);
+
   // Auto-pick first client
   useEffect(() => {
+    const targetClientId = searchParams.get("client_id");
+    if (!loadingClients && targetClientId && clients.length > 0) {
+      const match = clients.find((c) => c.id === targetClientId);
+      if (match) {
+        setSelectedClient(match);
+        return;
+      }
+      // Guard stale client ids to avoid repeated 404 poll loops.
+      const next = new URLSearchParams(searchParams);
+      next.delete("client_id");
+      next.delete("master_id");
+      setSearchParams(next, { replace: true });
+    }
     if (!loadingClients && !selectedClient && clients.length > 0) {
       setSelectedClient(clients[0]);
     }
-  }, [loadingClients, clients, selectedClient]);
+  }, [loadingClients, clients, selectedClient, searchParams, setSearchParams]);
 
   // Keep activeConversation in sync
   useEffect(() => {
@@ -197,6 +232,50 @@ export default function Messages() {
       setActiveConversation(conversations[0]);
     }
   }, [loading, conversations, activeConversation]);
+
+  useEffect(() => {
+    const targetMasterId = searchParams.get("master_id");
+    if (!targetMasterId || conversations.length === 0) return;
+    const match = conversations.find((c) => c.masterId === targetMasterId);
+    if (!match) return;
+    setActiveConversation(match);
+    const next = new URLSearchParams(searchParams);
+    next.delete("master_id");
+    next.delete("client_id");
+    setSearchParams(next, { replace: true });
+  }, [conversations, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!selectedClient?.id || !activeConversation?.masterId) return;
+    let cancelled = false;
+
+    (async () => {
+      const compositeIds = await markAdminNotificationsReadForConversation(
+        selectedClient.id,
+        activeConversation.masterId
+      );
+      if (cancelled || compositeIds.length === 0) return;
+
+      try {
+        const raw = localStorage.getItem("admin_seen_message_notifications");
+        const existing = raw ? (JSON.parse(raw) as string[]) : [];
+        const merged = Array.from(new Set([...existing, ...compositeIds]));
+        localStorage.setItem("admin_seen_message_notifications", JSON.stringify(merged));
+      } catch {
+        // no-op
+      }
+
+      window.dispatchEvent(
+        new CustomEvent("admin:notifications-seen", {
+          detail: { compositeIds },
+        })
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClient?.id, activeConversation?.id, activeConversation?.masterId, activeConversation?.messages]);
 
   // ===== Smart autoscroll =====
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
@@ -238,9 +317,11 @@ export default function Messages() {
 
 
 async function handleSend() {
+  if (sendInFlightRef.current || sending) return;
   if (!activeConversation || (!newMessage.trim() && files.length === 0)) return;
 
   try {
+    sendInFlightRef.current = true;
     setSending(true);
     shouldStickRef.current = true;
 
@@ -260,7 +341,7 @@ async function handleSend() {
         master_id: activeConversation.masterId,
         to: "support",
         from_super_admin: true as any,
-        apiEndpoint: selectedClient?.api_endpoint,
+        clientId: selectedClient?.id,
         content: text || (first ? "Attachment" : undefined),
 
         // <<< populate these (the key part you asked for)
@@ -290,6 +371,7 @@ async function handleSend() {
         media_url: first?.url,
         media_mime_type: first?.mime_type,
         media_file_name: first?.file_name,
+        delivery_status: resp?.status || (resp?.queued ? "sending" : "sent"),
       };
 
       setActiveConversation((prev) =>
@@ -310,7 +392,7 @@ async function handleSend() {
         master_id: activeConversation.masterId,
         to: "support",
         from_super_admin: true as any,
-        apiEndpoint: selectedClient?.api_endpoint,
+        clientId: selectedClient?.id,
 
         content: up.file_name || "Attachment",
         is_media: true,
@@ -335,6 +417,7 @@ async function handleSend() {
         media_url: up.url,
         media_mime_type: up.mime_type,
         media_file_name: up.file_name,
+        delivery_status: resp?.status || (resp?.queued ? "sending" : "sent"),
       };
 
       setActiveConversation((prev) =>
@@ -357,6 +440,7 @@ async function handleSend() {
     console.error("Failed to send message", err);
   } finally {
     setSending(false);
+    sendInFlightRef.current = false;
   }
 }
 
@@ -615,6 +699,7 @@ async function handleSend() {
                                     hour: "2-digit",
                                     minute: "2-digit",
                                   })}
+                                  {m.side === "right" && m.delivery_status ? ` • ${m.delivery_status}` : ""}
                                 </div>
                               </div>
                             </div>
@@ -675,13 +760,21 @@ async function handleSend() {
                   />
 
                   {/* input */}
-                  <Input
+                  <textarea
+                    ref={messageInputRef}
                     placeholder="Type your message here..."
-                    className="flex-1 h-12 text-base px-6 rounded-full border focus:ring-2 focus:ring-blue-400"
+                    rows={1}
+                    className="flex-1 text-base px-6 py-3 rounded-2xl border focus:ring-2 focus:ring-blue-400 resize-none leading-6 max-h-[140px]"
                     value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
+                    onChange={(e) => {
+                      setNewMessage(e.target.value)
+                      resizeComposer()
+                    }}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") handleSend();
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                      }
                     }}
                   />
 

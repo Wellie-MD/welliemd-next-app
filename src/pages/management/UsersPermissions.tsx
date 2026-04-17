@@ -36,6 +36,12 @@ export default function UsersPermissions() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const canInviteUsers = useAuthStore((state) => state.user?.permissions?.includes('portal_user:invite'));
+  const canDeactivateUsers = useAuthStore(
+    (state) =>
+      Boolean(
+        state.user?.is_platform_owner || state.user?.can_deactivate_cross_tenant_access_users
+      )
+  );
 
   const loadData = useCallback(async (options?: { showLoader?: boolean }) => {
     const showLoader = options?.showLoader ?? true;
@@ -67,13 +73,11 @@ export default function UsersPermissions() {
     loadData();
   }, [loadData]);
 
-  const handleInviteUser = async (email: string, roleId: string, firstName?: string, lastName?: string) => {
+  const handleInviteUser = async (email: string, roleId: string) => {
     try {
       await userManagementService.inviteUser({
         email,
         role_id: roleId,
-        first_name: firstName,
-        last_name: lastName,
       });
 
       // Show success message
@@ -203,6 +207,7 @@ export default function UsersPermissions() {
                     roles={roles}
                     onAssignRole={handleAssignRole}
                     onDeactivate={handleDeactivateUser}
+                    canDeactivateUsers={canDeactivateUsers}
                     onClick={() => handleUserClick(user)}
                   />
                 ))}
@@ -235,6 +240,7 @@ export default function UsersPermissions() {
                     roles={roles}
                     onAssignRole={handleAssignRole}
                     onDeactivate={handleDeactivateUser}
+                    canDeactivateUsers={canDeactivateUsers}
                     onClick={() => handleUserClick(user)}
                   />
                 ))}
@@ -268,11 +274,12 @@ export default function UsersPermissions() {
 }
 
 // User card component
-function UserCard({ user, roles, onAssignRole, onDeactivate, onClick }: {
+function UserCard({ user, roles, onAssignRole, onDeactivate, canDeactivateUsers, onClick }: {
   user: PortalUser;
   roles: Role[];
   onAssignRole: (userId: string, roleId: string) => void;
   onDeactivate: (userId: string, userName: string) => void;
+  canDeactivateUsers: boolean;
   onClick: () => void;
 }) {
   const { toast } = useToast();
@@ -391,9 +398,13 @@ function UserCard({ user, roles, onAssignRole, onDeactivate, onClick }: {
                 e.stopPropagation();
                 onDeactivate(user.id, fullName);
               }}
-              disabled={user.primary_role === 'Platform Owner'} // Example protection
+              disabled={
+                !canDeactivateUsers ||
+                user.primary_role === 'Platform Owner' ||
+                user.primary_role === 'Primary Owner'
+              }
             >
-              Deactivate User
+              {!canDeactivateUsers ? 'Deactivate User (No permission)' : 'Deactivate User'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

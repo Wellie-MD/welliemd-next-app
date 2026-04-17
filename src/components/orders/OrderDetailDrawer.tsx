@@ -82,6 +82,34 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
 
   const isTerminal = order ? TERMINAL_STATUSES.includes(order.status) : false
 
+  const requestedMedicineName = order?.requested_medicine_name || order?.product_name || "—"
+  const rawPrescribedMedicineName = order?.prescribed_medicine_name || null
+  const prescribedNameNormalized = rawPrescribedMedicineName?.trim().toLowerCase()
+  const prescribedMedicineName =
+    prescribedNameNormalized === "same med" ||
+    prescribedNameNormalized === "same medicine" ||
+    prescribedNameNormalized === "same medication"
+      ? requestedMedicineName
+      : rawPrescribedMedicineName
+
+  const chargeableRaw = order?.chargeable_amount ?? order?.amount ?? 0
+  const chargeableNumber =
+    typeof chargeableRaw === "number"
+      ? chargeableRaw
+      : Number.parseFloat(String(chargeableRaw)) || 0
+  const chargeableSourceLabel =
+    order?.chargeable_amount_source === "prescribed_medicine"
+      ? "Prescribed (Doctor Final)"
+      : order?.chargeable_amount_source === "requested_medicine_fallback"
+        ? "Requested Fallback"
+        : "Requested (Original)"
+  const amountSourcePillClass =
+    order?.chargeable_amount_source === "prescribed_medicine"
+      ? "inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800"
+      : order?.chargeable_amount_source === "requested_medicine_fallback"
+        ? "inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-rose-800"
+        : "inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800"
+
   const handleOpen = (isOpen: boolean) => {
     if (isOpen && order) {
       setNewStatus(order.status)
@@ -128,10 +156,14 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
         toast({ title: "Update queued", description: "Order update is being processed." })
         onOpenChange(false)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message || "")
+          : ""
       toast({
         title: "Update failed",
-        description: err.message || "Failed to update order.",
+        description: message || "Failed to update order.",
         variant: "destructive",
       })
     } finally {
@@ -199,6 +231,25 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                 <span>{order.product_name}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
+                <Pill className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Requested (Original):</span>
+                <span className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800">
+                  {requestedMedicineName}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Pill className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Prescribed (Doctor Final):</span>
+                <span className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800">
+                  {prescribedMedicineName || "Awaiting provider decision"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Doctor:</span>
+                <span>{order.doctor_name || "—"}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
                 <MapPin className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Pharmacy:</span>
                 <span>{order.pharmacy_name || "N/A"}</span>
@@ -206,7 +257,14 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
               <div className="flex items-center gap-2 text-sm">
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Amount:</span>
-                <span className="font-medium">${typeof order.amount === 'number' ? order.amount.toFixed(2) : order.amount}</span>
+                <span className="font-medium">${chargeableNumber.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Amount Source:</span>
+                <span className={amountSourcePillClass}>
+                  {chargeableSourceLabel}
+                </span>
               </div>
             </div>
           </div>
