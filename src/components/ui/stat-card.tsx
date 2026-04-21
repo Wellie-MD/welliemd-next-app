@@ -7,11 +7,13 @@ interface StatCardProps {
   value: string
   change?: string
   trend?: "up" | "down" | "neutral"
+  impact?: "good" | "bad" | "neutral"
   className?: string
 }
 
-export function StatCard({ title, value, change, trend = "neutral", className }: StatCardProps) {
+export function StatCard({ title, value, change, trend = "neutral", impact, className }: StatCardProps) {
   const TrendIcon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus
+  const tone = impact ?? (trend === "up" ? "good" : trend === "down" ? "bad" : "neutral")
   
   return (
     <Card className={cn("border rounded-lg overflow-hidden", className)}>
@@ -23,9 +25,9 @@ export function StatCard({ title, value, change, trend = "neutral", className }:
             {change && (
               <div className={cn(
                 "flex items-center gap-1 text-sm font-medium",
-                trend === "up" && "text-emerald-500",
-                trend === "down" && "text-red-500",
-                trend === "neutral" && "text-gray-500"
+                tone === "good" && "text-emerald-500",
+                tone === "bad" && "text-red-500",
+                tone === "neutral" && "text-gray-500"
               )}>
                 <TrendIcon className="h-4 w-4" />
                 {change}

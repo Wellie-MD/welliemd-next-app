@@ -18,7 +18,12 @@ import {
   FileVideo,
   FileCode,
   Paperclip,
+  Search,
+  MessageSquare,
+  ArrowDown,
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { useMessages } from "@/hooks/useMessages";
 import { groupMessages, type Conversation } from "@/utils/groupMessages";
 import { useClients, type Client } from "@/hooks/useClients";
@@ -148,6 +153,8 @@ export default function Messages() {
   const { messages, loading, error } = useMessages(undefined, 20000, selectedClient?.id);
 
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const sendInFlightRef = useRef(false);
@@ -179,6 +186,15 @@ export default function Messages() {
   };
 
   const conversations = groupMessages(messages);
+
+  const filteredConversations = searchQuery
+    ? conversations.filter(c => {
+        const q = searchQuery.toLowerCase();
+        return c.patientName?.toLowerCase().includes(q) ||
+          c.patientEmail?.toLowerCase().includes(q) ||
+          (c.orderNumber && c.orderNumber.toLowerCase().includes(q));
+      })
+    : conversations;
 
   const resizeComposer = () => {
     const el = messageInputRef.current;
@@ -292,9 +308,21 @@ export default function Messages() {
     };
 
     el.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
+    onScroll;
     return () => el.removeEventListener("scroll", onScroll);
   }, [activeConversation?.id, selectedClient?.id]);
+
+  // scroll-to-bottom FAB visibility
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+      setShowScrollToBottom(distance > 120);
+    };
+    el.addEventListener("scroll", handleScroll);
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [activeConversation?.id]);
 
   function stickToBottomSoon() {
     shouldStickRef.current = true;
@@ -450,62 +478,83 @@ async function handleSend() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" style={{ height: 'calc(100vh - 11rem)' }} >
         {/* LEFT: Clients + Conversations */}
-        <div className="lg:col-span-1 bg-card rounded-lg border flex flex-col overflow-hidden">
-          <div className="p-4 border-b space-y-3 shrink-0">
+        <div className="lg:col-span-1 bg-card rounded-xl border shadow-sm flex flex-col overflow-hidden">
+          <div className="p-4 pb-3 border-b space-y-3 shrink-0">
             <h2 className="text-lg font-semibold">All Messages</h2>
             <div>
-              <label className="text-sm text-muted-foreground">Client</label>
-              <select
-                className="mt-1 w-full p-2 border rounded"
+              <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5 block">Client</label>
+              <Select
                 value={selectedClient?.id || ""}
-                onChange={(e) => {
-                  const c = clients.find((x) => x.id === e.target.value) || null;
+                onValueChange={(val) => {
+                  const c = clients.find((x) => x.id === val) || null;
                   setSelectedClient(c);
                 }}
               >
-                <option value="">— Select a client —</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              {loadingClients && <div className="text-xs mt-2">Loading clients…</div>}
-              {clientsError && <div className="text-xs text-red-500 mt-2">{clientsError}</div>}
+                <SelectTrigger className="w-full h-9 rounded-lg text-sm">
+                  <SelectValue placeholder="— Select a client —" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {loadingClients && <div className="text-[11px] text-muted-foreground mt-1.5">Loading clients…</div>}
+              {clientsError && <div className="text-xs text-destructive mt-1.5">{clientsError}</div>}
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search conversations…"
+                className="pl-9 h-9 bg-muted/50 border-0 focus-visible:ring-1 rounded-lg"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
           </div>
 
-          <div className="p-4 space-y-2 overflow-y-auto flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto min-h-0">
             {loading && selectedClient && (
-              <div className="text-sm text-muted-foreground">
-                Loading messages for <span className="font-medium">{selectedClient.name}</span>…
+              <div className="p-4 text-sm text-muted-foreground text-center">
+                Loading <span className="font-medium text-foreground">{selectedClient.name}</span>…
               </div>
             )}
-            {error && <div className="text-red-500">{error}</div>}
-            {conversations.map((c) => {
+            {error && <div className="p-4 text-destructive text-sm">{error}</div>}
+            {filteredConversations.map((c) => {
               const displayName = c.patientName
                 ? `${c.patientName}${c.patientEmail ? ` (${c.patientEmail})` : ""}`
                 : c.patientEmail || "Patient";
+              const avatarFallback = (displayName || "?").charAt(0).toUpperCase();
+              const isActive = activeConversation?.id === c.id;
 
               return (
                 <div
                   key={c.id}
-                  className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-muted ${
-                    activeConversation?.id === c.id ? "bg-muted" : ""
+                  className={`relative flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-b border-border/30 ${
+                    isActive
+                      ? "bg-primary/10 dark:bg-primary/15"
+                      : "hover:bg-muted/60"
                   }`}
                   onClick={() => setActiveConversation(c)}
                 >
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>
-                      {(displayName || "?").charAt(0).toUpperCase()}
-                    </AvatarFallback>
+                  {isActive && (
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-8 bg-primary rounded-r-full" />
+                  )}
+                  <Avatar className="h-11 w-11">
+                    <AvatarFallback className={`text-sm font-semibold ${
+                      isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    }`}>{avatarFallback}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm">{displayName}</div>
-                    <div className="text-xs text-muted-foreground truncate">{c.lastMessage}</div>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(c.lastTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    <div className="flex items-center justify-between mb-0.5">
+                      <div className={`truncate text-[14px] ${isActive ? "font-semibold text-foreground" : "font-medium"}`}>{displayName}</div>
+                      <div className="text-[11px] text-muted-foreground whitespace-nowrap ml-2 shrink-0">
+                        {c.lastTime ? new Date(c.lastTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
+                      </div>
+                    </div>
+                    <div className="text-[13px] text-muted-foreground truncate">{c.lastMessage || "No messages yet"}</div>
                   </div>
                 </div>
               );
@@ -516,185 +565,215 @@ async function handleSend() {
         {/* RIGHT: Chat */}
         <div
           key={selectedClient?.id || "no-client"}
-          className="lg:col-span-2 bg-card rounded-lg border flex flex-col overflow-hidden"
+          className="lg:col-span-2 bg-card rounded-xl border shadow-sm flex flex-col overflow-hidden relative"
         >
           {activeConversation ? (
             <>
-              <div className="p-4 border-b flex items-center justify-between shrink-0">
-                <div>
-                  <div className="font-semibold">
-                    {activeConversation.patientName
-                      ? `${activeConversation.patientName}${
-                          activeConversation.patientEmail ? ` (${activeConversation.patientEmail})` : ""
-                        }`
-                      : activeConversation.patientEmail || "Patient"}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {selectedClient ? `Client: ${selectedClient.name}` : "Local"}
+              <div className="px-5 py-3 border-b flex items-center justify-between shrink-0 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 z-10">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10">
+                    <AvatarFallback className="bg-primary/15 text-primary font-semibold text-sm">
+                      {(activeConversation.patientName || activeConversation.patientEmail || "?").charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <div className="font-semibold text-[15px] leading-tight">
+                      {activeConversation.patientName
+                        ? `${activeConversation.patientName}${activeConversation.patientEmail ? ` (${activeConversation.patientEmail})` : ""}`
+                        : activeConversation.patientEmail || "Patient"}
+                    </div>
+                    <div className="text-[12px] text-muted-foreground mt-0.5">
+                      {selectedClient ? `Client: ${selectedClient.name}` : "Local"}
+                    </div>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Phone className="h-4 w-4" /> Call
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-foreground">
+                    <Phone className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="sm">
-                    <Eye className="h-4 w-4" /> View Profile
+                  <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-foreground">
+                    <Eye className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
 
               {/* ---- DATE-GROUPED MESSAGES ---- */}
-              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-6 min-h-0">
+              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-5 pt-10 pb-4 space-y-1 min-h-0">
                 {(() => {
                   const grouped = groupMessagesByDate(activeConversation.messages);
                   const sortedDates = Object.keys(grouped).sort(
                     (a, b) => new Date(a).getTime() - new Date(b).getTime()
                   );
 
-                  return sortedDates.map((dateKey) => (
-                    <div key={dateKey}>
-                      {/* Date separator */}
-                      <div className="flex justify-center my-4">
-                        <span className="bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full">
-                          {getMessageGroupLabel(dateKey)}
-                        </span>
-                      </div>
+                  return sortedDates.map((dateKey) => {
+                    const dayMsgs = [...grouped[dateKey]].sort(
+                      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                    );
 
-                      {/* Messages for this day */}
-                      <div className="space-y-4">
-                        {grouped[dateKey].map((m: any) => {
-                          let displayName = m.sender_name || "";
-                          if (m.senderType === "patient") {
-                            displayName =
-                              m.message_type === "patient_to_doctor"
-                                ? "Patient → Doctor"
-                                : m.message_type === "patient_to_support"
-                                ? "Patient → Support"
-                                : "Patient";
-                          } else if (m.senderType === "doctor") displayName = "Doctor";
-                          else if (m.senderType === "support") displayName = "Client Support";
-                          else if (m.senderType === "super_support") displayName = "Super Admin Support";
+                    return (
+                      <div key={dateKey}>
+                        {/* Date separator */}
+                        <div className="flex items-center justify-center my-6 gap-3">
+                          <div className="flex-1 h-px bg-border/60" />
+                          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                            {getMessageGroupLabel(dateKey)}
+                          </span>
+                          <div className="flex-1 h-px bg-border/60" />
+                        </div>
 
-                          let bubbleColor = "";
-                          if (m.senderType === "patient") bubbleColor = "bg-gray-100 text-gray-800";
-                          else if (m.senderType === "doctor") bubbleColor = "bg-blue-100 text-blue-800";
-                          else if (m.senderType === "support") bubbleColor = "bg-purple-100 text-purple-800";
-                          else if (m.senderType === "super_support") bubbleColor = "bg-red-100 text-red-800";
-                          else bubbleColor = "bg-gray-200 text-gray-800";
+                        {/* Messages for this day */}
+                        <div className="space-y-0.5">
+                          {grouped[dateKey]
+                            .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                            .map((m: any, idx: number, arr: any[]) => {
+                            const isSent = m.side === "right";
+                            const prevMsg = arr[idx - 1];
+                            const nextMsg = arr[idx + 1];
+                            const isFirstInGroup = !prevMsg || prevMsg.senderType !== m.senderType;
+                            const isLastInGroup = !nextMsg || nextMsg.senderType !== m.senderType;
 
-                          // attachments array (some backends)
-                          const attachments: any[] = Array.isArray(m.attachments) ? m.attachments : [];
+                            let displayName = m.sender_name || "";
+                            if (m.senderType === "patient") {
+                              displayName =
+                                m.message_type === "patient_to_doctor"
+                                  ? "Patient → Doctor"
+                                  : m.message_type === "patient_to_support"
+                                  ? "Patient → Support"
+                                  : "Patient";
+                            } else if (m.senderType === "doctor") displayName = "Doctor";
+                            else if (m.senderType === "support") displayName = "Client Support";
+                            else if (m.senderType === "super_support") displayName = "Super Admin";
 
-                          // content-only URL fallback
-                          const contentUrl = extractFirstUrl(m.content || "");
-                          const isImgUrl = !!contentUrl && IMG_EXT_RE.test(contentUrl);
-                          const isDocUrl = !!contentUrl && DOC_EXT_RE.test(contentUrl);
+                            const bubbleColor = isSent
+                              ? "bg-gradient-to-r from-[hsl(199,85%,48%)] to-[hsl(215,85%,55%)] text-white shadow-sm"
+                              : "bg-[hsl(220,14%,96%)] dark:bg-slate-800 text-foreground";
 
-                          return (
-                            <div key={m.id} className={`flex ${m.side === "left" ? "justify-start" : "justify-end"}`}>
-                              <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}>
-                                {/* original text (keep) */}
-                                {m.content && (
-                                  <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>
+                            let radii = "rounded-2xl";
+                            if (isSent) {
+                              radii = isLastInGroup ? "rounded-2xl rounded-br-sm" : "rounded-2xl";
+                            } else {
+                              radii = isLastInGroup ? "rounded-2xl rounded-bl-sm" : "rounded-2xl";
+                            }
+
+                            // attachments array (some backends)
+                            const attachments: any[] = Array.isArray(m.attachments) ? m.attachments : [];
+
+                            // content-only URL fallback
+                            const contentUrl = extractFirstUrl(m.content || "");
+                            const isImgUrl = !!contentUrl && IMG_EXT_RE.test(contentUrl);
+                            const isDocUrl = !!contentUrl && DOC_EXT_RE.test(contentUrl);
+
+                            return (
+                              <div key={m.id} className={`flex flex-col ${isSent ? "items-end" : "items-start"} ${isLastInGroup ? "mb-4" : "mb-0.5"}`}>
+                                {!isSent && isFirstInGroup && (
+                                  <div className="text-[11px] font-medium text-muted-foreground mb-1 ml-1">
+                                    {displayName}
+                                  </div>
                                 )}
+                                <div className={`relative max-w-[75%] lg:max-w-[65%] px-3.5 py-2.5 ${radii} ${bubbleColor}`}>
+                                  {/* original text (keep) */}
+                                  {m.content && (
+                                    <div className="text-[14px] whitespace-pre-wrap break-words leading-relaxed">{m.content}</div>
+                                  )}
 
-                                {/* attachments from backend (array) */}
-                                {attachments.length > 0 && (
-                                  <div className="mt-2 space-y-2">
-                                    {/* Images grid */}
-                                    <div className="grid grid-cols-2 gap-2">
-                                      {attachments
-                                        .filter((a) => isImageMime(a?.mime_type))
-                                        .map((a, idx) => (
-                                          <a
-                                            key={`${a.url}-${idx}`}
-                                            href={a.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="block rounded-md overflow-hidden border"
-                                          >
-                                            <img
-                                              src={a.url}
-                                              alt="image" // no filename
-                                              className="w-full h-32 object-cover"
-                                              loading="lazy"
+                                  {/* attachments from backend (array) */}
+                                  {attachments.length > 0 && (
+                                    <div className="mt-2 space-y-2">
+                                      {/* Images grid */}
+                                      <div className="grid grid-cols-2 gap-2">
+                                        {attachments
+                                          .filter((a) => isImageMime(a?.mime_type))
+                                          .map((a, idx) => (
+                                            <a
+                                              key={`${a.url}-${idx}`}
+                                              href={a.url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="block rounded-xl overflow-hidden"
+                                            >
+                                              <img
+                                                src={a.url}
+                                                alt="image"
+                                                className="w-full h-32 object-cover"
+                                                loading="lazy"
+                                              />
+                                            </a>
+                                          ))}
+                                      </div>
+
+                                      {/* Non-image files -> DocumentBubble (no name) */}
+                                      <div className="space-y-2">
+                                        {attachments
+                                          .filter((a) => !isImageMime(a?.mime_type))
+                                          .map((a, idx) => (
+                                            <DocumentBubble
+                                              key={`${a.url}-file-${idx}`}
+                                              url={a.url}
+                                              name={undefined}
+                                              mime={a.mime_type}
                                             />
-                                          </a>
-                                        ))}
+                                          ))}
+                                      </div>
                                     </div>
+                                  )}
 
-                                    {/* Non-image files -> DocumentBubble (no name) */}
-                                    <div className="space-y-2">
-                                      {attachments
-                                        .filter((a) => !isImageMime(a?.mime_type))
-                                        .map((a, idx) => (
-                                          <DocumentBubble
-                                            key={`${a.url}-file-${idx}`}
-                                            url={a.url}
-                                            name={undefined}
-                                            mime={a.mime_type}
+                                  {/* single-file media coming via is_media + media_url */}
+                                  {!attachments.length && m.is_media && m.media_url && (
+                                    <div className="mt-2">
+                                      {isImageMime(m.media_mime_type) || IMG_EXT_RE.test(m.media_url) ? (
+                                        <a
+                                          href={m.media_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="block -mx-1.5 -mt-1 mb-1 overflow-hidden rounded-xl"
+                                        >
+                                          <img
+                                            src={m.media_url}
+                                            alt="image"
+                                            className="w-full max-h-[280px] object-cover"
+                                            loading="lazy"
                                           />
-                                        ))}
+                                        </a>
+                                      ) : (
+                                        <DocumentBubble
+                                          url={m.media_url}
+                                          name={undefined}
+                                          mime={m.media_mime_type || undefined}
+                                        />
+                                      )}
                                     </div>
-                                  </div>
-                                )}
+                                  )}
 
-                                {/* NEW: single-file media coming via is_media + media_url */}
-                                {!attachments.length && m.is_media && m.media_url && (
-                                  <div className="mt-2">
-                                    {isImageMime(m.media_mime_type) || IMG_EXT_RE.test(m.media_url) ? (
-                                      <a
-                                        href={m.media_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="block rounded-md overflow-hidden border"
-                                      >
-                                        <img
-                                          src={m.media_url}
-                                          alt="image" // no filename
-                                          className="w-full max-h-72 object-contain"
-                                          loading="lazy"
+                                  {/* content-only URL previews (fallback when no media fields) */}
+                                  {!attachments.length && !m.is_media && contentUrl && (
+                                    <div className="mt-2">
+                                      {isImgUrl ? (
+                                        <a
+                                          href={contentUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="block rounded-xl overflow-hidden"
+                                        >
+                                          <img
+                                            src={contentUrl}
+                                            alt="image"
+                                            className="w-full h-32 object-cover"
+                                            loading="lazy"
+                                          />
+                                        </a>
+                                      ) : isDocUrl ? (
+                                        <DocumentBubble
+                                          url={contentUrl}
+                                          name={undefined}
+                                          mime={null}
                                         />
-                                      </a>
-                                    ) : (
-                                      <DocumentBubble
-                                        url={m.media_url}
-                                        name={undefined}
-                                        mime={m.media_mime_type || undefined}
-                                      />
-                                    )}
-                                  </div>
-                                )}
+                                      ) : null}
+                                    </div>
+                                  )}
 
-                                {/* content-only URL previews (fallback when no media fields) */}
-                                {!attachments.length && !m.is_media && contentUrl && (
-                                  <div className="mt-2">
-                                    {isImgUrl ? (
-                                      <a
-                                        href={contentUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="block rounded-md overflow-hidden border"
-                                      >
-                                        <img
-                                          src={contentUrl}
-                                          alt="image" // no filename
-                                          className="w-full h-32 object-cover"
-                                          loading="lazy"
-                                        />
-                                      </a>
-                                    ) : isDocUrl ? (
-                                      <DocumentBubble
-                                        url={contentUrl}
-                                        name={undefined}
-                                        mime={null}
-                                      />
-                                    ) : null}
-                                  </div>
-                                )}
-
-                                <div className="text-xs opacity-70 mt-1">
-                                  {displayName} •{" "}
+                                </div>
+                                {/* TIME — outside the bubble */}
+                                <div className="text-[10px] text-muted-foreground mt-1 px-1">
                                   {new Date(m.created_at).toLocaleTimeString([], {
                                     hour: "2-digit",
                                     minute: "2-digit",
@@ -702,41 +781,53 @@ async function handleSend() {
                                   {m.side === "right" && m.delivery_status ? ` • ${m.delivery_status}` : ""}
                                 </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ));
+                    );
+                  });
                 })()}
               </div>
 
+              {/* Scroll-to-bottom FAB */}
+              {showScrollToBottom && (
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="absolute bottom-28 right-6 rounded-full shadow-lg border h-9 w-9 z-20 bg-card/90 backdrop-blur"
+                  onClick={() => stickToBottomSoon()}
+                >
+                  <ArrowDown className="h-4 w-4" />
+                </Button>
+              )}
+
               {/* Composer */}
-              <div className="p-4 border-t shrink-0">
+              <div className="px-4 py-3 border-t shrink-0 bg-card">
                 {/* previews (composer) */}
                 {previews.length > 0 && (
-                  <div className="mb-3 border rounded-lg p-3">
+                  <div className="mb-3 border rounded-xl p-3 bg-muted/30">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
                         {previews.length} attachment{previews.length > 1 ? "s" : ""}
                       </span>
-                      <button onClick={clearAllAttachments} className="text-xs underline">
+                      <button onClick={clearAllAttachments} className="text-[11px] font-medium text-destructive hover:underline">
                         Clear all
                       </button>
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-4 gap-2">
                       {previews.map((p, i) => {
                         const imgLike = p.file.type.startsWith("image/");
                         return (
-                          <div key={i} className="relative border rounded-md overflow-hidden">
+                          <div key={i} className="relative border rounded-lg overflow-hidden group">
                             {imgLike ? (
-                              <img src={p.url} alt="image" className="w-full h-24 object-cover" />
+                              <img src={p.url} alt="image" className="w-full h-20 object-cover" />
                             ) : (
-                              <div className="p-2 text-xs break-all h-24 overflow-auto">Attachment</div>
+                              <div className="p-2 text-xs break-all h-20 overflow-auto flex items-center justify-center text-muted-foreground">Attachment</div>
                             )}
                             <button
                               onClick={() => clearAttachment(i)}
-                              className="absolute top-1 right-1 bg-black/60 text-white rounded px-1 text-[10px]"
+                              className="absolute top-1 right-1 bg-black/60 text-white rounded-full h-5 w-5 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
                               title="Remove"
                             >
                               ✕
@@ -748,7 +839,7 @@ async function handleSend() {
                   </div>
                 )}
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-end gap-2 bg-muted/50 rounded-2xl px-2 py-1.5 focus-within:ring-1 focus-within:ring-ring transition-all">
                   {/* hidden file input */}
                   <input
                     ref={fileInputRef}
@@ -759,12 +850,22 @@ async function handleSend() {
                     accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv,application/rtf"
                   />
 
-                  {/* input */}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={onClickAttach}
+                    title="Attach files"
+                    className="rounded-full h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </Button>
+
                   <textarea
                     ref={messageInputRef}
-                    placeholder="Type your message here..."
+                    placeholder="Message…"
                     rows={1}
-                    className="flex-1 text-base px-6 py-3 rounded-2xl border focus:ring-2 focus:ring-blue-400 resize-none leading-6 max-h-[140px]"
+                    className="flex-1 bg-transparent text-[14px] px-2 py-2.5 border-0 focus:outline-none focus:ring-0 resize-none leading-relaxed max-h-[140px]"
                     value={newMessage}
                     onChange={(e) => {
                       setNewMessage(e.target.value)
@@ -779,36 +880,34 @@ async function handleSend() {
                   />
 
                   <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={onClickAttach}
-                    title="Attach files"
-                    className="rounded-full h-12 w-12"
-                  >
-                    <Paperclip className="h-5 w-5" />
-                    <span className="sr-only">Attach</span>
-                  </Button>
-
-                  <Button
                     onClick={handleSend}
                     disabled={sending || !selectedClient}
-                    className="h-12 px-6 text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-full shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-indigo-700 transition-all flex items-center gap-2"
+                    size="icon"
+                    className="rounded-full h-9 w-9 shrink-0 bg-gradient-to-r from-[hsl(199,85%,48%)] to-[hsl(215,85%,55%)] hover:from-[hsl(199,85%,42%)] hover:to-[hsl(215,85%,49%)] text-white shadow-sm"
                     title={!selectedClient ? "Select a client first" : "Send"}
                   >
-                    <Send className="h-5 w-5" />
-                    Send
+                    <Send className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground">
-              {selectedClient
-                ? loading
-                  ? `Loading ${selectedClient.name}…`
-                  : "Select a conversation"
-                : "Select a client to load messages"}
+            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8">
+              <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                <MessageSquare className="h-7 w-7 text-muted-foreground/60" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground mb-1">
+                {selectedClient
+                  ? loading
+                    ? `Loading ${selectedClient.name}…`
+                    : "No conversation selected"
+                  : "Select a client"}
+              </h3>
+              <p className="text-sm text-center max-w-[280px]">
+                {selectedClient
+                  ? "Choose a conversation from the sidebar to view messages."
+                  : "Please select a client from the dropdown to load their messaging history."}
+              </p>
             </div>
           )}
         </div>

@@ -10,6 +10,7 @@ export interface Metric {
   value: string
   change: string
   trend: "up" | "down" | "neutral"
+  impact?: "good" | "bad" | "neutral"
 }
 
 export interface LiveSummary {

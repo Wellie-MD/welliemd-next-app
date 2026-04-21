@@ -137,36 +137,42 @@ const normalizeAdminKpis = (
       value: profitGrowthValue,
       change: netProfitGrowth?.change ?? profitGrowthValue,
       trend: netProfitGrowth?.trend ?? netProfit?.trend ?? "neutral",
+      impact: netProfitGrowth?.impact ?? netProfit?.impact ?? "neutral",
     },
     {
       title: "Number of Active Patients",
       value: patientSummary ? patientSummary.active_patients.toString() : "0",
       change: "0.0%",
       trend: "neutral",
+      impact: "neutral",
     },
     {
       title: "Number of Inactive Patients",
       value: patientSummary ? patientSummary.inactive_patients.toString() : "0",
       change: "0.0%",
       trend: "neutral",
+      impact: "neutral",
     },
     {
       title: "Number of drop-off Patients",
       value: patientSummary ? patientSummary.dropoff_patients.toString() : "0",
       change: "0.0%",
       trend: "neutral",
+      impact: "neutral",
     },
     {
       title: "Reimbursement Invoices",
       value: reimbursementInvoices?.value ?? "0",
       change: reimbursementInvoices?.change ?? "0.0%",
       trend: reimbursementInvoices?.trend ?? "neutral",
+      impact: reimbursementInvoices?.impact ?? "neutral",
     },
     {
       title: "SaaS Invoices",
       value: saasInvoices?.value ?? "0",
       change: saasInvoices?.change ?? "0.0%",
       trend: saasInvoices?.trend ?? "neutral",
+      impact: saasInvoices?.impact ?? "neutral",
     },
   ].filter(Boolean) as Metric[];
 
@@ -276,29 +282,47 @@ export default function Dashboard() {
     [dashboard?.newClientChartData, dateRange.from, dateRange.to],
   );
 
-  const { data: invoicesData } = useQuery({
+  const dateFromParam = format(dateRange.from, "yyyy-MM-dd");
+  const dateToParam = format(dateRange.to, "yyyy-MM-dd");
+
+  const { data: reimbursementInvoicesData } = useQuery({
     queryKey: [
       "adminDashboardInvoices",
-      format(dateRange.from, "yyyy-MM-dd"),
-      format(dateRange.to, "yyyy-MM-dd"),
+      "reimbursement",
+      dateFromParam,
+      dateToParam,
     ],
     queryFn: () =>
       clientApi.getAllB2BInvoices({
+        invoice_type: "reimbursement",
         ordering: "-issued_at",
         page: 1,
-        page_size: 100,
-        issued_at_after: format(dateRange.from, "yyyy-MM-dd"),
-        issued_at_before: format(dateRange.to, "yyyy-MM-dd"),
+        page_size: 8,
+        issued_at_after: dateFromParam,
+        issued_at_before: dateToParam,
       }),
   });
 
-  const invoiceResults = (invoicesData?.results || []) as B2BInvoice[];
-  const reimbursementRows = invoiceResults
-    .filter((inv) => inv.invoice_type === "reimbursement")
-    .slice(0, 8);
-  const saasRows = invoiceResults
-    .filter((inv) => inv.invoice_type === "saas_fee")
-    .slice(0, 8);
+  const { data: saasInvoicesData } = useQuery({
+    queryKey: [
+      "adminDashboardInvoices",
+      "saas_fee",
+      dateFromParam,
+      dateToParam,
+    ],
+    queryFn: () =>
+      clientApi.getAllB2BInvoices({
+        invoice_type: "saas_fee",
+        ordering: "-issued_at",
+        page: 1,
+        page_size: 8,
+        issued_at_after: dateFromParam,
+        issued_at_before: dateToParam,
+      }),
+  });
+
+  const reimbursementRows = (reimbursementInvoicesData?.results || []) as B2BInvoice[];
+  const saasRows = (saasInvoicesData?.results || []) as B2BInvoice[];
 
   const handleKPIClick = (metric: Metric) => {
     console.log(`KPI clicked: ${metric.title}`);
