@@ -508,7 +508,11 @@ export default function OrderDetail() {
         <button
           className="km-btn km-btn-primary"
           style={{ width: '100%', justifyContent: 'center', padding: '12px 16px' }}
-          onClick={() => navigate('/dashboard/messages')}
+          onClick={() => {
+            const orderRef = ref || order.id;
+            const prefillMsg = `Hi, I have a question about my order ${orderRef} (${order.product_name}).`;
+            navigate(`/dashboard/messages?order_ref=${encodeURIComponent(orderRef)}&prefill=${encodeURIComponent(prefillMsg)}`);
+          }}
         >
           <MessageSquare size={14} />
           Message about this order

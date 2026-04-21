@@ -57,7 +57,7 @@ export default function Help() {
       <div className="km-fade" style={{ marginBottom: 20 }}>
         <button 
           className="km-btn km-btn-primary" 
-          onClick={() => navigate('/dashboard/messages')}
+          onClick={() => navigate('/dashboard/messages?prefill=' + encodeURIComponent('Hi, I need assistance with my account.'))}
           style={{ gap: 8 }}
         >
           <MessageSquare size={16} />
@@ -87,7 +87,7 @@ export default function Help() {
         </div>
         <button 
           className="km-btn km-btn-outline" 
-          onClick={() => navigate('/dashboard/messages')}
+          onClick={() => navigate('/dashboard/messages?prefill=' + encodeURIComponent('Hi, I need assistance with my account.'))}
           style={{ margin: '0 auto' }}
         >
           Send a message

@@ -140,23 +140,6 @@ export default function BlogPost() {
                 <span className="km-rauth-title">Healthcare Professional</span>
               </div>
             </div>
-            
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                className={`km-btn ${isLiked ? 'km-btn-primary' : 'km-btn-outline'}`}
-                style={{ width: 36, height: 36, padding: 0, justifyContent: 'center', borderRadius: '50%' }}
-                onClick={handleToggleLike}
-              >
-                <Heart size={16} fill={isLiked ? "currentColor" : "none"} />
-              </button>
-              <button
-                className={`km-btn ${isBookmarked ? 'km-btn-primary' : 'km-btn-outline'}`}
-                style={{ width: 36, height: 36, padding: 0, justifyContent: 'center', borderRadius: '50%' }}
-                onClick={handleToggleBookmark}
-              >
-                <Bookmark size={16} fill={isBookmarked ? "currentColor" : "none"} />
-              </button>
-            </div>
           </div>
 
           <div 

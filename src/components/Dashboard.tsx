@@ -197,7 +197,7 @@ export default function Dashboard() {
         </div>
         <div className="km-qagrid">
           {[
-            { icon: MessageSquare, label: "Message", desc: "Contact your care team", path: "/dashboard/messages" },
+            { icon: MessageSquare, label: "Message", desc: "Contact your care team", path: "/dashboard/messages?prefill=" + encodeURIComponent("Hi, I have a question for my care team.") },
             { icon: Package, label: "Orders", desc: "Track your deliveries", path: "/dashboard/orders" },
             { icon: TestTubes, label: "Labs", desc: "View lab results", path: "/dashboard/labs" },
             { icon: Compass, label: "Explore", desc: "Browse treatments", path: "/dashboard/explore" },
