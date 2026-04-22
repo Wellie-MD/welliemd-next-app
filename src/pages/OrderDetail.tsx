@@ -218,6 +218,15 @@ export default function OrderDetail() {
     }
   }
 
+  const formatBookingSchedule = (dateString?: string | null) => {
+    if (!dateString) return "—"
+    try {
+      return format(new Date(dateString), "MMM d, yyyy h:mm a")
+    } catch {
+      return dateString
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -1166,7 +1175,7 @@ export default function OrderDetail() {
                 {order.booking_scheduled_at && (
                   <li className="flex items-start gap-3 text-slate-600 dark:text-slate-300">
                     <Calendar className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
-                    <span>Scheduled: <span className="font-medium text-slate-900 dark:text-white">{formatDate(order.booking_scheduled_at)}</span></span>
+                    <span>Scheduled: <span className="font-medium text-slate-900 dark:text-white">{formatBookingSchedule(order.booking_scheduled_at)}</span></span>
                   </li>
                 )}
                 {order.booking_location && (
