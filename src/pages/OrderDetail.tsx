@@ -58,8 +58,12 @@ const statusColors: Record<string, string> = {
   created: "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600",
   processing: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800",
   visit_failed: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800",
+  payment_pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800",
   visit_pending: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800",
+  consult_scheduled: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 border-sky-200 dark:border-sky-800",
+  consult_rescheduled: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800",
   consult_canceled: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800",
+  no_show: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 border-rose-200 dark:border-rose-800",
   referred: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800",
   prescribed: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800",
   billing_pending: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800",
@@ -72,8 +76,12 @@ const statusLabels: Record<string, string> = {
   created: "Created",
   processing: "Processing",
   visit_failed: "Visit Failed",
+  payment_pending: "Payment Pending",
   visit_pending: "Visit Pending",
+  consult_scheduled: "Consult Scheduled",
+  consult_rescheduled: "Consult Rescheduled",
   consult_canceled: "Consult Canceled",
+  no_show: "No Show",
   referred: "Referred",
   prescribed: "Prescribed",
   billing_pending: "Billing Pending",
@@ -397,6 +405,23 @@ export default function OrderDetail() {
         : undefined,
       icon: "payments",
       iconBg: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800",
+    })
+  }
+  if (order.status === 'consult_rescheduled') {
+    timelineItems.push({
+      title: "Consult Rescheduled",
+      date: formatDateTime(order.booking_scheduled_at || order.updated_at),
+      description: order.booking_location ? `Location: ${order.booking_location}` : "Appointment time updated.",
+      icon: "schedule",
+      iconBg: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-4 border-white dark:border-slate-800",
+    })
+  } else if (order.status === 'consult_scheduled' || order.booking_scheduled_at) {
+    timelineItems.push({
+      title: "Consult Scheduled",
+      date: formatDateTime(order.booking_scheduled_at || order.updated_at),
+      description: order.booking_location ? `Location: ${order.booking_location}` : "Appointment confirmed.",
+      icon: "schedule",
+      iconBg: "bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 border-4 border-white dark:border-slate-800",
     })
   }
   if (order.datePrescribed) {
@@ -1123,6 +1148,36 @@ export default function OrderDetail() {
               </TabsContent>
             </Tabs>
           </div>
+
+          {/* Booking Info */}
+          {(order.doctor_name || order.booking_scheduled_at || order.booking_location) && (
+            <div className="bg-card rounded-xl shadow-sm border p-6">
+              <h3 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-slate-400" />
+                Booking Information
+              </h3>
+              <ul className="space-y-3 text-sm">
+                {order.doctor_name && (
+                  <li className="flex items-start gap-3 text-slate-600 dark:text-slate-300">
+                    <Stethoscope className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
+                    <span>Doctor: <span className="font-medium text-slate-900 dark:text-white">{order.doctor_name}</span></span>
+                  </li>
+                )}
+                {order.booking_scheduled_at && (
+                  <li className="flex items-start gap-3 text-slate-600 dark:text-slate-300">
+                    <Calendar className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
+                    <span>Scheduled: <span className="font-medium text-slate-900 dark:text-white">{formatDate(order.booking_scheduled_at)}</span></span>
+                  </li>
+                )}
+                {order.booking_location && (
+                  <li className="flex items-start gap-3 text-slate-600 dark:text-slate-300">
+                    <MapPin className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
+                    <span>Location: <span className="font-medium text-slate-900 dark:text-white">{order.booking_location}</span></span>
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
 
           {/* Patient Details */}
           <div className="bg-card rounded-xl shadow-sm border p-6">
