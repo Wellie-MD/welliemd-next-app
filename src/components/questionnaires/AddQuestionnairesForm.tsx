@@ -89,6 +89,7 @@ export default function AddQuestionnairesForm({
     beluga_visit_type: "",
     slug: "",
     requires_photo_upload: false,
+    requires_labs: false,
     requires_identity_verification: false,
     min_age: 18,
     is_admin_template: true,
@@ -106,6 +107,7 @@ export default function AddQuestionnairesForm({
         beluga_visit_type: template.beluga_visit_type || "",
         slug: template.slug || "",
         requires_photo_upload: template.requires_photo_upload || false,
+        requires_labs: (template as any).requires_labs || false,
         requires_identity_verification: template.requires_identity_verification || false,
         min_age: template.min_age || 18,
         is_admin_template: template.is_admin_template !== undefined ? template.is_admin_template : true,
@@ -121,6 +123,7 @@ export default function AddQuestionnairesForm({
         beluga_visit_type: "",
         slug: "",
         requires_photo_upload: false,
+        requires_labs: false,
         requires_identity_verification: false,
         min_age: 18,
         is_admin_template: true,
@@ -438,6 +441,17 @@ export default function AddQuestionnairesForm({
                 checked={formData.requires_photo_upload}
                 onCheckedChange={(checked) =>
                   setFormData({ ...formData, requires_photo_upload: checked })
+                }
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="requires_labs">Requires Labs</Label>
+              <Switch
+                id="requires_labs"
+                checked={formData.requires_labs || false}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, requires_labs: checked })
                 }
               />
             </div>
