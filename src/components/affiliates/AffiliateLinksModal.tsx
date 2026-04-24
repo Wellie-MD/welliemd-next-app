@@ -143,7 +143,12 @@ type Props = {
 
 // Helper function to get questionnaire domain with fallbacks
 function getQuestionnaireDomain(currentClient: any): string {
-  // Primary: Use questionnaire_url if available
+  // Primary: Use the resolved intake/questionnaire URL if available
+  if (currentClient?.resolved_questionnaire_url) {
+    return ensureHttpsBase(currentClient.resolved_questionnaire_url)
+  }
+
+  // Fallback: Use legacy questionnaire_url
   if (currentClient?.questionnaire_url) {
     return ensureHttpsBase(currentClient.questionnaire_url)
   }
@@ -198,6 +203,7 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate, aff
       console.warn("[AffiliateLinksModal] No questionnaire domain found. Client info:", {
         id: currentClient.id,
         name: currentClient.name,
+        resolved_questionnaire_url: currentClient.resolved_questionnaire_url,
         questionnaire_url: currentClient.questionnaire_url,
         admin_panel_domain: currentClient.admin_panel_domain,
       })
@@ -213,11 +219,12 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate, aff
           id: currentClient.id,
           name: currentClient.name,
           admin_panel_domain: currentClient.admin_panel_domain,
+          resolved_questionnaire_url: currentClient.resolved_questionnaire_url,
           questionnaire_url: currentClient.questionnaire_url,
         } : null,
         questionnaireDomain,
         windowLocationOrigin: window.location.origin,
-        hasQuestionnaireUrl: !!currentClient?.questionnaire_url,
+        hasQuestionnaireUrl: !!(currentClient?.resolved_questionnaire_url || currentClient?.questionnaire_url),
       })
     }
   }, [open, currentClient, questionnaireDomain])
@@ -317,7 +324,9 @@ export default function AffiliateLinksModal({ open, onOpenChange, affiliate, aff
   // Check if we have a valid questionnaire domain
   const hasQuestionnaireDomain = !!questionnaireDomain
   const hasCurrentClient = !!currentClient
-  const missingQuestionnaireUrl = hasCurrentClient && !currentClient?.questionnaire_url
+  const missingQuestionnaireUrl =
+    hasCurrentClient &&
+    !(currentClient?.resolved_questionnaire_url || currentClient?.questionnaire_url)
 
   // Check if any links are empty
   const emptyLinksCount = useMemo(() => {
