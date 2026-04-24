@@ -8,8 +8,11 @@ export interface Client {
   name: string;
   api_endpoint: string;
   admin_panel_domain?: string;
+  resolved_admin_panel_domain?: string;
   patient_portal_domain?: string;
+  resolved_patient_portal_domain?: string;
   questionnaire_url?: string;
+  resolved_questionnaire_url?: string;
   domain?: string;
   subdomain?: string;
   user?: {
@@ -40,8 +43,11 @@ type ClientApiRecord = {
   name: string;
   api_endpoint?: string;
   admin_panel_domain?: string;
+  resolved_admin_panel_domain?: string;
   patient_portal_domain?: string;
+  resolved_patient_portal_domain?: string;
   questionnaire_url?: string;
+  resolved_questionnaire_url?: string;
   domain?: string;
   subdomain?: string;
   user?: Client["user"];
@@ -57,8 +63,11 @@ function toClientRecord(value: unknown): ClientApiRecord | null {
     name: typeof record.name === "string" ? record.name : "",
     api_endpoint: typeof record.api_endpoint === "string" ? record.api_endpoint : undefined,
     admin_panel_domain: typeof record.admin_panel_domain === "string" ? record.admin_panel_domain : undefined,
+    resolved_admin_panel_domain: typeof record.resolved_admin_panel_domain === "string" ? record.resolved_admin_panel_domain : undefined,
     patient_portal_domain: typeof record.patient_portal_domain === "string" ? record.patient_portal_domain : undefined,
+    resolved_patient_portal_domain: typeof record.resolved_patient_portal_domain === "string" ? record.resolved_patient_portal_domain : undefined,
     questionnaire_url: typeof record.questionnaire_url === "string" ? record.questionnaire_url : undefined,
+    resolved_questionnaire_url: typeof record.resolved_questionnaire_url === "string" ? record.resolved_questionnaire_url : undefined,
     domain: typeof record.domain === "string" ? record.domain : undefined,
     subdomain: typeof record.subdomain === "string" ? record.subdomain : undefined,
     user: record.user && typeof record.user === "object" ? (record.user as Client["user"]) : undefined,
@@ -107,8 +116,11 @@ export function useClients(search: string = "") {
             name: meClient.name,
             api_endpoint: ensureTrailingSlash(meClient.api_endpoint),
             admin_panel_domain: meClient.admin_panel_domain,
+            resolved_admin_panel_domain: meClient.resolved_admin_panel_domain,
             questionnaire_url: meClient.questionnaire_url,
+            resolved_questionnaire_url: meClient.resolved_questionnaire_url,
             patient_portal_domain: meClient.patient_portal_domain,
+            resolved_patient_portal_domain: meClient.resolved_patient_portal_domain,
             domain: meClient.domain,
             subdomain: meClient.subdomain,
             user: meClient.user,
@@ -138,8 +150,11 @@ export function useClients(search: string = "") {
         name: c.name,
         api_endpoint: ensureTrailingSlash(c.api_endpoint),
         admin_panel_domain: c.admin_panel_domain,
+        resolved_admin_panel_domain: c.resolved_admin_panel_domain,
         questionnaire_url: c.questionnaire_url,
+        resolved_questionnaire_url: c.resolved_questionnaire_url,
         patient_portal_domain: c.patient_portal_domain,
+        resolved_patient_portal_domain: c.resolved_patient_portal_domain,
         domain: c.domain,
         subdomain: c.subdomain,
         user: c.user,
