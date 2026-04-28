@@ -19,6 +19,7 @@ import {
   Truck,
   ClipboardList,
   Undo2,
+  Copy,
 } from "lucide-react"
 import { format } from "date-fns"
 import { Loader2 } from "lucide-react"
@@ -69,6 +70,7 @@ const statusColors: Record<string, string> = {
 
 const statusLabels: Record<string, string> = {
   created: "Created",
+  payment_pending: "Payment Pending",
   processing: "Processing",
   visit_failed: "Visit Failed",
   visit_pending: "Visit Pending",
@@ -84,6 +86,7 @@ const statusLabels: Record<string, string> = {
 type TimelineItem = {
   title: string
   date: string
+  sortAt: number
   description?: string
   icon: "schedule" | "payments" | "prescriptions" | "medical_services" | "local_shipping"
   iconBg: string
@@ -109,6 +112,7 @@ export default function OrderDetail() {
   const [newStatus, setNewStatus] = useState("")
   const [statusTrackingNumber, setStatusTrackingNumber] = useState("")
   const [statusUpdateLoading, setStatusUpdateLoading] = useState(false)
+  const [bookingLinkCopied, setBookingLinkCopied] = useState(false)
   const { toast } = useToast()
 
   const isUuid = (s: string) =>
@@ -206,6 +210,25 @@ export default function OrderDetail() {
       return format(new Date(dateString), "MMM dd, yyyy • h:mm a")
     } catch {
       return dateString
+    }
+  }
+
+  const parseTimelineDate = (dateString?: string | null) => {
+    if (!dateString) return 0
+    const ts = new Date(dateString).getTime()
+    return Number.isFinite(ts) ? ts : 0
+  }
+
+  const handleCopyBookingLink = async () => {
+    if (!order?.booking_link) return
+
+    try {
+      await navigator.clipboard.writeText(order.booking_link)
+      setBookingLinkCopied(true)
+      toast({ title: "Booking link copied" })
+      window.setTimeout(() => setBookingLinkCopied(false), 2000)
+    } catch {
+      toast({ title: "Failed to copy booking link", variant: "destructive" })
     }
   }
 
@@ -366,12 +389,53 @@ export default function OrderDetail() {
     }
   }
 
-  // Build timeline from order dates (newest first for display, then we reverse to show chronological)
+  // Build timeline: combine order status history with existing activity log entries
   const timelineItems: TimelineItem[] = []
+
+  // Add status history entries from API
+  if (order.status_history && order.status_history.length > 0) {
+    order.status_history.forEach((historyItem) => {
+      const statusLabel = statusLabels[historyItem.status] || historyItem.status
+      timelineItems.push({
+        title: `Order status: ${statusLabel}`,
+        date: formatDateTime(historyItem.changed_at),
+        sortAt: parseTimelineDate(historyItem.changed_at),
+        icon: "schedule",
+        iconBg: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800",
+      })
+    })
+  }
+
+  if (order.refund_history && order.refund_history.length > 0) {
+    order.refund_history.forEach((refundItem) => {
+      const isCompleted = (refundItem.status || "").toLowerCase() === "completed"
+      timelineItems.push({
+        title: isCompleted ? `Refund processed: $${refundItem.amount}` : `Refund ${refundItem.status}: $${refundItem.amount}`,
+        date: formatDateTime(refundItem.processed_at || refundItem.created_at),
+        sortAt: parseTimelineDate(refundItem.processed_at || refundItem.created_at),
+        description: refundItem.reason_description || refundItem.reason || undefined,
+        icon: "payments",
+        iconBg: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-4 border-white dark:border-slate-800",
+      })
+    })
+  }
+
+  if (order.payment_voided_at) {
+    timelineItems.push({
+      title: "Payment authorization voided",
+      date: formatDateTime(order.payment_voided_at),
+      sortAt: parseTimelineDate(order.payment_voided_at),
+      icon: "payments",
+      iconBg: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-4 border-white dark:border-slate-800",
+    })
+  }
+
+  // Keep original activity log entries
   if (order.datePrintedShipped) {
     timelineItems.push({
       title: "Order status updated to Rx Sent",
       date: formatDateTime(order.datePrintedShipped),
+      sortAt: parseTimelineDate(order.datePrintedShipped),
       description: order.product_name
         ? `Prescription Sent to ${order.pharmacy_display || "Pharmacy"} (${order.product_name}).${order.prescription_medications?.[0]?.rxId ? ` Rx ID: ${order.prescription_medications[0].rxId}.` : ""}`
         : undefined,
@@ -390,6 +454,7 @@ export default function OrderDetail() {
     timelineItems.push({
       title: "Order Reimbursement Billing Success",
       date: formatDateTime(order.paymentDate),
+      sortAt: parseTimelineDate(order.paymentDate),
       description: reimbursementParts.length > 0
         ? `$${order.orderTotal || '0.00'} (${reimbursementParts.join(', ')})`
         : order.orderTotal ? `$${order.orderTotal}` : undefined,
@@ -401,15 +466,17 @@ export default function OrderDetail() {
     timelineItems.push({
       title: "Product Prescribed",
       date: formatDateTime(order.datePrescribed),
+      sortAt: parseTimelineDate(order.datePrescribed),
       description: order.product_name || undefined,
       icon: "prescriptions",
       iconBg: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800",
     })
   }
-  if (order.visitStatus || order.treatment_type) {
+  if (order.followup_created) {
     timelineItems.push({
       title: "Followup Visit Created",
-      date: formatDateTime(order.orderDate),
+      date: formatDateTime(order.followup_created_at),
+      sortAt: parseTimelineDate(order.followup_created_at),
       description: order.provider_network ? `Provider: ${order.provider_network}` : undefined,
       icon: "medical_services",
       iconBg: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800",
@@ -418,10 +485,11 @@ export default function OrderDetail() {
   timelineItems.push({
     title: "Order placed via questionnaire",
     date: formatDateTime(order.orderDate),
+    sortAt: parseTimelineDate(order.orderDate),
     icon: "local_shipping",
     iconBg: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800",
   })
-  timelineItems.reverse()
+  timelineItems.sort((a, b) => b.sortAt - a.sortAt)
 
   const selectedMedicines = (order as Order & { selected_medicines?: Array<{ quantity?: unknown }> }).selected_medicines
   const qty = selectedMedicines?.[0]?.quantity ?? order.prescription_medications?.[0]?.quantity ?? "1"
@@ -843,9 +911,22 @@ export default function OrderDetail() {
                 <Calendar className="h-4 w-4 text-slate-400" />
                 Visit Details
               </h3>
-              <Button size="sm" variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 text-xs">
-                Track
-              </Button>
+              <div className="flex items-center gap-2">
+                {order.booking_link && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs"
+                    onClick={handleCopyBookingLink}
+                  >
+                    <Copy className="h-3.5 w-3.5 mr-1" />
+                    {bookingLinkCopied ? "Copied" : "Copy booking link"}
+                  </Button>
+                )}
+                <Button size="sm" variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 text-xs">
+                  Track
+                </Button>
+              </div>
             </div>
             <div className="flex items-start gap-4 mb-4">
               <div className="h-12 w-12 rounded-full bg-red-50 dark:bg-red-900/20 text-red-500 flex items-center justify-center">
@@ -869,6 +950,32 @@ export default function OrderDetail() {
               </div>
             )}
           </div>
+
+          {(order.booking_datetime || order.booking_location || order.doctor_name || order.provider_network) && (
+            <div className="bg-card rounded-xl shadow-sm border p-6">
+              <h3 className="font-semibold text-slate-900 dark:text-white mb-4">Booking Information</h3>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between gap-4">
+                  <span className="text-slate-500 dark:text-slate-400">Doc Name</span>
+                  <span className="text-slate-900 dark:text-white font-medium text-right">
+                    {order.doctor_name || order.provider_network || "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-slate-500 dark:text-slate-400">Scheduled</span>
+                  <span className="text-slate-900 dark:text-white font-medium text-right">
+                    {formatDateTime(order.booking_datetime)}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-slate-500 dark:text-slate-400">Location</span>
+                  <span className="text-slate-900 dark:text-white font-medium text-right break-all">
+                    {order.booking_location || "—"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Patient Details */}
           <div className="bg-card rounded-xl shadow-sm border p-6">

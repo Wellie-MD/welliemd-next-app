@@ -111,6 +111,26 @@ export interface Order {
   consult_cost_to_client?: string | null
   consult_type?: 'async' | 'sync' | null
   shipping_fee_to_client?: string | null
+  followup_created?: boolean
+  followup_created_at?: string | null
+  booking_link?: string | null
+  booking_datetime?: string | null
+  booking_location?: string | null
+  refund_history?: Array<{
+    id: string
+    amount: string
+    status: string
+    reason: string
+    reason_description?: string
+    created_at: string | null
+    processed_at?: string | null
+  }>
+  payment_voided_at?: string | null
+  // Order status history for activity log
+  status_history?: Array<{
+    status: string
+    changed_at: string
+  }>
 }
 
 export interface PaginatedOrdersResponse {
