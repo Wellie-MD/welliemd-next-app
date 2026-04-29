@@ -14,7 +14,7 @@ import {
   MessageSquare, CreditCard,
 } from 'lucide-react';
 
-import { getOrder, PatientOrder } from '@/shared/api/ordersApi';
+import { getOrder, PatientOrder, OrderActivityEvent } from '@/shared/api/ordersApi';
 
 // ---------- Product icon (SVG-based per kinmeds3) ----------
 function ProductIcon({ productName }: { productName: string }) {
@@ -70,6 +70,8 @@ const STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {
   visit_pending:      { label: 'Visit Pending',      badgeClass: 'km-badge km-badge-amber' },
   visit_scheduled:    { label: 'Visit Scheduled',    badgeClass: 'km-badge km-badge-blue' },
   visit_rescheduled:  { label: 'Visit Rescheduled',  badgeClass: 'km-badge km-badge-amber' },
+  consult_scheduled:  { label: 'Consult Scheduled',  badgeClass: 'km-badge km-badge-blue' },
+  consult_rescheduled:{ label: 'Consult Rescheduled',badgeClass: 'km-badge km-badge-amber' },
   visit_failed:       { label: 'Visit Cancelled',    badgeClass: 'km-badge km-badge-red' },
   consult_canceled:   { label: 'Visit Cancelled',    badgeClass: 'km-badge km-badge-red' },
   no_show:            { label: 'No Show',            badgeClass: 'km-badge km-badge-red' },
@@ -106,6 +108,8 @@ function buildTimeline(order: PatientOrder): TimelineStep[] {
     visit_pending: 'Visit Pending',
     visit_scheduled: 'Visit Scheduled',
     visit_rescheduled: 'Visit Rescheduled',
+    consult_scheduled: 'Visit Scheduled',
+    consult_rescheduled: 'Visit Rescheduled',
     visit_failed: 'Visit Cancelled',
     consult_canceled: 'Visit Cancelled',
     no_show: 'No Show',
@@ -194,6 +198,22 @@ function buildTimeline(order: PatientOrder): TimelineStep[] {
   };
 
   return logs[displayStatus] || [{ type: 'done', label: 'Order placed', sub: ordered }];
+}
+
+function buildTimelineFromEvents(events?: OrderActivityEvent[]): TimelineStep[] {
+  if (!Array.isArray(events) || events.length === 0) return [];
+  return events.map((evt) => {
+    const status = (evt.status || '').toLowerCase();
+    let type: TimelineStep['type'] = 'done';
+    if (status.includes('pending')) type = 'pending';
+    if (status.includes('failed') || status.includes('canceled') || status.includes('no_show')) type = 'bad';
+    if (status.includes('payment') || evt.event_type.includes('payment')) type = 'money';
+    return {
+      type,
+      label: evt.title || evt.event_type.replace(/\./g, ' '),
+      sub: new Date(evt.occurred_at).toLocaleString(),
+    };
+  });
 }
 
 // ---------- Timeline step icon ----------
@@ -314,7 +334,8 @@ export default function OrderDetail() {
 
   const ref = order.order_id || order.display_id;
   const statusConfig = STATUS_CONFIG[order.status] || { label: order.status, badgeClass: 'km-badge km-badge-gray' };
-  const timeline = buildTimeline(order);
+  const timelineFromEvents = buildTimelineFromEvents(order.activity_events);
+  const timeline = timelineFromEvents.length > 0 ? timelineFromEvents : buildTimeline(order);
   const requestedMedicineName = order.requested_medicine_name || order.product_name;
   const rawPrescribedMedicineName = order.prescribed_medicine_name || null;
   const prescribedNameNormalized = rawPrescribedMedicineName?.trim().toLowerCase();
@@ -493,6 +514,19 @@ export default function OrderDetail() {
           <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>Prescribed by</span>
           <span style={{ fontSize: 13, fontWeight: 600 }}>{order.doctor_name || 'Healthcare Professional'}</span>
         </div>
+        {(order.booking_scheduled_at || order.booking_location) && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderBottom: '1px solid var(--km-b)' }}>
+            <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>Consult</span>
+            <span style={{ fontSize: 13, fontWeight: 600, textAlign: 'right' }}>
+              {order.booking_scheduled_at ? new Date(order.booking_scheduled_at).toLocaleString() : 'Scheduled'}
+              {order.booking_location ? (
+                <a href={order.booking_location} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 8 }}>
+                  Join
+                </a>
+              ) : null}
+            </span>
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderBottom: '1px solid var(--km-b)' }}>
           <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>Amount</span>
           <span style={{ fontSize: 15, fontWeight: 800 }}>${displayAmount}</span>

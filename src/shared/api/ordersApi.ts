@@ -12,16 +12,31 @@ import { apiClient, withRetry } from './client';
  */
 export type OrderStatus =
     | 'created'
+    | 'payment_pending'
     | 'processing'
     | 'visit_failed'
     | 'visit_pending'
+    | 'consult_scheduled'
+    | 'consult_rescheduled'
     | 'consult_canceled'
+    | 'no_show'
     | 'referred'
     | 'prescribed'
     | 'billing_pending'
     | 'rx_sent'
     | 'shipped'
     | 'canceled';
+
+export interface OrderActivityEvent {
+    id: string;
+    event_type: string;
+    status: string;
+    title: string;
+    description: string;
+    source: string;
+    occurred_at: string;
+    payload?: Record<string, unknown>;
+}
 
 /**
  * Order data returned from patient orders API
@@ -42,10 +57,13 @@ export interface PatientOrder {
     requested_medicine_name?: string | null;
     prescribed_medicine_name?: string | null;
     doctor_name?: string | null;
+    booking_scheduled_at?: string | null;
+    booking_location?: string | null;
     created_at: string;
     prescribed_at: string | null;
     shipped_at: string | null;
     updated_at: string;
+    activity_events?: OrderActivityEvent[];
 }
 
 /**

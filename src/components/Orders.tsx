@@ -22,6 +22,8 @@ const STATUS_CONFIG: Record<string, { label: string; css: string }> = {
   payment_pending:   { label: 'Payment Pending',    css: 'km-badge km-badge-amber' },
   payment_failed:     { label: 'Payment Failed',    css: 'km-badge km-badge-red' },
   visit_pending:      { label: 'Visit Pending',      css: 'km-badge km-badge-amber' },
+  consult_scheduled:  { label: 'Consult Scheduled',  css: 'km-badge km-badge-blue' },
+  consult_rescheduled:{ label: 'Consult Rescheduled',css: 'km-badge km-badge-amber' },
   visit_scheduled:    { label: 'Visit Scheduled',    css: 'km-badge km-badge-blue' },
   visit_rescheduled:  { label: 'Visit Rescheduled',  css: 'km-badge km-badge-amber' },
   visit_failed:       { label: 'Visit Failed',       css: 'km-badge km-badge-red' },
