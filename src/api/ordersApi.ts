@@ -82,6 +82,17 @@ export interface OrderPricing {
   supply_line_items?: OrderPricingSupplyLineItem[]
 }
 
+export interface OrderActivityEvent {
+  id: string
+  event_type: string
+  status: string
+  title: string
+  description: string
+  source: string
+  occurred_at: string
+  payload?: Record<string, unknown>
+}
+
 export interface Order {
   id: string
   product?: number | string | null
@@ -145,6 +156,7 @@ export interface Order {
   consult_cost_to_client?: string | null
   consult_type?: 'async' | 'sync' | null
   shipping_fee_to_client?: string | null
+  activity_events?: OrderActivityEvent[]
 }
 
 export interface PaginatedOrdersResponse {

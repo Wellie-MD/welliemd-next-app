@@ -459,6 +459,33 @@ export default function OrderDetail() {
   })
   timelineItems.reverse()
 
+  const eventTimelineItems: TimelineItem[] = Array.isArray(order.activity_events)
+    ? order.activity_events.map((evt) => {
+        const status = (evt.status || "").toLowerCase()
+        let icon: TimelineItem["icon"] = "schedule"
+        let iconBg = "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800"
+        if (status.includes("payment") || evt.event_type.includes("payment")) {
+          icon = "payments"
+          iconBg = "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800"
+        } else if (status === "prescribed" || status === "rx_sent") {
+          icon = "prescriptions"
+        } else if (status === "visit_pending" || status === "visit_failed") {
+          icon = "medical_services"
+        } else if (status === "shipped") {
+          icon = "local_shipping"
+          iconBg = "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-4 border-white dark:border-slate-800"
+        }
+        return {
+          title: evt.title || evt.event_type.replace(/\./g, " "),
+          date: formatDateTime(evt.occurred_at),
+          description: evt.description || undefined,
+          icon,
+          iconBg,
+        }
+      })
+    : []
+  const renderedTimelineItems = eventTimelineItems.length > 0 ? eventTimelineItems : timelineItems
+
   const selectedMedicines = (order as Order & { selected_medicines?: Array<{ quantity?: unknown }> }).selected_medicines
   const qty = selectedMedicines?.[0]?.quantity ?? order.prescription_medications?.[0]?.quantity ?? "1"
   const parseMoney = (value?: string | number | null): number | null => {
@@ -976,7 +1003,7 @@ export default function OrderDetail() {
               <div className="relative pl-4">
                 <div className="absolute left-[19px] top-2 bottom-4 w-px bg-slate-200 dark:bg-slate-700" />
                 <div className="space-y-8">
-                  {timelineItems.map((item, idx) => (
+                  {renderedTimelineItems.map((item, idx) => (
                     <div key={idx} className="relative flex gap-4">
                       <TimelineIcon name={item.icon} iconBg={item.iconBg} />
                       <div className="flex-1 pt-1">
