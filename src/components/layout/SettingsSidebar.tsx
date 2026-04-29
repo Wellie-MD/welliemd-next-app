@@ -40,8 +40,6 @@ import {
 } from "@/components/ui/tooltip"
 import { useBranding } from "@/contexts/BrandingContext"
 
-const isCustomDomainFeatureEnabled = import.meta.env.VITE_ENABLE_CUSTOM_DOMAINS === 'true';
-
 const settingsMenuItems = [
   { title: "Store Details", url: "/dashboard/settings/store-details", icon: Store },
   { title: "Users and Permissions", url: "/dashboard/settings/users-permissions", icon: Users },
@@ -56,7 +54,7 @@ const settingsMenuItems = [
   { title: "Email and Sending Domain", url: "/dashboard/settings/email-domain", icon: Globe },
   { title: "Beluga Settings", url: "/dashboard/settings/beluga-settings", icon: Cloud },
   { title: "Patient Resources", url: "/dashboard/settings/patient-resources", icon: BookOpen },
-].filter(item => isCustomDomainFeatureEnabled ? true : item.title !== "Domains")
+]
 
 export function SettingsSidebar({
   collapsed,

@@ -200,7 +200,12 @@ export default function TemplateManagement() {
   const { currentClient } = useClients();
 
   const questionnaireBaseUrl = useMemo(
-    () => (currentClient?.questionnaire_url || "").replace(/\/$/, ""),
+    () =>
+      (
+        currentClient?.resolved_questionnaire_url ||
+        currentClient?.questionnaire_url ||
+        ""
+      ).replace(/\/$/, ""),
     [currentClient]
   );
 
