@@ -94,10 +94,42 @@ type TimelineStep = {
   sub: string;
 };
 
+function buildPaymentStep(order: PatientOrder, amount: string): TimelineStep | null {
+  const status = (order.payment_status || '').toLowerCase();
+  if (!status) return null;
+
+  if (status === 'authorized' || status === 'pending') {
+    return { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' };
+  }
+  if (['captured', 'approved', 'succeeded'].includes(status)) {
+    return { type: 'money', label: 'Payment captured', sub: `${amount} charged to card on file` };
+  }
+  if (status === 'voided') {
+    return { type: 'voided', label: 'Payment voided', sub: 'No charge applied' };
+  }
+  if (['declined', 'error', 'canceled'].includes(status)) {
+    return { type: 'bad', label: 'Payment failed', sub: 'Payment could not be processed' };
+  }
+  if (status === 'refunded') {
+    return { type: 'bad', label: 'Payment refunded', sub: 'Payment refunded to original method' };
+  }
+
+  return null;
+}
+
+function resolvePaymentStep(
+  order: PatientOrder,
+  amount: string,
+  fallback: TimelineStep
+): TimelineStep {
+  return buildPaymentStep(order, amount) || fallback;
+}
+
 function buildTimeline(order: PatientOrder): TimelineStep[] {
   const ordered = formatDate(order.created_at);
   const prescribed = formatDate(order.prescribed_at);
   const amount = `$${order.chargeable_amount || order.amount}`;
+  const paymentStep = buildPaymentStep(order, amount);
 
   // Map backend status → kinmeds3 display status
   const statusMap: Record<string, string> = {
@@ -123,37 +155,37 @@ function buildTimeline(order: PatientOrder): TimelineStep[] {
   const logs: Record<string, TimelineStep[]> = {
     'Order Created': [
       { type: 'done', label: 'Order placed', sub: ordered },
-      { type: 'pending', label: 'Payment pending', sub: 'No charge until prescription is issued' },
+      resolvePaymentStep(order, amount, { type: 'pending', label: 'Payment pending', sub: 'No charge until prescription is issued' }),
     ],
     'Visit Pending': [
       { type: 'done', label: 'Order placed', sub: ordered },
-      { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' },
+      resolvePaymentStep(order, amount, { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' }),
       { type: 'warn', label: 'Awaiting provider review', sub: 'Provider has not yet reviewed' },
     ],
     'Visit Scheduled': [
       { type: 'done', label: 'Order placed', sub: ordered },
-      { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' },
+      resolvePaymentStep(order, amount, { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' }),
       { type: 'done', label: 'Visit scheduled', sub: 'Appointment confirmed' },
     ],
     'Visit Rescheduled': [
       { type: 'done', label: 'Order placed', sub: ordered },
-      { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' },
+      resolvePaymentStep(order, amount, { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' }),
       { type: 'done', label: 'Visit scheduled', sub: 'Initial appointment confirmed' },
       { type: 'warn', label: 'Visit rescheduled', sub: 'Appointment moved to new time' },
     ],
     'Visit Cancelled': [
       { type: 'done', label: 'Order placed', sub: ordered },
-      { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' },
+      resolvePaymentStep(order, amount, { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' }),
       { type: 'done', label: 'Visit scheduled', sub: 'Appointment was confirmed' },
       { type: 'bad', label: 'Visit cancelled', sub: 'Appointment cancelled' },
-      { type: 'voided', label: 'Authorization voided', sub: 'No charge applied' },
+      ...(paymentStep ? [] : [{ type: 'voided', label: 'Payment voided', sub: 'No charge applied' }]),
     ],
     'Prescribed': [
       { type: 'done', label: 'Order placed', sub: ordered },
       { type: 'money', label: 'Payment authorized', sub: 'Amount held' },
       { type: 'done', label: 'Provider reviewed', sub: 'Case reviewed by provider' },
       { type: 'done', label: 'Prescribed', sub: order.prescribed_at ? `Prescribed on ${prescribed}` : 'Prescription issued' },
-      { type: 'money', label: 'Payment captured', sub: `${amount} charged to card on file` },
+      resolvePaymentStep(order, amount, { type: 'money', label: 'Payment captured', sub: `${amount} charged to card on file` }),
       { type: 'warn', label: 'Rx sent to pharmacy', sub: 'Awaiting dispatch from pharmacy' },
     ],
     'Shipped': [
@@ -161,35 +193,37 @@ function buildTimeline(order: PatientOrder): TimelineStep[] {
       { type: 'money', label: 'Payment authorized', sub: 'Amount held' },
       { type: 'done', label: 'Provider reviewed', sub: 'Case reviewed by provider' },
       { type: 'done', label: 'Prescribed', sub: 'Prescription issued' },
-      { type: 'money', label: 'Payment captured', sub: `${amount} charged to card on file` },
+      resolvePaymentStep(order, amount, { type: 'money', label: 'Payment captured', sub: `${amount} charged to card on file` }),
       { type: 'done', label: 'Rx sent to pharmacy', sub: 'Prescription received by pharmacy' },
       { type: 'done', label: 'Shipped', sub: 'Order dispatched to pharmacy' },
     ],
     'Referred': [
       { type: 'done', label: 'Order placed', sub: ordered },
-      { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' },
+      resolvePaymentStep(order, amount, { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' }),
       { type: 'done', label: 'Provider reviewed', sub: 'Case reviewed by provider' },
       { type: 'bad', label: 'Referred', sub: 'Patient not eligible for this treatment' },
-      { type: 'voided', label: 'Authorization voided', sub: 'No charge applied' },
+      ...(paymentStep ? [] : [{ type: 'voided', label: 'Payment voided', sub: 'No charge applied' }]),
     ],
     'Refunded': [
       { type: 'done', label: 'Order placed', sub: ordered },
       { type: 'money', label: 'Payment authorized', sub: 'Amount held' },
       { type: 'done', label: 'Prescribed', sub: 'Prescription issued' },
-      { type: 'money', label: 'Payment captured', sub: `${amount} charged to card on file` },
-      { type: 'bad', label: 'Refunded', sub: 'Payment refunded to original method' },
+      resolvePaymentStep(order, amount, { type: 'money', label: 'Payment captured', sub: `${amount} charged to card on file` }),
+      ...(paymentStep?.label === 'Payment refunded'
+        ? []
+        : [{ type: 'bad', label: 'Refunded', sub: 'Payment refunded to original method' }]),
     ],
     'No Show': [
       { type: 'done', label: 'Order placed', sub: ordered },
-      { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' },
+      resolvePaymentStep(order, amount, { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' }),
       { type: 'done', label: 'Visit scheduled', sub: 'Appointment confirmed' },
       { type: 'bad', label: 'No show', sub: 'Patient did not attend scheduled visit' },
-      { type: 'voided', label: 'Authorization voided', sub: 'No charge applied' },
+      ...(paymentStep ? [] : [{ type: 'voided', label: 'Payment voided', sub: 'No charge applied' }]),
     ],
     'Cancelled': [
       { type: 'done', label: 'Order placed', sub: ordered },
       { type: 'bad', label: 'Cancelled', sub: 'Order was cancelled' },
-      { type: 'voided', label: 'Authorization voided', sub: 'No charge applied' },
+      ...(paymentStep ? [] : [{ type: 'voided', label: 'Payment voided', sub: 'No charge applied' }]),
     ],
   };
 
