@@ -6,7 +6,18 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 type InvoiceTab = "all" | "reimbursement" | "saas";
-type InvoiceStatus = "" | "draft" | "pending" | "due" | "paid" | "overdue" | "failed" | "canceled" | "refunded";
+type InvoiceStatus =
+  | ""
+  | "draft"
+  | "pending"
+  | "authorized"
+  | "authorization_failed"
+  | "due"
+  | "paid"
+  | "overdue"
+  | "failed"
+  | "canceled"
+  | "refunded";
 type InvoiceOrdering = "-issued_at" | "issued_at" | "-total_amount" | "total_amount" | "status";
 
 function formatMoney(value: string | number | undefined) {
@@ -40,7 +51,9 @@ function statusClass(status: string) {
   const s = status.toLowerCase();
   if (s === "paid") return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300";
   if (s === "failed" || s === "overdue") return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
-  if (s === "due" || s === "pending") return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
+  if (s === "due" || s === "pending" || s === "authorization_failed") {
+    return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
+  }
   return "bg-primary/10 text-primary dark:bg-primary/20";
 }
 
@@ -103,7 +116,7 @@ export default function InvoicesPage() {
     if (normalized === "failed" || normalized === "overdue" || isOverdue) {
       return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
     }
-    if (normalized === "due" || normalized === "pending") {
+    if (normalized === "due" || normalized === "pending" || normalized === "authorization_failed") {
       return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300";
     }
     if (normalized === "canceled") {
@@ -301,6 +314,8 @@ export default function InvoicesPage() {
             <option value="">All Statuses</option>
             <option value="draft">Draft</option>
             <option value="pending">Pending</option>
+            <option value="authorized">Authorized</option>
+            <option value="authorization_failed">Authorization Failed</option>
             <option value="due">Due</option>
             <option value="paid">Paid</option>
             <option value="overdue">Overdue</option>
@@ -427,7 +442,7 @@ export default function InvoicesPage() {
                       </td>
                       <td className="px-6 py-4 font-medium">{formatMoney(inv.total_amount ?? inv.amount)}</td>
                       <td className="px-6 py-4 text-right">
-                        {(inv.status === "due" || inv.status === "overdue" || inv.status === "failed" || inv.is_overdue) ? (
+                        {(inv.status === "due" || inv.status === "overdue" || inv.status === "failed" || inv.status === "authorization_failed" || inv.is_overdue) ? (
                           <Button
                             type="button"
                             size="sm"
@@ -445,7 +460,7 @@ export default function InvoicesPage() {
                                 Processing
                               </>
                             ) : (
-                              "Pay Now"
+                              inv.status === "authorization_failed" ? "Retry Authorization" : "Pay Now"
                             )}
                           </Button>
                         ) : (
@@ -530,6 +545,34 @@ export default function InvoicesPage() {
                 <div className="rounded border p-3">
                   <strong>Renewal Access Period:</strong> {getAccessPeriodFromInvoice(selected)}
                 </div>
+              )}
+              {selected.invoice_type === "reimbursement" && (
+                <>
+                  <div className="rounded border p-3">
+                    <strong>Intended Auth Amount:</strong> {(selected as any).intended_authorization_amount || "-"}
+                  </div>
+                  <div className="rounded border p-3">
+                    <strong>Auth Retry Count:</strong> {(selected as any).authorization_retry_count ?? "-"}
+                  </div>
+                  <div className="rounded border p-3">
+                    <strong>Next Auth Retry:</strong>{" "}
+                    {(selected as any).authorization_next_retry_at
+                      ? new Date((selected as any).authorization_next_retry_at).toLocaleString()
+                      : "-"}
+                  </div>
+                  <div className="rounded border p-3">
+                    <strong>Retry Exhausted At:</strong>{" "}
+                    {(selected as any).authorization_retry_exhausted_at
+                      ? new Date((selected as any).authorization_retry_exhausted_at).toLocaleString()
+                      : "-"}
+                  </div>
+                  <div className="rounded border p-3">
+                    <strong>Auth Error Code:</strong> {(selected as any).authorization_last_error_code || "-"}
+                  </div>
+                  <div className="rounded border p-3">
+                    <strong>Auth Error Message:</strong> {(selected as any).authorization_last_error_message || "-"}
+                  </div>
+                </>
               )}
             </div>
 

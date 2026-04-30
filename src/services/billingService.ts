@@ -50,6 +50,12 @@ export interface Invoice {
   source_tenant_order_display_id?: string;
   source_tenant_email?: string;
   client_order_number?: string;
+  intended_authorization_amount?: string | number;
+  authorization_retry_count?: number;
+  authorization_retry_exhausted_at?: string | null;
+  authorization_last_error_code?: string;
+  authorization_last_error_message?: string;
+  authorization_next_retry_at?: string | null;
   billing_period_start?: string;
   billing_period_end?: string;
   period_start?: string;
