@@ -70,6 +70,7 @@ function OrderStatusBadge({ status }: { status: string }) {
 function OrderListItem({ order, onClick }: { order: PatientOrder; onClick: () => void }) {
   const ref = getOrderReference(order);
   const icon = getProductIcon(order.product_name);
+  const displayAmount = order.chargeable_amount || order.amount;
 
   return (
     <div onClick={onClick} style={{ cursor: "pointer" }}>
@@ -86,7 +87,7 @@ function OrderListItem({ order, onClick }: { order: PatientOrder; onClick: () =>
           <div className="km-oiph">{order.pharmacy_name || '—'}</div>
         </div>
         <div className="km-oiright">
-          <div className="km-oiamt">${order.amount}</div>
+          <div className="km-oiamt">${displayAmount}</div>
           <div className="km-oidt">{new Date(order.created_at).toLocaleDateString()}</div>
         </div>
       </div>
