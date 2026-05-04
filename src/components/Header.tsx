@@ -38,7 +38,7 @@ export default function Header({ onMenuClick, isSidebarOpen, showMenuButton = fa
       style={{
         position: "fixed",
         top: 0,
-        zIndex: 40,
+        zIndex: 100,
         width: "100%",
         background: isDark ? "rgba(10,10,10,0.9)" : "rgba(244,242,238,0.92)",
         backdropFilter: "blur(20px)",
