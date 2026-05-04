@@ -25,7 +25,18 @@ interface B2BInvoiceListProps {
   clientId: string;
 }
 
-type InvoiceStatusFilter = "all" | "draft" | "pending" | "due" | "paid" | "overdue" | "failed" | "canceled" | "refunded";
+type InvoiceStatusFilter =
+  | "all"
+  | "draft"
+  | "pending"
+  | "authorized"
+  | "authorization_failed"
+  | "due"
+  | "paid"
+  | "overdue"
+  | "failed"
+  | "canceled"
+  | "refunded";
 type InvoiceOrdering = "-issued_at" | "issued_at" | "-total_amount" | "total_amount" | "status";
 
 function formatMoney(value: string | number | undefined) {
@@ -46,6 +57,10 @@ function statusVariant(status: string) {
   switch (status) {
     case "paid":
       return "default";
+    case "authorized":
+      return "secondary";
+    case "authorization_failed":
+      return "secondary";
     case "overdue":
     case "failed":
       return "destructive";
@@ -202,6 +217,8 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="draft">Draft</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="authorized">Authorized</SelectItem>
+              <SelectItem value="authorization_failed">Authorization Failed</SelectItem>
               <SelectItem value="due">Due</SelectItem>
               <SelectItem value="paid">Paid</SelectItem>
               <SelectItem value="overdue">Overdue</SelectItem>
@@ -407,6 +424,42 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                   <div className="text-muted-foreground text-xs">Renewal Access Period</div>
                   <div className="font-semibold">{getAccessPeriodFromInvoice(selected)}</div>
                 </div>
+              )}
+              {selected.invoice_type === "reimbursement" && (
+                <>
+                  <div className="rounded-md border p-3">
+                    <div className="text-muted-foreground text-xs">Intended Auth Amount</div>
+                    <div className="font-semibold">{(selected as any).intended_authorization_amount || "-"}</div>
+                  </div>
+                  <div className="rounded-md border p-3">
+                    <div className="text-muted-foreground text-xs">Auth Retry Count</div>
+                    <div className="font-semibold">{(selected as any).authorization_retry_count ?? "-"}</div>
+                  </div>
+                  <div className="rounded-md border p-3">
+                    <div className="text-muted-foreground text-xs">Next Auth Retry</div>
+                    <div className="font-semibold">
+                      {(selected as any).authorization_next_retry_at
+                        ? formatDate((selected as any).authorization_next_retry_at)
+                        : "-"}
+                    </div>
+                  </div>
+                  <div className="rounded-md border p-3">
+                    <div className="text-muted-foreground text-xs">Retry Exhausted At</div>
+                    <div className="font-semibold">
+                      {(selected as any).authorization_retry_exhausted_at
+                        ? formatDate((selected as any).authorization_retry_exhausted_at)
+                        : "-"}
+                    </div>
+                  </div>
+                  <div className="rounded-md border p-3">
+                    <div className="text-muted-foreground text-xs">Auth Error Code</div>
+                    <div className="font-semibold">{(selected as any).authorization_last_error_code || "-"}</div>
+                  </div>
+                  <div className="rounded-md border p-3">
+                    <div className="text-muted-foreground text-xs">Auth Error Message</div>
+                    <div className="font-semibold">{(selected as any).authorization_last_error_message || "-"}</div>
+                  </div>
+                </>
               )}
             </div>
 

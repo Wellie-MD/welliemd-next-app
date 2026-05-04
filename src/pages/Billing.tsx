@@ -40,6 +40,20 @@ export default function Billing() {
       .replace(/_/g, " ")
       .replace(/\b\w/g, (m) => m.toUpperCase());
 
+  const statusPillClass = (value: string) => {
+    const normalized = value.toLowerCase();
+    if (normalized === "paid") {
+      return "bg-green-100 text-green-700";
+    }
+    if (normalized === "failed" || normalized === "overdue") {
+      return "bg-red-100 text-red-700";
+    }
+    if (normalized === "authorization_failed" || normalized === "pending" || normalized === "due") {
+      return "bg-amber-100 text-amber-700";
+    }
+    return "bg-primary/10 text-primary";
+  };
+
   const getClientOrderNumber = (inv?: B2BInvoice | null) =>
     (inv as any)?.client_order_number ||
     (inv as any)?.source_tenant_order_display_id ||
@@ -152,6 +166,8 @@ export default function Billing() {
               <option value="">All Statuses</option>
               <option value="draft">Draft</option>
               <option value="pending">Pending</option>
+              <option value="authorized">Authorized</option>
+              <option value="authorization_failed">Authorization Failed</option>
               <option value="due">Due</option>
               <option value="paid">Paid</option>
               <option value="overdue">Overdue</option>
@@ -258,7 +274,7 @@ export default function Billing() {
                           {formatBreakdown(inv)}
                         </td>
                         <td className="px-6 py-4">
-                          <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-primary/10 text-primary">
+                          <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${statusPillClass(status)}`}>
                             {formatLabel(status)}
                           </span>
                         </td>
@@ -314,6 +330,28 @@ export default function Billing() {
               <div className="rounded border p-3"><strong>Issued:</strong> {selected.issued_at ? new Date(selected.issued_at).toLocaleDateString() : "-"}</div>
               <div className="rounded border p-3"><strong>Due:</strong> {selected.due_date ? new Date(selected.due_date).toLocaleDateString() : "N/A"}</div>
             </div>
+            {selected.invoice_type === "reimbursement" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-4">
+                <div className="rounded border p-3">
+                  <strong>Intended Auth Amount:</strong> {(selected as any).intended_authorization_amount || "-"}
+                </div>
+                <div className="rounded border p-3">
+                  <strong>Auth Retry Count:</strong> {(selected as any).authorization_retry_count ?? "-"}
+                </div>
+                <div className="rounded border p-3">
+                  <strong>Next Auth Retry:</strong> {(selected as any).authorization_next_retry_at ? new Date((selected as any).authorization_next_retry_at).toLocaleString() : "-"}
+                </div>
+                <div className="rounded border p-3">
+                  <strong>Retry Exhausted At:</strong> {(selected as any).authorization_retry_exhausted_at ? new Date((selected as any).authorization_retry_exhausted_at).toLocaleString() : "-"}
+                </div>
+                <div className="rounded border p-3">
+                  <strong>Auth Error Code:</strong> {(selected as any).authorization_last_error_code || "-"}
+                </div>
+                <div className="rounded border p-3">
+                  <strong>Auth Error Message:</strong> {(selected as any).authorization_last_error_message || "-"}
+                </div>
+              </div>
+            )}
             <div className="mt-4">
               <h4 className="font-medium mb-2">Line Items</h4>
               {(selected.line_items ?? []).length === 0 ? (

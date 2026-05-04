@@ -3,6 +3,8 @@ export type InvoiceType = 'reimbursement' | 'saas_fee' | 'aggregated_snapshot';
 export type InvoiceStatus =
   | 'draft'
   | 'pending'
+  | 'authorized'
+  | 'authorization_failed'
   | 'due'
   | 'paid'
   | 'overdue'
@@ -70,6 +72,13 @@ export interface B2BInvoice {
   external_payment_reference?: string;
   external_invoice_link?: string;
   payment_method?: string;
+
+  intended_authorization_amount?: string;
+  authorization_retry_count?: number;
+  authorization_retry_exhausted_at?: string | null;
+  authorization_last_error_code?: string;
+  authorization_last_error_message?: string;
+  authorization_next_retry_at?: string | null;
 
   // Source tracking
   source_tenant_order_display_id?: string;
