@@ -19,7 +19,12 @@ import {
   FileAudio,
   FileVideo,
   FileCode,
+  Search,
+  MessageSquare,
+  ArrowDown,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useClientMessages } from "@/contexts/MessagesContext";
 import { groupMessages, type Conversation } from "@/utils/groupMessages";
 import { useClients, type Client } from "@/hooks/useClients";
@@ -159,6 +164,8 @@ export default function Messages() {
   const [tab, setTab] = useState<"patient" | "support">("patient");
 
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const sendInFlightRef = useRef(false);
@@ -199,7 +206,16 @@ export default function Messages() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const conversations = useMemo(() => groupMessages(messages), [messages]);
+  const conversations = useMemo(() => {
+    const grouped = groupMessages(messages);
+    if (!searchQuery) return grouped;
+    const q = searchQuery.toLowerCase();
+    return grouped.filter(c =>
+      c.patientName?.toLowerCase().includes(q) ||
+      c.patientEmail?.toLowerCase().includes(q) ||
+      (c.orderNumber && c.orderNumber.toLowerCase().includes(q))
+    );
+  }, [messages, searchQuery]);
 
   // beluga support cache
   const [belugaCache, setBelugaCache] = useState<Record<string, Message[]>>({});
@@ -324,6 +340,18 @@ export default function Messages() {
   useEffect(() => {
     originalTitleRef.current = document.title;
   }, []);
+
+  // scroll-to-bottom FAB visibility
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+      setShowScrollToBottom(distance > 120);
+    };
+    el.addEventListener("scroll", handleScroll);
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [activeConversation?.id]);
 
   const latestKey = (c: Conversation) => {
     const lastMsg = c.messages[c.messages.length - 1];
@@ -739,32 +767,33 @@ export default function Messages() {
       <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_2fr] gap-6"
         style={{ height: 'calc(100vh - 11rem)' }} >
         {/* LEFT: list */}
-        <div className="bg-card rounded-lg border overflow-hidden">
-          <div className="p-4 border-b flex items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold">
-              {tab === "patient" ? "Patient Chats" : "Beluga Support Chats"}
-            </h2>
-            <div className="inline-flex rounded-lg border overflow-hidden">
-              <button
-                className={`px-3 py-1.5 text-sm font-medium ${tab === "patient" ? "bg-indigo-600 text-white" : "bg-white text-gray-700"
-                  }`}
-                onClick={() => setTab("patient")}
-              >
-                Patient
-              </button>
-              <button
-                className={`px-3 py-1.5 text-sm font-medium ${tab === "support" ? "bg-indigo-600 text-white" : "bg-white text-gray-700"
-                  } border-l`}
-                onClick={() => setTab("support")}
-              >
-                Support
-              </button>
+        <div className="bg-card rounded-xl border shadow-sm flex flex-col overflow-hidden">
+          <div className="p-4 pb-3 border-b shrink-0">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold">
+                {tab === "patient" ? "Patient Chats" : "Support Chats"}
+              </h2>
+              <Tabs value={tab} onValueChange={(val: any) => setTab(val)} className="w-[180px]">
+                <TabsList className="grid w-full grid-cols-2 h-8 p-0.5">
+                  <TabsTrigger value="patient" className="text-xs h-7">Patient</TabsTrigger>
+                  <TabsTrigger value="support" className="text-xs h-7">Support</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search conversations…"
+                className="pl-9 h-9 bg-muted/50 border-0 focus-visible:ring-1 rounded-lg"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
           </div>
 
-          <div className="p-4 space-y-2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 15rem)' }} >
-            {loading && <div>Loading...</div>}
-            {error && <div className="text-red-500">{error}</div>}
+          <div className="flex-1 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 16rem)' }}>
+            {loading && <div className="p-4 text-sm text-muted-foreground text-center">Loading…</div>}
+            {error && <div className="p-4 text-red-500 text-sm">{error}</div>}
 
             {conversations.map((c) => {
               const name = (c.patientName || "").trim();
@@ -778,47 +807,52 @@ export default function Messages() {
               // TAB-AWARE PREVIEW FOR THIS ROW
               const { text: previewText, time: previewTime } = getTabPreview(c, tab, belugaCache);
 
-              let rowClass =
-                "flex items-center gap-3 p-2 rounded-lg cursor-pointer transition border hover:bg-muted border-transparent";
-              if (isActive) {
-                rowClass += " bg-indigo-50/80 ring-2 ring-indigo-500/70 border-indigo-200 dark:bg-indigo-900/40 dark:ring-indigo-400/40 dark:border-indigo-500/40";
-              }
-
               return (
-                <div key={c.id} className={rowClass} onClick={() => openConversation(c)}>
-                  {isActive ? (
-                    <div className="w-1.5 self-stretch rounded-full bg-indigo-500" />
-                  ) : (
-                    <div className="w-1.5 self-stretch rounded-full bg-transparent" />
+                <div
+                  key={c.id}
+                  className={`relative flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-b border-border/30 ${
+                    isActive
+                      ? "bg-primary/10 dark:bg-primary/15"
+                      : "hover:bg-muted/60"
+                  }`}
+                  onClick={() => openConversation(c)}
+                >
+                  {isActive && (
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-8 bg-primary rounded-r-full" />
                   )}
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>{avatarFallback}</AvatarFallback>
-                  </Avatar>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className={`truncate text-sm ${isActive ? "font-semibold" : "font-medium"}`}>
-                        {displayName}
+                  <div className="relative shrink-0">
+                    <Avatar className="h-11 w-11">
+                      <AvatarFallback className={`text-sm font-semibold ${
+                        isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                      }`}>{avatarFallback}</AvatarFallback>
+                    </Avatar>
+                    {!isActive && showNew && (
+                      <div className="absolute -top-0.5 -right-0.5 h-4.5 w-4.5 min-w-[18px] bg-red-500 rounded-full border-2 border-card flex items-center justify-center">
+                        <span className="text-[9px] font-bold text-white leading-none">!</span>
                       </div>
-                      {!isActive && showNew && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-600 text-white">
-                          New
-                        </span>
-                      )}
-                    </div>
-                    {/* Tab-aware preview text */}
-                    <div className="text-xs text-muted-foreground truncate">
-                      {previewText || (tab === "support" ? "" : c.lastMessage)}
-                    </div>
+                    )}
                   </div>
 
-                  {/* Tab-aware time */}
-                  <div className={`text-xs whitespace-nowrap ${isActive ? "text-indigo-700" : "text-muted-foreground"}`}>
-                    {previewTime
-                      ? new Date(previewTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                      : c.lastTime
-                        ? new Date(c.lastTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                        : ""}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <div className={`truncate text-[14px] ${isActive ? "font-semibold text-foreground" : "font-medium"}`}>
+                        {displayName}
+                      </div>
+                      <div className={`text-[11px] whitespace-nowrap ml-2 shrink-0 ${
+                        showNew && !isActive ? "text-blue-600 font-semibold" : "text-muted-foreground"
+                      }`}>
+                        {previewTime
+                          ? new Date(previewTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                          : c.lastTime
+                            ? new Date(c.lastTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                            : ""}
+                      </div>
+                    </div>
+                    <div className={`text-[13px] truncate ${
+                      showNew && !isActive ? "text-foreground font-medium" : "text-muted-foreground"
+                    }`}>
+                      {previewText || (tab === "support" ? "" : c.lastMessage) || "No messages yet"}
+                    </div>
                   </div>
                 </div>
               );
@@ -827,43 +861,45 @@ export default function Messages() {
         </div>
 
         {/* RIGHT: chat */}
-        <div className="bg-card rounded-lg border flex flex-col overflow-hidden">
+        <div className="bg-card rounded-xl border shadow-sm flex flex-col overflow-hidden relative">
           {activeConversation ? (
             <>
-              <div className="p-4 border-b flex items-center justify-between shrink-0">
-                <div>
-                  <div className="font-semibold">
-                    {activeConversation.patientName
-                      ? activeConversation.patientEmail
-                        ? `${activeConversation.patientName} - ${activeConversation.patientEmail}`
-                        : activeConversation.patientName
-                      : activeConversation.patientEmail || "Patient"}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {tab === "support" ? "Client ↔ Beluga Support" : "Support / Doctor Messages"}
+              <div className="px-5 py-3 border-b flex items-center justify-between shrink-0 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 z-10">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10">
+                    <AvatarFallback className="bg-primary/15 text-primary font-semibold text-sm">
+                      {(activeConversation.patientName || activeConversation.patientEmail || "P").charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <div className="font-semibold text-[15px] leading-tight">
+                      {activeConversation.patientName || activeConversation.patientEmail || "Patient"}
+                    </div>
+                    <div className="text-[12px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                      {activeConversation.patientEmail && activeConversation.patientName && (
+                        <span>{activeConversation.patientEmail}</span>
+                      )}
+                      {activeConversation.patientEmail && activeConversation.patientName && <span className="opacity-40">•</span>}
+                      <span className="font-mono">{tab === "support" ? "Beluga Support" : `#${activeConversation.orderNumber || activeConversation.masterId.slice(0, 8)}`}</span>
+                    </div>
                   </div>
                 </div>
-                <div className="flex gap-2 items-center">
-                  <div className="text-sm border bg-gray-50 dark:bg-slate-900 dark:border-slate-700 rounded px-2 py-1 flex items-center">
-                    <span className="text-muted-foreground mr-2 font-medium">Order:</span>
-                    <span className="font-mono">
-                      {activeConversation.orderNumber || activeConversation.masterId}
-                    </span>
-                  </div>
+                <div className="flex gap-1">
                   <Button
-                    variant="outline"
-                    size="sm"
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full h-9 w-9 text-muted-foreground hover:text-foreground"
                     aria-label="View Profile"
                     onClick={handleViewProfile}
                     disabled={loadingProfile}
                   >
-                    <Eye className="h-4 w-4 mr-1" /> {loadingProfile ? "Loading..." : "View Profile"}
+                    <Eye className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
 
               {/* ---- DATE-GROUPED MESSAGES ---- */}
-              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-6 min-h-0">
+              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-5 pt-10 pb-4 space-y-1 min-h-0">
                 {(() => {
                   const grouped = groupMessagesByDate(rightMessages);
                   const sortedDates = Object.keys(grouped).sort(
@@ -887,15 +923,23 @@ export default function Messages() {
                     return (
                       <div key={dateKey}>
                         {/* Date Separator */}
-                        <div className="flex justify-center my-4">
-                          <span className="bg-gray-200 text-gray-700 dark:bg-slate-800 dark:text-slate-200 text-xs px-3 py-1 rounded-full">
+                        <div className="flex items-center justify-center my-6 gap-3">
+                          <div className="flex-1 h-px bg-border/60" />
+                          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
                             {getMessageGroupLabel(dateKey)}
                           </span>
+                          <div className="flex-1 h-px bg-border/60" />
                         </div>
 
                         {/* Messages for that day */}
-                        <div className="space-y-4">
-                          {dayMsgs.map((m) => {
+                        <div className="space-y-0.5">
+                          {dayMsgs.map((m, idx) => {
+                            const isSent = m.side === "right";
+                            const prevMsg = dayMsgs[idx - 1];
+                            const isFirstInGroup = !prevMsg || prevMsg.senderType !== m.senderType;
+                            const nextMsg = dayMsgs[idx + 1];
+                            const isLastInGroup = !nextMsg || nextMsg.senderType !== m.senderType;
+
                             let displayName: string;
                             if (m.senderType === "patient") {
                               if (m.message_type === "patient_to_doctor") displayName = "Patient → Doctor";
@@ -905,18 +949,22 @@ export default function Messages() {
                               displayName = "Client";
                             } else if (m.senderType === "doctor") displayName = "Doctor";
                             else if (m.senderType === "support") displayName = "Client Support";
-                            else if (m.senderType === "super_support") displayName = "Super Admin Support";
+                            else if (m.senderType === "super_support") displayName = "Super Admin";
                             else if (m.senderType === "beluga_support") displayName = "Beluga Support";
                             else displayName = m.sender_name;
 
-                            let bubbleColor = "";
-                            if (m.senderType === "patient") bubbleColor = "bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-100";
-                            else if (m.senderType === "client") bubbleColor = "bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-100";
-                            else if (m.senderType === "doctor") bubbleColor = "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200";
-                            else if (m.senderType === "support") bubbleColor = "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200";
-                            else if (m.senderType === "super_support") bubbleColor = "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200";
-                            else if (m.senderType === "beluga_support") bubbleColor = "bg-green-100 text-green-800 dark:bg-emerald-900/40 dark:text-emerald-200";
-                            else bubbleColor = "bg-gray-200 text-gray-800 dark:bg-slate-800 dark:text-slate-100";
+                            // Sent = blue gradient (matching reference). Received = light gray.
+                            const bubbleColor = isSent
+                              ? "bg-gradient-to-r from-[hsl(199,85%,48%)] to-[hsl(215,85%,55%)] text-white shadow-sm"
+                              : "bg-[hsl(220,14%,96%)] dark:bg-slate-800 text-foreground";
+
+                            // Asymmetric border-radius
+                            let radii = "rounded-2xl";
+                            if (isSent) {
+                              radii = isLastInGroup ? "rounded-2xl rounded-br-sm" : "rounded-2xl";
+                            } else {
+                              radii = isLastInGroup ? "rounded-2xl rounded-bl-sm" : "rounded-2xl";
+                            }
 
                             // ---- MEDIA-AWARE RENDERING ----
                             const isMedia = !!m.is_media && (!!m.media_url || !!m.content);
@@ -933,8 +981,13 @@ export default function Messages() {
                             const imageLike = isImageMime(mime) || looksLikeImageUrl(mediaUrl);
 
                             return (
-                              <div key={m.id} className={`flex ${m.side === "left" ? "justify-start" : "justify-end"}`}>
-                                <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${bubbleColor}`}>
+                              <div key={m.id} className={`flex flex-col ${isSent ? "items-end" : "items-start"} ${isLastInGroup ? "mb-4" : "mb-0.5"}`}>
+                                {!isSent && isFirstInGroup && (
+                                  <div className="text-[11px] font-medium text-muted-foreground mb-1 ml-1">
+                                    {displayName}
+                                  </div>
+                                )}
+                                <div className={`relative max-w-[75%] lg:max-w-[65%] px-3.5 py-2.5 ${radii} ${bubbleColor}`}>
                                   {/* CONTENT */}
                                   {isMedia && mediaUrl ? (
                                     <>
@@ -943,12 +996,12 @@ export default function Messages() {
                                           href={mediaUrl}
                                           target="_blank"
                                           rel="noopener noreferrer"
-                                          className="block"
+                                          className="block -mx-1.5 -mt-1 mb-1 overflow-hidden rounded-xl"
                                         >
                                           <img
                                             src={mediaUrl}
                                             alt={fileName}
-                                            className="rounded-md max-h-72 w-auto object-contain"
+                                            className="w-full max-h-[280px] object-cover"
                                             loading="lazy"
                                           />
                                         </a>
@@ -961,23 +1014,21 @@ export default function Messages() {
                                       {/* Show real text if present (and not just the filename) */}
                                       {Boolean(m.content?.trim()) &&
                                         m.content?.trim() !== (m.media_file_name || "").trim() && (
-                                          <div className="mt-2 text-sm whitespace-pre-wrap break-words">
+                                          <div className="text-[14px] whitespace-pre-wrap break-words leading-relaxed">
                                             {m.content}
                                           </div>
                                         )}
                                     </>
                                   ) : (
-                                    <div className="text-sm whitespace-pre-wrap break-words">{m.content}</div>
+                                    <div className="text-[14px] whitespace-pre-wrap break-words leading-relaxed">{m.content}</div>
                                   )}
-
-                                  {/* META */}
-                                  <div className="text-xs opacity-70 mt-1">
-                                    {displayName} •{" "}
-                                    {new Date(m.created_at).toLocaleTimeString([], {
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    })}
-                                  </div>
+                                </div>
+                                {/* TIME — outside the bubble like the reference */}
+                                <div className="text-[10px] text-muted-foreground mt-1 px-1">
+                                  {new Date(m.created_at).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
                                 </div>
                               </div>
                             );
@@ -992,32 +1043,21 @@ export default function Messages() {
                 <div ref={bottomAnchorRef} />
               </div>
 
+              {/* Scroll-to-bottom FAB */}
+              {showScrollToBottom && (
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="absolute bottom-28 right-6 rounded-full shadow-lg border h-9 w-9 z-20 bg-card/90 backdrop-blur"
+                  onClick={() => scrollToBottom(true)}
+                >
+                  <ArrowDown className="h-4 w-4" />
+                </Button>
+              )}
+
               {/* Composer */}
-              <div className="p-4 border-t shrink-0">
-                <div className="flex items-center gap-3">
-                  <textarea
-                    ref={messageInputRef}
-                    placeholder="Type your message here…"
-                    rows={1}
-                    className="flex-1 text-base px-4 py-3 rounded-xl border focus:ring-2 focus:ring-blue-400 resize-none leading-6 max-h-[140px]"
-                    value={newMessage}
-                    onChange={(e) => {
-                      setNewMessage(e.target.value)
-                      resizeComposer()
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault()
-                        handleSend()
-                      }
-                    }}
-                  />
-
-                  {/* (hidden) emoji button */}
-                  <Button variant="ghost" size="sm" className="hidden" aria-label="Emoji">
-                    <Smile className="h-4 w-4" />
-                  </Button>
-
+              <div className="px-4 py-3 border-t shrink-0 bg-card">
+                <div className="flex items-end gap-2 bg-muted/50 rounded-2xl px-2 py-1.5 focus-within:ring-1 focus-within:ring-ring transition-all">
                   {/* Attachments UI — completely hidden on Support tab */}
                   {tab !== "support" && (
                     <>
@@ -1032,39 +1072,59 @@ export default function Messages() {
                       <Button
                         type="button"
                         variant="ghost"
-                        size="sm"
+                        size="icon"
                         onClick={openFilePicker}
                         disabled={uploading || sending}
                         title="Attach images or documents"
                         aria-label="Attach files"
+                        className="rounded-full h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
                       >
                         <Paperclip className="h-4 w-4" />
                       </Button>
                     </>
                   )}
 
+                  <textarea
+                    ref={messageInputRef}
+                    placeholder="Message…"
+                    rows={1}
+                    className="flex-1 bg-transparent text-[14px] px-2 py-2.5 border-0 focus:outline-none focus:ring-0 resize-none leading-relaxed max-h-[140px]"
+                    value={newMessage}
+                    onChange={(e) => {
+                      setNewMessage(e.target.value)
+                      resizeComposer()
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSend()
+                      }
+                    }}
+                  />
+
                   <Button
                     onClick={handleSend}
                     disabled={sending}
-                    className="px-6 py-3 text-base font-semibold bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-indigo-700 transition-all flex items-center gap-2"
+                    size="icon"
+                    className="rounded-full h-9 w-9 shrink-0 bg-gradient-to-r from-[hsl(199,85%,48%)] to-[hsl(215,85%,55%)] hover:from-[hsl(199,85%,42%)] hover:to-[hsl(215,85%,49%)] text-white shadow-sm"
                   >
-                    <Send className="h-5 w-5" />
-                    {sending ? "Sending…" : "Send"}
+                    <Send className="h-4 w-4" />
                   </Button>
                 </div>
 
                 {/* Selected files preview — hidden on Support tab */}
                 {tab !== "support" && attachedFiles.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2">
+                  <div className="mt-2 flex flex-wrap gap-2 px-1">
                     {attachedFiles.map((f, idx) => (
                       <span
                         key={`${f.name}_${f.size}_${f.lastModified}`}
-                        className="inline-flex items-center gap-2 text-xs px-2 py-1 border rounded-full bg-gray-50"
+                        className="inline-flex items-center gap-2 text-xs px-2.5 py-1 border rounded-full bg-card shadow-sm"
                       >
-                        {f.type?.startsWith("image/") ? "Image:" : "File:"} {f.name}
+                        <span className="font-medium text-muted-foreground">{f.type?.startsWith("image/") ? "IMG" : "DOC"}</span>
+                        <span className="max-w-[120px] truncate">{f.name}</span>
                         <button
                           onClick={() => removeFile(idx)}
-                          className="ml-1 hover:text-red-600"
+                          className="text-muted-foreground hover:text-destructive transition-colors"
                           title="Remove"
                           type="button"
                         >
@@ -1077,8 +1137,12 @@ export default function Messages() {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground">
-              Select a conversation
+            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8">
+              <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                <MessageSquare className="h-7 w-7 text-muted-foreground/60" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground mb-1">No conversation selected</h3>
+              <p className="text-sm text-center max-w-[240px]">Choose a thread from the sidebar to start messaging.</p>
             </div>
           )}
         </div>

@@ -2,6 +2,7 @@ import api from './axiosInstance'
 
 export interface OrderPatientSummary {
   id: string
+  user_id?: string
   full_name: string
 }
 
@@ -82,6 +83,17 @@ export interface OrderPricing {
   supply_line_items?: OrderPricingSupplyLineItem[]
 }
 
+export interface OrderActivityEvent {
+  id: string
+  event_type: string
+  status: string
+  title: string
+  description: string
+  source: string
+  occurred_at: string
+  payload?: Record<string, unknown>
+}
+
 export interface Order {
   id: string
   product?: number | string | null
@@ -93,6 +105,11 @@ export interface Order {
   status?: string
   paymentProcessor?: string | null
   paymentTransactionId?: string | null
+  payment_settlement_state?: "pending" | "authorized" | "captured" | "failed" | null
+  payment_settlement_basis?: "requested" | "prescribed" | null
+  payment_settlement_product_id?: number | string | null
+  payment_settlement_amount?: string | number | null
+  payment_settlement_trace_id?: string | null
   totalRefunded?: string | null
   refundableAmount?: string | null
   created_at?: string
@@ -145,6 +162,7 @@ export interface Order {
   consult_cost_to_client?: string | null
   consult_type?: 'async' | 'sync' | null
   shipping_fee_to_client?: string | null
+  activity_events?: OrderActivityEvent[]
 }
 
 export interface PaginatedOrdersResponse {
@@ -166,6 +184,26 @@ export interface OrderRefundResponse {
   transaction?: Record<string, unknown>
   refund?: Record<string, unknown> | null
   remaining_refundable?: string
+}
+
+export interface RetryPaymentPayload {
+  saved_payment_method_id?: string
+  payment_method_id?: string
+  payment_token?: string
+  card_meta?: Record<string, unknown>
+}
+
+export interface RetryPaymentResponse {
+  success: boolean
+  error?: string
+  order_id?: string
+  order_display_id?: string
+  status?: string
+  payment_settlement_state?: string
+  transaction_id?: string
+  transaction_status?: string
+  reason_code?: string
+  retryable?: boolean
 }
 
 export interface UpdateQuestionnaireImagesPayload {
@@ -268,6 +306,16 @@ export const refundOrder = async (id: string, payload: OrderRefundRequest): Prom
   }
 }
 
+export const retryPayment = async (id: string, payload: RetryPaymentPayload): Promise<RetryPaymentResponse> => {
+  try {
+    const { data } = await api.post<RetryPaymentResponse>(`${ENDPOINT}${id}/retry-payment/`, payload)
+    return data
+  } catch (error) {
+    console.error(`Failed to retry payment for order ${id}:`, error)
+    throw error
+  }
+}
+
 export const changeProduct = async (
   orderId: string,
   newProductId: number | string,
@@ -308,6 +356,7 @@ export const ordersApi = {
   deleteOrder,
   searchOrders,
   refundOrder,
+  retryPayment,
   changeProduct,
   updateOrderQuestionnaireImages,
 }

@@ -3,6 +3,8 @@ import { useState, useEffect, useMemo } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Order, ordersApi } from "@/api/ordersApi"
+import { paymentGatewayApi } from "@/api/paymentGatewayApi"
+import { patientPaymentMethodsApi, PatientPaymentMethod, PatientPaymentGateway } from "@/api/patientPaymentMethodsApi"
 import { PatientResponsesModal } from "@/components/orders/PatientResponsesModal"
 import {
   User,
@@ -19,6 +21,7 @@ import {
   Truck,
   ClipboardList,
   Undo2,
+  RotateCw,
 } from "lucide-react"
 import { format } from "date-fns"
 import { Loader2 } from "lucide-react"
@@ -98,6 +101,15 @@ type TimelineItem = {
   iconBg: string
 }
 
+const normalizeGateway = (value?: string | null): PatientPaymentGateway | null => {
+  if (!value) return null
+  const normalized = value.toLowerCase()
+  if (normalized.includes("authorize")) return "authorize_net"
+  if (normalized.includes("stripe")) return "stripe"
+  if (normalized.includes("nmi")) return "nmi"
+  return null
+}
+
 export default function OrderDetail() {
   const { orderId } = useParams<{ orderId: string }>()
   const navigate = useNavigate()
@@ -118,7 +130,15 @@ export default function OrderDetail() {
   const [newStatus, setNewStatus] = useState("")
   const [statusTrackingNumber, setStatusTrackingNumber] = useState("")
   const [statusUpdateLoading, setStatusUpdateLoading] = useState(false)
+  const [showRetryPaymentDialog, setShowRetryPaymentDialog] = useState(false)
+  const [paymentMethods, setPaymentMethods] = useState<PatientPaymentMethod[]>([])
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false)
+  const [paymentMethodsError, setPaymentMethodsError] = useState<string | null>(null)
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("")
+  const [retryPaymentLoading, setRetryPaymentLoading] = useState(false)
+  const [retryGateway, setRetryGateway] = useState<PatientPaymentGateway | null>(null)
   const { toast } = useToast()
+  const patientUserId = order?.patient?.user_id
 
   const isUuid = (s: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
@@ -227,6 +247,80 @@ export default function OrderDetail() {
     }
   }
 
+  useEffect(() => {
+    if (!showRetryPaymentDialog) {
+      setPaymentMethods([])
+      setPaymentMethodsError(null)
+      setSelectedPaymentMethodId("")
+      setRetryGateway(null)
+      setPaymentMethodsLoading(false)
+      return
+    }
+
+    if (!order) return
+    let cancelled = false
+
+    const loadPaymentMethods = async () => {
+      setPaymentMethodsLoading(true)
+      setPaymentMethodsError(null)
+      setPaymentMethods([])
+      setSelectedPaymentMethodId("")
+
+      let resolvedGateway = normalizeGateway(order.paymentProcessor)
+      try {
+        const config = await paymentGatewayApi.getConfig()
+        const configGateway = normalizeGateway(config?.payment_config?.payment_gateway)
+        resolvedGateway = configGateway || resolvedGateway
+      } catch {
+        // Ignore config lookup failures; fallback to order processor.
+      }
+
+      if (!resolvedGateway) {
+        if (!cancelled) {
+          setPaymentMethodsError("Unable to determine payment gateway for retry.")
+          setRetryGateway(null)
+          setPaymentMethodsLoading(false)
+        }
+        return
+      }
+
+      if (!patientUserId) {
+        if (!cancelled) {
+          setPaymentMethodsError("Patient profile is missing a user ID.")
+          setRetryGateway(resolvedGateway)
+          setPaymentMethodsLoading(false)
+        }
+        return
+      }
+
+      if (!cancelled) {
+        setRetryGateway(resolvedGateway)
+      }
+
+      try {
+        const methods = await patientPaymentMethodsApi.listPaymentMethods(resolvedGateway, patientUserId)
+        if (cancelled) return
+        setPaymentMethods(methods)
+        const defaultMethod = methods.find((method) => method.is_default) || methods[0]
+        setSelectedPaymentMethodId(defaultMethod?.id || "")
+      } catch (err: unknown) {
+        if (!cancelled) {
+          const message =
+            (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+            "Failed to load saved payment methods"
+          setPaymentMethodsError(message)
+        }
+      } finally {
+        if (!cancelled) {
+          setPaymentMethodsLoading(false)
+        }
+      }
+    }
+
+    loadPaymentMethods()
+    return () => { cancelled = true }
+  }, [showRetryPaymentDialog, order, patientUserId])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -251,6 +345,7 @@ export default function OrderDetail() {
   const orderTitle = order.order_id ? `#${order.order_id}` : order.display_id ? `#${order.display_id}` : order.id?.slice(0, 8) || ""
 
   const paymentStatus = (order.paymentStatus || "").toLowerCase()
+  const settlementState = (order.payment_settlement_state || "").toLowerCase()
   const isAuthorized = paymentStatus === "authorized"
   const isRefundable =
     paymentStatus === "captured" ||
@@ -258,6 +353,20 @@ export default function OrderDetail() {
     paymentStatus === "succeeded"
   const isLocked = isAuthorized || isRefundable
   const isPending = paymentStatus === "pending" || !paymentStatus
+  const paymentCaptured = isRefundable || settlementState === "captured"
+  const retryablePaymentStatuses = [
+    "declined",
+    "error",
+    "failed",
+    "voided",
+    "canceled",
+    "cancelled",
+    "non_capturable",
+    "non-capturable",
+  ]
+  const isPaymentFailure = retryablePaymentStatuses.includes(paymentStatus)
+  const isSettlementRetryable = ["failed", "pending"].includes(settlementState)
+  const canRetryPayment = !paymentCaptured && (isPaymentFailure || isSettlementRetryable)
   const isAllowedStatus = status === "created" || status === "payment_pending"
   const canChangeProduct = isAllowedStatus && !isLocked
   const canRefundOrVoid = isAuthorized || isRefundable
@@ -384,6 +493,35 @@ export default function OrderDetail() {
     }
   }
 
+  const handleRetryPayment = async () => {
+    if (!order?.id) return
+    if (!selectedPaymentMethodId) {
+      toast({ title: "Select a payment method to retry.", variant: "destructive" })
+      return
+    }
+    try {
+      setRetryPaymentLoading(true)
+      const result = await ordersApi.retryPayment(order.id, {
+        saved_payment_method_id: selectedPaymentMethodId,
+      })
+      if (!result.success) {
+        toast({ title: result.error || "Retry payment failed", variant: "destructive" })
+        return
+      }
+      toast({ title: "Payment retry submitted" })
+      setShowRetryPaymentDialog(false)
+      refetchOrder()
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { error?: string; detail?: string } } })?.response?.data?.error ||
+        (err as { response?: { data?: { error?: string; detail?: string } } })?.response?.data?.detail ||
+        "Retry payment failed"
+      toast({ title: message, variant: "destructive" })
+    } finally {
+      setRetryPaymentLoading(false)
+    }
+  }
+
   // Build timeline from order dates (newest first for display, then we reverse to show chronological)
   const timelineItems: TimelineItem[] = []
   if (order.datePrintedShipped) {
@@ -458,6 +596,33 @@ export default function OrderDetail() {
     iconBg: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800",
   })
   timelineItems.reverse()
+
+  const eventTimelineItems: TimelineItem[] = Array.isArray(order.activity_events)
+    ? order.activity_events.map((evt) => {
+        const status = (evt.status || "").toLowerCase()
+        let icon: TimelineItem["icon"] = "schedule"
+        let iconBg = "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800"
+        if (status.includes("payment") || evt.event_type.includes("payment")) {
+          icon = "payments"
+          iconBg = "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800"
+        } else if (status === "prescribed" || status === "rx_sent") {
+          icon = "prescriptions"
+        } else if (status === "visit_pending" || status === "visit_failed") {
+          icon = "medical_services"
+        } else if (status === "shipped") {
+          icon = "local_shipping"
+          iconBg = "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-4 border-white dark:border-slate-800"
+        }
+        return {
+          title: evt.title || evt.event_type.replace(/\./g, " "),
+          date: formatDateTime(evt.occurred_at),
+          description: evt.description || undefined,
+          icon,
+          iconBg,
+        }
+      })
+    : []
+  const renderedTimelineItems = eventTimelineItems.length > 0 ? eventTimelineItems : timelineItems
 
   const selectedMedicines = (order as Order & { selected_medicines?: Array<{ quantity?: unknown }> }).selected_medicines
   const qty = selectedMedicines?.[0]?.quantity ?? order.prescription_medications?.[0]?.quantity ?? "1"
@@ -659,6 +824,15 @@ export default function OrderDetail() {
       </div>
     )
   }
+
+  const retryGatewayLabel =
+    retryGateway === "authorize_net"
+      ? "Authorize.Net"
+      : retryGateway === "nmi"
+        ? "NMI"
+        : retryGateway === "stripe"
+          ? "Stripe"
+          : "payment gateway"
 
   return (
     <div className="p-6 lg:p-8">
@@ -976,7 +1150,7 @@ export default function OrderDetail() {
               <div className="relative pl-4">
                 <div className="absolute left-[19px] top-2 bottom-4 w-px bg-slate-200 dark:bg-slate-700" />
                 <div className="space-y-8">
-                  {timelineItems.map((item, idx) => (
+                  {renderedTimelineItems.map((item, idx) => (
                     <div key={idx} className="relative flex gap-4">
                       <TimelineIcon name={item.icon} iconBg={item.iconBg} />
                       <div className="flex-1 pt-1">
@@ -1300,8 +1474,20 @@ export default function OrderDetail() {
               )}
               <div className="pt-3 border-t border-border flex justify-between items-center mt-2">
                 <span className="text-slate-900 dark:text-white font-bold">Amount</span>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-slate-900 dark:text-white font-bold">${netTotalPrice}</span>
+                  {canRetryPayment && (
+                    <PermissionGate permission={Permissions.ORDER_UPDATE}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-[10px] h-6 border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-300"
+                        onClick={() => setShowRetryPaymentDialog(true)}
+                      >
+                        <RotateCw className="h-3 w-3 mr-1" /> Retry Payment
+                      </Button>
+                    </PermissionGate>
+                  )}
                   {canRefundOrVoid && (
                     <PermissionGate permission={Permissions.REFUND_CREATE}>
                       <Button
@@ -1320,6 +1506,83 @@ export default function OrderDetail() {
           </div>
         </div>
       </div>
+
+      {/* Retry Payment Dialog */}
+      <Dialog open={showRetryPaymentDialog} onOpenChange={setShowRetryPaymentDialog}>
+        <DialogContent className="max-w-lg w-full">
+          <DialogHeader>
+            <DialogTitle>Retry Patient Payment</DialogTitle>
+            <DialogDescription>
+              Select a saved card to retry the patient charge via {retryGatewayLabel}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-500 dark:text-slate-400">Amount to retry</span>
+              <span className="text-slate-900 dark:text-white font-medium">${netTotalPrice}</span>
+            </div>
+
+            {paymentMethodsLoading && (
+              <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading saved payment methods...
+              </div>
+            )}
+
+            {!paymentMethodsLoading && paymentMethodsError && (
+              <p className="text-sm text-destructive">{paymentMethodsError}</p>
+            )}
+
+            {!paymentMethodsLoading && !paymentMethodsError && paymentMethods.length === 0 && (
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                No saved payment methods found for this patient.
+              </p>
+            )}
+
+            {!paymentMethodsLoading && paymentMethods.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Saved payment method</label>
+                <Select value={selectedPaymentMethodId} onValueChange={setSelectedPaymentMethodId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a card" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paymentMethods.map((method) => {
+                      const brand = method.card_brand ? method.card_brand.toUpperCase() : "CARD"
+                      const last4 = method.masked_card_number ? method.masked_card_number.slice(-4) : "----"
+                      const expMonth = method.card_expiry_month ? String(method.card_expiry_month).padStart(2, "0") : ""
+                      const expYear = method.card_expiry_year ? String(method.card_expiry_year) : ""
+                      const expLabel = expMonth && expYear ? `exp ${expMonth}/${expYear}` : ""
+                      const defaultLabel = method.is_default ? " • default" : ""
+                      return (
+                        <SelectItem key={method.id} value={method.id}>
+                          {brand} •••• {last4}{expLabel ? ` (${expLabel})` : ""}{defaultLabel}
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowRetryPaymentDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleRetryPayment}
+                disabled={
+                  retryPaymentLoading ||
+                  paymentMethodsLoading ||
+                  Boolean(paymentMethodsError) ||
+                  !selectedPaymentMethodId
+                }
+              >
+                {retryPaymentLoading ? "Retrying..." : "Retry Payment"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Refund / Void Dialog */}
       <Dialog open={showRefundDialog} onOpenChange={setShowRefundDialog}>
