@@ -19,6 +19,7 @@ export interface Visit {
   assigned_template?: {
     id: string;
     name: string;
+    treatment_type?: string | null;
   } | null;
 }
 
