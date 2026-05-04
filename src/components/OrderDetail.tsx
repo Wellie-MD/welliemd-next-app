@@ -14,7 +14,7 @@ import {
   MessageSquare, CreditCard,
 } from 'lucide-react';
 
-import { getOrder, PatientOrder } from '@/shared/api/ordersApi';
+import { getOrder, PatientOrder, OrderActivityEvent } from '@/shared/api/ordersApi';
 
 // ---------- Product icon (SVG-based per kinmeds3) ----------
 function ProductIcon({ productName }: { productName: string }) {
@@ -70,6 +70,8 @@ const STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {
   visit_pending:      { label: 'Visit Pending',      badgeClass: 'km-badge km-badge-amber' },
   visit_scheduled:    { label: 'Visit Scheduled',    badgeClass: 'km-badge km-badge-blue' },
   visit_rescheduled:  { label: 'Visit Rescheduled',  badgeClass: 'km-badge km-badge-amber' },
+  consult_scheduled:  { label: 'Consult Scheduled',  badgeClass: 'km-badge km-badge-blue' },
+  consult_rescheduled:{ label: 'Consult Rescheduled',badgeClass: 'km-badge km-badge-amber' },
   visit_failed:       { label: 'Visit Cancelled',    badgeClass: 'km-badge km-badge-red' },
   consult_canceled:   { label: 'Visit Cancelled',    badgeClass: 'km-badge km-badge-red' },
   no_show:            { label: 'No Show',            badgeClass: 'km-badge km-badge-red' },
@@ -94,42 +96,10 @@ type TimelineStep = {
   sub: string;
 };
 
-function buildPaymentStep(order: PatientOrder, amount: string): TimelineStep | null {
-  const status = (order.payment_status || '').toLowerCase();
-  if (!status) return null;
-
-  if (status === 'authorized' || status === 'pending') {
-    return { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' };
-  }
-  if (['captured', 'approved', 'succeeded'].includes(status)) {
-    return { type: 'money', label: 'Payment captured', sub: `${amount} charged to card on file` };
-  }
-  if (status === 'voided') {
-    return { type: 'voided', label: 'Payment voided', sub: 'No charge applied' };
-  }
-  if (['declined', 'error', 'canceled'].includes(status)) {
-    return { type: 'bad', label: 'Payment failed', sub: 'Payment could not be processed' };
-  }
-  if (status === 'refunded') {
-    return { type: 'bad', label: 'Payment refunded', sub: 'Payment refunded to original method' };
-  }
-
-  return null;
-}
-
-function resolvePaymentStep(
-  order: PatientOrder,
-  amount: string,
-  fallback: TimelineStep
-): TimelineStep {
-  return buildPaymentStep(order, amount) || fallback;
-}
-
 function buildTimeline(order: PatientOrder): TimelineStep[] {
   const ordered = formatDate(order.created_at);
   const prescribed = formatDate(order.prescribed_at);
   const amount = `$${order.chargeable_amount || order.amount}`;
-  const paymentStep = buildPaymentStep(order, amount);
 
   // Map backend status → kinmeds3 display status
   const statusMap: Record<string, string> = {
@@ -138,6 +108,8 @@ function buildTimeline(order: PatientOrder): TimelineStep[] {
     visit_pending: 'Visit Pending',
     visit_scheduled: 'Visit Scheduled',
     visit_rescheduled: 'Visit Rescheduled',
+    consult_scheduled: 'Visit Scheduled',
+    consult_rescheduled: 'Visit Rescheduled',
     visit_failed: 'Visit Cancelled',
     consult_canceled: 'Visit Cancelled',
     no_show: 'No Show',
@@ -155,37 +127,37 @@ function buildTimeline(order: PatientOrder): TimelineStep[] {
   const logs: Record<string, TimelineStep[]> = {
     'Order Created': [
       { type: 'done', label: 'Order placed', sub: ordered },
-      resolvePaymentStep(order, amount, { type: 'pending', label: 'Payment pending', sub: 'No charge until prescription is issued' }),
+      { type: 'pending', label: 'Payment pending', sub: 'No charge until prescription is issued' },
     ],
     'Visit Pending': [
       { type: 'done', label: 'Order placed', sub: ordered },
-      resolvePaymentStep(order, amount, { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' }),
+      { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' },
       { type: 'warn', label: 'Awaiting provider review', sub: 'Provider has not yet reviewed' },
     ],
     'Visit Scheduled': [
       { type: 'done', label: 'Order placed', sub: ordered },
-      resolvePaymentStep(order, amount, { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' }),
+      { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' },
       { type: 'done', label: 'Visit scheduled', sub: 'Appointment confirmed' },
     ],
     'Visit Rescheduled': [
       { type: 'done', label: 'Order placed', sub: ordered },
-      resolvePaymentStep(order, amount, { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' }),
+      { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' },
       { type: 'done', label: 'Visit scheduled', sub: 'Initial appointment confirmed' },
       { type: 'warn', label: 'Visit rescheduled', sub: 'Appointment moved to new time' },
     ],
     'Visit Cancelled': [
       { type: 'done', label: 'Order placed', sub: ordered },
-      resolvePaymentStep(order, amount, { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' }),
+      { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' },
       { type: 'done', label: 'Visit scheduled', sub: 'Appointment was confirmed' },
       { type: 'bad', label: 'Visit cancelled', sub: 'Appointment cancelled' },
-      ...(paymentStep ? [] : [{ type: 'voided', label: 'Payment voided', sub: 'No charge applied' }]),
+      { type: 'voided', label: 'Authorization voided', sub: 'No charge applied' },
     ],
     'Prescribed': [
       { type: 'done', label: 'Order placed', sub: ordered },
       { type: 'money', label: 'Payment authorized', sub: 'Amount held' },
       { type: 'done', label: 'Provider reviewed', sub: 'Case reviewed by provider' },
       { type: 'done', label: 'Prescribed', sub: order.prescribed_at ? `Prescribed on ${prescribed}` : 'Prescription issued' },
-      resolvePaymentStep(order, amount, { type: 'money', label: 'Payment captured', sub: `${amount} charged to card on file` }),
+      { type: 'money', label: 'Payment captured', sub: `${amount} charged to card on file` },
       { type: 'warn', label: 'Rx sent to pharmacy', sub: 'Awaiting dispatch from pharmacy' },
     ],
     'Shipped': [
@@ -193,41 +165,55 @@ function buildTimeline(order: PatientOrder): TimelineStep[] {
       { type: 'money', label: 'Payment authorized', sub: 'Amount held' },
       { type: 'done', label: 'Provider reviewed', sub: 'Case reviewed by provider' },
       { type: 'done', label: 'Prescribed', sub: 'Prescription issued' },
-      resolvePaymentStep(order, amount, { type: 'money', label: 'Payment captured', sub: `${amount} charged to card on file` }),
+      { type: 'money', label: 'Payment captured', sub: `${amount} charged to card on file` },
       { type: 'done', label: 'Rx sent to pharmacy', sub: 'Prescription received by pharmacy' },
       { type: 'done', label: 'Shipped', sub: 'Order dispatched to pharmacy' },
     ],
     'Referred': [
       { type: 'done', label: 'Order placed', sub: ordered },
-      resolvePaymentStep(order, amount, { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' }),
+      { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' },
       { type: 'done', label: 'Provider reviewed', sub: 'Case reviewed by provider' },
       { type: 'bad', label: 'Referred', sub: 'Patient not eligible for this treatment' },
-      ...(paymentStep ? [] : [{ type: 'voided', label: 'Payment voided', sub: 'No charge applied' }]),
+      { type: 'voided', label: 'Authorization voided', sub: 'No charge applied' },
     ],
     'Refunded': [
       { type: 'done', label: 'Order placed', sub: ordered },
       { type: 'money', label: 'Payment authorized', sub: 'Amount held' },
       { type: 'done', label: 'Prescribed', sub: 'Prescription issued' },
-      resolvePaymentStep(order, amount, { type: 'money', label: 'Payment captured', sub: `${amount} charged to card on file` }),
-      ...(paymentStep?.label === 'Payment refunded'
-        ? []
-        : [{ type: 'bad', label: 'Refunded', sub: 'Payment refunded to original method' }]),
+      { type: 'money', label: 'Payment captured', sub: `${amount} charged to card on file` },
+      { type: 'bad', label: 'Refunded', sub: 'Payment refunded to original method' },
     ],
     'No Show': [
       { type: 'done', label: 'Order placed', sub: ordered },
-      resolvePaymentStep(order, amount, { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' }),
+      { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' },
       { type: 'done', label: 'Visit scheduled', sub: 'Appointment confirmed' },
       { type: 'bad', label: 'No show', sub: 'Patient did not attend scheduled visit' },
-      ...(paymentStep ? [] : [{ type: 'voided', label: 'Payment voided', sub: 'No charge applied' }]),
+      { type: 'voided', label: 'Authorization voided', sub: 'No charge applied' },
     ],
     'Cancelled': [
       { type: 'done', label: 'Order placed', sub: ordered },
       { type: 'bad', label: 'Cancelled', sub: 'Order was cancelled' },
-      ...(paymentStep ? [] : [{ type: 'voided', label: 'Payment voided', sub: 'No charge applied' }]),
+      { type: 'voided', label: 'Authorization voided', sub: 'No charge applied' },
     ],
   };
 
   return logs[displayStatus] || [{ type: 'done', label: 'Order placed', sub: ordered }];
+}
+
+function buildTimelineFromEvents(events?: OrderActivityEvent[]): TimelineStep[] {
+  if (!Array.isArray(events) || events.length === 0) return [];
+  return events.map((evt) => {
+    const status = (evt.status || '').toLowerCase();
+    let type: TimelineStep['type'] = 'done';
+    if (status.includes('pending')) type = 'pending';
+    if (status.includes('failed') || status.includes('canceled') || status.includes('no_show')) type = 'bad';
+    if (status.includes('payment') || evt.event_type.includes('payment')) type = 'money';
+    return {
+      type,
+      label: evt.title || evt.event_type.replace(/\./g, ' '),
+      sub: new Date(evt.occurred_at).toLocaleString(),
+    };
+  });
 }
 
 // ---------- Timeline step icon ----------
@@ -348,7 +334,8 @@ export default function OrderDetail() {
 
   const ref = order.order_id || order.display_id;
   const statusConfig = STATUS_CONFIG[order.status] || { label: order.status, badgeClass: 'km-badge km-badge-gray' };
-  const timeline = buildTimeline(order);
+  const timelineFromEvents = buildTimelineFromEvents(order.activity_events);
+  const timeline = timelineFromEvents.length > 0 ? timelineFromEvents : buildTimeline(order);
   const requestedMedicineName = order.requested_medicine_name || order.product_name;
   const rawPrescribedMedicineName = order.prescribed_medicine_name || null;
   const prescribedNameNormalized = rawPrescribedMedicineName?.trim().toLowerCase();
@@ -527,6 +514,19 @@ export default function OrderDetail() {
           <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>Prescribed by</span>
           <span style={{ fontSize: 13, fontWeight: 600 }}>{order.doctor_name || 'Healthcare Professional'}</span>
         </div>
+        {(order.booking_scheduled_at || order.booking_location) && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderBottom: '1px solid var(--km-b)' }}>
+            <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>Consult</span>
+            <span style={{ fontSize: 13, fontWeight: 600, textAlign: 'right' }}>
+              {order.booking_scheduled_at ? new Date(order.booking_scheduled_at).toLocaleString() : 'Scheduled'}
+              {order.booking_location ? (
+                <a href={order.booking_location} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 8 }}>
+                  Join
+                </a>
+              ) : null}
+            </span>
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderBottom: '1px solid var(--km-b)' }}>
           <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>Amount</span>
           <span style={{ fontSize: 15, fontWeight: 800 }}>${displayAmount}</span>
@@ -542,7 +542,11 @@ export default function OrderDetail() {
         <button
           className="km-btn km-btn-primary"
           style={{ width: '100%', justifyContent: 'center', padding: '12px 16px' }}
-          onClick={() => navigate('/dashboard/messages')}
+          onClick={() => {
+            const orderRef = ref || order.id;
+            const prefillMsg = `Hi, I have a question about my order ${orderRef} (${order.product_name}).`;
+            navigate(`/dashboard/messages?order_ref=${encodeURIComponent(orderRef)}&prefill=${encodeURIComponent(prefillMsg)}`);
+          }}
         >
           <MessageSquare size={14} />
           Message about this order

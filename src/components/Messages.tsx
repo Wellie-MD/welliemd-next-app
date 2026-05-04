@@ -37,10 +37,13 @@ interface Conversation {
   messages: RawMessage[]; // newest-first in state
 }
 
-const formatConversationLabel = (visitType?: string, masterId?: string) => {
-  const cleanedVisitType = (visitType || "").trim();
+const formatConversationLabel = (visit: { visit_type?: string; assigned_template?: { name: string } | null; master_id?: string }) => {
+  // Prefer the human-readable template name, then fall back to visit_type
+  const templateName = visit.assigned_template?.name?.trim();
+  if (templateName) return templateName;
+  const cleanedVisitType = (visit.visit_type || "").trim();
   if (cleanedVisitType) return cleanedVisitType;
-  const shortMaster = (masterId || "").slice(0, 8);
+  const shortMaster = (visit.master_id || "").slice(0, 8);
   return shortMaster ? `Visit ${shortMaster}` : "Visit";
 };
 
@@ -176,7 +179,7 @@ function DocumentBubble({
   const ext = getExt(name || undefined);
   const display = name || "Attachment";
   return (
-    <div style={{ maxWidth: 260, borderRadius: 8, background: "var(--km-s1)", border: "1px solid var(--km-b)", overflow: "hidden" }}>
+    <div style={{ maxWidth: 'min(260px, 100%)', borderRadius: 8, background: "var(--km-s1)", border: "1px solid var(--km-b)", overflow: "hidden" }}>
       <div style={{ padding: 12, display: "flex", alignItems: "flex-start", gap: 10 }}>
         <div style={{ width: 36, height: 36, background: "var(--km-s2)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <DocIcon ext={ext} mime={mime || undefined} />
@@ -244,7 +247,7 @@ export default function Messages() {
         return {
           id: v.id,
           masterId: mId,
-          label: formatConversationLabel(v.visit_type, mId),
+          label: formatConversationLabel(v),
           messages: raw,
         } as Conversation;
       });
@@ -260,18 +263,52 @@ export default function Messages() {
         });
 
       setConversations(nextConversations);
-      // Only auto-select first conversation on desktop (>= 768px), not mobile, and only after first load
-      if (!hasInitiallyLoaded.current && nextConversations.length > 0) {
+
+      // Handle orderRef auto-selection
+      const orderRef = searchParams.get('order_ref');
+      
+      if (orderRef && nextConversations.length > 0) {
+        const match = nextConversations.find(c =>
+          c.masterId === orderRef || c.masterId.startsWith(orderRef)
+        );
+        setSelectedId(match?.id || nextConversations[0].id);
+        
+        hasInitiallyLoaded.current = true;
+      } else if ((!hasInitiallyLoaded.current || pendingPrefillRef.current) && nextConversations.length > 0) {
+        // Only auto-select first conversation on desktop (>= 768px), not mobile, and only after first load
+        // UNLESS there is a pending prefill intent, in which case we must auto-select so they see the composer
         hasInitiallyLoaded.current = true;
         const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
-        if (isDesktop) {
+        if (isDesktop || pendingPrefillRef.current) {
           setSelectedId(nextConversations[0].id);
         }
+        pendingPrefillRef.current = false;
+      }
+
+      if (!hasInitiallyLoaded.current) {
+        hasInitiallyLoaded.current = true;
       }
     } catch (err) {
       console.error("Failed to load messages", err);
     }
-  }, []);
+  }, [searchParams, setSearchParams]);
+
+  // Track if we need to force-open the chat on mobile
+  const pendingPrefillRef = useRef(false);
+
+  // Handle prefill independently of data loading
+  useEffect(() => {
+    const prefillText = searchParams.get('prefill');
+    if (prefillText) {
+      setComposeText(prefillText);
+      pendingPrefillRef.current = true;
+
+      // Remove prefill from URL carefully to avoid infinite reload loops
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('prefill');
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     void loadConversations();
@@ -479,35 +516,47 @@ export default function Messages() {
           </div>
         </div>
 
-        {filtered.map(c => {
-          const lastMsg = (c.messages || []).slice().sort(byTimeDesc)[0];
-          const avText = c.label.substring(0, 2).toUpperCase();
-          const pType = c.label.toUpperCase(); // Group by Treatment Type
-          const isUnread = c.messages?.some(m => !m.readByPatient && isInboundForPatient(m));
-          
-          return (
-            <div key={c.id}>
-              <div className="km-msg-group-label" style={{ padding: "16px 16px 8px", fontSize: '10px', color: 'var(--km-tm)' }}>{pType}</div>
-              <div
-                className={`km-mthread ${selectedId === c.id ? "msg-active" : ""} ${isUnread ? "unread" : ""}`}
-                onClick={() => setSelectedId(c.id)}
-                style={{ position: 'relative', background: isUnread && selectedId !== c.id ? 'var(--km-acp)' : undefined }}
-              >
-                <div className="km-mavt" style={{ background: isUnread ? 'var(--km-ac)' : 'var(--km-s2)', color: isUnread ? '#fff' : 'var(--km-gr)', fontWeight: 600 }}>{avText}</div>
-                <div className="km-mbody">
-                  <div className="km-mfrom" style={{ fontSize: '13px', fontWeight: isUnread ? 700 : 500, color: isUnread ? 'var(--km-t)' : 'var(--km-tm)' }}>{c.label} · {c.masterId.substring(0, 8)}</div>
-                  <div className="km-mprev" style={{ fontSize: '11px', color: isUnread ? 'var(--km-t)' : 'var(--km-tm)', fontWeight: isUnread ? 500 : 400, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {formatThreadPreview(lastMsg)}
+        {(() => {
+          // Group conversations by category (visit_type label)
+          const grouped: Record<string, typeof filtered> = {};
+          filtered.forEach(c => {
+            const category = c.label.toUpperCase();
+            if (!grouped[category]) grouped[category] = [];
+            grouped[category].push(c);
+          });
+
+          return Object.entries(grouped).map(([category, convos]) => (
+            <div key={category}>
+              <div className="km-msg-group-label" style={{ padding: "16px 16px 8px", fontSize: '10px', color: 'var(--km-tm)', fontWeight: 600, letterSpacing: '0.05em', borderBottom: '1px solid var(--km-b)' }}>{category}</div>
+              {convos.map(c => {
+                const lastMsg = (c.messages || []).slice().sort(byTimeDesc)[0];
+                const avText = c.label.substring(0, 2).toUpperCase();
+                const isUnread = c.messages?.some(m => !m.readByPatient && isInboundForPatient(m));
+
+                return (
+                  <div
+                    key={c.id}
+                    className={`km-mthread ${selectedId === c.id ? "msg-active" : ""} ${isUnread ? "unread" : ""}`}
+                    onClick={() => setSelectedId(c.id)}
+                    style={{ position: 'relative', background: isUnread && selectedId !== c.id ? 'var(--km-acp)' : undefined }}
+                  >
+                    <div className="km-mavt" style={{ background: isUnread ? 'var(--km-ac)' : 'var(--km-s2)', color: isUnread ? '#fff' : 'var(--km-gr)', fontWeight: 600 }}>{avText}</div>
+                    <div className="km-mbody">
+                      <div className="km-mfrom" style={{ fontSize: '13px', fontWeight: isUnread ? 700 : 500, color: isUnread ? 'var(--km-t)' : 'var(--km-tm)' }}>{c.label} · {c.masterId}</div>
+                      <div className="km-mprev" style={{ fontSize: '11px', color: isUnread ? 'var(--km-t)' : 'var(--km-tm)', fontWeight: isUnread ? 500 : 400, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {formatThreadPreview(lastMsg)}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                      <div className="km-mtime" style={{ fontSize: '10px', color: 'var(--km-tm)' }}>{lastMsg ? format(new Date(lastMsg.timestamp), "MMM d") : ""}</div>
+                      {isUnread && <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--km-ac)', boxShadow: '0 0 0 2px var(--km-bg)' }}></div>}
+                    </div>
                   </div>
-                </div>
-                <div style={{ textAlign: "right", flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                  <div className="km-mtime" style={{ fontSize: '10px', color: 'var(--km-tm)' }}>{lastMsg ? format(new Date(lastMsg.timestamp), "MMM d") : ""}</div>
-                  {isUnread && <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--km-ac)', boxShadow: '0 0 0 2px var(--km-bg)' }}></div>}
-                </div>
-              </div>
+                );
+              })}
             </div>
-          )
-        })}
+          ));
+        })()}
       </div>
 
       {/* CHAT PANEL */}
@@ -535,7 +584,7 @@ export default function Messages() {
                 {selectedChat.label.substring(0,2).toUpperCase()}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 700 }}>{selectedChat.label}</div>
+                <div style={{ fontSize: 14, fontWeight: 700 }}>{selectedChat.label} · {selectedChat.masterId}</div>
                 <div style={{ fontSize: 11, color: "var(--km-tm)" }}>Doctor + Support · Unified thread</div>
               </div>
             </div>
@@ -557,7 +606,7 @@ export default function Messages() {
                         const nameStr = m.senderType === "doctor" ? "Doctor" : m.senderType === "support" || m.senderType === "super_support" ? "Support" : "You";
 
                         return (
-                          <div key={m.id} className={`km-cbwrap ${isMe ? 'me' : ''}`} style={{ marginBottom: 16 }}>
+                          <div key={m.id} className={`km-cbwrap ${isMe ? 'me' : ''}`} style={{ marginBottom: 16, maxWidth: '100%', overflow: 'hidden' }}>
                             {!isMe && (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                 <div style={{ fontSize: '11px', color: 'var(--km-tm)', marginLeft: 44 }}>
@@ -567,11 +616,11 @@ export default function Messages() {
                                   <div className="km-cavsm" style={{ width: 32, height: 32, flexShrink: 0, background: 'var(--km-s2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700, color: 'var(--km-ac)' }}>
                                     {m.senderType === "doctor" ? "DR" : "SP"}
                                   </div>
-                                  <div className={`km-bub them ${m.senderType === "support" || m.senderType === "super_support" ? "sup" : ""}`} style={{ maxWidth: '80%', padding: '12px 16px', borderRadius: '12px', fontSize: '13px', lineHeight: 1.5 }}>
+                                  <div className={`km-bub them ${m.senderType === "support" || m.senderType === "super_support" ? "sup" : ""}`} style={{ maxWidth: '80%', padding: '12px 16px', borderRadius: '12px', fontSize: '13px', lineHeight: 1.5, overflow: 'hidden', wordBreak: 'break-word' }}>
                                     {m.is_media ? (
                                       isImage(m.mime_type) ? (
-                                        <a href={m.media_url} target="_blank" rel="noopener noreferrer">
-                                          <img src={m.media_url} alt="Attachment" style={{ maxWidth: 200, borderRadius: 8 }} />
+                                        <a href={m.media_url} target="_blank" rel="noopener noreferrer" style={{ display: 'block' }}>
+                                          <img src={m.media_url} alt="Attachment" style={{ maxWidth: '100%', height: 'auto', borderRadius: 8 }} />
                                         </a>
                                       ) : (
                                         <DocumentBubble url={m.media_url!} name={m.file_name} mime={m.mime_type} />
@@ -585,11 +634,11 @@ export default function Messages() {
                             )}
                             {isMe && (
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                                <div className="km-bub me" style={{ maxWidth: '80%', padding: '12px 16px', borderRadius: '12px', fontSize: '13px', lineHeight: 1.5, background: 'var(--km-ac)', color: '#fff' }}>
+                                <div className="km-bub me" style={{ maxWidth: '80%', padding: '12px 16px', borderRadius: '12px', fontSize: '13px', lineHeight: 1.5, background: 'var(--km-ac)', color: '#fff', overflow: 'hidden', wordBreak: 'break-word' }}>
                                   {m.is_media ? (
                                     isImage(m.mime_type) ? (
-                                      <a href={m.media_url} target="_blank" rel="noopener noreferrer">
-                                        <img src={m.media_url} alt="Attachment" style={{ maxWidth: 200, borderRadius: 8 }} />
+                                      <a href={m.media_url} target="_blank" rel="noopener noreferrer" style={{ display: 'block' }}>
+                                        <img src={m.media_url} alt="Attachment" style={{ maxWidth: '100%', height: 'auto', borderRadius: 8 }} />
                                       </a>
                                     ) : (
                                       <DocumentBubble url={m.media_url!} name={m.file_name} mime={m.mime_type} />
@@ -652,9 +701,16 @@ export default function Messages() {
               <div 
                 className="km-ctosel" 
                 onClick={() => setShowRouting(!showRouting)}
-                style={composeTo === "doctor" ? { background: "var(--km-acp)", color: "var(--km-ac)", borderColor: "var(--km-ac)" } : {}}
+                style={composeTo === "doctor"
+                  ? { background: "var(--km-acp)", color: "var(--km-ac)", borderColor: "var(--km-ac)" }
+                  : { background: "#fef3c7", color: "#b45309", borderColor: "#f59e0b" }
+                }
               >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                {composeTo === "doctor" ? (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                ) : (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                )}
                 <span>@ {composeTo === "doctor" ? "Doctor" : "Support"}</span>
                 <ChevronDown size={12} strokeWidth={2.5} />
               </div>

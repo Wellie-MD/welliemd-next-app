@@ -22,6 +22,8 @@ const STATUS_CONFIG: Record<string, { label: string; css: string }> = {
   payment_pending:   { label: 'Payment Pending',    css: 'km-badge km-badge-amber' },
   payment_failed:     { label: 'Payment Failed',    css: 'km-badge km-badge-red' },
   visit_pending:      { label: 'Visit Pending',      css: 'km-badge km-badge-amber' },
+  consult_scheduled:  { label: 'Consult Scheduled',  css: 'km-badge km-badge-blue' },
+  consult_rescheduled:{ label: 'Consult Rescheduled',css: 'km-badge km-badge-amber' },
   visit_scheduled:    { label: 'Visit Scheduled',    css: 'km-badge km-badge-blue' },
   visit_rescheduled:  { label: 'Visit Rescheduled',  css: 'km-badge km-badge-amber' },
   visit_failed:       { label: 'Visit Failed',       css: 'km-badge km-badge-red' },
@@ -179,11 +181,27 @@ export default function Orders() {
     }
   }, [orderIdFromUrl, navigate]);
 
-  // Polling
+  // Polling — reload all pages that have been loaded so far to keep the list intact
   useEffect(() => {
-    const timer = setInterval(() => fetchOrders(page), 10000);
+    const timer = setInterval(async () => {
+      try {
+        const allResults: PatientOrder[] = [];
+        for (let p = 1; p <= page; p++) {
+          const response = await getOrders(p, 12);
+          allResults.push(...response.results);
+          if (p === page) {
+            setHasMore(response.next !== null);
+            setTotalCount(response.count);
+          }
+        }
+        setOrders(allResults);
+      } catch (err) {
+        // Silently fail polling — don't overwrite existing data
+        console.warn('Polling refresh failed:', err);
+      }
+    }, 10000);
     return () => clearInterval(timer);
-  }, [fetchOrders, page]);
+  }, [page]);
 
   const handleOrderClick = (order: PatientOrder) => {
     navigate(`/dashboard/orders/${order.id}`);

@@ -358,7 +358,7 @@ export default function Profile() {
                 value={profileInfo.state}
                 onValueChange={value => handleProfileInfoChange('state', value)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="km-field-input">
                   <SelectValue placeholder="Select a state" />
                 </SelectTrigger>
                 <SelectContent>
@@ -386,7 +386,7 @@ export default function Profile() {
                 value={profileInfo.sex}
                 onValueChange={value => handleProfileInfoChange('sex', value)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="km-field-input">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
