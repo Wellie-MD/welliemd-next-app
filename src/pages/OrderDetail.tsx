@@ -725,6 +725,7 @@ export default function OrderDetail() {
   const previewNetTotal = previewTotal != null
     ? Math.max(0, previewTotal - refundedAmount)
     : netTotalAmount
+  const retryAmount = totalAmount ?? previewTotal ?? netTotalAmount
 
   const displayProductName = pendingProductChange?.productName || order.product_name || "—"
   const displayQuantity = String(qty)
@@ -1519,7 +1520,7 @@ export default function OrderDetail() {
           <div className="space-y-4">
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-500 dark:text-slate-400">Amount to retry</span>
-              <span className="text-slate-900 dark:text-white font-medium">${netTotalPrice}</span>
+              <span className="text-slate-900 dark:text-white font-medium">${formatMoney(retryAmount)}</span>
             </div>
 
             {paymentMethodsLoading && (
