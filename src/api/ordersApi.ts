@@ -137,6 +137,7 @@ export interface Order {
   discount_amount?: string | null
   shipping_fee?: string | null
   tracking_number?: string | null
+  shipping_carrier?: string | null
   patient_responses?: PatientResponses | null
   checkout_url?: string | null
   provider_network?: string | null

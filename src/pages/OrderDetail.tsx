@@ -22,6 +22,9 @@ import {
   ClipboardList,
   Undo2,
   RotateCw,
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
 } from "lucide-react"
 import { format } from "date-fns"
 import { Loader2 } from "lucide-react"
@@ -71,7 +74,9 @@ const statusColors: Record<string, string> = {
   prescribed: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800",
   billing_pending: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800",
   rx_sent: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800",
+  in_fulfillment: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800",
   shipped: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
+  delivered: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800",
   canceled: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800",
 }
 
@@ -89,8 +94,21 @@ const statusLabels: Record<string, string> = {
   prescribed: "Prescribed",
   billing_pending: "Billing Pending",
   rx_sent: "Rx Sent",
+  in_fulfillment: "In Fulfillment",
   shipped: "Shipped",
+  delivered: "Delivered",
   canceled: "Canceled",
+}
+
+const getStatusIcon = (status: string) => {
+  const s = (status || "").toLowerCase()
+  if (s.includes("shipped") || s.includes("delivered") || s.includes("fulfillment")) return <Truck className="h-3.5 w-3.5" />
+  if (s.includes("prescribed") || s.includes("rx_sent") || s.includes("referred")) return <Stethoscope className="h-3.5 w-3.5" />
+  if (s.includes("scheduled") || s.includes("rescheduled")) return <Calendar className="h-3.5 w-3.5" />
+  if (s.includes("failed") || s.includes("cancel") || s.includes("no_show")) return <XCircle className="h-3.5 w-3.5" />
+  if (s.includes("pending") || s.includes("billing")) return <AlertCircle className="h-3.5 w-3.5" />
+  if (s.includes("captured") || s.includes("completed") || s.includes("refunded")) return <CheckCircle2 className="h-3.5 w-3.5" />
+  return <RotateCw className="h-3.5 w-3.5" />
 }
 
 type TimelineItem = {
@@ -600,18 +618,38 @@ export default function OrderDetail() {
   const eventTimelineItems: TimelineItem[] = Array.isArray(order.activity_events)
     ? order.activity_events.map((evt) => {
         const status = (evt.status || "").toLowerCase()
+        const eventType = (evt.event_type || "").toLowerCase()
         let icon: TimelineItem["icon"] = "schedule"
         let iconBg = "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800"
-        if (status.includes("payment") || evt.event_type.includes("payment")) {
+        if (status.includes("payment") || eventType.includes("payment")) {
           icon = "payments"
           iconBg = "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800"
-        } else if (status === "prescribed" || status === "rx_sent") {
+        } else if (status === "prescribed" || status === "rx_sent" || status === "referred") {
           icon = "prescriptions"
-        } else if (status === "visit_pending" || status === "visit_failed") {
+          iconBg = "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-4 border-white dark:border-slate-800"
+        } else if (
+          status === "visit_pending" ||
+          status === "visit_failed" ||
+          status === "consult_scheduled" ||
+          status === "consult_rescheduled"
+        ) {
           icon = "medical_services"
+          iconBg = "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border-4 border-white dark:border-slate-800"
+        } else if (status === "in_fulfillment" || eventType.includes("in_fulfillment")) {
+          icon = "local_shipping"
+          iconBg = "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-4 border-white dark:border-slate-800"
         } else if (status === "shipped") {
           icon = "local_shipping"
           iconBg = "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-4 border-white dark:border-slate-800"
+        } else if (status === "delivered" || eventType.includes("delivered")) {
+          icon = "local_shipping"
+          iconBg = "bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 border-4 border-white dark:border-slate-800"
+        } else if (status.includes("cancel") || status.includes("no_show")) {
+          icon = "schedule"
+          iconBg = "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-4 border-white dark:border-slate-800"
+        } else if (status.includes("processing") || status.includes("created")) {
+          icon = "schedule"
+          iconBg = "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-4 border-white dark:border-slate-800"
         }
         return {
           title: evt.title || evt.event_type.replace(/\./g, " "),
@@ -1129,10 +1167,11 @@ export default function OrderDetail() {
                 <h3 className="font-semibold text-slate-900 dark:text-white">Order Status</h3>
                 <span
                   className={cn(
-                    "px-2.5 py-0.5 rounded-full text-xs font-medium border",
+                    "px-2.5 py-0.5 rounded-full text-xs font-medium border inline-flex items-center gap-1.5",
                     statusColors[status] || "bg-slate-100 text-slate-700 border-slate-200"
                   )}
                 >
+                  {getStatusIcon(status)}
                   {statusDisplay.toUpperCase().replace(/_/g, " ")}
                 </span>
               </div>
@@ -1322,8 +1361,13 @@ export default function OrderDetail() {
                       <p className="font-mono text-slate-700 dark:text-slate-300 text-xs break-all">{order.tracking_number || "—"}</p>
                     </div>
                     <div>
+                      <p className="text-xs text-slate-500 mb-0.5">Carrier</p>
+                      <p className="text-slate-700 dark:text-slate-300">{order.shipping_carrier || "—"}</p>
+                    </div>
+                    <div>
                       <p className="text-xs text-slate-500 mb-0.5">Status</p>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+                        {getStatusIcon(status)}
                         {statusDisplay}
                       </span>
                     </div>
