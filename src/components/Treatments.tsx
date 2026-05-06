@@ -12,6 +12,20 @@ import { Edit2, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { VisitService, Visit } from "@/features/visits/services/visit.service";
 
+/**
+ * A treatment is only considered "active" if its associated order has
+ * reached a paid-or-later status.
+ */
+const PAID_ORDER_STATUSES = [
+  "prescribed",
+  "billing_pending",
+  "rx_sent",
+  "shipped",
+  "visit_pending",
+  "processing",
+];
+
+
 export default function Treatments() {
   const navigate = useNavigate();
   const [visits, setVisits] = useState<Visit[]>([]);
@@ -67,9 +81,12 @@ export default function Treatments() {
     });
   };
 
-  // Active vs completed
+  // Active vs completed — only visits with a paid order qualify
   const activeTreatments = visits.filter(
-    (v) => !["completed", "cancelled"].includes(v.status.toLowerCase())
+    (v) =>
+      !["completed", "cancelled"].includes(v.status.toLowerCase()) &&
+      v.order_status &&
+      PAID_ORDER_STATUSES.includes(v.order_status.toLowerCase())
   );
 
   return (

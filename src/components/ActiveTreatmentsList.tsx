@@ -11,6 +11,21 @@ import { VisitService, Visit } from "@/features/visits/services/visit.service";
 const INACTIVE_STATUSES = ["completed", "cancelled"];
 const DASHBOARD_LIMIT = 3;
 
+/**
+ * A treatment is only considered "active" if its associated order has
+ * reached a paid-or-later status.  Visits still in draft / payment_pending
+ * have not been paid and should not appear as active treatments.
+ */
+const PAID_ORDER_STATUSES = [
+  "prescribed",
+  "billing_pending",
+  "rx_sent",
+  "shipped",
+  "visit_pending",
+  "processing",
+];
+
+
 /** Get the display name for a treatment — prefer template name over visit_type slug */
 function getTreatmentName(visit: Visit): string {
   if (visit.assigned_template?.treatment_type) {
@@ -35,7 +50,14 @@ export function ActiveTreatmentsList() {
     (async () => {
       try {
         const data = await VisitService.getPatientVisits();
-        setVisits(data.filter((v) => !INACTIVE_STATUSES.includes(v.status.toLowerCase())));
+        setVisits(
+          data.filter(
+            (v) =>
+              !INACTIVE_STATUSES.includes(v.status.toLowerCase()) &&
+              v.order_status &&
+              PAID_ORDER_STATUSES.includes(v.order_status.toLowerCase())
+          )
+        );
       } catch {
         // Silent — dashboard section doesn't block
       } finally {
