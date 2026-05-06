@@ -13,6 +13,9 @@ const DASHBOARD_LIMIT = 3;
 
 /** Get the display name for a treatment — prefer template name over visit_type slug */
 function getTreatmentName(visit: Visit): string {
+  if (visit.assigned_template?.treatment_type) {
+    return visit.assigned_template.treatment_type;
+  }
   if (visit.assigned_template?.name) {
     return visit.assigned_template.name;
   }

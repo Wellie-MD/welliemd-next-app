@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
-  Package, RefreshCw, AlertCircle, Truck,
+  Package, RefreshCw, AlertCircle, Truck, Clock, Calendar, XCircle, CheckCircle2, Stethoscope,
 } from 'lucide-react';
 
 import { getOrders, PatientOrder } from '@/shared/api/ordersApi';
@@ -33,6 +33,7 @@ const STATUS_CONFIG: Record<string, { label: string; css: string }> = {
   prescribed:         { label: 'Prescribed',         css: 'km-badge km-badge-blue' },
   billing_pending:    { label: 'Billing Pending',    css: 'km-badge km-badge-amber' },
   rx_sent:            { label: 'Rx Sent',            css: 'km-badge km-badge-green' },
+  in_fulfillment:     { label: 'In Fulfillment',     css: 'km-badge km-badge-blue' },
   in_transit:         { label: 'In Transit',        css: 'km-badge km-badge-blue' },
   out_for_delivery:   { label: 'Out for Delivery',   css: 'km-badge km-badge-amber' },
   delivered:          { label: 'Delivered',          css: 'km-badge km-badge-green' },
@@ -66,7 +67,26 @@ function getProductIcon(productName: string): string {
 
 function OrderStatusBadge({ status }: { status: string }) {
   const config = STATUS_CONFIG[status] || { label: status, css: 'km-badge km-badge-gray' };
-  return <span className={config.css}>{config.label}</span>;
+  const s = (status || '').toLowerCase();
+  const icon = s.includes('shipped') || s.includes('delivered')
+    ? <Truck size={12} />
+    : s.includes('prescribed') || s.includes('rx_sent') || s.includes('referred')
+      ? <Stethoscope size={12} />
+      : s.includes('scheduled') || s.includes('rescheduled')
+        ? <Calendar size={12} />
+        : s.includes('failed') || s.includes('cancel') || s.includes('no_show')
+          ? <XCircle size={12} />
+          : s.includes('pending') || s.includes('billing')
+            ? <AlertCircle size={12} />
+            : s.includes('captured') || s.includes('completed') || s.includes('refunded')
+              ? <CheckCircle2 size={12} />
+              : <Clock size={12} />;
+  return (
+    <span className={config.css} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+      {icon}
+      {config.label}
+    </span>
+  );
 }
 
 function OrderListItem({ order, onClick }: { order: PatientOrder; onClick: () => void }) {
