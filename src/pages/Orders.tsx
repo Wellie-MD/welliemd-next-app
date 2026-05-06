@@ -36,7 +36,9 @@ const ORDER_STATUS_FILTER_LABELS = [
   "Prescribed",
   "Billing Pending",
   "Rx Sent",
+  "In Fulfillment",
   "Shipped",
+  "Delivered",
   "Canceled",
 ] as const
 
@@ -54,7 +56,9 @@ const ORDER_STATUS_TO_API: Record<string, string> = {
   Prescribed: "prescribed",
   "Billing Pending": "billing_pending",
   "Rx Sent": "rx_sent",
+  "In Fulfillment": "in_fulfillment",
   Shipped: "shipped",
+  Delivered: "delivered",
   Canceled: "canceled",
 }
 
@@ -93,7 +97,9 @@ const ORDER_STATUS_CHOICES = [
   { value: "prescribed", label: "Prescribed" },
   { value: "billing_pending", label: "Billing Pending" },
   { value: "rx_sent", label: "Rx Sent" },
+  { value: "in_fulfillment", label: "In Fulfillment" },
   { value: "shipped", label: "Shipped" },
+  { value: "delivered", label: "Delivered" },
   { value: "canceled", label: "Canceled" },
 ]
 
