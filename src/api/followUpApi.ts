@@ -33,6 +33,7 @@ export interface CreateFollowUpRequest {
     allow_manual_expiry_override?: boolean;
     episode_id?: string | null;
     context_order_id?: string | null;
+    onboarding_template_id?: string | null;
 }
 
 export interface FollowUpOrderCandidate {
@@ -64,6 +65,14 @@ export interface FollowUpTemplate {
     name: string;
     treatment_type: string;
     questionnaire_type: string;
+}
+
+export interface OnboardingTemplate {
+    id: string;
+    name: string;
+    treatment_type: string;
+    questionnaire_type: string;
+    default_followup_template?: string | null;
 }
 
 export interface SendFollowUpNotificationRequest {
@@ -178,6 +187,27 @@ export async function getFollowUpTemplates(): Promise<FollowUpTemplate[]> {
     }
 }
 
+/**
+ * Get available onboarding questionnaire templates.
+ */
+export async function getOnboardingTemplates(): Promise<OnboardingTemplate[]> {
+    try {
+        const response = await axiosInstance.get<{
+            count: number;
+            next: string | null;
+            previous: string | null;
+            results: OnboardingTemplate[]
+        }>(
+            '/questionnaires/templates/',
+            { params: { questionnaire_type: 'onboarding' } }
+        );
+        return response.data.results || [];
+    } catch (error) {
+        console.error('Error fetching onboarding templates:', error);
+        return [];
+    }
+}
+
 export async function sendFollowUpNotification(
     followUpId: string,
     data: SendFollowUpNotificationRequest
@@ -202,6 +232,7 @@ export default {
     createFollowUp,
     getPatientFollowUps,
     getFollowUpTemplates,
+    getOnboardingTemplates,
     getFollowUpOrderCandidates,
     sendFollowUpNotification,
 };
