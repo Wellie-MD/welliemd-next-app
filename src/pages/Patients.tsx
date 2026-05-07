@@ -76,8 +76,7 @@ const patientColumns = [
   { key: "lastOrder", label: "Last Order", width: "100px" }
 ]
 
-const statusFilters = ["All", "Active", "Pending", "Abandon", "Canceled"]
-const additionalFilters = ["Refills", "Visit Status", "Patient Status"]
+const statusFilters = ["All", "Active", "Inactive", "Drop-off"]
 
 // Helper function to parse date in DD/MM/YYYY format
 const parseDate = (dateString: string) => {
@@ -110,15 +109,25 @@ export default function Patients() {
     return () => clearTimeout(timer)
   }, [searchInput])
 
+  // Map UI filter to backend engagement_status
+  const getEngagementStatus = (filter: string): string | undefined => {
+    if (filter === "Active") return "active"
+    if (filter === "Inactive") return "inactive"
+    if (filter === "Drop-off") return "dropoff"
+    return undefined
+  }
+
   // Fetch patients from backend with server-side pagination
   const fetchPatients = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
+      const engagementStatus = getEngagementStatus(activeFilter)
       const response = await patientService.getPatients({
         page,
         page_size: pageSize,
         search: searchTerm || undefined,
+        engagement_status: engagementStatus,
       })
       
       const patientIds = response.results.map(p => p.id)
@@ -140,7 +149,7 @@ export default function Patients() {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, searchTerm])
+  }, [page, pageSize, searchTerm, activeFilter])
 
   // Fetch patients when pagination or search changes
   useEffect(() => {
@@ -196,20 +205,6 @@ export default function Patients() {
       value: activeFilter === status ? status : undefined,
       onClick: () => setActiveFilter(status)
     })),
-    // Additional filters
-    ...additionalFilters.map(filter => ({
-      key: `additional-${filter}`,
-      label: filter,
-      type: 'button' as const,
-      value: activeAdditionalFilters.includes(filter) ? filter : undefined,
-      onClick: () => {
-        setActiveAdditionalFilters(prev => 
-          prev.includes(filter) 
-            ? prev.filter(f => f !== filter)
-            : [...prev, filter]
-        )
-      }
-    }))
   ]
 
   const handleResetFilters = useCallback(() => {
