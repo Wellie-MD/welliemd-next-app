@@ -28,9 +28,11 @@ import { Input } from '@/components/ui/input';
 import { AlertCircle, AlertTriangle, CheckCircle2, Copy, Mail, Loader2 } from 'lucide-react';
 import {
   createFollowUp,
+  getOnboardingTemplates,
   getFollowUpOrderCandidates,
   getFollowUpTemplates,
   FollowUpOrderCandidate,
+  OnboardingTemplate,
   FollowUpTemplate,
   CreateFollowUpResponse,
   sendFollowUpNotification,
@@ -55,7 +57,9 @@ export function SendFollowUpDialog({
   onSuccess,
 }: SendFollowUpDialogProps) {
   const [templates, setTemplates] = useState<FollowUpTemplate[]>([]);
+  const [onboardingTemplates, setOnboardingTemplates] = useState<OnboardingTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [selectedOnboardingTemplate, setSelectedOnboardingTemplate] = useState<string>('none');
   const [loading, setLoading] = useState(false);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
@@ -150,10 +154,14 @@ export function SendFollowUpDialog({
   const loadTemplates = useCallback(async () => {
     setLoadingTemplates(true);
     try {
-      const data = await getFollowUpTemplates();
-      setTemplates(data);
-      if (data.length > 0) {
-        setSelectedTemplate(data[0].id);
+      const [followUpData, onboardingData] = await Promise.all([
+        getFollowUpTemplates(),
+        getOnboardingTemplates(),
+      ]);
+      setTemplates(followUpData);
+      setOnboardingTemplates(onboardingData);
+      if (followUpData.length > 0) {
+        setSelectedTemplate(followUpData[0].id);
       }
     } catch (error) {
       console.error('Failed to load templates:', error);
@@ -219,6 +227,7 @@ export function SendFollowUpDialog({
       setEpisodesFallbackUsed(false);
       setOrderCandidates([]);
       setSelectedOrderId('');
+      setSelectedOnboardingTemplate('none');
       loadOrderCandidates();
       // Reset state when dialog opens
       setResult(null);
@@ -250,6 +259,10 @@ export function SendFollowUpDialog({
         questionnaire_id: selectedTemplate,
         episode_id: selectedEpisodeId || selectedEpisodeRecord?.id || null,
         context_order_id: selectedOrderId || selectedOrderRecord?.id || null,
+        onboarding_template_id:
+          selectedOnboardingTemplate && selectedOnboardingTemplate !== 'none'
+            ? selectedOnboardingTemplate
+            : null,
       });
 
       if (!response.success && response.code === 'EPISODE_RESOLUTION_REQUIRED') {
@@ -379,6 +392,26 @@ export function SendFollowUpDialog({
                   No follow-up questionnaire templates available.
                 </p>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="onboarding_template">Onboarding Template (Optional)</Label>
+              <Select value={selectedOnboardingTemplate} onValueChange={setSelectedOnboardingTemplate}>
+                <SelectTrigger id="onboarding_template">
+                  <SelectValue placeholder="Use existing episode context" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Use existing episode context</SelectItem>
+                  {onboardingTemplates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Set explicitly for legacy/manual episodes missing onboarding linkage.
+              </p>
             </div>
 
             {formError && (
