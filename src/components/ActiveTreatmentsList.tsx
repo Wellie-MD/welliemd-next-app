@@ -15,14 +15,20 @@ const DASHBOARD_LIMIT = 3;
  * A treatment is only considered "active" if its associated order has
  * reached a paid-or-later status.  Visits still in draft / payment_pending
  * have not been paid and should not appear as active treatments.
+ * Includes all post-payment statuses from the Order lifecycle:
+ *   processing → visit_pending → consult_* → prescribed → rx_sent → shipped
  */
 const PAID_ORDER_STATUSES = [
+  "processing",
+  "visit_pending",
+  "consult_scheduled",
+  "consult_rescheduled",
+  "no_show",
+  "referred",
   "prescribed",
   "billing_pending",
   "rx_sent",
   "shipped",
-  "visit_pending",
-  "processing",
 ];
 
 

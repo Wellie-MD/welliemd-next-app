@@ -54,8 +54,9 @@ export default function Dashboard() {
         
         // Active treatments = visits with a paid order (not just non-completed visits)
         const PAID_ORDER_STATUSES = [
+          "processing", "visit_pending",
+          "consult_scheduled", "consult_rescheduled", "no_show", "referred",
           "prescribed", "billing_pending", "rx_sent", "shipped",
-          "visit_pending", "processing",
         ];
         const activeTreatmentsCount = visitsRes.filter(v => 
           !['completed', 'cancelled'].includes(v.status.toLowerCase()) &&
