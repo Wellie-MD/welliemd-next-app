@@ -371,6 +371,27 @@ export default function AddQuestionnairesForm({
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="min_age">
+              Minimum Age <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="min_age"
+              type="number"
+              min={0}
+              max={120}
+              value={formData.min_age ?? 18}
+              onChange={(e) => {
+                const value = Number(e.target.value);
+                if (!Number.isFinite(value)) return;
+                setFormData({ ...formData, min_age: Math.max(0, Math.min(120, value)) });
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Patient must be at least this age to complete intake. Set to 0 to disable the age rule.
+            </p>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="slug">URL Slug</Label>
             <Input
               id="slug"
