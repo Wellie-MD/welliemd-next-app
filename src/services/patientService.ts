@@ -60,6 +60,7 @@ export interface Patient {
     last_order_at?: string | null;
     last_order_id?: string | null;
     last_order_display_id?: string | null;
+    engagement_status?: string;
 }
 
 export interface PatientListResponse {
@@ -74,6 +75,7 @@ export interface PatientListParams {
     page_size?: number;
     search?: string;
     ordering?: string;
+    engagement_status?: string;
 }
 
 export interface TreatmentEpisode {
@@ -106,13 +108,14 @@ export const patientService = {
      */
     getPatients: async (params: PatientListParams = {}): Promise<PatientListResponse> => {
         try {
-            const { page = 1, page_size = 20, search, ordering } = params;
+            const { page = 1, page_size = 20, search, ordering, engagement_status } = params;
 
             const queryParams = new URLSearchParams();
             queryParams.append('page', page.toString());
             queryParams.append('page_size', page_size.toString());
             if (search) queryParams.append('search', search);
             if (ordering) queryParams.append('ordering', ordering);
+            if (engagement_status) queryParams.append('engagement_status', engagement_status);
 
             const response = await api.get<PatientListResponse>(`/medical/patients/?${queryParams.toString()}`);
             return response.data;
