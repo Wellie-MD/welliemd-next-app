@@ -351,8 +351,8 @@ export function QuestionForm({
   const [dobMinAge, setDobMinAge] = useState<number | "">(18);
   const [isHidden, setIsHidden] = useState(false);
 
-  // Labs in-person mapping state
-  const [labsInPersonMapping, setLabsInPersonMapping] = useState<Record<string, boolean>>({});
+  // Labs method mapping state (choice label -> Beluga enum)
+  const [labMethodMapping, setLabMethodMapping] = useState<Record<string, "inPerson" | "atHome">>({});
 
   // Fetch template and existing questions when modal opens
   useEffect(() => {
@@ -476,20 +476,29 @@ export function QuestionForm({
       }
       setDisqualifyingAnswers(disqualifyingAnswersList);
 
-      // Extract labs_in_person_mapping from validation_rules
+      // Extract lab_method_mapping from validation_rules
       if (question.question_type === "labs") {
-        if (validationRules?.labs_in_person_mapping) {
-          setLabsInPersonMapping(validationRules.labs_in_person_mapping as Record<string, boolean>);
+        if (validationRules?.lab_method_mapping) {
+          setLabMethodMapping(validationRules.lab_method_mapping as Record<string, "inPerson" | "atHome">);
+        } else if (validationRules?.labs_in_person_mapping) {
+          // Backward compatibility for existing templates
+          const legacy = validationRules.labs_in_person_mapping as Record<string, boolean>;
+          const upgraded: Record<string, "inPerson" | "atHome"> = {};
+          Object.entries(legacy).forEach(([k, v]) => {
+            upgraded[k] = v ? "inPerson" : "atHome";
+          });
+          setLabMethodMapping(upgraded);
         } else {
           // Auto-initialize from existing choices if missing
-          const defaultMapping: Record<string, boolean> = {};
+          const defaultMapping: Record<string, "inPerson" | "atHome"> = {};
           question.answer_choices.forEach(choice => {
-            defaultMapping[getChoiceLabel(choice)] = true;
+            const label = getChoiceLabel(choice).trim().toLowerCase();
+            defaultMapping[getChoiceLabel(choice)] = label.includes("home") ? "atHome" : "inPerson";
           });
-          setLabsInPersonMapping(defaultMapping);
+          setLabMethodMapping(defaultMapping);
         }
       } else {
-        setLabsInPersonMapping({});
+        setLabMethodMapping({});
       }
 
       // Extract prefill config
@@ -654,7 +663,7 @@ export function QuestionForm({
     } else {
       setDisqualifyingAnswers([]);
       setTriggerValues([]);
-      setLabsInPersonMapping({});
+      setLabMethodMapping({});
       setParentQuestions([]);
       setSelectedParentForAdding("");
       setLogicOperator("OR");
@@ -710,7 +719,11 @@ export function QuestionForm({
         ],
       });
       if (formData.question_type === "labs") {
-        setLabsInPersonMapping(prev => ({ ...prev, [trimmedVal]: true }));
+        const normalized = trimmedVal.toLowerCase();
+        setLabMethodMapping(prev => ({
+          ...prev,
+          [trimmedVal]: normalized.includes("home") ? "atHome" : "inPerson",
+        }));
       }
       setNewAnswerChoice("");
     }
@@ -728,8 +741,8 @@ export function QuestionForm({
         disqualifyingAnswers.filter((a) => a !== choiceDisplay)
       );
     }
-    if (choiceDisplay && formData.question_type === "labs" && choiceDisplay in labsInPersonMapping) {
-      setLabsInPersonMapping(prev => {
+    if (choiceDisplay && formData.question_type === "labs" && choiceDisplay in labMethodMapping) {
+      setLabMethodMapping(prev => {
         const next = { ...prev };
         delete next[choiceDisplay];
         return next;
@@ -757,13 +770,14 @@ export function QuestionForm({
       setDisqualifyingAnswers(updatedDisqualifying);
     }
 
-    // Update labs_in_person_mapping key when choice text changes
-    if (oldDisplay && oldDisplay in labsInPersonMapping) {
-      setLabsInPersonMapping(prev => {
+    // Update lab_method_mapping key when choice text changes
+    if (oldDisplay && oldDisplay in labMethodMapping) {
+      setLabMethodMapping(prev => {
         const updated = { ...prev };
         const oldVal = updated[oldDisplay];
         delete updated[oldDisplay];
-        updated[value] = oldVal;
+        const normalized = value.trim().toLowerCase();
+        updated[value] = oldVal || (normalized.includes("home") ? "atHome" : "inPerson");
         return updated;
       });
     }
@@ -1081,12 +1095,12 @@ export function QuestionForm({
         validationRules[operatorMap[numberValidationOperator]] =
           numberValidationValue;
       } else if (formData.question_type === "labs") {
-        // Add labs_in_person_mapping to validation_rules
+        // Add lab_method_mapping to validation_rules
         validationRules = {
           ...(formData.validation_rules || {}),
         };
-        if (Object.keys(labsInPersonMapping).length > 0) {
-          validationRules.labs_in_person_mapping = labsInPersonMapping;
+        if (Object.keys(labMethodMapping).length > 0) {
+          validationRules.lab_method_mapping = labMethodMapping;
         }
       } else {
         validationRules = formData.validation_rules || {};
@@ -1354,7 +1368,11 @@ export function QuestionForm({
                   setFormData({
                     ...formData,
                     question_type: value,
-                    answer_choices: ["Yes", "No"],
+                    answer_choices: ["In Person", "At Home"],
+                  });
+                  setLabMethodMapping({
+                    "In Person": "inPerson",
+                    "At Home": "atHome",
                   });
                 } else {
                   // Reset validation states when changing question type
@@ -1863,15 +1881,15 @@ export function QuestionForm({
                         {formData.question_type === "labs" && (
                           <div className="flex items-center gap-2">
                             <Label className="text-xs text-muted-foreground whitespace-nowrap">
-                              labsInPerson:
+                              labMethod:
                             </Label>
                             <Select
-                              value={(labsInPersonMapping[getChoiceLabel(choice)] ?? true) ? "true" : "false"}
+                              value={labMethodMapping[getChoiceLabel(choice)] ?? "inPerson"}
                               onValueChange={(val) => {
                                 const choiceLabel = getChoiceLabel(choice);
-                                setLabsInPersonMapping(prev => ({
+                                setLabMethodMapping(prev => ({
                                   ...prev,
-                                  [choiceLabel]: val === "true",
+                                  [choiceLabel]: val as "inPerson" | "atHome",
                                 }));
                               }}
                             >
@@ -1879,8 +1897,8 @@ export function QuestionForm({
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="true">In-Person (true)</SelectItem>
-                                <SelectItem value="false">At-Home (false)</SelectItem>
+                                <SelectItem value="inPerson">In Person</SelectItem>
+                                <SelectItem value="atHome">At Home</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
