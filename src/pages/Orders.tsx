@@ -28,7 +28,10 @@ const ORDER_STATUS_FILTER_LABELS = [
   "Processing",
   "Visit Failed",
   "Visit Pending",
+  "Consult Scheduled",
+  "Consult Rescheduled",
   "Consult Canceled",
+  "No Show",
   "Referred",
   "Prescribed",
   "Billing Pending",
@@ -43,7 +46,10 @@ const ORDER_STATUS_TO_API: Record<string, string> = {
   Processing: "processing",
   "Visit Failed": "visit_failed",
   "Visit Pending": "visit_pending",
+  "Consult Scheduled": "consult_scheduled",
+  "Consult Rescheduled": "consult_rescheduled",
   "Consult Canceled": "consult_canceled",
+  "No Show": "no_show",
   Referred: "referred",
   Prescribed: "prescribed",
   "Billing Pending": "billing_pending",
@@ -66,7 +72,7 @@ const orderColumns = [
   { key: "mrn", label: "MRN#", minWidth: "120px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
   { key: "paymentStatus", label: "Payment Status", minWidth: "130px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
   { key: "visitStatus", label: "Visit Status", minWidth: "120px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
-  { key: "orderStatus", label: "Order Status", minWidth: "120px" },
+  { key: "orderStatus", label: "Order Status", minWidth: "150px" },
   { key: "orderTotal", label: "Order Total", minWidth: "110px" },
   { key: "tracking_number", label: "Tracking #", minWidth: "140px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell max-w-[160px]" },
   { key: "actions", label: "Actions", minWidth: "110px", render: (_: any, row: any) => null }
@@ -79,7 +85,10 @@ const ORDER_STATUS_CHOICES = [
   { value: "processing", label: "Processing" },
   { value: "visit_failed", label: "Visit Failed" },
   { value: "visit_pending", label: "Visit Pending" },
+  { value: "consult_scheduled", label: "Consult Scheduled" },
+  { value: "consult_rescheduled", label: "Consult Rescheduled" },
   { value: "consult_canceled", label: "Consult Canceled" },
+  { value: "no_show", label: "No Show" },
   { value: "referred", label: "Referred" },
   { value: "prescribed", label: "Prescribed" },
   { value: "billing_pending", label: "Billing Pending" },
@@ -140,7 +149,7 @@ export default function Orders() {
   const [editedTrackingNumbers, setEditedTrackingNumbers] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null)
-  
+
   // Order Details Sheet state
   const navigate = useNavigate()
 
@@ -266,13 +275,13 @@ export default function Orders() {
   const handleSaveOrder = async (id: string) => {
     const newStatus = editedStatuses[id]
     const newTrackingNumber = editedTrackingNumbers[id]
-    
+
     if (newStatus == null && newTrackingNumber == null) return
-    
+
     // Find the current order to get existing tracking number
     const currentOrder = orders.find(o => o.id === id)
     const existingTrackingNumber = currentOrder?.tracking_number
-    
+
     // Validate: tracking number required when setting status to 'shipped'
     if (newStatus === 'shipped') {
       const trackingToUse = newTrackingNumber ?? existingTrackingNumber
@@ -281,7 +290,7 @@ export default function Orders() {
         return
       }
     }
-    
+
     setSavingId(id)
     setError(null)
     setSuccess(null)
@@ -343,7 +352,7 @@ export default function Orders() {
   }
 
   const handleGridView = () => {
-    console.log("Grid view clicked") 
+    console.log("Grid view clicked")
     // Implement grid view toggle logic
   }
 
@@ -379,6 +388,7 @@ export default function Orders() {
         data={filteredOrders.map(o => ({
           ...o,
           patient_name: o.patient?.full_name || o.name || o.email || '-',
+          orderTotal: o.pricing?.grand_total || o.grand_total || o.payable_amount || o.orderTotal || o.amount || '0.00',
         }))}
         columns={orderColumns.map(col => {
           // Canonical order number (matches invoice/admin priority).
@@ -416,40 +426,40 @@ export default function Orders() {
               render: (_: any, row: any) => {
                 const detailId = row.id
                 return (
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => detailId && navigate(`/dashboard/orders/details/${detailId}`)}
-                    disabled={!detailId}
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleSaveOrder(row.id)}
-                    disabled={
-                      savingId === row.id || 
-                      (!(editedStatuses[row.id] && editedStatuses[row.id] !== (row.orderStatus || '')) &&
-                       !(editedTrackingNumbers[row.id] !== undefined && editedTrackingNumbers[row.id] !== (row.tracking_number || '')))
-                    }
-                  >
-                    {savingId === row.id ? 'Saving...' : 'Save'}
-                  </Button>
-                  {/* Delete button hidden on client portal /dashboard/orders */}
-                  <PermissionGate permission={Permissions.ORDER_DELETE}>
+                  <div className="flex gap-2">
                     <Button
                       size="sm"
-                      variant="destructive"
-                      className="hidden"
-                      onClick={() => setDeleteTarget(row)}
+                      variant="ghost"
+                      onClick={() => detailId && navigate(`/dashboard/orders/details/${detailId}`)}
+                      disabled={!detailId}
                     >
-                      Delete
+                      <Eye className="h-4 w-4" />
                     </Button>
-                  </PermissionGate>
-                </div>
-              )
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleSaveOrder(row.id)}
+                      disabled={
+                        savingId === row.id ||
+                        (!(editedStatuses[row.id] && editedStatuses[row.id] !== (row.orderStatus || '')) &&
+                          !(editedTrackingNumbers[row.id] !== undefined && editedTrackingNumbers[row.id] !== (row.tracking_number || '')))
+                      }
+                    >
+                      {savingId === row.id ? 'Saving...' : 'Save'}
+                    </Button>
+                    {/* Delete button hidden on client portal /dashboard/orders */}
+                    <PermissionGate permission={Permissions.ORDER_DELETE}>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="hidden"
+                        onClick={() => setDeleteTarget(row)}
+                      >
+                        Delete
+                      </Button>
+                    </PermissionGate>
+                  </div>
+                )
               },
             }
           }
@@ -467,7 +477,7 @@ export default function Orders() {
               render: (_: any, row: any) => {
                 const currentStatus = row.orderStatus ?? 'created'
                 const isLocked = currentStatus === 'shipped' || currentStatus === 'canceled'
-                
+
                 return (
                   <div className="relative">
                     <Select
@@ -475,7 +485,7 @@ export default function Orders() {
                       onValueChange={(v) => handleStatusChange(row.id, v)}
                       disabled={isLocked}
                     >
-                      <SelectTrigger className={`w-40 ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}`}>
+                      <SelectTrigger className={`w-44 ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}`}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -502,18 +512,18 @@ export default function Orders() {
                 const isAlreadyShipped = originalStatus === 'shipped'  // Already shipped in DB
                 const isChangingToShipped = editedStatus === 'shipped' && !isAlreadyShipped  // User is changing TO shipped
                 const showTrackingInput = isAlreadyShipped || isChangingToShipped
-                
+
                 if (!showTrackingInput) {
                   return <span className="text-sm text-muted-foreground italic">N/A</span>
                 }
-                
+
                 // Already shipped - show as read-only
                 if (isAlreadyShipped) {
                   return (
                     <span className="text-sm font-medium">{row.tracking_number || '-'}</span>
                   )
                 }
-                
+
                 // Changing to shipped - show editable input
                 return (
                   <input

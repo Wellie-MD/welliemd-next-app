@@ -11,11 +11,11 @@ import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Order, ordersApi } from "@/api/ordersApi"
 import { PatientResponsesModal } from "./PatientResponsesModal"
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
   Calendar,
   Package,
   FileText,
@@ -67,8 +67,12 @@ const statusColors: Record<string, string> = {
   created: "bg-gray-100 text-gray-800",
   processing: "bg-blue-100 text-blue-800",
   visit_failed: "bg-red-100 text-red-800",
+  payment_pending: "bg-amber-100 text-amber-800",
   visit_pending: "bg-yellow-100 text-yellow-800",
+  consult_scheduled: "bg-sky-100 text-sky-800",
+  consult_rescheduled: "bg-indigo-100 text-indigo-800",
   consult_canceled: "bg-red-100 text-red-800",
+  no_show: "bg-rose-100 text-rose-800",
   referred: "bg-purple-100 text-purple-800",
   prescribed: "bg-green-100 text-green-800",
   billing_pending: "bg-orange-100 text-orange-800",
@@ -82,8 +86,12 @@ const statusLabels: Record<string, string> = {
   created: "Created",
   processing: "Processing",
   visit_failed: "Visit Failed",
+  payment_pending: "Payment Pending",
   visit_pending: "Visit Pending",
+  consult_scheduled: "Consult Scheduled",
+  consult_rescheduled: "Consult Rescheduled",
   consult_canceled: "Consult Canceled",
+  no_show: "No Show",
   referred: "Referred",
   prescribed: "Prescribed",
   billing_pending: "Billing Pending",
@@ -132,9 +140,50 @@ export function OrderDetailsSheet({
     return Number.isNaN(amount) ? 0 : amount
   }, [order?.totalRefunded])
   const orderTotal = useMemo(() => {
-    const amount = order?.orderTotal ? parseFloat(order.orderTotal) : parseFloat(order?.amount || "0")
+    const amount = parseFloat(
+      order?.pricing?.grand_total ||
+      order?.grand_total ||
+      order?.payable_amount ||
+      order?.orderTotal ||
+      order?.amount ||
+      "0"
+    )
     return Number.isNaN(amount) ? 0 : amount
-  }, [order?.orderTotal, order?.amount])
+  }, [order?.pricing?.grand_total, order?.grand_total, order?.payable_amount, order?.orderTotal, order?.amount])
+  const requestedMedicineName =
+    order?.requested_medicines?.[0]?.name ||
+    order?.product_name ||
+    "—"
+  const rawPrescribedMedicineName =
+    order?.prescribed_medicines?.[0]?.name ||
+    order?.prescription_medications?.[0]?.name ||
+    null
+  const prescribedNameNormalized = rawPrescribedMedicineName?.trim().toLowerCase()
+  const prescribedMedicineName =
+    prescribedNameNormalized === "same med" ||
+    prescribedNameNormalized === "same medicine" ||
+    prescribedNameNormalized === "same medication"
+      ? requestedMedicineName
+      : rawPrescribedMedicineName
+  const chargeableAmountSource = order?.chargeable_amount_source || "requested_medicine"
+  const orderLifecycleStatus = String(order?.orderStatus || order?.status || "").toLowerCase()
+  const isLikelyLegacyPrescribed =
+    Boolean(order?.datePrescribed) ||
+    chargeableAmountSource === "prescribed_medicine" ||
+    ["prescribed", "rx_sent", "shipped", "completed", "delivered"].includes(orderLifecycleStatus)
+  const legacyPrescribedFallbackName =
+    requestedMedicineName && requestedMedicineName !== "—"
+      ? requestedMedicineName
+      : "Legacy prescribed order"
+  const prescribedMedicineDisplayName =
+    prescribedMedicineName ||
+    (isLikelyLegacyPrescribed ? legacyPrescribedFallbackName : "Awaiting provider decision")
+  const chargeableSourceLabel =
+    chargeableAmountSource === "prescribed_medicine"
+      ? "Prescribed Pricing"
+      : chargeableAmountSource === "requested_medicine_fallback"
+        ? "Requested Fallback Pricing"
+        : "Requested Pricing"
   const netCollected = Math.max(0, orderTotal - totalRefunded)
 
   const refundReasonOptions = [
@@ -185,8 +234,14 @@ export function OrderDetailsSheet({
       toast({
         title: isAuthorized ? "Authorization voided" : "Refund processed",
       })
-    } catch (error: any) {
-      const message = error?.response?.data?.detail || "Failed to process refund"
+    } catch (error: unknown) {
+      const message =
+        error &&
+        typeof error === "object" &&
+        "response" in error &&
+        (error as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          ? (error as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : "Failed to process refund"
       toast({ title: message, variant: "destructive" })
     } finally {
       setRefundLoading(false)
@@ -201,8 +256,11 @@ export function OrderDetailsSheet({
       setShowDeleteDialog(false)
       onOpenChange(false)
       toast({ title: "Order deleted" })
-    } catch (error: any) {
-      const message = error?.message || "Failed to delete order"
+    } catch (error: unknown) {
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String((error as { message?: string }).message || "Failed to delete order")
+          : "Failed to delete order"
       toast({ title: message, variant: "destructive" })
     } finally {
       setDeleteLoading(false)
@@ -242,32 +300,32 @@ export function OrderDetailsSheet({
                   Patient Information
                 </h3>
                 <div className="bg-muted/40 rounded-lg p-4 space-y-3">
-                  <InfoItem 
-                    icon={<User className="h-4 w-4" />} 
-                    label="Name" 
-                    value={order.name} 
+                  <InfoItem
+                    icon={<User className="h-4 w-4" />}
+                    label="Name"
+                    value={order.name}
                   />
-                  <InfoItem 
-                    icon={<Mail className="h-4 w-4" />} 
-                    label="Email" 
-                    value={order.email} 
+                  <InfoItem
+                    icon={<Mail className="h-4 w-4" />}
+                    label="Email"
+                    value={order.email}
                   />
-                  <InfoItem 
-                    icon={<Phone className="h-4 w-4" />} 
-                    label="Phone" 
-                    value={order.phone} 
+                  <InfoItem
+                    icon={<Phone className="h-4 w-4" />}
+                    label="Phone"
+                    value={order.phone}
                   />
-                  <InfoItem 
-                    icon={<MapPin className="h-4 w-4" />} 
-                    label="Address" 
-                    value={order.address} 
+                  <InfoItem
+                    icon={<MapPin className="h-4 w-4" />}
+                    label="Address"
+                    value={order.address}
                     allowWrap
                   />
                   {order.mrn && (
-                    <InfoItem 
-                      icon={<FileText className="h-4 w-4" />} 
-                      label="MRN" 
-                      value={order.mrn} 
+                    <InfoItem
+                      icon={<FileText className="h-4 w-4" />}
+                      label="MRN"
+                      value={order.mrn}
                     />
                   )}
                 </div>
@@ -282,25 +340,63 @@ export function OrderDetailsSheet({
                   Order Information
                 </h3>
                 <div className="bg-muted/40 rounded-lg p-4 space-y-3">
-                  <InfoItem 
-                    icon={<Calendar className="h-4 w-4" />} 
-                    label="Order Date" 
-                    value={formatDate(order.orderDate)} 
+                  <InfoItem
+                    icon={<Calendar className="h-4 w-4" />}
+                    label="Order Date"
+                    value={formatDate(order.orderDate)}
                   />
-                  <InfoItem 
-                    icon={<Calendar className="h-4 w-4" />} 
-                    label="Date Prescribed" 
-                    value={formatDate(order.datePrescribed)} 
+                  <InfoItem
+                    icon={<Calendar className="h-4 w-4" />}
+                    label="Date Prescribed"
+                    value={formatDate(order.datePrescribed)}
                   />
-                  <InfoItem 
-                    icon={<Calendar className="h-4 w-4" />} 
-                    label="Date Printed/Shipped" 
-                    value={formatDate(order.datePrintedShipped)} 
+                  <InfoItem
+                    icon={<Calendar className="h-4 w-4" />}
+                    label="Date Printed/Shipped"
+                    value={formatDate(order.datePrintedShipped)}
                   />
                   <InfoItem 
                     icon={<CreditCard className="h-4 w-4" />} 
                     label="Order Total" 
-                    value={order.orderTotal ? `$${netCollected.toFixed(2)}` : undefined} 
+                    value={`$${netCollected.toFixed(2)}`}
+                  />
+                  <InfoItem
+                    icon={<Package className="h-4 w-4" />}
+                    label="Requested (Original)"
+                    value={requestedMedicineName}
+                    tone="requested"
+                  />
+                  <InfoItem
+                    icon={<Package className="h-4 w-4" />}
+                    label="Prescribed (Doctor Final)"
+                    value={prescribedMedicineDisplayName}
+                    tone="prescribed"
+                  />
+                  <InfoItem
+                    icon={<ClipboardList className="h-4 w-4" />}
+                    label="Doctor"
+                    value={order.doctor_name || "—"}
+                  />
+                  <InfoItem
+                    icon={<CreditCard className="h-4 w-4" />}
+                    label="Amount Source"
+                    value={chargeableSourceLabel}
+                    tone="source"
+                  />
+                  <InfoItem
+                    icon={<CreditCard className="h-4 w-4" />}
+                    label="Subtotal (Before Discount)"
+                    value={order?.pricing?.subtotal_before_discount ? `$${order.pricing.subtotal_before_discount}` : undefined}
+                  />
+                  <InfoItem
+                    icon={<CreditCard className="h-4 w-4" />}
+                    label="Discount"
+                    value={order?.pricing?.discount_total ? `-$${order.pricing.discount_total}` : undefined}
+                  />
+                  <InfoItem
+                    icon={<Truck className="h-4 w-4" />}
+                    label="Shipping"
+                    value={order?.pricing?.shipping_total ? `$${order.pricing.shipping_total}` : undefined}
                   />
                   {totalRefunded > 0 && (
                     <InfoItem
@@ -321,24 +417,24 @@ export function OrderDetailsSheet({
                   Payment & Visit Status
                 </h3>
                 <div className="bg-muted/40 rounded-lg p-4 space-y-3">
-                  <InfoItem 
-                    icon={<CreditCard className="h-4 w-4" />} 
-                    label="Payment Status" 
+                  <InfoItem
+                    icon={<CreditCard className="h-4 w-4" />}
+                    label="Payment Status"
                     value={
                       totalRefunded > 0
                         ? (totalRefunded >= orderTotal ? "Refunded" : "Partially Refunded")
                         : order.paymentStatus
-                    } 
+                    }
                   />
-                  <InfoItem 
-                    icon={<Calendar className="h-4 w-4" />} 
-                    label="Payment Date" 
-                    value={formatDate(order.paymentDate)} 
+                  <InfoItem
+                    icon={<Calendar className="h-4 w-4" />}
+                    label="Payment Date"
+                    value={formatDate(order.paymentDate)}
                   />
-                  <InfoItem 
-                    icon={<ClipboardList className="h-4 w-4" />} 
-                    label="Visit Status" 
-                    value={order.visitStatus} 
+                  <InfoItem
+                    icon={<ClipboardList className="h-4 w-4" />}
+                    label="Visit Status"
+                    value={order.visitStatus}
                   />
                   {isRefundable && (
                     <InfoItem
@@ -370,16 +466,16 @@ export function OrderDetailsSheet({
                   Fulfillment
                 </h3>
                 <div className="bg-muted/40 rounded-lg p-4 space-y-3">
-                  <InfoItem 
-                    icon={<Building2 className="h-4 w-4" />} 
-                    label="Pharmacy" 
-                    value={order.pharmacy_display} 
+                  <InfoItem
+                    icon={<Building2 className="h-4 w-4" />}
+                    label="Pharmacy"
+                    value={order.pharmacy_display}
                     allowWrap
                   />
-                  <InfoItem 
-                    icon={<Truck className="h-4 w-4" />} 
-                    label="Tracking Number" 
-                    value={order.tracking_number} 
+                  <InfoItem
+                    icon={<Truck className="h-4 w-4" />}
+                    label="Tracking Number"
+                    value={order.tracking_number}
                   />
                 </div>
               </section>
@@ -388,7 +484,7 @@ export function OrderDetailsSheet({
 
               {/* Patient Responses Button */}
               <section>
-                <Button 
+                <Button
                   onClick={() => setShowPatientResponses(true)}
                   className="w-full"
                   variant="outline"
@@ -432,6 +528,7 @@ export function OrderDetailsSheet({
         patientResponses={order.patient_responses}
         patientName={order.name || "Patient"}
         checkoutUrl={order.checkout_url}
+        orderId={order.id}
       />
 
       {/* Refund / Void Dialog */}
@@ -517,25 +614,40 @@ export function OrderDetailsSheet({
 }
 
 // Helper component for displaying info items
-function InfoItem({ 
-  icon, 
-  label, 
+function InfoItem({
+  icon,
+  label,
   value,
   allowWrap = false,
-}: { 
+  tone = "neutral",
+}: {
   icon: React.ReactNode
   label: string
   value?: string | null
   allowWrap?: boolean
+  tone?: "neutral" | "requested" | "prescribed" | "source"
 }) {
+  const toneClass =
+    tone === "requested"
+      ? "border-amber-200 bg-amber-50 text-amber-800"
+      : tone === "prescribed"
+        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+        : tone === "source"
+          ? "border-sky-200 bg-sky-50 text-sky-800"
+          : "border-transparent bg-transparent text-foreground"
+
   return (
     <div className="flex items-start gap-3">
       <div className="text-muted-foreground mt-0.5">{icon}</div>
       <div className="flex-1 min-w-0">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className={`text-sm font-medium ${allowWrap ? 'break-words' : 'truncate sm:break-words'}`}>
+        <div
+          className={`mt-0.5 inline-flex max-w-full items-center rounded-md border px-2 py-0.5 text-sm font-medium ${toneClass} ${
+            allowWrap ? "break-words" : "truncate sm:break-words"
+          }`}
+        >
           {value || "-"}
-        </p>
+        </div>
       </div>
     </div>
   )

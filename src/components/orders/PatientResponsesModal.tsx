@@ -4,9 +4,10 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { PatientResponses } from "@/api/ordersApi"
-import { User, FileText, Pill, AlertCircle, Link2, Copy } from "lucide-react"
+import { PatientResponses, QuestionnairePhoto, updateOrderQuestionnaireImages } from "@/api/ordersApi"
+import { User, FileText, Pill, AlertCircle, Link2, Copy, Image as ImageIcon, Upload, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useEffect, useRef, useState } from "react"
 
 interface PatientResponsesModalProps {
   open: boolean
@@ -14,6 +15,8 @@ interface PatientResponsesModalProps {
   patientResponses: PatientResponses | null | undefined
   patientName?: string
   checkoutUrl?: string | null
+  orderId?: string
+  onImagesSaved?: (photos: QuestionnairePhoto[]) => void
 }
 
 export function PatientResponsesModal({
@@ -21,9 +24,14 @@ export function PatientResponsesModal({
   onOpenChange,
   patientResponses,
   patientName = "Patient",
-  checkoutUrl
+  checkoutUrl,
+  orderId,
+  onImagesSaved,
 }: PatientResponsesModalProps) {
   const { toast } = useToast()
+  const [imageItems, setImageItems] = useState<QuestionnairePhoto[]>([])
+  const [isSavingImages, setIsSavingImages] = useState(false)
+  const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({})
 
   const handleCopyCheckoutUrl = () => {
     if (!checkoutUrl) return
@@ -33,6 +41,138 @@ export function PatientResponsesModal({
       description: "Checkout URL copied to clipboard.",
     })
   }
+
+  useEffect(() => {
+    if (!open) return
+
+    const nextItems: QuestionnairePhoto[] = []
+    const rawPhotos = Array.isArray(patientResponses?.photos) ? patientResponses?.photos : []
+
+    for (const item of rawPhotos) {
+      if (!item || typeof item !== "object") continue
+      const photo = item as Record<string, unknown>
+      const question = String(photo.question || "").trim()
+      nextItems.push({
+        question: question || "",
+        question_id: String(photo.question_id || ""),
+        mime: String(photo.mime || "image/jpeg"),
+        data: typeof photo.data === "string" ? photo.data : "",
+      })
+    }
+
+    if (nextItems.length === 0) {
+      const legacyUploads = (patientResponses as Record<string, unknown> | null | undefined)?._image_uploads
+      if (Array.isArray(legacyUploads)) {
+        legacyUploads.forEach((legacyItem, idx) => {
+          if (!legacyItem || typeof legacyItem !== "object") return
+          const legacy = legacyItem as Record<string, unknown>
+          nextItems.push({
+            question: `Uploaded Image ${idx + 1}`,
+            question_id: "",
+            mime: String(legacy.mime || "image/jpeg"),
+            data: typeof legacy.data === "string" ? legacy.data : "",
+          })
+        })
+      }
+    }
+
+    setImageItems(nextItems)
+  }, [open, patientResponses])
+
+  const hasImageChanges = (() => {
+    const initialPhotos = Array.isArray(patientResponses?.photos) ? patientResponses.photos : []
+    if (initialPhotos.length !== imageItems.length) return true
+
+    for (let i = 0; i < imageItems.length; i += 1) {
+      const left = imageItems[i] || {}
+      const rightRaw = initialPhotos[i]
+      const right = (rightRaw && typeof rightRaw === "object") ? rightRaw as Record<string, unknown> : {}
+      if (
+        String(left.question || "") !== String(right.question || "") ||
+        String(left.question_id || "") !== String(right.question_id || "") ||
+        String(left.mime || "") !== String(right.mime || "") ||
+        String(left.data || "") !== String(right.data || "")
+      ) {
+        return true
+      }
+    }
+    return false
+  })()
+
+  const updateImageAt = (index: number, next: QuestionnairePhoto) => {
+    setImageItems((prev) => prev.map((item, idx) => (idx === index ? next : item)))
+  }
+
+  const handleFileChange = (index: number, file: File | null) => {
+    if (!file) return
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file",
+        description: "Please upload a valid image file.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : ""
+      const base64Data = result.includes(",") ? result.split(",")[1] : result
+      const current = imageItems[index]
+      if (!current) return
+      updateImageAt(index, {
+        ...current,
+        mime: file.type || current.mime || "image/jpeg",
+        data: base64Data || "",
+      })
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleRemoveImage = (index: number) => {
+    const current = imageItems[index]
+    if (!current) return
+    updateImageAt(index, { ...current, data: "" })
+  }
+
+  const handleSaveImages = async () => {
+    if (!orderId) {
+      toast({
+        title: "Unable to save",
+        description: "Order ID is missing.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSavingImages(true)
+    try {
+      const payloadPhotos = imageItems.map((item) => ({
+        question: item.question || "",
+        question_id: item.question_id || "",
+        mime: item.mime || "image/jpeg",
+        data: item.data || "",
+      }))
+
+      const response = await updateOrderQuestionnaireImages(orderId, { photos: payloadPhotos })
+      setImageItems(response.photos || [])
+      onImagesSaved?.(response.photos || [])
+      toast({
+        title: "Saved",
+        description: "Uploaded images were updated successfully.",
+      })
+    } catch (error) {
+      toast({
+        title: "Save failed",
+        description: "Could not update uploaded images.",
+        variant: "destructive",
+      })
+      console.error("Failed to save questionnaire images:", error)
+    } finally {
+      setIsSavingImages(false)
+    }
+  }
+
   if (!patientResponses) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -289,6 +429,98 @@ export function PatientResponsesModal({
             ) : (
               <p className="text-sm text-muted-foreground italic">
                 No questionnaire items available.
+              </p>
+            )}
+          </div>
+
+          <Separator className="my-6" />
+
+          {/* Uploaded Images Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="h-4 w-4 text-primary" />
+                <h3 className="font-semibold text-lg">Uploaded Images</h3>
+              </div>
+              {/* {imageItems.length > 0 && (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleSaveImages}
+                  disabled={!hasImageChanges || isSavingImages}
+                >
+                  {isSavingImages ? "Saving..." : "Save"}
+                </Button>
+              )} */}
+            </div>
+
+            {imageItems.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {imageItems.map((item, idx) => {
+                  const hasImage = Boolean(item.data)
+                  const mime = item.mime || "image/jpeg"
+                  const previewSrc = hasImage ? `data:${mime};base64,${item.data}` : ""
+
+                  return (
+                    <div key={`${item.question_id || item.question || "image"}-${idx}`} className="bg-muted/30 rounded-lg p-4 border border-border/50 space-y-3">
+                      <p className="text-sm text-muted-foreground font-medium min-h-[40px]">
+                        {(item.question || "").trim() || `Uploaded Image ${idx + 1}`}
+                      </p>
+
+                      <div className="h-44 bg-background rounded-md border border-border/60 overflow-hidden flex items-center justify-center">
+                        {hasImage ? (
+                          <img
+                            src={previewSrc}
+                            alt={(item.question || "").trim() || `Uploaded image ${idx + 1}`}
+                            className="h-full w-full object-contain"
+                          />
+                        ) : (
+                          <p className="text-xs text-muted-foreground">No image uploaded</p>
+                        )}
+                      </div>
+
+                      {/* <div className="flex items-center gap-2">
+                        <input
+                          ref={(el) => {
+                            fileInputRefs.current[idx] = el
+                          }}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            handleFileChange(idx, e.target.files?.[0] || null)
+                            e.currentTarget.value = ""
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          onClick={() => fileInputRefs.current[idx]?.click()}
+                        >
+                          <Upload className="h-3.5 w-3.5" />
+                          Upload
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          className="gap-1.5"
+                          onClick={() => handleRemoveImage(idx)}
+                          disabled={!hasImage}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Remove
+                        </Button>
+                      </div> */}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">
+                No uploaded images available.
               </p>
             )}
           </div>

@@ -138,7 +138,9 @@ type Props = {
 
 export default function CouponLinksModal({ open, onOpenChange, coupon, coupons = [] }: Props) {
   const { currentClient } = useClients()
-  const questionnaireDomain = ensureHttpsBase(currentClient?.questionnaire_url)
+  const questionnaireDomain = ensureHttpsBase(
+    currentClient?.resolved_questionnaire_url || currentClient?.questionnaire_url
+  )
 
   // Selected coupon (from prop or user selection)
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(coupon)

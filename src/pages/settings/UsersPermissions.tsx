@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { MoreVertical, UserPlus, Loader2 } from "lucide-react";
-import { userManagementService, PortalUser, Role } from '@/services/userManagementService';
+import { userManagementService, PortalUser, Role, getDisplayRole } from '@/services/userManagementService';
 import { InviteUserModal } from '@/components/users/InviteUserModal';
 import { DeactivateUserModal } from '@/components/users/DeactivateUserModal';
 import { UserProfileModal } from '@/components/users/UserProfileModal';
@@ -42,7 +42,9 @@ export default function UsersPermissions() {
         userManagementService.getAvailableRoles(),
       ]);
       setUsers(usersData);
-      setRoles(rolesData);
+      setRoles(
+        rolesData.filter((role) => ["Admin", "Customer Service"].includes(role.name))
+      );
     } catch (error) {
       toast({
         title: 'Error',
@@ -139,13 +141,13 @@ export default function UsersPermissions() {
 
   // Group users by role
   const usersByRole = users.reduce((acc, user) => {
-    const role = user.primary_role || 'No Role';
+    const role = getDisplayRole(user);
     if (!acc[role]) acc[role] = [];
     acc[role].push(user);
     return acc;
   }, {} as Record<string, PortalUser[]>);
 
-  const primaryOwnerCount = users.filter(user => user.primary_role === 'Primary Owner').length;
+  const primaryOwnerCount = users.filter(user => getDisplayRole(user) === 'Primary Owner').length;
 
   if (loading) {
     return (
@@ -171,7 +173,7 @@ export default function UsersPermissions() {
       </div>
 
       {/* Render sections for each role */}
-      {['Primary Owner', 'Admin', 'Customer Service'].map((roleName) => {
+      {['Super Admin', 'Primary Owner', 'Admin', 'Customer Service'].map((roleName) => {
         const roleUsers = usersByRole[roleName] || [];
         if (roleUsers.length === 0) return null;
 
@@ -234,7 +236,9 @@ function UserCard({ user, roles, onAssignRole, onDeactivate, onClick, primaryOwn
   const { toast } = useToast();
   const initials = `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
   const fullName = `${user.first_name} ${user.last_name}`;
-  const isPrimaryOwner = user.primary_role === 'Primary Owner';
+  const displayRole = getDisplayRole(user);
+  const isSuperAdmin = displayRole === 'Super Admin';
+  const isPrimaryOwner = displayRole === 'Primary Owner';
 
   const copyToClipboard = async (text: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -302,9 +306,9 @@ function UserCard({ user, roles, onAssignRole, onDeactivate, onClick, primaryOwn
 
       <div className="flex items-center gap-2">
         {getStatusBadge()}
-        <Badge variant="secondary">{user.primary_role}</Badge>
+        <Badge variant="secondary">{displayRole}</Badge>
 
-        {(!isPrimaryOwner || primaryOwnerCount > 1) && (
+        {!isSuperAdmin && (!isPrimaryOwner || primaryOwnerCount > 1) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

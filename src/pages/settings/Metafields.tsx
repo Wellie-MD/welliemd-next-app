@@ -1,23 +1,22 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Info, Loader2 } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Loader2, Code2, Rocket, Info, CheckCircle2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { socialTagsApi, type SocialTags } from "@/api/socialTagsApi"
 import { useSocialTags } from "@/hooks/useSocialTags"
 
 export default function Metafields() {
   const [tags, setTags] = useState<SocialTags>({
-    gtm_tag: "",
-    facebook_tag: "",
-    tiktok_tag: "",
+    custom_global_js: "",
+    conversion_tracking_js: "",
   })
   const [loading, setLoading] = useState(true)
-  const [savingGtm, setSavingGtm] = useState(false)
-  const [savingFacebook, setSavingFacebook] = useState(false)
-  const [savingTikTok, setSavingTikTok] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [activeTab, setActiveTab] = useState("global")
   const { toast } = useToast()
   const { refreshTags } = useSocialTags()
 
@@ -33,7 +32,7 @@ export default function Metafields() {
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.response?.data?.detail || 'Failed to load social tags',
+        description: error.response?.data?.detail || 'Failed to load tracking JS',
         variant: 'destructive',
       })
     } finally {
@@ -41,189 +40,217 @@ export default function Metafields() {
     }
   }
 
-  const handleSaveGtm = async () => {
+  const handleSave = async () => {
     try {
-      setSavingGtm(true)
-      const updated = await socialTagsApi.updateGtmTag(tags.gtm_tag)
+      setSaving(true)
+      const updated = await socialTagsApi.updateTrackingJs(tags)
       setTags(updated)
-      await refreshTags() // Refresh injected tags
+      await refreshTags()
       toast({
-        title: 'Success',
-        description: 'GTM tag saved successfully',
+        title: 'Settings Saved',
+        description: 'Your tracking scripts have been updated successfully.',
       })
     } catch (error: any) {
       toast({
-        title: 'Error',
-        description: error.response?.data?.detail || 'Failed to save GTM tag',
+        title: 'Save Failed',
+        description: error.response?.data?.detail || 'Failed to save tracking JS',
         variant: 'destructive',
       })
     } finally {
-      setSavingGtm(false)
-    }
-  }
-
-  const handleSaveFacebook = async () => {
-    try {
-      setSavingFacebook(true)
-      const updated = await socialTagsApi.updateFacebookTag(tags.facebook_tag)
-      setTags(updated)
-      await refreshTags() // Refresh injected tags
-      toast({
-        title: 'Success',
-        description: 'Facebook tag saved successfully',
-      })
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.response?.data?.detail || 'Failed to save Facebook tag',
-        variant: 'destructive',
-      })
-    } finally {
-      setSavingFacebook(false)
-    }
-  }
-
-  const handleSaveTikTok = async () => {
-    try {
-      setSavingTikTok(true)
-      const updated = await socialTagsApi.updateTikTokTag(tags.tiktok_tag)
-      setTags(updated)
-      await refreshTags() // Refresh injected tags
-      toast({
-        title: 'Success',
-        description: 'TikTok tag saved successfully',
-      })
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.response?.data?.detail || 'Failed to save TikTok tag',
-        variant: 'destructive',
-      })
-    } finally {
-      setSavingTikTok(false)
+      setSaving(false)
     }
   }
 
   if (loading) {
     return (
-      <div className="mx-auto">
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-foreground">Metafields</h1>
-        </div>
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
+      <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="text-muted-foreground animate-pulse">Initializing editor...</p>
       </div>
     )
   }
 
   return (
-    <div className="mx-auto space-y-6">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-foreground">Metafields</h1>
+    <div className="mx-auto max-w-5xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-8">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-extrabold tracking-tight text-foreground lg:text-4xl">
+            Tracking & Metafields
+          </h1>
+          <p className="text-muted-foreground max-w-2xl">
+            Manage your analytics and conversion scripts globally across all questionnaire flows.
+          </p>
+        </div>
+        <Button 
+          onClick={handleSave} 
+          disabled={saving} 
+          size="lg"
+          className="transition-all duration-300 px-8"
+        >
+          {saving ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Syncing Changes...
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              Save Configuration
+            </>
+          )}
+        </Button>
       </div>
 
-      {/* Development Notice */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Add Metafields to your pages</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertDescription>
-              This feature is still in development and is coming soon.
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="global" className="w-full" onValueChange={setActiveTab}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+          <TabsList className="grid w-full sm:w-[400px] grid-cols-2 bg-muted/40 backdrop-blur-md p-1 border">
+            <TabsTrigger 
+              value="global" 
+              className="data-[state=active]:bg-background transition-all"
+            >
+              <Code2 className="mr-2 h-4 w-4" />
+              Global Scripts
+            </TabsTrigger>
+            <TabsTrigger 
+              value="conversion"
+              className="data-[state=active]:bg-background transition-all"
+            >
+              <Rocket className="mr-2 h-4 w-4" />
+              Conversions
+            </TabsTrigger>
+          </TabsList>
+          
+          <div className="flex items-center text-xs text-muted-foreground px-2 py-1 bg-muted/30 rounded-full border">
+            <Info className="mr-1.5 h-3 w-3" />
+            Scripts are automatically sanitized for security
+          </div>
+        </div>
 
-      {/* GTM Tag Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>GTM Tag</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Textarea
-            placeholder="Paste your Google Tag Manager code here"
-            value={tags.gtm_tag}
-            onChange={(e) => setTags({ ...tags, gtm_tag: e.target.value })}
-            className="min-h-[200px] font-mono text-sm"
-            disabled={savingGtm}
-          />
-          <Button 
-            onClick={handleSaveGtm} 
-            disabled={savingGtm}
-          >
-            {savingGtm ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Save GTM Tag'
-            )}
-          </Button>
-        </CardContent>
-      </Card>
+        <TabsContent value="global" className="space-y-4 focus-visible:outline-none">
+          <Card className="border-none bg-card/40 backdrop-blur-xl ring-1 ring-border/50 overflow-hidden">
+            <CardHeader className="bg-muted/30 pb-6">
+              <div className="flex items-center space-x-3 mb-1">
+                <div className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+                <CardTitle className="text-xl font-bold">Custom Global JS</CardTitle>
+              </div>
+              <CardDescription className="text-sm leading-relaxed max-w-3xl">
+                This script executes on every questionnaire page load. It is the ideal place for base tracking codes
+                like the Meta Pixel, Google Analytics, or TikTok Pixel initialization.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="relative group">
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500/20 to-primary/20 rounded-lg blur opacity-0 group-hover:opacity-100 transition duration-1000" />
+                <div className="relative bg-background/50 border-t">
+                  <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-b text-[10px] font-mono text-muted-foreground uppercase tracking-widest">
+                    <span>questionnaire_header.js</span>
+                    <div className="flex space-x-1.5">
+                      <div className="h-2.5 w-2.5 rounded-full bg-red-500/30" />
+                      <div className="h-2.5 w-2.5 rounded-full bg-amber-500/30" />
+                      <div className="h-2.5 w-2.5 rounded-full bg-emerald-500/40" />
+                    </div>
+                  </div>
+                  <Textarea
+                    placeholder="/* Paste your global <script> here */"
+                    value={tags.custom_global_js}
+                    onChange={(e) => setTags({ ...tags, custom_global_js: e.target.value })}
+                    className="min-h-[450px] font-mono text-xs md:text-sm bg-transparent border-none focus-visible:ring-0 p-8 pt-6 resize-none leading-relaxed"
+                    disabled={saving}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* Facebook Tag Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Facebook Tag</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Textarea
-            placeholder="Paste your Facebook Pixel code here"
-            value={tags.facebook_tag}
-            onChange={(e) => setTags({ ...tags, facebook_tag: e.target.value })}
-            className="min-h-[200px] font-mono text-sm"
-            disabled={savingFacebook}
-          />
-          <Button 
-            onClick={handleSaveFacebook} 
-            disabled={savingFacebook}
-          >
-            {savingFacebook ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Save Facebook Tag'
-            )}
-          </Button>
-        </CardContent>
-      </Card>
+        <TabsContent value="conversion" className="grid grid-cols-1 lg:grid-cols-4 gap-8 focus-visible:outline-none">
+          <div className="lg:col-span-3 space-y-4">
+            <Card className="border-none bg-card/40 backdrop-blur-xl ring-1 ring-border/50 overflow-hidden">
+              <CardHeader className="bg-muted/30 pb-6">
+                <div className="flex items-center space-x-3 mb-1">
+                  <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  <CardTitle className="text-xl font-bold">Conversion Tracking JS</CardTitle>
+                </div>
+                <CardDescription className="text-sm leading-relaxed max-w-3xl">
+                  Executes specifically on the Thank-You page after a payment completes. Access purchase data 
+                  via the <code>window.welliemdConversion</code> object.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="relative group overflow-hidden">
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500/20 to-blue-500/20 rounded-lg blur opacity-0 group-hover:opacity-100 transition duration-1000" />
+                  <div className="relative bg-background/50 border-t">
+                     <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-b text-[10px] font-mono text-muted-foreground uppercase tracking-widest">
+                      <span>purchase_tracking_success.js</span>
+                      <div className="flex space-x-1.5">
+                        <div className="h-2.5 w-2.5 rounded-full bg-red-500/30" />
+                        <div className="h-2.5 w-2.5 rounded-full bg-amber-500/30" />
+                        <div className="h-2.5 w-2.5 rounded-full bg-emerald-500/40" />
+                      </div>
+                    </div>
+                    <Textarea
+                      placeholder="fbq('track', 'Purchase', { value: window.welliemdConversion.amount, currency: 'USD' });"
+                      value={tags.conversion_tracking_js}
+                      onChange={(e) => setTags({ ...tags, conversion_tracking_js: e.target.value })}
+                      className="min-h-[450px] font-mono text-xs md:text-sm bg-transparent border-none focus-visible:ring-0 p-8 pt-6 resize-none leading-relaxed"
+                      disabled={saving}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-      {/* TikTok Tag Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>TikTok Tag</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Textarea
-            placeholder="Paste your TikTok Pixel code here"
-            value={tags.tiktok_tag}
-            onChange={(e) => setTags({ ...tags, tiktok_tag: e.target.value })}
-            className="min-h-[200px] font-mono text-sm"
-            disabled={savingTikTok}
-          />
-          <Button 
-            onClick={handleSaveTikTok} 
-            disabled={savingTikTok}
-          >
-            {savingTikTok ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Save TikTok Tag'
-            )}
-          </Button>
-        </CardContent>
-      </Card>
+          <div className="lg:col-span-1 space-y-6">
+            <div className="rounded-2xl bg-primary/5 border border-primary/20 p-6 space-y-4 backdrop-blur-sm">
+              <div className="flex flex-col space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">
+                  Data Context
+                </span>
+                <CardTitle className="text-lg">Runtime Variables</CardTitle>
+              </div>
+              
+              <div className="flex flex-wrap gap-2">
+                {['buyer_name', 'buyer_email', 'order_id', 'amount', 'product', 'coupon_code'].map(v => (
+                  <Badge 
+                    key={v} 
+                    variant="outline" 
+                    className="bg-background/80 hover:bg-background font-mono text-[10px] py-1 border-primary/10 transition-colors"
+                  >
+                    {v}
+                  </Badge>
+                ))}
+              </div>
+              
+              <div className="space-y-3 pt-4 border-t border-primary/10">
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  These variables are automatically pre-populated on the thank-you page. 
+                  Access them via the global namespace:
+                </p>
+                <div className="bg-background/90 rounded-md p-3 font-mono text-[10px] border border-primary/5 select-all">
+                  <span className="text-muted-foreground">window.</span>
+                  <span className="text-primary font-bold">welliemdConversion</span>
+                  <span className="text-muted-foreground">.</span>
+                  <span>amount</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-muted/30 border p-6 space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider flex items-center">
+                <Info className="mr-2 h-3.5 w-3.5 text-primary" />
+                Implementation Note
+              </h4>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                If pasting scripts from Meta or Google Ads, ensure they include the 
+                <code>&lt;script&gt;</code> tags. The runtime handles the injection 
+                cycle for you.
+              </p>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

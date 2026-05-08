@@ -268,6 +268,9 @@ function FollowUpRow({
 }: FollowUpRowProps) {
   const config = STATUS_CONFIG[followUp.status] || STATUS_CONFIG.CREATED;
   const StatusIcon = config.icon;
+  const linkExpiryDate = followUp.link_expires_at || followUp.expires_at;
+  const accessLabel = linkExpiryDate ? 'Access expires' : 'Access';
+  const accessValue = linkExpiryDate ? formatDate(linkExpiryDate) : 'Active until completion';
 
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-sm">
@@ -280,13 +283,13 @@ function FollowUpRow({
           <p className="text-xs text-muted-foreground">
             Sent {formatDate(followUp.created_at)}
             {followUp.completed_at && ` • Completed ${formatDate(followUp.completed_at)}`}
-            {!followUp.completed_at && followUp.expires_at && ` • Expires ${formatDate(followUp.expires_at)}`}
           </p>
           {followUp.due_date && (
             <p className="text-xs font-medium text-slate-700">
-              Due {formatDate(followUp.due_date)}
+              Due date: {formatDate(followUp.due_date)}
             </p>
           )}
+          <p className="text-xs text-slate-600">{accessLabel}: {accessValue}</p>
         </div>
       </div>
       <div className="flex items-center gap-2">

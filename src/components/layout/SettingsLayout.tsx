@@ -9,7 +9,6 @@ import Domains from "@/pages/settings/Domains"
 import Files from "@/pages/settings/Files"
 import Policies from "@/pages/settings/Policies"
 import Payments from "@/pages/settings/Payments"
-import Notifications from "@/pages/settings/Notifications"
 import WebhooksApis from "@/pages/settings/WebhooksApis"
 import PrescribingDoctors from "@/pages/settings/PrescribingDoctors"
 import Brand from "@/pages/settings/Brand"
@@ -50,13 +49,13 @@ export function SettingsLayout() {
             <Route path="prescribing-doctors" element={<PrescribingDoctors />} />
             <Route path="users-permissions" element={<UsersPermissions />} />
             <Route path="payments" element={<Payments />} />
-            <Route path="notifications" element={<Notifications />} />
+            <Route path="notifications" element={<NotificationTemplates />} />
             <Route path="notification-templates" element={<NotificationTemplates />} />
             <Route path="webhooks-apis" element={<WebhooksApis />} />
             <Route path="files" element={<Files />} />
             <Route path="policies" element={<Policies />} />
             <Route path="metafields" element={<Metafields />} />
-            {/* <Route path="domains" element={<Domains />} />  */} {/* Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-3 */}
+            <Route path="domains" element={<Domains />} />
             <Route path="brand" element={<Brand />} />
             <Route path="analytics-seo" element={<AnalyticsSeo />} />
             <Route path="smtp-settings" element={<SmtpSettings />} />

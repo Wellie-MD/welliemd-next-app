@@ -197,18 +197,17 @@ export default function TemplateManagement() {
   const [slugSaving, setSlugSaving] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { currentClient, clients, loading: clientsLoading } = useClients();
+  const { currentClient } = useClients();
 
-  // Use matched client or fallback to single client if available
-  const effectiveClient = useMemo(() => {
-    if (currentClient) {
-      return currentClient;
-    }
-    if (clients.length === 1) {
-      return clients[0];
-    }
-    return null;
-  }, [currentClient, clients]);
+  const questionnaireBaseUrl = useMemo(
+    () =>
+      (
+        currentClient?.resolved_questionnaire_url ||
+        currentClient?.questionnaire_url ||
+        ""
+      ).replace(/\/$/, ""),
+    [currentClient]
+  );
 
   const fetchTemplates = async () => {
     try {
@@ -302,7 +301,7 @@ export default function TemplateManagement() {
   const handleCopyQuestionnaireLink = async (
     template: QuestionnaireTemplate
   ) => {
-    if (!effectiveClient?.questionnaire_url) {
+    if (!questionnaireBaseUrl) {
       toast({
         title: "Error",
         description: "Questionnaire URL is not configured for this client",
@@ -322,7 +321,7 @@ export default function TemplateManagement() {
     }
 
     // Build the questionnaire link: questionnaire_url + /visit/ + slug or visit_type
-    const baseUrl = effectiveClient.questionnaire_url.replace(/\/$/, ""); // Remove trailing slash
+    const baseUrl = questionnaireBaseUrl.replace(/\/$/, ""); // Remove trailing slash
     const visitType = routeKey;
     const questionnaireLink = `${baseUrl}/visit/${visitType}`;
 
@@ -572,7 +571,7 @@ export default function TemplateManagement() {
   const templatesWithActions = Array.isArray(filteredTemplates)
     ? filteredTemplates.map((template) => {
         const hasRouteKey = !!(template.slug || template.beluga_visit_type);
-        const hasQuestionnaireUrl = !!effectiveClient?.questionnaire_url;
+        const hasQuestionnaireUrl = !!questionnaireBaseUrl;
         const isFollowUp = template.questionnaire_type === 'follow_up';
         // Follow-up questionnaires should NOT have public links - they require secure tokens
         const isLinkDisabled = !hasRouteKey || !hasQuestionnaireUrl || isFollowUp;

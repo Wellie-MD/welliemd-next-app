@@ -15,7 +15,10 @@ export interface FollowUpSession {
     questionnaire_name?: string;
     status: 'CREATED' | 'VIEWED' | 'IN_PROGRESS' | 'COMPLETED' | 'EXPIRED';
     created_at: string;
-    expires_at: string;
+    expires_at: string | null;
+    link_expires_at?: string | null;
+    link_expiry_label?: string | null;
+    link_expiry_policy?: string;
     due_date?: string | null;
     completed_at: string | null;
     follow_up_url?: string;
@@ -27,8 +30,10 @@ export interface CreateFollowUpRequest {
     parent_visit_id?: string;
     expiry_hours?: number;
     expiry_days?: number;
+    allow_manual_expiry_override?: boolean;
     episode_id?: string | null;
     context_order_id?: string | null;
+    onboarding_template_id?: string | null;
 }
 
 export interface FollowUpOrderCandidate {
@@ -45,8 +50,11 @@ export interface CreateFollowUpResponse {
     success: boolean;
     session_id: string;
     follow_up_url: string;
-    expires_at: string;
+    expires_at: string | null;
+    link_expires_at?: string | null;
+    link_expiry_label?: string | null;
     status: string;
+    warnings?: Array<{ code: string; message: string }>;
     code?: string;
     order_candidates?: FollowUpOrderCandidate[];
     error?: string;
@@ -59,18 +67,28 @@ export interface FollowUpTemplate {
     questionnaire_type: string;
 }
 
+export interface OnboardingTemplate {
+    id: string;
+    name: string;
+    treatment_type: string;
+    questionnaire_type: string;
+    default_followup_template?: string | null;
+}
+
 export interface SendFollowUpNotificationRequest {
     template_type?: string;
     channels?: Array<'email' | 'sms'>;
     idempotency_key?: string;
     expiry_hours?: number;
     expiry_days?: number;
+    allow_manual_expiry_override?: boolean;
 }
 
 export interface SendFollowUpNotificationResponse {
     success: boolean;
     session_id: string;
     skipped_duplicate?: boolean;
+    warnings?: Array<{ code: string; message: string }>;
     notification_result?: {
         email?: string;
         sms?: string;
@@ -102,7 +120,7 @@ export async function createFollowUp(data: CreateFollowUpRequest): Promise<Creat
             success: false,
             session_id: '',
             follow_up_url: '',
-            expires_at: '',
+            expires_at: null,
             status: 'error',
             code: error.response?.data?.code,
             order_candidates: error.response?.data?.order_candidates || [],
@@ -169,6 +187,27 @@ export async function getFollowUpTemplates(): Promise<FollowUpTemplate[]> {
     }
 }
 
+/**
+ * Get available onboarding questionnaire templates.
+ */
+export async function getOnboardingTemplates(): Promise<OnboardingTemplate[]> {
+    try {
+        const response = await axiosInstance.get<{
+            count: number;
+            next: string | null;
+            previous: string | null;
+            results: OnboardingTemplate[]
+        }>(
+            '/questionnaires/templates/',
+            { params: { questionnaire_type: 'onboarding' } }
+        );
+        return response.data.results || [];
+    } catch (error) {
+        console.error('Error fetching onboarding templates:', error);
+        return [];
+    }
+}
+
 export async function sendFollowUpNotification(
     followUpId: string,
     data: SendFollowUpNotificationRequest
@@ -193,6 +232,7 @@ export default {
     createFollowUp,
     getPatientFollowUps,
     getFollowUpTemplates,
+    getOnboardingTemplates,
     getFollowUpOrderCandidates,
     sendFollowUpNotification,
 };

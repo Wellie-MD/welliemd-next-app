@@ -1,22 +1,25 @@
 import { useState, useEffect } from 'react';
-import { fetchDashboardMetrics } from '@/api/dashboardApi';
+import { fetchDashboardMetrics, DashboardFilters } from '@/api/dashboardApi';
 import { DashboardMetrics, Metric } from '@/types/dashboard';
 import mockData from "@/data/mockData.json";
 
 interface UseDashboardMetricsProps {
     fallbackKpis: Metric[];
+    filters?: DashboardFilters;
 }
 
-export const useDashboardMetrics = ({ fallbackKpis }: UseDashboardMetricsProps) => {
+export const useDashboardMetrics = ({ fallbackKpis, filters }: UseDashboardMetricsProps) => {
     const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<unknown>(null);
+    const filtersKey = JSON.stringify(filters || {});
 
     useEffect(() => {
         const loadMetrics = async () => {
             try {
                 setLoading(true);
-                const data = await fetchDashboardMetrics();
+                const parsedFilters = JSON.parse(filtersKey) as DashboardFilters;
+                const data = await fetchDashboardMetrics(parsedFilters);
                 setMetrics(data);
                 setError(null);
             } catch (err) {
@@ -28,7 +31,7 @@ export const useDashboardMetrics = ({ fallbackKpis }: UseDashboardMetricsProps) 
         };
 
         loadMetrics();
-    }, []);
+    }, [filtersKey]);
 
     const safeNumber = (value: number | undefined) => (typeof value === "number" ? value : 0);
     const growth = safeNumber(metrics?.growth_percentage);
@@ -77,36 +80,42 @@ export const useDashboardMetrics = ({ fallbackKpis }: UseDashboardMetricsProps) 
                 value: revenueValue,
                 change: revenue?.change ?? "0.0%",
                 trend: revenue?.trend ?? "neutral",
+                impact: revenue?.impact ?? "neutral",
             },
             {
                 title: "Expenses",
                 value: expensesValue,
                 change: expenses?.change ?? "0.0%",
                 trend: expenses?.trend ?? "neutral",
+                impact: expenses?.impact ?? "neutral",
             },
             {
                 title: "Net Profit",
                 value: netProfitValue,
                 change: netProfit?.change ?? "0.0%",
                 trend: netProfit?.trend ?? "neutral",
+                impact: netProfit?.impact ?? "neutral",
             },
             {
                 title: "Profit Ratio %",
                 value: profitRatioValue,
                 change: profitRatio?.change ?? "0.0%",
                 trend: profitRatio?.trend ?? netProfit?.trend ?? "neutral",
+                impact: profitRatio?.impact ?? netProfit?.impact ?? "neutral",
             },
             {
                 title: "Total Growth By Revenue %",
                 value: revenueGrowthValue,
                 change: revenueGrowth?.change ?? "0.0%",
                 trend: revenueGrowth?.trend ?? "neutral",
+                impact: revenueGrowth?.impact ?? "neutral",
             },
             {
                 title: "Total Growth By Net Profit %",
                 value: netProfitGrowthValue,
                 change: netProfitGrowth?.change ?? netProfitGrowthValue,
                 trend: netProfitGrowth?.trend ?? netProfit?.trend ?? "neutral",
+                impact: netProfitGrowth?.impact ?? netProfit?.impact ?? "neutral",
             },
         ];
 
@@ -127,43 +136,50 @@ export const useDashboardMetrics = ({ fallbackKpis }: UseDashboardMetricsProps) 
                     title: "Total Patients",
                     value: safeNumber(metrics.total_patients).toString(),
                     change: "+0%", // API doesn't provide patient growth yet
-                    trend: "neutral"
+                    trend: "neutral",
+                    impact: "neutral",
                 },
                 {
                     title: "Total Revenue",
                     value: `$${safeNumber(metrics.total_revenue).toLocaleString()}`,
                     change: `${growth > 0 ? '+' : ''}${growth}%`,
-                    trend: growth >= 0 ? "up" : "down"
+                    trend: growth > 0 ? "up" : growth < 0 ? "down" : "neutral",
+                    impact: growth > 0 ? "good" : growth < 0 ? "bad" : "neutral",
                 },
                 {
                     title: "Total Profit",
                     value: `$${safeNumber(metrics.total_profit).toLocaleString()}`,
                     change: "+0%",
-                    trend: "neutral"
+                    trend: "neutral",
+                    impact: "neutral",
                 },
                 {
                     title: "Total Expense",
                     value: `$${safeNumber(metrics.total_expenses).toLocaleString()}`,
                     change: "+0%",
-                    trend: "neutral"
+                    trend: "neutral",
+                    impact: "neutral",
                 },
                 {
                     title: "Total Sales",
                     value: `${safeNumber(metrics.total_sales).toLocaleString()}`,
                     change: "+0%",
-                    trend: "neutral"
+                    trend: "neutral",
+                    impact: "neutral",
                 },
                 {
                     title: "Total Orders",
                     value: safeNumber(metrics.total_orders).toString(),
                     change: "+0%",
-                    trend: "neutral"
+                    trend: "neutral",
+                    impact: "neutral",
                 },
                 {
                     title: "Total Growth",
                     value: `${growth}%`,
                     change: `${growth > 0 ? '+' : ''}${growth}%`,
-                    trend: growth >= 0 ? "up" : "down"
+                    trend: growth > 0 ? "up" : growth < 0 ? "down" : "neutral",
+                    impact: growth > 0 ? "good" : growth < 0 ? "bad" : "neutral",
                 }
             ]
             : fallbackKpis;
@@ -195,7 +211,8 @@ export const useDashboardMetrics = ({ fallbackKpis }: UseDashboardMetricsProps) 
         refetch: async () => {
             setLoading(true);
             try {
-                const data = await fetchDashboardMetrics();
+                const parsedFilters = JSON.parse(filtersKey) as DashboardFilters;
+                const data = await fetchDashboardMetrics(parsedFilters);
                 setMetrics(data);
                 setError(null);
             } catch (err) {

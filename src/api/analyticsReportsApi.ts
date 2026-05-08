@@ -4,20 +4,20 @@ import { fetchOrders } from './ordersApi';
 export interface AggregateByState {
   state: string;
   totalOrders: number;
-  totalSales: number;
+  capturedPaymentsAmount: number;
   averageOrderValue: number;
-  completedOrders: number;
-  pendingOrders: number;
+  completedCheckouts: number;
+  paymentPending: number;
 }
 
 export interface AggregateByPharmacy {
   pharmacy: string;
   pharmacyId?: string;
   totalOrders: number;
-  totalSales: number;
+  capturedPaymentsAmount: number;
   averageOrderValue: number;
-  completedOrders: number;
-  pendingOrders: number;
+  completedCheckouts: number;
+  paymentPending: number;
 }
 
 export interface AggregateByVariant {
@@ -26,7 +26,7 @@ export interface AggregateByVariant {
   productName?: string;
   totalOrders: number;
   totalQuantity: number;
-  totalSales: number;
+  capturedPaymentsAmount: number;
   averagePrice: number;
 }
 
@@ -39,7 +39,9 @@ export interface AggregatesData {
     totalPharmacies: number;
     totalVariants: number;
     totalOrders: number;
-    totalSales: number;
+    capturedPaymentsAmount: number;
+    completedCheckouts: number;
+    paymentPending: number;
   };
 }
 
@@ -56,6 +58,8 @@ const ORDERS_PAGE_SIZE = 500;
 // declined, error, voided, canceled, refunded. Successful payments are captured/approved/succeeded.
 const CAPTURED_PAYMENT_STATUSES = new Set(['captured', 'approved', 'succeeded']);
 const FINANCIAL_ORDER_STATUSES = new Set(['prescribed', 'billing_pending', 'rx_sent', 'shipped']);
+const CHECKOUT_INTENT_ORDER_STATUSES = new Set(['created', 'payment_pending', 'processing', 'visit_pending']);
+const PENDING_PAYMENT_STATUSES = new Set(['pending', 'authorized']);
 
 async function fetchAllOrders(params?: Record<string, unknown>) {
   let page = 1;
@@ -95,7 +99,15 @@ function normalizeCaseInsensitive(value: unknown): string {
 }
 
 function parseOrderAmount(order: any): number {
-  return parseFloat(order.orderTotal || order.amount || order.total || '0');
+  return parseFloat(
+    order?.pricing?.grand_total ||
+    order?.grand_total ||
+    order?.payable_amount ||
+    order?.orderTotal ||
+    order?.amount ||
+    order?.total ||
+    '0'
+  );
 }
 
 function getOrderState(order: any): string {
@@ -124,6 +136,21 @@ function isSuccessfulPaymentOrder(order: any): boolean {
   const orderStatus = getOrderStatus(order);
   const paymentStatus = getPaymentStatus(order);
   return FINANCIAL_ORDER_STATUSES.has(orderStatus) && CAPTURED_PAYMENT_STATUSES.has(paymentStatus);
+}
+
+function isPaymentPendingOrder(order: any): boolean {
+  if (isSuccessfulPaymentOrder(order)) {
+    return false;
+  }
+
+  const orderStatus = getOrderStatus(order);
+  const paymentStatus = getPaymentStatus(order);
+
+  if (PENDING_PAYMENT_STATUSES.has(paymentStatus)) {
+    return true;
+  }
+
+  return !paymentStatus && CHECKOUT_INTENT_ORDER_STATUSES.has(orderStatus);
 }
 
 function getOrderPharmacy(order: any): { key: string; name: string } {
@@ -219,14 +246,6 @@ function orderMatchesReportFilters(order: any, params?: AggregatesParams): boole
   return true;
 }
 
-function isCompletedOrderStatus(status: string): boolean {
-  return ['completed', 'shipped', 'delivered'].includes(status);
-}
-
-function isPendingOrderStatus(status: string): boolean {
-  return ['created', 'processing', 'pending', 'payment_pending', 'visit_pending', 'billing_pending', 'prescribed', 'rx_sent'].includes(status);
-}
-
 /**
  * Fetch aggregate reports data
  */
@@ -247,8 +266,9 @@ export const getAggregates = async (params?: AggregatesParams): Promise<Aggregat
     // Apply report filters globally so all cards/tables represent the same dataset.
     orders = orders.filter((order: any) => orderMatchesReportFilters(order, params));
 
-    // Successful payments drive sales only (counts should include all placed orders).
+    // Contract metrics are computed from payment outcomes.
     const successfulOrders = orders.filter((order: any) => isSuccessfulPaymentOrder(order));
+    const paymentPendingOrders = orders.filter((order: any) => isPaymentPendingOrder(order));
 
     const byState = aggregateByState(orders);
     const byPharmacy = aggregateByPharmacy(orders);
@@ -256,7 +276,7 @@ export const getAggregates = async (params?: AggregatesParams): Promise<Aggregat
 
     // Calculate summary
     const totalOrders = orders.length;
-    const totalSales = successfulOrders.reduce((sum, order) => {
+    const capturedPaymentsAmount = successfulOrders.reduce((sum, order) => {
       const total = parseOrderAmount(order);
       return sum + total;
     }, 0);
@@ -270,7 +290,9 @@ export const getAggregates = async (params?: AggregatesParams): Promise<Aggregat
         totalPharmacies: byPharmacy.length,
         totalVariants: byVariant.length,
         totalOrders,
-        totalSales,
+        capturedPaymentsAmount,
+        completedCheckouts: successfulOrders.length,
+        paymentPending: paymentPendingOrders.length,
       },
     };
   } catch (error) {
@@ -284,7 +306,9 @@ export const getAggregates = async (params?: AggregatesParams): Promise<Aggregat
         totalPharmacies: 0,
         totalVariants: 0,
         totalOrders: 0,
-        totalSales: 0,
+        capturedPaymentsAmount: 0,
+        completedCheckouts: 0,
+        paymentPending: 0,
       },
     };
   }
@@ -296,7 +320,7 @@ export const getAggregates = async (params?: AggregatesParams): Promise<Aggregat
 function aggregateByState(orders: any[]): AggregateByState[] {
   const stateMap = new Map<string, {
     totalOrders: number;
-    totalSales: number;
+    capturedPaymentsAmount: number;
     completed: number;
     pending: number;
   }>();
@@ -307,14 +331,12 @@ function aggregateByState(orders: any[]): AggregateByState[] {
 
     const amount = parseOrderAmount(order);
     const isSuccessful = isSuccessfulPaymentOrder(order);
-    const status = getOrderStatus(order);
-    const isCompleted = isCompletedOrderStatus(status);
-    const isPending = isPendingOrderStatus(status);
+    const isPending = isPaymentPendingOrder(order);
 
     if (!stateMap.has(normalizedState)) {
       stateMap.set(normalizedState, {
         totalOrders: 0,
-        totalSales: 0,
+        capturedPaymentsAmount: 0,
         completed: 0,
         pending: 0,
       });
@@ -322,8 +344,10 @@ function aggregateByState(orders: any[]): AggregateByState[] {
 
     const current = stateMap.get(normalizedState)!;
     current.totalOrders += 1;
-    if (isSuccessful) current.totalSales += amount;
-    if (isCompleted) current.completed += 1;
+    if (isSuccessful) {
+      current.capturedPaymentsAmount += amount;
+      current.completed += 1;
+    }
     if (isPending) current.pending += 1;
   });
 
@@ -331,12 +355,12 @@ function aggregateByState(orders: any[]): AggregateByState[] {
     .map(([state, data]) => ({
       state,
       totalOrders: data.totalOrders,
-      totalSales: data.totalSales,
-      averageOrderValue: data.totalOrders > 0 ? data.totalSales / data.totalOrders : 0,
-      completedOrders: data.completed,
-      pendingOrders: data.pending,
+      capturedPaymentsAmount: data.capturedPaymentsAmount,
+      averageOrderValue: data.totalOrders > 0 ? data.capturedPaymentsAmount / data.totalOrders : 0,
+      completedCheckouts: data.completed,
+      paymentPending: data.pending,
     }))
-    .sort((a, b) => b.totalSales - a.totalSales);
+    .sort((a, b) => b.capturedPaymentsAmount - a.capturedPaymentsAmount);
 }
 
 /**
@@ -347,7 +371,7 @@ function aggregateByPharmacy(orders: any[]): AggregateByPharmacy[] {
     id: string;
     name: string;
     totalOrders: number;
-    totalSales: number;
+    capturedPaymentsAmount: number;
     completed: number;
     pending: number;
   }>();
@@ -357,16 +381,14 @@ function aggregateByPharmacy(orders: any[]): AggregateByPharmacy[] {
 
     const amount = parseOrderAmount(order);
     const isSuccessful = isSuccessfulPaymentOrder(order);
-    const status = getOrderStatus(order);
-    const isCompleted = isCompletedOrderStatus(status);
-    const isPending = isPendingOrderStatus(status);
+    const isPending = isPaymentPendingOrder(order);
 
     if (!pharmacyMap.has(pharmacy.key)) {
       pharmacyMap.set(pharmacy.key, {
         id: pharmacy.key,
         name: pharmacy.name,
         totalOrders: 0,
-        totalSales: 0,
+        capturedPaymentsAmount: 0,
         completed: 0,
         pending: 0,
       });
@@ -374,8 +396,10 @@ function aggregateByPharmacy(orders: any[]): AggregateByPharmacy[] {
 
     const current = pharmacyMap.get(pharmacy.key)!;
     current.totalOrders += 1;
-    if (isSuccessful) current.totalSales += amount;
-    if (isCompleted) current.completed += 1;
+    if (isSuccessful) {
+      current.capturedPaymentsAmount += amount;
+      current.completed += 1;
+    }
     if (isPending) current.pending += 1;
   });
 
@@ -384,12 +408,12 @@ function aggregateByPharmacy(orders: any[]): AggregateByPharmacy[] {
       pharmacy: data.name,
       pharmacyId: data.id,
       totalOrders: data.totalOrders,
-      totalSales: data.totalSales,
-      averageOrderValue: data.totalOrders > 0 ? data.totalSales / data.totalOrders : 0,
-      completedOrders: data.completed,
-      pendingOrders: data.pending,
+      capturedPaymentsAmount: data.capturedPaymentsAmount,
+      averageOrderValue: data.totalOrders > 0 ? data.capturedPaymentsAmount / data.totalOrders : 0,
+      completedCheckouts: data.completed,
+      paymentPending: data.pending,
     }))
-    .sort((a, b) => b.totalSales - a.totalSales);
+    .sort((a, b) => b.capturedPaymentsAmount - a.capturedPaymentsAmount);
 }
 
 /**
@@ -402,7 +426,7 @@ function aggregateByVariant(orders: any[]): AggregateByVariant[] {
     productName?: string;
     totalOrders: number;
     totalQuantity: number;
-    totalSales: number;
+    capturedPaymentsAmount: number;
   }>();
 
   orders.forEach(order => {
@@ -416,14 +440,14 @@ function aggregateByVariant(orders: any[]): AggregateByVariant[] {
           productName: variant.productName,
           totalOrders: 0,
           totalQuantity: 0,
-          totalSales: 0,
+          capturedPaymentsAmount: 0,
         });
       }
 
       const current = variantMap.get(variant.key)!;
       current.totalOrders += 1;
       current.totalQuantity += variant.quantity;
-      if (isSuccessful) current.totalSales += variant.amount;
+      if (isSuccessful) current.capturedPaymentsAmount += variant.amount;
       if (!current.productName && variant.productName) {
         current.productName = variant.productName;
       }
@@ -437,10 +461,10 @@ function aggregateByVariant(orders: any[]): AggregateByVariant[] {
       productName: data.productName,
       totalOrders: data.totalOrders,
       totalQuantity: data.totalQuantity,
-      totalSales: data.totalSales,
-      averagePrice: data.totalQuantity > 0 ? data.totalSales / data.totalQuantity : 0,
+      capturedPaymentsAmount: data.capturedPaymentsAmount,
+      averagePrice: data.totalQuantity > 0 ? data.capturedPaymentsAmount / data.totalQuantity : 0,
     }))
-    .sort((a, b) => b.totalSales - a.totalSales);
+    .sort((a, b) => b.capturedPaymentsAmount - a.capturedPaymentsAmount);
 }
 
 /**

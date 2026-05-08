@@ -28,9 +28,11 @@ import { Input } from '@/components/ui/input';
 import { AlertCircle, AlertTriangle, CheckCircle2, Copy, Mail, Loader2 } from 'lucide-react';
 import {
   createFollowUp,
+  getOnboardingTemplates,
   getFollowUpOrderCandidates,
   getFollowUpTemplates,
   FollowUpOrderCandidate,
+  OnboardingTemplate,
   FollowUpTemplate,
   CreateFollowUpResponse,
   sendFollowUpNotification,
@@ -55,7 +57,9 @@ export function SendFollowUpDialog({
   onSuccess,
 }: SendFollowUpDialogProps) {
   const [templates, setTemplates] = useState<FollowUpTemplate[]>([]);
+  const [onboardingTemplates, setOnboardingTemplates] = useState<OnboardingTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [selectedOnboardingTemplate, setSelectedOnboardingTemplate] = useState<string>('none');
   const [loading, setLoading] = useState(false);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
@@ -71,8 +75,6 @@ export function SendFollowUpDialog({
   const [emailSentOnce, setEmailSentOnce] = useState(false);
   const [sendEmailMessage, setSendEmailMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const [expiryDays, setExpiryDays] = useState<string>('2');
-  const [customExpiryDays, setCustomExpiryDays] = useState<string>('30');
 
   const selectedTemplateRecord = useMemo(
     () => templates.find((t) => t.id === selectedTemplate) || null,
@@ -93,6 +95,26 @@ export function SendFollowUpDialog({
     () => orderCandidates.find((o) => o.id === selectedOrderId) || null,
     [orderCandidates, selectedOrderId]
   );
+
+  const resultAccessText = useMemo(() => {
+    if (!result?.success) {
+      return null;
+    }
+    const rawExpiry = result.link_expires_at || result.expires_at;
+    if (!rawExpiry) {
+      return {
+        label: 'Access',
+        value: 'Active until completion',
+      };
+    }
+    return {
+      label: 'Access expires',
+      value: new Date(rawExpiry).toLocaleString('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }),
+    };
+  }, [result]);
 
   const templateEpisodeWarning = useMemo(() => {
     if (!selectedTemplateRecord || !selectedEpisodeRecord) return null;
@@ -132,10 +154,14 @@ export function SendFollowUpDialog({
   const loadTemplates = useCallback(async () => {
     setLoadingTemplates(true);
     try {
-      const data = await getFollowUpTemplates();
-      setTemplates(data);
-      if (data.length > 0) {
-        setSelectedTemplate(data[0].id);
+      const [followUpData, onboardingData] = await Promise.all([
+        getFollowUpTemplates(),
+        getOnboardingTemplates(),
+      ]);
+      setTemplates(followUpData);
+      setOnboardingTemplates(onboardingData);
+      if (followUpData.length > 0) {
+        setSelectedTemplate(followUpData[0].id);
       }
     } catch (error) {
       console.error('Failed to load templates:', error);
@@ -201,6 +227,7 @@ export function SendFollowUpDialog({
       setEpisodesFallbackUsed(false);
       setOrderCandidates([]);
       setSelectedOrderId('');
+      setSelectedOnboardingTemplate('none');
       loadOrderCandidates();
       // Reset state when dialog opens
       setResult(null);
@@ -208,8 +235,6 @@ export function SendFollowUpDialog({
       setCopied(false);
       setEmailSentOnce(false);
       setSendEmailMessage(null);
-      setExpiryDays('2');
-      setCustomExpiryDays('30');
     }
   }, [open, loadTemplates, loadOrderCandidates]);
 
@@ -229,19 +254,15 @@ export function SendFollowUpDialog({
     setLoading(true);
     setFormError(null);
     try {
-      const useCustomDays = expiryDays === 'custom';
-      const selectedExpiryDays = useCustomDays ? Number(customExpiryDays) : Number(expiryDays);
-      if (!Number.isInteger(selectedExpiryDays) || selectedExpiryDays < 1 || selectedExpiryDays > 365) {
-        setFormError('Link expiry must be between 1 and 365 days.');
-        return;
-      }
-
       const response = await createFollowUp({
         patient_id: patientId,
         questionnaire_id: selectedTemplate,
         episode_id: selectedEpisodeId || selectedEpisodeRecord?.id || null,
         context_order_id: selectedOrderId || selectedOrderRecord?.id || null,
-        expiry_days: selectedExpiryDays,
+        onboarding_template_id:
+          selectedOnboardingTemplate && selectedOnboardingTemplate !== 'none'
+            ? selectedOnboardingTemplate
+            : null,
       });
 
       if (!response.success && response.code === 'EPISODE_RESOLUTION_REQUIRED') {
@@ -373,6 +394,26 @@ export function SendFollowUpDialog({
               )}
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="onboarding_template">Onboarding Template (Optional)</Label>
+              <Select value={selectedOnboardingTemplate} onValueChange={setSelectedOnboardingTemplate}>
+                <SelectTrigger id="onboarding_template">
+                  <SelectValue placeholder="Use existing episode context" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Use existing episode context</SelectItem>
+                  {onboardingTemplates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Set explicitly for legacy/manual episodes missing onboarding linkage.
+              </p>
+            </div>
+
             {formError && (
               <div className="p-2 rounded border border-red-200 bg-red-50 text-red-700 text-sm">
                 {formError}
@@ -462,42 +503,10 @@ export function SendFollowUpDialog({
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="expiry-days">Link Expiry</Label>
-              <Select value={expiryDays} onValueChange={setExpiryDays}>
-                <SelectTrigger id="expiry-days">
-                  <SelectValue placeholder="Select link expiry" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">1 day</SelectItem>
-                  <SelectItem value="2">2 days</SelectItem>
-                  <SelectItem value="3">3 days</SelectItem>
-                  <SelectItem value="5">5 days</SelectItem>
-                  <SelectItem value="7">7 days</SelectItem>
-                  <SelectItem value="14">14 days</SelectItem>
-                  <SelectItem value="21">21 days</SelectItem>
-                  <SelectItem value="30">30 days</SelectItem>
-                  <SelectItem value="custom">Custom (days)</SelectItem>
-                </SelectContent>
-              </Select>
-              {expiryDays === 'custom' && (
-                <div className="space-y-1">
-                  <Label htmlFor="custom-expiry-days" className="text-xs text-muted-foreground">
-                    Custom expiry (1-365 days)
-                  </Label>
-                  <Input
-                    id="custom-expiry-days"
-                    type="number"
-                    min={1}
-                    max={365}
-                    value={customExpiryDays}
-                    onChange={(e) => setCustomExpiryDays(e.target.value)}
-                    placeholder="e.g. 30"
-                  />
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Applies to manual follow-up link creation. You can set up to 365 days.
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+              <p className="text-sm font-medium text-slate-900">Link policy</p>
+              <p className="text-xs text-slate-600">
+                Link remains active until questionnaire is completed.
               </p>
             </div>
           </div>
@@ -532,13 +541,11 @@ export function SendFollowUpDialog({
               </div>
             </div>
 
-            <p className="text-sm text-muted-foreground">
-              This link expires on{' '}
-              {new Date(result.expires_at).toLocaleString('en-US', {
-                dateStyle: 'medium',
-                timeStyle: 'short',
-              })}
-            </p>
+            {resultAccessText && (
+              <p className="text-sm text-muted-foreground">
+                {resultAccessText.label}: {resultAccessText.value}
+              </p>
+            )}
             {patientEmail && (
               <p className="text-xs text-muted-foreground">
                 A scheduled follow-up email is sent automatically when the session is created. Use resend only if needed.

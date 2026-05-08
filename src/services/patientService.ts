@@ -1,5 +1,42 @@
 import api from '../api/axiosInstance';
 
+const normalizePatientUpdateErrorMessage = (message: string): string => {
+    const normalized = message.trim().toLowerCase();
+    if (
+        normalized === 'this email is already in use.' ||
+        normalized === 'this email is already in use'
+    ) {
+        return 'This email address is already associated with another account.';
+    }
+    return message;
+};
+
+const extractApiErrorMessage = (error: any, fallback: string): string => {
+    const data = error?.response?.data;
+    if (!data) return normalizePatientUpdateErrorMessage(fallback);
+
+    if (typeof data.detail === 'string' && data.detail.trim()) {
+        return normalizePatientUpdateErrorMessage(data.detail);
+    }
+    if (typeof data.message === 'string' && data.message.trim()) {
+        return normalizePatientUpdateErrorMessage(data.message);
+    }
+
+    // DRF field-level errors format, e.g. { email: ["This email is already in use."] }
+    if (typeof data === 'object') {
+        for (const value of Object.values(data)) {
+            if (Array.isArray(value) && typeof value[0] === 'string' && value[0].trim()) {
+                return normalizePatientUpdateErrorMessage(value[0]);
+            }
+            if (typeof value === 'string' && value.trim()) {
+                return normalizePatientUpdateErrorMessage(value);
+            }
+        }
+    }
+
+    return normalizePatientUpdateErrorMessage(fallback);
+};
+
 export interface Patient {
     id: string;
     email: string;
@@ -23,6 +60,7 @@ export interface Patient {
     last_order_at?: string | null;
     last_order_id?: string | null;
     last_order_display_id?: string | null;
+    engagement_status?: string;
 }
 
 export interface PatientListResponse {
@@ -37,6 +75,7 @@ export interface PatientListParams {
     page_size?: number;
     search?: string;
     ordering?: string;
+    engagement_status?: string;
 }
 
 export interface TreatmentEpisode {
@@ -69,13 +108,14 @@ export const patientService = {
      */
     getPatients: async (params: PatientListParams = {}): Promise<PatientListResponse> => {
         try {
-            const { page = 1, page_size = 20, search, ordering } = params;
+            const { page = 1, page_size = 20, search, ordering, engagement_status } = params;
 
             const queryParams = new URLSearchParams();
             queryParams.append('page', page.toString());
             queryParams.append('page_size', page_size.toString());
             if (search) queryParams.append('search', search);
             if (ordering) queryParams.append('ordering', ordering);
+            if (engagement_status) queryParams.append('engagement_status', engagement_status);
 
             const response = await api.get<PatientListResponse>(`/medical/patients/?${queryParams.toString()}`);
             return response.data;
@@ -115,11 +155,7 @@ export const patientService = {
             return response.data;
         } catch (error: any) {
             console.error(`Failed to update patient ${id}:`, error);
-            throw new Error(
-                error.response?.data?.detail ||
-                error.response?.data?.message ||
-                'Failed to update patient'
-            );
+            throw new Error(extractApiErrorMessage(error, 'Failed to update patient'));
         }
     },
 

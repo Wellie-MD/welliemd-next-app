@@ -3,6 +3,8 @@ import { useState, useEffect, useMemo } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Order, ordersApi } from "@/api/ordersApi"
+import { paymentGatewayApi } from "@/api/paymentGatewayApi"
+import { patientPaymentMethodsApi, PatientPaymentMethod, PatientPaymentGateway } from "@/api/patientPaymentMethodsApi"
 import { PatientResponsesModal } from "@/components/orders/PatientResponsesModal"
 import {
   User,
@@ -19,6 +21,7 @@ import {
   Truck,
   ClipboardList,
   Undo2,
+  RotateCw,
 } from "lucide-react"
 import { format } from "date-fns"
 import { Loader2 } from "lucide-react"
@@ -47,17 +50,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useToast } from "@/hooks/use-toast"
 import { PermissionGate } from "@/components/auth/PermissionGate"
 import { Permissions } from "@/constants/permissions"
 import { cn } from "@/lib/utils"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const statusColors: Record<string, string> = {
   created: "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600",
   processing: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800",
   visit_failed: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800",
+  payment_pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800",
   visit_pending: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800",
+  consult_scheduled: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 border-sky-200 dark:border-sky-800",
+  consult_rescheduled: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800",
   consult_canceled: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800",
+  no_show: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 border-rose-200 dark:border-rose-800",
   referred: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800",
   prescribed: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800",
   billing_pending: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800",
@@ -70,8 +79,12 @@ const statusLabels: Record<string, string> = {
   created: "Created",
   processing: "Processing",
   visit_failed: "Visit Failed",
+  payment_pending: "Payment Pending",
   visit_pending: "Visit Pending",
+  consult_scheduled: "Consult Scheduled",
+  consult_rescheduled: "Consult Rescheduled",
   consult_canceled: "Consult Canceled",
+  no_show: "No Show",
   referred: "Referred",
   prescribed: "Prescribed",
   billing_pending: "Billing Pending",
@@ -86,6 +99,15 @@ type TimelineItem = {
   description?: string
   icon: "schedule" | "payments" | "prescriptions" | "medical_services" | "local_shipping"
   iconBg: string
+}
+
+const normalizeGateway = (value?: string | null): PatientPaymentGateway | null => {
+  if (!value) return null
+  const normalized = value.toLowerCase()
+  if (normalized.includes("authorize")) return "authorize_net"
+  if (normalized.includes("stripe")) return "stripe"
+  if (normalized.includes("nmi")) return "nmi"
+  return null
 }
 
 export default function OrderDetail() {
@@ -108,7 +130,15 @@ export default function OrderDetail() {
   const [newStatus, setNewStatus] = useState("")
   const [statusTrackingNumber, setStatusTrackingNumber] = useState("")
   const [statusUpdateLoading, setStatusUpdateLoading] = useState(false)
+  const [showRetryPaymentDialog, setShowRetryPaymentDialog] = useState(false)
+  const [paymentMethods, setPaymentMethods] = useState<PatientPaymentMethod[]>([])
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false)
+  const [paymentMethodsError, setPaymentMethodsError] = useState<string | null>(null)
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("")
+  const [retryPaymentLoading, setRetryPaymentLoading] = useState(false)
+  const [retryGateway, setRetryGateway] = useState<PatientPaymentGateway | null>(null)
   const { toast } = useToast()
+  const patientUserId = order?.patient?.user_id
 
   const isUuid = (s: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
@@ -208,6 +238,89 @@ export default function OrderDetail() {
     }
   }
 
+  const formatBookingSchedule = (dateString?: string | null) => {
+    if (!dateString) return "—"
+    try {
+      return format(new Date(dateString), "MMM d, yyyy h:mm a")
+    } catch {
+      return dateString
+    }
+  }
+
+  useEffect(() => {
+    if (!showRetryPaymentDialog) {
+      setPaymentMethods([])
+      setPaymentMethodsError(null)
+      setSelectedPaymentMethodId("")
+      setRetryGateway(null)
+      setPaymentMethodsLoading(false)
+      return
+    }
+
+    if (!order) return
+    let cancelled = false
+
+    const loadPaymentMethods = async () => {
+      setPaymentMethodsLoading(true)
+      setPaymentMethodsError(null)
+      setPaymentMethods([])
+      setSelectedPaymentMethodId("")
+
+      let resolvedGateway = normalizeGateway(order.paymentProcessor)
+      try {
+        const config = await paymentGatewayApi.getConfig()
+        const configGateway = normalizeGateway(config?.payment_config?.payment_gateway)
+        resolvedGateway = configGateway || resolvedGateway
+      } catch {
+        // Ignore config lookup failures; fallback to order processor.
+      }
+
+      if (!resolvedGateway) {
+        if (!cancelled) {
+          setPaymentMethodsError("Unable to determine payment gateway for retry.")
+          setRetryGateway(null)
+          setPaymentMethodsLoading(false)
+        }
+        return
+      }
+
+      if (!patientUserId) {
+        if (!cancelled) {
+          setPaymentMethodsError("Patient profile is missing a user ID.")
+          setRetryGateway(resolvedGateway)
+          setPaymentMethodsLoading(false)
+        }
+        return
+      }
+
+      if (!cancelled) {
+        setRetryGateway(resolvedGateway)
+      }
+
+      try {
+        const methods = await patientPaymentMethodsApi.listPaymentMethods(resolvedGateway, patientUserId)
+        if (cancelled) return
+        setPaymentMethods(methods)
+        const defaultMethod = methods.find((method) => method.is_default) || methods[0]
+        setSelectedPaymentMethodId(defaultMethod?.id || "")
+      } catch (err: unknown) {
+        if (!cancelled) {
+          const message =
+            (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+            "Failed to load saved payment methods"
+          setPaymentMethodsError(message)
+        }
+      } finally {
+        if (!cancelled) {
+          setPaymentMethodsLoading(false)
+        }
+      }
+    }
+
+    loadPaymentMethods()
+    return () => { cancelled = true }
+  }, [showRetryPaymentDialog, order, patientUserId])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -232,12 +345,33 @@ export default function OrderDetail() {
   const orderTitle = order.order_id ? `#${order.order_id}` : order.display_id ? `#${order.display_id}` : order.id?.slice(0, 8) || ""
 
   const paymentStatus = (order.paymentStatus || "").toLowerCase()
+  const settlementState = (order.payment_settlement_state || "").toLowerCase()
   const isAuthorized = paymentStatus === "authorized"
   const isRefundable =
     paymentStatus === "captured" ||
     paymentStatus === "approved" ||
     paymentStatus === "succeeded"
+  const isLocked = isAuthorized || isRefundable
+  const isPending = paymentStatus === "pending" || !paymentStatus
+  const paymentCaptured = isRefundable || settlementState === "captured"
+  const retryablePaymentStatuses = [
+    "declined",
+    "error",
+    "failed",
+    "voided",
+    "canceled",
+    "cancelled",
+    "non_capturable",
+    "non-capturable",
+  ]
+  const isPaymentFailure = retryablePaymentStatuses.includes(paymentStatus)
+  const isSettlementRetryable = ["failed", "pending"].includes(settlementState)
+  const canRetryPayment = !paymentCaptured && (isPaymentFailure || isSettlementRetryable)
+  const isAllowedStatus = status === "created" || status === "payment_pending"
+  const canChangeProduct = isAllowedStatus && !isLocked
   const canRefundOrVoid = isAuthorized || isRefundable
+  const changeProductTooltip =
+    "Product change is available only while order status is Created or Payment Pending and payment status is Pending."
 
   const refundReasonOptions = [
     { value: "customer_request", label: "Customer Request" },
@@ -252,11 +386,18 @@ export default function OrderDetail() {
   const refetchOrder = () => {
     if (!orderId) return
     const fetchFn = isUuid(orderId) ? ordersApi.fetchOrder(orderId) : ordersApi.fetchOrderByOrderId(orderId)
-    fetchFn.then(setOrder).catch(() => {})
+    fetchFn.then(setOrder).catch(() => { })
   }
 
   const handleUpdateOrder = async () => {
     if (!order?.id || !pendingProductChange) return
+    if (!canChangeProduct) {
+      toast({
+        title: "Product change is locked once payment is authorized or order is no longer Created.",
+        variant: "destructive",
+      })
+      return
+    }
     try {
       setUpdateOrderLoading(true)
       const updated = await ordersApi.changeProduct(
@@ -352,6 +493,35 @@ export default function OrderDetail() {
     }
   }
 
+  const handleRetryPayment = async () => {
+    if (!order?.id) return
+    if (!selectedPaymentMethodId) {
+      toast({ title: "Select a payment method to retry.", variant: "destructive" })
+      return
+    }
+    try {
+      setRetryPaymentLoading(true)
+      const result = await ordersApi.retryPayment(order.id, {
+        saved_payment_method_id: selectedPaymentMethodId,
+      })
+      if (!result.success) {
+        toast({ title: result.error || "Retry payment failed", variant: "destructive" })
+        return
+      }
+      toast({ title: "Payment retry submitted" })
+      setShowRetryPaymentDialog(false)
+      refetchOrder()
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { error?: string; detail?: string } } })?.response?.data?.error ||
+        (err as { response?: { data?: { error?: string; detail?: string } } })?.response?.data?.detail ||
+        "Retry payment failed"
+      toast({ title: message, variant: "destructive" })
+    } finally {
+      setRetryPaymentLoading(false)
+    }
+  }
+
   // Build timeline from order dates (newest first for display, then we reverse to show chronological)
   const timelineItems: TimelineItem[] = []
   if (order.datePrintedShipped) {
@@ -366,21 +536,39 @@ export default function OrderDetail() {
     })
   }
   if (order.paymentDate) {
-    const reimbursementParts: string[] = []
-    if (order.medication_cost_to_client) reimbursementParts.push(`Medication Cost: ${order.medication_cost_to_client}`)
-    if (order.consult_cost_to_client) {
-      const consultLabel = order.consult_type === 'sync' ? 'Sync Consult Cost' : 'Async Consult Cost'
-      reimbursementParts.push(`${consultLabel}: ${order.consult_cost_to_client}`)
-    }
-    if (order.shipping_fee_to_client) reimbursementParts.push(`Shipping Fee: ${order.shipping_fee_to_client}`)
+    const normalizedPaymentStatus = (order.paymentStatus || "").toLowerCase()
+    let paymentTitle = "Payment Updated"
+    if (normalizedPaymentStatus === "authorized") paymentTitle = "Patient Payment Authorized"
+    else if (["captured", "approved", "succeeded"].includes(normalizedPaymentStatus)) paymentTitle = "Patient Payment Captured"
+    else if (["failed", "declined", "error"].includes(normalizedPaymentStatus)) paymentTitle = "Patient Payment Failed"
+    else if (normalizedPaymentStatus === "voided") paymentTitle = "Patient Authorization Voided"
+    else if (normalizedPaymentStatus === "refunded") paymentTitle = "Patient Payment Refunded"
+
     timelineItems.push({
-      title: "Order Reimbursement Billing Success",
+      title: paymentTitle,
       date: formatDateTime(order.paymentDate),
-      description: reimbursementParts.length > 0
-        ? `$${order.orderTotal || '0.00'} (${reimbursementParts.join(', ')})`
-        : order.orderTotal ? `$${order.orderTotal}` : undefined,
+      description: (order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount)
+        ? `$${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount}`
+        : undefined,
       icon: "payments",
       iconBg: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800",
+    })
+  }
+  if (order.status === 'consult_rescheduled') {
+    timelineItems.push({
+      title: "Consult Rescheduled",
+      date: formatDateTime(order.booking_scheduled_at || order.updated_at),
+      description: order.booking_location ? `Location: ${order.booking_location}` : "Appointment time updated.",
+      icon: "schedule",
+      iconBg: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-4 border-white dark:border-slate-800",
+    })
+  } else if (order.status === 'consult_scheduled' || order.booking_scheduled_at) {
+    timelineItems.push({
+      title: "Consult Scheduled",
+      date: formatDateTime(order.booking_scheduled_at || order.updated_at),
+      description: order.booking_location ? `Location: ${order.booking_location}` : "Appointment confirmed.",
+      icon: "schedule",
+      iconBg: "bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 border-4 border-white dark:border-slate-800",
     })
   }
   if (order.datePrescribed) {
@@ -392,9 +580,9 @@ export default function OrderDetail() {
       iconBg: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800",
     })
   }
-  if (order.visitStatus || order.treatment_type) {
+  if (order.visitStatus || order.mrn) {
     timelineItems.push({
-      title: "Followup Visit Created",
+      title: "Visit Created",
       date: formatDateTime(order.orderDate),
       description: order.provider_network ? `Provider: ${order.provider_network}` : undefined,
       icon: "medical_services",
@@ -408,6 +596,33 @@ export default function OrderDetail() {
     iconBg: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800",
   })
   timelineItems.reverse()
+
+  const eventTimelineItems: TimelineItem[] = Array.isArray(order.activity_events)
+    ? order.activity_events.map((evt) => {
+        const status = (evt.status || "").toLowerCase()
+        let icon: TimelineItem["icon"] = "schedule"
+        let iconBg = "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800"
+        if (status.includes("payment") || evt.event_type.includes("payment")) {
+          icon = "payments"
+          iconBg = "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800"
+        } else if (status === "prescribed" || status === "rx_sent") {
+          icon = "prescriptions"
+        } else if (status === "visit_pending" || status === "visit_failed") {
+          icon = "medical_services"
+        } else if (status === "shipped") {
+          icon = "local_shipping"
+          iconBg = "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-4 border-white dark:border-slate-800"
+        }
+        return {
+          title: evt.title || evt.event_type.replace(/\./g, " "),
+          date: formatDateTime(evt.occurred_at),
+          description: evt.description || undefined,
+          icon,
+          iconBg,
+        }
+      })
+    : []
+  const renderedTimelineItems = eventTimelineItems.length > 0 ? eventTimelineItems : timelineItems
 
   const selectedMedicines = (order as Order & { selected_medicines?: Array<{ quantity?: unknown }> }).selected_medicines
   const qty = selectedMedicines?.[0]?.quantity ?? order.prescription_medications?.[0]?.quantity ?? "1"
@@ -423,10 +638,16 @@ export default function OrderDetail() {
 
   const quantityRaw = Number.parseFloat(String(qty))
   const quantity = Number.isFinite(quantityRaw) && quantityRaw > 0 ? quantityRaw : 1
-  const originalPrice = parseMoney(order.original_price)
-  const shippingFee = parseMoney(order.shipping_fee)
-  const discountAmount = parseMoney(order.discount_amount) ?? 0
-  const totalAmount = parseMoney(order.orderTotal ?? order.amount)
+  const originalPrice = parseMoney(order.pricing?.subtotal_before_discount ?? order.original_price)
+  const shippingFee = parseMoney(order.pricing?.shipping_total ?? order.shipping_fee)
+  const discountAmount = parseMoney(order.pricing?.discount_total ?? order.discount_amount) ?? 0
+  const totalAmount = parseMoney(
+    order.pricing?.grand_total ??
+    order.grand_total ??
+    order.payable_amount ??
+    order.orderTotal ??
+    order.amount
+  )
   const refundedAmount = parseMoney(order.totalRefunded) ?? 0
   const netTotalAmount =
     totalAmount != null
@@ -454,17 +675,35 @@ export default function OrderDetail() {
       ? productSubtotalAfterDiscount / quantity
       : null
   const hasBreakdown = originalPrice != null || shippingFee != null || discountAmount > 0
-  const discountRatio =
-    originalPrice != null && originalPrice > 0 && discountAmount > 0
-      ? discountAmount / originalPrice
-      : 0
+  const supplyLineItems = Array.isArray(order.pricing?.supply_line_items)
+    ? order.pricing?.supply_line_items
+    : []
+  const hasNonIncludedSupplies = supplyLineItems.some((supply) => !supply?.is_included)
+  const pricingMedicationSubtotal = parseMoney(order.pricing?.medication_subtotal)
+  const pricingSuppliesSubtotal = parseMoney(order.pricing?.supplies_subtotal)
+  const fallbackSuppliesSubtotal = supplyLineItems.reduce((acc, supply) => {
+    const qty = Number.parseFloat(String(supply.quantity ?? 1))
+    const safeQty = Number.isFinite(qty) && qty > 0 ? qty : 1
+    const unitPrice = parseMoney(supply.unit_price) ?? 0
+    return acc + (supply.is_included ? 0 : unitPrice * safeQty)
+  }, 0)
+  const suppliesSubtotalBeforeDiscount =
+    pricingSuppliesSubtotal != null ? pricingSuppliesSubtotal : fallbackSuppliesSubtotal
+  const medicationSubtotalAfterDiscount =
+    productSubtotalAfterDiscount != null
+      ? Math.max(0, productSubtotalAfterDiscount - suppliesSubtotalBeforeDiscount)
+      : null
+  const medicationOriginalSubtotal =
+    medicationSubtotalAfterDiscount != null
+      ? medicationSubtotalAfterDiscount + discountAmount
+      : null
 
-  const previewOriginalPrice = pendingProductChange != null 
-    ? pendingProductChange.subtotal 
+  const previewOriginalPrice = pendingProductChange != null
+    ? pendingProductChange.subtotal
     : originalPrice
 
-  const previewDiscountAmount = pendingProductChange != null 
-    ? pendingProductChange.discountAmount 
+  const previewDiscountAmount = pendingProductChange != null
+    ? pendingProductChange.discountAmount
     : discountAmount
 
   const previewProductSubtotal = pendingProductChange != null
@@ -475,20 +714,75 @@ export default function OrderDetail() {
     ? pendingProductChange.shippingFee
     : shippingFee
 
+  const calculatedTotal = hasBreakdown
+    ? ((productSubtotalAfterDiscount ?? 0) + (shippingFee ?? 0))
+    : totalAmount
+
   const previewTotal = pendingProductChange != null
     ? pendingProductChange.newAmount
-    : totalAmount
+    : calculatedTotal
 
   const previewNetTotal = previewTotal != null
     ? Math.max(0, previewTotal - refundedAmount)
     : netTotalAmount
+  const retryAmount = totalAmount ?? previewTotal ?? netTotalAmount
 
   const displayProductName = pendingProductChange?.productName || order.product_name || "—"
   const displayQuantity = String(qty)
+  const requestedMedicineName =
+    order.requested_medicines?.[0]?.name ||
+    order.product_name ||
+    "—"
+  const rawPrescribedMedicineName =
+    order.prescribed_medicines?.[0]?.name ||
+    order.prescription_medications?.[0]?.name ||
+    null
+  const prescribedNameNormalized = rawPrescribedMedicineName?.trim().toLowerCase()
+  const isSameMedicinePlaceholder =
+    prescribedNameNormalized === "same med" ||
+    prescribedNameNormalized === "same medicine" ||
+    prescribedNameNormalized === "same medication"
+  const prescribedMedicineName = isSameMedicinePlaceholder
+    ? requestedMedicineName
+    : rawPrescribedMedicineName
+  const chargeableAmountSource = order.chargeable_amount_source || "requested_medicine"
+  const orderLifecycleStatus = String(order.orderStatus || order.status || "").toLowerCase()
+  const isLikelyLegacyPrescribed =
+    Boolean(order.datePrescribed) ||
+    chargeableAmountSource === "prescribed_medicine" ||
+    ["prescribed", "rx_sent", "shipped", "completed", "delivered"].includes(orderLifecycleStatus)
+  const legacyPrescribedFallbackName =
+    requestedMedicineName && requestedMedicineName !== "—"
+      ? requestedMedicineName
+      : "Legacy prescribed order"
+  const prescribedMedicineDisplayName =
+    prescribedMedicineName ||
+    (isLikelyLegacyPrescribed ? legacyPrescribedFallbackName : "Awaiting provider decision")
+  const requestedPillClass =
+    "inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
+  const prescribedPillClass =
+    "inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300"
+  const amountSourcePillClass =
+    chargeableAmountSource === "prescribed_medicine"
+      ? "inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300"
+      : chargeableAmountSource === "requested_medicine_fallback"
+        ? "inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-rose-800 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-300"
+        : "inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
+  const amountSourceLabel =
+    chargeableAmountSource === "prescribed_medicine"
+      ? "Prescribed (Doctor Final)"
+      : chargeableAmountSource === "requested_medicine_fallback"
+        ? "Requested Fallback"
+        : "Requested (Original)"
+  const pharmacyDisplayName =
+    order.pharmacy_name ||
+    order.pharmacy_display ||
+    order.booking_location ||
+    "—"
 
   const previewOriginalUnitPrice = pendingProductChange != null
     ? pendingProductChange.unitPrice
-    : (originalPrice != null ? originalPrice / quantity : null)
+    : (medicationOriginalSubtotal != null ? medicationOriginalSubtotal / quantity : null)
 
   const displayDiscountPerUnit = pendingProductChange != null
     ? pendingProductChange.discountAmount / Math.max(quantity, 1)
@@ -496,12 +790,23 @@ export default function OrderDetail() {
 
   const displayItemUnitPrice = pendingProductChange != null
     ? pendingProductChange.unitPrice - displayDiscountPerUnit
-    : itemUnitPrice
+    : hasNonIncludedSupplies
+      ? ((pricingMedicationSubtotal != null ? pricingMedicationSubtotal : medicationSubtotalAfterDiscount) != null
+        ? (pricingMedicationSubtotal != null ? pricingMedicationSubtotal : medicationSubtotalAfterDiscount) / quantity
+        : itemUnitPrice)
+      : (medicationSubtotalAfterDiscount != null ? medicationSubtotalAfterDiscount / quantity : itemUnitPrice)
 
-  const displayLineTotal = previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount
+  const displayLineTotal = pendingProductChange != null
+    ? (previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount)
+    : hasNonIncludedSupplies
+      ? ((pricingMedicationSubtotal != null ? pricingMedicationSubtotal : medicationSubtotalAfterDiscount) != null
+        ? (pricingMedicationSubtotal != null ? pricingMedicationSubtotal : medicationSubtotalAfterDiscount)
+        : (previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount))
+      : (medicationSubtotalAfterDiscount != null ? medicationSubtotalAfterDiscount : (previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount))
 
   const itemPrice = formatMoney(displayItemUnitPrice)
   const lineTotalPrice = formatMoney(displayLineTotal)
+  const productSubtotalPrice = formatMoney(previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount)
   const totalPrice = formatMoney(previewTotal)
   const netTotalPrice = formatMoney(previewNetTotal)
 
@@ -520,6 +825,15 @@ export default function OrderDetail() {
       </div>
     )
   }
+
+  const retryGatewayLabel =
+    retryGateway === "authorize_net"
+      ? "Authorize.Net"
+      : retryGateway === "nmi"
+        ? "NMI"
+        : retryGateway === "stripe"
+          ? "Stripe"
+          : "payment gateway"
 
   return (
     <div className="p-6 lg:p-8">
@@ -554,13 +868,28 @@ export default function OrderDetail() {
           <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
             <div className="px-6 py-4 border-b bg-muted/50 flex justify-between items-center">
               <h3 className="font-semibold text-slate-900 dark:text-white">Product Details</h3>
-              <Button
-                size="sm"
-                onClick={handleUpdateOrder}
-                disabled={!pendingProductChange || updateOrderLoading}
-              >
-                {updateOrderLoading ? "Updating..." : "Update Order"}
-              </Button>
+              {canChangeProduct ? (
+                <Button
+                  size="sm"
+                  onClick={handleUpdateOrder}
+                  disabled={!pendingProductChange || updateOrderLoading}
+                >
+                  {updateOrderLoading ? "Updating..." : "Update Order"}
+                </Button>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex cursor-not-allowed">
+                      <Button size="sm" disabled className="pointer-events-none">
+                        Update Order
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-xs">
+                    {changeProductTooltip}
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -599,14 +928,52 @@ export default function OrderDetail() {
                             <p className="font-medium text-slate-900 dark:text-white">
                               {displayProductName}
                             </p>
-                            <Button variant="outline" size="sm" className="h-6 text-xs px-2 py-0" onClick={() => setShowChangeProductModal(true)}>
-                              Change
-                            </Button>
+                            {canChangeProduct ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 text-xs px-2 py-0"
+                                onClick={() => setShowChangeProductModal(true)}
+                              >
+                                Change
+                              </Button>
+                            ) : (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex cursor-not-allowed">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-6 text-xs px-2 py-0 pointer-events-none"
+                                      disabled
+                                    >
+                                      Change
+                                    </Button>
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs text-xs">
+                                  {changeProductTooltip}
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                           </div>
                           <p className="text-xs text-slate-500 mt-0.5">
                             {order.prescription_medications?.[0]?.strength
                               ? `${order.prescription_medications[0].strength}`
                               : order.treatment_type || ""}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Requested (Original):{" "}
+                            <span className={requestedPillClass}>{requestedMedicineName}</span>
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Prescribed (Doctor Final):{" "}
+                            <span className={prescribedPillClass}>
+                              {prescribedMedicineDisplayName}
+                            </span>
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Doctor: <span className="text-slate-700 dark:text-slate-300">{order.doctor_name || "—"}</span>
                           </p>
                           {order.provider_network && (
                             <span className="inline-flex items-center mt-2 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
@@ -618,13 +985,13 @@ export default function OrderDetail() {
                     </td>
                     <td className="px-6 py-4 text-right align-top text-slate-600 dark:text-slate-300">
                       <div className="flex flex-col items-end">
-                        {previewDiscountAmount > 0 && previewOriginalUnitPrice != null && (
+                        {previewDiscountAmount > 0 && previewOriginalUnitPrice != null && !hasNonIncludedSupplies && (
                           <span className="text-xs text-slate-400 line-through">
                             ${formatMoney(previewOriginalUnitPrice)}
                           </span>
                         )}
                         <span>${itemPrice}</span>
-                        {previewDiscountAmount > 0 && (
+                        {previewDiscountAmount > 0 && !hasNonIncludedSupplies && (
                           <span className="text-[11px] text-green-600 dark:text-green-400 font-medium">
                             Save ${formatMoney(displayDiscountPerUnit)} / unit
                           </span>
@@ -641,6 +1008,34 @@ export default function OrderDetail() {
                       </div>
                     </td>
                   </tr>
+                  {supplyLineItems.map((supply, idx) => {
+                    const qty = Number.parseFloat(String(supply.quantity ?? 1))
+                    const safeQty = Number.isFinite(qty) && qty > 0 ? qty : 1
+                    const unitPrice = parseMoney(supply.unit_price) ?? 0
+                    const lineTotal = (supply.is_included ? 0 : unitPrice * safeQty)
+                    return (
+                      <tr key={`supply-${idx}`} className="bg-slate-50/40 dark:bg-slate-800/40">
+                        <td className="px-6 py-3 text-sm text-slate-700 dark:text-slate-300">
+                          <div className="flex items-center gap-2">
+                            <Package className="h-4 w-4 text-slate-400" />
+                            <span>{supply.name || "Supply item"}</span>
+                            {supply.is_included && (
+                              <span className="rounded bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 text-[10px]">Included</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-3 text-right text-sm text-slate-700 dark:text-slate-300">
+                          {supply.is_included ? "$0.00" : `$${formatMoney(unitPrice)}`}
+                        </td>
+                        <td className="px-6 py-3 text-right text-sm text-slate-700 dark:text-slate-300">
+                          {safeQty}
+                        </td>
+                        <td className="px-6 py-3 text-right text-sm font-medium text-slate-900 dark:text-white">
+                          ${formatMoney(lineTotal)}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
                 <tfoot className="bg-muted/30">
                   {hasBreakdown && previewOriginalPrice != null && (
@@ -655,11 +1050,8 @@ export default function OrderDetail() {
                   )}
                   {previewDiscountAmount > 0 && (
                     <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={2}>
-                        Product discount:
-                      </td>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400">
-                        {appliedCouponCodes || "—"}
+                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                        Product discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}:
                       </td>
                       <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
                         −${previewDiscountAmount.toFixed(2)}
@@ -672,7 +1064,7 @@ export default function OrderDetail() {
                         Product subtotal:
                       </td>
                       <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${lineTotalPrice}
+                        ${productSubtotalPrice}
                       </td>
                     </tr>
                   )}
@@ -706,8 +1098,11 @@ export default function OrderDetail() {
                     <td className="px-6 py-3 text-right font-bold text-primary border-t border-border">
                       <div className="flex flex-col items-end">
                         <span>${netTotalPrice}</span>
-                        <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
-                          Product + shipping
+                        <span className="mt-1 text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                          Amount Source:
+                        </span>
+                        <span className={`mt-1 text-[11px] ${amountSourcePillClass}`}>
+                          {amountSourceLabel} + shipping
                         </span>
                       </div>
                     </td>
@@ -756,7 +1151,7 @@ export default function OrderDetail() {
               <div className="relative pl-4">
                 <div className="absolute left-[19px] top-2 bottom-4 w-px bg-slate-200 dark:bg-slate-700" />
                 <div className="space-y-8">
-                  {timelineItems.map((item, idx) => (
+                  {renderedTimelineItems.map((item, idx) => (
                     <div key={idx} className="relative flex gap-4">
                       <TimelineIcon name={item.icon} iconBg={item.iconBg} />
                       <div className="flex-1 pt-1">
@@ -778,39 +1173,195 @@ export default function OrderDetail() {
 
         {/* Right column */}
         <div className="lg:col-span-4 space-y-6">
-          {/* Visit Details */}
-          <div className="bg-card rounded-xl shadow-sm border p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-slate-400" />
-                Visit Details
-              </h3>
-              <Button size="sm" variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 text-xs">
-                Track
-              </Button>
-            </div>
-            <div className="flex items-start gap-4 mb-4">
-              <div className="h-12 w-12 rounded-full bg-red-50 dark:bg-red-900/20 text-red-500 flex items-center justify-center">
-                <Stethoscope className="h-6 w-6" />
+          {/* Medical + Pharmacy Tabs */}
+          <div className="bg-card rounded-xl shadow-sm border p-4 sm:p-6">
+            <Tabs defaultValue="medical" className="w-full">
+              <div className="px-4 pt-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+                <TabsList className="h-10 grid grid-cols-3 w-full sm:w-auto p-1">
+                  <TabsTrigger value="product" className="h-8 text-xs sm:text-sm leading-none">Product</TabsTrigger>
+                  <TabsTrigger value="medical" className="h-8 text-xs sm:text-sm leading-none">Medical</TabsTrigger>
+                  <TabsTrigger value="pharmacy" className="h-8 text-xs sm:text-sm leading-none">Pharmacy</TabsTrigger>
+                </TabsList>
+                <Button size="sm" variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 text-xs h-8 px-3">
+                  Track
+                </Button>
               </div>
-              <div>
-                <h4 className="font-medium text-slate-900 dark:text-white">
-                  {order.provider_network || "Medical Network"}
-                </h4>
-                <p className="text-xs text-slate-500 mt-1">
-                  Provider: <span className="text-slate-700 dark:text-slate-300">{order.doctor_name || order.provider_network || "—"}</span>
-                </p>
-              </div>
-            </div>
-            {(order.mrn || order.visitStatus) && (
-              <div className="p-3 bg-muted/50 rounded-lg border">
-                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Master ID</p>
-                <p className="text-xs font-mono text-slate-700 dark:text-slate-300 break-all">
-                  {order.mrn || order.visitStatus || "—"}
-                </p>
-              </div>
-            )}
+
+              <TabsContent value="product" className="space-y-4 mt-0">
+                <div className="p-3 bg-muted/40 rounded-lg border">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Product</p>
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">{displayProductName}</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Requested (Original):{" "}
+                    <span className={requestedPillClass}>{requestedMedicineName}</span>
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Prescribed (Doctor Final):{" "}
+                    <span className={prescribedPillClass}>
+                      {prescribedMedicineDisplayName}
+                    </span>
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Doctor: <span className="text-slate-700 dark:text-slate-300">{order.doctor_name || "—"}</span>
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Amount Source:{" "}
+                    <span className={amountSourcePillClass}>
+                      {amountSourceLabel}
+                    </span>
+                  </p>
+                </div>
+                <div className="p-3 bg-muted/40 rounded-lg border">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Pricing</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
+                    Subtotal: <span className="text-slate-700 dark:text-slate-200 font-medium">${productSubtotalPrice}</span>
+                  </p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                    Shipping: <span className="text-slate-700 dark:text-slate-200 font-medium">${formatMoney(previewShippingFee)}</span>
+                  </p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                    Total: <span className="text-slate-700 dark:text-slate-200 font-semibold">${netTotalPrice}</span>
+                  </p>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="medical" className="space-y-4 mt-0">
+                <div className="flex items-start gap-4">
+                  <div className="h-14 w-14 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-500 flex items-center justify-center shrink-0">
+                    <Stethoscope className="h-7 w-7" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="font-semibold text-slate-900 dark:text-white text-base">
+                      {order.provider_network || "Medical Network"}
+                    </h4>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      Provider: <span className="text-slate-700 dark:text-slate-300 font-medium">{order.doctor_name || order.provider_network || "—"}</span>
+                    </p>
+                    {order.prescription_source_received_at && (
+                      <p className="text-sm text-slate-500 mt-1">
+                        RX Received: <span className="text-slate-700 dark:text-slate-300">{formatDateTime(order.prescription_source_received_at)}</span>
+                      </p>
+                    )}
+                    {order.prescription_source_event_id && (
+                      <p className="text-xs text-slate-500 mt-2 break-all">
+                        RX Event ID: <span className="font-mono text-slate-600 dark:text-slate-400">{order.prescription_source_event_id}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {(order.mrn || order.visitStatus) && (
+                  <div className="p-4 bg-muted/50 rounded-lg border border-border/50">
+                    <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-1">Master ID</p>
+                    <p className="text-sm font-mono text-slate-700 dark:text-slate-300 break-all leading-relaxed">
+                      {order.mrn || order.visitStatus || "—"}
+                    </p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="pharmacy" className="space-y-4 mt-0">
+                <div className="p-4 bg-muted/40 rounded-lg border border-border/50">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-2">Pharmacy</p>
+                  <p className="text-base font-semibold text-slate-900 dark:text-white">{pharmacyDisplayName}</p>
+                  {order.booking_location && (
+                    <p className="text-sm text-slate-500 mt-1 flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {order.booking_location}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">Prescription Details</p>
+                  {(order.prescription_medications || []).length > 0 ? (
+                    <div className="space-y-3">
+                      {(order.prescription_medications || []).map((med, idx) => (
+                        <div key={`pharm-med-${idx}`} className="rounded-lg border p-4 bg-background/60 shadow-sm">
+                          <p className="font-medium text-slate-900 dark:text-white">{med.name || "Medication"}</p>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-sm text-slate-500">
+                            <span className="flex items-center gap-1">
+                              <span className="text-slate-400">Strength:</span>
+                              <span className="text-slate-700 dark:text-slate-300 font-medium">{med.strength || "—"}</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="text-slate-400">Qty:</span>
+                              <span className="text-slate-700 dark:text-slate-300 font-medium">{med.quantity || "—"}</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="text-slate-400">Refills:</span>
+                              <span className="text-slate-700 dark:text-slate-300 font-medium">{med.refills || "0"}</span>
+                            </span>
+                          </div>
+                          {(med.rxId || med.medId) && (
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-slate-500">
+                              {med.rxId && (
+                                <span className="flex items-center gap-1">
+                                  <span>RX ID:</span>
+                                  <span className="font-mono text-slate-600 dark:text-slate-400">{med.rxId}</span>
+                                </span>
+                              )}
+                              {med.medId && (
+                                <span className="flex items-center gap-1">
+                                  <span>Med ID:</span>
+                                  <span className="font-mono text-slate-600 dark:text-slate-400">{med.medId}</span>
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500 italic bg-muted/30 p-3 rounded-lg">No pharmacy prescription details available yet.</p>
+                  )}
+                </div>
+                <div className="p-4 bg-muted/40 rounded-lg border border-border/50">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-3">Fulfillment</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-xs text-slate-500 mb-0.5">Tracking Number</p>
+                      <p className="font-mono text-slate-700 dark:text-slate-300 text-xs break-all">{order.tracking_number || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500 mb-0.5">Status</p>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+                        {statusDisplay}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
+
+          {/* Booking Info */}
+          {(order.doctor_name || order.booking_scheduled_at || order.booking_location) && (
+            <div className="bg-card rounded-xl shadow-sm border p-6">
+              <h3 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-slate-400" />
+                Booking Information
+              </h3>
+              <ul className="space-y-3 text-sm">
+                {order.doctor_name && (
+                  <li className="flex items-start gap-3 text-slate-600 dark:text-slate-300">
+                    <Stethoscope className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
+                    <span>Doctor: <span className="font-medium text-slate-900 dark:text-white">{order.doctor_name}</span></span>
+                  </li>
+                )}
+                {order.booking_scheduled_at && (
+                  <li className="flex items-start gap-3 text-slate-600 dark:text-slate-300">
+                    <Calendar className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
+                    <span>Scheduled: <span className="font-medium text-slate-900 dark:text-white">{formatBookingSchedule(order.booking_scheduled_at)}</span></span>
+                  </li>
+                )}
+                {order.booking_location && (
+                  <li className="flex items-start gap-3 text-slate-600 dark:text-slate-300">
+                    <MapPin className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
+                    <span>Location: <span className="font-medium text-slate-900 dark:text-white">{order.booking_location}</span></span>
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
 
           {/* Patient Details */}
           <div className="bg-card rounded-xl shadow-sm border p-6">
@@ -924,8 +1475,20 @@ export default function OrderDetail() {
               )}
               <div className="pt-3 border-t border-border flex justify-between items-center mt-2">
                 <span className="text-slate-900 dark:text-white font-bold">Amount</span>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-slate-900 dark:text-white font-bold">${netTotalPrice}</span>
+                  {canRetryPayment && (
+                    <PermissionGate permission={Permissions.ORDER_UPDATE}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-[10px] h-6 border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-300"
+                        onClick={() => setShowRetryPaymentDialog(true)}
+                      >
+                        <RotateCw className="h-3 w-3 mr-1" /> Retry Payment
+                      </Button>
+                    </PermissionGate>
+                  )}
                   {canRefundOrVoid && (
                     <PermissionGate permission={Permissions.REFUND_CREATE}>
                       <Button
@@ -944,6 +1507,83 @@ export default function OrderDetail() {
           </div>
         </div>
       </div>
+
+      {/* Retry Payment Dialog */}
+      <Dialog open={showRetryPaymentDialog} onOpenChange={setShowRetryPaymentDialog}>
+        <DialogContent className="max-w-lg w-full">
+          <DialogHeader>
+            <DialogTitle>Retry Patient Payment</DialogTitle>
+            <DialogDescription>
+              Select a saved card to retry the patient charge via {retryGatewayLabel}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-500 dark:text-slate-400">Amount to retry</span>
+              <span className="text-slate-900 dark:text-white font-medium">${formatMoney(retryAmount)}</span>
+            </div>
+
+            {paymentMethodsLoading && (
+              <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading saved payment methods...
+              </div>
+            )}
+
+            {!paymentMethodsLoading && paymentMethodsError && (
+              <p className="text-sm text-destructive">{paymentMethodsError}</p>
+            )}
+
+            {!paymentMethodsLoading && !paymentMethodsError && paymentMethods.length === 0 && (
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                No saved payment methods found for this patient.
+              </p>
+            )}
+
+            {!paymentMethodsLoading && paymentMethods.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Saved payment method</label>
+                <Select value={selectedPaymentMethodId} onValueChange={setSelectedPaymentMethodId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a card" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paymentMethods.map((method) => {
+                      const brand = method.card_brand ? method.card_brand.toUpperCase() : "CARD"
+                      const last4 = method.masked_card_number ? method.masked_card_number.slice(-4) : "----"
+                      const expMonth = method.card_expiry_month ? String(method.card_expiry_month).padStart(2, "0") : ""
+                      const expYear = method.card_expiry_year ? String(method.card_expiry_year) : ""
+                      const expLabel = expMonth && expYear ? `exp ${expMonth}/${expYear}` : ""
+                      const defaultLabel = method.is_default ? " • default" : ""
+                      return (
+                        <SelectItem key={method.id} value={method.id}>
+                          {brand} •••• {last4}{expLabel ? ` (${expLabel})` : ""}{defaultLabel}
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowRetryPaymentDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleRetryPayment}
+                disabled={
+                  retryPaymentLoading ||
+                  paymentMethodsLoading ||
+                  Boolean(paymentMethodsError) ||
+                  !selectedPaymentMethodId
+                }
+              >
+                {retryPaymentLoading ? "Retrying..." : "Retry Payment"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Refund / Void Dialog */}
       <Dialog open={showRefundDialog} onOpenChange={setShowRefundDialog}>
@@ -1075,6 +1715,19 @@ export default function OrderDetail() {
         patientResponses={order.patient_responses}
         patientName={order.name || "Patient"}
         checkoutUrl={order.checkout_url}
+        orderId={order.id}
+        onImagesSaved={(photos) => {
+          setOrder((prev) => {
+            if (!prev) return prev
+            return {
+              ...prev,
+              patient_responses: {
+                ...(prev.patient_responses || {}),
+                photos,
+              },
+            }
+          })
+        }}
       />
       {order && (
         <ChangeProductModal

@@ -58,12 +58,20 @@ export const messageService = {
   async uploadAttachment(file: File): Promise<{ url: string; fileName: string; mimeType: string }> {
     const fd = new FormData();
     fd.append("file", file);
-    const { data } = await api.post<{ url: string; fileName: string; mimeType: string; path: string }>(
+    const { data } = await api.post<{
+      url: string;
+      fileName: string;
+      mimeType: string;
+      path: string;
+      originalFileName?: string;
+      original_file_name?: string;
+    }>(
       "/storage/upload/",
       fd,
       { headers: { "Content-Type": "multipart/form-data" } }
     );
-    return { url: data.url, fileName: data.fileName, mimeType: data.mimeType };
+    const originalName = data.originalFileName || data.original_file_name || file.name;
+    return { url: data.url, fileName: originalName, mimeType: data.mimeType };
   },
 
   /** All patient/support/doctor messages (BE /messages/all/). Pass afterId for incremental polls (unscoped only). */
@@ -123,6 +131,36 @@ export const messageService = {
       return await res.json();
     } catch {
       return {};
+    }
+  },
+
+  async markNotificationsReadForMaster(master_id: string): Promise<number> {
+    try {
+      const { data } = await api.get<any[]>("/notifications/", {
+        params: { unread_only: true, limit: 100 },
+      });
+      const rows = Array.isArray(data) ? data : [];
+      const normalizedMaster = String(master_id || "");
+      const targets = rows.filter((row: any) => {
+        const rowMaster =
+          String(
+            row?.master_id ||
+            row?.data?.master_id ||
+            row?.payload?.master_id ||
+            ""
+          );
+        return rowMaster === normalizedMaster;
+      });
+      if (!targets.length) return 0;
+
+      await Promise.all(
+        targets.map((row: any) =>
+          api.post(`/notifications/${row.id}/read/`).catch(() => undefined)
+        )
+      );
+      return targets.length;
+    } catch {
+      return 0;
     }
   },
 

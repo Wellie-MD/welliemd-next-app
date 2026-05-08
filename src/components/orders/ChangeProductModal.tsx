@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import {
   Dialog,
   DialogContent,
@@ -50,7 +50,24 @@ export function ChangeProductModal({
   const [isStaging, setIsStaging] = useState(false)
   const { toast } = useToast()
 
+  const currentProductId = order.product ? String(order.product) : ""
   const currentProductName = (order.product_name || "").trim().toLowerCase()
+  // Use order.treatment (from backend) as the source of truth for treatment type.
+  // This avoids the pagination problem: if the current product isn't in the fetched
+  // page of results, we'd have no treatment to filter by and would show all products.
+  const orderTreatment = (order.treatment || "").trim().toLowerCase()
+  const currentProduct =
+    products.find((p) => String(p.id) === currentProductId) ||
+    products.find((p) => p.name.trim().toLowerCase() === currentProductName)
+  // Prefer the treatment from the fetched product object, but always fall back to
+  // order.treatment (which is directly sourced from product.treatment in the backend
+  // serializer and is always present on the order object).
+  const currentTreatment = (currentProduct?.treatment || orderTreatment || "").trim().toLowerCase()
+  // IMPORTANT: if we have no treatment to filter by, show empty list rather than all
+  // products — showing everything would be incorrect and confusing.
+  const availableProducts = currentTreatment
+    ? products.filter((p) => p.treatment.trim().toLowerCase() === currentTreatment)
+    : []
 
   useEffect(() => {
     if (open) {
@@ -59,16 +76,20 @@ export function ChangeProductModal({
     }
   }, [open])
 
-  useEffect(() => {
-    if (open) {
-      fetchProducts()
-    }
-  }, [open])
-
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
-      const resp: any = await productApi.listProducts({ page_size: 100 })
-      const items = resp.results || resp || []
+      // Pass the treatment type as a query param so the backend filters server-side.
+      // This is far more reliable than fetching all products and filtering client-side,
+      // because client-side filtering breaks when the product list is paginated and
+      // the current order's product isn't in the fetched page.
+      const treatmentFilter = (order.treatment || "").trim().toLowerCase()
+      const params: Record<string, unknown> = { page_size: 1000, is_active: true }
+      if (treatmentFilter) {
+        params.treatment = treatmentFilter
+      }
+      const resp: unknown = await productApi.listProducts(params)
+      const data = resp as { results?: Product[] } | Product[]
+      const items = Array.isArray(data) ? data : (data.results || [])
       setProducts(Array.isArray(items) ? items : [])
     } catch (err) {
       console.error(err)
@@ -78,29 +99,47 @@ export function ChangeProductModal({
         variant: "destructive",
       })
     }
-  }
-
-  const selectedProduct = products.find((p) => String(p.id) === selectedProductId)
-  const isSameProduct =
-    !!selectedProduct && selectedProduct.name.trim().toLowerCase() === currentProductName
+  }, [toast, order.treatment])
 
   useEffect(() => {
-    if (!open || selectedProductId || products.length === 0) return
-    const current = products.find((p) => p.name.trim().toLowerCase() === currentProductName)
+    if (open) {
+      fetchProducts()
+    }
+  }, [open, fetchProducts])
+
+  const selectedProduct = availableProducts.find((p) => String(p.id) === selectedProductId)
+  const isSameProduct = !!selectedProduct && (
+    (currentProductId && String(selectedProduct.id) === currentProductId) ||
+    selectedProduct.name.trim().toLowerCase() === currentProductName
+  )
+
+  useEffect(() => {
+    if (!open || selectedProductId || availableProducts.length === 0) return
+    const current = availableProducts.find((p) =>
+      (currentProductId && String(p.id) === currentProductId) ||
+      p.name.trim().toLowerCase() === currentProductName
+    )
     if (current) {
       setSelectedProductId(String(current.id))
     }
-  }, [open, selectedProductId, products, currentProductName])
+  }, [open, selectedProductId, availableProducts, currentProductId, currentProductName])
+
+  useEffect(() => {
+    if (!selectedProductId) return
+    if (!availableProducts.some((p) => String(p.id) === selectedProductId)) {
+      setSelectedProductId("")
+    }
+  }, [availableProducts, selectedProductId])
 
   const handleApply = async () => {
     if (!selectedProduct || !order.id) return
-    
+
     setIsStaging(true)
     try {
       const dryRunRes = await changeProduct(order.id, selectedProduct.id, quantity, true)
-      
+
       const pricing = dryRunRes?.pricing || {}
-      
+
       onApply({
         productId: String(selectedProduct.id),
         productName: selectedProduct.name,
@@ -141,7 +180,7 @@ export function ChangeProductModal({
             <p className="text-sm font-medium text-slate-500">Current Product</p>
             <p className="text-sm">{order.product_name || "N/A"}</p>
           </div>
-          
+
           <div className="space-y-2">
             <p className="text-sm font-medium text-slate-500">New Product</p>
             <Select value={selectedProductId} onValueChange={setSelectedProductId}>
@@ -149,13 +188,18 @@ export function ChangeProductModal({
                 <SelectValue placeholder="Select a product" />
               </SelectTrigger>
               <SelectContent>
-                {products.map((p) => (
+                {availableProducts.map((p) => (
                   <SelectItem key={p.id} value={String(p.id)}>
                     {p.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {availableProducts.length === 0 && (
+              <p className="text-xs text-amber-500 mt-1">
+                No products found in the same treatment type for this order.
+              </p>
+            )}
             {isSameProduct && selectedProductId && (
               <p className="text-xs text-amber-500 mt-1">This is the current product.</p>
             )}
@@ -168,7 +212,7 @@ export function ChangeProductModal({
           </Button>
           <Button
             onClick={handleApply}
-            disabled={!selectedProductId || isSameProduct || isStaging}
+            disabled={!selectedProductId || isSameProduct || isStaging || availableProducts.length === 0}
           >
             {isStaging ? "Staging..." : "Stage Edit"}
           </Button>
