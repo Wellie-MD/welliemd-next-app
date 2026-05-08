@@ -100,7 +100,7 @@ export default function Patients() {
   const [pageSize, setPageSize] = useState(20)
   const [totalCount, setTotalCount] = useState(0)
   
-  // Debounce search input
+  // Debounce search input and reset page on search
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearchTerm(searchInput)
@@ -114,8 +114,19 @@ export default function Patients() {
     if (filter === "Active") return "active"
     if (filter === "Inactive") return "inactive"
     if (filter === "Drop-off") return "dropoff"
+    if (filter === "All") return "all"
     return undefined
   }
+
+  const handleStatusFilterChange = useCallback((status: string) => {
+    setActiveFilter(status)
+    setPage(1)
+  }, [])
+
+  const handleDateRangeChange = useCallback((range: DateRange | undefined) => {
+    setDate(range)
+    setPage(1)
+  }, [])
 
   // Fetch patients from backend with server-side pagination
   const fetchPatients = useCallback(async () => {
@@ -203,7 +214,7 @@ export default function Patients() {
       label: status,
       type: 'button' as const,
       value: activeFilter === status ? status : undefined,
-      onClick: () => setActiveFilter(status)
+      onClick: () => handleStatusFilterChange(status)
     })),
   ]
 
@@ -251,7 +262,7 @@ export default function Patients() {
         showResetFilters={true}
         filters={filters}
         dateRange={date}
-        onDateRangeChange={setDate}
+        onDateRangeChange={handleDateRangeChange}
         onSearch={setSearchInput}
         onResetFilters={handleResetFilters}
         onExport={handleExport}
