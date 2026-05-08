@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, useCallback } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Pencil } from "lucide-react"
 import { DataTable } from "@/components/ui/data-table"
-import { productApi, Product, TREATMENT_OPTIONS, PURCHASE_TYPE_OPTIONS, RX_OTC_OPTIONS, PRODUCT_TYPE_OPTIONS } from "@/api/products"
+import { productApi, Product, TREATMENT_OPTIONS, PURCHASE_TYPE_OPTIONS } from "@/api/products"
 import AddProductForm from "@/components/products/AddProductForm"
 import { StatCard } from "@/components/ui/stat-card"
 import { useToast } from "@/hooks/use-toast"
@@ -17,9 +17,6 @@ function money(n: number | string) {
 }
 
 const statusFilters = ["All", "Active", "Inactive"];
-const treatmentFilters = ["All Treatments", ...TREATMENT_OPTIONS.map(opt => opt.label)];
-const purchaseTypeFilters = ["All Types", ...PURCHASE_TYPE_OPTIONS.map(opt => opt.label)];
-const rxOtcFilters = ["All", ...RX_OTC_OPTIONS.map(opt => opt.label)];
 
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([])
@@ -29,9 +26,8 @@ export default function Products() {
   const { toast } = useToast()
   const [activeStatusFilter, setActiveStatusFilter] = useState("All")
   const [activeTreatmentFilter, setActiveTreatmentFilter] = useState("All Treatments")
-  const [activePurchaseTypeFilter, setActivePurchaseTypeFilter] = useState("All Types")
-  const [activeRxOtcFilter, setActiveRxOtcFilter] = useState("All")
   const [date, setDate] = useState<DateRange | undefined>()
+  const [categoryOptions, setCategoryOptions] = useState<{ id: string; name: string }[]>([])
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
@@ -62,34 +58,10 @@ export default function Products() {
         params.is_active = activeStatusFilter === "Active"
       }
       
-      // Add treatment filter
+      // Add category filter (dynamic per-tenant)
       if (activeTreatmentFilter !== "All Treatments") {
-        const treatmentMapping: Record<string, string> = {
-          "Weight Loss": "weight_loss",
-          "Erectile Dysfunction": "ed",
-          "GLP": "glp",
-          "Individualized GLP": "individualized_glp",
-          "General": "general",
-        }
-        params.treatment = treatmentMapping[activeTreatmentFilter]
-      }
-      
-      // Add purchase type filter
-      if (activePurchaseTypeFilter !== "All Types") {
-        const purchaseTypeMapping: Record<string, string> = {
-          "One Time": "one_time",
-          "Subscription": "subscription",
-        }
-        params.purchase_type = purchaseTypeMapping[activePurchaseTypeFilter]
-      }
-      
-      // Add RX/OTC filter
-      if (activeRxOtcFilter !== "All") {
-        const rxOtcMapping: Record<string, string> = {
-          "RX": "rx",
-          "OTC": "otc",
-        }
-        params.rx_or_otc = rxOtcMapping[activeRxOtcFilter]
+        const matched = categoryOptions.find((c) => c.name === activeTreatmentFilter)
+        if (matched) params.category = matched.id
       }
       
       const response = (await productApi.listProducts(params)) as any
@@ -124,6 +96,19 @@ export default function Products() {
     fetchProducts(1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await productApi.getCouponCategories()
+        setCategoryOptions(res.categories || [])
+      } catch (e) {
+        console.error("Failed to fetch product categories:", e)
+        setCategoryOptions([])
+      }
+    }
+    fetchCategories()
+  }, [])
   
   // Refetch when filters change
   useEffect(() => {
@@ -134,7 +119,7 @@ export default function Products() {
       fetchProducts(1, pageSize)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, activeStatusFilter, activeTreatmentFilter, activePurchaseTypeFilter, activeRxOtcFilter])
+  }, [search, activeStatusFilter, activeTreatmentFilter, categoryOptions])
 
   // Apply only client-side date filter since backend doesn't support it
   const filtered = useMemo(() => {
@@ -171,6 +156,11 @@ export default function Products() {
     return PURCHASE_TYPE_OPTIONS.find((opt) => opt.value === value)?.label || value
   }
 
+  const dynamicTreatmentFilters = useMemo(() => {
+    const names = categoryOptions.map((c) => c.name).filter(Boolean)
+    return ["All Treatments", ...names]
+  }, [categoryOptions])
+
   // Create filter configuration for DataTable
   const filters = [
     // Status filters
@@ -182,36 +172,18 @@ export default function Products() {
       onClick: () => setActiveStatusFilter(status),
     })),
     // Treatment filters
-    ...treatmentFilters.map((treatment) => ({
+    ...dynamicTreatmentFilters.map((treatment) => ({
       key: `treatment-${treatment}`,
       label: treatment,
       type: "button" as const,
       value: activeTreatmentFilter === treatment ? treatment : undefined,
       onClick: () => setActiveTreatmentFilter(treatment),
     })),
-    // Purchase Type filters
-    ...purchaseTypeFilters.map((type) => ({
-      key: `purchase-${type}`,
-      label: type,
-      type: "button" as const,
-      value: activePurchaseTypeFilter === type ? type : undefined,
-      onClick: () => setActivePurchaseTypeFilter(type),
-    })),
-    // RX/OTC filters
-    ...rxOtcFilters.map((rxOtc) => ({
-      key: `rxotc-${rxOtc}`,
-      label: rxOtc,
-      type: "button" as const,
-      value: activeRxOtcFilter === rxOtc ? rxOtc : undefined,
-      onClick: () => setActiveRxOtcFilter(rxOtc),
-    })),
   ]
 
   const handleResetFilters = useCallback(() => {
     setActiveStatusFilter("All")
     setActiveTreatmentFilter("All Treatments")
-    setActivePurchaseTypeFilter("All Types")
-    setActiveRxOtcFilter("All")
     setDate(undefined)
     setSearch("")
     setCurrentPage(1)
