@@ -401,11 +401,11 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-900 dark:text-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-10">
-          <h2 className="text-xl font-semibold">{initialData ? 'Edit Routing Config' : 'New Routing Config'}</h2>
-          <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
+        <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 z-10">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{initialData ? 'Edit Routing Config' : 'New Routing Config'}</h2>
+          <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -466,7 +466,7 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
                   variant="outline"
                   size="sm"
                   onClick={selectAllStates}
-                  className="text-xs h-8 bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100"
+                  className="text-xs h-8 bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100 dark:bg-sky-900 dark:text-sky-200 dark:border-sky-700 dark:hover:bg-sky-800"
                 >
                   Select All
                 </Button>
@@ -475,7 +475,7 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
                   variant="outline"
                   size="sm"
                   onClick={clearAllStates}
-                  className="text-xs h-8"
+                  className="text-xs h-8 dark:text-gray-200"
                 >
                   Clear All
                 </Button>
@@ -488,8 +488,8 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
               if (unservable.length === 0) return null;
               
               return (
-                <div className="bg-red-50 border border-red-200 rounded p-3">
-                  <p className="text-sm text-red-800">
+                <div className="bg-red-50 border border-red-200 rounded p-3 dark:bg-red-900/30 dark:border-red-700">
+                  <p className="text-sm text-red-800 dark:text-red-200">
                     <strong>⚠️ Configuration Error:</strong> None of your pharmacies serve{" "}
                     <strong>{unservable.join(", ")}</strong>. 
                     You must update pharmacy service states before saving this rule.
@@ -502,7 +502,7 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
             })()}
 
 
-            <div className="border rounded-lg p-4 bg-gray-50/50">
+            <div className="border rounded-lg p-4 bg-gray-50/50 dark:bg-gray-800/50 dark:border-gray-700">
               {loadingStates ? (
                 <div className="text-center py-8 text-muted-foreground">
                   Loading pharmacy coverage...
@@ -511,8 +511,8 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
                 <>
                   {/* Info about unservable states */}
                   {servableStates.length > 0 && servableStates.length < US_STATES.length && (
-                    <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-3">
-                      <p className="text-sm text-blue-800">
+                    <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-3 dark:bg-blue-900/30 dark:border-blue-700">
+                      <p className="text-sm text-blue-800 dark:text-blue-200">
                         <strong>ℹ️ Note:</strong> {US_STATES.length - servableStates.length} states 
                         are disabled because no pharmacy serves them. 
                         Contact admin to add pharmacy coverage.
@@ -542,8 +542,8 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
                             ${isSelected 
                               ? 'bg-sky-500 text-white border-sky-500 font-medium' 
                               : isServable
-                                ? 'bg-white text-gray-700 border-gray-300 hover:border-sky-300 shadow-sm'
-                                : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-50 line-through'
+                                ? 'bg-white text-gray-700 border-gray-300 hover:border-sky-300 shadow-sm dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700 dark:hover:border-sky-400'
+                                : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-50 line-through dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600'
                             }
                           `}
                         >
@@ -570,7 +570,7 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
             <Label className="text-base font-semibold">Matches</Label>
             
             {matches.map((match) => (
-              <div key={match.id} className="border rounded-lg p-4 space-y-4 bg-gray-50">
+              <div key={match.id} className="border rounded-lg p-4 space-y-4 bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
                 {/* Pharmacy and Priority */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -657,7 +657,7 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
             <Label className="text-base font-semibold">Else</Label>
             
             {elseCondition ? (
-              <div className="border rounded-lg p-4 space-y-4 bg-gray-50">
+              <div className="border rounded-lg p-4 space-y-4 bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-sm">
@@ -708,7 +708,7 @@ export function RoutingModal({ open, onClose, onSuccess, initialData }: RoutingM
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 p-6 border-t sticky bottom-0 bg-white">
+        <div className="flex justify-end gap-3 p-6 border-t sticky bottom-0 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
           <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>

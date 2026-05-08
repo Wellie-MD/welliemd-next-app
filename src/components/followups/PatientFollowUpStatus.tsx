@@ -143,8 +143,8 @@ export function PatientFollowUpStatus({
 
   return (
     <>
-      <Card className="border-slate-200 shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-slate-100 bg-slate-50/70 pb-3">
+        <Card className="border-slate-200 dark:border-slate-700 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-slate-100 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950/60 pb-3">
           <div>
             <CardTitle className="text-base font-medium">Follow-Up Questionnaires</CardTitle>
             <CardDescription>Manage patient follow-up assessments</CardDescription>
@@ -161,7 +161,7 @@ export function PatientFollowUpStatus({
               Loading follow-up sessions...
             </div>
           ) : followUps.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 py-6 text-center text-sm text-muted-foreground">
+                    <div className="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 py-6 text-center text-sm text-muted-foreground">
               No follow-ups sent yet. Click "Send Follow-Up" to create one.
             </div>
           ) : (
@@ -273,7 +273,7 @@ function FollowUpRow({
   const accessValue = linkExpiryDate ? formatDate(linkExpiryDate) : 'Active until completion';
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-3 shadow-sm">
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-3 shadow-sm">
       <div className="min-w-0 flex items-center gap-3">
         <StatusIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
         <div>
@@ -284,12 +284,12 @@ function FollowUpRow({
             Sent {formatDate(followUp.created_at)}
             {followUp.completed_at && ` • Completed ${formatDate(followUp.completed_at)}`}
           </p>
-          {followUp.due_date && (
-            <p className="text-xs font-medium text-slate-700">
+            {followUp.due_date && (
+            <p className="text-xs font-medium text-slate-700 dark:text-slate-200">
               Due date: {formatDate(followUp.due_date)}
             </p>
           )}
-          <p className="text-xs text-slate-600">{accessLabel}: {accessValue}</p>
+          <p className="text-xs text-slate-600 dark:text-slate-400">{accessLabel}: {accessValue}</p>
         </div>
       </div>
       <div className="flex items-center gap-2">

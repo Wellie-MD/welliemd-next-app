@@ -131,10 +131,13 @@ export default function PatientDetailPage() {
 
   const getOrderStatusTone = (status?: string) => {
     const s = (status || "").toLowerCase();
-    if (["prescribed", "rx_sent", "shipped", "completed"].includes(s)) return "text-emerald-700 bg-emerald-50 border-emerald-200";
-    if (["billing_pending", "pending", "processing"].includes(s)) return "text-amber-700 bg-amber-50 border-amber-200";
-    if (["canceled", "visit_failed", "declined", "error"].includes(s)) return "text-red-700 bg-red-50 border-red-200";
-    return "text-slate-700 bg-slate-50 border-slate-200";
+    if (["prescribed", "rx_sent", "shipped", "completed"].includes(s))
+      return "text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-700";
+    if (["billing_pending", "pending", "processing"].includes(s))
+      return "text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-200 dark:bg-amber-900/30 dark:border-amber-700";
+    if (["canceled", "visit_failed", "declined", "error"].includes(s))
+      return "text-red-700 bg-red-50 border-red-200 dark:text-red-200 dark:bg-red-900/30 dark:border-red-700";
+    return "text-slate-700 bg-slate-50 border-slate-200 dark:text-slate-200 dark:bg-slate-800 dark:border-slate-700";
   };
 
   const getTreatmentDisplayName = (episode: TreatmentEpisode) => {
@@ -227,12 +230,12 @@ export default function PatientDetailPage() {
   }
 
   return (
-    <div className="min-h-full bg-gradient-to-b from-slate-50 to-white px-4 py-6 md:px-6">
+    <div className="min-h-full bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-slate-900 px-4 py-6 md:px-6">
       <div className="mx-auto max-w-[1440px] space-y-5">
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm md:p-5">
+        <div className="rounded-2xl border border-slate-200/80 bg-white dark:bg-slate-900 dark:border-slate-700 p-4 shadow-sm md:p-5">
           <Button
             variant="ghost"
-            className="mb-3 h-8 px-2 text-slate-600 hover:text-slate-900"
+            className="mb-3 h-8 px-2 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
             onClick={() => navigate("/dashboard/patients")}
           >
             <ArrowLeft className="mr-1.5 h-4 w-4" />
@@ -245,10 +248,10 @@ export default function PatientDetailPage() {
                 {initials}
               </div>
               <div className="min-w-0">
-                <h1 className="truncate text-2xl font-bold tracking-tight text-slate-900">
+                <h1 className="truncate text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                   {fullName || "Patient"}
                 </h1>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
                   MRN: {patient.id.slice(0, 8).toUpperCase()}
                 </p>
               </div>
@@ -261,11 +264,11 @@ export default function PatientDetailPage() {
                   Edit Patient
                 </Button>
               </PermissionGate>
-              <Badge variant="outline" className="rounded-full border-slate-300 bg-slate-50 px-3 py-1 text-slate-700">
+              <Badge variant="outline" className="rounded-full border-slate-300 bg-slate-50 px-3 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                 <ClipboardList className="mr-1.5 h-3.5 w-3.5" />
                 {episodes.length} Treatment{episodes.length === 1 ? "" : "s"}
               </Badge>
-              <Badge variant="outline" className="rounded-full border-slate-300 bg-slate-50 px-3 py-1 text-slate-700">
+              <Badge variant="outline" className="rounded-full border-slate-300 bg-slate-50 px-3 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                 {orders.length} Order{orders.length === 1 ? "" : "s"}
               </Badge>
             </div>
@@ -274,90 +277,90 @@ export default function PatientDetailPage() {
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
           <div className="space-y-4 xl:col-span-3">
-          <Card className="h-fit border-slate-200 bg-white shadow-sm">
-            <CardHeader className="border-b border-slate-100 pb-2">
-              <CardTitle className="flex items-center gap-2 text-base text-slate-900">
+          <Card className="h-fit border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-700 shadow-sm">
+            <CardHeader className="border-b border-slate-100 dark:border-slate-700 pb-2">
+              <CardTitle className="flex items-center gap-2 text-base text-slate-900 dark:text-slate-200">
                 <User className="h-4 w-4" />
                 Patient Profile
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 pt-4 text-sm">
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500">Joined</div>
-                <div className="mt-0.5 font-medium text-slate-900">
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Joined</div>
+                <div className="mt-0.5 font-medium text-slate-900 dark:text-slate-200">
                   {patient.created_at ? new Date(patient.created_at).toLocaleDateString() : "-"}
                 </div>
               </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500">Email</div>
-                <div className="mt-0.5 break-all font-medium text-slate-900">{patient.email || "-"}</div>
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Email</div>
+                <div className="mt-0.5 break-all font-medium text-slate-900 dark:text-slate-200">{patient.email || "-"}</div>
               </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500">Date of Birth</div>
-                <div className="mt-0.5 flex items-center gap-1.5 font-medium text-slate-900">
-                  <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Date of Birth</div>
+                <div className="mt-0.5 flex items-center gap-1.5 font-medium text-slate-900 dark:text-slate-200">
+                  <CalendarDays className="h-3.5 w-3.5 text-slate-400 dark:text-slate-400" />
                   {patient.date_of_birth || "-"}
                 </div>
               </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500">Phone</div>
-                <div className="mt-0.5 flex items-center gap-1.5 font-medium text-slate-900">
-                  <Phone className="h-3.5 w-3.5 text-slate-400" />
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Phone</div>
+                <div className="mt-0.5 flex items-center gap-1.5 font-medium text-slate-900 dark:text-slate-200">
+                  <Phone className="h-3.5 w-3.5 text-slate-400 dark:text-slate-400" />
                   {patient.phone || "-"}
                 </div>
               </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500">Sex</div>
-                <div className="mt-0.5 font-medium text-slate-900">{patient.sex || "-"}</div>
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Sex</div>
+                <div className="mt-0.5 font-medium text-slate-900 dark:text-slate-200">{patient.sex || "-"}</div>
               </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500">Location</div>
-                <div className="mt-0.5 flex items-center gap-1.5 font-medium text-slate-900">
-                  <MapPin className="h-3.5 w-3.5 text-slate-400" />
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Location</div>
+                <div className="mt-0.5 flex items-center gap-1.5 font-medium text-slate-900 dark:text-slate-200">
+                  <MapPin className="h-3.5 w-3.5 text-slate-400 dark:text-slate-400" />
                   {patient.city && patient.state ? `${patient.city}, ${patient.state}` : patient.state || "-"}
                 </div>
               </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500">Address</div>
-                <div className="mt-0.5 break-words font-medium text-slate-900">
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Address</div>
+                <div className="mt-0.5 break-words font-medium text-slate-900 dark:text-slate-200">
                   {fullAddress}
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="h-fit border-slate-200 bg-white shadow-sm">
-            <CardHeader className="border-b border-slate-100 pb-2">
-              <CardTitle className="flex items-center gap-2 text-base text-slate-900">
+          <Card className="h-fit border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-700 shadow-sm">
+            <CardHeader className="border-b border-slate-100 dark:border-slate-700 pb-2">
+              <CardTitle className="flex items-center gap-2 text-base text-slate-900 dark:text-slate-200">
                 <Stethoscope className="h-4 w-4" />
                 Medical History
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 pt-4 text-sm">
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500">
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   <ShieldAlert className="h-3.5 w-3.5 text-amber-600" />
                   Allergies
                 </div>
-                <div className="mt-1 whitespace-pre-wrap font-medium text-slate-900">
+                <div className="mt-1 whitespace-pre-wrap font-medium text-slate-900 dark:text-slate-200">
                   {patient.allergies || "None reported"}
                 </div>
               </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500">
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   <Stethoscope className="h-3.5 w-3.5 text-blue-600" />
                   Medical Conditions
                 </div>
-                <div className="mt-1 whitespace-pre-wrap font-medium text-slate-900">
+                <div className="mt-1 whitespace-pre-wrap font-medium text-slate-900 dark:text-slate-200">
                   {patient.medical_conditions || "None reported"}
                 </div>
               </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500">
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   <Pill className="h-3.5 w-3.5 text-violet-600" />
                   Current Medications
                 </div>
-                <div className="mt-1 whitespace-pre-wrap font-medium text-slate-900">
+                <div className="mt-1 whitespace-pre-wrap font-medium text-slate-900 dark:text-slate-200">
                   {patient.self_reported_meds || "None reported"}
                 </div>
               </div>
@@ -366,10 +369,10 @@ export default function PatientDetailPage() {
           </div>
 
           <div className="xl:col-span-9">
-            <Card className="border-slate-200 bg-white shadow-sm">
+            <Card className="border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-700 shadow-sm">
               <CardContent className="p-4 md:p-5">
                 <Tabs defaultValue="treatments" className="w-full">
-                  <TabsList className="mb-3 h-10 w-full justify-start gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-1">
+                  <TabsList className="mb-3 h-10 w-full justify-start gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-900/40">
                     <TabsTrigger value="treatments" className="rounded-lg px-3">Treatments</TabsTrigger>
                     <TabsTrigger value="orders" className="rounded-lg px-3">Orders</TabsTrigger>
                     <TabsTrigger value="followups" className="rounded-lg px-3">Follow-ups</TabsTrigger>
@@ -377,16 +380,16 @@ export default function PatientDetailPage() {
 
                   <TabsContent value="treatments" className="space-y-3">
                     {episodes.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500">
+                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-400">
                         No treatment episodes found.
                       </div>
                     ) : episodes.map((episode) => {
                       const currentOrder = episode.current_order_id ? ordersById.get(episode.current_order_id) : undefined;
                       return (
-                        <Card key={episode.id} className="overflow-hidden border-slate-200 shadow-sm">
-                          <CardHeader className="border-b border-slate-100 bg-slate-50/80 pb-2">
+                        <Card key={episode.id} className="overflow-hidden border-slate-200 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                          <CardHeader className="border-b border-slate-100 bg-slate-50/80 pb-2 dark:border-slate-700 dark:bg-slate-950/60">
                             <CardTitle className="flex items-center justify-between gap-2 text-base">
-                              <span className="truncate text-slate-900">
+                              <span className="truncate text-slate-900 dark:text-slate-200">
                                 {getTreatmentDisplayName(episode)}
                               </span>
                               <Badge variant="outline" className="rounded-full capitalize">
@@ -395,33 +398,33 @@ export default function PatientDetailPage() {
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-3 pt-3 text-sm">
-                            <p className="text-slate-700">
-                              <span className="text-slate-500">Start date:</span>{" "}
+                            <p className="text-slate-700 dark:text-slate-200">
+                              <span className="text-slate-500 dark:text-slate-400">Start date:</span>{" "}
                               <span className="font-medium">
                                 {episode.started_at ? new Date(episode.started_at).toLocaleDateString() : "-"}
                               </span>
                             </p>
                             {episode.current_product_titration_category && (
-                              <p className="text-slate-700">
-                                <span className="text-slate-500">Regimen:</span>{" "}
+                              <p className="text-slate-700 dark:text-slate-200">
+                                <span className="text-slate-500 dark:text-slate-400">Regimen:</span>{" "}
                                 <span className="font-medium">{episode.current_product_titration_category}</span>
                               </p>
                             )}
 
-                            <div className="overflow-x-auto rounded-lg border border-slate-200">
+                            <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
                               <table className="w-full min-w-[640px] text-xs">
-                                <thead className="bg-slate-50">
+                                <thead className="bg-slate-50 dark:bg-slate-800">
                                   <tr>
-                                    <th className="p-2 text-left font-semibold text-slate-700">Order ID</th>
-                                    <th className="p-2 text-left font-semibold text-slate-700">Product</th>
-                                    <th className="p-2 text-left font-semibold text-slate-700">Amount</th>
-                                    <th className="p-2 text-left font-semibold text-slate-700">Status</th>
-                                    <th className="p-2 text-left font-semibold text-slate-700">Date</th>
+                                    <th className="p-2 text-left font-semibold text-slate-700 dark:text-slate-200">Order ID</th>
+                                    <th className="p-2 text-left font-semibold text-slate-700 dark:text-slate-200">Product</th>
+                                    <th className="p-2 text-left font-semibold text-slate-700 dark:text-slate-200">Amount</th>
+                                    <th className="p-2 text-left font-semibold text-slate-700 dark:text-slate-200">Status</th>
+                                    <th className="p-2 text-left font-semibold text-slate-700 dark:text-slate-200">Date</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {currentOrder ? (
-                                    <tr className="bg-white hover:bg-slate-50">
+                                    <tr className="bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800">
                                       <td className="p-2">
                                         <Link
                                           className="font-medium text-blue-600 hover:underline"
@@ -430,20 +433,20 @@ export default function PatientDetailPage() {
                                           {currentOrder.order_id || currentOrder.display_id || currentOrder.id.slice(0, 8)}
                                         </Link>
                                       </td>
-                                      <td className="p-2 text-slate-700">{currentOrder.product_name || "-"}</td>
-                                      <td className="p-2 font-semibold text-slate-900">{getCanonicalOrderAmount(currentOrder)}</td>
+                                      <td className="p-2 text-slate-700 dark:text-slate-200">{currentOrder.product_name || "-"}</td>
+                                      <td className="p-2 font-semibold text-slate-900 dark:text-slate-200">{getCanonicalOrderAmount(currentOrder)}</td>
                                       <td className="p-2">
                                         <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize ${getOrderStatusTone(currentOrder.orderStatus || currentOrder.status)}`}>
                                           {currentOrder.orderStatus || currentOrder.status || "-"}
                                         </span>
                                       </td>
-                                      <td className="p-2 text-slate-700">
+                                      <td className="p-2 text-slate-700 dark:text-slate-200">
                                         {currentOrder.orderDate ? new Date(currentOrder.orderDate).toLocaleDateString() : "-"}
                                       </td>
                                     </tr>
                                   ) : (
                                     <tr>
-                                      <td className="p-3 text-slate-500" colSpan={5}>
+                                      <td className="p-3 text-slate-500 dark:text-slate-400" colSpan={5}>
                                         No contextual order linked.
                                       </td>
                                     </tr>
@@ -459,24 +462,24 @@ export default function PatientDetailPage() {
 
                   <TabsContent value="orders" className="space-y-3">
                     {orders.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500">
+                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-400">
                         No orders found.
                       </div>
                     ) : (
-                      <div className="overflow-x-auto rounded-lg border border-slate-200">
+                      <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
                         <table className="w-full min-w-[700px] text-sm">
-                          <thead className="bg-slate-50">
+                          <thead className="bg-slate-50 dark:bg-slate-800">
                             <tr>
-                              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Order</th>
-                              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Product</th>
-                              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Amount</th>
-                              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Date</th>
-                              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Status</th>
+                              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">Order</th>
+                              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">Product</th>
+                              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">Amount</th>
+                              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">Date</th>
+                              <th className="p-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">Status</th>
                             </tr>
                           </thead>
                           <tbody>
                             {orders.map((order) => (
-                              <tr key={order.id} className="border-t border-slate-100 bg-white hover:bg-slate-50/70">
+                              <tr key={order.id} className="border-t border-slate-100 bg-white hover:bg-slate-50/70 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800">
                                 <td className="p-3">
                                   <Link
                                     className="font-medium text-blue-600 hover:underline"
@@ -485,11 +488,9 @@ export default function PatientDetailPage() {
                                     #{order.order_id || order.display_id || order.id.slice(0, 8)}
                                   </Link>
                                 </td>
-                                <td className="p-3 text-slate-700">{order.product_name || "-"}</td>
-                                <td className="p-3 font-semibold text-slate-900">{getCanonicalOrderAmount(order)}</td>
-                                <td className="p-3 text-slate-700">
-                                  {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : "-"}
-                                </td>
+                                <td className="p-3 text-slate-700 dark:text-slate-200">{order.product_name || "-"}</td>
+                                <td className="p-3 font-semibold text-slate-900 dark:text-slate-200">{getCanonicalOrderAmount(order)}</td>
+                                <td className="p-3 text-slate-700 dark:text-slate-200">{order.orderDate ? new Date(order.orderDate).toLocaleDateString() : "-"}</td>
                                 <td className="p-3">
                                   <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize ${getOrderStatusTone(order.orderStatus || order.status)}`}>
                                     {order.orderStatus || order.status || "-"}
