@@ -48,6 +48,9 @@ interface SendFollowUpDialogProps {
   onSuccess?: (result: CreateFollowUpResponse) => void;
 }
 
+const normalizeTreatmentType = (value?: string | null) =>
+  (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
 export function SendFollowUpDialog({
   open,
   onOpenChange,
@@ -163,19 +166,26 @@ export function SendFollowUpDialog({
       const activeTreatmentTypes = new Set(
         patientEpisodes
           .filter(ep => ep.status === 'active')
-          .map(ep => ep.treatment_key)
+          .map(ep => normalizeTreatmentType(ep.treatment_key))
           .filter(Boolean)
       );
 
-      const filteredFollowUpTemplates = followUpData.filter(template => 
-        !template.treatment_type || activeTreatmentTypes.has(template.treatment_type)
+      const filteredFollowUpTemplates = followUpData.filter((template) =>
+        !template.treatment_type ||
+        activeTreatmentTypes.has(normalizeTreatmentType(template.treatment_type))
       );
 
       setTemplates(filteredFollowUpTemplates);
       setOnboardingTemplates(onboardingData);
-      if (filteredFollowUpTemplates.length > 0) {
-        setSelectedTemplate(filteredFollowUpTemplates[0].id);
-      }
+      setSelectedTemplate((currentSelectedTemplate) => {
+        if (
+          currentSelectedTemplate &&
+          filteredFollowUpTemplates.some((template) => template.id === currentSelectedTemplate)
+        ) {
+          return currentSelectedTemplate;
+        }
+        return filteredFollowUpTemplates[0]?.id || '';
+      });
     } catch (error) {
       console.error('Failed to load templates:', error);
       const [followUpData, onboardingData] = await Promise.all([
@@ -184,9 +194,15 @@ export function SendFollowUpDialog({
       ]);
       setTemplates(followUpData);
       setOnboardingTemplates(onboardingData);
-      if (followUpData.length > 0) {
-        setSelectedTemplate(followUpData[0].id);
-      }
+      setSelectedTemplate((currentSelectedTemplate) => {
+        if (
+          currentSelectedTemplate &&
+          followUpData.some((template) => template.id === currentSelectedTemplate)
+        ) {
+          return currentSelectedTemplate;
+        }
+        return followUpData[0]?.id || '';
+      });
     } finally {
       setLoadingTemplates(false);
     }
@@ -215,17 +231,33 @@ export function SendFollowUpDialog({
   const loadEpisodes = useCallback(async (templateId: string) => {
     setLoadingEpisodes(true);
     try {
-      // First try: episodes compatible with selected follow-up template
-      const filteredEpisodes = await patientService.getTreatmentEpisodes(patientId, templateId);
+      const allEpisodes = await patientService.getTreatmentEpisodes(patientId);
+      const template = templates.find((item) => item.id === templateId) || null;
+      const normalizedTemplateTreatment = normalizeTreatmentType(template?.treatment_type);
 
-      // Fallback: if template filter returns nothing, load all patient episodes
-      // to avoid false "no episode" when treatment-key mapping is strict.
-      const data =
-        filteredEpisodes.length > 0
-          ? filteredEpisodes
-          : await patientService.getTreatmentEpisodes(patientId);
+      const treatmentMatchedEpisodes = normalizedTemplateTreatment
+        ? allEpisodes.filter(
+            (episode) =>
+              normalizeTreatmentType(episode.treatment_key) === normalizedTemplateTreatment
+          )
+        : allEpisodes;
 
-      setEpisodesFallbackUsed(filteredEpisodes.length === 0 && data.length > 0);
+      const activeTreatmentMatchedEpisodes = treatmentMatchedEpisodes.filter(
+        (episode) => episode.status === 'active'
+      );
+
+      const preferredEpisodes =
+        activeTreatmentMatchedEpisodes.length > 0
+          ? activeTreatmentMatchedEpisodes
+          : treatmentMatchedEpisodes;
+
+      const data = preferredEpisodes.length > 0 ? preferredEpisodes : allEpisodes;
+
+      setEpisodesFallbackUsed(
+        Boolean(normalizedTemplateTreatment) &&
+          treatmentMatchedEpisodes.length === 0 &&
+          allEpisodes.length > 0
+      );
       setEpisodes(data);
       if (data.length === 1) {
         setSelectedEpisodeId(data[0].id);
@@ -239,7 +271,7 @@ export function SendFollowUpDialog({
     } finally {
       setLoadingEpisodes(false);
     }
-  }, [patientId]);
+  }, [patientId, templates]);
 
   useEffect(() => {
     if (open) {
