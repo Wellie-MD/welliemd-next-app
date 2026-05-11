@@ -126,7 +126,11 @@ export default function PatientDetailPage() {
   const fullName = patient?.full_name || `${patient?.first_name || ""} ${patient?.last_name || ""}`.trim();
   const initials = `${patient?.first_name?.[0] || ""}${patient?.last_name?.[0] || ""}`.toUpperCase() || "PT";
   const fullAddress = patient?.address
-    ? `${patient.address}${patient.address_line_2 ? `, ${patient.address_line_2}` : ""}${patient.city || patient.state || patient.zip_code ? ", " : ""}${[patient.city, patient.state, patient.zip_code].filter(Boolean).join(" ")}`
+    ? [
+      patient.address,
+      patient.address_line_2,
+      [patient.city, patient.state, patient.zip_code].filter(Boolean).join(" ")
+    ].filter(Boolean).join(", ")
     : "-";
 
   const getOrderStatusTone = (status?: string) => {
@@ -274,95 +278,95 @@ export default function PatientDetailPage() {
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
           <div className="space-y-4 xl:col-span-3">
-          <Card className="h-fit border-slate-200 bg-white shadow-sm">
-            <CardHeader className="border-b border-slate-100 pb-2">
-              <CardTitle className="flex items-center gap-2 text-base text-slate-900">
-                <User className="h-4 w-4" />
-                Patient Profile
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-4 text-sm">
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500">Joined</div>
-                <div className="mt-0.5 font-medium text-slate-900">
-                  {patient.created_at ? new Date(patient.created_at).toLocaleDateString() : "-"}
+            <Card className="h-fit border-slate-200 bg-white shadow-sm">
+              <CardHeader className="border-b border-slate-100 pb-2">
+                <CardTitle className="flex items-center gap-2 text-base text-slate-900">
+                  <User className="h-4 w-4" />
+                  Patient Profile
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 pt-4 text-sm">
+                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                  <div className="text-[11px] uppercase tracking-wide text-slate-500">Joined</div>
+                  <div className="mt-0.5 font-medium text-slate-900">
+                    {patient.created_at ? new Date(patient.created_at).toLocaleDateString() : "-"}
+                  </div>
                 </div>
-              </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500">Email</div>
-                <div className="mt-0.5 break-all font-medium text-slate-900">{patient.email || "-"}</div>
-              </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500">Date of Birth</div>
-                <div className="mt-0.5 flex items-center gap-1.5 font-medium text-slate-900">
-                  <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
-                  {patient.date_of_birth || "-"}
+                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                  <div className="text-[11px] uppercase tracking-wide text-slate-500">Email</div>
+                  <div className="mt-0.5 break-all font-medium text-slate-900">{patient.email || "-"}</div>
                 </div>
-              </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500">Phone</div>
-                <div className="mt-0.5 flex items-center gap-1.5 font-medium text-slate-900">
-                  <Phone className="h-3.5 w-3.5 text-slate-400" />
-                  {patient.phone || "-"}
+                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                  <div className="text-[11px] uppercase tracking-wide text-slate-500">Date of Birth</div>
+                  <div className="mt-0.5 flex items-center gap-1.5 font-medium text-slate-900">
+                    <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
+                    {patient.date_of_birth || "-"}
+                  </div>
                 </div>
-              </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500">Sex</div>
-                <div className="mt-0.5 font-medium text-slate-900">{patient.sex || "-"}</div>
-              </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500">Location</div>
-                <div className="mt-0.5 flex items-center gap-1.5 font-medium text-slate-900">
-                  <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                  {patient.city && patient.state ? `${patient.city}, ${patient.state}` : patient.state || "-"}
+                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                  <div className="text-[11px] uppercase tracking-wide text-slate-500">Phone</div>
+                  <div className="mt-0.5 flex items-center gap-1.5 font-medium text-slate-900">
+                    <Phone className="h-3.5 w-3.5 text-slate-400" />
+                    {patient.phone || "-"}
+                  </div>
                 </div>
-              </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="text-[11px] uppercase tracking-wide text-slate-500">Address</div>
-                <div className="mt-0.5 break-words font-medium text-slate-900">
-                  {fullAddress}
+                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                  <div className="text-[11px] uppercase tracking-wide text-slate-500">Sex</div>
+                  <div className="mt-0.5 font-medium text-slate-900">{patient.sex || "-"}</div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                  <div className="text-[11px] uppercase tracking-wide text-slate-500">Location</div>
+                  <div className="mt-0.5 flex items-center gap-1.5 font-medium text-slate-900">
+                    <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                    {patient.city && patient.state ? `${patient.city}, ${patient.state}` : patient.state || "-"}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                  <div className="text-[11px] uppercase tracking-wide text-slate-500">Address</div>
+                  <div className="mt-0.5 break-words font-medium text-slate-900">
+                    {fullAddress}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card className="h-fit border-slate-200 bg-white shadow-sm">
-            <CardHeader className="border-b border-slate-100 pb-2">
-              <CardTitle className="flex items-center gap-2 text-base text-slate-900">
-                <Stethoscope className="h-4 w-4" />
-                Medical History
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-4 text-sm">
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500">
-                  <ShieldAlert className="h-3.5 w-3.5 text-amber-600" />
-                  Allergies
+            <Card className="h-fit border-slate-200 bg-white shadow-sm">
+              <CardHeader className="border-b border-slate-100 pb-2">
+                <CardTitle className="flex items-center gap-2 text-base text-slate-900">
+                  <Stethoscope className="h-4 w-4" />
+                  Medical History
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 pt-4 text-sm">
+                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500">
+                    <ShieldAlert className="h-3.5 w-3.5 text-amber-600" />
+                    Allergies
+                  </div>
+                  <div className="mt-1 whitespace-pre-wrap font-medium text-slate-900">
+                    {patient.allergies || "None reported"}
+                  </div>
                 </div>
-                <div className="mt-1 whitespace-pre-wrap font-medium text-slate-900">
-                  {patient.allergies || "None reported"}
+                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500">
+                    <Stethoscope className="h-3.5 w-3.5 text-blue-600" />
+                    Medical Conditions
+                  </div>
+                  <div className="mt-1 whitespace-pre-wrap font-medium text-slate-900">
+                    {patient.medical_conditions || "None reported"}
+                  </div>
                 </div>
-              </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500">
-                  <Stethoscope className="h-3.5 w-3.5 text-blue-600" />
-                  Medical Conditions
+                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500">
+                    <Pill className="h-3.5 w-3.5 text-violet-600" />
+                    Current Medications
+                  </div>
+                  <div className="mt-1 whitespace-pre-wrap font-medium text-slate-900">
+                    {patient.self_reported_meds || "None reported"}
+                  </div>
                 </div>
-                <div className="mt-1 whitespace-pre-wrap font-medium text-slate-900">
-                  {patient.medical_conditions || "None reported"}
-                </div>
-              </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500">
-                  <Pill className="h-3.5 w-3.5 text-violet-600" />
-                  Current Medications
-                </div>
-                <div className="mt-1 whitespace-pre-wrap font-medium text-slate-900">
-                  {patient.self_reported_meds || "None reported"}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
           </div>
 
           <div className="xl:col-span-9">
