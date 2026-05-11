@@ -515,16 +515,16 @@ export default function Orders() {
               render: (_: any, row: any) => {
                 const originalStatus = row.orderStatus ?? 'created'
                 const editedStatus = editedStatuses[row.id]
-                const isAlreadyShipped = originalStatus === 'shipped'  // Already shipped in DB
-                const isChangingToShipped = editedStatus === 'shipped' && !isAlreadyShipped  // User is changing TO shipped
-                const showTrackingInput = isAlreadyShipped || isChangingToShipped
+                const isShipmentFinalized = originalStatus === 'shipped' || originalStatus === 'delivered' // Tracking should stay visible for delivered orders
+                const isChangingToShipped = editedStatus === 'shipped' && !isShipmentFinalized // User is changing TO shipped
+                const showTrackingInput = isShipmentFinalized || isChangingToShipped
 
                 if (!showTrackingInput) {
                   return <span className="text-sm text-muted-foreground italic">N/A</span>
                 }
 
-                // Already shipped - show as read-only
-                if (isAlreadyShipped) {
+                // Already shipped/delivered - show as read-only
+                if (isShipmentFinalized) {
                   return (
                     <span className="text-sm font-medium">{row.tracking_number || '-'}</span>
                   )
