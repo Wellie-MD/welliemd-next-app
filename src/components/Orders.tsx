@@ -95,7 +95,7 @@ function OrderListItem({ order, onClick }: { order: PatientOrder; onClick: () =>
   const displayAmount = order.chargeable_amount || order.amount;
 
   return (
-    <div onClick={onClick} style={{ cursor: "pointer" }}>
+    <div className="km-order-row" onClick={onClick} style={{ cursor: "pointer" }}>
       <div className="km-oitem">
         <div className="km-oimg" style={{ background: 'var(--km-s3)', fontSize: 20 }}>
           {icon}
@@ -115,7 +115,7 @@ function OrderListItem({ order, onClick }: { order: PatientOrder; onClick: () =>
       </div>
 
       {order.status === 'shipped' && order.tracking_number && (
-        <div style={{ padding: '0 14px 14px' }}>
+        <div style={{ padding: '0 16px 14px' }}>
           <div className="km-vbox km-vbox-amber" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Truck size={14} style={{ color: 'var(--km-am)', flexShrink: 0 }} />
             <div style={{ flex: 1, fontSize: 12 }}>
