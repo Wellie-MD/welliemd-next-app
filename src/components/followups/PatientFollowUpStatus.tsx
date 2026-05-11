@@ -278,7 +278,7 @@ function FollowUpRow({
         <StatusIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
         <div>
           <p className="truncate text-sm font-medium">
-            {followUp.questionnaire_name || 'Follow-Up Questionnaire'}
+            {followUp.questionnaire__name || 'Follow-Up Questionnaire'}
           </p>
           <p className="text-xs text-muted-foreground">
             Sent {formatDate(followUp.created_at)}

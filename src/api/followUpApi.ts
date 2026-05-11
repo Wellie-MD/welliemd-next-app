@@ -12,7 +12,8 @@ export interface FollowUpSession {
     id: string;
     patient_id: string;
     questionnaire_id: string;
-    questionnaire_name?: string;
+    questionnaire__name?: string;
+    questionnaire__treatment_type?: string;
     status: 'CREATED' | 'VIEWED' | 'IN_PROGRESS' | 'COMPLETED' | 'EXPIRED';
     created_at: string;
     expires_at: string | null;
