@@ -181,7 +181,7 @@ const getTemplateColumns = (
 ];
 
 const statusFilters = ["All", "Published", "Draft"];
-const typeFilters = ["All Types", "Initial", "Follow-up", "Annual"];
+const typeFilters = ["All Types", "Onboarding", "Follow-up"];
 
 export default function TemplateManagement() {
   const [templates, setTemplates] = useState<QuestionnaireTemplate[]>([]);
@@ -435,9 +435,13 @@ export default function TemplateManagement() {
         (activeStatusFilter === "Draft" && !template.is_published);
 
       // Type filter
+      const typeFilterMap: Record<string, string> = {
+        "Onboarding": "onboarding",
+        "Follow-up": "follow_up",
+      };
       const matchesType =
         activeTypeFilter === "All Types" ||
-        template.questionnaire_type === activeTypeFilter;
+        template.questionnaire_type === typeFilterMap[activeTypeFilter];
 
       // Date range filter
       let matchesDateRange = true;

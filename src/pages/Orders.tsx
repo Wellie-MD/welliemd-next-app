@@ -7,18 +7,6 @@ import { TrendingUp, Grid3X3, Eye } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { ordersApi, Order } from "@/api/ordersApi"
 import { exportToCSV } from "@/utils/exportUtils"
-import { PermissionGate } from "@/components/auth/PermissionGate"
-import { Permissions } from "@/constants/permissions"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 
 /** Match admin portal order status filter pills → API `status` param */
 const ORDER_STATUS_FILTER_LABELS = [
@@ -154,7 +142,6 @@ export default function Orders() {
   const [editedStatuses, setEditedStatuses] = useState<Record<string, string>>({})
   const [editedTrackingNumbers, setEditedTrackingNumbers] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<Order | null>(null)
 
   // Order Details Sheet state
   const navigate = useNavigate()
@@ -252,23 +239,6 @@ export default function Orders() {
   const handleRefresh = useCallback(() => {
     loadOrders()
   }, [loadOrders])
-
-  const handleDeleteOrder = async (id: string) => {
-    setIsSaving(true)
-    setError(null)
-    setSuccess(null)
-    try {
-      await ordersApi.deleteOrder(id)
-      setSuccess('Order deleted')
-      await loadOrders()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete order')
-      console.error('Delete order error:', err)
-      throw err
-    } finally {
-      setIsSaving(false)
-    }
-  }
 
   const handleStatusChange = (id: string, value: string) => {
     setEditedStatuses(prev => ({ ...prev, [id]: value }))
@@ -453,17 +423,6 @@ export default function Orders() {
                     >
                       {savingId === row.id ? 'Saving...' : 'Save'}
                     </Button>
-                    {/* Delete button hidden on client portal /dashboard/orders */}
-                    <PermissionGate permission={Permissions.ORDER_DELETE}>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="hidden"
-                        onClick={() => setDeleteTarget(row)}
-                      >
-                        Delete
-                      </Button>
-                    </PermissionGate>
                   </div>
                 )
               },
@@ -571,33 +530,6 @@ export default function Orders() {
         }}
         loading={isLoadingOrders || isSaving}
       />
-
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this order?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action permanently deletes the order and cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSaving}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={async () => {
-                if (!deleteTarget) return
-                try {
-                  await handleDeleteOrder(deleteTarget.id)
-                } finally {
-                  setDeleteTarget(null)
-                }
-              }}
-              disabled={isSaving}
-            >
-              {isSaving ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }
