@@ -51,9 +51,14 @@ export default function Metafields() {
         description: 'Your tracking scripts have been updated successfully.',
       })
     } catch (error: any) {
+      const backendMessage =
+        error?.response?.data?.error ||
+        error?.response?.data?.detail ||
+        error?.response?.data?.message
+
       toast({
         title: 'Save Failed',
-        description: error.response?.data?.detail || 'Failed to save tracking JS',
+        description: backendMessage || 'Failed to save tracking JS',
         variant: 'destructive',
       })
     } finally {
