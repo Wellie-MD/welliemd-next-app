@@ -154,6 +154,30 @@ export function SendFollowUpDialog({
   const loadTemplates = useCallback(async () => {
     setLoadingTemplates(true);
     try {
+      const [followUpData, onboardingData, patientEpisodes] = await Promise.all([
+        getFollowUpTemplates(),
+        getOnboardingTemplates(),
+        patientService.getTreatmentEpisodes(patientId),
+      ]);
+
+      const activeTreatmentTypes = new Set(
+        patientEpisodes
+          .filter(ep => ep.status === 'active')
+          .map(ep => ep.treatment_key)
+          .filter(Boolean)
+      );
+
+      const filteredFollowUpTemplates = followUpData.filter(template => 
+        !template.treatment_type || activeTreatmentTypes.has(template.treatment_type)
+      );
+
+      setTemplates(filteredFollowUpTemplates);
+      setOnboardingTemplates(onboardingData);
+      if (filteredFollowUpTemplates.length > 0) {
+        setSelectedTemplate(filteredFollowUpTemplates[0].id);
+      }
+    } catch (error) {
+      console.error('Failed to load templates:', error);
       const [followUpData, onboardingData] = await Promise.all([
         getFollowUpTemplates(),
         getOnboardingTemplates(),
@@ -163,12 +187,10 @@ export function SendFollowUpDialog({
       if (followUpData.length > 0) {
         setSelectedTemplate(followUpData[0].id);
       }
-    } catch (error) {
-      console.error('Failed to load templates:', error);
     } finally {
       setLoadingTemplates(false);
     }
-  }, []);
+  }, [patientId]);
 
   const loadOrderCandidates = useCallback(async () => {
     setLoadingOrderCandidates(true);
