@@ -228,6 +228,27 @@ export interface UpdateProductPayload {
   is_active?: boolean;
 }
 
+export interface ProductCategorySummary {
+  id: string;
+  name: string;
+  count: number;
+}
+
+export interface ProductGroupingSummary {
+  key: string;
+  label: string;
+  icon?: string;
+  count: number;
+}
+
+export interface CouponCategoriesResponse {
+  total_products: number;
+  categories: ProductCategorySummary[];
+  product_types: ProductGroupingSummary[];
+  rx_types: ProductGroupingSummary[];
+  treatments: ProductGroupingSummary[];
+}
+
 export interface ProductListParams {
   is_admin_product?: boolean;
   is_active?: boolean;
@@ -314,6 +335,16 @@ export const productApi = {
     const { data } = await axiosInstance.patch<Product>(
       `products/${id}/`,
       payload
+    );
+    return data;
+  },
+
+  /**
+   * Get dynamic product categories/groupings for the current tenant
+   */
+  getCouponCategories: async (): Promise<CouponCategoriesResponse> => {
+    const { data } = await axiosInstance.get<CouponCategoriesResponse>(
+      "products/coupon-categories/"
     );
     return data;
   },
