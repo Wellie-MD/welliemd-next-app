@@ -52,9 +52,16 @@ export default function Dashboard() {
           getOrders(1, 1) // Just get the count
         ]);
         
-        // Active treatments = non-completed/cancelled visits
+        // Active treatments = visits with a paid order (not just non-completed visits)
+        const PAID_ORDER_STATUSES = [
+          "processing", "visit_pending",
+          "consult_scheduled", "consult_rescheduled", "no_show", "referred",
+          "prescribed", "billing_pending", "rx_sent", "shipped",
+        ];
         const activeTreatmentsCount = visitsRes.filter(v => 
-          !['completed', 'cancelled'].includes(v.status.toLowerCase())
+          !['completed', 'cancelled'].includes(v.status.toLowerCase()) &&
+          v.order_status &&
+          PAID_ORDER_STATUSES.includes(v.order_status.toLowerCase())
         ).length;
         
         setStats({
