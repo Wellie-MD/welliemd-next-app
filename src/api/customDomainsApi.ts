@@ -44,14 +44,6 @@ export const customDomainsApi = {
     return data;
   },
 
-  setupPortals: async (payload: { domain: string }): Promise<CustomDomain[]> => {
-    const { data } = await axiosInstance.post<CustomDomain[]>(
-      "/clients/me/custom-domains/setup-portals/",
-      payload
-    );
-    return data;
-  },
-
   verify: async (id: string): Promise<CustomDomain> => {
     const { data } = await axiosInstance.post<CustomDomain>(`/clients/me/custom-domains/${id}/verify/`);
     return data;

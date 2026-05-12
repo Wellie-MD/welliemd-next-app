@@ -72,60 +72,6 @@ function errorMessage(error: unknown, fallback: string) {
   );
 }
 
-const TWO_PART_TLDS = new Set(["co.uk", "com.br", "com.au", "co.nz", "co.jp", "or.jp"]);
-
-function normalizeHostname(value: string) {
-  const raw = value.trim().toLowerCase();
-  if (!raw) return "";
-
-  const withoutProtocol = raw.includes("://") ? raw.split("://")[1] : raw;
-  return withoutProtocol.split("/")[0].split(":")[0].replace(/\.+$/, "");
-}
-
-function splitAmplifyDomain(hostname: string): { rootDomain: string; prefix: string } | null {
-  const labels = hostname.split(".").filter(Boolean);
-  if (labels.length < 2) return null;
-
-  const suffix = labels.slice(-2).join(".");
-  if (labels.length >= 3 && TWO_PART_TLDS.has(suffix)) {
-    return {
-      rootDomain: labels.slice(-3).join("."),
-      prefix: labels.slice(0, -3).join("."),
-    };
-  }
-
-  return {
-    rootDomain: labels.slice(-2).join("."),
-    prefix: labels.slice(0, -2).join("."),
-  };
-}
-
-function buildPortalPreview(value: string) {
-  const hostname = normalizeHostname(value);
-  if (!hostname) return null;
-
-  const parsed = splitAmplifyDomain(hostname);
-  if (!parsed) return null;
-
-  const rootDomain = parsed.prefix ? parsed.rootDomain : hostname;
-  return {
-    rootDomain,
-    adminDomain: `admin.${rootDomain}`,
-    patientDomain: `patient.${rootDomain}`,
-    isBareRootInput: !parsed.prefix,
-  };
-}
-
-function mergeDomains(current: CustomDomain[], incoming: CustomDomain[]) {
-  const byId = new Map(current.map((item) => [item.id, item]));
-  for (const item of incoming) {
-    byId.set(item.id, item);
-  }
-  return Array.from(byId.values()).sort(
-    (left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
-  );
-}
-
 export default function Domains() {
   const { toast } = useToast();
   const { currentClient } = useClients();
@@ -138,7 +84,6 @@ export default function Domains() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [domain, setDomain] = useState("");
   const [portalType, setPortalType] = useState<CustomDomainPortalType>("client");
-  const preview = buildPortalPreview(domain);
 
   const loadDomains = useCallback(async (showToast = false) => {
     try {
@@ -185,7 +130,7 @@ export default function Domains() {
         domain: domain.trim(),
         portal_type: portalType,
       });
-      setDomains((current) => mergeDomains(current, [created]));
+      setDomains((current) => [created, ...current]);
       setDomain("");
       setPortalType("client");
       setDialogOpen(false);
@@ -197,41 +142,6 @@ export default function Domains() {
       toast({
         title: "Could not add domain",
         description: errorMessage(error, "Failed to add domain"),
-        variant: "destructive",
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function setupBothPortals() {
-    if (!domain.trim()) {
-      toast({ title: "Domain is required", variant: "destructive" });
-      return;
-    }
-
-    if (!preview) {
-      toast({ title: "Enter a valid root domain", variant: "destructive" });
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      const created = await customDomainsApi.setupPortals({
-        domain: preview.rootDomain,
-      });
-      setDomains((current) => mergeDomains(current, created));
-      setDomain("");
-      setPortalType("client");
-      setDialogOpen(false);
-      toast({
-        title: "Both portal domains added",
-        description: "Add the DNS records shown below for admin and patient, then verify them after propagation.",
-      });
-    } catch (error: unknown) {
-      toast({
-        title: "Could not set up both portals",
-        description: errorMessage(error, "Failed to add portal domains"),
         variant: "destructive",
       });
     } finally {
@@ -428,7 +338,7 @@ export default function Domains() {
                 id="custom-domain"
                 value={domain}
                 onChange={(event) => setDomain(event.target.value)}
-                placeholder="joinmyclinic.com or portal.myclinic.com"
+                placeholder="portal.yourclinic.com"
               />
             </div>
             <div className="space-y-2">
@@ -444,33 +354,10 @@ export default function Domains() {
                 </SelectContent>
               </Select>
             </div>
-            {preview && (
-              <div className="rounded-lg border bg-muted/40 p-3 text-sm space-y-2">
-                <div className="font-medium">Portal mapping preview</div>
-                <div className="text-muted-foreground">
-                  Client/Staff Portal: {preview.adminDomain}
-                </div>
-                <div className="text-muted-foreground">
-                  Patient Portal: {preview.patientDomain}
-                </div>
-                {preview.isBareRootInput && (
-                  <div className="text-xs text-muted-foreground">
-                    Root domains are automatically mapped to fixed portal subdomains to avoid Amplify certificate conflicts.
-                  </div>
-                )}
-              </div>
-            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
-            </Button>
-            <Button
-              variant="outline"
-              onClick={setupBothPortals}
-              disabled={submitting || !preview}
-            >
-              {submitting ? "Setting up..." : "Setup both portals"}
             </Button>
             <Button onClick={addDomain} disabled={submitting}>
               {submitting ? "Adding..." : "Add domain"}
