@@ -170,10 +170,13 @@ export function SendFollowUpDialog({
           .filter(Boolean)
       );
 
-      const filteredFollowUpTemplates = followUpData.filter((template) =>
-        !template.treatment_type ||
-        activeTreatmentTypes.has(normalizeTreatmentType(template.treatment_type))
-      );
+      const filteredFollowUpTemplates = followUpData.filter((template) => {
+        if (!template.treatment_type) return true;
+        // If patient has no active treatment episodes, don't filter templates
+        // so they can use the Order Context fallback.
+        if (activeTreatmentTypes.size === 0) return true;
+        return activeTreatmentTypes.has(normalizeTreatmentType(template.treatment_type));
+      });
 
       setTemplates(filteredFollowUpTemplates);
       setOnboardingTemplates(onboardingData);
