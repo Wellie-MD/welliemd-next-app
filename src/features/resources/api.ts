@@ -18,6 +18,14 @@ export interface BlogResource {
   is_bookmarked: boolean;
 }
 
+export interface ResourceCategory {
+  id: string;
+  name: string;
+  slug?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export const resourcesApi = {
   /**
    * Fetch all published resources for the current patient's client.
@@ -62,6 +70,16 @@ export const resourcesApi = {
     const response = await apiClient.post<{ status: string }>(
       `/patient/resources/${id}/toggle-bookmark/`,
       {}
+    );
+    return response.data;
+  },
+
+  /**
+   * Fetch resource categories for the current patient's client.
+   */
+  getCategories: async (): Promise<ResourceCategory[]> => {
+    const response = await apiClient.get<ResourceCategory[]>(
+      "/patient-resource-categories/"
     );
     return response.data;
   },

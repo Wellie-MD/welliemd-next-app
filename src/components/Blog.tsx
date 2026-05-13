@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Search, Grid2X2, Rows, Clock, Calendar, Loader2, AlertCircle, BookOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { resourcesApi, type BlogResource } from "@/features/resources/api";
+import { resourcesApi, type BlogResource, type ResourceCategory } from "@/features/resources/api";
 
 export default function Blog() {
   const navigate = useNavigate();
@@ -11,6 +11,7 @@ export default function Blog() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [categories, setCategories] = useState<ResourceCategory[]>([]);
 
   const fetchResources = useCallback(async () => {
     try {
@@ -36,6 +37,19 @@ export default function Blog() {
     const debounce = setTimeout(fetchResources, 300);
     return () => clearTimeout(debounce);
   }, [fetchResources]);
+
+  // Fetch tenant categories once on mount to render dynamic filter tags
+  useEffect(() => {
+    let mounted = true;
+    resourcesApi.getCategories()
+      .then((cs) => {
+        if (mounted && cs && cs.length) setCategories(cs);
+      })
+      .catch(() => {
+        // silent fallback to hardcoded tags if categories API fails
+      });
+    return () => { mounted = false; };
+  }, []);
 
   const getEmojiForPost = (title: string) => {
     const t = title.toLowerCase();
@@ -69,8 +83,23 @@ export default function Blog() {
         <div className="km-rtags">
           <span className={`km-rtag ${!activeCategory ? 'active' : ''}`} onClick={() => setActiveCategory(null)}>All</span>
           <span className={`km-rtag ${activeCategory === 'saved' ? 'active' : ''}`} onClick={() => setActiveCategory('saved')}>Saved</span>
-          <span className={`km-rtag ${activeCategory === 'General' ? 'active' : ''}`} onClick={() => setActiveCategory('General')}>General</span>
-          <span className={`km-rtag ${activeCategory === 'Wellness Tips' ? 'active' : ''}`} onClick={() => setActiveCategory('Wellness Tips')}>Wellness Tips</span>
+          {categories && categories.length > 0 ? (
+            categories.map((c) => (
+              <span
+                key={c.id}
+                className={`km-rtag ${activeCategory === c.name ? 'active' : ''}`}
+                onClick={() => setActiveCategory(c.name)}
+              >
+                {c.name}
+              </span>
+            ))
+          ) : (
+            // Fallback hardcoded tags while categories are not available
+            <>
+              <span className={`km-rtag ${activeCategory === 'General' ? 'active' : ''}`} onClick={() => setActiveCategory('General')}>General</span>
+              <span className={`km-rtag ${activeCategory === 'Wellness Tips' ? 'active' : ''}`} onClick={() => setActiveCategory('Wellness Tips')}>Wellness Tips</span>
+            </>
+          )}
         </div>
         
         <div className="km-rtoggle">
