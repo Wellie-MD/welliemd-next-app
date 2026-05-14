@@ -258,7 +258,7 @@ export function Header() {
                               : ""}
                           </div>
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1 break-words">{n.body}</div>
+                        <div className="text-xs text-muted-foreground line-clamp-2 mt-1 break-words">{n.body}</div>
                       </div>
                       <div className="pt-0.5">
                         <CheckCircle2 className="h-4 w-4 text-sky-500" />
