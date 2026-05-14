@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Calendar, Clock, Bookmark, Heart, AlertCircle } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Bookmark, AlertCircle } from "lucide-react";
 import { resourcesApi, type BlogResource } from "@/features/resources/api";
 
 export default function BlogPost() {
@@ -9,7 +9,6 @@ export default function BlogPost() {
   const [post, setPost] = useState<BlogResource | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isLiked, setIsLiked] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
 
   useEffect(() => {
@@ -22,7 +21,6 @@ export default function BlogPost() {
         const data = await resourcesApi.getById(id);
         if (!cancelled) {
           setPost(data);
-          setIsLiked(data.is_liked || false);
           setIsBookmarked(data.is_bookmarked || false);
         }
       } catch {
@@ -33,16 +31,6 @@ export default function BlogPost() {
     })();
     return () => { cancelled = true; };
   }, [id]);
-
-  const handleToggleLike = async () => {
-    if (!post) return;
-    try {
-      const result = await resourcesApi.toggleLike(post.id);
-      setIsLiked(result.status === 'liked');
-    } catch (err: any) {
-      console.error("toggleLike error:", err?.response?.data || err);
-    }
-  };
 
   const handleToggleBookmark = async () => {
     if (!post) return;
@@ -142,13 +130,6 @@ export default function BlogPost() {
             </div>
             
             <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                className={`km-btn ${isLiked ? 'km-btn-primary' : 'km-btn-outline'}`}
-                style={{ width: 36, height: 36, padding: 0, justifyContent: 'center', borderRadius: '50%' }}
-                onClick={handleToggleLike}
-              >
-                <Heart size={16} fill={isLiked ? "currentColor" : "none"} />
-              </button>
               <button
                 className={`km-btn ${isBookmarked ? 'km-btn-primary' : 'km-btn-outline'}`}
                 style={{ width: 36, height: 36, padding: 0, justifyContent: 'center', borderRadius: '50%' }}
