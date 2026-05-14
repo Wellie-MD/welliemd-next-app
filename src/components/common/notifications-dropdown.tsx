@@ -155,7 +155,7 @@ export const NotificationsDropdown = () => {
                 
                 <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4, gap: 8 }}>
-                    <div style={{ fontSize: 13, fontWeight: !notification.read ? 700 : 500, color: "var(--km-t)", lineHeight: 1.3, flex: 1, minWidth: 0, wordBreak: "break-word" }}>
+                    <div className="line-clamp-2 break-words" style={{ fontSize: 13, fontWeight: !notification.read ? 700 : 500, color: "var(--km-t)", lineHeight: 1.3, flex: 1, minWidth: 0 }}>
                       {notification.title}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
@@ -167,7 +167,7 @@ export const NotificationsDropdown = () => {
                       )}
                     </div>
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--km-tm)", lineHeight: 1.4, opacity: 0.9, wordBreak: "break-word" }}>
+                  <div className="line-clamp-2 break-words" style={{ fontSize: 12, color: "var(--km-tm)", lineHeight: 1.4, opacity: 0.9 }}>
                     {notification.message}
                   </div>
                 </div>

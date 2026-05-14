@@ -27,7 +27,7 @@ import { VisitService } from "@/features/visits/services/visit.service";
 import { useAuth } from "@/features/auth";
 import { env } from "@/config/env";
 
-import { isToday, isYesterday, isThisWeek, format, formatISO } from "date-fns";
+import { isToday, isYesterday, format, formatISO } from "date-fns";
 
 // ---------------- Types -----------------
 interface Conversation {
@@ -35,6 +35,8 @@ interface Conversation {
   masterId: string;
   label: string;         // e.g., `${visit_type} — Chat`
   messages: RawMessage[]; // newest-first in state
+  order_display_id?: string | null;
+  order_id?: string | null;
 }
 
 const formatConversationLabel = (visit: { visit_type?: string; assigned_template?: { name: string } | null; master_id?: string }) => {
@@ -101,20 +103,6 @@ function isInboundForPatient(m: RawMessage) {
     m.senderType === "support" ||
     m.senderType === "super_support"
   );
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function routeLabel(m: RawMessage) {
-  if (m.senderType === "patient") {
-    if (m.chatType === "doctor") return "to Doctor";
-    if (m.chatType === "super_support") return "to Super Admin Support";
-    if (m.chatType === "support") return "to Support";
-    return "You";
-  }
-  if (m.senderType === "doctor") return "Doctor";
-  if (m.senderType === "super_support") return "Client Support";
-  if (m.senderType === "support") return "Client Support";
-  return "You";
 }
 
 const isImage = (mime?: string) => (mime ?? "").startsWith("image/");
@@ -249,6 +237,8 @@ export default function Messages() {
           masterId: mId,
           label: formatConversationLabel(v),
           messages: raw,
+          order_display_id: (v as any).order_display_id,
+          order_id: (v as any).order_id,
         } as Conversation;
       });
       const results = await Promise.all(promises);
@@ -263,15 +253,22 @@ export default function Messages() {
         });
 
       setConversations(nextConversations);
+      const firstConversationId = nextConversations[0]?.id;
+      if (!firstConversationId) {
+        hasInitiallyLoaded.current = true;
+        return;
+      }
 
       // Handle orderRef auto-selection
       const orderRef = searchParams.get('order_ref');
       
       if (orderRef && nextConversations.length > 0) {
         const match = nextConversations.find(c =>
-          c.masterId === orderRef || c.masterId.startsWith(orderRef)
+          c.masterId === orderRef || c.masterId.startsWith(orderRef) ||
+          c.order_display_id === orderRef || c.order_display_id?.startsWith(orderRef) ||
+          c.order_id === orderRef || c.order_id?.startsWith(orderRef)
         );
-        setSelectedId(match?.id || nextConversations[0].id);
+        setSelectedId(match?.id || firstConversationId);
         
         hasInitiallyLoaded.current = true;
       } else if ((!hasInitiallyLoaded.current || pendingPrefillRef.current) && nextConversations.length > 0) {
@@ -280,7 +277,7 @@ export default function Messages() {
         hasInitiallyLoaded.current = true;
         const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
         if (isDesktop || pendingPrefillRef.current) {
-          setSelectedId(nextConversations[0].id);
+          setSelectedId(firstConversationId);
         }
         pendingPrefillRef.current = false;
       }
@@ -542,8 +539,8 @@ export default function Messages() {
                   >
                     <div className="km-mavt" style={{ background: isUnread ? 'var(--km-ac)' : 'var(--km-s2)', color: isUnread ? '#fff' : 'var(--km-gr)', fontWeight: 600 }}>{avText}</div>
                     <div className="km-mbody">
-                      <div className="km-mfrom" style={{ fontSize: '13px', fontWeight: isUnread ? 700 : 500, color: isUnread ? 'var(--km-t)' : 'var(--km-tm)' }}>{c.label} · {c.masterId}</div>
-                      <div className="km-mprev" style={{ fontSize: '11px', color: isUnread ? 'var(--km-t)' : 'var(--km-tm)', fontWeight: isUnread ? 500 : 400, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div className="km-mfrom" style={{ fontSize: '13px', fontWeight: isUnread ? 700 : 500, color: isUnread ? 'var(--km-t)' : 'var(--km-tm)' }}>{c.label} · {c.order_id || c.order_display_id || c.masterId}</div>
+                      <div className="km-mprev line-clamp-2 break-words" style={{ fontSize: '11px', color: isUnread ? 'var(--km-t)' : 'var(--km-tm)', fontWeight: isUnread ? 500 : 400, marginTop: 2 }}>
                         {formatThreadPreview(lastMsg)}
                       </div>
                     </div>
@@ -584,7 +581,7 @@ export default function Messages() {
                 {selectedChat.label.substring(0,2).toUpperCase()}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 700 }}>{selectedChat.label} · {selectedChat.masterId}</div>
+                <div style={{ fontSize: 14, fontWeight: 700 }}>{selectedChat.label} · {selectedChat.order_id || selectedChat.order_display_id || selectedChat.masterId}</div>
                 <div style={{ fontSize: 11, color: "var(--km-tm)" }}>Doctor + Support · Unified thread</div>
               </div>
             </div>
