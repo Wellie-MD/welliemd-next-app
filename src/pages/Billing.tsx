@@ -3,7 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { clientApi } from "@/api/clientApi";
 import type { B2BInvoice } from "@/types/b2bBilling";
-import { Search } from "lucide-react";
+import { Search, GitBranch } from "lucide-react";
+
+type DisplayInvoice = B2BInvoice & {
+  supplementalInvoices?: B2BInvoice[];
+};
 
 export default function Billing() {
   const [invoiceType, setInvoiceType] = useState<
@@ -88,12 +92,34 @@ export default function Billing() {
     return `Pharmacy: $${pharmacy.toFixed(2)} · Consult: $${consult.toFixed(2)}`;
   };
   const groupedInvoices = useMemo(() => {
-    if (ordering !== "-issued_at" && ordering !== "issued_at") return invoices;
+    const displayRows: DisplayInvoice[] = [];
+    const supplementalByParent = new Map<string, B2BInvoice[]>();
+
+    invoices.forEach((inv) => {
+      if (!inv.is_supplemental_split_capture || !inv.supplemental_parent_invoice_id) return;
+      const bucket = supplementalByParent.get(inv.supplemental_parent_invoice_id) || [];
+      bucket.push(inv);
+      supplementalByParent.set(inv.supplemental_parent_invoice_id, bucket);
+    });
+
+    invoices.forEach((inv) => {
+      if (inv.is_supplemental_split_capture) {
+        return;
+      }
+      const linkedSupplementals =
+        inv.invoice_type === "reimbursement" ? supplementalByParent.get(inv.id) || [] : [];
+      displayRows.push({
+        ...inv,
+        supplementalInvoices: linkedSupplementals,
+      });
+    });
+
+    if (ordering !== "-issued_at" && ordering !== "issued_at") return displayRows;
 
     const direction = ordering === "-issued_at" ? -1 : 1;
     const toTime = (value?: string) => (value ? new Date(value).getTime() : null);
 
-    return [...invoices].sort((a, b) => {
+    return [...displayRows].sort((a, b) => {
       const aIssued = toTime(a.issued_at);
       const bIssued = toTime(b.issued_at);
 
@@ -246,10 +272,17 @@ export default function Billing() {
                     const status = ((inv as any).is_overdue && inv.status !== "paid"
                       ? "overdue"
                       : inv.status || "-").toString();
+                    const supplementalTotal = (inv.supplementalInvoices || []).reduce(
+                      (sum, child) => sum + parseFloat((child as any).total_amount ?? child.amount ?? "0"),
+                      0
+                    );
+                    const hasNestedSupplementals = (inv.supplementalInvoices || []).length > 0;
                     return (
                       <tr
                         key={inv.id}
-                        className="border-b hover:bg-muted/10 transition-colors"
+                        className={`border-b hover:bg-muted/10 transition-colors ${
+                          hasNestedSupplementals ? "bg-amber-50/50" : ""
+                        }`}
                         onClick={() => setSelected(inv)}
                         role="button"
                       >
@@ -271,7 +304,13 @@ export default function Billing() {
                           {formatLabel(inv.invoice_type)}
                         </td>
                         <td className="px-6 py-4 text-sm text-muted-foreground">
-                          {formatBreakdown(inv)}
+                          <div>{formatBreakdown(inv)}</div>
+                          {hasNestedSupplementals && (
+                            <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+                              <GitBranch className="h-3 w-3" />
+                              Split Capture · +${supplementalTotal.toFixed(2)} supplemental
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${statusPillClass(status)}`}>
@@ -324,12 +363,80 @@ export default function Billing() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-4">
               <div className="rounded border p-3"><strong>Client:</strong> {(selected as any).client_name || "-"}</div>
               <div className="rounded border p-3"><strong>Client Order #:</strong> {getClientOrderNumber(selected)}</div>
-              <div className="rounded border p-3"><strong>Type:</strong> {selected.invoice_type?.replace("_", " ")}</div>
-              <div className="rounded border p-3"><strong>Status:</strong> {selected.status}</div>
-              <div className="rounded border p-3"><strong>Total:</strong> ${(selected as any).total_amount ?? selected.amount}</div>
-              <div className="rounded border p-3"><strong>Issued:</strong> {selected.issued_at ? new Date(selected.issued_at).toLocaleDateString() : "-"}</div>
-              <div className="rounded border p-3"><strong>Due:</strong> {selected.due_date ? new Date(selected.due_date).toLocaleDateString() : "N/A"}</div>
-            </div>
+                <div className="rounded border p-3"><strong>Type:</strong> {selected.invoice_type?.replace("_", " ")}</div>
+                <div className="rounded border p-3"><strong>Status:</strong> {selected.status}</div>
+                <div className="rounded border p-3"><strong>Total:</strong> ${(selected as any).total_amount ?? selected.amount}</div>
+                <div className="rounded border p-3"><strong>Issued:</strong> {selected.issued_at ? new Date(selected.issued_at).toLocaleDateString() : "-"}</div>
+                <div className="rounded border p-3"><strong>Due:</strong> {selected.due_date ? new Date(selected.due_date).toLocaleDateString() : "N/A"}</div>
+              </div>
+            {((selected as DisplayInvoice).supplementalInvoices || []).length > 0 && (
+              <div className="mb-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm">
+                <div className="font-medium text-amber-900">Split Capture Details</div>
+                <div className="mt-1 text-amber-800">
+                  Supplemental reimbursements are consolidated into this invoice row for readability.
+                </div>
+                {(() => {
+                  const parentAmount = parseFloat((selected as any).total_amount ?? selected.amount ?? "0");
+                  const intendedAuthAmount = parseFloat((selected as any).intended_authorization_amount ?? "");
+                  const supplemental = ((selected as DisplayInvoice).supplementalInvoices || []);
+                  const supplementalTotal = supplemental.reduce(
+                    (sum, child) => sum + parseFloat((child as any).total_amount ?? child.amount ?? "0"),
+                    0
+                  );
+                  const derivedBase = parentAmount - supplementalTotal;
+                  const baseAmount = Number.isFinite(intendedAuthAmount) && intendedAuthAmount > 0
+                    ? intendedAuthAmount
+                    : Math.max(derivedBase, 0);
+                  const combined = parentAmount;
+                  return (
+                    <>
+                      <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="rounded border border-amber-200 bg-white px-2 py-1">
+                          <div className="text-[11px] text-amber-700">Base Invoice</div>
+                          <div className="font-semibold text-amber-900">
+                            {selected.invoice_number}: ${baseAmount.toFixed(2)}
+                          </div>
+                        </div>
+                        <div className="rounded border border-amber-200 bg-white px-2 py-1">
+                          <div className="text-[11px] text-amber-700">Supplemental Total</div>
+                          <div className="font-semibold text-amber-900">${supplementalTotal.toFixed(2)}</div>
+                        </div>
+                        <div className="rounded border border-amber-200 bg-white px-2 py-1">
+                          <div className="text-[11px] text-amber-700">Combined Settlement</div>
+                          <div className="font-semibold text-amber-900">${combined.toFixed(2)}</div>
+                        </div>
+                      </div>
+                      <div className="mt-2 rounded border border-amber-200 bg-white overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead className="bg-amber-100/70">
+                            <tr>
+                              <th className="px-2 py-1 text-left">Invoice #</th>
+                              <th className="px-2 py-1 text-left">Status</th>
+                              <th className="px-2 py-1 text-left">Issued</th>
+                              <th className="px-2 py-1 text-right">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {supplemental.map((child) => {
+                              const childAmount = parseFloat((child as any).total_amount ?? child.amount ?? "0");
+                              const issued = (child as any).issued_at || (child as any).created_at;
+                              return (
+                                <tr key={child.id} className="border-t border-amber-100">
+                                  <td className="px-2 py-1 font-medium">{child.invoice_number}</td>
+                                  <td className="px-2 py-1">{formatLabel(child.status)}</td>
+                                  <td className="px-2 py-1">{issued ? new Date(issued).toLocaleString() : "-"}</td>
+                                  <td className="px-2 py-1 text-right">${childAmount.toFixed(2)}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
             {selected.invoice_type === "reimbursement" && (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-4">
                 <div className="rounded border p-3">
