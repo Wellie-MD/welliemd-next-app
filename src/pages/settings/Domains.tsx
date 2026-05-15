@@ -60,14 +60,31 @@ type ApiErrorBody = {
   error?: string;
   detail?: string;
   message?: string;
+  [key: string]: unknown;
 };
+
+function stringifyApiMessage(value: unknown): string | undefined {
+  if (!value) return undefined;
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    return value.map(stringifyApiMessage).filter(Boolean).join(" ");
+  }
+  if (typeof value === "object") {
+    return Object.values(value)
+      .map(stringifyApiMessage)
+      .filter(Boolean)
+      .join(" ");
+  }
+  return undefined;
+}
 
 function errorMessage(error: unknown, fallback: string) {
   const axiosError = error as AxiosError<ApiErrorBody>;
   return (
-    axiosError.response?.data?.error ||
-    axiosError.response?.data?.detail ||
-    axiosError.response?.data?.message ||
+    stringifyApiMessage(axiosError.response?.data?.error) ||
+    stringifyApiMessage(axiosError.response?.data?.detail) ||
+    stringifyApiMessage(axiosError.response?.data?.message) ||
+    stringifyApiMessage(axiosError.response?.data) ||
     (error instanceof Error ? error.message : fallback)
   );
 }
@@ -139,6 +156,9 @@ export default function Domains() {
   const [domain, setDomain] = useState("");
   const [portalType, setPortalType] = useState<CustomDomainPortalType>("client");
   const preview = buildPortalPreview(domain);
+  const singleAddBlockedForRoot = Boolean(
+    preview?.isBareRootInput && portalType !== "intake"
+  );
 
   const loadDomains = useCallback(async (showToast = false) => {
     try {
@@ -177,6 +197,14 @@ export default function Domains() {
   async function addDomain() {
     if (!domain.trim()) {
       toast({ title: "Domain is required", variant: "destructive" });
+      return;
+    }
+    if (singleAddBlockedForRoot) {
+      toast({
+        title: "Use setup both portals",
+        description: "Root domains must be provisioned as admin and patient portal subdomains together.",
+        variant: "destructive",
+      });
       return;
     }
     try {
@@ -458,6 +486,11 @@ export default function Domains() {
                     Root domains are automatically mapped to fixed portal subdomains to avoid Amplify certificate conflicts.
                   </div>
                 )}
+                {singleAddBlockedForRoot && (
+                  <div className="text-xs font-medium text-amber-700">
+                    Use Setup both portals for this root domain.
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -466,14 +499,17 @@ export default function Domains() {
               Cancel
             </Button>
             <Button
-              variant="outline"
               onClick={setupBothPortals}
               disabled={submitting || !preview}
             >
               {submitting ? "Setting up..." : "Setup both portals"}
             </Button>
-            <Button onClick={addDomain} disabled={submitting}>
-              {submitting ? "Adding..." : "Add domain"}
+            <Button
+              variant="outline"
+              onClick={addDomain}
+              disabled={submitting || singleAddBlockedForRoot}
+            >
+              {submitting ? "Adding..." : singleAddBlockedForRoot ? "Use setup both" : "Add domain"}
             </Button>
           </DialogFooter>
         </DialogContent>
