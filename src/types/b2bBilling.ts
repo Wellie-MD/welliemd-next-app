@@ -84,6 +84,17 @@ export interface B2BInvoice {
   source_tenant_order_display_id?: string;
   client_order_number?: string;
   source_order_id?: string;
+  is_supplemental_split_capture?: boolean;
+  supplemental_parent_invoice_id?: string | null;
+  supplemental_parent_invoice_number?: string | null;
+  supplemental_invoices?: Array<{
+    id: string;
+    invoice_number: string;
+    status: string;
+    total_amount: string;
+    issued_at?: string | null;
+    created_at?: string | null;
+  }>;
 
   // Billing period
   billing_period_start?: string;
