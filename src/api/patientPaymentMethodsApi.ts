@@ -18,7 +18,7 @@ export interface PatientPaymentMethod {
 
 const endpointForGateway: Record<PatientPaymentGateway, string> = {
   stripe: "/stripe/payment-methods/",
-  nmi: "/nmi/payment-methods/",
+  nmi: "/payments/payment-methods/",
   authorize_net: "/authorizenet/payment-methods/",
 }
 
