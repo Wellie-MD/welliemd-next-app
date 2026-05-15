@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import billingService, { Invoice, InvoiceListResponse } from "@/services/billingService";
 import { Link } from "react-router-dom";
-import { Loader2, Search, Eye } from "lucide-react";
+import { Loader2, Search, Eye, GitBranch } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+
+type DisplayInvoice = Invoice & {
+  supplementalInvoices?: Invoice[];
+};
 
 type InvoiceTab = "all" | "reimbursement" | "saas";
 type InvoiceStatus =
@@ -147,15 +151,37 @@ export default function InvoicesPage() {
   }, [ordering, search, fromDate, toDate, status]);
 
   const displayedInvoices = useMemo(() => {
+    const displayRows: DisplayInvoice[] = [];
+    const supplementalByParent = new Map<string, Invoice[]>();
+
+    invoices.forEach((inv) => {
+      if (!inv.is_supplemental_split_capture || !inv.supplemental_parent_invoice_id) return;
+      const bucket = supplementalByParent.get(inv.supplemental_parent_invoice_id) || [];
+      bucket.push(inv);
+      supplementalByParent.set(inv.supplemental_parent_invoice_id, bucket);
+    });
+
+    invoices.forEach((inv) => {
+      if (inv.is_supplemental_split_capture) {
+        return;
+      }
+      const linkedSupplementals =
+        inv.invoice_type === "reimbursement" ? supplementalByParent.get(inv.id) || [] : [];
+      displayRows.push({
+        ...inv,
+        supplementalInvoices: linkedSupplementals,
+      });
+    });
+
     if (ordering !== "-issued_at" && ordering !== "issued_at") {
-      return invoices;
+      return displayRows;
     }
 
     const direction = ordering === "-issued_at" ? -1 : 1;
     const toTime = (value?: string) => (value ? new Date(value).getTime() : null);
     const getDisplayTime = (inv: any) => toTime(inv?.issued_at || inv?.created_at);
 
-    return [...invoices].sort((a: any, b: any) => {
+    return [...displayRows].sort((a: any, b: any) => {
       // Sort by the same date used in the table display column.
       const aDisplayTime = getDisplayTime(a);
       const bDisplayTime = getDisplayTime(b);
@@ -404,12 +430,19 @@ export default function InvoicesPage() {
                     </td>
                   </tr>
                 )}
-                {displayedInvoices.map((inv: any) => {
+                {displayedInvoices.map((inv: DisplayInvoice) => {
                   const effectiveStatus = inv.is_overdue && inv.status !== "paid" ? "overdue" : (inv.status || "-");
+                  const supplementalTotal = (inv.supplementalInvoices || []).reduce(
+                    (sum, child) => sum + Number((child.total_amount ?? child.amount) || 0),
+                    0
+                  );
+                  const hasNestedSupplementals = (inv.supplementalInvoices || []).length > 0;
                   return (
                     <tr
                       key={inv.id}
-                      className="border-b border-border-light dark:border-border-dark hover:bg-background-light/50 dark:hover:bg-background-dark/50 transition-colors duration-150 cursor-pointer"
+                      className={`border-b border-border-light dark:border-border-dark hover:bg-background-light/50 dark:hover:bg-background-dark/50 transition-colors duration-150 cursor-pointer ${
+                        hasNestedSupplementals ? "bg-amber-50/40 dark:bg-amber-900/10" : ""
+                      }`}
                       onClick={() => setSelected(inv)}
                     >
                       <td className="px-6 py-4">{formatDate(inv.issued_at || inv.created_at)}</td>
@@ -438,7 +471,13 @@ export default function InvoicesPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-text-secondary-light dark:text-text-secondary-dark">
-                        {formatBreakdown(inv)}
+                        <div>{formatBreakdown(inv)}</div>
+                        {hasNestedSupplementals && (
+                          <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                            <GitBranch className="h-3 w-3" />
+                            Split Capture · +${supplementalTotal.toFixed(2)} supplemental
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 font-medium">{formatMoney(inv.total_amount ?? inv.amount)}</td>
                       <td className="px-6 py-4 text-right">
@@ -575,6 +614,78 @@ export default function InvoicesPage() {
                 </>
               )}
             </div>
+            {((selected as DisplayInvoice).supplementalInvoices || []).length > 0 && (
+              <div className="mb-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-900/20">
+                <div className="font-medium text-amber-900 dark:text-amber-200">Split Capture Details</div>
+                <div className="mt-1 text-amber-800 dark:text-amber-300">
+                  Supplemental reimbursements are consolidated into this invoice row for readability.
+                </div>
+                {(() => {
+                  const parentAmount = Number((selected.total_amount ?? selected.amount) || 0);
+                  const intendedAuthAmount = Number((selected as any).intended_authorization_amount || 0);
+                  const supplemental = ((selected as DisplayInvoice).supplementalInvoices || []);
+                  const supplementalTotal = supplemental.reduce(
+                    (sum, child) => sum + Number((child.total_amount ?? child.amount) || 0),
+                    0
+                  );
+                  const derivedBase = parentAmount - supplementalTotal;
+                  const baseAmount =
+                    Number.isFinite(intendedAuthAmount) && intendedAuthAmount > 0
+                      ? intendedAuthAmount
+                      : Math.max(derivedBase, 0);
+                  const combined = parentAmount;
+                  return (
+                    <>
+                      <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="rounded border border-amber-200 bg-white px-2 py-1 dark:border-amber-700 dark:bg-slate-900">
+                          <div className="text-[11px] text-amber-700 dark:text-amber-300">Base Invoice</div>
+                          <div className="font-semibold text-amber-900 dark:text-amber-200">
+                            {selected.invoice_number}: {formatMoney(baseAmount)}
+                          </div>
+                        </div>
+                        <div className="rounded border border-amber-200 bg-white px-2 py-1 dark:border-amber-700 dark:bg-slate-900">
+                          <div className="text-[11px] text-amber-700 dark:text-amber-300">Supplemental Total</div>
+                          <div className="font-semibold text-amber-900 dark:text-amber-200">
+                            {formatMoney(supplementalTotal)}
+                          </div>
+                        </div>
+                        <div className="rounded border border-amber-200 bg-white px-2 py-1 dark:border-amber-700 dark:bg-slate-900">
+                          <div className="text-[11px] text-amber-700 dark:text-amber-300">Combined Settlement</div>
+                          <div className="font-semibold text-amber-900 dark:text-amber-200">
+                            {formatMoney(combined)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-2 rounded border border-amber-200 bg-white overflow-x-auto dark:border-amber-700 dark:bg-slate-900">
+                        <table className="w-full text-xs">
+                          <thead className="bg-amber-100/70 dark:bg-amber-900/30">
+                            <tr>
+                              <th className="px-2 py-1 text-left">Invoice #</th>
+                              <th className="px-2 py-1 text-left">Status</th>
+                              <th className="px-2 py-1 text-left">Issued</th>
+                              <th className="px-2 py-1 text-right">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {supplemental.map((child) => {
+                              const issued = child.issued_at || child.created_at;
+                              return (
+                                <tr key={child.id} className="border-t border-amber-100 dark:border-amber-800/60">
+                                  <td className="px-2 py-1 font-medium">{child.invoice_number}</td>
+                                  <td className="px-2 py-1">{formatLabel(child.status)}</td>
+                                  <td className="px-2 py-1">{issued ? new Date(issued).toLocaleString() : "-"}</td>
+                                  <td className="px-2 py-1 text-right">{formatMoney(child.total_amount ?? child.amount)}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
 
             <div className="mt-2">
               <h4 className="font-medium mb-2">Line Items</h4>

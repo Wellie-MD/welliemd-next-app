@@ -29,6 +29,10 @@ export interface PaymentTransaction {
     refundable_amount?: string;
     refund_status?: 'none' | 'pending' | 'partial' | 'refunded';
     refund_count?: number;
+    settlement_role?: 'standalone' | 'base_capture' | 'supplemental_delta';
+    settlement_parent_transaction?: string | null;
+    settlement_order_id?: string | null;
+    settlement_trace_id?: string | null;
 }
 
 export interface TransactionListResponse {
