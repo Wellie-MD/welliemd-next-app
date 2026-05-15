@@ -700,7 +700,7 @@ export default function ClientLifecycle() {
                     !latestTeardownJob ||
                     latestTeardownJob.status !== "previewed" ||
                     !requiredConfirmationText ||
-                    confirmationText !== requiredConfirmationText ||
+                    confirmationText.trim().replace(/\s+/g, ' ') !== requiredConfirmationText.trim().replace(/\s+/g, ' ') ||
                     teardownBlockers.length > 0 ||
                     !teardownModeValid ||
                     !hasArchiveBucket
