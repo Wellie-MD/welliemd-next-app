@@ -361,11 +361,28 @@ export default function Orders() {
 
       <DataTable
         key={dataTableKey}
-        data={filteredOrders.map(o => ({
-          ...o,
-          patient_name: o.patient?.full_name || o.name || o.email || '-',
-          orderTotal: o.pricing?.grand_total || o.grand_total || o.payable_amount || o.orderTotal || o.amount || '0.00',
-        }))}
+        data={filteredOrders.map(o => {
+          const paymentSettlementAmount = (o as Order & { payment_settlement_amount?: string | number | null }).payment_settlement_amount
+          const settlementState = String((o as Order & { payment_settlement_state?: string | null }).payment_settlement_state || "").toLowerCase()
+          const settlementBasis = String((o as Order & { payment_settlement_basis?: string | null }).payment_settlement_basis || "").toLowerCase()
+          const amountSource = String((o as Order & { chargeable_amount_source?: string | null }).chargeable_amount_source || "").toLowerCase()
+          const hasSettlementAmount = paymentSettlementAmount != null && paymentSettlementAmount !== ""
+          const shouldUsePrescribedAmount =
+            hasSettlementAmount &&
+            (
+              settlementState === "captured" ||
+              settlementBasis === "prescribed" ||
+              amountSource === "prescribed_medicine"
+            )
+
+          return {
+            ...o,
+            patient_name: o.patient?.full_name || o.name || o.email || '-',
+            orderTotal: shouldUsePrescribedAmount
+              ? paymentSettlementAmount
+              : (o.pricing?.grand_total || o.grand_total || o.payable_amount || o.orderTotal || o.amount || '0.00'),
+          }
+        })}
         columns={orderColumns.map(col => {
           // Canonical order number (matches invoice/admin priority).
           if (col.key === 'order_id') {

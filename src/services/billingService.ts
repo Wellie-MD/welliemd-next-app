@@ -50,6 +50,17 @@ export interface Invoice {
   source_tenant_order_display_id?: string;
   source_tenant_email?: string;
   client_order_number?: string;
+  is_supplemental_split_capture?: boolean;
+  supplemental_parent_invoice_id?: string | null;
+  supplemental_parent_invoice_number?: string | null;
+  supplemental_invoices?: Array<{
+    id: string;
+    invoice_number: string;
+    status: string;
+    total_amount: string;
+    issued_at?: string | null;
+    created_at?: string | null;
+  }>;
   intended_authorization_amount?: string | number;
   authorization_retry_count?: number;
   authorization_retry_exhausted_at?: string | null;

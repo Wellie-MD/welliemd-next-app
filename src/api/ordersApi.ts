@@ -105,6 +105,7 @@ export interface Order {
   status?: string
   paymentProcessor?: string | null
   paymentTransactionId?: string | null
+  paymentProcessorTransactionId?: string | null
   payment_settlement_state?: "pending" | "authorized" | "captured" | "failed" | null
   payment_settlement_basis?: "requested" | "prescribed" | null
   payment_settlement_product_id?: number | string | null
@@ -238,9 +239,11 @@ export const fetchOrdersByPatient = async (patientId: string, params?: Record<st
   }
 }
 
-export const fetchOrder = async (id: string): Promise<Order> => {
+export const fetchOrder = async (id: string, forceFresh = false): Promise<Order> => {
   try {
-    const { data } = await api.get<Order>(`${ENDPOINT}${id}/`)
+    const { data } = await api.get<Order>(`${ENDPOINT}${id}/`, {
+      params: forceFresh ? { _ts: Date.now() } : undefined,
+    })
     return data
   } catch (error) {
     console.error(`Failed to fetch order ${id}:`, error)
@@ -248,9 +251,11 @@ export const fetchOrder = async (id: string): Promise<Order> => {
   }
 }
 
-export const fetchOrderByOrderId = async (orderId: string): Promise<Order> => {
+export const fetchOrderByOrderId = async (orderId: string, forceFresh = false): Promise<Order> => {
   try {
-    const { data } = await api.get<Order>(`${ENDPOINT}by_order_id/${encodeURIComponent(orderId)}/`)
+    const { data } = await api.get<Order>(`${ENDPOINT}by_order_id/${encodeURIComponent(orderId)}/`, {
+      params: forceFresh ? { _ts: Date.now() } : undefined,
+    })
     return data
   } catch (error) {
     console.error(`Failed to fetch order by order_id ${orderId}:`, error)

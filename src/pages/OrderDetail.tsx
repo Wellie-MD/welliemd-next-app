@@ -129,6 +129,13 @@ const normalizeGateway = (value?: string | null): PatientPaymentGateway | null =
   return null
 }
 
+const gatewayLabel = (gateway: PatientPaymentGateway | null) => {
+  if (gateway === "authorize_net") return "Authorize.Net"
+  if (gateway === "nmi") return "NMI"
+  if (gateway === "stripe") return "Stripe"
+  return "payment gateway"
+}
+
 export default function OrderDetail() {
   const { orderId } = useParams<{ orderId: string }>()
   const navigate = useNavigate()
@@ -171,7 +178,9 @@ export default function OrderDetail() {
     let cancelled = false
     setLoading(true)
     setError(null)
-    const fetchFn = isUuid(orderId) ? ordersApi.fetchOrder(orderId) : ordersApi.fetchOrderByOrderId(orderId)
+    const fetchFn = isUuid(orderId)
+      ? ordersApi.fetchOrder(orderId, true)
+      : ordersApi.fetchOrderByOrderId(orderId, true)
     fetchFn
       .then((data) => {
         if (!cancelled) setOrder(data)
@@ -385,7 +394,9 @@ export default function OrderDetail() {
   ]
   const isPaymentFailure = retryablePaymentStatuses.includes(paymentStatus)
   const isSettlementRetryable = ["failed", "pending"].includes(settlementState)
-  const canRetryPayment = !paymentCaptured && (isPaymentFailure || isSettlementRetryable)
+  const isOrderPaymentPending = status === "payment_pending"
+  const canRetryPayment =
+    !paymentCaptured && (isPaymentFailure || isSettlementRetryable || isOrderPaymentPending)
   const isAllowedStatus = status === "created" || status === "payment_pending"
   const canChangeProduct = isAllowedStatus && !isLocked
   const canRefundOrVoid = isAuthorized || isRefundable
@@ -402,10 +413,26 @@ export default function OrderDetail() {
     { value: "other", label: "Other" },
   ]
 
-  const refetchOrder = () => {
+  const refetchOrder = async (forceFresh = true): Promise<void> => {
     if (!orderId) return
-    const fetchFn = isUuid(orderId) ? ordersApi.fetchOrder(orderId) : ordersApi.fetchOrderByOrderId(orderId)
-    fetchFn.then(setOrder).catch(() => { })
+    const fetchFn = isUuid(orderId)
+      ? ordersApi.fetchOrder(orderId, forceFresh)
+      : ordersApi.fetchOrderByOrderId(orderId, forceFresh)
+    try {
+      const fresh = await fetchFn
+      setOrder(fresh)
+    } catch {
+      // no-op: best-effort refresh
+    }
+  }
+
+  const refetchOrderWithRetries = async (): Promise<void> => {
+    await refetchOrder(true)
+    const delays = [800, 1800, 3200]
+    for (const delayMs of delays) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs))
+      await refetchOrder(true)
+    }
   }
 
   const handleUpdateOrder = async () => {
@@ -427,7 +454,7 @@ export default function OrderDetail() {
       setOrder(updated)
       setPendingProductChange(null)
       toast({ title: "Order updated successfully" })
-      refetchOrder()
+      await refetchOrderWithRetries()
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
@@ -455,7 +482,7 @@ export default function OrderDetail() {
       setNewStatus("")
       setStatusTrackingNumber("")
       toast({ title: `Status updated to ${statusLabels[newStatus] || newStatus}` })
-      refetchOrder()
+      await refetchOrderWithRetries()
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { error?: string; detail?: string } } })?.response?.data?.error ||
@@ -501,7 +528,7 @@ export default function OrderDetail() {
       setRefundReasonDescription("")
       setRefundNotes("")
       toast({ title: isAuthorized ? "Authorization voided" : "Refund processed" })
-      refetchOrder()
+      await refetchOrderWithRetries()
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
@@ -529,7 +556,7 @@ export default function OrderDetail() {
       }
       toast({ title: "Payment retry submitted" })
       setShowRetryPaymentDialog(false)
-      refetchOrder()
+      await refetchOrderWithRetries()
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { error?: string; detail?: string } } })?.response?.data?.error ||
@@ -797,6 +824,8 @@ export default function OrderDetail() {
     order.orderTotal ??
     order.amount
   )
+  const settlementAmount = parseMoney((order as Order & { payment_settlement_amount?: string | number | null }).payment_settlement_amount)
+  const chargeableAmount = parseMoney((order as Order & { chargeable_amount?: string | number | null }).chargeable_amount)
   const refundedAmount = parseMoney(order.totalRefunded) ?? 0
   const netTotalAmount =
     totalAmount != null
@@ -863,13 +892,23 @@ export default function OrderDetail() {
     ? pendingProductChange.shippingFee
     : shippingFee
 
+  const chargeableAmountSource = order.chargeable_amount_source || "requested_medicine"
+  const prescribedDisplayTotal = settlementState === "captured"
+    ? settlementAmount
+    : chargeableAmount
+
+  const shouldPreferPrescribedDisplay =
+    pendingProductChange == null &&
+    chargeableAmountSource === "prescribed_medicine" &&
+    prescribedDisplayTotal != null
+
   const calculatedTotal = hasBreakdown
     ? ((productSubtotalAfterDiscount ?? 0) + (shippingFee ?? 0))
     : totalAmount
 
   const previewTotal = pendingProductChange != null
     ? pendingProductChange.newAmount
-    : calculatedTotal
+    : (shouldPreferPrescribedDisplay ? prescribedDisplayTotal : calculatedTotal)
 
   const previewNetTotal = previewTotal != null
     ? Math.max(0, previewTotal - refundedAmount)
@@ -894,7 +933,6 @@ export default function OrderDetail() {
   const prescribedMedicineName = isSameMedicinePlaceholder
     ? requestedMedicineName
     : rawPrescribedMedicineName
-  const chargeableAmountSource = order.chargeable_amount_source || "requested_medicine"
   const orderLifecycleStatus = String(order.orderStatus || order.status || "").toLowerCase()
   const isLikelyLegacyPrescribed =
     Boolean(order.datePrescribed) ||
@@ -947,6 +985,8 @@ export default function OrderDetail() {
 
   const displayLineTotal = pendingProductChange != null
     ? (previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount)
+    : shouldPreferPrescribedDisplay
+      ? Math.max(0, (previewTotal ?? 0) - (previewShippingFee ?? 0))
     : hasNonIncludedSupplies
       ? ((pricingMedicationSubtotal != null ? pricingMedicationSubtotal : medicationSubtotalAfterDiscount) != null
         ? (pricingMedicationSubtotal != null ? pricingMedicationSubtotal : medicationSubtotalAfterDiscount)
@@ -955,7 +995,11 @@ export default function OrderDetail() {
 
   const itemPrice = formatMoney(displayItemUnitPrice)
   const lineTotalPrice = formatMoney(displayLineTotal)
-  const productSubtotalPrice = formatMoney(previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount)
+  const productSubtotalPrice = formatMoney(
+    shouldPreferPrescribedDisplay
+      ? Math.max(0, (previewTotal ?? 0) - (previewShippingFee ?? 0))
+      : (previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount)
+  )
   const totalPrice = formatMoney(previewTotal)
   const netTotalPrice = formatMoney(previewNetTotal)
 
@@ -975,14 +1019,19 @@ export default function OrderDetail() {
     )
   }
 
-  const retryGatewayLabel =
-    retryGateway === "authorize_net"
-      ? "Authorize.Net"
-      : retryGateway === "nmi"
-        ? "NMI"
-        : retryGateway === "stripe"
-          ? "Stripe"
-          : "payment gateway"
+  const retryGatewayLabel = gatewayLabel(retryGateway)
+  const orderProcessorGateway = normalizeGateway(order?.paymentProcessor)
+  const orderProcessorGatewayLabel = gatewayLabel(orderProcessorGateway)
+  const retryGatewayMismatch =
+    Boolean(retryGateway && orderProcessorGateway) && retryGateway !== orderProcessorGateway
+  const processorReferenceLabel =
+    orderProcessorGateway === "nmi"
+      ? "NMI Trans ID"
+      : orderProcessorGateway === "stripe"
+        ? "Stripe Intent ID"
+        : orderProcessorGateway === "authorize_net"
+          ? "Authorize.Net Trans ID"
+          : "Processor Ref"
 
   return (
     <div className="p-6 lg:p-8">
@@ -1618,6 +1667,12 @@ export default function OrderDetail() {
                 <span className="text-slate-500 dark:text-slate-400">Trans ID</span>
                 <span className="text-slate-900 dark:text-white font-mono text-xs">{order.paymentTransactionId || "—"}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500 dark:text-slate-400">{processorReferenceLabel}</span>
+                <span className="text-slate-900 dark:text-white font-mono text-xs">
+                  {order.paymentProcessorTransactionId || "—"}
+                </span>
+              </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-500 dark:text-slate-400">Status</span>
                 <div className="flex items-center gap-2">
@@ -1688,6 +1743,21 @@ export default function OrderDetail() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div
+              className={cn(
+                "rounded-md border px-3 py-2 text-xs",
+                retryGatewayMismatch
+                  ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200"
+                  : "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+              )}
+            >
+              This order was originally processed via <strong>{orderProcessorGatewayLabel}</strong>. Before retrying,
+              ensure the client gateway is set to <strong>{orderProcessorGatewayLabel}</strong>.
+              {retryGatewayMismatch ? (
+                <> Current retry gateway is <strong>{retryGatewayLabel}</strong>.</>
+              ) : null}
+            </div>
+
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-500 dark:text-slate-400">Amount to retry</span>
               <span className="text-slate-900 dark:text-white font-medium">${formatMoney(retryAmount)}</span>
@@ -1706,6 +1776,12 @@ export default function OrderDetail() {
             {!paymentMethodsLoading && !paymentMethodsError && paymentMethods.length === 0 && (
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 No saved payment methods found for this patient.
+              </p>
+            )}
+
+            {retryGatewayMismatch && (
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                Retry is disabled until client gateway matches the order processor ({orderProcessorGatewayLabel}).
               </p>
             )}
 
@@ -1744,6 +1820,7 @@ export default function OrderDetail() {
                 disabled={
                   retryPaymentLoading ||
                   paymentMethodsLoading ||
+                  retryGatewayMismatch ||
                   Boolean(paymentMethodsError) ||
                   !selectedPaymentMethodId
                 }
