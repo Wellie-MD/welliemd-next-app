@@ -29,6 +29,15 @@ const orderStatusFilters = [
 
 const paymentStatusFilters = ["All", "Paid", "Pending", "Failed"]
 
+const formatPaymentStatusLabel = (status: string): string => {
+  const value = String(status || "").trim().toLowerCase()
+  if (!value) return "Pending"
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
 export default function Orders() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeOrderStatusFilter, setActiveOrderStatusFilter] = useState("All")
@@ -101,9 +110,47 @@ export default function Orders() {
     { key: "client_name", label: "Client" },
     { key: "product_name", label: "Product" },
     { key: "pharmacy_name", label: "Pharmacy" },
-    { key: "status_display", label: "Order Status" },
+    {
+      key: "status_display",
+      label: "Order Status",
+      render: (_value: unknown, row: unknown) => {
+        const r = row as any
+        const recovery = String(r.payment_recovery_state || "").toLowerCase()
+        const isPrescribedStatus = String(r.status || "").toLowerCase() === "prescribed"
+        const remaining = Number.parseFloat(String(r.remaining_supplemental_amount || "0"))
+        const hasRemaining = Number.isFinite(remaining) && remaining > 0
+        const showRecoveryPending =
+          isPrescribedStatus && (recovery === "recovery_pending" || hasRemaining)
+        return (
+          <div className="space-y-1">
+            <div>{r.status_display}</div>
+            {showRecoveryPending ? (
+              <Badge className="bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-100">
+                Recovery Pending
+              </Badge>
+            ) : null}
+          </div>
+        )
+      },
+    },
     { key: "payment_status", label: "Payment Status" },
-    { key: "amount", label: "Amount" },
+    {
+      key: "amount",
+      label: "Amount",
+      render: (_value: unknown, row: unknown) => {
+        const r = row as any
+        const remaining = Number.parseFloat(String(r.remaining_supplemental_amount || "0"))
+        const hasRemaining = Number.isFinite(remaining) && remaining > 0
+        return (
+          <div className="space-y-1">
+            <div>{r.amount}</div>
+            {hasRemaining ? (
+              <div className="text-[11px] text-amber-700">Remaining ${remaining.toFixed(2)}</div>
+            ) : null}
+          </div>
+        )
+      },
+    },
     { key: "created_at", label: "Order Date" },
     { key: "prescribed_at", label: "Prescribed Date" },
     { key: "shipped_at", label: "Shipped Date" },
@@ -184,7 +231,12 @@ export default function Orders() {
       .filter(order => {
         // Client-side payment status filter
         if (activePaymentStatusFilter !== "All") {
-          return order.payment_status === activePaymentStatusFilter.toLowerCase()
+          const current = String(order.payment_status || "").toLowerCase()
+          const wanted = activePaymentStatusFilter.toLowerCase()
+          if (wanted === "paid") {
+            return current === "paid" || current === "partially_paid"
+          }
+          return current === wanted
         }
         return true
       })
@@ -206,7 +258,9 @@ export default function Orders() {
         created_at: order.created_at ? format(new Date(order.created_at), 'MM/dd/yyyy') : '',
         prescribed_at: order.prescribed_at ? format(new Date(order.prescribed_at), 'MM/dd/yyyy') : '',
         shipped_at: order.shipped_at ? format(new Date(order.shipped_at), 'MM/dd/yyyy') : '',
-        payment_status: order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1),
+        payment_status: formatPaymentStatusLabel(order.payment_status),
+        payment_recovery_state: order.payment_recovery_state || null,
+        remaining_supplemental_amount: order.remaining_supplemental_amount || null,
       }})
   }, [orders, activePaymentStatusFilter])
 
