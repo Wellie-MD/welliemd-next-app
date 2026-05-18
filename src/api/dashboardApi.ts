@@ -151,13 +151,15 @@ export interface AdminOrder {
   status: string;
   status_display: string;
   amount: number;
+  payment_recovery_state?: 'recovery_pending' | null;
+  remaining_supplemental_amount?: string | null;
   chargeable_amount?: string | number | null;
   chargeable_amount_source?: 'requested_medicine' | 'prescribed_medicine' | 'requested_medicine_fallback' | null;
   discount_amount: number;
   requested_medicine_name?: string | null;
   prescribed_medicine_name?: string | null;
   doctor_name?: string | null;
-  payment_status: 'paid' | 'pending' | 'failed';
+  payment_status: 'paid' | 'partially_paid' | 'pending' | 'failed' | 'refunded' | string;
   created_at: string;
   prescribed_at: string | null;
   shipped_at: string | null;
