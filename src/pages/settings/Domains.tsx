@@ -491,7 +491,7 @@ export default function Domains() {
                 id="custom-domain"
                 value={domain}
                 onChange={(event) => setDomain(event.target.value)}
-                placeholder="portal.yourclinic.com"
+                placeholder="joinmyclinic.com or portal.myclinic.com"
               />
             </div>
             <div className="space-y-2">
