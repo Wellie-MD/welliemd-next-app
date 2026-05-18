@@ -56,6 +56,7 @@ import { PermissionGate } from "@/components/auth/PermissionGate"
 import { Permissions } from "@/constants/permissions"
 import { cn } from "@/lib/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useClientMessages } from "@/contexts/MessagesContext"
 
 const statusColors: Record<string, string> = {
   created: "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600",
@@ -154,8 +155,12 @@ export default function OrderDetail() {
   const retrySingleFlightRef = useRef(false)
   const [retryGateway, setRetryGateway] = useState<PatientPaymentGateway | null>(null)
   const { toast } = useToast()
+  const { messages, loading: messagesLoading } = useClientMessages()
   const patientUserId = order?.patient?.user_id
   const orderThreadMasterId = order?.mrn?.trim() || ""
+  const hasExistingThread = Boolean(
+    orderThreadMasterId && messages.some((message) => message.master_id === orderThreadMasterId)
+  )
 
   const isUuid = (s: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
@@ -165,6 +170,21 @@ export default function OrderDetail() {
       toast({
         title: "Chat thread unavailable",
         description: "This order does not have a visit thread yet.",
+        variant: "destructive",
+      })
+      return
+    }
+    if (messagesLoading) {
+      toast({
+        title: "Checking chat thread",
+        description: "Please try again in a moment.",
+      })
+      return
+    }
+    if (!hasExistingThread) {
+      toast({
+        title: "No chat found",
+        description: "No conversation exists for this order yet.",
         variant: "destructive",
       })
       return
