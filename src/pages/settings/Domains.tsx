@@ -56,6 +56,23 @@ function statusLabel(status: CustomDomain["status"]) {
   return status.replace(/_/g, " ");
 }
 
+function dnsStatusBadge(status?: CustomDomain["dns_status"]) {
+  switch (status) {
+    case "applied":
+      return "bg-green-100 text-green-800 hover:bg-green-100";
+    case "failed":
+      return "bg-red-100 text-red-800 hover:bg-red-100";
+    default:
+      return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100";
+  }
+}
+
+function dnsStatusLabel(status?: CustomDomain["dns_status"]) {
+  if (status === "applied") return "DNS Applied";
+  if (status === "failed") return "DNS Apply Failed";
+  return "DNS Pending";
+}
+
 type ApiErrorBody = {
   error?: string;
   detail?: string;
@@ -280,7 +297,9 @@ export default function Domains() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Custom Domains</CardTitle>
-          <CardDescription>Add DNS records, then verify each domain when propagation completes.</CardDescription>
+          <CardDescription>
+            Amplify uses a root association with portal prefixes (`admin`/`patient`). DNS records below are per-portal and must resolve before verification completes.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {loading && domains.length === 0 ? (
@@ -303,6 +322,7 @@ export default function Domains() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge className={statusBadge(item.status)}>{statusLabel(item.status)}</Badge>
+                    <Badge className={dnsStatusBadge(item.dns_status)}>{dnsStatusLabel(item.dns_status)}</Badge>
                     {item.status !== "verified" && (
                       <Button variant="outline" size="sm" onClick={() => verifyDomain(item.id)}>
                         <CheckCircle2 className="h-4 w-4 mr-2" />
@@ -326,6 +346,22 @@ export default function Domains() {
                     {item.last_error.error}
                   </div>
                 )}
+
+                <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
+                  {item.dns_provisioning_mode === "auto"
+                    ? "DNS provisioning mode: Auto (Route53 managed in-platform)."
+                    : "DNS provisioning mode: Manual required. Add records below in your DNS provider."}
+                  {item.amplify_domain_name ? (
+                    <div className="mt-1">
+                      Amplify association root: <span className="font-medium">{item.amplify_domain_name}</span>
+                      {item.amplify_prefix ? (
+                        <>
+                          {" "}• Portal prefix: <span className="font-medium">{item.amplify_prefix}</span>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
 
                 {item.validation_records?.length > 0 && (
                   <div className="space-y-2">

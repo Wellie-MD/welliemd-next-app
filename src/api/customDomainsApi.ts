@@ -23,6 +23,11 @@ export interface CustomDomain {
   status: CustomDomainStatus;
   status_display?: string;
   validation_records: CustomDomainValidationRecord[];
+  amplify_domain_name?: string;
+  amplify_prefix?: string;
+  route53_zone_id?: string;
+  dns_provisioning_mode?: "auto" | "manual_required";
+  dns_status?: "pending" | "applied" | "failed";
   is_locked: boolean;
   last_error?: { error?: string; step?: string } | null;
   created_at: string;
