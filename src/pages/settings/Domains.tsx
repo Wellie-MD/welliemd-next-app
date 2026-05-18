@@ -111,7 +111,6 @@ const TWO_PART_TLDS = new Set(["co.uk", "com.br", "com.au", "co.nz", "co.jp", "o
 function normalizeHostname(value: string) {
   const raw = value.trim().toLowerCase();
   if (!raw) return "";
-
   const withoutProtocol = raw.includes("://") ? raw.split("://")[1] : raw;
   return withoutProtocol.split("/")[0].split(":")[0].replace(/\.+$/, "");
 }
@@ -159,7 +158,6 @@ function mergeDomains(current: CustomDomain[], incoming: CustomDomain[]) {
     (left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
   );
 }
-
 export default function Domains() {
   const { toast } = useToast();
   const { currentClient } = useClients();
@@ -514,9 +512,7 @@ export default function Domains() {
                 <div className="text-muted-foreground">
                   Client/Staff Portal: {preview.adminDomain}
                 </div>
-                <div className="text-muted-foreground">
-                  Patient Portal: {preview.patientDomain}
-                </div>
+                <div className="text-muted-foreground">Patient Portal: {preview.patientDomain}</div>
                 {preview.isBareRootInput && (
                   <div className="text-xs text-muted-foreground">
                     Root domains are automatically mapped to fixed portal subdomains to avoid Amplify certificate conflicts.
@@ -534,17 +530,10 @@ export default function Domains() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={setupBothPortals}
-              disabled={submitting || !preview}
-            >
+            <Button onClick={setupBothPortals} disabled={submitting || !preview}>
               {submitting ? "Setting up..." : "Setup both portals"}
             </Button>
-            <Button
-              variant="outline"
-              onClick={addDomain}
-              disabled={submitting || singleAddBlockedForRoot}
-            >
+            <Button variant="outline" onClick={addDomain} disabled={submitting || singleAddBlockedForRoot}>
               {submitting ? "Adding..." : singleAddBlockedForRoot ? "Use setup both" : "Add domain"}
             </Button>
           </DialogFooter>
