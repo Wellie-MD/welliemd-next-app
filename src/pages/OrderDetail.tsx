@@ -155,9 +155,22 @@ export default function OrderDetail() {
   const [retryGateway, setRetryGateway] = useState<PatientPaymentGateway | null>(null)
   const { toast } = useToast()
   const patientUserId = order?.patient?.user_id
+  const orderThreadMasterId = order?.mrn?.trim() || ""
 
   const isUuid = (s: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
+
+  const handleTrackThread = () => {
+    if (!orderThreadMasterId) {
+      toast({
+        title: "Chat thread unavailable",
+        description: "This order does not have a visit thread yet.",
+        variant: "destructive",
+      })
+      return
+    }
+    navigate(`/dashboard/messages?master_id=${encodeURIComponent(orderThreadMasterId)}`)
+  }
 
   useEffect(() => {
     if (!orderId) {
@@ -1391,7 +1404,13 @@ export default function OrderDetail() {
                   <TabsTrigger value="medical" className="h-8 text-xs sm:text-sm leading-none">Medical</TabsTrigger>
                   <TabsTrigger value="pharmacy" className="h-8 text-xs sm:text-sm leading-none">Pharmacy</TabsTrigger>
                 </TabsList>
-                <Button size="sm" variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 text-xs h-8 px-3">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 text-xs h-8 px-3"
+                  onClick={handleTrackThread}
+                  disabled={!orderThreadMasterId}
+                >
                   Track
                 </Button>
               </div>
