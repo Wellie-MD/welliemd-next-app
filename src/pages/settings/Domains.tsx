@@ -56,6 +56,23 @@ function statusLabel(status: CustomDomain["status"]) {
   return status.replace(/_/g, " ");
 }
 
+function dnsStatusBadge(status?: CustomDomain["dns_status"]) {
+  switch (status) {
+    case "applied":
+      return "bg-green-100 text-green-800 hover:bg-green-100";
+    case "failed":
+      return "bg-red-100 text-red-800 hover:bg-red-100";
+    default:
+      return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100";
+  }
+}
+
+function dnsStatusLabel(status?: CustomDomain["dns_status"]) {
+  if (status === "applied") return "DNS Applied";
+  if (status === "failed") return "DNS Apply Failed";
+  return "DNS Pending";
+}
+
 type ApiErrorBody = {
   error?: string;
   detail?: string;
@@ -94,7 +111,6 @@ const TWO_PART_TLDS = new Set(["co.uk", "com.br", "com.au", "co.nz", "co.jp", "o
 function normalizeHostname(value: string) {
   const raw = value.trim().toLowerCase();
   if (!raw) return "";
-
   const withoutProtocol = raw.includes("://") ? raw.split("://")[1] : raw;
   return withoutProtocol.split("/")[0].split(":")[0].replace(/\.+$/, "");
 }
@@ -142,7 +158,6 @@ function mergeDomains(current: CustomDomain[], incoming: CustomDomain[]) {
     (left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
   );
 }
-
 export default function Domains() {
   const { toast } = useToast();
   const { currentClient } = useClients();
@@ -254,7 +269,8 @@ export default function Domains() {
       setDialogOpen(false);
       toast({
         title: "Both portal domains added",
-        description: "Add the DNS records shown below for admin and patient, then verify them after propagation.",
+        description:
+          "Add the DNS records shown below for admin and patient, then verify them after propagation.",
       });
     } catch (error: unknown) {
       toast({
@@ -373,7 +389,9 @@ export default function Domains() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Custom Domains</CardTitle>
-          <CardDescription>Add DNS records, then verify each domain when propagation completes.</CardDescription>
+          <CardDescription>
+            Amplify uses a root association with portal prefixes (`admin`/`patient`). DNS records below are per-portal and must resolve before verification completes.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {loading && domains.length === 0 ? (
@@ -396,6 +414,7 @@ export default function Domains() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge className={statusBadge(item.status)}>{statusLabel(item.status)}</Badge>
+                    <Badge className={dnsStatusBadge(item.dns_status)}>{dnsStatusLabel(item.dns_status)}</Badge>
                     {item.status !== "verified" && (
                       <Button variant="outline" size="sm" onClick={() => verifyDomain(item.id)}>
                         <CheckCircle2 className="h-4 w-4 mr-2" />
@@ -419,6 +438,22 @@ export default function Domains() {
                     {item.last_error.error}
                   </div>
                 )}
+
+                <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
+                  {item.dns_provisioning_mode === "auto"
+                    ? "DNS provisioning mode: Auto (Route53 managed in-platform)."
+                    : "DNS provisioning mode: Manual required. Add records below in your DNS provider."}
+                  {item.amplify_domain_name ? (
+                    <div className="mt-1">
+                      Amplify association root: <span className="font-medium">{item.amplify_domain_name}</span>
+                      {item.amplify_prefix ? (
+                        <>
+                          {" "}• Portal prefix: <span className="font-medium">{item.amplify_prefix}</span>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
 
                 {item.validation_records?.length > 0 && (
                   <div className="space-y-2">
@@ -478,9 +513,7 @@ export default function Domains() {
                 <div className="text-muted-foreground">
                   Client/Staff Portal: {preview.adminDomain}
                 </div>
-                <div className="text-muted-foreground">
-                  Patient Portal: {preview.patientDomain}
-                </div>
+                <div className="text-muted-foreground">Patient Portal: {preview.patientDomain}</div>
                 {preview.isBareRootInput && (
                   <div className="text-xs text-muted-foreground">
                     Root domains are automatically mapped to fixed portal subdomains to avoid Amplify certificate conflicts.
@@ -498,17 +531,10 @@ export default function Domains() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={setupBothPortals}
-              disabled={submitting || !preview}
-            >
+            <Button onClick={setupBothPortals} disabled={submitting || !preview}>
               {submitting ? "Setting up..." : "Setup both portals"}
             </Button>
-            <Button
-              variant="outline"
-              onClick={addDomain}
-              disabled={submitting || singleAddBlockedForRoot}
-            >
+            <Button variant="outline" onClick={addDomain} disabled={submitting || singleAddBlockedForRoot}>
               {submitting ? "Adding..." : singleAddBlockedForRoot ? "Use setup both" : "Add domain"}
             </Button>
           </DialogFooter>
