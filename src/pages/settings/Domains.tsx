@@ -269,7 +269,8 @@ export default function Domains() {
       setDialogOpen(false);
       toast({
         title: "Both portal domains added",
-        description: "Add the DNS records shown below for admin and patient, then verify them after propagation.",
+        description:
+          "Add the DNS records shown below for admin and patient, then verify them after propagation.",
       });
     } catch (error: unknown) {
       toast({
