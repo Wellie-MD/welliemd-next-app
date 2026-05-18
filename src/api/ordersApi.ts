@@ -94,6 +94,16 @@ export interface OrderActivityEvent {
   payload?: Record<string, unknown>
 }
 
+export interface OrderSettlementTransaction {
+  id: string
+  processor?: string
+  status?: string
+  amount?: string
+  settlement_role?: string
+  processor_transaction_id?: string
+  created_at?: string | null
+}
+
 export interface Order {
   id: string
   product?: number | string | null
@@ -111,6 +121,14 @@ export interface Order {
   payment_settlement_product_id?: number | string | null
   payment_settlement_amount?: string | number | null
   payment_settlement_trace_id?: string | null
+  payment_recovery_state?: "recovery_pending" | null
+  remaining_supplemental_amount?: string | null
+  prescribed_final_amount?: string | null
+  base_capture_amount?: string | null
+  supplemental_delta_amount?: string | null
+  base_captured_amount?: string | null
+  supplemental_captured_amount?: string | null
+  payment_settlement_transactions?: OrderSettlementTransaction[]
   totalRefunded?: string | null
   refundableAmount?: string | null
   created_at?: string
@@ -125,7 +143,6 @@ export interface Order {
   datePrintedShipped?: string | null
   paymentDate?: string | null
   mrn?: string | null
-  product_name?: string
   paymentStatus?: string | null
   visitStatus?: string | null
   address?: string | null
@@ -197,6 +214,8 @@ export interface RetryPaymentPayload {
 export interface RetryPaymentResponse {
   success: boolean
   error?: string
+  detail?: string
+  message?: string
   order_id?: string
   order_display_id?: string
   status?: string
