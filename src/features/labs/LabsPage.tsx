@@ -228,34 +228,30 @@ function normalizeTimeline(submission: LabSubmission): TimelineItem[] {
         });
     });
 
-    const submissionActions: TimelineAction[] = [];
-    const requisitionUrl = toSafeUrl(submission.requisition_pdf_url);
-    const bookingUrl = toSafeUrl(submission.booking_link) || toSafeUrl(submission.booking_url);
-    if (requisitionUrl) submissionActions.push({ label: 'Download Requisition', url: requisitionUrl });
-    if (bookingUrl) submissionActions.push({ label: 'Book Appointment', url: bookingUrl });
-
-    if (submissionActions.length > 0) {
+    // Inject a synthetic 'Lab Order Created' timeline item for in-person flows.
+    // Beluga often sends `LAB_ORDER_REQUISITION_CREATED` for in-person orders
+    // but not a `LAB_ORDER_CREATED` event — surface a created card to match
+    // the at-home experience when that's the case.
+    const hasCreatedEvent = events.some(e => getEventType(e) === 'LAB_ORDER_CREATED');
+    const hasRequisitionEvent = events.some(e => getEventType(e) === 'LAB_ORDER_REQUISITION_CREATED');
+    if (!hasCreatedEvent && hasRequisitionEvent) {
+        const syntheticEvent: LabLifecycleEvent = { event: 'LAB_ORDER_CREATED', occurred_at: submission.created_at || submission.submitted_at || null } as any;
+        const occurred = getEventTimestamp(syntheticEvent);
+        const ts = occurred ? Date.parse(occurred) : Number.NaN;
         timeline.push({
-            id: `${submission.id}-links`,
-            title: 'Lab Order Links',
-            description: 'Quick access to requisition and booking resources.',
-            occurredAt: submission.created_at,
-            sortTimestamp: Date.parse(submission.created_at),
-            actions: submissionActions,
+            id: `${submission.id}-created`,
+            title: getEventTitle(syntheticEvent),
+            description: getEventDescription(syntheticEvent),
+            occurredAt: occurred,
+            sortTimestamp: Number.isFinite(ts) ? ts : 0,
+            actions: eventActions(syntheticEvent),
         });
     }
 
-    const hasInPersonEvent = timeline.some((item) => item.title === 'In-Person Lab Requisition Ready');
-    if (!hasInPersonEvent && submissionActions.some((action) => action.label === 'Download Requisition')) {
-        timeline.push({
-            id: `${submission.id}-in-person-fallback`,
-            title: 'In-Person Lab Requisition Ready',
-            description: 'Your requisition is available for in-person lab testing.',
-            occurredAt: submission.created_at,
-            sortTimestamp: Date.parse(submission.created_at),
-            actions: submissionActions.filter((action) => action.label === 'Download Requisition'),
-        });
-    }
+    // NOTE: We intentionally do not inject submission-level "Lab Order Links" into the
+    // submission timeline here. Links (requisition/booking) are surfaced in lifecycle
+    // events where they originate. This keeps the Submissions tab focused on status
+    // and detailed lab results rather than duplicating actionable links.
 
     return timeline.sort((a, b) => b.sortTimestamp - a.sortTimestamp);
 }
@@ -390,19 +386,7 @@ function SubmissionCard({ submission, isExpanded, onToggle }: SubmissionCardProp
                             </div>
                         </div>
                         
-                        {submission.lab_results.length > 0 && (
-                            <div>
-                                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: 'var(--km-t)' }}>Lab Results</div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    {submission.lab_results.map((result) => (
-                                        <div key={result.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--km-s2)', borderRadius: 10, border: '1px solid var(--km-b)' }}>
-                                            <span style={{ fontSize: 13, fontWeight: 600 }}>{result.test_name}</span>
-                                            <span style={{ fontSize: 13, fontWeight: 700, ...getResultValueStyle(result.test_result) }}>{result.test_result} {result.test_result_units}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                        {/* Removed inline rendering of submission.lab_results per UX request. */}
 
                         {timeline.length > 0 && (
                             <div style={{ marginTop: 16 }}>
@@ -439,6 +423,28 @@ function SubmissionCard({ submission, isExpanded, onToggle }: SubmissionCardProp
                                                                 background: 'var(--km-ac)',
                                                                 color: '#fff',
                                                                 border: '1px solid transparent'
+                                                            }}
+                                                            onClick={(e) => {
+                                                                try {
+                                                                    const url = action.url || '';
+                                                                    if (url.startsWith('data:application/pdf;base64,')) {
+                                                                        e.preventDefault();
+                                                                        const idx = url.indexOf('base64,');
+                                                                        const b64 = url.slice(idx + 7);
+                                                                        const cleaned = b64.replace(/\s+/g, '');
+                                                                        const bin = window.atob(cleaned);
+                                                                        const len = bin.length;
+                                                                        const u8 = new Uint8Array(len);
+                                                                        for (let i = 0; i < len; ++i) u8[i] = bin.charCodeAt(i);
+                                                                        const blob = new Blob([u8], { type: 'application/pdf' });
+                                                                        const blobUrl = window.URL.createObjectURL(blob);
+                                                                        window.open(blobUrl, '_blank');
+                                                                    }
+                                                                } catch (err) {
+                                                                    // fall back to default navigation on error
+                                                                    // eslint-disable-next-line no-console
+                                                                    console.error('Failed to open requisition PDF', err);
+                                                                }
                                                             }}
                                                         >
                                                             {action.label}
@@ -488,8 +494,35 @@ export default function LabsPage() {
                 getLabResults(),
                 getLabSubmissions(),
             ]);
-            
-            setLabResults(results);
+            // Merge Beluga-provided lab results contained on submissions into
+            // the main lab results list so they appear under the "Lab Results" tab.
+            const resultsMap: Record<string, typeof results[0]> = {};
+
+            const keyFor = (r: any, fallbackMaster?: string) => {
+                if (r.id) return r.id;
+                const dateKey = r.report_date || r.screening_date || '';
+                return `${(r.test_name || 'unknown').toLowerCase()}::${dateKey}::${fallbackMaster || ''}`;
+            };
+
+            // Add API results first
+            for (const r of results) {
+                resultsMap[keyFor(r)] = r;
+            }
+
+            // Also include lab_results embedded on submissions (avoid duplicates)
+            for (const s of submissions) {
+                const master = s.master_id || s.id || '';
+                for (const r of (s.lab_results || [])) {
+                    const key = keyFor(r, master);
+                    if (!resultsMap[key]) {
+                        // normalize id if missing to keep React keys stable
+                        const normalized = { ...r, id: r.id || `${master}:${(r.test_name||'r').slice(0,20)}:${r.report_date||r.screening_date||''}` };
+                        resultsMap[key] = normalized as any;
+                    }
+                }
+            }
+
+            setLabResults(Object.values(resultsMap));
             setLabSubmissions(submissions);
         } catch (err) {
             console.error('Error loading lab data:', err);
