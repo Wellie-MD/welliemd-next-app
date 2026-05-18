@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { TestTube, Calendar, Search, ChevronDown, ChevronUp, AlertCircle, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { getLabResults, getLabSubmissions, type LabResult, type LabSubmission, type LabLifecycleEvent } from './api';
+import { downloadFile } from '@/shared/lib/utils';
 
 function formatDate(dateString: string | null): string {
     if (!dateString) return 'N/A';
@@ -39,14 +40,6 @@ function getSubmissionStatusBadgeStyle(status: string | null) {
     return { background: 'var(--km-s2)', color: 'var(--km-tm)', border: '1px solid var(--km-b)' };
 }
 
-function getResultValueStyle(value: string | null) {
-    const v = (value || '').toLowerCase();
-    if (v.includes('complete') || v.includes('normal')) return { color: 'var(--km-gr)' };
-    if (v.includes('pending') || v.includes('process')) return { color: 'var(--km-ac)' };
-    if (v.includes('fail') || v.includes('reject')) return { color: 'var(--km-re)' };
-    return { color: 'var(--km-t)' };
-}
-
 interface TimelineAction {
     label: string;
     url: string;
@@ -67,6 +60,40 @@ function toSafeUrl(value?: string | null): string | null {
     return trimmed.length > 0 ? trimmed : null;
 }
 
+export function openAndDownloadPdf(dataUrl: string, filename: string): void {
+    const base64Prefix = 'base64,';
+    const prefixIndex = dataUrl.indexOf(base64Prefix);
+    if (!dataUrl.startsWith('data:application/pdf;base64,') || prefixIndex === -1) {
+        const fallbackWindow = window.open(dataUrl, '_blank', 'noopener,noreferrer');
+        if (fallbackWindow) {
+            fallbackWindow.opener = null;
+        }
+        return;
+    }
+
+    const base64 = dataUrl.slice(prefixIndex + base64Prefix.length).replace(/\s+/g, '');
+    const binary = window.atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+
+        const previewBlob = new Blob([bytes], { type: 'application/pdf' });
+        const downloadBlob = new Blob([bytes], { type: 'application/octet-stream' });
+        const blobUrl = window.URL.createObjectURL(previewBlob);
+
+        const previewWindow = window.open(blobUrl, '_blank', 'noopener,noreferrer');
+        if (previewWindow) {
+                previewWindow.opener = null;
+        }
+
+        downloadFile(downloadBlob, filename);
+
+    window.setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl);
+    }, 60_000);
+}
+
 function getEventType(event: LabLifecycleEvent): string {
     return (event.event_type || event.event || event.type || event.name || '').toUpperCase();
 }
@@ -80,7 +107,7 @@ function getEventTitle(event: LabLifecycleEvent): string {
 
     const eventType = getEventType(event);
     if (eventType === 'LAB_ORDER_REQUISITION_CREATED') return 'In-Person Lab Requisition Ready';
-    if (eventType.length > 0) return eventType.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    if (eventType.length > 0) return eventType.toLowerCase().split('_').join(' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
     return 'Lab Update';
 }
 
@@ -120,7 +147,7 @@ function getEventDescription(event: LabLifecycleEvent): string {
     }
     if (eventType === 'LAB_ORDER_DELIVERED_TO_PATIENT') {
         const proof = pick('deliveryProof');
-        return proof ? `Delivery proof: ${proof.replaceAll('_', ' ')}` : 'Lab kit delivered to patient.';
+        return proof ? `Delivery proof: ${proof.split('_').join(' ')}` : 'Lab kit delivered to patient.';
     }
     if (eventType === 'LAB_ORDER_RECEIVED_BY_LAB') {
         const accession = payload.specimen && typeof payload.specimen === 'object'
@@ -429,16 +456,8 @@ function SubmissionCard({ submission, isExpanded, onToggle }: SubmissionCardProp
                                                                     const url = action.url || '';
                                                                     if (url.startsWith('data:application/pdf;base64,')) {
                                                                         e.preventDefault();
-                                                                        const idx = url.indexOf('base64,');
-                                                                        const b64 = url.slice(idx + 7);
-                                                                        const cleaned = b64.replace(/\s+/g, '');
-                                                                        const bin = window.atob(cleaned);
-                                                                        const len = bin.length;
-                                                                        const u8 = new Uint8Array(len);
-                                                                        for (let i = 0; i < len; ++i) u8[i] = bin.charCodeAt(i);
-                                                                        const blob = new Blob([u8], { type: 'application/pdf' });
-                                                                        const blobUrl = window.URL.createObjectURL(blob);
-                                                                        window.open(blobUrl, '_blank');
+                                                                        const filename = `lab-requisition-${submission.master_id || submission.id || 'download'}.pdf`;
+                                                                        openAndDownloadPdf(url, filename);
                                                                     }
                                                                 } catch (err) {
                                                                     // fall back to default navigation on error
