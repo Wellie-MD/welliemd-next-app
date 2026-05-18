@@ -60,14 +60,31 @@ type ApiErrorBody = {
   error?: string;
   detail?: string;
   message?: string;
+  [key: string]: unknown;
 };
+
+function stringifyApiMessage(value: unknown): string | undefined {
+  if (!value) return undefined;
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    return value.map(stringifyApiMessage).filter(Boolean).join(" ");
+  }
+  if (typeof value === "object") {
+    return Object.values(value)
+      .map(stringifyApiMessage)
+      .filter(Boolean)
+      .join(" ");
+  }
+  return undefined;
+}
 
 function errorMessage(error: unknown, fallback: string) {
   const axiosError = error as AxiosError<ApiErrorBody>;
   return (
-    axiosError.response?.data?.error ||
-    axiosError.response?.data?.detail ||
-    axiosError.response?.data?.message ||
+    stringifyApiMessage(axiosError.response?.data?.error) ||
+    stringifyApiMessage(axiosError.response?.data?.detail) ||
+    stringifyApiMessage(axiosError.response?.data?.message) ||
+    stringifyApiMessage(axiosError.response?.data) ||
     (error instanceof Error ? error.message : fallback)
   );
 }
@@ -122,6 +139,14 @@ export default function Domains() {
   async function addDomain() {
     if (!domain.trim()) {
       toast({ title: "Domain is required", variant: "destructive" });
+      return;
+    }
+    if (singleAddBlockedForRoot) {
+      toast({
+        title: "Use setup both portals",
+        description: "Root domains must be provisioned as admin and patient portal subdomains together.",
+        variant: "destructive",
+      });
       return;
     }
     try {

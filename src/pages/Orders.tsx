@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TrendingUp, Grid3X3, Eye } from "lucide-react"
 import { DateRange } from "react-day-picker"
@@ -121,6 +122,12 @@ const formatDateLabel = (dateString?: string | null) => {
     day: "2-digit",
     year: "numeric",
   })
+}
+
+const parseMoney = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === "") return null
+  const n = Number.parseFloat(String(value))
+  return Number.isFinite(n) ? n : null
 }
 
 export default function Orders() {
@@ -459,9 +466,18 @@ export default function Orders() {
               render: (_: any, row: any) => {
                 const currentStatus = row.orderStatus ?? 'created'
                 const isLocked = currentStatus === 'shipped' || currentStatus === 'canceled'
+                const isPrescribedStatus = String(currentStatus || "").toLowerCase() === "prescribed"
+                const recoveryState = String(row.payment_recovery_state || "").toLowerCase()
+                const remaining = parseMoney(row.remaining_supplemental_amount)
+                const hasRecoveryPending =
+                  isPrescribedStatus &&
+                  (
+                    recoveryState === "recovery_pending" ||
+                    (remaining != null && remaining > 0)
+                  )
 
                 return (
-                  <div className="relative">
+                  <div className="relative space-y-1">
                     <Select
                       value={editedStatuses[row.id] ?? currentStatus}
                       onValueChange={(v) => handleStatusChange(row.id, v)}
@@ -478,6 +494,29 @@ export default function Orders() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {hasRecoveryPending ? (
+                      <Badge className="bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-100">
+                        Recovery Pending
+                      </Badge>
+                    ) : null}
+                  </div>
+                )
+              },
+            }
+          }
+
+          if (col.key === 'orderTotal') {
+            return {
+              ...col,
+              render: (_: any, row: any) => {
+                const remaining = parseMoney(row.remaining_supplemental_amount)
+                const hasRemaining = remaining != null && remaining > 0
+                return (
+                  <div className="space-y-1">
+                    <div>{row.orderTotal || '0.00'}</div>
+                    {hasRemaining ? (
+                      <div className="text-[11px] text-amber-700">Remaining ${remaining.toFixed(2)}</div>
+                    ) : null}
                   </div>
                 )
               },

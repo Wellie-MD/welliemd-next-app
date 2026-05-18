@@ -1,5 +1,5 @@
 import { ChangeProductModal, PendingProductChange } from "@/components/orders/ChangeProductModal"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Order, ordersApi } from "@/api/ordersApi"
@@ -111,6 +111,14 @@ const getStatusIcon = (status: string) => {
   return <RotateCw className="h-3.5 w-3.5" />
 }
 
+const recoveryStatusColors: Record<string, string> = {
+  recovery_pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800",
+}
+
+const recoveryStatusLabels: Record<string, string> = {
+  recovery_pending: "Recovery Pending",
+}
+
 type TimelineItem = {
   title: string
   date: string
@@ -162,6 +170,7 @@ export default function OrderDetail() {
   const [paymentMethodsError, setPaymentMethodsError] = useState<string | null>(null)
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("")
   const [retryPaymentLoading, setRetryPaymentLoading] = useState(false)
+  const retrySingleFlightRef = useRef(false)
   const [retryGateway, setRetryGateway] = useState<PatientPaymentGateway | null>(null)
   const { toast } = useToast()
   const patientUserId = order?.patient?.user_id
@@ -369,8 +378,13 @@ export default function OrderDetail() {
   }
 
   const status = order.orderStatus || order.status || "created"
+  const isPrescribedStatus = String(status || "").toLowerCase() === "prescribed"
   const statusDisplay = statusLabels[status] || status
   const orderTitle = order.order_id ? `#${order.order_id}` : order.display_id ? `#${order.display_id}` : order.id?.slice(0, 8) || ""
+  const paymentRecoveryState = (order.payment_recovery_state || "").toLowerCase()
+  const paymentRecoveryLabel = isPrescribedStatus && paymentRecoveryState
+    ? (recoveryStatusLabels[paymentRecoveryState] || paymentRecoveryState)
+    : null
 
   const paymentStatus = (order.paymentStatus || "").toLowerCase()
   const settlementState = (order.payment_settlement_state || "").toLowerCase()
@@ -395,7 +409,7 @@ export default function OrderDetail() {
   const isPaymentFailure = retryablePaymentStatuses.includes(paymentStatus)
   const isSettlementRetryable = ["failed", "pending"].includes(settlementState)
   const isOrderPaymentPending = status === "payment_pending"
-  const canRetryPayment =
+  const baseRetryEligibility =
     !paymentCaptured && (isPaymentFailure || isSettlementRetryable || isOrderPaymentPending)
   const isAllowedStatus = status === "created" || status === "payment_pending"
   const canChangeProduct = isAllowedStatus && !isLocked
@@ -540,21 +554,63 @@ export default function OrderDetail() {
   }
 
   const handleRetryPayment = async () => {
+    if (retrySingleFlightRef.current || retryPaymentLoading) {
+      return
+    }
     if (!order?.id) return
     if (!selectedPaymentMethodId) {
       toast({ title: "Select a payment method to retry.", variant: "destructive" })
       return
     }
+    const normalizeRetryErrorMessage = (raw?: string) => {
+      const msg = String(raw || "").trim()
+      const lowered = msg.toLowerCase()
+      if (
+        lowered.includes("thank you") ||
+        lowered.includes("your request has been received") ||
+        lowered.includes("request has been received") ||
+        lowered.includes("fraud review") ||
+        lowered.includes("held for review") ||
+        lowered.includes("review")
+      ) {
+        return "Authorize.Net has placed this transaction under fraud review. The payment is not settled yet."
+      }
+      if (lowered.includes("supplemental_recovery_in_progress")) {
+        return "A supplemental recovery charge is already in progress. Please wait for the latest gateway outcome before retrying again."
+      }
+      return msg || "Retry payment failed"
+    }
     try {
+      retrySingleFlightRef.current = true
       setRetryPaymentLoading(true)
       const result = await ordersApi.retryPayment(order.id, {
         saved_payment_method_id: selectedPaymentMethodId,
       })
+      const responseMessage =
+        String(result.error || result.detail || result.message || "").trim()
       if (!result.success) {
-        toast({ title: result.error || "Retry payment failed", variant: "destructive" })
+        toast({ title: normalizeRetryErrorMessage(responseMessage), variant: "destructive" })
         return
       }
-      toast({ title: "Payment retry submitted" })
+      const txStatus = String(result.transaction_status || "").toLowerCase()
+      const settledStatuses = new Set(["captured", "succeeded"])
+      const settlementState = String(result.payment_settlement_state || "").toLowerCase()
+      if (
+        normalizeRetryErrorMessage(responseMessage) !== responseMessage ||
+        !settledStatuses.has(txStatus) ||
+        settlementState !== "captured"
+      ) {
+        toast({
+          title:
+            normalizeRetryErrorMessage(responseMessage) !== responseMessage
+              ? normalizeRetryErrorMessage(responseMessage)
+              : `Retry submitted, but payment not settled yet (status: ${txStatus || "unknown"}).`,
+          variant: "destructive",
+        })
+        await refetchOrderWithRetries()
+        return
+      }
+      toast({ title: "Payment retry completed successfully." })
       setShowRetryPaymentDialog(false)
       await refetchOrderWithRetries()
     } catch (err: unknown) {
@@ -562,9 +618,10 @@ export default function OrderDetail() {
         (err as { response?: { data?: { error?: string; detail?: string } } })?.response?.data?.error ||
         (err as { response?: { data?: { error?: string; detail?: string } } })?.response?.data?.detail ||
         "Retry payment failed"
-      toast({ title: message, variant: "destructive" })
+      toast({ title: normalizeRetryErrorMessage(message), variant: "destructive" })
     } finally {
       setRetryPaymentLoading(false)
+      retrySingleFlightRef.current = false
     }
   }
 
@@ -812,6 +869,15 @@ export default function OrderDetail() {
     return value.toFixed(2)
   }
 
+  const rawRemainingSupplementalAmount = parseMoney(order.remaining_supplemental_amount)
+  const prescribedFinalAmount = parseMoney(order.prescribed_final_amount)
+  const baseCaptureAmount = parseMoney(order.base_capture_amount)
+  const supplementalDeltaAmount = parseMoney(order.supplemental_delta_amount)
+  const baseCapturedAmount = parseMoney(order.base_captured_amount)
+  const supplementalCapturedAmount = parseMoney(order.supplemental_captured_amount)
+  const hasSplitSettlement =
+    supplementalDeltaAmount != null && supplementalDeltaAmount > 0
+
   const quantityRaw = Number.parseFloat(String(qty))
   const quantity = Number.isFinite(quantityRaw) && quantityRaw > 0 ? quantityRaw : 1
   const originalPrice = parseMoney(order.pricing?.subtotal_before_discount ?? order.original_price)
@@ -895,7 +961,7 @@ export default function OrderDetail() {
   const chargeableAmountSource = order.chargeable_amount_source || "requested_medicine"
   const prescribedDisplayTotal = settlementState === "captured"
     ? settlementAmount
-    : chargeableAmount
+    : (prescribedFinalAmount ?? chargeableAmount)
 
   const shouldPreferPrescribedDisplay =
     pendingProductChange == null &&
@@ -913,7 +979,44 @@ export default function OrderDetail() {
   const previewNetTotal = previewTotal != null
     ? Math.max(0, previewTotal - refundedAmount)
     : netTotalAmount
-  const retryAmount = totalAmount ?? previewTotal ?? netTotalAmount
+
+  // In split-capture rows, always reconcile remaining amount against the
+  // currently displayed prescribed total to avoid stale-context mismatch.
+  const effectivePrescribedTotalForSplit =
+    hasSplitSettlement
+      ? (shouldPreferPrescribedDisplay ? prescribedDisplayTotal : previewTotal)
+      : null
+  const splitCapturedSoFar =
+    (baseCapturedAmount ?? 0) + (supplementalCapturedAmount ?? 0)
+  const derivedRemainingSupplemental =
+    hasSplitSettlement && effectivePrescribedTotalForSplit != null
+      ? Math.max(0, effectivePrescribedTotalForSplit - splitCapturedSoFar)
+      : null
+  const remainingSupplementalAmount =
+    derivedRemainingSupplemental != null
+      ? derivedRemainingSupplemental
+      : rawRemainingSupplementalAmount
+  const hasRemainingSupplemental =
+    isPrescribedStatus && remainingSupplementalAmount != null && remainingSupplementalAmount > 0
+
+  const baseCapturedDisplay = hasSplitSettlement
+    ? formatMoney(baseCapturedAmount ?? 0)
+    : null
+  const supplementalCapturedDisplay = hasSplitSettlement
+    ? formatMoney(supplementalCapturedAmount ?? 0)
+    : null
+  const prescribedFinalDisplay = hasSplitSettlement
+    ? formatMoney(effectivePrescribedTotalForSplit ?? prescribedFinalAmount ?? 0)
+    : null
+
+  const retryAmount = hasRemainingSupplemental
+    ? remainingSupplementalAmount
+    : (totalAmount ?? previewTotal ?? netTotalAmount)
+  const canRetryPayment = hasRemainingSupplemental || baseRetryEligibility
+  const paymentInfoAmount = hasRemainingSupplemental
+    ? formatMoney(remainingSupplementalAmount)
+    : formatMoney(previewNetTotal)
+  const paymentInfoAmountLabel = hasRemainingSupplemental ? "Remaining to Capture" : "Amount"
 
   const displayProductName = pendingProductChange?.productName || order.product_name || "—"
   const displayQuantity = String(qty)
@@ -1022,6 +1125,10 @@ export default function OrderDetail() {
   const retryGatewayLabel = gatewayLabel(retryGateway)
   const orderProcessorGateway = normalizeGateway(order?.paymentProcessor)
   const orderProcessorGatewayLabel = gatewayLabel(orderProcessorGateway)
+  const retryAmountLabel = hasRemainingSupplemental ? "Remaining supplemental amount" : "Amount to retry"
+  const retryModalDescription = hasRemainingSupplemental
+    ? `This retry charges only the remaining supplemental amount via ${retryGatewayLabel}.`
+    : `Select a saved card to retry the patient charge via ${retryGatewayLabel}.`
   const retryGatewayMismatch =
     Boolean(retryGateway && orderProcessorGateway) && retryGateway !== orderProcessorGateway
   const processorReferenceLabel =
@@ -1032,6 +1139,9 @@ export default function OrderDetail() {
         : orderProcessorGateway === "authorize_net"
           ? "Authorize.Net Trans ID"
           : "Processor Ref"
+  const settlementTransactions = Array.isArray(order.payment_settlement_transactions)
+    ? order.payment_settlement_transactions
+    : []
 
   return (
     <div className="p-6 lg:p-8">
@@ -1286,6 +1396,46 @@ export default function OrderDetail() {
                       </td>
                     </tr>
                   )}
+                  {hasSplitSettlement && (
+                    <tr>
+                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                        Prescribed total:
+                      </td>
+                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                        ${prescribedFinalDisplay}
+                      </td>
+                    </tr>
+                  )}
+                  {hasSplitSettlement && (
+                    <tr>
+                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                        Captured (base):
+                      </td>
+                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                        ${baseCapturedDisplay}
+                      </td>
+                    </tr>
+                  )}
+                  {hasSplitSettlement && supplementalCapturedAmount != null && (
+                    <tr>
+                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                        Captured (supplemental):
+                      </td>
+                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                        ${supplementalCapturedDisplay}
+                      </td>
+                    </tr>
+                  )}
+                  {hasRemainingSupplemental && (
+                    <tr>
+                      <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400" colSpan={3}>
+                        Remaining supplemental amount:
+                      </td>
+                      <td className="px-6 py-3 text-right font-medium text-amber-600 dark:text-amber-400">
+                        ${formatMoney(remainingSupplementalAmount)}
+                      </td>
+                    </tr>
+                  )}
                   <tr>
                     <td
                       className="px-6 py-3 text-right font-bold text-slate-900 dark:text-white border-t border-border"
@@ -1334,6 +1484,16 @@ export default function OrderDetail() {
                   {getStatusIcon(status)}
                   {statusDisplay.toUpperCase().replace(/_/g, " ")}
                 </span>
+                {paymentRecoveryLabel ? (
+                  <span
+                    className={cn(
+                      "px-2.5 py-0.5 rounded-full text-xs font-medium border",
+                      recoveryStatusColors[paymentRecoveryState] || "bg-amber-100 text-amber-700 border-amber-200"
+                    )}
+                  >
+                    {paymentRecoveryLabel}
+                  </span>
+                ) : null}
               </div>
               <button
                 className="text-sm text-slate-500 hover:text-primary flex items-center gap-1"
@@ -1673,6 +1833,26 @@ export default function OrderDetail() {
                   {order.paymentProcessorTransactionId || "—"}
                 </span>
               </div>
+              {hasSplitSettlement && settlementTransactions.length > 0 && (
+                <div className="space-y-2 rounded border border-slate-200 dark:border-slate-700 p-2">
+                  <div className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                    Split Capture Transactions
+                  </div>
+                  {settlementTransactions.map((tx) => {
+                    const role = tx.settlement_role || "base"
+                    const ref = tx.processor_transaction_id || "—"
+                    return (
+                      <div key={tx.id} className="grid grid-cols-3 gap-2 text-[11px]">
+                        <span className="text-slate-500 dark:text-slate-400">{role}</span>
+                        <span className="font-mono text-slate-900 dark:text-white truncate">{ref}</span>
+                        <span className="text-right text-slate-600 dark:text-slate-300">
+                          ${formatMoney(parseMoney(tx.amount))}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
               <div className="flex justify-between items-center">
                 <span className="text-slate-500 dark:text-slate-400">Status</span>
                 <div className="flex items-center gap-2">
@@ -1699,9 +1879,9 @@ export default function OrderDetail() {
                 </div>
               )}
               <div className="pt-3 border-t border-border flex justify-between items-center mt-2">
-                <span className="text-slate-900 dark:text-white font-bold">Amount</span>
+                <span className="text-slate-900 dark:text-white font-bold">{paymentInfoAmountLabel}</span>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-slate-900 dark:text-white font-bold">${netTotalPrice}</span>
+                  <span className="text-slate-900 dark:text-white font-bold">${paymentInfoAmount}</span>
                   {canRetryPayment && (
                     <PermissionGate permission={Permissions.ORDER_UPDATE}>
                       <Button
@@ -1739,7 +1919,7 @@ export default function OrderDetail() {
           <DialogHeader>
             <DialogTitle>Retry Patient Payment</DialogTitle>
             <DialogDescription>
-              Select a saved card to retry the patient charge via {retryGatewayLabel}.
+              {retryModalDescription}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -1759,7 +1939,7 @@ export default function OrderDetail() {
             </div>
 
             <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-500 dark:text-slate-400">Amount to retry</span>
+              <span className="text-slate-500 dark:text-slate-400">{retryAmountLabel}</span>
               <span className="text-slate-900 dark:text-white font-medium">${formatMoney(retryAmount)}</span>
             </div>
 
@@ -1812,10 +1992,16 @@ export default function OrderDetail() {
             )}
 
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowRetryPaymentDialog(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowRetryPaymentDialog(false)}
+                disabled={retryPaymentLoading}
+              >
                 Cancel
               </Button>
               <Button
+                type="button"
                 onClick={handleRetryPayment}
                 disabled={
                   retryPaymentLoading ||
