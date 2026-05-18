@@ -170,6 +170,10 @@ export default function Domains() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [domain, setDomain] = useState("");
   const [portalType, setPortalType] = useState<CustomDomainPortalType>("client");
+  const preview = buildPortalPreview(domain);
+  const singleAddBlockedForRoot = Boolean(
+    preview?.isBareRootInput && portalType !== "intake"
+  );
 
   const loadDomains = useCallback(async (showToast = false) => {
     try {
@@ -224,7 +228,7 @@ export default function Domains() {
         domain: domain.trim(),
         portal_type: portalType,
       });
-      setDomains((current) => [created, ...current]);
+      setDomains((current) => mergeDomains(current, [created]));
       setDomain("");
       setPortalType("client");
       setDialogOpen(false);
@@ -236,6 +240,42 @@ export default function Domains() {
       toast({
         title: "Could not add domain",
         description: errorMessage(error, "Failed to add domain"),
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function setupBothPortals() {
+    if (!domain.trim()) {
+      toast({ title: "Domain is required", variant: "destructive" });
+      return;
+    }
+
+    if (!preview) {
+      toast({ title: "Enter a valid root domain", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const created = await customDomainsApi.setupPortals({
+        domain: preview.rootDomain,
+      });
+      setDomains((current) => mergeDomains(current, created));
+      setDomain("");
+      setPortalType("client");
+      setDialogOpen(false);
+      toast({
+        title: "Both portal domains added",
+        description:
+          "Add the DNS records shown below for admin and patient, then verify them after propagation.",
+      });
+    } catch (error: unknown) {
+      toast({
+        title: "Could not set up both portals",
+        description: errorMessage(error, "Failed to add portal domains"),
         variant: "destructive",
       });
     } finally {
