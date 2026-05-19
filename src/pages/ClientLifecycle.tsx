@@ -103,16 +103,6 @@ const getLifecycleActionLabel = (job: LifecycleJob) => {
   return job.operation_type;
 };
 
-const getLifecycleJobMessage = (job: LifecycleJob) => {
-  const message = stringifyValue(job.error_payload?.message);
-  if (message) return message;
-  const failedSteps = job.steps
-    .filter((step) => ERROR_JOB_STATUSES.has(step.status) || hasPayload(step.error_payload))
-    .map((step) => `${step.display_name || step.name}: ${stringifyValue(step.error_payload?.message) || step.status}`);
-  if (failedSteps.length) return failedSteps.join(" · ");
-  return job.status;
-};
-
 const formatLifecycleJobOption = (job: LifecycleJob, latestJobId?: string) => {
   const marker = latestJobId === job.id ? "Latest · " : "";
   return `${marker}${formatDate(job.created_at)} · ${getLifecycleActionLabel(job)} · ${job.status}`;
@@ -407,10 +397,6 @@ export default function ClientLifecycle() {
       erroredJobs,
     };
   }, [data?.job_counts, lifecycleJobs]);
-  const lifecycleErrorJobs = useMemo(
-    () => lifecycleJobs.filter((job) => ERROR_JOB_STATUSES.has(job.status) || hasPayload(job.error_payload)),
-    [lifecycleJobs]
-  );
   const teardownJobs = useMemo(
     () => lifecycleJobs.filter((job) => job.operation_type === "teardown"),
     [lifecycleJobs]
@@ -693,7 +679,7 @@ export default function ClientLifecycle() {
                     ) : (
                       <SelectItem value="latest">No lifecycle job yet</SelectItem>
                     )}
-                    {lifecycleJobs.map((job) => (
+                    {lifecycleJobs.filter((job) => job.id !== latestJob?.id).map((job) => (
                       <SelectItem key={job.id} value={job.id}>
                         {formatLifecycleJobOption(job, latestJob?.id)}
                       </SelectItem>
@@ -751,31 +737,6 @@ export default function ClientLifecycle() {
                     <LifecycleErrorDetails payload={selectedLifecycleJob.error_payload} />
                   </div>
                 ) : null}
-              </div>
-            ) : null}
-
-            {lifecycleErrorJobs.length ? (
-              <div className="space-y-2 rounded-md border border-destructive/20 bg-destructive/5 p-3">
-                <p className="text-sm font-medium text-destructive">Historical errors</p>
-                <div className="space-y-2">
-                  {lifecycleErrorJobs.map((job) => (
-                    <button
-                      type="button"
-                      key={job.id}
-                      className="w-full rounded-md border bg-background p-3 text-left text-sm transition-colors hover:bg-muted"
-                      onClick={() => setSelectedLifecycleJobId(job.id)}
-                    >
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant={getBadgeVariant(job.status)}>{job.status}</Badge>
-                        <span className="font-medium">{getLifecycleActionLabel(job)}</span>
-                        <span className="text-xs text-muted-foreground">{formatDate(job.created_at)}</span>
-                      </div>
-                      <p className="mt-1 break-words text-xs text-muted-foreground">
-                        {getLifecycleJobMessage(job)}
-                      </p>
-                    </button>
-                  ))}
-                </div>
               </div>
             ) : null}
 
