@@ -72,6 +72,107 @@ const parseBoolean = (value: unknown) => value === true || value === "true" || v
 
 const ACTIVE_LIFECYCLE_STATUSES = new Set(["pending", "previewed", "running", "cancel_requested"]);
 
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+
+const stringifyValue = (value: unknown) => {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return JSON.stringify(value);
+};
+
+const getFailureDetails = (payload?: Record<string, unknown>) => {
+  const details = asRecord(payload?.details);
+  const explicitDetails = details.failure_details;
+  if (Array.isArray(explicitDetails)) {
+    return explicitDetails.map(asRecord).filter((item) => Object.keys(item).length > 0);
+  }
+
+  const failures = Array.isArray(details.failures) ? details.failures : [];
+  const results = asRecord(details.results);
+  return failures
+    .map((failure) => {
+      const name = String(failure);
+      const result = asRecord(results[name]);
+      return { name, ...result };
+    })
+    .filter((item) => Object.keys(item).length > 0);
+};
+
+const getCheckNames = (payload: Record<string, unknown>, key: "pending_checks" | "failed_checks") => {
+  const details = asRecord(payload.details);
+  const direct = payload[key];
+  const nested = details[key];
+  const value = Array.isArray(direct) ? direct : nested;
+  return Array.isArray(value) ? value.map(String) : [];
+};
+
+const LifecycleErrorDetails = ({ payload }: { payload?: Record<string, unknown> }) => {
+  if (!payload || Object.keys(payload).length === 0) return null;
+  const failures = getFailureDetails(payload);
+  const pendingChecks = getCheckNames(payload, "pending_checks");
+  const failedChecks = getCheckNames(payload, "failed_checks");
+
+  if (!failures.length && !pendingChecks.length && !failedChecks.length) return null;
+
+  return (
+    <div className="mt-3 space-y-2 text-xs">
+      {failedChecks.length ? (
+        <div>
+          <p className="font-medium">Failed checks</p>
+          <p className="break-words">{failedChecks.join(", ")}</p>
+        </div>
+      ) : null}
+      {pendingChecks.length ? (
+        <div>
+          <p className="font-medium">Pending checks</p>
+          <p className="break-words">{pendingChecks.join(", ")}</p>
+        </div>
+      ) : null}
+      {failures.map((failure, index) => {
+        const name = stringifyValue(failure.name) || `Failure ${index + 1}`;
+        const facts = [
+          ["URL", failure.url],
+          ["HTTP", failure.status_code],
+          ["Error", failure.error],
+          ["AWS status", failure.domain_status || failure.job_status || failure.state],
+          ["AWS reason", failure.status_reason || failure.reason || failure.aws_error],
+        ]
+          .map(([label, value]) => [label, stringifyValue(value)] as const)
+          .filter(([, value]) => value);
+
+        return (
+          <div key={`${name}-${index}`} className="rounded-md border border-destructive/20 bg-background/60 p-2">
+            <p className="font-medium">{name}</p>
+            {facts.map(([label, value]) => (
+              <p key={label} className="break-words">
+                <span className="text-muted-foreground">{label}:</span> {value}
+              </p>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const FrontendReadyPendingDetails = ({ step }: { step: LifecycleStep }) => {
+  if (step.name !== "frontend_ready" || !["pending", "running"].includes(step.status)) return null;
+  const output = asRecord(step.output_payload);
+  const pendingChecks = getCheckNames(output, "pending_checks");
+  const lastChecked = stringifyValue(output.last_checked_at);
+  if (!pendingChecks.length && !lastChecked) return null;
+  return (
+    <div className="mt-3 rounded-md bg-muted p-3 text-xs text-muted-foreground">
+      {pendingChecks.length ? <p>Waiting on: {pendingChecks.join(", ")}</p> : null}
+      {lastChecked ? <p>Last checked: {formatDate(lastChecked)}</p> : null}
+      <p>Next readiness check is queued automatically.</p>
+    </div>
+  );
+};
+
 const isTeardownCancellable = (job?: LifecycleJob | null) =>
   Boolean(job && ACTIVE_LIFECYCLE_STATUSES.has(job.status));
 
@@ -107,8 +208,10 @@ const StepTimeline = ({
           {step.error_payload && Object.keys(step.error_payload).length > 0 ? (
             <div className="mt-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive break-words whitespace-pre-wrap">
               {(step.error_payload.message as string) || "Step failed"}
+              <LifecycleErrorDetails payload={step.error_payload} />
             </div>
           ) : null}
+          <FrontendReadyPendingDetails step={step} />
           {onRetryStep && ["failed", "blocked"].includes(step.status) ? (
             <div className="mt-3">
               <Button
@@ -398,6 +501,7 @@ export default function ClientLifecycle() {
               <AlertTitle>Latest Lifecycle Error</AlertTitle>
               <AlertDescription>
                 {(latestJob.error_payload.message as string) || "The latest lifecycle job failed."}
+                <LifecycleErrorDetails payload={latestJob.error_payload} />
               </AlertDescription>
             </Alert>
           ) : null}
