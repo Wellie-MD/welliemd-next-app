@@ -337,6 +337,13 @@ export interface ClientLifecycleResponse {
   client: Client;
   latest_job: LifecycleJob | null;
   jobs: LifecycleJob[];
+  job_counts?: {
+    total: number;
+    returned: number;
+    errored: number;
+    by_operation: Record<string, number>;
+    by_status: Record<string, number>;
+  };
   active_resources: InfraResource[];
 }
 
