@@ -1233,7 +1233,9 @@ export default function OrderDetail() {
                   {hasBreakdown && previewOriginalPrice != null && (
                     <tr>
                       <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        Product list price:
+                        {shouldPreferPrescribedDisplay
+                          ? "Requested original total (reference):"
+                          : "Product list price:"}
                       </td>
                       <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
                         ${previewOriginalPrice.toFixed(2)}
@@ -1253,7 +1255,7 @@ export default function OrderDetail() {
                   {productSubtotalAfterDiscount != null && (
                     <tr>
                       <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        Product subtotal:
+                        {shouldPreferPrescribedDisplay ? "Prescribed subtotal:" : "Product subtotal:"}
                       </td>
                       <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
                         ${productSubtotalPrice}
@@ -1273,7 +1275,7 @@ export default function OrderDetail() {
                   {!hasBreakdown && (
                     <tr>
                       <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        Product subtotal:
+                        {shouldPreferPrescribedDisplay ? "Prescribed subtotal:" : "Product subtotal:"}
                       </td>
                       <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
                         ${totalPrice}
