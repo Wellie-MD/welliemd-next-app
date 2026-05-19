@@ -332,6 +332,7 @@ export default function OrderDetail() {
   const [order, setOrder] = useState<PatientOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [productImageFailed, setProductImageFailed] = useState(false);
 
   useEffect(() => {
     if (!orderId) return;
@@ -401,6 +402,7 @@ export default function OrderDetail() {
       ? requestedMedicineName
       : rawPrescribedMedicineName;
   const displayAmount = order.chargeable_amount || order.amount;
+  const showProductImage = Boolean(order.product_image) && !productImageFailed;
 
   return (
     <div className="pg" id="pg-orderdetail">
@@ -436,14 +438,30 @@ export default function OrderDetail() {
 
       {/* Product hero */}
       <div className="km-fade" style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: 16, background: 'var(--km-s1)', borderRadius: 12, marginBottom: 10, border: '1px solid var(--km-b)' }}>
-        <div style={{
-          width: 56, height: 56, borderRadius: 12,
-          background: getProductIconBg(prescribedMedicineName || requestedMedicineName),
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0, border: '1px solid var(--km-b)',
-        }}>
-          <ProductIcon productName={prescribedMedicineName || requestedMedicineName} />
-        </div>
+        {showProductImage ? (
+          <div style={{
+            width: 56, height: 56, borderRadius: 12,
+            background: 'var(--km-s3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0, border: '1px solid var(--km-b)', overflow: 'hidden',
+          }}>
+            <img
+              src={order.product_image || ''}
+              alt={prescribedMedicineName || requestedMedicineName}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              onError={() => setProductImageFailed(true)}
+            />
+          </div>
+        ) : (
+          <div style={{
+            width: 56, height: 56, borderRadius: 12,
+            background: getProductIconBg(prescribedMedicineName || requestedMedicineName),
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0, border: '1px solid var(--km-b)',
+          }}>
+            <ProductIcon productName={prescribedMedicineName || requestedMedicineName} />
+          </div>
+        )}
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Main Product Title - Hide ONLY if diff shown (per kinmeds3) */}
           {(order.status === 'prescribed' || order.status === 'rx_sent' || order.status === 'shipped') ? (
