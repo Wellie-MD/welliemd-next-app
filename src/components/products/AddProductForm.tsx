@@ -136,7 +136,7 @@ export default function AddProductForm({
         fd.append("product_image", data.product_image)
       }
 
-      await productApi.updateProduct(product.id, Object.fromEntries(fd))
+      await productApi.updateProduct(product.id, fd)
       
       toast({
         title: "Success",
