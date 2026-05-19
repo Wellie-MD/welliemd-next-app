@@ -39,6 +39,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/use-toast";
 
 const getBadgeVariant = (status?: string) => {
@@ -87,6 +88,8 @@ const hasPayload = (payload?: Record<string, unknown> | null) =>
   Boolean(payload && Object.keys(payload).length > 0);
 
 const ERROR_JOB_STATUSES = new Set(["partial_failed", "failed", "blocked"]);
+const PROVISIONING_RETRY_JOB_STATUSES = new Set(["partial_failed", "failed", "blocked"]);
+const PROVISIONING_RETRY_EXCLUDED_STEPS = new Set(["frontend_ready", "verification"]);
 
 const getLifecycleActionLabel = (job: LifecycleJob) => {
   const request = asRecord(job.request_payload);
@@ -113,6 +116,49 @@ const getLifecycleJobMessage = (job: LifecycleJob) => {
 const formatLifecycleJobOption = (job: LifecycleJob, latestJobId?: string) => {
   const marker = latestJobId === job.id ? "Latest · " : "";
   return `${marker}${formatDate(job.created_at)} · ${getLifecycleActionLabel(job)} · ${job.status}`;
+};
+
+const getProvisioningRetryStepName = (job?: LifecycleJob | null) => {
+  if (
+    !job ||
+    !["provision", "repair"].includes(job.operation_type) ||
+    !PROVISIONING_RETRY_JOB_STATUSES.has(job.status)
+  ) {
+    return null;
+  }
+
+  const failedStep = job.steps.find(
+    (step) => ["failed", "blocked"].includes(step.status) && !PROVISIONING_RETRY_EXCLUDED_STEPS.has(step.name)
+  );
+  if (failedStep) return failedStep.display_name || failedStep.name;
+
+  const details = asRecord(job.error_payload?.details);
+  const logContext = asRecord(job.error_payload?.log_context);
+  const candidates = [
+    job.current_step_name,
+    stringifyValue(job.error_payload?.step),
+    stringifyValue(details.step),
+    stringifyValue(logContext.step),
+  ];
+  const stepName = candidates.find((candidate) => {
+    const value = String(candidate || "").trim();
+    return value && !PROVISIONING_RETRY_EXCLUDED_STEPS.has(value);
+  });
+  return stepName || null;
+};
+
+const getRetryProvisioningDisabledReason = (
+  latestJob: LifecycleJob | null | undefined,
+  hasActiveLifecycleJob: boolean,
+  retryableStepName: string | null
+) => {
+  if (hasActiveLifecycleJob) return "A lifecycle job is already active.";
+  if (!latestJob) return "No failed provisioning job is available to retry.";
+  if (retryableStepName) return null;
+  if (latestJob.operation_type === "verify" || PROVISIONING_RETRY_EXCLUDED_STEPS.has(latestJob.current_step_name || "")) {
+    return "Use Run Verification for frontend readiness or verification-only failures.";
+  }
+  return "Retry Provisioning is enabled only after a failed provisioning or repair step.";
 };
 
 const getFailureDetails = (payload?: Record<string, unknown>) => {
@@ -398,6 +444,15 @@ export default function ClientLifecycle() {
     () => Boolean(lifecycleJobs.some((job) => ACTIVE_LIFECYCLE_STATUSES.has(job.status))),
     [lifecycleJobs]
   );
+  const retryProvisioningStepName = useMemo(() => getProvisioningRetryStepName(latestJob), [latestJob]);
+  const retryProvisioningDisabledReason = getRetryProvisioningDisabledReason(
+    latestJob,
+    hasActiveLifecycleJob,
+    retryProvisioningStepName
+  );
+  const canRetryProvisioning = Boolean(
+    retryProvisioningStepName && !hasActiveLifecycleJob && !lifecycleMutation.isPending
+  );
 
   useEffect(() => {
     if (
@@ -575,14 +630,28 @@ export default function ClientLifecycle() {
           ) : null}
 
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              disabled={lifecycleMutation.isPending || hasActiveLifecycleJob}
-              onClick={() => runAction(() => clientApi.retryProvisioning(client.id), "Provisioning retry queued.")}
-            >
-              {lifecycleMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
-              Retry Provisioning
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">
+                    <Button
+                      variant="outline"
+                      disabled={!canRetryProvisioning}
+                      className={!canRetryProvisioning ? "pointer-events-none" : undefined}
+                      onClick={() => runAction(() => clientApi.retryProvisioning(client.id), "Provisioning retry queued.")}
+                    >
+                      {lifecycleMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+                      Retry Provisioning
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!canRetryProvisioning && retryProvisioningDisabledReason ? (
+                  <TooltipContent className="max-w-xs">
+                    {retryProvisioningDisabledReason}
+                  </TooltipContent>
+                ) : null}
+              </Tooltip>
+            </TooltipProvider>
             <Button
               variant="outline"
               disabled={lifecycleMutation.isPending || hasActiveLifecycleJob}
