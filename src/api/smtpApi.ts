@@ -26,6 +26,11 @@ export const getMailgunDomain = async (domainName: string): Promise<MailgunDomai
   return data;
 };
 
+export const verifyMailgunDomain = async (domainName: string): Promise<MailgunDomainResponse> => {
+  const { data } = await api.put(`${apiBaseUrl}mailgun-domains/${domainName}/verify/`);
+  return data;
+};
+
 export const deleteMailgunDomain = async (domainName: string): Promise<any> => {
   const { data } = await api.delete(`${apiBaseUrl}mailgun-domains/${domainName}/`);
   return data;
@@ -188,6 +193,7 @@ export const smtpApi = {
   searchEmailConfigurations,
   createMailgunDomain,
   getMailgunDomain,
+  verifyMailgunDomain,
   deleteMailgunDomain,
   createMailgunCredentials,
   deleteMailgunCredentials
