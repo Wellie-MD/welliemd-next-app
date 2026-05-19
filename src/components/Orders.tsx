@@ -73,13 +73,20 @@ function OrderListItem({ order, onClick }: { order: PatientOrder; onClick: () =>
   const ref = getOrderReference(order);
   const icon = getProductIcon(order.product_name);
   const displayAmount = order.chargeable_amount || order.amount;
+  const hasProductImage = Boolean(order.product_image);
 
   return (
     <div onClick={onClick} style={{ cursor: "pointer" }}>
       <div className="km-oitem">
-        <div className="km-oimg" style={{ background: 'var(--km-s3)', fontSize: 20 }}>
-          {icon}
-        </div>
+        {hasProductImage ? (
+          <div className="km-oimg km-oimg-photo">
+            <img src={order.product_image || ''} alt={order.product_name} className="km-oimg-photo-el" />
+          </div>
+        ) : (
+          <div className="km-oimg" style={{ background: 'var(--km-s3)', fontSize: 20 }}>
+            {icon}
+          </div>
+        )}
         <div className="km-oileft">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
             <span className="km-oiid" style={{ marginBottom: 0 }}>{ref}</span>

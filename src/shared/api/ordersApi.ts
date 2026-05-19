@@ -48,6 +48,7 @@ export interface PatientOrder {
     status: OrderStatus;
     status_display: string;
     product_name: string;
+    product_image?: string | null;
     pharmacy_name: string | null;
     tracking_number: string | null;
     tracking_url: string | null;
