@@ -10,7 +10,8 @@ export interface NotificationTemplate {
     short_description: string;
     email_body: string;
     sms_body: string;
-    is_active: boolean;
+    email_enabled: boolean;
+    sms_enabled: boolean;
     available_variables: TemplateVariable[];
     created_at: string;
     updated_at: string;
@@ -22,7 +23,8 @@ export interface NotificationTemplateListItem {
     template_type: string;
     template_type_display: string;
     subject: string;
-    is_active: boolean;
+    email_enabled: boolean;
+    sms_enabled: boolean;
     created_at: string;
 }
 
@@ -44,7 +46,8 @@ export interface CreateNotificationTemplatePayload {
     short_description?: string;
     email_body?: string;
     sms_body?: string;
-    is_active?: boolean;
+    email_enabled?: boolean;
+    sms_enabled?: boolean;
 }
 
 export interface UpdateNotificationTemplatePayload {
@@ -54,7 +57,8 @@ export interface UpdateNotificationTemplatePayload {
     short_description?: string;
     email_body?: string;
     sms_body?: string;
-    is_active?: boolean;
+    email_enabled?: boolean;
+    sms_enabled?: boolean;
 }
 
 const ENDPOINT = '/notification-templates/';
@@ -104,18 +108,6 @@ export const deleteNotificationTemplate = async (id: string): Promise<void> => {
 };
 
 /**
- * Toggle the active status of a template
- */
-export const toggleTemplateActive = async (
-    id: string
-): Promise<{ success: boolean; is_active: boolean; message: string }> => {
-    const { data } = await api.post<{ success: boolean; is_active: boolean; message: string }>(
-        `${ENDPOINT}${id}/toggle-active/`
-    );
-    return data;
-};
-
-/**
  * Fetch available template types with their variables
  */
 export const fetchTemplateTypes = async (): Promise<TemplateTypeInfo[]> => {
@@ -160,7 +152,6 @@ export const notificationTemplatesApi = {
     create: createNotificationTemplate,
     update: updateNotificationTemplate,
     delete: deleteNotificationTemplate,
-    toggleActive: toggleTemplateActive,
     fetchTemplateTypes: fetchTemplateTypes,
     testTemplates: testTemplates,
     testAllTemplates: testAllTemplates,

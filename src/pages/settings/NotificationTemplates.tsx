@@ -45,7 +45,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Loader2, Pencil, ChevronDown, ChevronUp, Mail, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, Pencil, ChevronDown, ChevronUp, Mail, MessageSquare, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   notificationTemplatesApi,
@@ -56,6 +56,27 @@ import {
   type UpdateNotificationTemplatePayload,
   type TestAllTemplatesResponse,
 } from "@/api/notificationTemplatesApi";
+
+type PaginatedResponse<T> = {
+  results?: T[];
+};
+
+type ApiErrorResponse = {
+  response?: {
+    data?: {
+      subject?: string | string[];
+      email_body?: string | string[];
+      sms_body?: string | string[];
+      template_type?: string | string[];
+      detail?: string;
+    };
+  };
+};
+
+const formatFieldError = (error?: string | string[]) => {
+  if (!error) return "";
+  return Array.isArray(error) ? error.join(", ") : error;
+};
 
 export default function NotificationTemplates() {
   const [templates, setTemplates] = useState<NotificationTemplateListItem[]>([]);
@@ -86,7 +107,8 @@ export default function NotificationTemplates() {
     short_description: "",
     email_body: "",
     sms_body: "",
-    is_active: true,
+    email_enabled: true,
+    sms_enabled: true,
   });
 
   // Load templates
@@ -98,12 +120,10 @@ export default function NotificationTemplates() {
         notificationTemplatesApi.fetchTemplateTypes(),
       ]);
       // Handle both array and paginated response formats
-      const templatesData = Array.isArray(templatesResponse) 
-        ? templatesResponse 
-        : (templatesResponse as any)?.results || [];
-      const typesData = Array.isArray(typesResponse) 
-        ? typesResponse 
-        : (typesResponse as any)?.results || [];
+      const templateList = templatesResponse as NotificationTemplateListItem[] | PaginatedResponse<NotificationTemplateListItem>;
+      const typeList = typesResponse as TemplateTypeInfo[] | PaginatedResponse<TemplateTypeInfo>;
+      const templatesData = Array.isArray(templateList) ? templateList : templateList.results || [];
+      const typesData = Array.isArray(typeList) ? typeList : typeList.results || [];
       setTemplates(templatesData);
       setTemplateTypes(typesData);
     } catch (error) {
@@ -128,9 +148,9 @@ export default function NotificationTemplates() {
     return type?.variables || [];
   };
 
-  // Get template types that are already used (have active templates)
+  // Get template types that are already used
   const usedTemplateTypes = useMemo(() => {
-    return new Set(templates.filter(t => t.is_active).map(t => t.template_type));
+    return new Set(templates.map(t => t.template_type));
   }, [templates]);
 
   // Get available template types for creation (not yet used)
@@ -138,28 +158,28 @@ export default function NotificationTemplates() {
     return templateTypes.filter(t => !usedTemplateTypes.has(t.value));
   }, [templateTypes, usedTemplateTypes]);
 
-  // Check if all template types are used
-  const allTypesUsed = availableTemplateTypes.length === 0 && templateTypes.length > 0;
-
-  // Handle toggle active
-  const handleToggleActive = async (e: React.MouseEvent, template: NotificationTemplateListItem) => {
-    e.stopPropagation(); // Prevent row click
+  // Handle channel toggle
+  const handleToggleChannel = async (
+    template: NotificationTemplateListItem,
+    channel: "email_enabled" | "sms_enabled",
+    checked: boolean
+  ) => {
     try {
-      const result = await notificationTemplatesApi.toggleActive(template.id);
+      await notificationTemplatesApi.update(template.id, { [channel]: checked });
       setTemplates((prev) =>
         prev.map((t) =>
-          t.id === template.id ? { ...t, is_active: result.is_active } : t
+          t.id === template.id ? { ...t, [channel]: checked } : t
         )
       );
       toast({
         title: "Success",
-        description: result.message,
+        description: `${channel === "email_enabled" ? "Email" : "SMS"} notifications updated`,
       });
     } catch (error) {
       console.error("Failed to toggle template:", error);
       toast({
         title: "Error",
-        description: "Failed to update template status",
+        description: "Failed to update notification channel",
         variant: "destructive",
       });
     }
@@ -177,7 +197,8 @@ export default function NotificationTemplates() {
         short_description: fullTemplate.short_description || "",
         email_body: fullTemplate.email_body || "",
         sms_body: fullTemplate.sms_body || "",
-        is_active: fullTemplate.is_active,
+        email_enabled: fullTemplate.email_enabled,
+        sms_enabled: fullTemplate.sms_enabled,
       });
       setVariablesOpen(false);
       setIsSheetOpen(true);
@@ -201,7 +222,8 @@ export default function NotificationTemplates() {
       short_description: "",
       email_body: "",
       sms_body: "",
-      is_active: true,
+      email_enabled: true,
+      sms_enabled: true,
     });
     setVariablesOpen(false);
     setIsSheetOpen(true);
@@ -281,7 +303,8 @@ export default function NotificationTemplates() {
           short_description: formData.short_description,
           email_body: formData.email_body,
           sms_body: formData.sms_body,
-          is_active: formData.is_active,
+          email_enabled: formData.email_enabled,
+          sms_enabled: formData.sms_enabled,
         };
         await notificationTemplatesApi.update(selectedTemplate.id, updatePayload);
         toast({
@@ -298,19 +321,19 @@ export default function NotificationTemplates() {
       }
       setIsSheetOpen(false);
       loadTemplates();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to save template:", error);
       
       // Handle field-specific validation errors from backend
-      const responseData = error.response?.data;
+      const responseData = (error as ApiErrorResponse).response?.data;
       let errorMessage = "Failed to save template";
       
       if (responseData) {
         const fieldErrors: string[] = [];
-        if (responseData.subject) fieldErrors.push(`Subject: ${responseData.subject}`);
-        if (responseData.email_body) fieldErrors.push(`Email: ${responseData.email_body}`);
-        if (responseData.sms_body) fieldErrors.push(`SMS: ${responseData.sms_body}`);
-        if (responseData.template_type) fieldErrors.push(responseData.template_type[0]);
+        if (responseData.subject) fieldErrors.push(`Subject: ${formatFieldError(responseData.subject)}`);
+        if (responseData.email_body) fieldErrors.push(`Email: ${formatFieldError(responseData.email_body)}`);
+        if (responseData.sms_body) fieldErrors.push(`SMS: ${formatFieldError(responseData.sms_body)}`);
+        if (responseData.template_type) fieldErrors.push(formatFieldError(responseData.template_type));
         if (responseData.detail) fieldErrors.push(responseData.detail);
         
         if (fieldErrors.length > 0) {
@@ -434,6 +457,16 @@ export default function NotificationTemplates() {
     );
   }, [templates, searchTerm]);
 
+  const patientTemplates = useMemo(
+    () => filteredTemplates.filter((template) => !template.template_type.startsWith("admin_")),
+    [filteredTemplates]
+  );
+
+  const adminTemplates = useMemo(
+    () => filteredTemplates.filter((template) => template.template_type.startsWith("admin_")),
+    [filteredTemplates]
+  );
+
   // DataTable columns configuration
   const columns = [
     {
@@ -461,15 +494,31 @@ export default function NotificationTemplates() {
       },
     },
     {
-      key: "is_active",
-      label: "Active",
-      render: (value: unknown, row: unknown) => {
+      key: "email_enabled",
+      label: "Email",
+      render: (_value: unknown, row: unknown) => {
         const template = row as NotificationTemplateListItem;
         return (
           <Switch
-            checked={template.is_active}
-            onCheckedChange={() => {}}
-            onClick={(e) => handleToggleActive(e, template)}
+            checked={template.email_enabled}
+            onClick={(event) => event.stopPropagation()}
+            onCheckedChange={(checked) => handleToggleChannel(template, "email_enabled", checked)}
+            aria-label={`Toggle email notifications for ${template.name}`}
+          />
+        );
+      },
+    },
+    {
+      key: "sms_enabled",
+      label: "SMS",
+      render: (_value: unknown, row: unknown) => {
+        const template = row as NotificationTemplateListItem;
+        return (
+          <Switch
+            checked={template.sms_enabled}
+            onClick={(event) => event.stopPropagation()}
+            onCheckedChange={(checked) => handleToggleChannel(template, "sms_enabled", checked)}
+            aria-label={`Toggle SMS notifications for ${template.name}`}
           />
         );
       },
@@ -527,22 +576,41 @@ export default function NotificationTemplates() {
           {/* Create Template button hidden in client portal */}
         </div>
       </div>
-      {allTypesUsed && (
-        <p className="text-sm text-muted-foreground">All 20 template types are in use</p>
-      )}
 
-      <DataTable
-        data={filteredTemplates}
-        columns={columns}
-        searchPlaceholder="Search by template name, type, or subject..."
-        emptyMessage="No templates found"
-        loading={loading}
-        onRowClick={(row) => handleEdit(row as NotificationTemplateListItem)}
-        onSearch={setSearchTerm}
-        showExport={false}
-        showResetFilters={false}
-        hideToolbar={false}
+      <Input
+        value={searchTerm}
+        onChange={(event) => setSearchTerm(event.target.value)}
+        placeholder="Search by template name, type, or subject..."
+        className="max-w-xl"
       />
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold">Patient Notifications</h2>
+        <DataTable
+          data={patientTemplates}
+          columns={columns}
+          emptyMessage="No patient notification templates found"
+          loading={loading}
+          onRowClick={(row) => handleEdit(row as NotificationTemplateListItem)}
+          showExport={false}
+          showResetFilters={false}
+          hideToolbar
+        />
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold">Admin Notifications</h2>
+        <DataTable
+          data={adminTemplates}
+          columns={columns}
+          emptyMessage="No admin notification templates found"
+          loading={loading}
+          onRowClick={(row) => handleEdit(row as NotificationTemplateListItem)}
+          showExport={false}
+          showResetFilters={false}
+          hideToolbar
+        />
+      </section>
 
       {/* Create/Edit Sheet - Slides from Bottom */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
@@ -698,21 +766,26 @@ export default function NotificationTemplates() {
                   />
                 </div>
 
-                {/* Active */}
-                <div className="flex items-center gap-4">
-                  <Label htmlFor="is_active">Active:</Label>
-                  <Select
-                    value={formData.is_active ? "yes" : "no"}
-                    onValueChange={(value) => setFormData({ ...formData, is_active: value === "yes" })}
-                  >
-                    <SelectTrigger className="w-24">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="yes">Yes</SelectItem>
-                      <SelectItem value="no">No</SelectItem>
-                    </SelectContent>
-                  </Select>
+                {/* Channels */}
+                <div className="flex flex-wrap items-center gap-6">
+                  <div className="flex items-center gap-3">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <Label htmlFor="email_enabled">Email</Label>
+                    <Switch
+                      id="email_enabled"
+                      checked={formData.email_enabled}
+                      onCheckedChange={(checked) => setFormData({ ...formData, email_enabled: checked })}
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                    <Label htmlFor="sms_enabled">SMS</Label>
+                    <Switch
+                      id="sms_enabled"
+                      checked={formData.sms_enabled}
+                      onCheckedChange={(checked) => setFormData({ ...formData, sms_enabled: checked })}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -808,11 +881,14 @@ export default function NotificationTemplates() {
                       <span className="text-sm font-medium">{template.name}</span>
                       <p className="text-xs text-muted-foreground">{template.template_type}</p>
                     </div>
-                    {template.is_active ? (
-                      <Badge variant="secondary" className="text-xs">Active</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-xs">Inactive</Badge>
-                    )}
+                    <div className="flex items-center gap-1">
+                      <Badge variant={template.email_enabled ? "secondary" : "outline"} className="text-xs">
+                        Email
+                      </Badge>
+                      <Badge variant={template.sms_enabled ? "secondary" : "outline"} className="text-xs">
+                        SMS
+                      </Badge>
+                    </div>
                   </div>
                 ))}
               </div>
