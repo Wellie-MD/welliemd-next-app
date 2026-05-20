@@ -389,23 +389,39 @@ export default function Orders() {
           if (col.key === 'order_id') {
             return {
               ...col,
-              render: (_: any, row: any) => (
-                <span className="text-sm font-medium">{row.order_id ?? row.display_id ?? '—'}</span>
-              ),
+              render: (_: any, row: any) => {
+                const detailId = row.id
+                const orderLabel = row.order_id ?? row.display_id ?? '—'
+                if (!detailId) {
+                  return <span className="text-sm font-medium">{orderLabel}</span>
+                }
+                return (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/dashboard/orders/details/${detailId}`)}
+                    className="text-primary hover:underline font-medium text-left"
+                  >
+                    {orderLabel}
+                  </button>
+                )
+              },
             }
           }
 
-          // Make the patient column clickable to open order detail page
+          // Make the patient column clickable to open patient detail page
           if (col.key === 'patient_name') {
             return {
               ...col,
               render: (_: any, row: any) => {
-                const detailId = row.id
+                const patientId = row.patient?.id
+                if (!patientId) {
+                  return <span className="text-sm font-medium">{row.patient_name || '-'}</span>
+                }
                 return (
                   <button
-                    onClick={() => detailId && navigate(`/dashboard/orders/details/${detailId}`)}
+                    type="button"
+                    onClick={() => navigate(`/dashboard/patients/${patientId}`)}
                     className="text-primary hover:underline font-medium text-left"
-                    disabled={!detailId}
                   >
                     {row.patient_name || '-'}
                   </button>

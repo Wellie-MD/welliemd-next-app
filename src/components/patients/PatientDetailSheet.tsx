@@ -69,6 +69,7 @@ const buildInitialForm = (patient: Patient) => ({
   last_name: patient.last_name || '',
   email: patient.email || '',
   phone: patient.phone || '',
+  date_of_birth: patient.date_of_birth ? patient.date_of_birth.slice(0, 10) : '',
   sex: patient.sex || 'Other',
   address: patient.address || '',
   address_line_2: patient.address_line_2 || '',
@@ -159,6 +160,7 @@ export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdat
         last_name: formState.last_name,
         email: formState.email,
         phone: formState.phone,
+        date_of_birth: formState.date_of_birth,
         sex: formState.sex,
         address: formState.address,
         address_line_2: formState.address_line_2,
@@ -437,13 +439,21 @@ export function PatientDetailSheet({ patient, open, onOpenChange, onPatientUpdat
                   onChange={(e) => setFormState((prev) => ({ ...prev, email: e.target.value }))}
                 />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-muted-foreground uppercase">Phone</label>
                   <Input
                     placeholder="e.g. (555) 123-4567"
                     value={formState.phone}
                     onChange={(e) => setFormState((prev) => ({ ...prev, phone: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">Date of Birth</label>
+                  <Input
+                    type="date"
+                    value={formState.date_of_birth}
+                    onChange={(e) => setFormState((prev) => ({ ...prev, date_of_birth: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-1">
