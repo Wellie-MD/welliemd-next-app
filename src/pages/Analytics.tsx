@@ -32,7 +32,7 @@ function formatDurationAsHours(duration: string) {
   const seconds = secondsMatch ? Number(secondsMatch[1]) : 0
 
   const totalHours = hours + minutes / 60 + seconds / 3600
-  return `${totalHours.toFixed(1)}h`
+  return `${totalHours.toFixed(1)} hours`
 }
 
 function MetricCard({
