@@ -39,6 +39,8 @@ function transformTransactionForDisplay(transaction: DisplayPaymentRow) {
 
   return {
     ...transaction,
+    patient_name: transaction.patient_name || '-',
+    order_number: transaction.order_number || '-',
     created_at: format(new Date(transaction.created_at), 'dd/MM/yyyy HH:mm'),
     status: transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1),
     refund_status: refundStatus.charAt(0).toUpperCase() + refundStatus.slice(1),
@@ -68,6 +70,8 @@ function transformTransactionForDisplay(transaction: DisplayPaymentRow) {
 // Column configuration for the data table
 const paymentColumns = [
   { key: "created_at", label: "Created At" },
+  { key: "patient_name", label: "Patient Name" },
+  { key: "order_number", label: "Order ID" },
   {
     key: "processor_transaction_id",
     label: "Transaction ID",
