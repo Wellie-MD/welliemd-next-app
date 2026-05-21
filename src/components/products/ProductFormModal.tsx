@@ -25,6 +25,7 @@ import {
   PURCHASE_TYPE_OPTIONS,
   RX_OTC_OPTIONS,
   RX_DRUG_FORM_OPTIONS,
+  JUNCTION_COLLECTION_METHOD_OPTIONS,
 } from "@/api/products";
 import { CategorySelector } from "./CategorySelector";
 import { TitrationCategoryManager } from "./TitrationCategoryManager";
@@ -35,6 +36,12 @@ import { templateApi } from "@/api/questionnaires";
 type TreatmentOption = {
   value: string;  // slug, e.g. "branded_weight_loss"
   label: string;  // original text, e.g. "Branded Weight Loss"
+};
+
+type JunctionLabTestOption = {
+  id: string;
+  name: string;
+  raw?: Record<string, any>;
 };
 
 /**
@@ -76,7 +83,9 @@ export function ProductFormModal({
   const [supplyProducts, setSupplyProducts] = useState<Product[]>([]);
   const [linkedSupplies, setLinkedSupplies] = useState<LinkedSupplyRow[]>([]);
   const [treatmentOptions, setTreatmentOptions] = useState<TreatmentOption[]>([]);
+  const [junctionLabTests, setJunctionLabTests] = useState<JunctionLabTestOption[]>([]);
   const [loadingTreatmentOptions, setLoadingTreatmentOptions] = useState(false);
+  const [loadingJunctionLabTests, setLoadingJunctionLabTests] = useState(false);
   const [loadingDoseMappings, setLoadingDoseMappings] = useState(false);
   // Track the category for which dose mappings were loaded
   const doseMappingsLoadedForCategoryRef = useRef<number | null>(null);
@@ -111,6 +120,10 @@ export function ProductFormModal({
     provider_network: "welliemd",
     followup_days_after: 30,
     quantity: "100",
+    is_lab_product: false,
+    junction_lab_test_id: "",
+    junction_lab_test_name_snapshot: "",
+    junction_collection_method: "testkit",
     is_active: true,
     requires_video_visit: false,
     allow_client_modifications: true,
@@ -213,6 +226,48 @@ export function ProductFormModal({
       fetchTreatmentOptions();
     }
   }, [open, product?.treatment]);
+
+  useEffect(() => {
+    const shouldLoadLabTests = open && (formData.is_lab_product || product?.is_lab_product);
+    if (!shouldLoadLabTests) {
+      return;
+    }
+
+    const fetchLabTests = async () => {
+      setLoadingJunctionLabTests(true);
+      try {
+        const catalogResponse = await productApi.listJunctionLabTests();
+        const items = Array.isArray(catalogResponse?.results) ? catalogResponse.results : [];
+        const mapped: JunctionLabTestOption[] = items
+          .map((item: any) => ({
+            id: String(item.id ?? ""),
+            name: String(item.name ?? ""),
+            raw: item.raw || item,
+          }))
+          .filter((item) => item.id && item.name);
+
+        if (product?.junction_lab_test_id) {
+          const selectedExists = mapped.some((item) => item.id === product.junction_lab_test_id);
+          if (!selectedExists) {
+            mapped.push({
+              id: product.junction_lab_test_id,
+              name: product.junction_lab_test_name_snapshot || product.junction_lab_test_id,
+              raw: { fallback: true },
+            });
+          }
+        }
+
+        setJunctionLabTests(mapped);
+      } catch (error) {
+        console.error("Failed to fetch Junction lab tests:", error);
+        setJunctionLabTests([]);
+      } finally {
+        setLoadingJunctionLabTests(false);
+      }
+    };
+
+    fetchLabTests();
+  }, [open, formData.is_lab_product, product?.is_lab_product, product?.junction_lab_test_id, product?.junction_lab_test_name_snapshot]);
 
   // Fetch dose mappings when category changes
   useEffect(() => {
@@ -331,6 +386,10 @@ export function ProductFormModal({
         provider_network: product.provider_network || "welliemd",
         followup_days_after: product.followup_days_after || 30,
         quantity: product.quantity?.toString() || "100",
+        is_lab_product: product.is_lab_product || false,
+        junction_lab_test_id: product.junction_lab_test_id || "",
+        junction_lab_test_name_snapshot: product.junction_lab_test_name_snapshot || "",
+        junction_collection_method: product.junction_collection_method || "testkit",
         is_active: product.is_active !== undefined ? product.is_active : true,
         requires_video_visit: product.requires_video_visit || false,
         allow_client_modifications: product.allow_client_modifications !== undefined ? product.allow_client_modifications : true,
@@ -375,6 +434,10 @@ export function ProductFormModal({
         provider_network: "welliemd",
         followup_days_after: 30,
         quantity: "100",
+        is_lab_product: false,
+        junction_lab_test_id: "",
+        junction_lab_test_name_snapshot: "",
+        junction_collection_method: "testkit",
         is_active: true,
         requires_video_visit: false,
         allow_client_modifications: true,
@@ -389,6 +452,22 @@ export function ProductFormModal({
       setLinkedSupplies([]);
     }
   }, [formData.product_type, linkedSupplies.length]);
+
+  useEffect(() => {
+    if (
+      !formData.is_lab_product &&
+      (formData.junction_lab_test_id ||
+        formData.junction_lab_test_name_snapshot ||
+        formData.junction_collection_method !== "testkit")
+    ) {
+      setFormData((prev) => ({
+        ...prev,
+        junction_lab_test_id: "",
+        junction_lab_test_name_snapshot: "",
+        junction_collection_method: "testkit",
+      }));
+    }
+  }, [formData.is_lab_product]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -406,6 +485,24 @@ export function ProductFormModal({
       toast({
         title: "Validation Error",
         description: "Beluga Medicine ID is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.is_lab_product && !formData.junction_lab_test_id.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Select a Junction lab test for lab-linked products",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.is_lab_product && !formData.junction_collection_method.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Select a Junction collection method for lab-linked products",
         variant: "destructive",
       });
       return;
@@ -432,6 +529,12 @@ export function ProductFormModal({
                 is_included: row.is_included,
               })),
       };
+
+      if (formData.is_lab_product) {
+        const selectedLabTest = junctionLabTests.find((item) => item.id === formData.junction_lab_test_id);
+        payload.junction_lab_test_name_snapshot =
+          selectedLabTest?.name || formData.junction_lab_test_name_snapshot || "";
+      }
 
       if (product) {
         await productApi.updateProduct(product.id, payload);
@@ -848,6 +951,105 @@ export function ProductFormModal({
                 />
               </div>
             </div>
+
+            <div className="flex items-center justify-between rounded-md border p-4">
+              <div>
+                <Label htmlFor="is_lab_product" className="text-base font-medium">
+                  Lab Product
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Enable this when the product should be mapped to a Junction lab test.
+                </p>
+              </div>
+              <Switch
+                id="is_lab_product"
+                checked={formData.is_lab_product}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_lab_product: checked })}
+              />
+            </div>
+
+            {formData.is_lab_product && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <Label htmlFor="junction_lab_test_id">
+                    Junction Lab Test <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={formData.junction_lab_test_id || "none"}
+                    onValueChange={(value) => {
+                      const selected = junctionLabTests.find((item) => item.id === value);
+                      setFormData({
+                        ...formData,
+                        junction_lab_test_id: value === "none" ? "" : value,
+                        junction_lab_test_name_snapshot: selected?.name || "",
+                      });
+                    }}
+                    disabled={loadingJunctionLabTests}
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          loadingJunctionLabTests
+                            ? "Loading Junction catalog..."
+                            : "Select Junction lab test"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No lab test selected</SelectItem>
+                      {junctionLabTests.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name}
+                        </SelectItem>
+                      ))}
+                      {junctionLabTests.length === 0 && !loadingJunctionLabTests && (
+                        <div className="p-2 text-sm text-muted-foreground text-center">
+                          No Junction lab tests available
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="junction_collection_method">
+                    Collection Method <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={formData.junction_collection_method}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        junction_collection_method: value as typeof formData.junction_collection_method,
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select collection method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {JUNCTION_COLLECTION_METHOD_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="junction_lab_test_name_snapshot">Catalog Name Snapshot</Label>
+                  <Input
+                    id="junction_lab_test_name_snapshot"
+                    value={formData.junction_lab_test_name_snapshot}
+                    onChange={(e) =>
+                      setFormData({ ...formData, junction_lab_test_name_snapshot: e.target.value })
+                    }
+                    placeholder="Auto-filled from Junction catalog"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Simplified Product Configuration */}

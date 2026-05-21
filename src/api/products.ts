@@ -88,6 +88,11 @@ export interface Product {
   side_effects?: string;
   safety_info?: string;
   quantity?: string | number;
+  is_lab_product?: boolean;
+  junction_lab_test_id?: string;
+  junction_lab_test_name_snapshot?: string;
+  junction_collection_method?: "testkit" | "walk_in_test" | "at_home_phlebotomy" | "on_site_collection";
+  junction_last_catalog_sync_at?: string;
   is_admin_product?: boolean;
   source_product_id?: string;
   admin_product_version?: string;
@@ -111,10 +116,18 @@ export interface CreateProductPayload {
   base_price: string | number;
   treatment: string;
   rx_or_otc: "rx" | "otc";
+  is_lab_product?: boolean;
+  junction_lab_test_id?: string;
+  junction_lab_test_name_snapshot?: string;
+  junction_collection_method?: "testkit" | "walk_in_test" | "at_home_phlebotomy" | "on_site_collection";
   [key: string]: any;
 }
 
 export interface UpdateProductPayload {
+  is_lab_product?: boolean;
+  junction_lab_test_id?: string;
+  junction_lab_test_name_snapshot?: string;
+  junction_collection_method?: "testkit" | "walk_in_test" | "at_home_phlebotomy" | "on_site_collection";
   [key: string]: any;
 }
 
@@ -165,6 +178,13 @@ export const RX_DRUG_FORM_OPTIONS = [
   { value: "cream", label: "Cream" },
   { value: "patch", label: "Patch" },
   { value: "each", label: "Each" },
+];
+
+export const JUNCTION_COLLECTION_METHOD_OPTIONS = [
+  { value: "testkit", label: "Test Kit" },
+  { value: "walk_in_test", label: "Walk-in Test" },
+  { value: "at_home_phlebotomy", label: "At-home Phlebotomy" },
+  { value: "on_site_collection", label: "On-site Collection" },
 ];
 
 export const PHARMACY_API_OPTIONS = [
@@ -251,6 +271,14 @@ export const productApi = {
    */
   getProduct: async (id: string | number): Promise<any> => {
     const { data } = await axiosInstance.get(`products/${id}/`);
+    return data;
+  },
+
+  /**
+   * Fetch cached Junction lab tests for the admin product picker
+   */
+  listJunctionLabTests: async (): Promise<{ source?: string; cached?: boolean; count?: number; results: Array<{ id: string; name: string; raw?: Record<string, any> }> }> => {
+    const { data } = await axiosInstance.get("products/junction/lab-tests/");
     return data;
   },
 

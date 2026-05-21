@@ -327,6 +327,26 @@ export default function Products() {
       render: (v: string) => v || "-",
     },
     {
+      key: "is_lab_product",
+      label: "Lab Product",
+      render: (...args: unknown[]) => {
+        const row = getRow<Product>(...args);
+        return row.is_lab_product ? (
+          <Badge variant="default">Lab</Badge>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        );
+      },
+    },
+    {
+      key: "junction_lab_test_name_snapshot",
+      label: "Junction Test",
+      render: (v: string, row: Product) => {
+        if (!row.is_lab_product) return <span className="text-muted-foreground">-</span>;
+        return v ? <span className="text-sm">{v}</span> : <span className="text-muted-foreground">-</span>;
+      },
+    },
+    {
       key: "rx_drug_form",
       label: "Drug Form",
       render: (v: string) => v || "-",
