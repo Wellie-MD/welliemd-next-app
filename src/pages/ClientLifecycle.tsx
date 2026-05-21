@@ -39,6 +39,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/use-toast";
 
 const getBadgeVariant = (status?: string) => {
@@ -71,6 +72,174 @@ const getBlockers = (job?: LifecycleJob | null) => {
 const parseBoolean = (value: unknown) => value === true || value === "true" || value === 1 || value === "1";
 
 const ACTIVE_LIFECYCLE_STATUSES = new Set(["pending", "previewed", "running", "cancel_requested"]);
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+
+const stringifyValue = (value: unknown) => {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return JSON.stringify(value);
+};
+
+const hasPayload = (payload?: Record<string, unknown> | null) =>
+  Boolean(payload && Object.keys(payload).length > 0);
+
+const ERROR_JOB_STATUSES = new Set(["partial_failed", "failed", "blocked"]);
+const PROVISIONING_RETRY_JOB_STATUSES = new Set(["partial_failed", "failed", "blocked"]);
+const PROVISIONING_RETRY_EXCLUDED_STEPS = new Set(["frontend_ready", "verification"]);
+
+const getLifecycleActionLabel = (job: LifecycleJob) => {
+  const request = asRecord(job.request_payload);
+  const resumeFromStep = stringifyValue(request.resume_from_step);
+  if (job.operation_type === "verify") return "Run Verification";
+  if (job.operation_type === "repair") {
+    return resumeFromStep ? `Retry ${resumeFromStep}` : "Retry Provisioning";
+  }
+  if (job.operation_type === "provision") return "Initial Provisioning";
+  if (job.operation_type === "teardown") return "Teardown";
+  return job.operation_type;
+};
+
+const formatLifecycleJobOption = (job: LifecycleJob, latestJobId?: string) => {
+  const marker = latestJobId === job.id ? "Latest · " : "";
+  return `${marker}${formatDate(job.created_at)} · ${getLifecycleActionLabel(job)} · ${job.status}`;
+};
+
+const getProvisioningRetryStepName = (job?: LifecycleJob | null) => {
+  if (
+    !job ||
+    !["provision", "repair"].includes(job.operation_type) ||
+    !PROVISIONING_RETRY_JOB_STATUSES.has(job.status)
+  ) {
+    return null;
+  }
+
+  const failedStep = job.steps.find(
+    (step) => ["failed", "blocked"].includes(step.status) && !PROVISIONING_RETRY_EXCLUDED_STEPS.has(step.name)
+  );
+  if (failedStep) return failedStep.display_name || failedStep.name;
+
+  const details = asRecord(job.error_payload?.details);
+  const logContext = asRecord(job.error_payload?.log_context);
+  const candidates = [
+    job.current_step_name,
+    stringifyValue(job.error_payload?.step),
+    stringifyValue(details.step),
+    stringifyValue(logContext.step),
+  ];
+  const stepName = candidates.find((candidate) => {
+    const value = String(candidate || "").trim();
+    return value && !PROVISIONING_RETRY_EXCLUDED_STEPS.has(value);
+  });
+  return stepName || null;
+};
+
+const getRetryProvisioningDisabledReason = (
+  latestJob: LifecycleJob | null | undefined,
+  hasActiveLifecycleJob: boolean,
+  retryableStepName: string | null
+) => {
+  if (hasActiveLifecycleJob) return "A lifecycle job is already active.";
+  if (!latestJob) return "No failed provisioning job is available to retry.";
+  if (retryableStepName) return null;
+  if (latestJob.operation_type === "verify" || PROVISIONING_RETRY_EXCLUDED_STEPS.has(latestJob.current_step_name || "")) {
+    return "Use Run Verification for frontend readiness or verification-only failures.";
+  }
+  return "Retry Provisioning is enabled only after a failed provisioning or repair step.";
+};
+
+const getFailureDetails = (payload?: Record<string, unknown>) => {
+  const details = asRecord(payload?.details);
+  const explicitDetails = details.failure_details;
+  if (Array.isArray(explicitDetails)) {
+    return explicitDetails.map(asRecord).filter((item) => Object.keys(item).length > 0);
+  }
+
+  const failures = Array.isArray(details.failures) ? details.failures : [];
+  const results = asRecord(details.results);
+  return failures
+    .map((failure) => {
+      const name = String(failure);
+      const result = asRecord(results[name]);
+      return { name, ...result };
+    })
+    .filter((item) => Object.keys(item).length > 0);
+};
+
+const getCheckNames = (payload: Record<string, unknown>, key: "pending_checks" | "failed_checks") => {
+  const details = asRecord(payload.details);
+  const direct = payload[key];
+  const nested = details[key];
+  const value = Array.isArray(direct) ? direct : nested;
+  return Array.isArray(value) ? value.map(String) : [];
+};
+
+const LifecycleErrorDetails = ({ payload }: { payload?: Record<string, unknown> }) => {
+  if (!payload || Object.keys(payload).length === 0) return null;
+  const failures = getFailureDetails(payload);
+  const pendingChecks = getCheckNames(payload, "pending_checks");
+  const failedChecks = getCheckNames(payload, "failed_checks");
+
+  if (!failures.length && !pendingChecks.length && !failedChecks.length) return null;
+
+  return (
+    <div className="mt-3 space-y-2 text-xs">
+      {failedChecks.length ? (
+        <div>
+          <p className="font-medium">Failed checks</p>
+          <p className="break-words">{failedChecks.join(", ")}</p>
+        </div>
+      ) : null}
+      {pendingChecks.length ? (
+        <div>
+          <p className="font-medium">Pending checks</p>
+          <p className="break-words">{pendingChecks.join(", ")}</p>
+        </div>
+      ) : null}
+      {failures.map((failure, index) => {
+        const name = stringifyValue(failure.name) || `Failure ${index + 1}`;
+        const facts = [
+          ["URL", failure.url],
+          ["HTTP", failure.status_code],
+          ["Error", failure.error],
+          ["AWS status", failure.domain_status || failure.job_status || failure.state],
+          ["AWS reason", failure.status_reason || failure.reason || failure.aws_error],
+        ]
+          .map(([label, value]) => [label, stringifyValue(value)] as const)
+          .filter(([, value]) => value);
+
+        return (
+          <div key={`${name}-${index}`} className="rounded-md border border-destructive/20 bg-background/60 p-2">
+            <p className="font-medium">{name}</p>
+            {facts.map(([label, value]) => (
+              <p key={label} className="break-words">
+                <span className="text-muted-foreground">{label}:</span> {value}
+              </p>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const FrontendReadyPendingDetails = ({ step }: { step: LifecycleStep }) => {
+  if (step.name !== "frontend_ready" || !["pending", "running"].includes(step.status)) return null;
+  const output = asRecord(step.output_payload);
+  const pendingChecks = getCheckNames(output, "pending_checks");
+  const lastChecked = stringifyValue(output.last_checked_at);
+  if (!pendingChecks.length && !lastChecked) return null;
+  return (
+    <div className="mt-3 rounded-md bg-muted p-3 text-xs text-muted-foreground">
+      {pendingChecks.length ? <p>Waiting on: {pendingChecks.join(", ")}</p> : null}
+      {lastChecked ? <p>Last checked: {formatDate(lastChecked)}</p> : null}
+      <p>Next readiness check is queued automatically.</p>
+    </div>
+  );
+};
 
 const isTeardownCancellable = (job?: LifecycleJob | null) =>
   Boolean(job && ACTIVE_LIFECYCLE_STATUSES.has(job.status));
@@ -107,8 +276,10 @@ const StepTimeline = ({
           {step.error_payload && Object.keys(step.error_payload).length > 0 ? (
             <div className="mt-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive break-words whitespace-pre-wrap">
               {(step.error_payload.message as string) || "Step failed"}
+              <LifecycleErrorDetails payload={step.error_payload} />
             </div>
           ) : null}
+          <FrontendReadyPendingDetails step={step} />
           {onRetryStep && ["failed", "blocked"].includes(step.status) ? (
             <div className="mt-3">
               <Button
@@ -167,6 +338,7 @@ export default function ClientLifecycle() {
   const [s3Mode, setS3Mode] = useState<TeardownS3Mode>("archive");
   const [rdsSnapshotMode, setRdsSnapshotMode] = useState<TeardownRdsSnapshotMode>("retain");
   const [deleteClientRecord, setDeleteClientRecord] = useState(false);
+  const [selectedLifecycleJobId, setSelectedLifecycleJobId] = useState("latest");
 
   const lifecycleQuery = useQuery<ClientLifecycleResponse>({
     queryKey: ["client-lifecycle", id],
@@ -204,9 +376,30 @@ export default function ClientLifecycle() {
   const data = lifecycleQuery.data;
   const client = data?.client;
   const latestJob = data?.latest_job;
+  const lifecycleJobs = data?.jobs ?? [];
+  const selectedLifecycleJob = useMemo(() => {
+    if (selectedLifecycleJobId === "latest") return latestJob;
+    return lifecycleJobs.find((job) => job.id === selectedLifecycleJobId) || latestJob;
+  }, [latestJob, lifecycleJobs, selectedLifecycleJobId]);
+  const lifecycleStats = useMemo(() => {
+    const operationCounts = data?.job_counts?.by_operation ?? {};
+    const totalJobs = data?.job_counts?.total ?? lifecycleJobs.length;
+    const returnedJobs = data?.job_counts?.returned ?? lifecycleJobs.length;
+    const erroredJobs =
+      data?.job_counts?.errored ??
+      lifecycleJobs.filter((job) => ERROR_JOB_STATUSES.has(job.status) || hasPayload(job.error_payload)).length;
+    return {
+      totalJobs,
+      returnedJobs,
+      verificationRuns: operationCounts.verify ?? lifecycleJobs.filter((job) => job.operation_type === "verify").length,
+      repairRuns: operationCounts.repair ?? lifecycleJobs.filter((job) => job.operation_type === "repair").length,
+      provisionRuns: operationCounts.provision ?? lifecycleJobs.filter((job) => job.operation_type === "provision").length,
+      erroredJobs,
+    };
+  }, [data?.job_counts, lifecycleJobs]);
   const teardownJobs = useMemo(
-    () => data?.jobs.filter((job) => job.operation_type === "teardown") ?? [],
-    [data?.jobs]
+    () => lifecycleJobs.filter((job) => job.operation_type === "teardown"),
+    [lifecycleJobs]
   );
   const activeTeardownJobs = useMemo(
     () => teardownJobs.filter(isTeardownCancellable),
@@ -234,9 +427,28 @@ export default function ClientLifecycle() {
   const hasArchiveBucket = !archiveBucketRequired || archiveBucket.trim().length > 0;
   const teardownModeValid = !deleteClientRecord || (effectiveTeardownS3Mode === "purge" && effectiveTeardownRdsSnapshotMode === "purge");
   const hasActiveLifecycleJob = useMemo(
-    () => Boolean(data?.jobs.some((job) => ACTIVE_LIFECYCLE_STATUSES.has(job.status))),
-    [data?.jobs]
+    () => Boolean(lifecycleJobs.some((job) => ACTIVE_LIFECYCLE_STATUSES.has(job.status))),
+    [lifecycleJobs]
   );
+  const retryProvisioningStepName = useMemo(() => getProvisioningRetryStepName(latestJob), [latestJob]);
+  const retryProvisioningDisabledReason = getRetryProvisioningDisabledReason(
+    latestJob,
+    hasActiveLifecycleJob,
+    retryProvisioningStepName
+  );
+  const canRetryProvisioning = Boolean(
+    retryProvisioningStepName && !hasActiveLifecycleJob && !lifecycleMutation.isPending
+  );
+
+  useEffect(() => {
+    if (
+      selectedLifecycleJobId !== "latest" &&
+      lifecycleJobs.length > 0 &&
+      !lifecycleJobs.some((job) => job.id === selectedLifecycleJobId)
+    ) {
+      setSelectedLifecycleJobId("latest");
+    }
+  }, [lifecycleJobs, selectedLifecycleJobId]);
 
   useEffect(() => {
     if (!latestTeardownJob) {
@@ -398,19 +610,34 @@ export default function ClientLifecycle() {
               <AlertTitle>Latest Lifecycle Error</AlertTitle>
               <AlertDescription>
                 {(latestJob.error_payload.message as string) || "The latest lifecycle job failed."}
+                <LifecycleErrorDetails payload={latestJob.error_payload} />
               </AlertDescription>
             </Alert>
           ) : null}
 
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              disabled={lifecycleMutation.isPending || hasActiveLifecycleJob}
-              onClick={() => runAction(() => clientApi.retryProvisioning(client.id), "Provisioning retry queued.")}
-            >
-              {lifecycleMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
-              Retry Provisioning
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">
+                    <Button
+                      variant="outline"
+                      disabled={!canRetryProvisioning}
+                      className={!canRetryProvisioning ? "pointer-events-none" : undefined}
+                      onClick={() => runAction(() => clientApi.retryProvisioning(client.id), "Provisioning retry queued.")}
+                    >
+                      {lifecycleMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+                      Retry Provisioning
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!canRetryProvisioning && retryProvisioningDisabledReason ? (
+                  <TooltipContent className="max-w-xs">
+                    {retryProvisioningDisabledReason}
+                  </TooltipContent>
+                ) : null}
+              </Tooltip>
+            </TooltipProvider>
             <Button
               variant="outline"
               disabled={lifecycleMutation.isPending || hasActiveLifecycleJob}
@@ -430,18 +657,94 @@ export default function ClientLifecycle() {
 
       <div className="grid gap-6 xl:grid-cols-[1.3fr_0.9fr] xl:items-start">
         <Card>
-          <CardHeader>
-            <CardTitle>Lifecycle Timeline</CardTitle>
-            <CardDescription>
-              Step-level history for the latest job.
-            </CardDescription>
+          <CardHeader className="space-y-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <CardTitle>Lifecycle Timeline</CardTitle>
+                <CardDescription>
+                  Step-level history for provisioning, verification, and repair jobs.
+                </CardDescription>
+              </div>
+              <div className="w-full space-y-2 lg:max-w-md">
+                <Label htmlFor="lifecycle-job-select">Lifecycle job</Label>
+                <Select value={selectedLifecycleJobId} onValueChange={setSelectedLifecycleJobId}>
+                  <SelectTrigger id="lifecycle-job-select">
+                    <SelectValue placeholder="Select lifecycle job" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {latestJob ? (
+                      <SelectItem value="latest">
+                        Latest · {formatDate(latestJob.created_at)} · {getLifecycleActionLabel(latestJob)} · {latestJob.status}
+                      </SelectItem>
+                    ) : (
+                      <SelectItem value="latest">No lifecycle job yet</SelectItem>
+                    )}
+                    {lifecycleJobs.filter((job) => job.id !== latestJob?.id).map((job) => (
+                      <SelectItem key={job.id} value={job.id}>
+                        {formatLifecycleJobOption(job, latestJob?.id)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-md border bg-muted/30 p-3">
+                <p className="text-xs uppercase text-muted-foreground">Run Verification</p>
+                <p className="text-lg font-semibold">{lifecycleStats.verificationRuns}</p>
+              </div>
+              <div className="rounded-md border bg-muted/30 p-3">
+                <p className="text-xs uppercase text-muted-foreground">Retry Provisioning</p>
+                <p className="text-lg font-semibold">{lifecycleStats.repairRuns}</p>
+              </div>
+              <div className="rounded-md border bg-muted/30 p-3">
+                <p className="text-xs uppercase text-muted-foreground">Initial Provisioning</p>
+                <p className="text-lg font-semibold">{lifecycleStats.provisionRuns}</p>
+              </div>
+              <div className="rounded-md border bg-muted/30 p-3">
+                <p className="text-xs uppercase text-muted-foreground">Errored Jobs</p>
+                <p className="text-lg font-semibold">{lifecycleStats.erroredJobs}</p>
+              </div>
+            </div>
+
+            {lifecycleStats.totalJobs > lifecycleStats.returnedJobs ? (
+              <p className="text-xs text-muted-foreground">
+                Showing latest {lifecycleStats.returnedJobs} of {lifecycleStats.totalJobs} lifecycle jobs.
+              </p>
+            ) : null}
+
+            {selectedLifecycleJob ? (
+              <div className="rounded-md border p-3 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={getBadgeVariant(selectedLifecycleJob.status)}>
+                    {getLifecycleActionLabel(selectedLifecycleJob)}
+                  </Badge>
+                  <Badge variant={getBadgeVariant(selectedLifecycleJob.status)}>{selectedLifecycleJob.status}</Badge>
+                  <span className="text-xs text-muted-foreground">
+                    Created {formatDate(selectedLifecycleJob.created_at)}
+                  </span>
+                  {selectedLifecycleJob.completed_at ? (
+                    <span className="text-xs text-muted-foreground">
+                      Completed {formatDate(selectedLifecycleJob.completed_at)}
+                    </span>
+                  ) : null}
+                </div>
+                {hasPayload(selectedLifecycleJob.error_payload) ? (
+                  <div className="mt-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive break-words whitespace-pre-wrap">
+                    {(selectedLifecycleJob.error_payload.message as string) || "Lifecycle job failed."}
+                    <LifecycleErrorDetails payload={selectedLifecycleJob.error_payload} />
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             <StepTimeline
-              steps={latestJob?.steps || []}
+              steps={selectedLifecycleJob?.steps || []}
               isRetrying={lifecycleMutation.isPending}
               onRetryStep={
-                latestJob && latestJob.operation_type !== "teardown"
+                selectedLifecycleJob && selectedLifecycleJob.operation_type !== "teardown"
                   ? (stepName) =>
                       runAction(
                         () => clientApi.retryProvisioningStep(client.id, stepName),

@@ -46,6 +46,7 @@ export interface ClientAnalyticsResponse {
     total_sales: number;
     total_clients_active: number;
     total_patients: number;
+    active_patients: number;
     total_revenue: number;
     total_profit: number;
     avg_order_value: number;
