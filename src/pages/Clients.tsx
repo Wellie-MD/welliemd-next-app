@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Plus, ShieldCheck } from 'lucide-react';
@@ -12,6 +12,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 
 export default function Clients() {
   const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState('');
   const user = useAuthStore((state) => state.user);
   const canAccessUsersPage = Boolean(
     user?.is_platform_owner || user?.can_access_cross_tenant_access_users
@@ -26,6 +27,28 @@ export default function Clients() {
     () => (clients || []).filter((client) => client.lifecycle_state !== 'infra_removed'),
     [clients]
   );
+  const filteredClients = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return visibleClients;
+
+    return visibleClients.filter((client) => {
+      const searchableValues = [
+        client.name,
+        client.user?.email,
+        client.user?.full_name,
+        client.domain,
+        client.admin_panel_domain,
+        client.patient_portal_domain,
+        client.lifecycle_state,
+        client.provisioning_status,
+        client.b2b_subscription_status,
+      ];
+
+      return searchableValues.some((value) =>
+        String(value || '').toLowerCase().includes(query)
+      );
+    });
+  }, [visibleClients, searchTerm]);
   const infraRemovedCount = (clients || []).length - visibleClients.length;
 
   if (isLoading) {
@@ -113,7 +136,7 @@ export default function Clients() {
           </Button>
         </div>
       </div>
-      <ClientDataTable clients={visibleClients} />
+      <ClientDataTable clients={filteredClients} onSearch={setSearchTerm} />
     </div>
   );
 }
