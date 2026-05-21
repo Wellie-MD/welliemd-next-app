@@ -335,7 +335,7 @@ export const productApi = {
    */
   updateProduct: async (
     id: string,
-    payload: UpdateProductPayload
+    payload: UpdateProductPayload | FormData
   ): Promise<Product> => {
     const { data } = await axiosInstance.patch<Product>(
       `products/${id}/`,

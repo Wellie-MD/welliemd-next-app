@@ -277,6 +277,23 @@ export default function SmtpDomainSettings() {
     }
   };
 
+  // Mailgun: Verify Domain Status
+  const handleVerifyStatus = async () => {
+    if (!mgDomain) return;
+    setMgError(null);
+    setMgSuccess(null);
+    setMgLoading(true);
+    try {
+      const res = await smtpApi.verifyMailgunDomain(mgDomain);
+      setMgStatus(res);
+      setMgSuccess("DNS records verification triggered.");
+    } catch (err: any) {
+      setMgError(err?.response?.data?.error || err.message || "Failed to verify domain");
+    } finally {
+      setMgLoading(false);
+    }
+  };
+
   // Mailgun: Delete Domain
   const handleDeleteDomain = async () => {
     if (!window.confirm('Are you sure you want to delete this domain? This cannot be undone.')) return;
@@ -626,7 +643,7 @@ export default function SmtpDomainSettings() {
 
             <Button 
               variant="outline" 
-              onClick={handleRefreshStatus}
+              onClick={handleVerifyStatus}
               disabled={mgLoading}
               className="mt-4"
             >
@@ -662,7 +679,7 @@ export default function SmtpDomainSettings() {
 
             <Button 
               variant="outline" 
-              onClick={handleRefreshStatus}
+              onClick={handleVerifyStatus}
               disabled={mgLoading}
               className="mt-4"
             >
@@ -711,7 +728,7 @@ export default function SmtpDomainSettings() {
 
             <Button 
               variant="outline" 
-              onClick={handleRefreshStatus}
+              onClick={handleVerifyStatus}
               disabled={mgLoading}
               className="mt-4"
             >

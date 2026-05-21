@@ -226,6 +226,14 @@ export interface RetryPaymentResponse {
   retryable?: boolean
 }
 
+export interface SendCheckoutLinkResponse {
+  success: boolean
+  code?: string
+  message?: string
+  order_id?: string
+  order_display_id?: string
+}
+
 export interface UpdateQuestionnaireImagesPayload {
   photos: QuestionnairePhoto[]
 }
@@ -340,6 +348,16 @@ export const retryPayment = async (id: string, payload: RetryPaymentPayload): Pr
   }
 }
 
+export const sendCheckoutLink = async (id: string): Promise<SendCheckoutLinkResponse> => {
+  try {
+    const { data } = await api.post<SendCheckoutLinkResponse>(`${ENDPOINT}${id}/send-checkout-link/`)
+    return data
+  } catch (error) {
+    console.error(`Failed to send checkout link for order ${id}:`, error)
+    throw error
+  }
+}
+
 export const changeProduct = async (
   orderId: string,
   newProductId: number | string,
@@ -381,6 +399,7 @@ export const ordersApi = {
   searchOrders,
   refundOrder,
   retryPayment,
+  sendCheckoutLink,
   changeProduct,
   updateOrderQuestionnaireImages,
 }

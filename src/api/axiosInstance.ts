@@ -37,6 +37,11 @@ export const setHydratingState = (state: boolean) => {
 // Request interceptor to add access token to headers
 axiosInstance.interceptors.request.use(
   (config) => {
+    if (config.data instanceof FormData && config.headers) {
+      // Let the browser set the multipart boundary for file uploads.
+      delete config.headers["Content-Type"];
+    }
+
     const token = useAuthStore.getState().accessToken;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
