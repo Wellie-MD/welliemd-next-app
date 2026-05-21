@@ -12,14 +12,22 @@ export interface LabResult {
     patient: string;
     patient_name: string;
     visit: string | null;
+    source_system?: 'beluga' | 'junction' | 'manual' | 'import' | '';
+    external_order_id?: string | null;
+    external_result_key?: string | null;
     test_name: string;
     test_result: string;
     test_result_units: string;
     reference_range: string;
     status_indicator: 'H' | 'L' | 'N' | '' | null;
+    result_interpretation?: string | null;
+    loinc?: string | null;
+    loinc_slug?: string | null;
+    provider_id?: string | null;
     screening_date: string;
     report_date: string;
     sample_source: 'URINE' | 'BLOOD' | 'SALIVA' | 'VAGINAL' | 'RECTAL' | 'SEMEN' | '';
+    sample_information_snapshot?: Record<string, unknown> | null;
     test_to_treat: boolean;
     submission_status: string | null;
     beluga_visit_id: string | null;
@@ -85,7 +93,7 @@ export async function getLabResults(): Promise<LabResult[]> {
 
         return [];
     } catch (error) {
-        console.error('Error fetching lab results:', error);
+        console.warn('Failed to fetch lab results');
         return [];
     }
 }
@@ -110,7 +118,7 @@ export async function getLabSubmissions(): Promise<LabSubmission[]> {
 
         return [];
     } catch (error) {
-        console.error('Error fetching lab submissions:', error);
+        console.warn('Failed to fetch lab submissions');
         return [];
     }
 }
@@ -135,7 +143,7 @@ export async function getPatientLabResults(patientId: string): Promise<LabResult
 
         return [];
     } catch (error) {
-        console.error('Error fetching patient lab results:', error);
+        console.warn('Failed to fetch patient lab results');
         return [];
     }
 }
