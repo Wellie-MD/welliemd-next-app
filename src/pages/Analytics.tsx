@@ -22,6 +22,19 @@ function FilterChip({ label, value }: { label: string; value: string }) {
   )
 }
 
+function formatDurationAsHours(duration: string) {
+  const hoursMatch = duration.match(/(\d+)h/)
+  const minutesMatch = duration.match(/(\d+)m/)
+  const secondsMatch = duration.match(/(\d+)s/)
+
+  const hours = hoursMatch ? Number(hoursMatch[1]) : 0
+  const minutes = minutesMatch ? Number(minutesMatch[1]) : 0
+  const seconds = secondsMatch ? Number(secondsMatch[1]) : 0
+
+  const totalHours = hours + minutes / 60 + seconds / 3600
+  return `${totalHours.toFixed(1)}h`
+}
+
 function MetricCard({
   title,
   value,
@@ -145,7 +158,8 @@ export default function Analytics() {
   const completedCheckouts = analytics?.completedCheckouts ?? analytics?.checkoutMetrics?.completedCheckouts ?? analytics?.totalCheckouts ?? 0
   const capturedPaymentsAmount = analytics?.capturedPaymentsAmount ?? analytics?.checkoutMetrics?.capturedPaymentsAmount ?? analytics?.totalSales ?? 0
   const paymentPending = analytics?.paymentPending ?? analytics?.checkoutMetrics?.paymentPending ?? analytics?.customerBehavior?.checking ?? 0
-  const averageVisitDuration = analytics?.visitors?.averageDuration || analytics?.visitors?.visitDuration || "0m 0s"
+  const averageVisitDurationRaw = analytics?.visitors?.averageDuration || analytics?.visitors?.visitDuration || "0m 0s"
+  const averageVisitDuration = formatDurationAsHours(averageVisitDurationRaw)
   const returningVisitors = Math.max((analytics?.visitors?.total ?? 0) - (analytics?.visitors?.unique ?? 0), 0)
   const isUniqueVisitorSignalWeak = (analytics?.visitors?.total ?? 0) > 0 && analytics?.visitors?.total === analytics?.visitors?.unique
 
