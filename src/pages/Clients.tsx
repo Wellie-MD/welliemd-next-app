@@ -31,23 +31,9 @@ export default function Clients() {
     const query = searchTerm.trim().toLowerCase();
     if (!query) return visibleClients;
 
-    return visibleClients.filter((client) => {
-      const searchableValues = [
-        client.name,
-        client.user?.email,
-        client.user?.full_name,
-        client.domain,
-        client.admin_panel_domain,
-        client.patient_portal_domain,
-        client.lifecycle_state,
-        client.provisioning_status,
-        client.b2b_subscription_status,
-      ];
-
-      return searchableValues.some((value) =>
-        String(value || '').toLowerCase().includes(query)
-      );
-    });
+    return visibleClients.filter((client) =>
+      String(client.name || '').toLowerCase().includes(query)
+    );
   }, [visibleClients, searchTerm]);
   const infraRemovedCount = (clients || []).length - visibleClients.length;
 
