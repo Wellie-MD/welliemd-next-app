@@ -126,6 +126,25 @@ const gatewayLabel = (gateway: PatientPaymentGateway | null) => {
   return "payment gateway"
 }
 
+const junctionStateLabel = (value?: string | null) => {
+  switch ((value || "").toLowerCase()) {
+    case "not_submitted":
+      return "Not submitted"
+    case "pending":
+      return "Pending"
+    case "submitted":
+      return "Submitted"
+    case "synced":
+      return "Synced"
+    case "failed":
+      return "Failed"
+    case "not_requested":
+      return "Not requested"
+    default:
+      return value || "—"
+  }
+}
+
 export default function OrderDetail() {
   const { orderId } = useParams<{ orderId: string }>()
   const navigate = useNavigate()
@@ -1602,6 +1621,30 @@ export default function OrderDetail() {
                         {statusDisplay}
                       </span>
                     </div>
+                    {(order.junction_order_state || order.junction_results_state || order.junction_order_status) && (
+                      <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-border/60">
+                        <div>
+                          <p className="text-xs text-slate-500 mb-0.5">Junction Order State</p>
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{junctionStateLabel(order.junction_order_state)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500 mb-0.5">Junction Results State</p>
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{junctionStateLabel(order.junction_results_state)}</p>
+                        </div>
+                        {order.junction_order_status && (
+                          <div>
+                            <p className="text-xs text-slate-500 mb-0.5">Junction Status</p>
+                            <p className="text-sm font-mono text-slate-700 dark:text-slate-300 break-all">{order.junction_order_status}</p>
+                          </div>
+                        )}
+                        {order.junction_order_id && (
+                          <div>
+                            <p className="text-xs text-slate-500 mb-0.5">Junction Order ID</p>
+                            <p className="text-sm font-mono text-slate-700 dark:text-slate-300 break-all">{order.junction_order_id}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </TabsContent>

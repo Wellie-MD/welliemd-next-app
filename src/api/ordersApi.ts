@@ -167,6 +167,12 @@ export interface Order {
   requested_medicines?: PrescriptionMedication[]
   prescribed_medicines?: PrescriptionMedication[]
   chargeable_amount_source?: "requested_medicine" | "prescribed_medicine" | "requested_medicine_fallback" | null
+  junction_order_state?: "not_submitted" | "pending" | "submitted" | "synced" | "failed" | null
+  junction_order_id?: string | null
+  junction_order_status?: string | null
+  junction_last_synced_at?: string | null
+  junction_results_state?: "not_requested" | "pending" | "synced" | "failed" | null
+  junction_results_synced_at?: string | null
   booking_scheduled_at?: string | null
   booking_location?: string | null
   prescription_medications?: PrescriptionMedication[]
