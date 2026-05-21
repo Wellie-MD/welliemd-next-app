@@ -1006,9 +1006,9 @@ export default function ClientForm() {
                 <p className="text-xs text-muted-foreground mt-1">Configure fees and billing settings</p>
               </div>
               <div className="p-4 space-y-6">
-                {/* Consult Fees */}
+                {/* Async Consult Fees */}
                 <div className="bg-muted/50 rounded-xl p-4 border">
-                  <h3 className="text-sm font-semibold mb-3">Consult Fees</h3>
+                  <h3 className="text-sm font-semibold mb-3">Async Consult Fees</h3>
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="async_consult_fee_to_client" className="block text-xs font-medium text-muted-foreground mb-1.5">

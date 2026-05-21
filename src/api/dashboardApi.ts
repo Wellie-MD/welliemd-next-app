@@ -150,6 +150,7 @@ export interface AdminOrder {
   pharmacy_name: string;
   status: string;
   status_display: string;
+  visit_status?: string | null;
   amount: number;
   payment_recovery_state?: 'recovery_pending' | null;
   remaining_supplemental_amount?: string | null;
