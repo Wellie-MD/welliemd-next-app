@@ -28,6 +28,8 @@ export const API_CONFIG = {
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: '/auth/login/',
+    IMPERSONATE_LOGIN: '/auth/impersonate-login/',
+    END_IMPERSONATION: '/auth/end-impersonation/',
     LOGOUT: '/auth/logout/',
     REGISTER: '/auth/register/',
     ME: '/auth/me/',

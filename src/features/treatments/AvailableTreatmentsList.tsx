@@ -8,12 +8,14 @@
  */
 import { useEffect, useState } from 'react';
 import { getAvailableTreatments, startNewTreatment, AvailableTreatment } from './api';
+import { useAuthStore } from '@/features/auth/store/auth.store';
 
 interface AvailableTreatmentsListProps {
   onStartTreatment?: (treatment: AvailableTreatment) => void;
 }
 
 export function AvailableTreatmentsList({ onStartTreatment }: AvailableTreatmentsListProps) {
+  const isImpersonated = useAuthStore((state) => state.isImpersonated);
   const [treatments, setTreatments] = useState<AvailableTreatment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -139,6 +141,7 @@ export function AvailableTreatmentsList({ onStartTreatment }: AvailableTreatment
                 treatment={treatment}
                 onStart={() => handleStartTreatment(treatment)}
                 isStarting={startingId === treatment.id}
+                isImpersonated={isImpersonated}
               />
             ))}
           </div>
@@ -173,9 +176,10 @@ interface TreatmentCardProps {
   isStarting?: boolean;
   formatDate?: (date: string | null) => string;
   compact?: boolean;
+  isImpersonated?: boolean;
 }
 
-function TreatmentCard({ treatment, onStart, isStarting, formatDate, compact }: TreatmentCardProps) {
+function TreatmentCard({ treatment, onStart, isStarting, formatDate, compact, isImpersonated }: TreatmentCardProps) {
   if (compact) {
     return (
       <div className="km-etx-card km-fade" style={{ padding: '12px 14px', cursor: 'default' }}>
@@ -224,10 +228,10 @@ function TreatmentCard({ treatment, onStart, isStarting, formatDate, compact }: 
             e.stopPropagation();
             onStart();
           }}
-          disabled={isStarting}
-          style={{ opacity: isStarting ? 0.7 : 1, marginTop: 4 }}
+          disabled={isStarting || isImpersonated}
+          style={{ opacity: isStarting || isImpersonated ? 0.5 : 1, marginTop: 4, cursor: isImpersonated ? 'not-allowed' : 'pointer' }}
         >
-          {isStarting ? "Initializing..." : "Get Started"}
+          {isImpersonated ? "Read-only" : isStarting ? "Initializing..." : "Get Started"}
         </button>
       )}
     </div>

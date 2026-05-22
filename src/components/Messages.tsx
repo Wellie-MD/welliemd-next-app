@@ -25,6 +25,7 @@ import {
 } from "@/features/messages/services/message.service";
 import { VisitService } from "@/features/visits/services/visit.service";
 import { useAuth } from "@/features/auth";
+import { useAuthStore } from "@/features/auth/store/auth.store";
 import { env } from "@/config/env";
 
 import { isToday, isYesterday, isThisWeek, format, formatISO } from "date-fns";
@@ -201,6 +202,7 @@ function DocumentBubble({
 export default function Messages() {
   const MAX_COMPOSER_HEIGHT_PX = 140;
   const { user } = useAuth();
+  const isImpersonated = useAuthStore((state) => state.isImpersonated);
   const [searchParams, setSearchParams] = useSearchParams();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -325,6 +327,7 @@ export default function Messages() {
 
   // Auto-mark inbound messages as read when a conversation is selected
   useEffect(() => {
+    if (isImpersonated) return;
     if (!selectedId) return;
     const chat = conversations.find(c => c.id === selectedId);
     if (!chat) return;
@@ -385,6 +388,7 @@ export default function Messages() {
   }, [searchParams, conversations, selectedId, setSearchParams, isMobile]);
 
   const handleSend = async () => {
+    if (isImpersonated) return;
     if (sendInFlightRef.current || uploading) return;
     const selected = conversations.find(c => c.id === selectedId);
     if (!selected) return;
@@ -663,7 +667,7 @@ export default function Messages() {
             </div>
 
             {/* Input Options (File Attachment Previews) */}
-            {attachedFiles.length > 0 && (
+            {attachedFiles.length > 0 && !isImpersonated && (
               <div style={{ padding: "8px 14px", background: "var(--km-s2)", borderTop: "1px solid var(--km-b)", display: "flex", gap: 8, overflowX: "auto" }}>
                 {attachedFiles.map((file, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--km-s1)", border: "1px solid var(--km-b)", padding: "4px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600 }}>
@@ -676,6 +680,11 @@ export default function Messages() {
             )}
 
             {/* Input Bar */}
+            {isImpersonated ? (
+              <div className="km-cibar" style={{ justifyContent: 'center', background: 'var(--km-s1)', borderTop: '1px solid var(--km-b)' }}>
+                <span style={{ fontSize: 12, color: 'var(--km-tm)', fontStyle: 'italic' }}>Read-only — composing messages is disabled during impersonation</span>
+              </div>
+            ) : (
             <div className="km-cibar">
               {showRouting && (
                 <div style={{ position: "absolute", bottom: 54, left: 14, background: "var(--km-s1)", border: "1px solid var(--km-b)", borderRadius: "var(--km-rs)", boxShadow: "0 4px 20px rgba(0,0,0,.3)", overflow: "hidden", minWidth: 140, zIndex: 10 }}>
@@ -764,6 +773,7 @@ export default function Messages() {
                 )}
               </button>
             </div>
+            )}
             
           </>
         )}

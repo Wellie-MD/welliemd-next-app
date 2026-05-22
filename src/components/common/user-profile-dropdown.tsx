@@ -10,7 +10,7 @@ interface UserProfileDropdownProps {
 }
 
 export const UserProfileDropdown = ({ className, style, compact = false }: UserProfileDropdownProps) => {
-  const { user, logout } = useAuth();
+  const { user, logout, isImpersonated } = useAuth();
   const navigate = useNavigate();
   const { isOpen, toggleDropdown } = useDropdown();
 
@@ -127,32 +127,36 @@ export const UserProfileDropdown = ({ className, style, compact = false }: UserP
             View Profile
           </button>
 
-          <div style={{ borderTop: '1px solid var(--km-b)', margin: '4px 0' }} />
+          {!isImpersonated && (
+            <>
+              <div style={{ borderTop: '1px solid var(--km-b)', margin: '4px 0' }} />
 
-          <button
-            onClick={handleLogout}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 9,
-              width: '100%',
-              padding: '10px 10px',
-              borderRadius: 'var(--km-rs)',
-              fontSize: 13,
-              fontWeight: 500,
-              color: 'var(--km-re)',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              transition: 'background 0.2s',
-              fontFamily: "'Outfit', sans-serif",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--km-rep)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-          >
-            <LogOut size={15} />
-            Sign Out
-          </button>
+              <button
+                onClick={handleLogout}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 9,
+                  width: '100%',
+                  padding: '10px 10px',
+                  borderRadius: 'var(--km-rs)',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: 'var(--km-re)',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s',
+                  fontFamily: "'Outfit', sans-serif",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--km-rep)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+              >
+                <LogOut size={15} />
+                Sign Out
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

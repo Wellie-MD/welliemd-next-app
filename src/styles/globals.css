@@ -312,7 +312,7 @@ body.light .km-nbtn {
 /* --- Kinmeds3 Notifications & Profile Nav --- */
 .km-notif-panel {
   position: fixed;
-  top: 64px;
+  top: calc(64px + var(--km-banner-h, 0px));
   right: 12px;
   width: min(360px, calc(100vw - 24px));
   background: var(--km-s1);
@@ -323,7 +323,7 @@ body.light .km-nbtn {
   display: none;
   overflow-x: hidden;
   overflow-y: auto;
-  max-height: calc(100vh - 84px)
+  max-height: calc(100vh - 84px - var(--km-banner-h, 0px))
 }
 
 .km-notif-panel.open {
@@ -364,7 +364,7 @@ body.light .km-nbtn {
 
 .km-profile-drop {
   position: fixed;
-  top: 64px;
+  top: calc(64px + var(--km-banner-h, 0px));
   right: 12px;
   width: 200px;
   background: var(--km-s1);
@@ -430,7 +430,7 @@ body.light .km-nbtn {
 
 .km-msg-chat-panel {
   position: fixed;
-  top: 60px;
+  top: calc(60px + var(--km-banner-h, 0px));
   left: 0;
   right: 0;
   bottom: 0;

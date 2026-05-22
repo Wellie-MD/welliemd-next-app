@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { apiClient } from '@/shared/api/client';
 import { VisitService } from '@/features/visits/services/visit.service';
 import { MessageService, type RawMessage } from '@/features/messages/services/message.service';
+import { useAuthStore } from '@/features/auth/store/auth.store';
 
 export interface Notification {
   id: string;
@@ -243,6 +244,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   }, []);
 
   const markAsRead = useCallback((id: string) => {
+    if (useAuthStore.getState().isImpersonated) return;
     const target = notifications.find((n) => n.id === id);
     setNotifications(prev => prev.filter(n => n.id !== id));
 
@@ -254,6 +256,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   }, [notifications]);
 
   const markAllAsRead = useCallback(() => {
+    if (useAuthStore.getState().isImpersonated) return;
     const unreadMessageIds = notifications
       .filter((n) => !n.read && n.data?.source === 'message' && n.data?.message_id != null)
       .map((n) => n.data.message_id as string | number);

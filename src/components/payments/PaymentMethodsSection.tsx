@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useRBAC } from '@/shared/hooks/use-rbac';
+import { useAuthStore } from '@/features/auth/store/auth.store';
 import type { PaymentConfig, PaymentGateway, PaymentMethod } from '@/features/payment-methods/types/payment-methods.types';
 import { PaymentMethodsService } from '@/features/payment-methods/services/payment-methods.service';
 import { StripeCardForm, type StripeCardFormHandle } from './StripeCardForm';
@@ -16,6 +17,7 @@ interface PaymentMethodsSectionProps {
 
 export function PaymentMethodsSection({ userId }: PaymentMethodsSectionProps) {
   const { can } = useRBAC();
+  const isImpersonated = useAuthStore((state) => state.isImpersonated);
 
   const [config, setConfig] = useState<PaymentConfig | null>(null);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
@@ -137,7 +139,7 @@ export function PaymentMethodsSection({ userId }: PaymentMethodsSectionProps) {
   };
 
   const handleSetDefault = async (methodId: string) => {
-    if (!activeGateway) return;
+    if (isImpersonated || !activeGateway) return;
     try {
       await PaymentMethodsService.setDefaultPaymentMethod(activeGateway, methodId);
       toast.success('Default payment method updated');
@@ -148,7 +150,7 @@ export function PaymentMethodsSection({ userId }: PaymentMethodsSectionProps) {
   };
 
   const handleDelete = async (methodId: string) => {
-    if (!activeGateway) return;
+    if (isImpersonated || !activeGateway) return;
     try {
       await PaymentMethodsService.deletePaymentMethod(activeGateway, methodId);
       toast.success('Payment method removed');
@@ -205,12 +207,12 @@ export function PaymentMethodsSection({ userId }: PaymentMethodsSectionProps) {
                   </div>
                   <div className="flex items-center gap-2">
                     {!method.is_default && canUpdate && (
-                      <Button variant="outline" size="sm" onClick={() => handleSetDefault(method.id)}>
+                      <Button variant="outline" size="sm" onClick={() => handleSetDefault(method.id)} disabled={isImpersonated}>
                         Make Default
                       </Button>
                     )}
                     {canDelete && (
-                      <Button variant="destructive" size="sm" onClick={() => handleDelete(method.id)}>
+                      <Button variant="destructive" size="sm" onClick={() => handleDelete(method.id)} disabled={isImpersonated}>
                         Remove
                       </Button>
                     )}
@@ -247,7 +249,7 @@ export function PaymentMethodsSection({ userId }: PaymentMethodsSectionProps) {
               )}
 
               <div className="mt-4">
-                <Button disabled={!canCreate || saving || !activeGateway || limitReached} onClick={handleSave}>
+                <Button disabled={!canCreate || saving || !activeGateway || limitReached || isImpersonated} onClick={handleSave}>
                   {saving ? 'Saving…' : 'Save payment method'}
                 </Button>
               </div>
