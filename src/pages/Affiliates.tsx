@@ -22,17 +22,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-type Affiliate = {
-  id: string
-  name: string
-  slug: string
-  commission_type: "flat" | "percent"
-  commission_value: number
-  discount_type: "flat" | "percent"
-  discount_value: number
-  referral_link: string
-  is_active: boolean
-  created_at: string
+type Affiliate = AffiliateType
+
+const formatCurrency = (value: string | number | null | undefined) => {
+  const amount = Number(value ?? 0)
+  return `$${amount.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
 }
 
 const formatCreatedDate = (value?: string | null) => {
@@ -78,7 +75,6 @@ export default function Affiliates() {
       [
         affiliate.name,
         affiliate.slug,
-        affiliate.id,
       ]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(query))
@@ -103,19 +99,39 @@ export default function Affiliates() {
     }
   }
 
-  const columns = [
-    { key: "name", label: "Name" },
-    { key: "slug", label: "Slug" },
-    { key: "id", label: "ID" },
+const columns = [
+  { key: "name", label: "Name" },
+  { key: "slug", label: "Slug" },
+  {
+    key: "created_at",
+    label: "Created Date",
+    render: (val: string) => formatCreatedDate(val)
+  },
+  { key: "commission_type", label: "Commission Type" },
+
     {
-      key: "created_at",
-      label: "Created Date",
-      render: (val: string) => formatCreatedDate(val)
+      key: "commission_value",
+      label: "Commission",
+      render: (val: string, row: Affiliate) =>
+        row.commission_type === "percent" ? `${val}%` : formatCurrency(val),
     },
-    { key: "commission_type", label: "Commission Type" },
-    { key: "commission_value", label: "Commission" },
+    {
+      key: "total_referrals",
+      label: "Referral Count",
+      render: (val: number) => val ?? 0,
+    },
+    {
+      key: "total_commission",
+      label: "Earned Commission",
+      render: (val: string) => formatCurrency(val),
+    },
     { key: "discount_type", label: "Discount Type" },
-    { key: "discount_value", label: "Discount" },
+    {
+      key: "discount_value",
+      label: "Discount",
+      render: (val: string, row: Affiliate) =>
+        row.discount_type === "percent" ? `${val}%` : formatCurrency(val),
+    },
     {
       key: "is_active",
       label: "Status",
@@ -201,7 +217,7 @@ export default function Affiliates() {
       <DataTable
         data={filteredAffiliates}
         columns={columns}
-        searchPlaceholder="Search by affiliate name, slug, or ID"
+        searchPlaceholder="Search by affiliate name or slug"
         onSearch={setSearchTerm}
         loading={loading}
         onRowClick={(row) => setInsightsAffiliate(row as Affiliate)}
