@@ -69,7 +69,7 @@ export default function Orders() {
     // Reconstruct raw AdminOrder from the formatted row
     const rawOrder: AdminOrder = {
       id: row.id,
-      display_id: row.display_id,
+      display_id: row._raw_display_id ?? row.display_id,
       order_id: row.order_id ?? null,
       patient_name: row.patient_name,
       patient_email: row.patient_email,
@@ -80,7 +80,14 @@ export default function Orders() {
       status_display: row.status_display,
       visit_status: row._raw_visit_status,
       amount: row._raw_amount,
+      payment_recovery_state: row.payment_recovery_state ?? null,
+      remaining_supplemental_amount: row.remaining_supplemental_amount ?? null,
+      chargeable_amount: row.chargeable_amount ?? row._raw_amount,
+      chargeable_amount_source: row.chargeable_amount_source ?? null,
       discount_amount: row.discount_amount,
+      requested_medicine_name: row.requested_medicine_name ?? null,
+      prescribed_medicine_name: row.prescribed_medicine_name ?? null,
+      doctor_name: row.doctor_name ?? null,
       payment_status: row._raw_payment_status,
       created_at: row._raw_created_at,
       prescribed_at: row._raw_prescribed_at,
