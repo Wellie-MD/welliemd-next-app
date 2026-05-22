@@ -161,6 +161,7 @@ export interface Order {
   notes?: string | null
   // Detail page: from PrescriptionEvent / Visit
   product_name?: string | null
+  product_image?: string | null
   treatment_type?: string | null
   treatment?: string | null
   doctor_name?: string | null
