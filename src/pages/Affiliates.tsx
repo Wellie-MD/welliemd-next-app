@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { format, isValid } from "date-fns"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -32,6 +33,13 @@ type Affiliate = {
   referral_link: string
   is_active: boolean
   created_at: string
+}
+
+const formatCreatedDate = (value?: string | null) => {
+  if (!value) return "-"
+  const date = new Date(value)
+  if (!isValid(date)) return "-"
+  return format(date, "MMM dd, yyyy")
 }
 
 export default function Affiliates() {
@@ -99,7 +107,11 @@ export default function Affiliates() {
     { key: "name", label: "Name" },
     { key: "slug", label: "Slug" },
     { key: "id", label: "ID" },
-    { key: "created_at", label: "Created Date" },
+    {
+      key: "created_at",
+      label: "Created Date",
+      render: (val: string) => formatCreatedDate(val)
+    },
     { key: "commission_type", label: "Commission Type" },
     { key: "commission_value", label: "Commission" },
     { key: "discount_type", label: "Discount Type" },
