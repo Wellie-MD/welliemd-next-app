@@ -1,5 +1,7 @@
 import api from "./axiosInstance";
 
+const normalizeEmail = (email: string): string => email.trim().toLowerCase();
+
 interface User {
   id: string;
   email: string;
@@ -14,7 +16,7 @@ interface LoginResponse {
 // Login with credentials (refresh token automatically set as cookie)
 export const login = async (email: string, password: string): Promise<LoginResponse> => {
   const { data } = await api.post<LoginResponse>("/auth/login/", {
-    email,
+    email: normalizeEmail(email),
     password,
   });
   return data;
