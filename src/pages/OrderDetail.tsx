@@ -1286,8 +1286,16 @@ export default function OrderDetail() {
                   <tr>
                     <td className="px-6 py-4">
                       <div className="flex items-start gap-4">
-                        <div className="h-12 w-12 flex-shrink-0 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                          <Package className="h-6 w-6 text-slate-500 dark:text-slate-400" />
+                        <div className="h-12 w-12 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                          {order.product_image ? (
+                            <img
+                              src={order.product_image}
+                              alt={displayProductName || "Product"}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <Package className="h-6 w-6 text-slate-500 dark:text-slate-400" />
+                          )}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">

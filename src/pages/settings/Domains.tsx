@@ -390,7 +390,7 @@ export default function Domains() {
         <CardHeader>
           <CardTitle className="text-lg">Custom Domains</CardTitle>
           <CardDescription>
-            Amplify uses a root association with portal prefixes (`admin`/`patient`). DNS records below are per-portal and must resolve before verification completes.
+            Each portal hostname is managed as its own Amplify association. DNS records below are per-portal and must resolve before verification completes.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -445,10 +445,11 @@ export default function Domains() {
                     : "DNS provisioning mode: Manual required. Add records below in your DNS provider."}
                   {item.amplify_domain_name ? (
                     <div className="mt-1">
-                      Amplify association root: <span className="font-medium">{item.amplify_domain_name}</span>
+                      {item.amplify_domain_name === item.domain ? "Amplify association" : "Legacy Amplify association"}:{" "}
+                      <span className="font-medium">{item.amplify_domain_name}</span>
                       {item.amplify_prefix ? (
                         <>
-                          {" "}• Portal prefix: <span className="font-medium">{item.amplify_prefix}</span>
+                          {" "}• Subdomain prefix: <span className="font-medium">{item.amplify_prefix}</span>
                         </>
                       ) : null}
                     </div>

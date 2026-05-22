@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -41,6 +41,7 @@ export default function Affiliates() {
   const [editingAffiliate, setEditingAffiliate] = useState<Affiliate | null>(null)
   const [linkAffiliate, setLinkAffiliate] = useState<Affiliate | null>(null)
   const [insightsAffiliate, setInsightsAffiliate] = useState<Affiliate | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
 
   // NEW: delete modal state
   const [pendingDelete, setPendingDelete] = useState<Affiliate | null>(null)
@@ -60,6 +61,21 @@ export default function Affiliates() {
   useEffect(() => {
     fetchAffiliates()
   }, [])
+
+  const filteredAffiliates = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase()
+    if (!query) return affiliates
+
+    return affiliates.filter((affiliate) =>
+      [
+        affiliate.name,
+        affiliate.slug,
+        affiliate.id,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query))
+    )
+  }, [affiliates, searchTerm])
 
   // open modal
   const requestDelete = (row: Affiliate) => setPendingDelete(row)
@@ -171,9 +187,10 @@ export default function Affiliates() {
       )}
 
       <DataTable
-        data={affiliates}
+        data={filteredAffiliates}
         columns={columns}
         searchPlaceholder="Search by affiliate name, slug, or ID"
+        onSearch={setSearchTerm}
         loading={loading}
         onRowClick={(row) => setInsightsAffiliate(row as Affiliate)}
       />
