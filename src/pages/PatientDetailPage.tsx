@@ -41,6 +41,9 @@ import { Permissions } from "@/constants/permissions";
 import { useToast } from "@/hooks/use-toast";
 import { ordersApi, type Order } from "@/api/ordersApi";
 import { patientService, type Patient, type TreatmentEpisode } from "@/services/patientService";
+import { useClients } from "@/hooks/useClients";
+import { useAuthStore } from "@/store/useAuthStore";
+import axiosInstance from "@/api/axiosInstance";
 
 const buildInitialForm = (patient: Patient) => ({
   first_name: patient.first_name || "",
@@ -58,10 +61,52 @@ const buildInitialForm = (patient: Patient) => ({
   self_reported_meds: patient.self_reported_meds || "",
 });
 
+const getApiRoot = () => {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+  try {
+    const url = new URL(baseUrl);
+    const trimmedPath = url.pathname.replace(/\/+$/, "");
+    if (trimmedPath.endsWith("/api/v1")) {
+      const nextPath = trimmedPath.slice(0, -"/api/v1".length) || "/";
+      return `${url.origin}${nextPath.replace(/\/+$/, "")}`;
+    }
+    return `${url.origin}${trimmedPath}`.replace(/\/+$/, "");
+  } catch {
+    return baseUrl.replace(/\/+$/, "").replace(/\/api\/v1$/, "");
+  }
+};
+
+const normalizePortalUrl = (value?: string | null) => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
+};
+
 export default function PatientDetailPage() {
   const { patientId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { currentClient } = useClients();
+  const authUser = useAuthStore((state) => state.user);
+  const [isImpersonating, setIsImpersonating] = useState(false);
+
+  const canImpersonate = useMemo(() => {
+    return Boolean(authUser?.primary_role === 'Super Admin' || authUser?.roles?.includes('Super Admin'));
+  }, [authUser?.primary_role, authUser?.roles]);
+
+  const patientPortalUrl = useMemo(() => {
+    return normalizePortalUrl(
+      currentClient?.resolved_patient_portal_domain || currentClient?.patient_portal_domain
+    );
+  }, [currentClient?.patient_portal_domain, currentClient?.resolved_patient_portal_domain]);
+
+  const impersonationDisabledReason = !patientPortalUrl
+    ? 'Patient portal domain is not configured'
+    : undefined;
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -85,6 +130,42 @@ export default function PatientDetailPage() {
     medical_conditions: "",
     self_reported_meds: "",
   });
+
+  const handleImpersonate = useCallback(async () => {
+    if (!patient?.id) return;
+    if (!patientPortalUrl) {
+      toast({
+        title: 'Missing patient portal URL',
+        description: 'Set the patient portal domain before impersonating.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsImpersonating(true);
+    try {
+      const apiRoot = getApiRoot();
+      const { data } = await axiosInstance.post(
+        `${apiRoot}/api/admin/impersonate-patient/${patient.id}/`
+      );
+
+      if (!data?.token) {
+        throw new Error('No impersonation token returned');
+      }
+
+      const url = new URL(patientPortalUrl);
+      url.searchParams.set('impersonate_token', data.token);
+      window.open(url.toString(), '_blank', 'noopener');
+    } catch (err: any) {
+      toast({
+        title: 'Impersonation failed',
+        description: err?.message || 'Unable to impersonate patient.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsImpersonating(false);
+    }
+  }, [patient?.id, patientPortalUrl, toast]);
 
   const loadData = useCallback(async () => {
     if (!patientId) return;
@@ -255,6 +336,17 @@ export default function PatientDetailPage() {
             </div>
 
             <div className="flex items-center gap-2">
+              {canImpersonate && (
+                <Button
+                  variant="outline"
+                  onClick={handleImpersonate}
+                  disabled={!patientPortalUrl || isImpersonating}
+                  title={impersonationDisabledReason}
+                >
+                  <ShieldAlert className="mr-2 h-4 w-4" />
+                  {isImpersonating ? "Impersonating..." : "Impersonate Patient"}
+                </Button>
+              )}
               <PermissionGate permission={Permissions.USER_UPDATE}>
                 <Button variant="outline" onClick={() => setEditOpen(true)}>
                   <Pencil className="mr-2 h-4 w-4" />
