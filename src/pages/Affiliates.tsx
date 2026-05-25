@@ -47,6 +47,8 @@ export default function Affiliates() {
   const [linkAffiliate, setLinkAffiliate] = useState<Affiliate | null>(null)
   const [insightsAffiliate, setInsightsAffiliate] = useState<Affiliate | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all")
+  const [dataTableKey, setDataTableKey] = useState(0)
 
   // NEW: delete modal state
   const [pendingDelete, setPendingDelete] = useState<Affiliate | null>(null)
@@ -69,17 +71,53 @@ export default function Affiliates() {
 
   const filteredAffiliates = useMemo(() => {
     const query = searchTerm.trim().toLowerCase()
-    if (!query) return affiliates
+    return affiliates.filter((affiliate) => {
+      const matchesSearch =
+        !query ||
+        [affiliate.name, affiliate.slug]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(query))
 
-    return affiliates.filter((affiliate) =>
-      [
-        affiliate.name,
-        affiliate.slug,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query))
-    )
-  }, [affiliates, searchTerm])
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "active" ? affiliate.is_active : !affiliate.is_active)
+
+      return matchesSearch && matchesStatus
+    })
+  }, [affiliates, searchTerm, statusFilter])
+
+  const filters = useMemo(
+    () => [
+      {
+        key: "status-all",
+        label: "All",
+        type: "button" as const,
+        value: statusFilter === "all" ? "all" : undefined,
+        onClick: () => setStatusFilter("all"),
+      },
+      {
+        key: "status-active",
+        label: "Active",
+        type: "button" as const,
+        value: statusFilter === "active" ? "active" : undefined,
+        onClick: () => setStatusFilter("active"),
+      },
+      {
+        key: "status-inactive",
+        label: "Inactive",
+        type: "button" as const,
+        value: statusFilter === "inactive" ? "inactive" : undefined,
+        onClick: () => setStatusFilter("inactive"),
+      },
+    ],
+    [statusFilter]
+  )
+
+  const handleResetFilters = () => {
+    setStatusFilter("all")
+    setSearchTerm("")
+    setDataTableKey((currentKey) => currentKey + 1)
+  }
 
   // open modal
   const requestDelete = (row: Affiliate) => setPendingDelete(row)
@@ -215,10 +253,14 @@ const columns = [
       )}
 
       <DataTable
+        key={dataTableKey}
         data={filteredAffiliates}
         columns={columns}
+        filters={filters}
         searchPlaceholder="Search by affiliate name or slug"
         onSearch={setSearchTerm}
+        onResetFilters={handleResetFilters}
+        onRefresh={fetchAffiliates}
         loading={loading}
         onRowClick={(row) => setInsightsAffiliate(row as Affiliate)}
       />
