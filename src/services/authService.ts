@@ -96,6 +96,14 @@ export const authService = {
     } catch (error) {
       console.error('Logout failed, clearing client-side state anyway.', error);
     } finally {
+      // Shut down Intercom synchronously before clearing auth state
+      // so the widget is removed even if the React component cleanup hasn't fired yet.
+      try {
+        const { shutdownIntercom } = await import('../features/integrations/IntercomWidget');
+        shutdownIntercom();
+      } catch {
+        // IntercomWidget may not exist; ignore
+      }
       useAuthStore.getState().logout();
     }
   },
