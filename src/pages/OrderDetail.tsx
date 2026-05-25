@@ -927,7 +927,6 @@ export default function OrderDetail() {
     : formatMoney(previewNetTotal)
   const paymentInfoAmountLabel = hasRemainingSupplemental ? "Remaining to Capture" : "Amount"
 
-  const displayProductName = pendingProductChange?.productName || order.product_name || "—"
   const displayQuantity = String(qty)
   const requestedMedicineName =
     order.requested_medicines?.[0]?.name ||
@@ -957,6 +956,9 @@ export default function OrderDetail() {
   const prescribedMedicineDisplayName =
     prescribedMedicineName ||
     (isLikelyLegacyPrescribed ? legacyPrescribedFallbackName : "Awaiting provider decision")
+  const isPrescribed = chargeableAmountSource === "prescribed_medicine"
+  const displayProductName = pendingProductChange?.productName
+    || (isPrescribed ? prescribedMedicineDisplayName : (order.product_name || "—"))
   const requestedPillClass =
     "inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
   const prescribedPillClass =
@@ -999,9 +1001,18 @@ export default function OrderDetail() {
     ? pendingProductChange.unitPrice
     : (medicationOriginalSubtotal != null ? medicationOriginalSubtotal / quantity : null)
 
-  const displayLineTotal = displayItemOriginalUnitPrice != null
-    ? displayItemOriginalUnitPrice * quantity
-    : (previewOriginalPrice ?? 0)
+  const prescribedProductOriginalAmount = shouldPreferPrescribedDisplay
+    ? Math.max(0, (previewTotal ?? 0) - (previewShippingFee ?? 0)) + previewDiscountAmount
+    : null
+  const displayLineTotal = prescribedProductOriginalAmount != null
+    ? prescribedProductOriginalAmount
+    : (displayItemOriginalUnitPrice != null
+      ? displayItemOriginalUnitPrice * quantity
+      : (previewOriginalPrice ?? 0))
+  const requestedProductAmount =
+    parseMoney(order.requested_medicines?.[0]?.price) ??
+    parseMoney(order.pricing?.subtotal_before_discount ?? order.original_price) ??
+    0
 
   const itemPrice = formatMoney(displayItemUnitPrice)
   const lineTotalPrice = formatMoney(displayLineTotal)
@@ -1268,7 +1279,7 @@ export default function OrderDetail() {
                           Product Amount:
                         </td>
                         <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                          ${previewOriginalPrice?.toFixed(2) ?? "0.00"}
+                          ${formatMoney(prescribedProductOriginalAmount)}
                         </td>
                       </tr>
                       {previewDiscountAmount > 0 && (
@@ -1302,7 +1313,7 @@ export default function OrderDetail() {
                           Prescribed Total:
                         </td>
                         <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                          ${prescribedFinalDisplay ?? productSubtotalPrice}
+                          ${prescribedFinalDisplay ?? totalPrice}
                         </td>
                       </tr>
 
@@ -1311,9 +1322,7 @@ export default function OrderDetail() {
                           Requested Product Amount:
                         </td>
                         <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                          ${(parseMoney(order.requested_medicines?.[0]?.price) != null
-                            ? (parseMoney(order.requested_medicines?.[0]?.price)! * quantity).toFixed(2)
-                            : (order.pricing?.subtotal_before_discount ?? order.original_price ?? "0.00"))}
+                          ${formatMoney(requestedProductAmount)}
                         </td>
                       </tr>
                       {previewDiscountAmount > 0 && (
@@ -1331,11 +1340,7 @@ export default function OrderDetail() {
                           Requested Product Subtotal:
                         </td>
                         <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                          ${(() => {
-                            const raw = parseMoney(order.requested_medicines?.[0]?.price)
-                            const orig = raw != null ? raw * quantity : parseMoney(order.pricing?.subtotal_before_discount ?? order.original_price) ?? 0
-                            return Math.max(0, orig - previewDiscountAmount).toFixed(2)
-                          })()}
+                          ${formatMoney(Math.max(0, requestedProductAmount - previewDiscountAmount))}
                         </td>
                       </tr>
                       <tr>

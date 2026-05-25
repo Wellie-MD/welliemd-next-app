@@ -55,6 +55,7 @@ export interface QuestionnairePhoto {
 export interface PrescriptionMedication {
   name?: string
   strength?: string
+  price?: string | number | null
   refills?: string
   quantity?: string
   medId?: string
