@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
+import { IntercomWidget } from '@/features/integrations/IntercomWidget';
 
 const DashboardLayout: React.FC = () => {
   const location = useLocation();
@@ -90,6 +91,7 @@ const DashboardLayout: React.FC = () => {
             </div>
           </main>
         </div>
+        <IntercomWidget />
       </div>
     </NotificationsProvider>
   );
