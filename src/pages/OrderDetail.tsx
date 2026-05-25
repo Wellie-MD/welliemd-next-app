@@ -1613,7 +1613,6 @@ export default function OrderDetail() {
                           ${formatMoney(previewShippingFee)}
                         </td>
                       </tr>
-
                       {hasSplitSettlement && (
                         <>
                           <tr>
@@ -1636,7 +1635,6 @@ export default function OrderDetail() {
                           )}
                         </>
                       )}
-
                       {hasSplitSettlement ? (
                         <>
                           <tr>
