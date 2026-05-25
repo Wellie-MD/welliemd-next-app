@@ -741,28 +741,28 @@ export default function OrderDetail() {
 
   const eventTimelineItems: TimelineItem[] = Array.isArray(order.activity_events)
     ? order.activity_events.map((evt) => {
-        const status = (evt.status || "").toLowerCase()
-        let icon: TimelineItem["icon"] = "schedule"
-        let iconBg = "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800"
-        if (status.includes("payment") || evt.event_type.includes("payment")) {
-          icon = "payments"
-          iconBg = "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800"
-        } else if (status === "prescribed" || status === "rx_sent") {
-          icon = "prescriptions"
-        } else if (status === "visit_pending" || status === "visit_failed") {
-          icon = "medical_services"
-        } else if (status === "shipped") {
-          icon = "local_shipping"
-          iconBg = "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-4 border-white dark:border-slate-800"
-        }
-        return {
-          title: evt.title || evt.event_type.replace(/\./g, " "),
-          date: formatDateTime(evt.occurred_at),
-          description: evt.description || undefined,
-          icon,
-          iconBg,
-        }
-      })
+      const status = (evt.status || "").toLowerCase()
+      let icon: TimelineItem["icon"] = "schedule"
+      let iconBg = "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800"
+      if (status.includes("payment") || evt.event_type.includes("payment")) {
+        icon = "payments"
+        iconBg = "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800"
+      } else if (status === "prescribed" || status === "rx_sent") {
+        icon = "prescriptions"
+      } else if (status === "visit_pending" || status === "visit_failed") {
+        icon = "medical_services"
+      } else if (status === "shipped") {
+        icon = "local_shipping"
+        iconBg = "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-4 border-white dark:border-slate-800"
+      }
+      return {
+        title: evt.title || evt.event_type.replace(/\./g, " "),
+        date: formatDateTime(evt.occurred_at),
+        description: evt.description || undefined,
+        icon,
+        iconBg,
+      }
+    })
     : []
   const renderedTimelineItems = eventTimelineItems.length > 0 ? eventTimelineItems : timelineItems
 
@@ -999,8 +999,8 @@ export default function OrderDetail() {
     ? pendingProductChange.unitPrice
     : (medicationOriginalSubtotal != null ? medicationOriginalSubtotal / quantity : null)
 
-  const displayLineTotal = displayItemOriginalUnitPrice != null 
-    ? displayItemOriginalUnitPrice * quantity 
+  const displayLineTotal = displayItemOriginalUnitPrice != null
+    ? displayItemOriginalUnitPrice * quantity
     : (previewOriginalPrice ?? 0)
 
   const itemPrice = formatMoney(displayItemUnitPrice)
@@ -1305,15 +1305,15 @@ export default function OrderDetail() {
                           ${prescribedFinalDisplay ?? productSubtotalPrice}
                         </td>
                       </tr>
-                      
+
                       <tr>
                         <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                          Request Product Amount:
+                          Requested Product Amount:
                         </td>
                         <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                          ${(parseMoney(order.requested_medicines?.[0]?.price) != null 
-                             ? (parseMoney(order.requested_medicines?.[0]?.price)! * quantity).toFixed(2) 
-                             : (order.pricing?.subtotal_before_discount ?? order.original_price ?? "0.00"))}
+                          ${(parseMoney(order.requested_medicines?.[0]?.price) != null
+                            ? (parseMoney(order.requested_medicines?.[0]?.price)! * quantity).toFixed(2)
+                            : (order.pricing?.subtotal_before_discount ?? order.original_price ?? "0.00"))}
                         </td>
                       </tr>
                       {previewDiscountAmount > 0 && (
@@ -1328,7 +1328,7 @@ export default function OrderDetail() {
                       )}
                       <tr>
                         <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                          Request Product Subtotal:
+                          Requested Product Subtotal:
                         </td>
                         <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
                           ${(() => {
@@ -1340,13 +1340,13 @@ export default function OrderDetail() {
                       </tr>
                       <tr>
                         <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                          Request Product Shipping:
+                          Requested Product Shipping:
                         </td>
                         <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
                           ${formatMoney(previewShippingFee)}
                         </td>
                       </tr>
-                      
+
                       {hasSplitSettlement && (
                         <>
                           <tr>
@@ -1369,7 +1369,7 @@ export default function OrderDetail() {
                           )}
                         </>
                       )}
-                      
+
                       {hasRemainingSupplemental && (
                         <tr>
                           <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400" colSpan={3}>
