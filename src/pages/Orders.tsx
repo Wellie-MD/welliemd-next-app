@@ -51,14 +51,14 @@ const PAYMENT_STATUS_FILTER_LABELS = ["All", "Paid", "Pending", "Failed"] as con
 const orderColumns = [
   { key: "order_number", label: "Order #", width: "9%", className: "font-medium" },
   { key: "patient_name", label: "Patient Name", width: "11%", className: "max-w-[150px]" },
-  { key: "patient_email", label: "Patient Email", width: "15%", className: "max-w-[190px]" },
+  { key: "patient_email", label: "Patient Email", width: "14%", className: "max-w-[190px]" },
   { key: "patient_phone", label: "Patient Phone", width: "10%", className: "max-w-[125px]" },
   { key: "product_name", label: "Product Name", width: "13%", className: "max-w-[170px]" },
-  { key: "pharmacy_name_only", label: "Pharmacy Name", width: "12%", className: "max-w-[150px]" },
+  { key: "pharmacy_name_only", label: "Pharmacy Name", width: "10%", className: "max-w-[150px]" },
   { key: "orderDate", label: "Order Date", width: "8%" },
   { key: "orderTotal", label: "Order Amount", width: "8%" },
-  { key: "orderStatus", label: "Order Status", width: "10%" },
-  { key: "actions", label: "Actions", width: "4%", render: (_: any, row: any) => null }
+  { key: "orderStatus", label: "Order Status", width: "11%" },
+  { key: "actions", label: "Actions", width: "6%", render: (_: any, row: any) => null }
 ]
 
 // Helper function to parse date strings. Handles ISO timestamps and DD/MM/YYYY.
