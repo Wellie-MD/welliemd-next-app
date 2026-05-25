@@ -1209,15 +1209,13 @@ export default function OrderDetail() {
         : itemUnitPrice)
       : (medicationSubtotalAfterDiscount != null ? medicationSubtotalAfterDiscount / quantity : itemUnitPrice)
 
-  const displayLineTotal = pendingProductChange != null
-    ? (previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount)
-    : shouldPreferPrescribedDisplay
-      ? Math.max(0, (previewTotal ?? 0) - (previewShippingFee ?? 0))
-    : hasNonIncludedSupplies
-      ? ((pricingMedicationSubtotal != null ? pricingMedicationSubtotal : medicationSubtotalAfterDiscount) != null
-        ? (pricingMedicationSubtotal != null ? pricingMedicationSubtotal : medicationSubtotalAfterDiscount)
-        : (previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount))
-      : (medicationSubtotalAfterDiscount != null ? medicationSubtotalAfterDiscount : (previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount))
+  const displayItemOriginalUnitPrice = pendingProductChange != null
+    ? pendingProductChange.unitPrice
+    : (medicationOriginalSubtotal != null ? medicationOriginalSubtotal / quantity : null)
+
+  const displayLineTotal = displayItemOriginalUnitPrice != null 
+    ? displayItemOriginalUnitPrice * quantity 
+    : (previewOriginalPrice ?? 0)
 
   const itemPrice = formatMoney(displayItemUnitPrice)
   const lineTotalPrice = formatMoney(displayLineTotal)
@@ -1477,126 +1475,238 @@ export default function OrderDetail() {
                   })}
                 </tbody>
                 <tfoot className="bg-muted/30">
-                  {hasBreakdown && previewOriginalPrice != null && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        {shouldPreferPrescribedDisplay
-                          ? "Requested original total (reference):"
-                          : "Product list price:"}
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${previewOriginalPrice.toFixed(2)}
-                      </td>
-                    </tr>
-                  )}
-                  {previewDiscountAmount > 0 && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        Product discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}:
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
-                        −${previewDiscountAmount.toFixed(2)}
-                      </td>
-                    </tr>
-                  )}
-                  {productSubtotalAfterDiscount != null && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        {shouldPreferPrescribedDisplay ? "Prescribed subtotal:" : "Product subtotal:"}
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${productSubtotalPrice}
-                      </td>
-                    </tr>
-                  )}
-                  {(hasBreakdown || previewShippingFee != null) && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        Shipping:
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${formatMoney(previewShippingFee)}
-                      </td>
-                    </tr>
-                  )}
-                  {!hasBreakdown && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        {shouldPreferPrescribedDisplay ? "Prescribed subtotal:" : "Product subtotal:"}
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${totalPrice}
-                      </td>
-                    </tr>
-                  )}
-                  {hasSplitSettlement && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        Prescribed total:
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${prescribedFinalDisplay}
-                      </td>
-                    </tr>
-                  )}
-                  {hasSplitSettlement && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        Captured (base):
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${baseCapturedDisplay}
-                      </td>
-                    </tr>
-                  )}
-                  {hasSplitSettlement && supplementalCapturedAmount != null && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        Captured (supplemental):
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${supplementalCapturedDisplay}
-                      </td>
-                    </tr>
-                  )}
-                  {hasRemainingSupplemental && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400" colSpan={3}>
-                        Remaining supplemental amount:
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-amber-600 dark:text-amber-400">
-                        ${formatMoney(remainingSupplementalAmount)}
-                      </td>
-                    </tr>
-                  )}
-                  <tr>
-                    <td
-                      className="px-6 py-3 text-right font-bold text-slate-900 dark:text-white border-t border-border"
-                      colSpan={3}
-                    >
-                      {refundedAmount > 0 ? "Net Total (USD):" : "Total (USD):"}
-                    </td>
-                    <td className="px-6 py-3 text-right font-bold text-primary border-t border-border">
-                      <div className="flex flex-col items-end">
-                        <span>${netTotalPrice}</span>
-                        <span className="mt-1 text-[11px] font-normal text-slate-500 dark:text-slate-400">
-                          Amount Source:
-                        </span>
-                        <span className={`mt-1 text-[11px] ${amountSourcePillClass}`}>
-                          {amountSourceLabel} + shipping
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                  {refundedAmount > 0 && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        Refunded:
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-red-600 dark:text-red-400">
-                        −${refundedAmount.toFixed(2)}
-                      </td>
-                    </tr>
+                  {shouldPreferPrescribedDisplay ? (
+                    <>
+                      <tr>
+                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                          Product Amount:
+                        </td>
+                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                          ${previewOriginalPrice?.toFixed(2) ?? "0.00"}
+                        </td>
+                      </tr>
+                      {previewDiscountAmount > 0 && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                            Discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
+                            −${previewDiscountAmount.toFixed(2)}
+                          </td>
+                        </tr>
+                      )}
+                      <tr>
+                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                          Prescribed Subtotal:
+                        </td>
+                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                          ${productSubtotalPrice}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                          Shipping:
+                        </td>
+                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                          ${formatMoney(previewShippingFee)}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                          Prescribed Total:
+                        </td>
+                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                          ${prescribedFinalDisplay ?? productSubtotalPrice}
+                        </td>
+                      </tr>
+                      
+                      <tr>
+                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                          Request Product Amount:
+                        </td>
+                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                          ${(parseMoney(order.requested_medicines?.[0]?.price) != null 
+                             ? (parseMoney(order.requested_medicines?.[0]?.price)! * quantity).toFixed(2) 
+                             : (order.pricing?.subtotal_before_discount ?? order.original_price ?? "0.00"))}
+                        </td>
+                      </tr>
+                      {previewDiscountAmount > 0 && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                            Discount:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
+                            −${previewDiscountAmount.toFixed(2)}
+                          </td>
+                        </tr>
+                      )}
+                      <tr>
+                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                          Request Product Subtotal:
+                        </td>
+                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                          ${(() => {
+                            const raw = parseMoney(order.requested_medicines?.[0]?.price)
+                            const orig = raw != null ? raw * quantity : parseMoney(order.pricing?.subtotal_before_discount ?? order.original_price) ?? 0
+                            return Math.max(0, orig - previewDiscountAmount).toFixed(2)
+                          })()}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                          Request Product Shipping:
+                        </td>
+                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                          ${formatMoney(previewShippingFee)}
+                        </td>
+                      </tr>
+                      
+                      {hasSplitSettlement && (
+                        <>
+                          <tr>
+                            <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                              Captured Base:
+                            </td>
+                            <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                              ${baseCapturedDisplay}
+                            </td>
+                          </tr>
+                          {supplementalCapturedAmount != null && (
+                            <tr>
+                              <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                                Captured Supplemental:
+                              </td>
+                              <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                                ${supplementalCapturedDisplay}
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      )}
+                      
+                      {hasRemainingSupplemental && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400" colSpan={3}>
+                            Remaining Supplemental Amount:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-amber-600 dark:text-amber-400">
+                            ${formatMoney(remainingSupplementalAmount)}
+                          </td>
+                        </tr>
+                      )}
+
+                      <tr>
+                        <td
+                          className="px-6 py-3 text-right font-bold text-slate-900 dark:text-white border-t border-border"
+                          colSpan={3}
+                        >
+                          {refundedAmount > 0 ? "Net Total (USD):" : "Total (USD):"}
+                        </td>
+                        <td className="px-6 py-3 text-right font-bold text-primary border-t border-border">
+                          <div className="flex flex-col items-end">
+                            <span>${netTotalPrice}</span>
+                            <span className="mt-1 text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                              Amount Source:
+                            </span>
+                            <span className={`mt-1 text-[11px] ${amountSourcePillClass}`}>
+                              {amountSourceLabel} + shipping
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                      {refundedAmount > 0 && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                            Refunded:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-red-600 dark:text-red-400">
+                            −${refundedAmount.toFixed(2)}
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {hasBreakdown && previewOriginalPrice != null && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                            Product list price:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                            ${previewOriginalPrice.toFixed(2)}
+                          </td>
+                        </tr>
+                      )}
+                      {previewDiscountAmount > 0 && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                            Product discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
+                            −${previewDiscountAmount.toFixed(2)}
+                          </td>
+                        </tr>
+                      )}
+                      {productSubtotalAfterDiscount != null && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                            Product subtotal:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                            ${productSubtotalPrice}
+                          </td>
+                        </tr>
+                      )}
+                      {(hasBreakdown || previewShippingFee != null) && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                            Shipping:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                            ${formatMoney(previewShippingFee)}
+                          </td>
+                        </tr>
+                      )}
+                      {!hasBreakdown && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                            Product subtotal:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                            ${totalPrice}
+                          </td>
+                        </tr>
+                      )}
+                      <tr>
+                        <td
+                          className="px-6 py-3 text-right font-bold text-slate-900 dark:text-white border-t border-border"
+                          colSpan={3}
+                        >
+                          {refundedAmount > 0 ? "Net Total (USD):" : "Total (USD):"}
+                        </td>
+                        <td className="px-6 py-3 text-right font-bold text-primary border-t border-border">
+                          <div className="flex flex-col items-end">
+                            <span>${netTotalPrice}</span>
+                            <span className="mt-1 text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                              Amount Source:
+                            </span>
+                            <span className={`mt-1 text-[11px] ${amountSourcePillClass}`}>
+                              {amountSourceLabel} + shipping
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                      {refundedAmount > 0 && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                            Refunded:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-red-600 dark:text-red-400">
+                            −${refundedAmount.toFixed(2)}
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   )}
                 </tfoot>
               </table>
