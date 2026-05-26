@@ -44,6 +44,19 @@ interface RefreshResponse {
 let refreshPromise: Promise<string | null> | null = null;
 
 const normalizeEmail = (email: string): string => email.trim().toLowerCase();
+const AUTH_SYNC_EVENT_KEY = "admin-auth-sync-event";
+
+const broadcastAuthSync = (type: "login" | "logout") => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      AUTH_SYNC_EVENT_KEY,
+      JSON.stringify({ type, ts: Date.now() })
+    );
+  } catch (error) {
+    console.warn("Failed to broadcast auth sync event:", error);
+  }
+};
 
 export const authService = {
   login: async (credentials: LoginCredentials): Promise<User> => {
@@ -61,6 +74,7 @@ export const authService = {
     try {
       const { data: profile } = await api.get<User>('/auth/me/');
       useAuthStore.getState().login(accessToken, profile);
+      broadcastAuthSync("login");
       return profile;
     } catch (e) {
       useAuthStore.getState().logout();
@@ -93,6 +107,7 @@ export const authService = {
       try {
         const { data: profile } = await api.get<User>('/auth/me/');
         useAuthStore.getState().login(data.access, profile);
+        broadcastAuthSync("login");
         return profile;
       } catch (e) {
         useAuthStore.getState().logout();
@@ -122,6 +137,7 @@ export const authService = {
       console.error('Logout failed, clearing client-side state anyway.', error);
     } finally {
       useAuthStore.getState().logout();
+      broadcastAuthSync("logout");
     }
   },
 
