@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { TrendingUp, Grid3X3, Eye } from "lucide-react"
+import { Eye } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { ordersApi, Order } from "@/api/ordersApi"
 import { exportToCSV } from "@/utils/exportUtils"
@@ -282,16 +282,6 @@ export default function Orders() {
     exportToCSV(filteredOrders, orderColumns, 'orders_export')
   }, [filteredOrders])
 
-  const handleUpgrade = () => {
-    console.log("Upgrade clicked")
-    // Implement upgrade logic
-  }
-
-  const handleGridView = () => {
-    console.log("Grid view clicked")
-    // Implement grid view toggle logic
-  }
-
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -302,16 +292,6 @@ export default function Orders() {
             <span>›</span>
             <span>All Orders</span>
           </div>
-        </div>
-        {/* Right side buttons that were originally in the top row */}
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2" onClick={handleUpgrade}>
-            <TrendingUp className="h-4 w-4" />
-            Upgrade
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleGridView}>
-            <Grid3X3 className="h-4 w-4" />
-          </Button>
         </div>
       </div>
 
