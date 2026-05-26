@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Edit, Trash2, FileText, ArrowUpDown, Save, X } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Trash2, FileText, ArrowUpDown, Save, X, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
@@ -106,6 +106,7 @@ export default function QuestionnaireQuestions() {
   const [questionToDelete, setQuestionToDelete] = useState<Question | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTypeFilter, setActiveTypeFilter] = useState("All Types");
+  const [duplicatingTemplate, setDuplicatingTemplate] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!templateId) return;
@@ -218,6 +219,32 @@ export default function QuestionnaireQuestions() {
 
   const handleFlowBuilder = () => {
     navigate(`/dashboard/questionnaires/${templateId}/flow-builder`);
+  };
+
+  const handleDuplicateTemplate = async () => {
+    if (!template) return;
+    setDuplicatingTemplate(true);
+
+    try {
+      const newTemplate = await templateApi.duplicateTemplate(template.id);
+      toast({
+        title: "Template duplicated",
+        description: `Created "${newTemplate.name}"`,
+      });
+      // Navigate back to the templates list so the user can see the new copy
+      navigate("/dashboard/questionnaires");
+    } catch (error: unknown) {
+      toast({
+        title: "Error",
+        description:
+          (error as any)?.response?.data?.error ||
+          (error as any)?.message ||
+          "Failed to duplicate template",
+        variant: "destructive",
+      });
+    } finally {
+      setDuplicatingTemplate(false);
+    }
   };
 
   // Use reorderable questions when in reorder mode, otherwise use original questions
@@ -333,6 +360,14 @@ export default function QuestionnaireQuestions() {
               <Button variant="outline" onClick={enterReorderMode}>
                 <ArrowUpDown className="h-4 w-4 mr-2" />
                 Reorder
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleDuplicateTemplate}
+                disabled={duplicatingTemplate}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Duplicate
               </Button>
               <Button onClick={handleAddQuestion}>
                 <Plus className="h-4 w-4 mr-2" />
