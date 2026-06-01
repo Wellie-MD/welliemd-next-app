@@ -128,14 +128,14 @@ export function OrderDetailsSheet({
   }
 
   const status = order?.orderStatus || order?.status || "created"
-  const paymentStatus = order?.paymentStatus || ""
+  const paymentStatus = (order?.paymentStatus || "").toLowerCase()
   const isAuthorized = paymentStatus === "authorized"
-  const isRefundable = paymentStatus === "captured" || paymentStatus === "approved"
-  const canRefundOrVoid = isAuthorized || isRefundable
   const remainingRefundable = useMemo(() => {
     const amount = order?.refundableAmount ? parseFloat(order.refundableAmount) : 0
     return Number.isNaN(amount) ? 0 : amount
   }, [order?.refundableAmount])
+  const isRefundable = remainingRefundable > 0
+  const canRefundOrVoid = isAuthorized || isRefundable
   const baseRemainingRefundable = useMemo(() => {
     const amount = order?.baseRefundableAmount ? parseFloat(order.baseRefundableAmount) : 0
     return Number.isNaN(amount) ? 0 : amount

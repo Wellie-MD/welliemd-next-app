@@ -441,10 +441,7 @@ export default function OrderDetail() {
   const paymentStatus = (order.paymentStatus || "").toLowerCase()
   const settlementState = (order.payment_settlement_state || "").toLowerCase()
   const isAuthorized = paymentStatus === "authorized"
-  const isRefundable =
-    paymentStatus === "captured" ||
-    paymentStatus === "approved" ||
-    paymentStatus === "succeeded"
+  const isRefundable = remainingRefundable > 0
   const isLocked = isAuthorized || isRefundable
   const isPending = paymentStatus === "pending" || !paymentStatus
   const paymentCaptured = isRefundable || settlementState === "captured"
