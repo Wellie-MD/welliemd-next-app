@@ -81,7 +81,23 @@ function getEventType(event: LabLifecycleEvent): string {
 }
 
 function getEventTimestamp(event: LabLifecycleEvent): string | null {
-    return event.occurred_at || event.created_at || event.timestamp || null;
+    if (event.occurred_at || event.created_at || event.timestamp) {
+        return event.occurred_at || event.created_at || event.timestamp || null;
+    }
+    const payload = event.payload && typeof event.payload === 'object'
+        ? event.payload as Record<string, unknown>
+        : {};
+    const info = payload.info && typeof payload.info === 'object'
+        ? payload.info as Record<string, unknown>
+        : {};
+    const details = info.details && typeof info.details === 'object'
+        ? info.details as Record<string, unknown>
+        : {};
+    const startAt = details.appointment_scheduled_start;
+    if (typeof startAt === 'string' && startAt.trim()) return startAt.trim();
+    const rawCreated = info.created_at;
+    if (typeof rawCreated === 'string' && rawCreated.trim()) return rawCreated.trim();
+    return null;
 }
 
 function getEventTitle(event: LabLifecycleEvent): string {
@@ -226,7 +242,7 @@ function normalizeTimeline(submission: LabSubmission): TimelineItem[] {
         if (seen.has(identity)) return;
         seen.add(identity);
 
-        const timestamp = occurredAt ? Date.parse(occurredAt) : Number.NaN;
+        const timestamp = occurredAt ? Date.parse(occurredAt) : Date.parse(submission.created_at);
         timeline.push({
             id: event.id || `${submission.id}-event-${index}`,
             title: getEventTitle(event),
@@ -237,11 +253,14 @@ function normalizeTimeline(submission: LabSubmission): TimelineItem[] {
         });
     });
 
+    const existingActionLabels = new Set(
+        timeline.flatMap((item) => item.actions.map((action) => action.label))
+    );
     const submissionActions: TimelineAction[] = [];
     const requisitionUrl = toSafeUrl(submission.requisition_pdf_url);
     const bookingUrl = toSafeUrl(submission.booking_link) || toSafeUrl(submission.booking_url);
-    if (requisitionUrl) submissionActions.push({ label: 'Download Requisition', url: requisitionUrl });
-    if (bookingUrl) submissionActions.push({ label: 'Book Appointment', url: bookingUrl });
+    if (requisitionUrl && !existingActionLabels.has('Download Requisition')) submissionActions.push({ label: 'Download Requisition', url: requisitionUrl });
+    if (bookingUrl && !existingActionLabels.has('Book Appointment')) submissionActions.push({ label: 'Book Appointment', url: bookingUrl });
 
     if (submissionActions.length > 0) {
         timeline.push({
@@ -251,18 +270,6 @@ function normalizeTimeline(submission: LabSubmission): TimelineItem[] {
             occurredAt: submission.created_at,
             sortTimestamp: Date.parse(submission.created_at),
             actions: submissionActions,
-        });
-    }
-
-    const hasInPersonEvent = timeline.some((item) => item.title === 'In-Person Lab Requisition Ready');
-    if (!hasInPersonEvent && submissionActions.some((action) => action.label === 'Download Requisition')) {
-        timeline.push({
-            id: `${submission.id}-in-person-fallback`,
-            title: 'In-Person Lab Requisition Ready',
-            description: 'Your requisition is available for in-person lab testing.',
-            occurredAt: submission.created_at,
-            sortTimestamp: Date.parse(submission.created_at),
-            actions: submissionActions.filter((action) => action.label === 'Download Requisition'),
         });
     }
 
@@ -366,6 +373,8 @@ interface SubmissionCardProps {
 }
 
 function SubmissionCard({ submission, isExpanded, onToggle }: SubmissionCardProps) {
+    const timelineItems = normalizeTimeline(submission);
+    const latestAppointment = timelineItems.find((item) => item.title.toLowerCase().includes("appointment"));
     return (
         <div className="km-card km-fade" style={{ marginBottom: 16 }}>
             <div style={{ padding: 14 }}>
@@ -428,6 +437,13 @@ function SubmissionCard({ submission, isExpanded, onToggle }: SubmissionCardProp
                                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Submitted At</div>
                                 <div style={{ fontSize: 13, fontWeight: 600 }}>{formatDate(submission.submitted_at)}</div>
                             </div>
+                            {latestAppointment && (
+                                <div style={{ flex: 1, minWidth: '40%' }}>
+                                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Appointment</div>
+                                    <div style={{ fontSize: 13, fontWeight: 600 }}>{latestAppointment.title}</div>
+                                    <div style={{ fontSize: 12, color: 'var(--km-tm)' }}>{latestAppointment.description}</div>
+                                </div>
+                            )}
                         </div>
                         
                         {submission.lab_results.length > 0 && (
@@ -438,6 +454,39 @@ function SubmissionCard({ submission, isExpanded, onToggle }: SubmissionCardProp
                                         <div key={result.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--km-s2)', borderRadius: 8, border: '1px solid var(--km-b)' }}>
                                             <span style={{ fontSize: 13, fontWeight: 600 }}>{result.test_name}</span>
                                             <span style={{ fontSize: 13 }}>{result.test_result} {result.test_result_units}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {timelineItems.length > 0 && (
+                            <div style={{ marginTop: 16 }}>
+                                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Lifecycle Updates</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    {timelineItems.map((item) => (
+                                        <div key={item.id} style={{ padding: '10px 12px', background: 'var(--km-s2)', borderRadius: 8, border: '1px solid var(--km-b)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                                                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-t)' }}>{item.title}</div>
+                                                <div style={{ fontSize: 11, color: 'var(--km-tm)' }}>{formatDate(item.occurredAt)}</div>
+                                            </div>
+                                            <div style={{ fontSize: 12, color: 'var(--km-tm)', marginTop: 4 }}>{item.description}</div>
+                                            {item.actions.length > 0 && (
+                                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                                                    {item.actions.map((action) => (
+                                                        <a
+                                                            key={`${item.id}-${action.label}`}
+                                                            href={action.url}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="km-btn km-btn-outline"
+                                                            style={{ fontSize: 11, padding: '5px 10px' }}
+                                                        >
+                                                            {action.label}
+                                                        </a>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -494,11 +543,18 @@ export default function LabsPage() {
         result.test_name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const filteredSubmissions = labSubmissions.filter(submission =>
-        submission.lab_results.some(r => 
-            r.test_name.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-    );
+    const filteredSubmissions = labSubmissions.filter((submission) => {
+        const term = searchTerm.trim().toLowerCase();
+        if (!term) return true;
+
+        const matchesResultName = submission.lab_results.some((r) =>
+            r.test_name.toLowerCase().includes(term)
+        );
+        const matchesMasterId = (submission.master_id || '').toLowerCase().includes(term);
+        const matchesSubmissionId = (submission.id || '').toLowerCase().includes(term);
+
+        return matchesResultName || matchesMasterId || matchesSubmissionId;
+    });
 
     const toggleResult = (id: string) => {
         setExpandedResult(expandedResult === id ? null : id);

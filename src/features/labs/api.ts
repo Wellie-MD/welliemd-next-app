@@ -64,6 +64,12 @@ export interface LabSubmission {
     submitted_at: string | null;
     created_at: string;
     updated_at: string;
+    lifecycle_events?: Array<Record<string, unknown>>;
+    events?: Array<Record<string, unknown>>;
+    activity_events?: Array<Record<string, unknown>>;
+    requisition_pdf_url?: string | null;
+    booking_link?: string | null;
+    booking_url?: string | null;
 }
 
 interface PaginatedResponse<T> {
