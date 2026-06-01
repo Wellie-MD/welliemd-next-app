@@ -49,6 +49,12 @@ type ProductFormValues = {
   product_type: string
   cost_to_welliemd?: string
   shipping_cost_to_welliemd?: string
+  is_lab_product?: boolean
+  junction_lab_test_id?: string
+  junction_lab_test_name_snapshot?: string
+  junction_collection_method?: string
+  junction_last_catalog_sync_at?: string
+  source_product_id?: string
 }
 
 export default function AddProductForm({
@@ -103,6 +109,12 @@ export default function AddProductForm({
         product_type: product.product_type,
         cost_to_welliemd: product.cost_to_welliemd ?? "",
         shipping_cost_to_welliemd: product.shipping_cost_to_welliemd ?? "0.00",
+        is_lab_product: product.is_lab_product ?? false,
+        junction_lab_test_id: product.junction_lab_test_id ?? "",
+        junction_lab_test_name_snapshot: product.junction_lab_test_name_snapshot ?? "",
+        junction_collection_method: product.junction_collection_method ?? "",
+        junction_last_catalog_sync_at: product.junction_last_catalog_sync_at ?? "",
+        source_product_id: product.source_product_id ?? "",
       })
     }
   }, [product, reset])
@@ -294,6 +306,70 @@ export default function AddProductForm({
                 <p className="text-xs text-muted-foreground mt-1">Admin-set shipping cost used for reimbursement</p>
               </div>
             </div>
+          </div>
+
+          {/* Junction Lab Mapping (Read-only) */}
+          <div className="border rounded-lg p-4 bg-muted/30">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h3 className="text-sm font-semibold text-muted-foreground">Junction Lab Mapping (Read-only)</h3>
+              {product?.is_lab_product ? (
+                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200">
+                  Lab Product
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                  Not Lab-Linked
+                </span>
+              )}
+            </div>
+            {product?.is_lab_product ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Junction Lab Test ID</label>
+                  <input
+                    value={product.junction_lab_test_id ?? ""}
+                    disabled
+                    className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Collection Method</label>
+                  <input
+                    value={product.junction_collection_method ?? ""}
+                    disabled
+                    className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Catalog Name Snapshot</label>
+                  <input
+                    value={product.junction_lab_test_name_snapshot ?? ""}
+                    disabled
+                    className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Tenant Source Product ID</label>
+                  <input
+                    value={product.source_product_id ?? ""}
+                    disabled
+                    className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Last Catalog Sync</label>
+                  <input
+                    value={product.junction_last_catalog_sync_at ? new Date(product.junction_last_catalog_sync_at).toLocaleString() : "Never synced"}
+                    disabled
+                    className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60"
+                  />
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                This product is not configured as a Junction lab product.
+              </p>
+            )}
           </div>
 
           {/* Linked Supplies (Read-only) */}

@@ -227,7 +227,32 @@ export default function Products() {
       label: "Treatment",
       width: "100px",
       render: (value: unknown, row: Product) => {
-        return <Badge variant="outline">{getTreatmentLabel(row.treatment)}</Badge>
+        return (
+          <div className="flex flex-col gap-1">
+            <Badge variant="outline">{getTreatmentLabel(row.treatment)}</Badge>
+            {row.is_lab_product && (
+              <Badge variant="secondary" className="w-fit text-[10px] uppercase tracking-wide">
+                Lab Product
+              </Badge>
+            )}
+          </div>
+        )
+      },
+    },
+    {
+      key: "junction_lab_test_name_snapshot",
+      label: "Junction Lab",
+      width: "180px",
+      render: (value: unknown, row: Product) => {
+        if (!row.is_lab_product) return <span className="text-muted-foreground">-</span>
+        return (
+          <div className="flex flex-col">
+            <span className="font-medium">{row.junction_lab_test_name_snapshot || "Lab-linked product"}</span>
+            <span className="text-xs text-muted-foreground">
+              {row.junction_collection_method ? `Method: ${row.junction_collection_method}` : "Method not set"}
+            </span>
+          </div>
+        )
       },
     },
     {

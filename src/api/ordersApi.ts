@@ -187,6 +187,25 @@ export interface Order {
   consult_type?: 'async' | 'sync' | null
   shipping_fee_to_client?: string | null
   activity_events?: OrderActivityEvent[]
+  lab_integration_highlights?: {
+    submission_status?: string | null
+    requisition_pdf_url?: string | null
+    booking_link?: string | null
+    appointment?: {
+      provider?: string | null
+      status?: string | null
+      scheduled_start?: string | null
+      scheduled_end?: string | null
+      timezone?: string | null
+    } | null
+    latest_event?: {
+      title?: string | null
+      description?: string | null
+      occurred_at?: string | null
+      status?: string | null
+    } | null
+    critical_result?: boolean
+  } | null
 }
 
 export interface PaginatedOrdersResponse {

@@ -760,6 +760,15 @@ export default function OrderDetail() {
 
   const eventTimelineItems: TimelineItem[] = Array.isArray(order.activity_events)
     ? order.activity_events.map((evt) => {
+        const normalizedPayload = (evt.payload?._normalized || {}) as Record<string, unknown>
+        const resolvedTitle =
+          (typeof normalizedPayload.title === "string" && normalizedPayload.title.trim()) ||
+          evt.title ||
+          evt.event_type.replace(/\./g, " ")
+        const resolvedDescription =
+          (typeof normalizedPayload.description === "string" && normalizedPayload.description.trim()) ||
+          evt.description ||
+          undefined
         const status = (evt.status || "").toLowerCase()
         let icon: TimelineItem["icon"] = "schedule"
         let iconBg = "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800"
@@ -775,9 +784,9 @@ export default function OrderDetail() {
           iconBg = "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-4 border-white dark:border-slate-800"
         }
         return {
-          title: evt.title || evt.event_type.replace(/\./g, " "),
+          title: resolvedTitle,
           date: formatDateTime(evt.occurred_at),
-          description: evt.description || undefined,
+          description: resolvedDescription,
           icon,
           iconBg,
         }
@@ -1643,6 +1652,64 @@ export default function OrderDetail() {
                             <p className="text-sm font-mono text-slate-700 dark:text-slate-300 break-all">{order.junction_order_id}</p>
                           </div>
                         )}
+                      </div>
+                    )}
+                    {order.lab_integration_highlights && (
+                      <div className="sm:col-span-2 pt-2 border-t border-border/60">
+                        <p className="text-xs text-slate-500 mb-2">Lab Integration Highlights</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <p className="text-xs text-slate-500 mb-0.5">Submission Status</p>
+                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                              {order.lab_integration_highlights.submission_status || "—"}
+                            </p>
+                          </div>
+                          {order.lab_integration_highlights.appointment && (
+                            <div>
+                              <p className="text-xs text-slate-500 mb-0.5">Appointment</p>
+                              <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                {order.lab_integration_highlights.appointment.provider || "Provider"} • {order.lab_integration_highlights.appointment.status || "updated"}
+                              </p>
+                            </div>
+                          )}
+                          {order.lab_integration_highlights.requisition_pdf_url && (
+                            <div>
+                              <a
+                                href={order.lab_integration_highlights.requisition_pdf_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-sm text-blue-600 hover:underline"
+                              >
+                                Download Requisition
+                              </a>
+                            </div>
+                          )}
+                          {order.lab_integration_highlights.booking_link && (
+                            <div>
+                              <a
+                                href={order.lab_integration_highlights.booking_link}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-sm text-blue-600 hover:underline"
+                              >
+                                Open Booking Link
+                              </a>
+                            </div>
+                          )}
+                          {order.lab_integration_highlights.latest_event?.title && (
+                            <div className="sm:col-span-2">
+                              <p className="text-xs text-slate-500 mb-0.5">Latest Lab Event</p>
+                              <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                {order.lab_integration_highlights.latest_event.title}
+                              </p>
+                              {order.lab_integration_highlights.latest_event.description && (
+                                <p className="text-xs text-slate-500 mt-1">
+                                  {order.lab_integration_highlights.latest_event.description}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
