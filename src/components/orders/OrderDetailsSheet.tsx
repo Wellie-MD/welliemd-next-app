@@ -111,6 +111,7 @@ export function OrderDetailsSheet({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [refundAmount, setRefundAmount] = useState("")
+  const [refundTarget, setRefundTarget] = useState<"auto" | "base" | "supplemental">("auto")
   const [refundReason, setRefundReason] = useState("customer_request")
   const [refundReasonDescription, setRefundReasonDescription] = useState("")
   const [refundNotes, setRefundNotes] = useState("")
@@ -135,6 +136,16 @@ export function OrderDetailsSheet({
     const amount = order?.refundableAmount ? parseFloat(order.refundableAmount) : 0
     return Number.isNaN(amount) ? 0 : amount
   }, [order?.refundableAmount])
+  const baseRemainingRefundable = useMemo(() => {
+    const amount = order?.baseRefundableAmount ? parseFloat(order.baseRefundableAmount) : 0
+    return Number.isNaN(amount) ? 0 : amount
+  }, [order?.baseRefundableAmount])
+  const supplementalRemainingRefundable = useMemo(() => {
+    const amount = order?.supplementalRefundableAmount
+      ? parseFloat(order.supplementalRefundableAmount)
+      : 0
+    return Number.isNaN(amount) ? 0 : amount
+  }, [order?.supplementalRefundableAmount])
   const totalRefunded = useMemo(() => {
     const amount = order?.totalRefunded ? parseFloat(order.totalRefunded) : 0
     return Number.isNaN(amount) ? 0 : amount
@@ -217,18 +228,28 @@ export function OrderDetailsSheet({
         toast({ title: "Refund amount exceeds remaining refundable amount", variant: "destructive" })
         return
       }
+      if (refundTarget === "base" && amountNum > baseRemainingRefundable) {
+        toast({ title: "Refund amount exceeds base refundable amount", variant: "destructive" })
+        return
+      }
+      if (refundTarget === "supplemental" && amountNum > supplementalRemainingRefundable) {
+        toast({ title: "Refund amount exceeds supplemental refundable amount", variant: "destructive" })
+        return
+      }
     }
 
     try {
       setRefundLoading(true)
       await ordersApi.refundOrder(order.id, {
         amount: isRefundable ? refundAmount : undefined,
+        refund_target: refundTarget,
         reason: refundReason,
         reason_description: refundReasonDescription,
         notes: refundNotes,
       })
       setShowRefundDialog(false)
       setRefundAmount("")
+      setRefundTarget("auto")
       setRefundReasonDescription("")
       setRefundNotes("")
       toast({
@@ -559,6 +580,29 @@ export function OrderDetailsSheet({
                 <p className="text-xs text-muted-foreground">
                   Remaining refundable: ${remainingRefundable.toFixed(2)}
                 </p>
+              </div>
+            )}
+            {isRefundable && supplementalRemainingRefundable > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Refund Target</label>
+                <Select
+                  value={refundTarget}
+                  onValueChange={(value: "auto" | "base" | "supplemental") => setRefundTarget(value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select target" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto</SelectItem>
+                    <SelectItem value="base">Refund Base</SelectItem>
+                    <SelectItem value="supplemental">Refund Supplemental</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p>Base refundable: ${baseRemainingRefundable.toFixed(2)}</p>
+                  <p>Supplemental refundable: ${supplementalRemainingRefundable.toFixed(2)}</p>
+                  <p>Total remaining refundable: ${remainingRefundable.toFixed(2)}</p>
+                </div>
               </div>
             )}
 
