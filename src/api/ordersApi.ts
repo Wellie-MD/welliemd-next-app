@@ -132,6 +132,8 @@ export interface Order {
   payment_settlement_transactions?: OrderSettlementTransaction[]
   totalRefunded?: string | null
   refundableAmount?: string | null
+  baseRefundableAmount?: string | null
+  supplementalRefundableAmount?: string | null
   created_at?: string
   updated_at?: string
   name?: string
@@ -194,6 +196,7 @@ export interface PaginatedOrdersResponse {
 
 export interface OrderRefundRequest {
   amount?: string | number
+  refund_target?: "auto" | "base" | "supplemental"
   reason: string
   reason_description?: string
   notes?: string
