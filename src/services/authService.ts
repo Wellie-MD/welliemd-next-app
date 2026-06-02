@@ -284,7 +284,7 @@ export const authService = {
   },
 
   requestPasswordReset: async (email: string): Promise<void> => {
-    await api.post('/auth/password-reset/request/', { email });
+    await api.post('/auth/password-reset/request/', { email, portal: 'client' });
   },
 
   confirmPasswordReset: async (uid: string, token: string, newPassword: string): Promise<void> => {
