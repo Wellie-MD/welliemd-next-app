@@ -199,6 +199,7 @@ export class AuthService {
 
     await apiClient.post(API_ENDPOINTS.AUTH.PASSWORD_RESET_REQUEST, {
       ...data,
+      portal: data.portal || 'patient',
       email: AuthService.normalizeEmail(data.email),
     });
   }
@@ -311,4 +312,3 @@ export class AuthService {
 
 // Export singleton instance
 export const authService = AuthService.getInstance();
-
