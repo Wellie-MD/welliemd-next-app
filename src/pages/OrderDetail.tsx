@@ -758,8 +758,35 @@ export default function OrderDetail() {
   })
   timelineItems.reverse()
 
+  const eventSortOrder = (evt: OrderActivityEvent): number => {
+    const normalizedPayload = (evt.payload?._normalized || {}) as Record<string, unknown>
+    const explicit = normalizedPayload.sort_order
+    if (typeof explicit === "number") return explicit
+
+    const title = (evt.title || "").toLowerCase()
+    const eventType = (evt.event_type || "").toLowerCase()
+    const status = (evt.status || "").toLowerCase()
+    if (title.includes("lab order created") || eventType.endsWith("labtest.order.created")) return 0
+    if (title.includes("requisition") || title.includes("lab order updated") || eventType.endsWith("labtest.order.updated")) return 1
+    if (title.includes("appointment") || eventType.includes("appointment")) return 2
+    if (title.includes("parsing started") || eventType.includes("parsing_job.created")) return 3
+    if (title.includes("parsing updated") || eventType.includes("parsing_job.updated")) return 4
+    if (title.includes("critical") || status.includes("critical") || eventType.endsWith("labtest.result.critical")) return 5
+    return 99
+  }
+
   const eventTimelineItems: TimelineItem[] = Array.isArray(order.activity_events)
-    ? order.activity_events.map((evt) => {
+    ? [...order.activity_events]
+        .sort((a, b) => {
+          const aTime = Date.parse(a.occurred_at || "")
+          const bTime = Date.parse(b.occurred_at || "")
+          if (aTime !== bTime) return aTime - bTime
+          const aSort = eventSortOrder(a)
+          const bSort = eventSortOrder(b)
+          if (aSort !== bSort) return aSort - bSort
+          return (a.id || "").localeCompare(b.id || "")
+        })
+        .map((evt) => {
         const normalizedPayload = (evt.payload?._normalized || {}) as Record<string, unknown>
         const resolvedTitle =
           (typeof normalizedPayload.title === "string" && normalizedPayload.title.trim()) ||
@@ -790,7 +817,7 @@ export default function OrderDetail() {
           icon,
           iconBg,
         }
-      })
+        })
     : []
   const renderedTimelineItems = eventTimelineItems.length > 0 ? eventTimelineItems : timelineItems
 

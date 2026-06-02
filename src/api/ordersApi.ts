@@ -91,6 +91,7 @@ export interface OrderActivityEvent {
   description: string
   source: string
   occurred_at: string
+  sort_order?: number
   payload?: Record<string, unknown>
 }
 
