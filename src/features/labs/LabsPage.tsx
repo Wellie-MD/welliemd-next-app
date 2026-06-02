@@ -67,6 +67,7 @@ interface TimelineItem {
     description: string;
     occurredAt: string | null;
     sortTimestamp: number;
+    sortOrder: number;
     actions: TimelineAction[];
 }
 
@@ -98,6 +99,37 @@ function getEventTimestamp(event: LabLifecycleEvent): string | null {
     const rawCreated = info.created_at;
     if (typeof rawCreated === 'string' && rawCreated.trim()) return rawCreated.trim();
     return null;
+}
+
+function getEventSortOrder(event: LabLifecycleEvent): number {
+    const topLevelSortOrder = (event as Record<string, unknown>).sort_order;
+    if (typeof topLevelSortOrder === 'number') return topLevelSortOrder;
+
+    const payload = event.payload && typeof event.payload === 'object'
+        ? event.payload as Record<string, unknown>
+        : {};
+    const info = payload.info && typeof payload.info === 'object'
+        ? payload.info as Record<string, unknown>
+        : {};
+    const nestedSortOrder = info.sort_order;
+    if (typeof nestedSortOrder === 'number') return nestedSortOrder;
+    const normalized = info._normalized && typeof info._normalized === 'object'
+        ? info._normalized as Record<string, unknown>
+        : {};
+    const explicitSortOrder = normalized.sort_order;
+    if (typeof explicitSortOrder === 'number') return explicitSortOrder;
+
+    const eventType = getEventType(event);
+    const title = (event.title || '').toLowerCase();
+    const status = (event.status || '').toLowerCase();
+
+    if (eventType === 'LAB_ORDER_CREATED' || title.includes('lab order created')) return 0;
+    if (eventType === 'LAB_ORDER_UPDATED' || title.includes('lab order updated') || title.includes('requisition')) return 1;
+    if (eventType.includes('APPOINTMENT') || title.includes('appointment')) return 2;
+    if (eventType.includes('PARSING_JOB_CREATED') || title.includes('parsing started')) return 3;
+    if (eventType.includes('PARSING_JOB_UPDATED') || title.includes('parsing updated')) return 4;
+    if (eventType === 'LAB_RESULT_CRITICAL' || title.includes('critical') || status.includes('critical')) return 5;
+    return 99;
 }
 
 function getEventTitle(event: LabLifecycleEvent): string {
@@ -249,6 +281,7 @@ function normalizeTimeline(submission: LabSubmission): TimelineItem[] {
             description: getEventDescription(event),
             occurredAt,
             sortTimestamp: Number.isFinite(timestamp) ? timestamp : 0,
+            sortOrder: getEventSortOrder(event),
             actions: eventActions(event),
         });
     });
@@ -269,11 +302,16 @@ function normalizeTimeline(submission: LabSubmission): TimelineItem[] {
             description: 'Quick access to requisition and booking resources.',
             occurredAt: submission.created_at,
             sortTimestamp: Date.parse(submission.created_at),
+            sortOrder: 100,
             actions: submissionActions,
         });
     }
 
-    return timeline.sort((a, b) => b.sortTimestamp - a.sortTimestamp);
+    return timeline.sort((a, b) => {
+        if (a.sortTimestamp !== b.sortTimestamp) return a.sortTimestamp - b.sortTimestamp;
+        if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+        return a.title.localeCompare(b.title);
+    });
 }
 
 interface LabResultCardProps {
