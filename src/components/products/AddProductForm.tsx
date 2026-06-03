@@ -267,6 +267,40 @@ export default function AddProductForm({
                 />
               </div>
             </div>
+
+            {Array.isArray(product?.service_states) && (
+              <div className="mt-4 border-t pt-4 dark:border-slate-700">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Service States
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Admin-managed coverage for this product. Empty means it inherits pharmacy coverage.
+                    </p>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {product?.service_states?.length ?? 0} state(s)
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {product?.service_states?.length ? (
+                    product.service_states.map((state) => (
+                      <span
+                        key={state}
+                        className="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium bg-background text-foreground dark:border-slate-700 dark:bg-slate-900/60"
+                      >
+                        {state}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      No explicit states configured.
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Admin Costs (Read-only) - What WellieMD charges the Client */}

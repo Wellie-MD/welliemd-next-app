@@ -98,6 +98,7 @@ export interface Product {
   pharmacy_api: "inherit" | "life_file" | "dispense_pro";
   generic_name?: string;
   generic_group?: string;
+  service_states?: string[];
   category_name?: string;
 
   // Questionnaires
@@ -166,6 +167,7 @@ export interface CreateProductPayload {
   pharmacy_api?: string;
   generic_name?: string;
   generic_group?: string;
+  service_states?: string[];
   onboarding_questionnaire?: string;
   followup_questionnaire?: string;
   onboarding_script_config?: Record<string, any>;
@@ -221,6 +223,7 @@ export interface UpdateProductPayload {
   pharmacy_api?: string;
   generic_name?: string;
   generic_group?: string;
+  service_states?: string[];
   onboarding_questionnaire?: string;
   followup_questionnaire?: string;
   allow_client_modifications?: boolean;
