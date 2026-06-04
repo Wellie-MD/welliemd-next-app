@@ -43,6 +43,12 @@ interface Regimen {
   description: string;
 }
 
+interface DisplaySnapshot {
+  category: string;
+  regimen: string;
+  dose: string;
+}
+
 export function ProductSelector({
   value,
   onChange,
@@ -54,6 +60,11 @@ export function ProductSelector({
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [loadingRegimens, setLoadingRegimens] = useState(false);
   const [loadingDoseMappings, setLoadingDoseMappings] = useState(false);
+  const [displaySnapshot, setDisplaySnapshot] = useState<DisplaySnapshot>({
+    category: "",
+    regimen: "",
+    dose: "",
+  });
 
   const getNumericValue = (...values: Array<number | string | undefined>) => {
     for (const currentValue of values) {
@@ -124,12 +135,23 @@ export function ProductSelector({
     selectedDoseMapping?.patient_label ||
     selectedDoseMapping?.name ||
     savedDoseLabel;
+  const categoryDisplayLabel = selectedCategoryValue || displaySnapshot.category;
+  const regimenDisplayLabel = value?.regimen_name || value?.regimen || displaySnapshot.regimen;
+  const doseDisplayLabel = selectedDoseDisplayLabel || displaySnapshot.dose;
   const hasUnresolvedSavedDose =
     !!value?.category &&
     !!value?.regimen &&
     !!savedDoseMappingId &&
     !selectedDoseMapping &&
     !savedDoseLabel;
+
+  useEffect(() => {
+    setDisplaySnapshot((previousSnapshot) => ({
+      category: selectedCategoryValue || previousSnapshot.category,
+      regimen: value?.regimen_name || value?.regimen || previousSnapshot.regimen,
+      dose: selectedDoseDisplayLabel || previousSnapshot.dose,
+    }));
+  }, [selectedCategoryValue, value?.regimen_name, value?.regimen, selectedDoseDisplayLabel]);
 
   useEffect(() => {
     fetchCategories();
@@ -219,6 +241,7 @@ export function ProductSelector({
   };
 
   const handleClear = () => {
+    setDisplaySnapshot({ category: "", regimen: "", dose: "" });
     onChange(null);
   };
 
@@ -243,8 +266,8 @@ export function ProductSelector({
             disabled={disabled || loadingCategories}
         >
           <SelectTrigger>
-            {selectedCategoryValue ? (
-              <span>{selectedCategoryValue}</span>
+            {categoryDisplayLabel ? (
+              <span>{categoryDisplayLabel}</span>
             ) : (
               <SelectValue placeholder={loadingCategories ? "Loading categories..." : "Select category..."} />
             )}
@@ -259,7 +282,7 @@ export function ProductSelector({
         </Select>
       </div>
 
-      {savedCategoryName && (
+      {savedCategoryName || displaySnapshot.category ? (
         <div className="space-y-2">
           <Label>
             Select Titration Category / Regimen <span className="text-red-500">*</span>
@@ -270,8 +293,8 @@ export function ProductSelector({
             disabled={disabled || loadingRegimens}
           >
             <SelectTrigger>
-              {value.regimen_name || value.regimen ? (
-                <span>{value.regimen_name || value.regimen}</span>
+              {regimenDisplayLabel ? (
+                <span>{regimenDisplayLabel}</span>
               ) : (
                 <SelectValue placeholder={loadingRegimens ? "Loading regimens..." : "Select regimen..."} />
               )}
@@ -285,9 +308,10 @@ export function ProductSelector({
             </SelectContent>
           </Select>
         </div>
-      )}
+      ) : null}
 
-      {savedCategoryName && value?.regimen && (
+      {(savedCategoryName || displaySnapshot.category) &&
+        (value?.regimen || displaySnapshot.regimen) && (
         <div className="space-y-2">
           <Label>
             Select Dose Level <span className="text-red-500">*</span>
@@ -312,8 +336,8 @@ export function ProductSelector({
             disabled={disabled || loadingDoseMappings}
           >
             <SelectTrigger>
-              {selectedDoseDisplayLabel ? (
-                <span>{selectedDoseDisplayLabel}</span>
+              {doseDisplayLabel ? (
+                <span>{doseDisplayLabel}</span>
               ) : (
                 <SelectValue
                   placeholder={
@@ -357,17 +381,19 @@ export function ProductSelector({
         </div>
       )}
 
-      {savedCategoryName && value?.regimen && (selectedDoseMapping || savedDoseLabel) && (
+      {(savedCategoryName || displaySnapshot.category) &&
+        (value?.regimen || displaySnapshot.regimen) &&
+        (selectedDoseMapping || savedDoseLabel || displaySnapshot.dose) && (
         <div className="flex items-center justify-between rounded-md border p-3 text-sm bg-green-50 border-green-200">
           <div className="space-y-1">
             <div className="font-medium text-green-900">
-              {selectedCategory?.name || savedCategoryName}
+              {categoryDisplayLabel}
             </div>
             <div className="text-xs text-green-700">
-              Regimen: {value.regimen_name || value.regimen}
+              Regimen: {regimenDisplayLabel}
             </div>
             <div className="text-xs text-green-700">
-              Dose: {selectedDoseMapping?.patient_label || selectedDoseMapping?.name || savedDoseLabel}
+              Dose: {doseDisplayLabel}
             </div>
             <div className="text-xs text-green-700">
               ✓ Patients will select duration at checkout
