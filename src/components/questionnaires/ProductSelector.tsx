@@ -16,7 +16,7 @@ interface MedicationConfig {
   category_id?: number;
   regimen?: string;
   regimen_name?: string;
-  dose_mapping?: number;  // Dose mapping ID
+  dose_mapping?: number | string;  // Dose mapping ID; older saved configs may contain non-numeric values
   dose_mapping_label?: string;  // Patient-facing label
   // These are kept for compatibility but might be empty for generic selection
   product_id?: string;
@@ -52,6 +52,15 @@ export function ProductSelector({
     return category.name.toLowerCase() === String(value?.category || "").toLowerCase();
   });
   const selectedCategoryValue = selectedCategory?.name || value?.category || "";
+  const savedDoseMappingId = Number(value?.dose_mapping);
+  const hasValidSavedDoseMappingId = Number.isFinite(savedDoseMappingId) && savedDoseMappingId > 0;
+  const savedDoseLabel = String(value?.dose_mapping_label || value?.dose_mapping || "").trim();
+  const selectedDoseMapping = doseMappings.find((mapping) => {
+    if (hasValidSavedDoseMappingId && mapping.id === savedDoseMappingId) return true;
+    const labels = [mapping.patient_label, mapping.name].filter(Boolean).map((label) => label.toLowerCase());
+    return savedDoseLabel ? labels.includes(savedDoseLabel.toLowerCase()) : false;
+  });
+  const selectedDoseMappingValue = selectedDoseMapping?.id.toString() || "";
 
   useEffect(() => {
     fetchCategories();
@@ -204,7 +213,7 @@ export function ProductSelector({
             Select Dose Level <span className="text-red-500">*</span>
           </Label>
           <Select
-            value={value.dose_mapping?.toString() || ""}
+            value={selectedDoseMappingValue}
             onValueChange={(doseMappingId) => {
               const selectedDoseMapping = doseMappings.find(
                 (dm) => dm.id.toString() === doseMappingId
@@ -248,7 +257,7 @@ export function ProductSelector({
       </p>
 
       {/* Selected Configuration Display */}
-      {value?.category && value?.regimen && value?.dose_mapping && (
+      {value?.category && value?.regimen && selectedDoseMapping && (
         <div className="flex items-center justify-between rounded-md border p-3 text-sm bg-green-50 border-green-200">
           <div className="space-y-1">
             <div className="font-medium text-green-900">
@@ -258,7 +267,7 @@ export function ProductSelector({
               Regimen: {value.regimen_name || value.regimen}
             </div>
             <div className="text-xs text-green-700">
-              Dose: {value.dose_mapping_label}
+              Dose: {value.dose_mapping_label || selectedDoseMapping.patient_label || selectedDoseMapping.name}
             </div>
             <div className="text-xs text-green-700">
               ✓ Patients will select duration at checkout
