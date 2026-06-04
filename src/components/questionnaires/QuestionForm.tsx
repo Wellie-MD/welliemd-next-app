@@ -90,7 +90,7 @@ interface CheckoutConfig {
   medication_base_name?: string;
   regimen?: string;
   regimen_name?: string;
-  dose_mapping?: number;
+  dose_mapping?: number | string;
   dose_mapping_label?: string;
   product_id?: string | number;
   product_name?: string;
@@ -101,6 +101,27 @@ interface CheckoutConfig {
   pharmacy_name?: string;
   beluga_medicine_id?: string;
   price?: number;
+}
+
+function sanitizeCheckoutConfig(config: CheckoutConfig | null | undefined): CheckoutConfig | null {
+  if (!config) return null;
+  const sanitized: CheckoutConfig = { ...config };
+  const doseMappingNumber = Number(sanitized.dose_mapping);
+  const doseMappingText = String(sanitized.dose_mapping ?? "").trim();
+
+  if (
+    sanitized.dose_mapping !== undefined &&
+    sanitized.dose_mapping !== null &&
+    (!Number.isFinite(doseMappingNumber) || doseMappingText.toLowerCase() === "nan")
+  ) {
+    delete sanitized.dose_mapping;
+  }
+
+  if (String(sanitized.dose_mapping_label ?? "").trim().toLowerCase() === "nan") {
+    delete sanitized.dose_mapping_label;
+  }
+
+  return sanitized;
 }
 
 interface ExtendedQuestionPayload extends CreateQuestionPayload {
@@ -525,7 +546,9 @@ export function QuestionForm({
         question.question_type === "checkout" &&
         validationRules?.checkout_config
       ) {
-        const existingCheckoutConfig = validationRules.checkout_config as CheckoutConfig;
+        const existingCheckoutConfig = sanitizeCheckoutConfig(
+          validationRules.checkout_config as CheckoutConfig
+        );
         setCheckoutConfig(existingCheckoutConfig);
       } else if (question.question_type === "checkout") {
         setCheckoutConfig(null);
@@ -1027,7 +1050,9 @@ export function QuestionForm({
           allowed_extensions: formData.allowed_extensions,
         };
       } else if (formData.question_type === "checkout") {
-        const normalizedCheckoutConfig: CheckoutConfig = { ...checkoutConfig };
+        const normalizedCheckoutConfig: CheckoutConfig = {
+          ...(sanitizeCheckoutConfig(checkoutConfig) || {}),
+        };
         delete normalizedCheckoutConfig.resolution_mode;
         delete normalizedCheckoutConfig.target_regimen_protocol;
         delete normalizedCheckoutConfig.dose_strategy;

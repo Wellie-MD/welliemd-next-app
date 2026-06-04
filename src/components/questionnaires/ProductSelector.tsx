@@ -54,13 +54,23 @@ export function ProductSelector({
   const selectedCategoryValue = selectedCategory?.name || value?.category || "";
   const savedDoseMappingId = Number(value?.dose_mapping);
   const hasValidSavedDoseMappingId = Number.isFinite(savedDoseMappingId) && savedDoseMappingId > 0;
-  const savedDoseLabel = String(value?.dose_mapping_label || value?.dose_mapping || "").trim();
+  const rawSavedDoseLabel = String(value?.dose_mapping_label || value?.dose_mapping || "").trim();
+  const savedDoseLabel = rawSavedDoseLabel.toLowerCase() === "nan" ? "" : rawSavedDoseLabel;
   const selectedDoseMapping = doseMappings.find((mapping) => {
     if (hasValidSavedDoseMappingId && mapping.id === savedDoseMappingId) return true;
     const labels = [mapping.patient_label, mapping.name].filter(Boolean).map((label) => label.toLowerCase());
     return savedDoseLabel ? labels.includes(savedDoseLabel.toLowerCase()) : false;
   });
-  const selectedDoseMappingValue = selectedDoseMapping?.id.toString() || "";
+  const savedDoseFallbackValue = savedDoseLabel
+    ? "__saved_dose_mapping__"
+    : "";
+  const selectedDoseMappingValue = selectedDoseMapping?.id.toString() || savedDoseFallbackValue;
+  const hasUnresolvedSavedDose =
+    !!value?.category &&
+    !!value?.regimen &&
+    hasValidSavedDoseMappingId &&
+    !selectedDoseMapping &&
+    !savedDoseLabel;
 
   useEffect(() => {
     fetchCategories();
@@ -236,6 +246,11 @@ export function ProductSelector({
               />
             </SelectTrigger>
             <SelectContent>
+              {!selectedDoseMapping && savedDoseLabel && (
+                <SelectItem value="__saved_dose_mapping__">
+                  {savedDoseLabel}
+                </SelectItem>
+              )}
               {doseMappings.map((doseMapping) => (
                 <SelectItem key={doseMapping.id} value={doseMapping.id.toString()}>
                   {doseMapping.patient_label}
@@ -257,7 +272,13 @@ export function ProductSelector({
       </p>
 
       {/* Selected Configuration Display */}
-      {value?.category && value?.regimen && selectedDoseMapping && (
+      {value?.category && value?.regimen && hasUnresolvedSavedDose && (
+        <div className="rounded-md border p-3 text-sm bg-muted/30 text-muted-foreground">
+          Loading saved dose mapping...
+        </div>
+      )}
+
+      {value?.category && value?.regimen && (selectedDoseMapping || savedDoseLabel) && (
         <div className="flex items-center justify-between rounded-md border p-3 text-sm bg-green-50 border-green-200">
           <div className="space-y-1">
             <div className="font-medium text-green-900">
@@ -267,7 +288,7 @@ export function ProductSelector({
               Regimen: {value.regimen_name || value.regimen}
             </div>
             <div className="text-xs text-green-700">
-              Dose: {value.dose_mapping_label || selectedDoseMapping.patient_label || selectedDoseMapping.name}
+              Dose: {selectedDoseMapping?.patient_label || selectedDoseMapping?.name || savedDoseLabel}
             </div>
             <div className="text-xs text-green-700">
               ✓ Patients will select duration at checkout
