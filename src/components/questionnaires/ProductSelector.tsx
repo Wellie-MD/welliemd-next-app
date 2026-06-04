@@ -51,7 +51,7 @@ export function ProductSelector({
     if (value?.category_id && Number(category.id) === Number(value.category_id)) return true;
     return category.name.toLowerCase() === String(value?.category || "").toLowerCase();
   });
-  const selectedCategoryValue = selectedCategory?.id.toString() || "";
+  const selectedCategoryValue = selectedCategory?.name || value?.category || "";
 
   useEffect(() => {
     fetchCategories();
@@ -150,8 +150,8 @@ export function ProductSelector({
         </Label>
         <Select
           value={selectedCategoryValue}
-          onValueChange={(categoryId) => {
-            const selectedCategory = categories.find(c => c.id === categoryId);
+          onValueChange={(categoryName) => {
+            const selectedCategory = categories.find(c => c.name === categoryName);
             onChange({
               category_id: selectedCategory ? Number(selectedCategory.id) : undefined,
               category: selectedCategory?.name || "",
@@ -166,7 +166,7 @@ export function ProductSelector({
           </SelectTrigger>
           <SelectContent>
             {categories.map((category) => (
-              <SelectItem key={category.id} value={category.id}>
+              <SelectItem key={category.id} value={category.name}>
                 {category.name}
               </SelectItem>
             ))}
