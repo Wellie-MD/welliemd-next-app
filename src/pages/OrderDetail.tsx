@@ -797,6 +797,13 @@ export default function OrderDetail() {
     if (value === null || value === undefined || Number.isNaN(value)) return "0.00"
     return value.toFixed(2)
   }
+  const settlementTransactions = Array.isArray(order.payment_settlement_transactions)
+    ? order.payment_settlement_transactions
+    : []
+  const standaloneCapturedAmount = settlementTransactions.reduce((total, tx) => {
+    if ((tx.settlement_role || "").toLowerCase() !== "standalone") return total
+    return total + (parseMoney(tx.amount) ?? 0)
+  }, 0)
 
   const rawRemainingSupplementalAmount = parseMoney(order.remaining_supplemental_amount)
   const prescribedFinalAmount = parseMoney(order.prescribed_final_amount)
@@ -916,17 +923,30 @@ export default function OrderDetail() {
     hasSplitSettlement
       ? (shouldPreferPrescribedDisplay ? prescribedDisplayTotal : previewTotal)
       : null
-  const splitCapturedSoFar =
+  const splitComponentCapturedTotal =
     (baseCapturedAmount ?? 0) + (supplementalCapturedAmount ?? 0)
+  const hasStandaloneFullCapture =
+    hasSplitSettlement &&
+    settlementState === "captured" &&
+    standaloneCapturedAmount > 0 &&
+    effectivePrescribedTotalForSplit != null &&
+    standaloneCapturedAmount >= Math.max(0, effectivePrescribedTotalForSplit - 0.01)
+  const splitCapturedSoFar = hasStandaloneFullCapture
+    ? standaloneCapturedAmount
+    : splitComponentCapturedTotal
   const derivedRemainingSupplemental =
     hasSplitSettlement && effectivePrescribedTotalForSplit != null
       ? Math.max(0, effectivePrescribedTotalForSplit - splitCapturedSoFar)
       : null
   const splitRemainingBaseAmount = hasSplitSettlement
-    ? Math.max(0, (baseCaptureAmount ?? 0) - (baseCapturedAmount ?? 0))
+    ? hasStandaloneFullCapture
+      ? 0
+      : Math.max(0, (baseCaptureAmount ?? 0) - (baseCapturedAmount ?? 0))
     : null
   const splitRemainingSupplementalAmount = hasSplitSettlement
-    ? Math.max(0, (supplementalDeltaAmount ?? 0) - (supplementalCapturedAmount ?? 0))
+    ? hasStandaloneFullCapture
+      ? 0
+      : Math.max(0, (supplementalDeltaAmount ?? 0) - (supplementalCapturedAmount ?? 0))
     : null
   const remainingToCaptureAmount = hasSplitSettlement
     ? (
@@ -961,11 +981,13 @@ export default function OrderDetail() {
     ? remainingToCaptureAmount
     : (totalAmount ?? previewTotal ?? netTotalAmount)
   const canRetryPayment = hasRemainingToCapture || baseRetryEligibility
-  const paymentInfoAmount = hasRemainingToCapture
-    ? formatMoney(remainingToCaptureAmount)
-    : formatMoney(previewNetTotal)
+  const paymentInfoAmount = hasSplitSettlement
+    ? formatMoney(splitCapturedSoFar)
+    : hasRemainingToCapture
+      ? formatMoney(remainingToCaptureAmount)
+      : formatMoney(previewNetTotal)
   const paymentInfoAmountLabel = hasSplitSettlement
-    ? "Total remaining to capture"
+    ? "Captured total"
     : (hasRemainingToCapture ? "Remaining to Capture" : "Amount")
 
   const displayQuantity = String(qty)
@@ -1106,10 +1128,6 @@ export default function OrderDetail() {
         : orderProcessorGateway === "authorize_net"
           ? "Authorize.Net Trans ID"
           : "Processor Ref"
-  const settlementTransactions = Array.isArray(order.payment_settlement_transactions)
-    ? order.payment_settlement_transactions
-    : []
-
   return (
     <div className="p-6 lg:p-8">
       {/* Breadcrumbs & Title */}

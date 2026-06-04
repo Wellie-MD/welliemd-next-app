@@ -153,6 +153,7 @@ export default function InvoicesPage() {
   const displayedInvoices = useMemo(() => {
     const displayRows: DisplayInvoice[] = [];
     const supplementalByParent = new Map<string, Invoice[]>();
+    const invoiceIds = new Set(invoices.map((inv) => inv.id));
 
     invoices.forEach((inv) => {
       if (!inv.is_supplemental_split_capture || !inv.supplemental_parent_invoice_id) return;
@@ -163,10 +164,30 @@ export default function InvoicesPage() {
 
     invoices.forEach((inv) => {
       if (inv.is_supplemental_split_capture) {
+        // Only collapse a supplemental row when its parent is present on this page.
+        // Otherwise the current page can render almost empty while the API returned rows.
+        if (inv.supplemental_parent_invoice_id && invoiceIds.has(inv.supplemental_parent_invoice_id)) {
+          return;
+        }
+        displayRows.push(inv);
         return;
       }
-      const linkedSupplementals =
-        inv.invoice_type === "reimbursement" ? supplementalByParent.get(inv.id) || [] : [];
+      const backendSupplementals = Array.isArray(inv.supplemental_invoices)
+        ? inv.supplemental_invoices.map((child) => ({
+            ...child,
+            invoice_type: "reimbursement",
+            is_supplemental_split_capture: true,
+            supplemental_parent_invoice_id: inv.id,
+            supplemental_parent_invoice_number: inv.invoice_number,
+          } as Invoice))
+        : [];
+      const pageSupplementals = inv.invoice_type === "reimbursement" ? supplementalByParent.get(inv.id) || [] : [];
+      const seenSupplementalIds = new Set<string>();
+      const linkedSupplementals = [...backendSupplementals, ...pageSupplementals].filter((child) => {
+        if (seenSupplementalIds.has(child.id)) return false;
+        seenSupplementalIds.add(child.id);
+        return true;
+      });
       displayRows.push({
         ...inv,
         supplementalInvoices: linkedSupplementals,
