@@ -13,6 +13,7 @@ import { productCategoryApi } from "@/api/productCategories";
 
 interface MedicationConfig {
   category: string;
+  category_id?: number;
   regimen?: string;
   regimen_name?: string;
   dose_mapping?: number;  // Dose mapping ID
@@ -46,33 +47,42 @@ export function ProductSelector({
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [loadingRegimens, setLoadingRegimens] = useState(false);
   const [loadingDoseMappings, setLoadingDoseMappings] = useState(false);
+  const selectedCategory = categories.find((category) => {
+    if (value?.category_id && Number(category.id) === Number(value.category_id)) return true;
+    return category.name.toLowerCase() === String(value?.category || "").toLowerCase();
+  });
+  const selectedCategoryValue = selectedCategory?.id.toString() || "";
 
   useEffect(() => {
     fetchCategories();
   }, []);
 
   useEffect(() => {
-    if (value?.category) {
-      fetchRegimens(value.category);
+    const categoryName = selectedCategory?.name || value?.category;
+    if (categoryName) {
+      fetchRegimens(categoryName);
     } else {
       setRegimens([]);
     }
-  }, [value?.category]);
+  }, [selectedCategory?.name, value?.category]);
 
   useEffect(() => {
-    if (value?.category) {
-      fetchDoseMappings(value.category);
+    const categoryId = selectedCategory?.id || value?.category_id;
+    if (categoryId) {
+      fetchDoseMappings(Number(categoryId));
     } else {
       setDoseMappings([]);
     }
-  }, [value?.category]);
+  }, [selectedCategory?.id, value?.category_id]);
 
   const fetchCategories = async () => {
     setLoadingCategories(true);
     try {
-      const response = await axiosInstance.get("/products/categories/");
-      const cats = response.data.results || response.data || [];
-      setCategories(cats);
+      const cats = await productCategoryApi.listCategories();
+      setCategories(cats.map((category) => ({
+        id: String(category.id),
+        name: category.name,
+      })));
     } catch (error) {
       console.error("Failed to fetch categories:", error);
       setCategories([]);
@@ -97,40 +107,20 @@ export function ProductSelector({
     }
   };
 
-  const fetchDoseMappings = async (categoryName: string) => {
+  const fetchDoseMappings = async (categoryId: number) => {
     setLoadingDoseMappings(true);
     try {
-      // Get all categories and find the matching one
-      const categories = await productCategoryApi.listCategories();
-      const category = categories.find(c => 
-        c.name.toLowerCase() === categoryName.toLowerCase()
-      );
-      
-      if (category) {
-        const response = await listDoseMappings({
-          category: category.id,
-          page_size: 100,
-        });
-        setDoseMappings(response.results || []);
-      } else {
-        setDoseMappings([]);
-      }
+      const response = await listDoseMappings({
+        category: categoryId,
+        page_size: 100,
+      });
+      setDoseMappings(response.results || []);
     } catch (error) {
       console.error("Failed to fetch dose mappings:", error);
       setDoseMappings([]);
     } finally {
       setLoadingDoseMappings(false);
     }
-  };
-
-  const handleCategorySelect = (categoryId: string) => {
-    const selectedCategory = categories.find(c => c.id === categoryId);
-    // Reset regimen and dose when category changes
-    onChange({
-      medication_base_name: selectedCategory?.name || '',
-      product_name: selectedCategory?.name || '', // Fallback name
-      has_hierarchy: false,
-    });
   };
 
   const handleRegimenSelect = (regimenCode: string) => {
@@ -159,13 +149,13 @@ export function ProductSelector({
           Select Category <span className="text-red-500">*</span>
         </Label>
         <Select
-          value={value?.category || ""}
-          onValueChange={(categoryName) => {
-            // Find the category to get its full details if needed
-            const selectedCategory = categories.find(c => c.name === categoryName);
+          value={selectedCategoryValue}
+          onValueChange={(categoryId) => {
+            const selectedCategory = categories.find(c => c.id === categoryId);
             onChange({
-              category: categoryName,
-              product_name: categoryName,
+              category_id: selectedCategory ? Number(selectedCategory.id) : undefined,
+              category: selectedCategory?.name || "",
+              product_name: selectedCategory?.name || "",
               has_hierarchy: false,
             });
           }}
@@ -176,7 +166,7 @@ export function ProductSelector({
           </SelectTrigger>
           <SelectContent>
             {categories.map((category) => (
-              <SelectItem key={category.id} value={category.name}>
+              <SelectItem key={category.id} value={category.id}>
                 {category.name}
               </SelectItem>
             ))}
