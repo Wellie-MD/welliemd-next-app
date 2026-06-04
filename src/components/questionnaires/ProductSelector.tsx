@@ -14,10 +14,17 @@ import { productCategoryApi } from "@/api/productCategories";
 interface MedicationConfig {
   category: string;
   category_id?: number;
+  medication_base_name?: string;
   regimen?: string;
   regimen_name?: string;
-  dose_mapping?: number | string;  // Dose mapping ID; older saved configs may contain non-numeric values
-  dose_mapping_label?: string;  // Patient-facing label
+  dose_mapping?: number | string; // Dose mapping ID; older saved configs may contain non-numeric values
+  dose_mapping_id?: number | string;
+  dose_mapping_name?: string;
+  dose_mapping_label?: string; // Patient-facing label
+  dose_level?: number | string;
+  dose_level_id?: number | string;
+  dose_label?: string;
+  dose?: string;
   // These are kept for compatibility but might be empty for generic selection
   product_id?: string;
   product_name?: string;
@@ -47,23 +54,67 @@ export function ProductSelector({
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [loadingRegimens, setLoadingRegimens] = useState(false);
   const [loadingDoseMappings, setLoadingDoseMappings] = useState(false);
+
+  const getNumericValue = (...values: Array<number | string | undefined>) => {
+    for (const currentValue of values) {
+      if (currentValue === undefined || currentValue === null || currentValue === "") continue;
+      const numericValue = Number(currentValue);
+      if (Number.isFinite(numericValue) && numericValue > 0) return numericValue;
+    }
+    return undefined;
+  };
+
+  const getTextValue = (...values: Array<number | string | undefined>) => {
+    for (const currentValue of values) {
+      if (currentValue === undefined || currentValue === null) continue;
+      const textValue = String(currentValue).trim();
+      if (!textValue || textValue.toLowerCase() === "nan") continue;
+      if (Number.isFinite(Number(textValue))) continue;
+      return textValue;
+    }
+    return "";
+  };
+
+  const normalizeText = (text: string) =>
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9.]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const savedCategoryName = String(
+    value?.category || value?.medication_base_name || value?.product_name || ""
+  ).trim();
   const selectedCategory = categories.find((category) => {
     if (value?.category_id && Number(category.id) === Number(value.category_id)) return true;
-    return category.name.toLowerCase() === String(value?.category || "").toLowerCase();
+    return normalizeText(category.name) === normalizeText(savedCategoryName);
   });
-  const selectedCategoryValue = selectedCategory?.name || value?.category || "";
-  const savedDoseMappingId = Number(value?.dose_mapping);
-  const hasValidSavedDoseMappingId = Number.isFinite(savedDoseMappingId) && savedDoseMappingId > 0;
-  const rawSavedDoseLabel = String(
-    value?.dose_mapping_label ||
-      (!hasValidSavedDoseMappingId ? value?.dose_mapping : "") ||
-      ""
-  ).trim();
-  const savedDoseLabel = rawSavedDoseLabel.toLowerCase() === "nan" ? "" : rawSavedDoseLabel;
+  const selectedCategoryValue = selectedCategory?.name || savedCategoryName;
+  const savedDoseMappingId = getNumericValue(
+    value?.dose_mapping,
+    value?.dose_mapping_id,
+    value?.dose_level_id,
+    value?.dose_level
+  );
+  const savedDoseLabel = getTextValue(
+    value?.dose_mapping_label,
+    value?.dose_mapping_name,
+    value?.dose_label,
+    value?.dose,
+    value?.dose_mapping,
+    value?.dose_level
+  );
+  const normalizedSavedDoseLabel = normalizeText(savedDoseLabel);
   const selectedDoseMapping = doseMappings.find((mapping) => {
-    if (hasValidSavedDoseMappingId && mapping.id === savedDoseMappingId) return true;
-    const labels = [mapping.patient_label, mapping.name].filter(Boolean).map((label) => label.toLowerCase());
-    return savedDoseLabel ? labels.includes(savedDoseLabel.toLowerCase()) : false;
+    if (savedDoseMappingId && mapping.id === savedDoseMappingId) return true;
+    const labels = [mapping.patient_label, mapping.name].filter(Boolean).map(normalizeText);
+    return normalizedSavedDoseLabel
+      ? labels.some((label) => (
+          label === normalizedSavedDoseLabel ||
+          label.includes(normalizedSavedDoseLabel) ||
+          normalizedSavedDoseLabel.includes(label)
+        ))
+      : false;
   });
   const savedDoseFallbackValue = savedDoseLabel
     ? "__saved_dose_mapping__"
@@ -72,7 +123,7 @@ export function ProductSelector({
   const hasUnresolvedSavedDose =
     !!value?.category &&
     !!value?.regimen &&
-    hasValidSavedDoseMappingId &&
+    !!savedDoseMappingId &&
     !selectedDoseMapping &&
     !savedDoseLabel;
 
@@ -81,13 +132,13 @@ export function ProductSelector({
   }, []);
 
   useEffect(() => {
-    const categoryName = selectedCategory?.name || value?.category;
+    const categoryName = selectedCategory?.name || savedCategoryName;
     if (categoryName) {
       fetchRegimens(categoryName);
     } else {
       setRegimens([]);
     }
-  }, [selectedCategory?.name, value?.category]);
+  }, [selectedCategory?.name, savedCategoryName]);
 
   useEffect(() => {
     const categoryId = selectedCategory?.id || value?.category_id;
@@ -147,12 +198,14 @@ export function ProductSelector({
   };
 
   const handleRegimenSelect = (regimenCode: string) => {
-    if (!value?.category) return;
+    if (!savedCategoryName) return;
 
     const selectedRegimen = regimens.find((r) => r.code === regimenCode);
     
     onChange({
       ...value,
+      category: selectedCategory?.name || savedCategoryName,
+      category_id: selectedCategory ? Number(selectedCategory.id) : value?.category_id,
       regimen: regimenCode,
       regimen_name: selectedRegimen?.name,
       // Reset dose_mapping when regimen changes
@@ -178,6 +231,7 @@ export function ProductSelector({
             onChange({
               category_id: selectedCategory ? Number(selectedCategory.id) : undefined,
               category: selectedCategory?.name || "",
+              medication_base_name: selectedCategory?.name || "",
               product_name: selectedCategory?.name || "",
               has_hierarchy: false,
             });
@@ -197,7 +251,7 @@ export function ProductSelector({
         </Select>
       </div>
 
-      {value?.category && (
+      {savedCategoryName && (
         <div className="space-y-2">
           <Label>
             Select Titration Category / Regimen <span className="text-red-500">*</span>
@@ -221,7 +275,7 @@ export function ProductSelector({
         </div>
       )}
 
-      {value?.category && value?.regimen && (
+      {savedCategoryName && value?.regimen && (
         <div className="space-y-2">
           <Label>
             Select Dose Level <span className="text-red-500">*</span>
@@ -234,8 +288,12 @@ export function ProductSelector({
               );
               onChange({
                 ...value,
+                category: selectedCategory?.name || savedCategoryName,
+                category_id: selectedCategory ? Number(selectedCategory.id) : value?.category_id,
                 dose_mapping: parseInt(doseMappingId),
+                dose_mapping_id: parseInt(doseMappingId),
                 dose_mapping_label: selectedDoseMapping?.patient_label,
+                dose_mapping_name: selectedDoseMapping?.name,
               });
             }}
             disabled={disabled || loadingDoseMappings}
@@ -282,11 +340,11 @@ export function ProductSelector({
         </div>
       )}
 
-      {value?.category && value?.regimen && (selectedDoseMapping || savedDoseLabel) && (
+      {savedCategoryName && value?.regimen && (selectedDoseMapping || savedDoseLabel) && (
         <div className="flex items-center justify-between rounded-md border p-3 text-sm bg-green-50 border-green-200">
           <div className="space-y-1">
             <div className="font-medium text-green-900">
-              {value.category}
+              {selectedCategory?.name || savedCategoryName}
             </div>
             <div className="text-xs text-green-700">
               Regimen: {value.regimen_name || value.regimen}

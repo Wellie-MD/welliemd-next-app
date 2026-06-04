@@ -91,7 +91,13 @@ interface CheckoutConfig {
   regimen?: string;
   regimen_name?: string;
   dose_mapping?: number | string;
+  dose_mapping_id?: number | string;
+  dose_mapping_name?: string;
   dose_mapping_label?: string;
+  dose_level?: number | string;
+  dose_level_id?: number | string;
+  dose_label?: string;
+  dose?: string;
   product_id?: string | number;
   product_name?: string;
   has_hierarchy?: boolean;
@@ -106,9 +112,66 @@ interface CheckoutConfig {
 function sanitizeCheckoutConfig(config: CheckoutConfig | null | undefined): CheckoutConfig | null {
   if (!config) return null;
   const sanitized: CheckoutConfig = { ...config };
+  const firstNumericValue = (
+    ...values: Array<number | string | undefined>
+  ): number | string | undefined => {
+    for (const value of values) {
+      if (value === undefined || value === null || value === "") continue;
+      const numericValue = Number(value);
+      if (Number.isFinite(numericValue) && numericValue > 0) return value;
+    }
+    return undefined;
+  };
+
+  const firstTextValue = (
+    ...values: Array<number | string | undefined>
+  ): string | undefined => {
+    for (const value of values) {
+      if (value === undefined || value === null) continue;
+      const textValue = String(value).trim();
+      if (!textValue || textValue.toLowerCase() === "nan") continue;
+      if (Number.isFinite(Number(textValue))) continue;
+      return textValue;
+    }
+    return undefined;
+  };
+
+  if (sanitized.dose_mapping === undefined || sanitized.dose_mapping === null || sanitized.dose_mapping === "") {
+    const legacyDoseMappingId = firstNumericValue(
+      sanitized.dose_mapping_id,
+      sanitized.dose_level_id,
+      sanitized.dose_level
+    );
+    if (legacyDoseMappingId !== undefined) {
+      sanitized.dose_mapping = legacyDoseMappingId;
+    }
+  }
+
+  if (!sanitized.dose_mapping_label) {
+    const legacyDoseMappingLabel = firstTextValue(
+      sanitized.dose_mapping_name,
+      sanitized.dose_label,
+      sanitized.dose,
+      sanitized.dose_mapping,
+      sanitized.dose_level
+    );
+    if (legacyDoseMappingLabel) {
+      sanitized.dose_mapping_label = legacyDoseMappingLabel;
+    }
+  }
+
+  if (!sanitized.category) {
+    sanitized.category =
+      sanitized.medication_base_name ||
+      (typeof sanitized.product_name === "string" ? sanitized.product_name : undefined);
+  }
+
+  if (!sanitized.medication_base_name && sanitized.category) {
+    sanitized.medication_base_name = sanitized.category;
+  }
+
   const doseMappingNumber = Number(sanitized.dose_mapping);
   const doseMappingText = String(sanitized.dose_mapping ?? "").trim();
-
   if (
     sanitized.dose_mapping !== undefined &&
     sanitized.dose_mapping !== null &&
