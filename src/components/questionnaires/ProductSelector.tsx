@@ -120,6 +120,10 @@ export function ProductSelector({
     ? "__saved_dose_mapping__"
     : "";
   const selectedDoseMappingValue = selectedDoseMapping?.id.toString() || savedDoseFallbackValue;
+  const selectedDoseDisplayLabel =
+    selectedDoseMapping?.patient_label ||
+    selectedDoseMapping?.name ||
+    savedDoseLabel;
   const hasUnresolvedSavedDose =
     !!value?.category &&
     !!value?.regimen &&
@@ -236,10 +240,14 @@ export function ProductSelector({
               has_hierarchy: false,
             });
           }}
-          disabled={disabled || loadingCategories}
+            disabled={disabled || loadingCategories}
         >
           <SelectTrigger>
-            <SelectValue placeholder={loadingCategories ? "Loading categories..." : "Select category..."} />
+            {selectedCategoryValue ? (
+              <span>{selectedCategoryValue}</span>
+            ) : (
+              <SelectValue placeholder={loadingCategories ? "Loading categories..." : "Select category..."} />
+            )}
           </SelectTrigger>
           <SelectContent>
             {categories.map((category) => (
@@ -262,7 +270,11 @@ export function ProductSelector({
             disabled={disabled || loadingRegimens}
           >
             <SelectTrigger>
-              <SelectValue placeholder={loadingRegimens ? "Loading regimens..." : "Select regimen..."} />
+              {value.regimen_name || value.regimen ? (
+                <span>{value.regimen_name || value.regimen}</span>
+              ) : (
+                <SelectValue placeholder={loadingRegimens ? "Loading regimens..." : "Select regimen..."} />
+              )}
             </SelectTrigger>
             <SelectContent>
               {regimens.map((regimen) => (
@@ -283,6 +295,7 @@ export function ProductSelector({
           <Select
             value={selectedDoseMappingValue}
             onValueChange={(doseMappingId) => {
+              if (doseMappingId === "__saved_dose_mapping__") return;
               const selectedDoseMapping = doseMappings.find(
                 (dm) => dm.id.toString() === doseMappingId
               );
@@ -299,13 +312,17 @@ export function ProductSelector({
             disabled={disabled || loadingDoseMappings}
           >
             <SelectTrigger>
-              <SelectValue 
-                placeholder={
-                  loadingDoseMappings 
-                    ? "Loading dose levels..." 
-                    : "Select dose level..."
-                } 
-              />
+              {selectedDoseDisplayLabel ? (
+                <span>{selectedDoseDisplayLabel}</span>
+              ) : (
+                <SelectValue
+                  placeholder={
+                    loadingDoseMappings
+                      ? "Loading dose levels..."
+                      : "Select dose level..."
+                  }
+                />
+              )}
             </SelectTrigger>
             <SelectContent>
               {!selectedDoseMapping && savedDoseLabel && (
