@@ -909,8 +909,9 @@ export default function OrderDetail() {
     ? Math.max(0, previewTotal - refundedAmount)
     : netTotalAmount
 
-  // In split-capture rows, always reconcile remaining amount against the
-  // currently displayed prescribed total to avoid stale-context mismatch.
+  // In split-capture rows, prefer explicit base/supplemental contract fields and
+  // fall back to the displayed prescribed total only if the component amounts are
+  // unavailable on older records.
   const effectivePrescribedTotalForSplit =
     hasSplitSettlement
       ? (shouldPreferPrescribedDisplay ? prescribedDisplayTotal : previewTotal)
@@ -921,12 +922,21 @@ export default function OrderDetail() {
     hasSplitSettlement && effectivePrescribedTotalForSplit != null
       ? Math.max(0, effectivePrescribedTotalForSplit - splitCapturedSoFar)
       : null
-  const remainingSupplementalAmount =
-    derivedRemainingSupplemental != null
-      ? derivedRemainingSupplemental
-      : rawRemainingSupplementalAmount
-  const hasRemainingSupplemental =
-    isPrescribedStatus && remainingSupplementalAmount != null && remainingSupplementalAmount > 0
+  const splitRemainingBaseAmount = hasSplitSettlement
+    ? Math.max(0, (baseCaptureAmount ?? 0) - (baseCapturedAmount ?? 0))
+    : null
+  const splitRemainingSupplementalAmount = hasSplitSettlement
+    ? Math.max(0, (supplementalDeltaAmount ?? 0) - (supplementalCapturedAmount ?? 0))
+    : null
+  const remainingToCaptureAmount = hasSplitSettlement
+    ? (
+      splitRemainingBaseAmount != null && splitRemainingSupplementalAmount != null
+        ? splitRemainingBaseAmount + splitRemainingSupplementalAmount
+        : (derivedRemainingSupplemental != null ? derivedRemainingSupplemental : rawRemainingSupplementalAmount)
+    )
+    : (derivedRemainingSupplemental != null ? derivedRemainingSupplemental : rawRemainingSupplementalAmount)
+  const hasRemainingToCapture =
+    isPrescribedStatus && remainingToCaptureAmount != null && remainingToCaptureAmount > 0
 
   const baseCapturedDisplay = hasSplitSettlement
     ? formatMoney(baseCapturedAmount ?? 0)
@@ -937,15 +947,26 @@ export default function OrderDetail() {
   const prescribedFinalDisplay = hasSplitSettlement
     ? formatMoney(effectivePrescribedTotalForSplit ?? prescribedFinalAmount ?? 0)
     : null
+  const splitRemainingBaseDisplay = hasSplitSettlement
+    ? formatMoney(splitRemainingBaseAmount ?? 0)
+    : null
+  const splitRemainingSupplementalDisplay = hasSplitSettlement
+    ? formatMoney(splitRemainingSupplementalAmount ?? 0)
+    : null
+  const splitRemainingTotalDisplay = hasSplitSettlement
+    ? formatMoney(remainingToCaptureAmount ?? 0)
+    : null
 
-  const retryAmount = hasRemainingSupplemental
-    ? remainingSupplementalAmount
+  const retryAmount = hasRemainingToCapture
+    ? remainingToCaptureAmount
     : (totalAmount ?? previewTotal ?? netTotalAmount)
-  const canRetryPayment = hasRemainingSupplemental || baseRetryEligibility
-  const paymentInfoAmount = hasRemainingSupplemental
-    ? formatMoney(remainingSupplementalAmount)
+  const canRetryPayment = hasRemainingToCapture || baseRetryEligibility
+  const paymentInfoAmount = hasRemainingToCapture
+    ? formatMoney(remainingToCaptureAmount)
     : formatMoney(previewNetTotal)
-  const paymentInfoAmountLabel = hasRemainingSupplemental ? "Remaining to Capture" : "Amount"
+  const paymentInfoAmountLabel = hasSplitSettlement
+    ? "Total remaining to capture"
+    : (hasRemainingToCapture ? "Remaining to Capture" : "Amount")
 
   const displayQuantity = String(qty)
   const requestedMedicineName =
@@ -1063,9 +1084,17 @@ export default function OrderDetail() {
   const retryGatewayLabel = gatewayLabel(retryGateway)
   const orderProcessorGateway = normalizeGateway(order?.paymentProcessor)
   const orderProcessorGatewayLabel = gatewayLabel(orderProcessorGateway)
-  const retryAmountLabel = hasRemainingSupplemental ? "Remaining supplemental amount" : "Amount to retry"
-  const retryModalDescription = hasRemainingSupplemental
-    ? `This retry charges only the remaining supplemental amount via ${retryGatewayLabel}.`
+  const retryAmountLabel = hasSplitSettlement
+    ? "Total remaining to capture"
+    : (hasRemainingToCapture ? "Remaining to capture" : "Amount to retry")
+  const retryModalDescription = hasSplitSettlement
+    ? (
+      (splitRemainingBaseAmount ?? 0) > 0 && (splitRemainingSupplementalAmount ?? 0) > 0
+        ? `This retry charges the remaining base and supplemental split amounts via ${retryGatewayLabel}.`
+        : (splitRemainingBaseAmount ?? 0) > 0
+          ? `This retry charges the remaining base amount via ${retryGatewayLabel}.`
+          : `This retry charges the remaining supplemental amount via ${retryGatewayLabel}.`
+    )
     : `Select a saved card to retry the patient charge via ${retryGatewayLabel}.`
   const retryGatewayMismatch =
     Boolean(retryGateway && orderProcessorGateway) && retryGateway !== orderProcessorGateway
@@ -1395,13 +1424,40 @@ export default function OrderDetail() {
                         </>
                       )}
 
-                      {hasRemainingSupplemental && (
+                      {hasSplitSettlement ? (
+                        <>
+                          <tr>
+                            <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400" colSpan={3}>
+                              Remaining Base to Capture:
+                            </td>
+                            <td className="px-6 py-3 text-right font-medium text-amber-600 dark:text-amber-400">
+                              ${splitRemainingBaseDisplay}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400" colSpan={3}>
+                              Remaining Supplemental to Capture:
+                            </td>
+                            <td className="px-6 py-3 text-right font-medium text-amber-600 dark:text-amber-400">
+                              ${splitRemainingSupplementalDisplay}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400" colSpan={3}>
+                              Total Remaining to Capture:
+                            </td>
+                            <td className="px-6 py-3 text-right font-medium text-amber-600 dark:text-amber-400">
+                              ${splitRemainingTotalDisplay}
+                            </td>
+                          </tr>
+                        </>
+                      ) : hasRemainingToCapture && (
                         <tr>
                           <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400" colSpan={3}>
-                            Remaining Supplemental Amount:
+                            Remaining to Capture:
                           </td>
                           <td className="px-6 py-3 text-right font-medium text-amber-600 dark:text-amber-400">
-                            ${formatMoney(remainingSupplementalAmount)}
+                            ${formatMoney(remainingToCaptureAmount)}
                           </td>
                         </tr>
                       )}
@@ -1918,6 +1974,22 @@ export default function OrderDetail() {
                   )}
                 </div>
               </div>
+              {hasSplitSettlement && (
+                <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-3 space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 dark:text-slate-400">Remaining base to capture</span>
+                    <span className="font-medium text-slate-900 dark:text-white">${splitRemainingBaseDisplay}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 dark:text-slate-400">Remaining supplemental to capture</span>
+                    <span className="font-medium text-slate-900 dark:text-white">${splitRemainingSupplementalDisplay}</span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-2">
+                    <span className="font-semibold text-slate-900 dark:text-white">Total remaining to capture</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">${splitRemainingTotalDisplay}</span>
+                  </div>
+                </div>
+              )}
               {refundedAmount > 0 && (
                 <div className="flex justify-between">
                   <span className="text-slate-500 dark:text-slate-400">Refunded</span>
@@ -1990,10 +2062,29 @@ export default function OrderDetail() {
               ) : null}
             </div>
 
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-500 dark:text-slate-400">{retryAmountLabel}</span>
-              <span className="text-slate-900 dark:text-white font-medium">${formatMoney(retryAmount)}</span>
-            </div>
+            {hasSplitSettlement && (
+              <div className="rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-3 text-sm space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 dark:text-slate-400">Remaining base to capture</span>
+                  <span className="font-medium text-slate-900 dark:text-white">${splitRemainingBaseDisplay}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 dark:text-slate-400">Remaining supplemental to capture</span>
+                  <span className="font-medium text-slate-900 dark:text-white">${splitRemainingSupplementalDisplay}</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-2">
+                  <span className="font-semibold text-slate-900 dark:text-white">Total remaining to capture</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">${splitRemainingTotalDisplay}</span>
+                </div>
+              </div>
+            )}
+
+            {!hasSplitSettlement && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-500 dark:text-slate-400">{retryAmountLabel}</span>
+                <span className="text-slate-900 dark:text-white font-medium">${formatMoney(retryAmount)}</span>
+              </div>
+            )}
 
             {paymentMethodsLoading && (
               <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
