@@ -33,6 +33,9 @@ export interface PaymentTransaction {
     settlement_parent_transaction?: string | null;
     settlement_order_id?: string | null;
     settlement_trace_id?: string | null;
+    split_children?: PaymentTransaction[];
+    split_total_amount?: string | null;
+    split_supplemental_amount?: string | null;
     patient_name?: string | null;
     order_number?: string | null;
 }
