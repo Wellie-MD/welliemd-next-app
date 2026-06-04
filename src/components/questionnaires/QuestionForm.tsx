@@ -114,6 +114,9 @@ function sanitizeCheckoutConfig(config: CheckoutConfig | null | undefined): Chec
     sanitized.dose_mapping !== null &&
     (!Number.isFinite(doseMappingNumber) || doseMappingText.toLowerCase() === "nan")
   ) {
+    if (doseMappingText && doseMappingText.toLowerCase() !== "nan" && !sanitized.dose_mapping_label) {
+      sanitized.dose_mapping_label = doseMappingText;
+    }
     delete sanitized.dose_mapping;
   }
 

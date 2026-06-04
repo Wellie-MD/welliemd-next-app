@@ -54,7 +54,11 @@ export function ProductSelector({
   const selectedCategoryValue = selectedCategory?.name || value?.category || "";
   const savedDoseMappingId = Number(value?.dose_mapping);
   const hasValidSavedDoseMappingId = Number.isFinite(savedDoseMappingId) && savedDoseMappingId > 0;
-  const rawSavedDoseLabel = String(value?.dose_mapping_label || value?.dose_mapping || "").trim();
+  const rawSavedDoseLabel = String(
+    value?.dose_mapping_label ||
+      (!hasValidSavedDoseMappingId ? value?.dose_mapping : "") ||
+      ""
+  ).trim();
   const savedDoseLabel = rawSavedDoseLabel.toLowerCase() === "nan" ? "" : rawSavedDoseLabel;
   const selectedDoseMapping = doseMappings.find((mapping) => {
     if (hasValidSavedDoseMappingId && mapping.id === savedDoseMappingId) return true;
