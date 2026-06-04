@@ -29,6 +29,22 @@ function formatMoney(value: string | number | undefined) {
   return `$${Number.isFinite(parsed) ? parsed.toFixed(2) : "0.00"}`;
 }
 
+function invoiceAmount(inv: Pick<Invoice, "total_amount" | "amount">) {
+  const parsed = Number((inv.total_amount ?? inv.amount) || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function invoiceSupplementalTotal(inv: DisplayInvoice) {
+  return (inv.supplementalInvoices || []).reduce(
+    (sum, child) => sum + invoiceAmount(child),
+    0
+  );
+}
+
+function invoiceCombinedTotal(inv: DisplayInvoice) {
+  return invoiceAmount(inv) + invoiceSupplementalTotal(inv);
+}
+
 function formatDate(value?: string) {
   if (!value) return "N/A";
   return new Date(value).toLocaleDateString("en-US", {
@@ -453,10 +469,7 @@ export default function InvoicesPage() {
                 )}
                 {displayedInvoices.map((inv: DisplayInvoice) => {
                   const effectiveStatus = inv.is_overdue && inv.status !== "paid" ? "overdue" : (inv.status || "-");
-                  const supplementalTotal = (inv.supplementalInvoices || []).reduce(
-                    (sum, child) => sum + Number((child.total_amount ?? child.amount) || 0),
-                    0
-                  );
+                  const supplementalTotal = invoiceSupplementalTotal(inv);
                   const hasNestedSupplementals = (inv.supplementalInvoices || []).length > 0;
                   return (
                     <tr
@@ -500,7 +513,7 @@ export default function InvoicesPage() {
                           </div>
                         )}
                       </td>
-                      <td className="px-6 py-4 font-medium">{formatMoney(inv.total_amount ?? inv.amount)}</td>
+                      <td className="px-6 py-4 font-medium">{formatMoney(invoiceCombinedTotal(inv))}</td>
                       <td className="px-6 py-4 text-right">
                         {(inv.status === "due" || inv.status === "overdue" || inv.status === "failed" || inv.status === "authorization_failed" || inv.is_overdue) ? (
                           <Button
@@ -588,7 +601,7 @@ export default function InvoicesPage() {
                 </div>
               )}
               <div className="rounded border p-3">
-                <strong>Total:</strong> {formatMoney((selected as any).total_amount ?? selected.amount)}
+                <strong>Total:</strong> {formatMoney(invoiceCombinedTotal(selected as DisplayInvoice))}
               </div>
               <div className="rounded border p-3">
                 <strong>Issued:</strong> {formatDate((selected as any).issued_at || selected.created_at)}
@@ -642,19 +655,10 @@ export default function InvoicesPage() {
                   Supplemental reimbursements are consolidated into this invoice row for readability.
                 </div>
                 {(() => {
-                  const parentAmount = Number((selected.total_amount ?? selected.amount) || 0);
-                  const intendedAuthAmount = Number((selected as any).intended_authorization_amount || 0);
                   const supplemental = ((selected as DisplayInvoice).supplementalInvoices || []);
-                  const supplementalTotal = supplemental.reduce(
-                    (sum, child) => sum + Number((child.total_amount ?? child.amount) || 0),
-                    0
-                  );
-                  const derivedBase = parentAmount - supplementalTotal;
-                  const baseAmount =
-                    Number.isFinite(intendedAuthAmount) && intendedAuthAmount > 0
-                      ? intendedAuthAmount
-                      : Math.max(derivedBase, 0);
-                  const combined = parentAmount;
+                  const supplementalTotal = invoiceSupplementalTotal(selected as DisplayInvoice);
+                  const baseAmount = invoiceAmount(selected);
+                  const combined = baseAmount + supplementalTotal;
                   return (
                     <>
                       <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
