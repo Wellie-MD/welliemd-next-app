@@ -880,7 +880,11 @@ export default function Messages() {
                         <span>{activeConversation.patientEmail}</span>
                       )}
                       {activeConversation.patientEmail && activeConversation.patientName && <span className="opacity-40">•</span>}
-                      <span className="font-mono">{tab === "support" ? "Beluga Support" : `#${activeConversation.orderNumber || activeConversation.masterId.slice(0, 8)}`}</span>
+                      <span className="font-mono">
+                        {tab === "support" 
+                          ? `Beluga Support • Order ID: ${activeConversation.orderNumber || activeConversation.masterId}` 
+                          : `Order ID: ${activeConversation.orderNumber || activeConversation.masterId}`}
+                      </span>
                     </div>
                   </div>
                 </div>

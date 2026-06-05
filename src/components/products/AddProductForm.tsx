@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
 
 const toMoney = (value?: string | number | null) => {
   const num = typeof value === "number" ? value : Number(value ?? 0)
@@ -29,6 +30,7 @@ type ProductFormValues = {
   safety_information?: string
   side_effects?: string
   quantity?: string
+  is_active?: boolean
   
   // Client-editable pricing fields
   base_price?: string
@@ -62,7 +64,7 @@ export default function AddProductForm({
   onSuccess?: () => void
   product?: Product | null
 }) {
-  const { register, handleSubmit, reset, setValue } = useForm<ProductFormValues>()
+  const { register, handleSubmit, reset, setValue, watch } = useForm<ProductFormValues>()
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
   const isSupplyProduct = product?.product_type === "supply"
@@ -88,6 +90,7 @@ export default function AddProductForm({
         base_price: product.base_price ?? "0.00",
         shipping_fee_patient: product.shipping_fee_patient ?? "0.00",
         discounted_price: product.discounted_price ?? "",
+        is_active: product.is_active ?? true,
         
         // Read-only fields (for display)
         name: product.name,
@@ -123,6 +126,7 @@ export default function AddProductForm({
       if (data.safety_information !== undefined) fd.append("safety_information", data.safety_information)
       if (data.side_effects !== undefined) fd.append("side_effects", data.side_effects)
       if (data.quantity !== undefined) fd.append("quantity", data.quantity)
+      if (data.is_active !== undefined) fd.append("is_active", String(data.is_active))
       
       // Client-editable pricing fields (lock when this supply is only used as Included)
       if (!isIncludedOnlySupply) {
@@ -263,6 +267,40 @@ export default function AddProductForm({
                 />
               </div>
             </div>
+
+            {Array.isArray(product?.service_states) && (
+              <div className="mt-4 border-t pt-4 dark:border-slate-700">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Service States
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Admin-managed coverage for this product. Empty means it inherits pharmacy coverage.
+                    </p>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {product?.service_states?.length ?? 0} state(s)
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {product?.service_states?.length ? (
+                    product.service_states.map((state) => (
+                      <span
+                        key={state}
+                        className="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium bg-background text-foreground dark:border-slate-700 dark:bg-slate-900/60"
+                      >
+                        {state}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      No explicit states configured.
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Admin Costs (Read-only) - What WellieMD charges the Client */}
@@ -422,6 +460,34 @@ export default function AddProductForm({
                   placeholder="Available quantity"
                 />
                 <p className="text-xs text-muted-foreground mt-1">Available inventory</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Product Availability */}
+          <div className="border rounded-lg p-4 bg-muted/30">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-semibold">Availability</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Inactive products are hidden from product selection in intake.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <div className="text-sm font-medium">
+                    {watch("is_active", true) ? "Active" : "Inactive"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {watch("is_active", true)
+                      ? "Visible in product selection"
+                      : "Hidden from product selection"}
+                  </div>
+                </div>
+                <Switch
+                  checked={watch("is_active", true)}
+                  onCheckedChange={(checked) => setValue("is_active", checked, { shouldDirty: true })}
+                />
               </div>
             </div>
           </div>

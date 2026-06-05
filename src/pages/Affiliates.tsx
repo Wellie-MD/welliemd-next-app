@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { format, isValid } from "date-fns"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -21,17 +22,21 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-type Affiliate = {
-  id: string
-  name: string
-  slug: string
-  commission_type: "flat" | "percent"
-  commission_value: number
-  discount_type: "flat" | "percent"
-  discount_value: number
-  referral_link: string
-  is_active: boolean
-  created_at: string
+type Affiliate = AffiliateType
+
+const formatCurrency = (value: string | number | null | undefined) => {
+  const amount = Number(value ?? 0)
+  return `$${amount.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}
+
+const formatCreatedDate = (value?: string | null) => {
+  if (!value) return "-"
+  const date = new Date(value)
+  if (!isValid(date)) return "-"
+  return format(date, "MMM dd, yyyy")
 }
 
 export default function Affiliates() {
@@ -42,6 +47,8 @@ export default function Affiliates() {
   const [linkAffiliate, setLinkAffiliate] = useState<Affiliate | null>(null)
   const [insightsAffiliate, setInsightsAffiliate] = useState<Affiliate | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all")
+  const [dataTableKey, setDataTableKey] = useState(0)
 
   // NEW: delete modal state
   const [pendingDelete, setPendingDelete] = useState<Affiliate | null>(null)
@@ -64,18 +71,53 @@ export default function Affiliates() {
 
   const filteredAffiliates = useMemo(() => {
     const query = searchTerm.trim().toLowerCase()
-    if (!query) return affiliates
+    return affiliates.filter((affiliate) => {
+      const matchesSearch =
+        !query ||
+        [affiliate.name, affiliate.slug]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(query))
 
-    return affiliates.filter((affiliate) =>
-      [
-        affiliate.name,
-        affiliate.slug,
-        affiliate.id,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query))
-    )
-  }, [affiliates, searchTerm])
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "active" ? affiliate.is_active : !affiliate.is_active)
+
+      return matchesSearch && matchesStatus
+    })
+  }, [affiliates, searchTerm, statusFilter])
+
+  const filters = useMemo(
+    () => [
+      {
+        key: "status-all",
+        label: "All",
+        type: "button" as const,
+        value: statusFilter === "all" ? "all" : undefined,
+        onClick: () => setStatusFilter("all"),
+      },
+      {
+        key: "status-active",
+        label: "Active",
+        type: "button" as const,
+        value: statusFilter === "active" ? "active" : undefined,
+        onClick: () => setStatusFilter("active"),
+      },
+      {
+        key: "status-inactive",
+        label: "Inactive",
+        type: "button" as const,
+        value: statusFilter === "inactive" ? "inactive" : undefined,
+        onClick: () => setStatusFilter("inactive"),
+      },
+    ],
+    [statusFilter]
+  )
+
+  const handleResetFilters = () => {
+    setStatusFilter("all")
+    setSearchTerm("")
+    setDataTableKey((currentKey) => currentKey + 1)
+  }
 
   // open modal
   const requestDelete = (row: Affiliate) => setPendingDelete(row)
@@ -95,15 +137,39 @@ export default function Affiliates() {
     }
   }
 
-  const columns = [
-    { key: "name", label: "Name" },
-    { key: "slug", label: "Slug" },
-    { key: "id", label: "ID" },
-    { key: "created_at", label: "Created Date" },
-    { key: "commission_type", label: "Commission Type" },
-    { key: "commission_value", label: "Commission" },
+const columns = [
+  { key: "name", label: "Name" },
+  { key: "slug", label: "Slug" },
+  {
+    key: "created_at",
+    label: "Created Date",
+    render: (val: string) => formatCreatedDate(val)
+  },
+  { key: "commission_type", label: "Commission Type" },
+
+    {
+      key: "commission_value",
+      label: "Commission",
+      render: (val: string, row: Affiliate) =>
+        row.commission_type === "percent" ? `${val}%` : formatCurrency(val),
+    },
+    {
+      key: "total_referrals",
+      label: "Referral Count",
+      render: (val: number) => val ?? 0,
+    },
+    {
+      key: "total_commission",
+      label: "Earned Commission",
+      render: (val: string) => formatCurrency(val),
+    },
     { key: "discount_type", label: "Discount Type" },
-    { key: "discount_value", label: "Discount" },
+    {
+      key: "discount_value",
+      label: "Discount",
+      render: (val: string, row: Affiliate) =>
+        row.discount_type === "percent" ? `${val}%` : formatCurrency(val),
+    },
     {
       key: "is_active",
       label: "Status",
@@ -187,10 +253,14 @@ export default function Affiliates() {
       )}
 
       <DataTable
+        key={dataTableKey}
         data={filteredAffiliates}
         columns={columns}
-        searchPlaceholder="Search by affiliate name, slug, or ID"
+        filters={filters}
+        searchPlaceholder="Search by affiliate name or slug"
         onSearch={setSearchTerm}
+        onResetFilters={handleResetFilters}
+        onRefresh={fetchAffiliates}
         loading={loading}
         onRowClick={(row) => setInsightsAffiliate(row as Affiliate)}
       />
