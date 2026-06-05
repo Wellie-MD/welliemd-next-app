@@ -80,6 +80,7 @@ export interface Product {
   generic_name?: string;
   generic_group?: string;
   service_states?: string[];
+  admin_service_states?: string[];
   onboarding_questionnaire?: string;
   onboarding_questionnaire_name?: string;
   followup_questionnaire?: string;

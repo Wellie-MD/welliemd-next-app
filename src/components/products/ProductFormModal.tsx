@@ -562,11 +562,31 @@ export function ProductFormModal({
               </div>
 
               <div className="col-span-2 space-y-3">
-                <div>
-                  <Label>Service States</Label>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Leave empty to inherit pharmacy coverage. Set product-specific states only when a formulation has different licensing rules.
-                  </p>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <Label>Service States</Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Leave empty to inherit pharmacy coverage. Set product-specific states only when a formulation has different licensing rules.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFormData((prev) => ({ ...prev, service_states: [...US_STATES] }))}
+                    >
+                      Select all states
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setFormData((prev) => ({ ...prev, service_states: [] }))}
+                    >
+                      Clear
+                    </Button>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {US_STATES.map((state) => {
