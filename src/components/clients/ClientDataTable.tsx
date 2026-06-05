@@ -12,9 +12,10 @@ import axiosInstance from '@/api/axiosInstance';
 
 interface ClientDataTableProps {
   clients: Client[];
+  onSearch?: (searchTerm: string) => void;
 }
 
-export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => {
+export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients, onSearch }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -203,6 +204,7 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients }) => 
       data={clients ?? []}
       columns={columns}
       searchPlaceholder="Search clients..."
+      onSearch={onSearch}
       showExport={false}
       showDatePicker={false}
       showResetFilters={false}

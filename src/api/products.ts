@@ -79,6 +79,7 @@ export interface Product {
   pharmacy_api?: string;
   generic_name?: string;
   generic_group?: string;
+  service_states?: string[];
   onboarding_questionnaire?: string;
   onboarding_questionnaire_name?: string;
   followup_questionnaire?: string;
@@ -111,6 +112,7 @@ export interface CreateProductPayload {
   base_price: string | number;
   treatment: string;
   rx_or_otc: "rx" | "otc";
+  service_states?: string[];
   [key: string]: any;
 }
 

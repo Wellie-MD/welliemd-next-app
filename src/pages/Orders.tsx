@@ -38,6 +38,15 @@ const formatPaymentStatusLabel = (status: string): string => {
     .join(" ")
 }
 
+const formatVisitStatusLabel = (status?: string | null): string => {
+  const value = String(status || "").trim()
+  if (!value) return "N/A"
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
 export default function Orders() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeOrderStatusFilter, setActiveOrderStatusFilter] = useState("All")
@@ -60,7 +69,7 @@ export default function Orders() {
     // Reconstruct raw AdminOrder from the formatted row
     const rawOrder: AdminOrder = {
       id: row.id,
-      display_id: row.display_id,
+      display_id: row._raw_display_id ?? row.display_id,
       order_id: row.order_id ?? null,
       patient_name: row.patient_name,
       patient_email: row.patient_email,
@@ -69,8 +78,16 @@ export default function Orders() {
       pharmacy_name: row.pharmacy_name,
       status: row.status,
       status_display: row.status_display,
+      visit_status: row._raw_visit_status,
       amount: row._raw_amount,
+      payment_recovery_state: row.payment_recovery_state ?? null,
+      remaining_supplemental_amount: row.remaining_supplemental_amount ?? null,
+      chargeable_amount: row.chargeable_amount ?? row._raw_amount,
+      chargeable_amount_source: row.chargeable_amount_source ?? null,
       discount_amount: row.discount_amount,
+      requested_medicine_name: row.requested_medicine_name ?? null,
+      prescribed_medicine_name: row.prescribed_medicine_name ?? null,
+      doctor_name: row.doctor_name ?? null,
       payment_status: row._raw_payment_status,
       created_at: row._raw_created_at,
       prescribed_at: row._raw_prescribed_at,
@@ -134,6 +151,7 @@ export default function Orders() {
       },
     },
     { key: "payment_status", label: "Payment Status" },
+    { key: "visit_status", label: "Visit Status" },
     {
       key: "amount",
       label: "Amount",
@@ -152,8 +170,6 @@ export default function Orders() {
       },
     },
     { key: "created_at", label: "Order Date" },
-    { key: "prescribed_at", label: "Prescribed Date" },
-    { key: "shipped_at", label: "Shipped Date" },
   ], [handleOrderClick])
 
   // Use ref to track previous filter values to prevent unnecessary updates
@@ -253,12 +269,14 @@ export default function Orders() {
         _raw_prescribed_at: order.prescribed_at,
         _raw_shipped_at: order.shipped_at,
         _raw_payment_status: order.payment_status,
+        _raw_visit_status: order.visit_status || null,
         // Formatted display values
         amount: `$${order.amount.toFixed(2)}`,
         created_at: order.created_at ? format(new Date(order.created_at), 'MM/dd/yyyy') : '',
         prescribed_at: order.prescribed_at ? format(new Date(order.prescribed_at), 'MM/dd/yyyy') : '',
         shipped_at: order.shipped_at ? format(new Date(order.shipped_at), 'MM/dd/yyyy') : '',
         payment_status: formatPaymentStatusLabel(order.payment_status),
+        visit_status: formatVisitStatusLabel(order.visit_status),
         payment_recovery_state: order.payment_recovery_state || null,
         remaining_supplemental_amount: order.remaining_supplemental_amount || null,
       }})

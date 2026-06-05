@@ -346,7 +346,7 @@ export default function ClientPerformance() {
       { title: 'Total Orders', value: formatNumber(t.total_orders), icon: ShoppingCart, accent: '#3b82f6', bg: 'rgba(59,130,246,0.08)' },
       { title: 'Completed Sales', value: formatNumber(t.total_sales), icon: Activity, accent: '#10b981', bg: 'rgba(16,185,129,0.08)' },
       { title: 'Active Tenants', value: `${data.clients.length}`, icon: Layers, accent: '#6366f1', bg: 'rgba(99,102,241,0.08)' },
-      { title: 'Total Patients', value: formatNumber(t.total_patients), icon: Users, accent: '#8b5cf6', bg: 'rgba(139,92,246,0.08)' },
+      { title: 'Active Patients', value: formatNumber(t.active_patients), icon: Users, accent: '#8b5cf6', bg: 'rgba(139,92,246,0.08)' },
     ];
   }, [data]);
 

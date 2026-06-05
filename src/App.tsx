@@ -76,6 +76,36 @@ const App = () => {
     initializeAuth();
   }, []);
 
+  useEffect(() => {
+    const AUTH_SYNC_EVENT_KEY = "admin-auth-sync-event";
+
+    const handleStorage = async (event: StorageEvent) => {
+      if (event.key !== AUTH_SYNC_EVENT_KEY || !event.newValue) {
+        return;
+      }
+
+      try {
+        const payload = JSON.parse(event.newValue) as { type?: "login" | "logout" };
+        const authStore = useAuthStore.getState();
+
+        if (payload.type === "logout") {
+          authStore.logout();
+          return;
+        }
+
+        if (payload.type === "login") {
+          authStore.clearExpiredSession();
+          await authService.hydrateAuth();
+        }
+      } catch (error) {
+        console.warn("Failed to process auth sync event:", error);
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
   if (!isInitialized) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">

@@ -63,6 +63,14 @@ type LinkedSupplyRow = {
   is_included: boolean;
 };
 
+const US_STATES = [
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+  "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+  "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+  "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+  "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC", "PR"
+];
+
 export function ProductFormModal({
   open,
   onOpenChange,
@@ -91,6 +99,7 @@ export function ProductFormModal({
     dose_mapping: null as number | null,
     titration_category: null as number | null,
     pharmacy: null as string | null,
+    service_states: [] as string[],
     product_type: defaultProductType,
     purchase_type: "one_time",
     treatment: "weight_loss",
@@ -311,6 +320,11 @@ export function ProductFormModal({
         dose_mapping: (product as any).dose_mapping || null,
         titration_category: (product as unknown).titration_category || null,
         pharmacy: product.pharmacy ? String(product.pharmacy) : null,
+        service_states: Array.isArray((product as any).service_states)
+          ? (product as any).service_states
+              .map((state: string) => String(state || "").toUpperCase())
+              .filter(Boolean)
+          : [],
         product_type: product.product_type || "single",
         purchase_type: product.purchase_type || "one_time",
         treatment: product.treatment || "weight_loss",
@@ -355,6 +369,7 @@ export function ProductFormModal({
         dose_mapping: null,
         titration_category: null,
         pharmacy: null,
+        service_states: [],
         product_type: defaultProductType,
         purchase_type: "one_time",
         treatment: "weight_loss",
@@ -423,6 +438,7 @@ export function ProductFormModal({
         shipping_cost_to_welliemd: parseFloat(formData.shipping_cost_to_welliemd),
         rx_quantity: parseFloat(formData.rx_quantity),
         quantity: parseInt(formData.quantity),
+        service_states: formData.service_states,
         linked_supplies_payload:
           formData.product_type === "supply"
             ? []
@@ -543,6 +559,45 @@ export function ProductFormModal({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="col-span-2 space-y-3">
+                <div>
+                  <Label>Service States</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Leave empty to inherit pharmacy coverage. Set product-specific states only when a formulation has different licensing rules.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {US_STATES.map((state) => {
+                    const isSelected = formData.service_states.includes(state);
+                    return (
+                      <Button
+                        key={state}
+                        type="button"
+                        variant={isSelected ? "default" : "outline"}
+                        size="sm"
+                        className="h-9 px-3"
+                        onClick={() => {
+                          setFormData((prev) => {
+                            const current = Array.isArray(prev.service_states) ? prev.service_states : [];
+                            const nextStates = current.includes(state)
+                              ? current.filter((s) => s !== state)
+                              : [...current, state];
+                            return { ...prev, service_states: nextStates };
+                          });
+                        }}
+                      >
+                        {state}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {formData.service_states.length > 0
+                    ? `${formData.service_states.length} state${formData.service_states.length === 1 ? "" : "s"} selected`
+                    : "No states selected"}
+                </div>
               </div>
 
               <div>
