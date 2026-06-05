@@ -1,9 +1,16 @@
-import { useState, useEffect, useMemo, useRef } from "react";
-import { ArrowLeft, Search, X, RefreshCw, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import {
+  Search,
+  X,
+  RefreshCw,
+  Loader2,
+  RotateCcw,
+  Users,
+  Plus,
+  ChevronDown,
+  Check,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/use-toast";
 import {
   Tooltip,
@@ -15,6 +22,13 @@ import { productApi } from "@/api/products";
 import { clientApi, Client } from "@/api/clientApi";
 import { useNavigate } from "react-router-dom";
 import axiosInstance from "@/api/axiosInstance";
+import { productCategoryApi, ProductCategory } from "@/api/productCategories";
+import { pharmacyApi, Pharmacy } from "@/api/pharmacyApi";
+import {
+  Dialog,
+  DialogContent,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 interface ProductForAssignment {
   id: number;
@@ -28,6 +42,9 @@ interface ProductForAssignment {
   pharmacy_name?: string;
   category_name?: string;
   beluga_medicine_id?: string;
+  rx_drug_form?: string;
+  purchase_type?: "one_time" | "subscription";
+  created_at?: string;
 }
 
 interface PaginatedProductsResponse {
@@ -37,15 +54,168 @@ interface PaginatedProductsResponse {
   results: ProductForAssignment[];
 }
 
-const PAGE_SIZE = 20;
+interface ApiError {
+  response?: {
+    data?: {
+      error?: string;
+      client_ids?: string[];
+      message?: string;
+    };
+  };
+}
+
+const PAGE_SIZE = 250;
+
+/* Custom checkbox matching the portal's design standard */
+interface CustomCheckboxProps {
+  checked: boolean;
+  indeterminate?: boolean;
+  onChange: () => void;
+}
+
+function CustomCheckbox({
+  checked,
+  indeterminate,
+  onChange
+}: CustomCheckboxProps) {
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      aria-checked={checked}
+      role="checkbox"
+      className={`flex items-center justify-center rounded-md transition-all duration-150 shrink-0 outline-none w-[18px] h-[18px] border ${
+        checked || indeterminate
+          ? "border-sky-400 bg-sky-400 text-white"
+          : "border-slate-300 bg-white hover:border-slate-400"
+      }`}
+    >
+      {checked && (
+        <Check
+          className="h-3.5 w-3.5"
+          strokeWidth={3}
+          color="#fff"
+        />
+      )}
+      {indeterminate && !checked && (
+        <span
+          className="w-2.5 h-[2px] bg-white rounded"
+        />
+      )}
+    </button>
+  );
+}
+
+/* Custom Pill component matching the portal theme */
+interface PillProps {
+  children: React.ReactNode;
+  solid?: boolean;
+}
+
+function Pill({ children, solid }: PillProps) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold ${
+        solid
+          ? "bg-sky-400 text-white"
+          : "bg-sky-50 text-sky-700 border border-sky-100"
+      }`}
+    >
+      {children}
+    </span>
+  );
+}
+
+/* Custom FilterSelect component using tailwind theme standard */
+interface FilterSelectProps {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (val: string) => void;
+}
+
+function FilterSelect({
+  label,
+  value,
+  options,
+  onChange
+}: FilterSelectProps) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const items = [
+    { v: "all", l: label },
+    ...options.map(o => ({ v: o, l: o }))
+  ];
+  const current = items.find(i => i.v === value) || items[0];
+  const active = value !== "all";
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className={`flex min-w-44 items-center justify-between gap-3 rounded-lg border bg-white px-3.5 py-2.5 text-sm outline-none transition-all duration-150 ${
+          active
+            ? "border-sky-400 text-slate-800 font-semibold"
+            : "border-slate-200 text-slate-500 font-normal hover:border-slate-300"
+        }`}
+      >
+        {current.l}
+        <ChevronDown
+          className={`h-4 w-4 transition-transform duration-150 text-slate-400 ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+      {open && (
+        <div
+          className="absolute z-30 mt-1 max-h-60 overflow-y-auto w-full rounded-lg border border-slate-200 bg-white py-1 shadow-lg animate-in fade-in-0 zoom-in-95 duration-100"
+        >
+          {items.map(it => (
+            <button
+              key={it.v}
+              type="button"
+              onClick={() => {
+                onChange(it.v);
+                setOpen(false);
+              }}
+              className={`flex w-full items-center justify-between px-3.5 py-2 text-left text-sm hover:bg-slate-50 transition-colors ${
+                it.v === value ? "bg-sky-50 text-sky-700 font-semibold" : "text-slate-800"
+              }`}
+            >
+              {it.l}
+              {it.v === value && (
+                <Check className="h-3.5 w-3.5 text-sky-500" />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ProductAssignment() {
   const navigate = useNavigate();
   const hasFetchedRef = useRef(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   // Data states
   const [products, setProducts] = useState<ProductForAssignment[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Pagination states
@@ -61,14 +231,62 @@ export default function ProductAssignment() {
     new Set()
   );
 
-  // Search states
+  // Filter & Search states
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [pharmacyFilter, setPharmacyFilter] = useState<string>("all");
   const [productSearch, setProductSearch] = useState("");
   const [clientSearch, setClientSearch] = useState("");
+
+  // Modal open state
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
 
   // Check if more products available
   const hasMoreProducts = products.length < totalProducts;
 
-  // Initial data fetch - runs only once
+  // Fetch products with filters
+  const fetchProducts = useCallback(async (page: number, replace: boolean = false) => {
+    try {
+      const params: Record<string, string | number | boolean> = {
+        page,
+        page_size: PAGE_SIZE,
+        is_active: true,
+        is_admin_product: true,
+      };
+
+      if (categoryFilter !== "all") {
+        params.category = categoryFilter;
+      }
+      if (typeFilter !== "all") {
+        params.purchase_type = typeFilter;
+      }
+      if (pharmacyFilter !== "all") {
+        params.pharmacy = pharmacyFilter;
+      }
+      if (productSearch.trim()) {
+        params.search = productSearch.trim();
+      }
+
+      const response = await axiosInstance.get<PaginatedProductsResponse>(
+        "products/",
+        { params }
+      );
+
+      const results = response.data.results || [];
+      setProducts((prev) => (replace ? results : [...prev, ...results]));
+      setTotalProducts(response.data.count || 0);
+      setCurrentPage(page);
+    } catch (error) {
+      console.error("Failed to fetch products:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load products",
+        variant: "destructive",
+      });
+    }
+  }, [categoryFilter, typeFilter, pharmacyFilter, productSearch]);
+
+  // Initial load
   useEffect(() => {
     if (hasFetchedRef.current) return;
     hasFetchedRef.current = true;
@@ -76,23 +294,23 @@ export default function ProductAssignment() {
     const loadInitialData = async () => {
       try {
         setLoading(true);
-
-        const [productsResponse, clientsData] = await Promise.all([
-          axiosInstance.get<PaginatedProductsResponse>("products/", {
-            params: { page: 1, page_size: PAGE_SIZE },
-          }),
+        const [categoriesData, pharmaciesData, clientsData] = await Promise.all([
+          productCategoryApi.listCategories(),
+          pharmacyApi.list(),
           clientApi.list(),
         ]);
 
-        const productsData = productsResponse.data;
-        setProducts(productsData.results || []);
-        setTotalProducts(productsData.count || 0);
+        setCategories(categoriesData);
+        setPharmacies(pharmaciesData);
         setClients(Array.isArray(clientsData) ? clientsData : []);
+
+        // Fetch products on page 1
+        await fetchProducts(1, true);
       } catch (error) {
-        console.error("Failed to fetch data:", error);
+        console.error("Failed to fetch initial data:", error);
         toast({
           title: "Error",
-          description: "Failed to load products and clients",
+          description: "Failed to load page dependencies",
           variant: "destructive",
         });
       } finally {
@@ -100,53 +318,37 @@ export default function ProductAssignment() {
       }
     };
 
-    loadInitialData();
-  }, []);
+    const init = async () => {
+      await loadInitialData();
+      setInitialLoadDone(true);
+    };
+    init();
+  }, [fetchProducts]);
 
-  // Load more products handler
+  // Filter change trigger
+  useEffect(() => {
+    if (!initialLoadDone) return;
+
+    const delayDebounceFn = setTimeout(() => {
+      fetchProducts(1, true);
+    }, 300); // 300ms debounce for search input
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [fetchProducts, initialLoadDone]);
+
+  // Load more handler
   const handleLoadMore = async () => {
     if (loadingMore || !hasMoreProducts) return;
 
     try {
       setLoadingMore(true);
-      const nextPage = currentPage + 1;
-
-      const { data } = await axiosInstance.get<PaginatedProductsResponse>(
-        "products/",
-        {
-          params: { page: nextPage, page_size: PAGE_SIZE },
-        }
-      );
-
-      setProducts((prev) => [...prev, ...(data.results || [])]);
-      setTotalProducts(data.count || 0);
-      setCurrentPage(nextPage);
+      await fetchProducts(currentPage + 1, false);
     } catch (error) {
       console.error("Failed to load more products:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load more products",
-        variant: "destructive",
-      });
     } finally {
       setLoadingMore(false);
     }
   };
-
-  // Filter products based on search (multi-field: name, pharmacy, category, MedID)
-  const filteredProducts = useMemo(() => {
-    if (!productSearch.trim()) return products;
-    const search = productSearch.toLowerCase();
-    return products.filter(
-      (product) =>
-        product.name.toLowerCase().includes(search) ||
-        product.treatment?.toLowerCase().includes(search) ||
-        product.manufacturer_name?.toLowerCase().includes(search) ||
-        product.pharmacy_name?.toLowerCase().includes(search) ||
-        product.category_name?.toLowerCase().includes(search) ||
-        product.beluga_medicine_id?.toLowerCase().includes(search)
-    );
-  }, [products, productSearch]);
 
   // Filter clients based on search
   const filteredClients = useMemo(() => {
@@ -185,25 +387,33 @@ export default function ProductAssignment() {
     });
   };
 
-  const selectAllProducts = () => {
-    setSelectedProducts(new Set(filteredProducts.map((p) => p.id)));
-  };
+  const visibleIds = products.map((p) => p.id);
+  const selectedVisible = products.filter((p) => selectedProducts.has(p.id));
+  const allChecked = products.length > 0 && selectedVisible.length === products.length;
+  const someChecked = selectedVisible.length > 0 && !allChecked;
 
-  const deselectAllProducts = () => {
-    setSelectedProducts(new Set());
-  };
-
-  const selectAllClients = () => {
-    setSelectedClients(new Set(filteredClients.map((c) => c.id)));
-  };
-
-  const deselectAllClients = () => {
-    setSelectedClients(new Set());
+  const toggleAllProducts = () => {
+    setSelectedProducts((prev) => {
+      const newSet = new Set(prev);
+      if (allChecked) {
+        visibleIds.forEach((id) => newSet.delete(id));
+      } else {
+        visibleIds.forEach((id) => newSet.add(id));
+      }
+      return newSet;
+    });
   };
 
   const clearAllSelections = () => {
     setSelectedProducts(new Set());
     setSelectedClients(new Set());
+  };
+
+  const resetFilters = () => {
+    setCategoryFilter("all");
+    setTypeFilter("all");
+    setPharmacyFilter("all");
+    setProductSearch("");
   };
 
   // Handle assignment
@@ -224,7 +434,7 @@ export default function ProductAssignment() {
         client_ids: Array.from(selectedClients),
       });
 
-      if (result.success_count > 0) {
+      if (result.success_count > 0 && result.failure_count === 0) {
         toast({
           title: "Success",
           description:
@@ -232,6 +442,15 @@ export default function ProductAssignment() {
             `Assigned ${result.success_count} product(s) successfully`,
         });
         clearAllSelections();
+        setIsAssignModalOpen(false);
+      } else if (result.success_count > 0) {
+        toast({
+          title: "Partial Assignment",
+          description:
+            result.message ||
+            `${result.success_count} succeeded, ${result.failure_count} failed. Keep the selection and retry failed assignments after checking logs.`,
+          variant: "destructive",
+        });
       } else {
         toast({
           title: "Assignment Failed",
@@ -239,13 +458,14 @@ export default function ProductAssignment() {
           variant: "destructive",
         });
       }
-    } catch (error: unknown) {
+    } catch (error) {
       console.error("Assignment error:", error);
+      const apiError = error as ApiError;
       toast({
         title: "Error",
         description:
-          error?.response?.data?.error ||
-          error?.response?.data?.client_ids?.[0] ||
+          apiError.response?.data?.error ||
+          apiError.response?.data?.client_ids?.[0] ||
           "Failed to assign products",
         variant: "destructive",
       });
@@ -272,27 +492,22 @@ export default function ProductAssignment() {
         client_ids: Array.from(selectedClients),
       });
 
-      if (result.successful > 0) {
+      if (result.successful > 0 && result.failed === 0) {
         toast({
           title: "Success",
-          description: `Re-assigned ${
-            result.successful
-          } product(s) successfully${
-            result.failed > 0 ? `, ${result.failed} failed` : ""
-          }`,
+          description: `Re-assigned ${result.successful} product(s) successfully`,
         });
         clearAllSelections();
+        setIsAssignModalOpen(false);
 
         // Refresh products
-        setCurrentPage(1);
-        const { data } = await axiosInstance.get<PaginatedProductsResponse>(
-          "products/",
-          {
-            params: { page: 1, page_size: PAGE_SIZE },
-          }
-        );
-        setProducts(data.results || []);
-        setTotalProducts(data.count || 0);
+        await fetchProducts(1, true);
+      } else if (result.successful > 0) {
+        toast({
+          title: "Partial Re-assignment",
+          description: `${result.successful} succeeded, ${result.failed} failed. Keep the selection and retry after checking logs.`,
+          variant: "destructive",
+        });
       } else {
         toast({
           title: "Re-assignment Failed",
@@ -300,12 +515,13 @@ export default function ProductAssignment() {
           variant: "destructive",
         });
       }
-    } catch (error: unknown) {
+    } catch (error) {
       console.error("Re-assignment error:", error);
+      const apiError = error as ApiError;
       toast({
         title: "Error",
         description:
-          error?.response?.data?.error || "Failed to re-assign products",
+          apiError.response?.data?.error || "Failed to re-assign products",
         variant: "destructive",
       });
     } finally {
@@ -313,12 +529,14 @@ export default function ProductAssignment() {
     }
   };
 
-  // Format treatment for display
-  const formatTreatment = (treatment: string): string => {
-    return treatment
-      .split("_")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
+  // Format date helper
+  const formatDate = (isoString?: string) => {
+    if (!isoString) return "-";
+    try {
+      return new Date(isoString).toLocaleDateString();
+    } catch {
+      return "-";
+    }
   };
 
   // Loading state
@@ -327,346 +545,529 @@ export default function ProductAssignment() {
       <div className="p-6">
         <div className="flex items-center justify-center p-12">
           <Loader2 className="h-6 w-6 animate-spin mr-2" />
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground">Loading products and page data...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div
+      className="px-8 py-7 min-h-screen bg-slate-50/30"
+      style={{
+        fontFamily: "ui-sans-serif, system-ui, sans-serif",
+      }}
+    >
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes popIn { from { opacity: 0; transform: scale(.96) translateY(8px) } to { opacity: 1; transform: scale(1) translateY(0) } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: translateY(0) } }
+        @keyframes barIn { from { opacity: 0; transform: translateX(-50%) translateY(16px) } to { opacity: 1; transform: translateX(-50%) translateY(0) } }
+      ` }} />
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("/dashboard/products")}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Assign Products to Clients</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Select products and clients to create assignments
-            </p>
-          </div>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">
+            Products
+          </h1>
+          <p className="text-sm text-slate-500">
+            Products <span className="px-1 text-slate-400">›</span> Products
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={handleAssign}
-            disabled={
-              selectedProducts.size === 0 ||
-              selectedClients.size === 0 ||
-              loading
-            }
-            size="lg"
+        <div className="flex gap-3">
+          <button
+            onClick={() => {
+              if (selectedProducts.size > 0) {
+                setSelectedClients(new Set());
+                setClientSearch("");
+                setIsAssignModalOpen(true);
+              } else {
+                toast({
+                  title: "Selection Required",
+                  description: "Select one or more products to assign.",
+                });
+              }
+            }}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium transition-colors hover:bg-slate-50 text-slate-700 outline-none"
           >
-            Assign Products
-          </Button>
-          <Button
-            onClick={handleReAssign}
-            disabled={
-              selectedProducts.size === 0 ||
-              selectedClients.size === 0 ||
-              loading
-            }
-            size="lg"
-            variant="secondary"
+            Assign Product
+          </button>
+          <button
+            onClick={() => navigate("/dashboard/products")}
+            className="flex items-center gap-2 rounded-lg bg-sky-400 hover:bg-sky-500 text-slate-950 px-4 py-2.5 text-sm font-semibold transition-colors outline-none"
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Re-assign
-          </Button>
+            <Plus className="h-4 w-4" /> Create New
+          </button>
         </div>
       </div>
 
-      {/* Selection Summary */}
-      {(selectedProducts.size > 0 || selectedClients.size > 0) && (
-        <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex-1">
-            <p className="text-sm font-medium text-blue-900">
-              {selectedProducts.size} product(s) selected •{" "}
-              {selectedClients.size} client(s) selected
-            </p>
-          </div>
-          <Button variant="ghost" size="sm" onClick={clearAllSelections}>
-            Clear All
-          </Button>
+      {/* Filters Row */}
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Category
+          </label>
+          <FilterSelect
+            label="All Categories"
+            value={categoryFilter === "all" ? "all" : (categories.find(c => c.id.toString() === categoryFilter)?.name || categoryFilter)}
+            options={categories.map(c => c.name)}
+            onChange={(val) => {
+              if (val === "all") {
+                setCategoryFilter("all");
+              } else {
+                const cat = categories.find(c => c.name === val);
+                if (cat) setCategoryFilter(cat.id.toString());
+              }
+            }}
+          />
         </div>
-      )}
 
-      {/* Dual List Transfer Interface */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        {/* Products List */}
-        <div className="border rounded-lg bg-white shadow-sm flex flex-col">
-          <div className="p-4 border-b bg-gray-50">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold">Products</h2>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={selectAllProducts}
-                  disabled={filteredProducts.length === 0}
-                >
-                  Select All
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={deselectAllProducts}
-                  disabled={selectedProducts.size === 0}
-                >
-                  Clear
-                </Button>
-              </div>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-                placeholder="Search by name, pharmacy, category, or MedID..."
-                className="pl-9 pr-9"
-              />
-              {productSearch && (
-                <button
-                  onClick={() => setProductSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Purchase Type
+          </label>
+          <FilterSelect
+            label="All Types"
+            value={typeFilter === "one_time" ? "One Time" : typeFilter === "subscription" ? "Subscription" : typeFilter}
+            options={["One Time", "Subscription"]}
+            onChange={(val) => {
+              if (val === "all") setTypeFilter("all");
+              else if (val === "One Time") setTypeFilter("one_time");
+              else if (val === "Subscription") setTypeFilter("subscription");
+            }}
+          />
+        </div>
 
-          <div className="h-[400px] overflow-y-auto">
-            <div className="p-2">
-              {filteredProducts.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  {productSearch
-                    ? "No products found"
-                    : "No products available"}
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {filteredProducts.map((product) => (
-                    <div
-                      key={product.id}
-                      onClick={() => toggleProduct(product.id)}
-                      className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                        selectedProducts.has(product.id)
-                          ? "bg-blue-50 border-2 border-blue-500"
-                          : "hover:bg-gray-50 border-2 border-transparent"
-                      }`}
-                    >
-                      <Checkbox
-                        checked={selectedProducts.has(product.id)}
-                        onCheckedChange={() => toggleProduct(product.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="mt-1"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <p className="font-medium text-sm truncate">
-                            {product.name}
-                          </p>
-                          {product.is_active && (
-                            <Badge variant="default" className="text-xs">
-                              Active
-                            </Badge>
-                          )}
-                          {product.rx_or_otc && (
-                            <Badge
-                              variant="outline"
-                              className="text-xs uppercase"
-                            >
-                              {product.rx_or_otc}
-                            </Badge>
-                          )}
-                          {product.is_modified_need_to_re_assigned && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <Badge
-                                    variant="destructive"
-                                    className="text-xs"
-                                  >
-                                    UPDATED
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>You have updated this product.</p>
-                                  <p>
-                                    You need to re-assign it to clients to push
-                                    the updates.
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {formatTreatment(product.treatment)}
-                        </p>
-                        {product.pharmacy_name && (
-                          <p className="text-xs text-muted-foreground">
-                            Pharmacy: {product.pharmacy_name}
-                          </p>
-                        )}
-                        {product.category_name && (
-                          <p className="text-xs text-muted-foreground">
-                            Category: {product.category_name}
-                          </p>
-                        )}
-                        {product.manufacturer_name && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {product.manufacturer_name}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Pharmacy
+          </label>
+          <FilterSelect
+            label="All Pharmacies"
+            value={pharmacyFilter === "all" ? "all" : (pharmacies.find(p => p.id.toString() === pharmacyFilter)?.store_name || pharmacyFilter)}
+            options={pharmacies.map(p => p.store_name)}
+            onChange={(val) => {
+              if (val === "all") {
+                setPharmacyFilter("all");
+              } else {
+                const pharm = pharmacies.find(p => p.store_name === val);
+                if (pharm) setPharmacyFilter(pharm.id.toString());
+              }
+            }}
+          />
+        </div>
 
-          {/* Load More Button */}
-          {hasMoreProducts && !productSearch && (
-            <div className="px-3 py-2 border-t">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={handleLoadMore}
-                disabled={loadingMore}
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Search
+          </label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              placeholder="Search products..."
+              className="flex min-w-44 items-center justify-between gap-3 rounded-lg border bg-white pl-9 pr-8 py-2.5 text-sm outline-none focus:ring-1 focus:ring-sky-400 focus:border-sky-400 transition-all text-slate-800"
+              style={{
+                borderColor: productSearch ? "#38bdf8" : "#e2e8f0",
+                fontWeight: productSearch ? 600 : 400
+              }}
+            />
+            {productSearch && (
+              <button
+                type="button"
+                onClick={() => setProductSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
-                {loadingMore ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Loading...
-                  </>
-                ) : (
-                  `Load More Products (${products.length} of ${totalProducts})`
-                )}
-              </Button>
-            </div>
-          )}
-
-          <div className="p-3 border-t bg-gray-50 text-sm text-muted-foreground">
-            {selectedProducts.size} of {filteredProducts.length} selected
-            {totalProducts > 0 && !productSearch && (
-              <span className="ml-2 text-xs">
-                • {products.length} of {totalProducts} loaded
-              </span>
+                <X className="h-4 w-4" />
+              </button>
             )}
           </div>
         </div>
 
-        {/* Clients List */}
-        <div className="border rounded-lg bg-white shadow-sm flex flex-col">
-          <div className="p-4 border-b bg-gray-50">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-semibold">Clients</h2>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={selectAllClients}
-                  disabled={filteredClients.length === 0}
+        {(categoryFilter !== "all" ||
+          typeFilter !== "all" ||
+          pharmacyFilter !== "all" ||
+          productSearch !== "") && (
+          <button
+            onClick={resetFilters}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium transition-colors hover:bg-slate-50 text-slate-700 outline-none"
+          >
+            <RotateCcw className="h-3.5 w-3.5 text-slate-600" /> Reset Filters
+          </button>
+        )}
+
+        <span className="ml-auto pb-2.5 text-sm font-medium text-slate-500">
+          Showing {products.length} of {totalProducts}
+        </span>
+      </div>
+
+      {/* Products Table Card */}
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50/50">
+              <th className="px-5 py-3 text-left w-[50px]">
+                <CustomCheckbox
+                  checked={allChecked}
+                  indeterminate={someChecked}
+                  onChange={toggleAllProducts}
+                />
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Name
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Category
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Pharmacy / Manufacturer
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Drug Form
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Purchase Type
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Created At
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white">
+            {products.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={7}
+                  className="px-4 py-12 text-center text-sm text-slate-400"
                 >
-                  Select All
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={deselectAllClients}
-                  disabled={selectedClients.size === 0}
-                >
-                  Clear
-                </Button>
+                  {loading ? (
+                    <div className="flex items-center justify-center">
+                      <Loader2 className="h-5 w-5 animate-spin mr-2 text-sky-500" />
+                      Fetching products...
+                    </div>
+                  ) : (
+                    "No products match these filters."
+                  )}
+                </td>
+              </tr>
+            ) : (
+              products.map((product) => {
+                const isSelected = selectedProducts.has(product.id);
+                return (
+                  <tr
+                    key={product.id}
+                    className="transition-colors cursor-pointer border-b border-slate-100"
+                    style={{
+                      background: isSelected ? "#e3f3fb" : "#fff",
+                    }}
+                    onClick={() => toggleProduct(product.id)}
+                  >
+                    <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                      <CustomCheckbox
+                        checked={isSelected}
+                        onChange={() => toggleProduct(product.id)}
+                      />
+                    </td>
+                    <td className="px-4 py-4 font-semibold text-slate-800">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span>{product.name}</span>
+                        {product.is_modified_need_to_re_assigned && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge
+                                  variant="destructive"
+                                  className="text-[10px] h-4 px-1.5 font-bold"
+                                >
+                                  UPDATED
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>You have updated this product.</p>
+                                <p>
+                                  You need to re-assign it to clients to push
+                                  the updates.
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <Pill>{product.category_name || "-"}</Pill>
+                    </td>
+                    <td className="px-4 py-4 text-slate-500">
+                      {product.pharmacy_name || "-"}
+                      {product.manufacturer_name && (
+                        <span className="block text-xs mt-0.5 text-slate-400">
+                          {product.manufacturer_name}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4 text-slate-500">
+                      {product.rx_drug_form || "-"}
+                    </td>
+                    <td className="px-4 py-4">
+                      {product.purchase_type ? (
+                        <Pill>{product.purchase_type === "subscription" ? "Subscription" : "One Time"}</Pill>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td className="px-4 py-4 text-slate-500">
+                      {formatDate(product.created_at)}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+
+        {/* Load More Trigger */}
+        {hasMoreProducts && (
+          <div className="px-6 py-4 border-t border-slate-100 flex justify-center bg-slate-50/50">
+            <button
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="min-w-[200px] border border-slate-200 bg-white rounded-lg px-4 py-2 text-sm font-semibold hover:bg-slate-50 text-slate-700 transition-colors disabled:opacity-50"
+            >
+              {loadingMore ? (
+                <span className="flex items-center justify-center">
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Loading...
+                </span>
+              ) : (
+                `Load More (${products.length} of ${totalProducts})`
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Floating Action Bar */}
+      {selectedProducts.size > 0 && (
+        <div
+          className="fixed bottom-7 left-1/2 z-40 flex items-center gap-4 rounded-2xl px-5 py-3 shadow-2xl bg-slate-950"
+          style={{
+            animation: "barIn .2s cubic-bezier(.2,.8,.3,1)",
+            transform: "translateX(-50%)",
+          }}
+        >
+          <div className="flex items-center gap-2.5">
+            <span
+              className="flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-sm font-bold bg-sky-400 text-slate-950"
+            >
+              {selectedProducts.size}
+            </span>
+            <span className="text-sm font-medium text-white">
+              {selectedProducts.size} product{selectedProducts.size > 1 ? "s" : ""} selected
+            </span>
+          </div>
+          <div className="h-5 w-px bg-slate-800" />
+          <button
+            onClick={() => setSelectedProducts(new Set())}
+            className="text-sm font-medium text-slate-400 hover:text-white transition-colors outline-none"
+          >
+            Clear
+          </button>
+          <button
+            onClick={() => {
+              setSelectedClients(new Set());
+              setClientSearch("");
+              setIsAssignModalOpen(true);
+            }}
+            className="flex items-center gap-2 rounded-xl bg-sky-400 hover:bg-sky-500 text-slate-950 px-4 py-2 text-sm font-semibold transition-colors outline-none"
+          >
+            <Users className="h-4 w-4" />
+            Assign to Clients
+          </button>
+        </div>
+      )}
+
+      {/* Assign Dialog */}
+      <Dialog open={isAssignModalOpen} onOpenChange={setIsAssignModalOpen}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden gap-0 rounded-2xl border-none shadow-2xl bg-white">
+          <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50">
+                <Users className="h-5 w-5 text-sky-600" />
+              </div>
+              <div className="text-left">
+                <h3 className="text-base font-semibold text-slate-800">
+                  Assign products to clients
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {selectedProducts.size} product{selectedProducts.size > 1 ? "s" : ""} selected
+                </p>
               </div>
             </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={clientSearch}
-                onChange={(e) => setClientSearch(e.target.value)}
-                placeholder="Search clients..."
-                className="pl-9 pr-9"
-              />
-              {clientSearch && (
-                <button
-                  onClick={() => setClientSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
+            <DialogClose className="rounded-lg p-1.5 hover:bg-slate-100 transition-colors outline-none text-slate-400 hover:text-slate-600">
+              <X className="h-4.5 w-4.5" />
+            </DialogClose>
           </div>
 
-          <div className="h-[400px] overflow-y-auto">
-            <div className="p-2">
-              {filteredClients.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  {clientSearch ? "No clients found" : "No clients available"}
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {filteredClients.map((client) => (
+          <div className="flex" style={{ height: 400 }}>
+            {/* Left Column: Selected Products (Read-Only) */}
+            <div className="w-2/5 overflow-y-auto px-5 py-4 bg-slate-50/50 border-r border-slate-100">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Selected products ({selectedProducts.size})
+              </p>
+              <div className="space-y-1.5">
+                {products
+                  .filter((p) => selectedProducts.has(p.id))
+                  .map((p, idx) => (
                     <div
-                      key={client.id}
-                      onClick={() => toggleClient(client.id)}
-                      className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                        selectedClients.has(client.id)
-                          ? "bg-blue-50 border-2 border-blue-500"
-                          : "hover:bg-gray-50 border-2 border-transparent"
-                      }`}
+                      key={p.id}
+                      className="flex items-center gap-3 rounded-lg bg-white px-3 py-2 border border-slate-100 shadow-sm"
                     >
-                      <Checkbox
-                        checked={selectedClients.has(client.id)}
-                        onCheckedChange={() => toggleClient(client.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="mt-1"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-medium text-sm truncate">
-                            {client.name}
-                          </p>
-                          {client.is_active && (
-                            <Badge variant="default" className="text-xs">
-                              Active
-                            </Badge>
-                          )}
-                        </div>
-                        {client.user && (
-                          <>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {client.user.full_name ||
-                                `${client.user.first_name} ${client.user.last_name}`}
-                            </p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {client.user.email}
-                            </p>
-                          </>
-                        )}
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-100">
+                        {idx + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-slate-800">
+                          {p.name}
+                        </p>
+                        <p className="truncate text-xs mt-0.5 text-slate-400">
+                          {p.category_name || "Uncategorized"}
+                        </p>
                       </div>
                     </div>
                   ))}
+              </div>
+            </div>
+
+            {/* Right Column: Client Selection */}
+            <div className="w-3/5 flex flex-col bg-white">
+              <div className="px-5 pb-2 pt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Assign to clients
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedClients(new Set(filteredClients.map((c) => c.id)))}
+                      className="text-xs font-semibold text-sky-600 hover:text-sky-700 transition-colors outline-none"
+                    >
+                      Select All
+                    </button>
+                    <span className="text-xs text-slate-200">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedClients(new Set())}
+                      className="text-xs font-semibold text-slate-400 hover:text-slate-600 transition-colors outline-none"
+                    >
+                      Clear
+                    </button>
+                  </div>
                 </div>
-              )}
+                <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2.5">
+                  <Search className="h-4 w-4 text-slate-400" />
+                  <input
+                    value={clientSearch}
+                    onChange={(e) => setClientSearch(e.target.value)}
+                    placeholder="Search clients by name or email"
+                    className="w-full bg-transparent text-sm outline-none border-none p-0 focus:ring-0 focus:outline-none text-slate-800 placeholder-slate-400"
+                  />
+                  {clientSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setClientSearch("")}
+                      className="text-slate-400 hover:text-slate-600 outline-none"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-2 py-2">
+                {filteredClients.length === 0 ? (
+                  <p className="px-3 py-6 text-center text-sm text-slate-400">
+                    No clients found.
+                  </p>
+                ) : (
+                  filteredClients.map((c) => {
+                    const isSelected = selectedClients.has(c.id);
+                    const initials = c.name
+                      ? c.name
+                          .split(" ")
+                          .map((n: string) => n[0])
+                          .join("")
+                          .toUpperCase()
+                          .slice(0, 2)
+                      : "CL";
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => toggleClient(c.id)}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors outline-none"
+                        style={{
+                          background: isSelected ? "#e3f3fb" : "transparent"
+                        }}
+                      >
+                        <CustomCheckbox
+                          checked={isSelected}
+                          onChange={() => toggleClient(c.id)}
+                        />
+                        <div
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white bg-slate-800"
+                        >
+                          {initials}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-slate-800">
+                            {c.name}
+                          </p>
+                          <p className="truncate text-xs mt-0.5 text-slate-400">
+                            {c.user?.email || "-"}
+                          </p>
+                        </div>
+                        <span className="text-xs font-semibold text-slate-400">
+                          {c.plan || (c.is_active ? "Active" : "Inactive")}
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="p-3 border-t bg-gray-50 text-sm text-muted-foreground">
-            {selectedClients.size} of {filteredClients.length} selected
+          <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4 bg-slate-50/50">
+            <span className="text-sm text-slate-500 font-medium">
+              {selectedClients.size} client{selectedClients.size === 1 ? "" : "s"} selected
+            </span>
+            <div className="flex gap-2">
+              <DialogClose className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-50 bg-white text-slate-700 outline-none">
+                Cancel
+              </DialogClose>
+              <button
+                type="button"
+                disabled={selectedClients.size === 0 || loading}
+                onClick={handleAssign}
+                className="rounded-lg bg-sky-400 hover:bg-sky-500 text-slate-950 px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed outline-none"
+              >
+                Assign
+              </button>
+              <button
+                type="button"
+                disabled={selectedClients.size === 0 || loading}
+                onClick={handleReAssign}
+                className="rounded-lg px-4 py-2 text-sm font-semibold transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed border border-sky-200 text-sky-700 bg-sky-50 hover:bg-sky-100 outline-none"
+              >
+                <RefreshCw className="h-3.5 w-3.5 animate-spin-slow" />
+                Re-assign
+              </button>
+            </div>
           </div>
-        </div>
-      </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
