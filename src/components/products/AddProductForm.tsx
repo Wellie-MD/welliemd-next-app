@@ -36,6 +36,7 @@ type ProductFormValues = {
   base_price?: string
   shipping_fee_patient?: string
   discounted_price?: string
+  service_states?: string[]
   
   // Read-only fields (displayed but not editable)
   name: string
@@ -52,6 +53,23 @@ type ProductFormValues = {
   cost_to_welliemd?: string
   shipping_cost_to_welliemd?: string
 }
+
+const US_STATES = [
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+  "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+  "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+  "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+  "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC", "PR",
+]
+
+const normalizeStates = (states?: string[] | null) =>
+  Array.from(
+    new Set(
+      (states || [])
+        .map((state) => String(state || "").trim().toUpperCase())
+        .filter(Boolean)
+    )
+  )
 
 export default function AddProductForm({
   open,
@@ -73,6 +91,11 @@ export default function AddProductForm({
     Boolean(isSupplyProduct) &&
     Boolean(supplyUsage?.total_links && supplyUsage.total_links > 0) &&
     Number(supplyUsage?.billable_links || 0) === 0
+  const adminAllowedStates = normalizeStates(
+    product?.admin_service_states?.length ? product.admin_service_states : product?.service_states
+  )
+  const selectedServiceStates = normalizeStates(watch("service_states") || [])
+  const orderedAdminAllowedStates = US_STATES.filter((state) => adminAllowedStates.includes(state))
 
   // Load product data for editing
   useEffect(() => {
@@ -90,6 +113,7 @@ export default function AddProductForm({
         base_price: product.base_price ?? "0.00",
         shipping_fee_patient: product.shipping_fee_patient ?? "0.00",
         discounted_price: product.discounted_price ?? "",
+        service_states: normalizeStates(product.service_states),
         is_active: product.is_active ?? true,
         
         // Read-only fields (for display)
@@ -133,6 +157,12 @@ export default function AddProductForm({
         if (data.base_price !== undefined) fd.append("base_price", data.base_price)
         if (data.shipping_fee_patient !== undefined) fd.append("shipping_fee_patient", data.shipping_fee_patient)
         if (data.discounted_price !== undefined) fd.append("discounted_price", data.discounted_price)
+      }
+      if (data.service_states !== undefined) {
+        const selectedStates = normalizeStates(data.service_states).filter((state) =>
+          adminAllowedStates.includes(state)
+        )
+        fd.append("service_states", JSON.stringify(selectedStates))
       }
       
       // Handle image upload
@@ -276,29 +306,63 @@ export default function AddProductForm({
                       Service States
                     </h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Admin-managed coverage for this product. Empty means it inherits pharmacy coverage.
+                      Select the states where this assigned product should remain available. You can only choose states configured by admin.
                     </p>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {product?.service_states?.length ?? 0} state(s)
+                    {selectedServiceStates.length} of {adminAllowedStates.length} state(s) active
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {product?.service_states?.length ? (
-                    product.service_states.map((state) => (
-                      <span
-                        key={state}
-                        className="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium bg-background text-foreground dark:border-slate-700 dark:bg-slate-900/60"
+                {adminAllowedStates.length ? (
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setValue("service_states", orderedAdminAllowedStates, { shouldDirty: true })}
                       >
-                        {state}
-                      </span>
-                    ))
-                  ) : (
+                        Select all states
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setValue("service_states", [], { shouldDirty: true })}
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {orderedAdminAllowedStates.map((state) => {
+                        const checked = selectedServiceStates.includes(state)
+                        return (
+                          <button
+                            key={state}
+                            type="button"
+                            onClick={() => {
+                              const nextStates = checked
+                                ? selectedServiceStates.filter((item) => item !== state)
+                                : [...selectedServiceStates, state]
+                              setValue("service_states", nextStates, { shouldDirty: true })
+                            }}
+                            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${
+                              checked
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "bg-background text-foreground dark:border-slate-700 dark:bg-slate-900/60"
+                            }`}
+                          >
+                            {state}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : (
                     <span className="text-xs text-muted-foreground">
-                      No explicit states configured.
+                      No explicit product-level states were configured by admin. This product inherits pharmacy coverage.
                     </span>
-                  )}
-                </div>
+                )}
               </div>
             )}
           </div>

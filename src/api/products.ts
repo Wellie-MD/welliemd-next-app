@@ -99,6 +99,7 @@ export interface Product {
   generic_name?: string;
   generic_group?: string;
   service_states?: string[];
+  admin_service_states?: string[];
   category_name?: string;
 
   // Questionnaires
@@ -168,6 +169,7 @@ export interface CreateProductPayload {
   generic_name?: string;
   generic_group?: string;
   service_states?: string[];
+  admin_service_states?: string[];
   onboarding_questionnaire?: string;
   followup_questionnaire?: string;
   onboarding_script_config?: Record<string, any>;
