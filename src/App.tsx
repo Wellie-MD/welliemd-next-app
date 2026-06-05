@@ -30,7 +30,6 @@ import Orders from "./pages/Orders";
 import Prescriptions from "./pages/Prescriptions";
 import NotFound from "./pages/NotFound";
 import Payments from "./pages/Payments";
-import ProductAssignment from "./pages/ProductAssignment";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import ForgotPassword from "./pages/auth/ForgotPassword";
@@ -160,7 +159,7 @@ const App = () => {
                     {/* <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} /> // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-2 */}
                     {/* <Route path="/prescriptions" element={<ProtectedRoute><Prescriptions /></ProtectedRoute>} />  */} // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-3
                     <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
-                    <Route path="/products/assign" element={<ProtectedRoute><ProductAssignment /></ProtectedRoute>} />
+                    <Route path="/products/assign" element={<ProtectedRoute><Navigate to="/dashboard/products" replace /></ProtectedRoute>} />
                     <Route path="/products/dose-mappings" element={<ProtectedRoute><ProductDoseMappings /></ProtectedRoute>} />
                     <Route path="/products/config" element={<ProtectedRoute><ProductConfig /></ProtectedRoute>} />
                     <Route path="/products/supplies" element={<ProtectedRoute><Supplies /></ProtectedRoute>} />
