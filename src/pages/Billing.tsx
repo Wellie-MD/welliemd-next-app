@@ -265,9 +265,9 @@ export default function Billing() {
                 </thead>
                 <tbody>
                   {groupedInvoices.map((inv) => {
-                    const amount = parseFloat(
+                    const baseAmount = parseFloat(
                       (inv as any).total_amount ?? inv.amount ?? "0"
-                    ).toFixed(2);
+                    );
                     const displayDate = getDisplayDate(inv);
                     const status = ((inv as any).is_overdue && inv.status !== "paid"
                       ? "overdue"
@@ -277,6 +277,7 @@ export default function Billing() {
                       0
                     );
                     const hasNestedSupplementals = (inv.supplementalInvoices || []).length > 0;
+                    const displayAmount = baseAmount + supplementalTotal;
                     return (
                       <tr
                         key={inv.id}
@@ -318,7 +319,7 @@ export default function Billing() {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="font-medium">${amount}</div>
+                          <div className="font-medium">${displayAmount.toFixed(2)}</div>
                         </td>
                       </tr>
                     );
@@ -365,7 +366,16 @@ export default function Billing() {
               <div className="rounded border p-3"><strong>Client Order #:</strong> {getClientOrderNumber(selected)}</div>
                 <div className="rounded border p-3"><strong>Type:</strong> {selected.invoice_type?.replace("_", " ")}</div>
                 <div className="rounded border p-3"><strong>Status:</strong> {selected.status}</div>
-                <div className="rounded border p-3"><strong>Total:</strong> ${(selected as any).total_amount ?? selected.amount}</div>
+                <div className="rounded border p-3">
+                  <strong>Total:</strong> $
+                  {(
+                    parseFloat((selected as any).total_amount ?? selected.amount ?? "0") +
+                    (((selected as DisplayInvoice).supplementalInvoices || []).reduce(
+                      (sum, child) => sum + parseFloat((child as any).total_amount ?? child.amount ?? "0"),
+                      0
+                    ))
+                  ).toFixed(2)}
+                </div>
                 <div className="rounded border p-3"><strong>Issued:</strong> {selected.issued_at ? new Date(selected.issued_at).toLocaleDateString() : "-"}</div>
                 <div className="rounded border p-3"><strong>Due:</strong> {selected.due_date ? new Date(selected.due_date).toLocaleDateString() : "N/A"}</div>
               </div>
@@ -377,24 +387,19 @@ export default function Billing() {
                 </div>
                 {(() => {
                   const parentAmount = parseFloat((selected as any).total_amount ?? selected.amount ?? "0");
-                  const intendedAuthAmount = parseFloat((selected as any).intended_authorization_amount ?? "");
                   const supplemental = ((selected as DisplayInvoice).supplementalInvoices || []);
                   const supplementalTotal = supplemental.reduce(
                     (sum, child) => sum + parseFloat((child as any).total_amount ?? child.amount ?? "0"),
                     0
                   );
-                  const derivedBase = parentAmount - supplementalTotal;
-                  const baseAmount = Number.isFinite(intendedAuthAmount) && intendedAuthAmount > 0
-                    ? intendedAuthAmount
-                    : Math.max(derivedBase, 0);
-                  const combined = parentAmount;
+                  const combined = parentAmount + supplementalTotal;
                   return (
                     <>
                       <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <div className="rounded border border-amber-200 bg-white px-2 py-1">
                           <div className="text-[11px] text-amber-700">Base Invoice</div>
                           <div className="font-semibold text-amber-900">
-                            {selected.invoice_number}: ${baseAmount.toFixed(2)}
+                            {selected.invoice_number}: ${parentAmount.toFixed(2)}
                           </div>
                         </div>
                         <div className="rounded border border-amber-200 bg-white px-2 py-1">
