@@ -11,6 +11,8 @@ import {
   Check,
   Pencil,
   Trash2,
+  FileDown,
+  AlertTriangle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/use-toast";
@@ -31,6 +33,13 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { ProductFormModal } from "@/components/products/ProductFormModal";
+import {
+  AssignmentBatch,
+  AssignmentPair,
+  buildAssignmentBatches,
+  buildAssignmentBatchesFromPairs,
+  csvEscape,
+} from "@/utils/productAssignmentBatching";
 
 interface ProductForAssignment {
   id: number;
@@ -58,15 +67,45 @@ interface PaginatedProductsResponse {
 
 interface ApiError {
   response?: {
+    status?: number;
     data?: {
       error?: string;
       client_ids?: string[];
       message?: string;
+      max_pairs?: number;
+      total_pairs?: number;
     };
   };
 }
 
 const PAGE_SIZE = 250;
+
+type AssignmentOperation = "assign" | "reassign";
+type BulkProgressStatus = "idle" | "running" | "completed" | "partial" | "stopped";
+
+interface BulkProgress {
+  status: BulkProgressStatus;
+  operation: AssignmentOperation;
+  totalPairs: number;
+  attemptedPairs: number;
+  successCount: number;
+  failureCount: number;
+  pendingCount: number;
+  currentBatch: number;
+  totalBatches: number;
+}
+
+const emptyProgress: BulkProgress = {
+  status: "idle",
+  operation: "assign",
+  totalPairs: 0,
+  attemptedPairs: 0,
+  successCount: 0,
+  failureCount: 0,
+  pendingCount: 0,
+  currentBatch: 0,
+  totalBatches: 0,
+};
 
 /* Custom checkbox matching the portal's design standard */
 interface CustomCheckboxProps {
@@ -249,6 +288,12 @@ export default function Products() {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isProgressDialogOpen, setIsProgressDialogOpen] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<BulkProgress>(emptyProgress);
+  const [failedAssignments, setFailedAssignments] = useState<AssignmentPair[]>([]);
+  const [pendingAssignments, setPendingAssignments] = useState<AssignmentPair[]>([]);
+  const [lastAssignmentOperation, setLastAssignmentOperation] =
+    useState<AssignmentOperation>("assign");
 
   // Check if more products available
   const hasMoreProducts = products.length < totalProducts;
@@ -374,6 +419,44 @@ export default function Products() {
         client.user?.full_name?.toLowerCase().includes(search)
     );
   }, [clients, clientSearch]);
+
+  const clientMap = useMemo(() => {
+    const map = new Map<string, Client>();
+    clients.forEach((client) => map.set(client.id, client));
+    return map;
+  }, [clients]);
+
+  const productNameForId = useCallback(
+    (productId: number | string) =>
+      selectedProductCache.get(Number(productId))?.name || `Product #${productId}`,
+    [selectedProductCache]
+  );
+
+  const clientNameForId = useCallback(
+    (clientId: string) => clientMap.get(clientId)?.name || `Client ${clientId}`,
+    [clientMap]
+  );
+
+  const buildPairsForBatch = useCallback(
+    (batch: AssignmentBatch, status: "failed" | "pending", error?: string) =>
+      batch.product_ids.flatMap((productId) =>
+        batch.client_ids.map((clientId) => ({
+          product_id: productId,
+          product_name: productNameForId(productId),
+          client_id: clientId,
+          client_name: clientNameForId(clientId),
+          status,
+          error,
+        }))
+      ),
+    [clientNameForId, productNameForId]
+  );
+
+  const buildPairsForBatches = useCallback(
+    (batches: AssignmentBatch[], status: "failed" | "pending", error?: string) =>
+      batches.flatMap((batch) => buildPairsForBatch(batch, status, error)),
+    [buildPairsForBatch]
+  );
 
   // Selection handlers
   const toggleProduct = (product: ProductForAssignment) => {
@@ -511,9 +594,30 @@ export default function Products() {
     }
   };
 
-  // Handle assignment
-  const handleAssign = async () => {
-    if (selectedProducts.size === 0 || selectedClients.size === 0) {
+  const normalizeAssignmentResult = (result: Awaited<ReturnType<typeof productApi.bulkAssign>>) => {
+    const successCount = Number(result.success_count ?? result.successful ?? 0);
+    const failureCount = Number(result.failure_count ?? result.failed ?? 0);
+
+    return {
+      ...result,
+      success_count: successCount,
+      failure_count: failureCount,
+      total: Number(result.total ?? successCount + failureCount),
+      results: result.results || [],
+    };
+  };
+
+  const runAssignmentBatches = async (
+    batches: AssignmentBatch[],
+    operation: AssignmentOperation,
+    initialFailedAssignments: AssignmentPair[] = []
+  ) => {
+    const totalPairs = batches.reduce(
+      (sum, batch) => sum + batch.product_ids.length * batch.client_ids.length,
+      0
+    );
+
+    if (totalPairs === 0) {
       toast({
         title: "Selection Required",
         description: "Please select at least one product and one client",
@@ -522,46 +626,136 @@ export default function Products() {
       return;
     }
 
+    setLastAssignmentOperation(operation);
+    setFailedAssignments(initialFailedAssignments);
+    setPendingAssignments([]);
+    setBulkProgress({
+      ...emptyProgress,
+      operation,
+      status: "running",
+      totalPairs,
+      totalBatches: batches.length,
+    });
+    setIsAssignModalOpen(false);
+    setIsProgressDialogOpen(true);
+
+    let successCount = 0;
+    let failureCount = initialFailedAssignments.length;
+    let attemptedPairs = 0;
+    const collectedFailures = [...initialFailedAssignments];
+    let activeBatchIndex = 0;
+
     try {
       setLoading(true);
-      const result = await productApi.bulkAssign({
-        product_ids: Array.from(selectedProducts),
-        client_ids: Array.from(selectedClients),
-      });
 
-      if (result.success_count > 0 && result.failure_count === 0) {
+      for (let index = 0; index < batches.length; index += 1) {
+        activeBatchIndex = index;
+        const batch = batches[index];
+        const batchPairs = batch.product_ids.length * batch.client_ids.length;
+
+        setBulkProgress((previous) => ({
+          ...previous,
+          currentBatch: index + 1,
+        }));
+
+        let result;
+        try {
+          result = await (
+            operation === "assign"
+              ? productApi.bulkAssign(batch)
+              : productApi.reAssignProducts(batch)
+          );
+        } catch (firstError) {
+          const apiError = firstError as ApiError;
+          const statusCode = apiError.response?.status;
+          const shouldRetryOnce = !statusCode || statusCode >= 500 || statusCode === 429;
+
+          if (!shouldRetryOnce) {
+            throw firstError;
+          }
+
+          result = await (
+            operation === "assign"
+              ? productApi.bulkAssign(batch)
+              : productApi.reAssignProducts(batch)
+          );
+        }
+
+        const normalized = normalizeAssignmentResult(result);
+        successCount += normalized.success_count;
+        failureCount += normalized.failure_count;
+        attemptedPairs += normalized.total || batchPairs;
+
+        const failedRows = normalized.results
+          .filter((row) => !row.success)
+          .map((row) => ({
+            product_id: Number(row.product_id),
+            product_name: row.product_name || productNameForId(row.product_id),
+            client_id: row.client_id,
+            client_name: row.client_name || clientNameForId(row.client_id),
+            status: "failed" as const,
+            error: row.error || row.message || "Assignment failed",
+          }));
+        collectedFailures.push(...failedRows);
+
+        setFailedAssignments([...collectedFailures]);
+        setBulkProgress((previous) => ({
+          ...previous,
+          attemptedPairs,
+          successCount,
+          failureCount,
+        }));
+      }
+
+      const finalStatus: BulkProgressStatus = failureCount > 0 ? "partial" : "completed";
+      setBulkProgress((previous) => ({
+        ...previous,
+        status: finalStatus,
+        attemptedPairs,
+        successCount,
+        failureCount,
+        pendingCount: 0,
+      }));
+
+      if (failureCount === 0) {
         toast({
-          title: "Success",
-          description:
-            result.message ||
-            `Assigned ${result.success_count} product(s) successfully`,
+          title: operation === "assign" ? "Assignment Complete" : "Re-assignment Complete",
+          description: `${successCount} assignment pair(s) completed successfully.`,
         });
         clearAllSelections();
-        setIsAssignModalOpen(false);
-      } else if (result.success_count > 0) {
-        toast({
-          title: "Partial Assignment",
-          description:
-            result.message ||
-            `${result.success_count} succeeded, ${result.failure_count} failed. Keep the selection and retry failed assignments after checking logs.`,
-          variant: "destructive",
-        });
       } else {
         toast({
-          title: "Assignment Failed",
-          description: result.message || "All assignments failed",
+          title: "Bulk Assignment Completed With Failures",
+          description: `${successCount} succeeded, ${failureCount} failed. Review the result dialog for retry options.`,
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error("Assignment error:", error);
+      console.error("Bulk assignment stopped:", error);
       const apiError = error as ApiError;
+      const pendingBatches = batches.slice(activeBatchIndex);
+      const pendingPairs = buildPairsForBatches(
+        pendingBatches,
+        "pending",
+        apiError.response?.data?.error ||
+          apiError.response?.data?.message ||
+          "Batch request failed before a result was returned"
+      );
+      setPendingAssignments(pendingPairs);
+      setBulkProgress((previous) => ({
+        ...previous,
+        status: "stopped",
+        attemptedPairs,
+        successCount,
+        failureCount,
+        pendingCount: pendingPairs.length,
+      }));
       toast({
-        title: "Error",
+        title: "Bulk Assignment Stopped",
         description:
           apiError.response?.data?.error ||
-          apiError.response?.data?.client_ids?.[0] ||
-          "Failed to assign products",
+          apiError.response?.data?.message ||
+          "A batch failed before results were returned. Review pending assignments before retrying.",
         variant: "destructive",
       });
     } finally {
@@ -569,63 +763,90 @@ export default function Products() {
     }
   };
 
+  // Handle assignment
+  const handleAssign = async () => {
+    const productIds = Array.from(selectedProducts);
+    const clientIds = Array.from(selectedClients);
+    await runAssignmentBatches(buildAssignmentBatches(productIds, clientIds), "assign");
+  };
+
   // Handle re-assignment
   const handleReAssign = async () => {
-    if (selectedProducts.size === 0 || selectedClients.size === 0) {
+    const productIds = Array.from(selectedProducts);
+    const clientIds = Array.from(selectedClients);
+    await runAssignmentBatches(buildAssignmentBatches(productIds, clientIds), "reassign");
+  };
+
+  const retryAssignments = async (
+    pairs: AssignmentPair[],
+    operation: AssignmentOperation,
+    label: string
+  ) => {
+    if (pairs.length === 0) {
       toast({
-        title: "Selection Required",
-        description: "Please select at least one product and one client",
-        variant: "destructive",
+        title: "Nothing to Retry",
+        description: `There are no ${label.toLowerCase()} assignments to retry.`,
       });
       return;
     }
 
-    try {
-      setLoading(true);
-      const result = await productApi.reAssignProducts({
-        product_ids: Array.from(selectedProducts),
-        client_ids: Array.from(selectedClients),
-      });
+    const batches = buildAssignmentBatchesFromPairs(pairs);
+    await runAssignmentBatches(batches, operation);
+  };
 
-      if (result.success_count > 0 && result.failure_count === 0) {
-        toast({
-          title: "Success",
-          description:
-            result.message ||
-            `Re-assigned ${result.success_count} product(s) successfully`,
-        });
-        clearAllSelections();
-        setIsAssignModalOpen(false);
+  const handleRetryFailed = () =>
+    retryAssignments(failedAssignments, lastAssignmentOperation, "Failed");
 
-        // Refresh products
-        await fetchProducts(1, true);
-      } else if (result.success_count > 0) {
-        toast({
-          title: "Partial Re-assignment",
-          description:
-            result.message ||
-            `${result.success_count} succeeded, ${result.failure_count} failed. Keep the selection and retry after checking logs.`,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Re-assignment Failed",
-          description: "All re-assignments failed. Please check the logs.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Re-assignment error:", error);
-      const apiError = error as ApiError;
+  const handleRetryPending = () =>
+    retryAssignments(pendingAssignments, lastAssignmentOperation, "Pending");
+
+  const handleDownloadAssignmentReport = () => {
+    const rows = [
+      ...failedAssignments.map((assignment) => ({ ...assignment, status: "failed" as const })),
+      ...pendingAssignments.map((assignment) => ({ ...assignment, status: "pending" as const })),
+    ];
+
+    if (rows.length === 0) {
       toast({
-        title: "Error",
-        description:
-          apiError.response?.data?.error || "Failed to re-assign products",
-        variant: "destructive",
+        title: "No Failure Report",
+        description: "There are no failed or pending assignments to export.",
       });
-    } finally {
-      setLoading(false);
+      return;
     }
+
+    const header = [
+      "status",
+      "product_id",
+      "product_name",
+      "client_id",
+      "client_name",
+      "error",
+    ];
+    const csv = [
+      header.join(","),
+      ...rows.map((row) =>
+        [
+          row.status,
+          row.product_id,
+          row.product_name,
+          row.client_id,
+          row.client_name,
+          row.error || "",
+        ]
+          .map(csvEscape)
+          .join(",")
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `product-assignment-report-${new Date().toISOString().slice(0, 19)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // Format date helper
@@ -1195,6 +1416,189 @@ export default function Products() {
                 <RefreshCw className="h-3.5 w-3.5 animate-spin-slow" />
                 Re-assign
               </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Assignment Progress Dialog */}
+      <Dialog open={isProgressDialogOpen} onOpenChange={setIsProgressDialogOpen}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden gap-0 rounded-2xl border-none shadow-2xl bg-white">
+          <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50">
+                {bulkProgress.status === "running" ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-sky-600" />
+                ) : bulkProgress.status === "completed" ? (
+                  <Check className="h-5 w-5 text-green-600" />
+                ) : (
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                )}
+              </div>
+              <div className="text-left">
+                <h3 className="text-base font-semibold text-slate-800">
+                  {bulkProgress.operation === "assign" ? "Product Assignment" : "Product Re-assignment"}
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {bulkProgress.status === "running"
+                    ? `Processing batch ${bulkProgress.currentBatch || 1} of ${bulkProgress.totalBatches}`
+                    : bulkProgress.status === "completed"
+                      ? "Completed successfully"
+                      : bulkProgress.status === "partial"
+                        ? "Completed with failures"
+                        : bulkProgress.status === "stopped"
+                          ? "Stopped before all batches completed"
+                          : "Ready"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-6 py-5 space-y-5">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase text-slate-400">Total</p>
+                <p className="mt-1 text-lg font-bold text-slate-800">{bulkProgress.totalPairs}</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase text-slate-400">Attempted</p>
+                <p className="mt-1 text-lg font-bold text-slate-800">{bulkProgress.attemptedPairs}</p>
+              </div>
+              <div className="rounded-xl border border-green-100 bg-green-50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase text-green-600">Succeeded</p>
+                <p className="mt-1 text-lg font-bold text-green-700">{bulkProgress.successCount}</p>
+              </div>
+              <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase text-red-500">Failed</p>
+                <p className="mt-1 text-lg font-bold text-red-600">{bulkProgress.failureCount}</p>
+              </div>
+              <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase text-amber-600">Pending</p>
+                <p className="mt-1 text-lg font-bold text-amber-700">{bulkProgress.pendingCount}</p>
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-2 flex items-center justify-between text-xs font-semibold text-slate-500">
+                <span>
+                  Batch {bulkProgress.currentBatch || 0} of {bulkProgress.totalBatches || 0}
+                </span>
+                <span>
+                  {bulkProgress.totalPairs
+                    ? Math.round(
+                        ((bulkProgress.attemptedPairs + bulkProgress.pendingCount) /
+                          bulkProgress.totalPairs) *
+                          100
+                      )
+                    : 0}
+                  %
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full bg-sky-400 transition-all duration-200"
+                  style={{
+                    width: `${
+                      bulkProgress.totalPairs
+                        ? Math.min(
+                            100,
+                            ((bulkProgress.attemptedPairs + bulkProgress.pendingCount) /
+                              bulkProgress.totalPairs) *
+                              100
+                          )
+                        : 0
+                    }%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            {(failedAssignments.length > 0 || pendingAssignments.length > 0) && (
+              <div className="rounded-xl border border-slate-200 overflow-hidden">
+                <div className="flex items-center justify-between bg-slate-50 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">Retry Details</p>
+                    <p className="text-xs text-slate-500">
+                      Showing exact failed and pending product-client pairs.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDownloadAssignmentReport}
+                    className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    <FileDown className="h-3.5 w-3.5" />
+                    Download report
+                  </button>
+                </div>
+                <div className="max-h-72 overflow-y-auto">
+                  {[...failedAssignments, ...pendingAssignments].slice(0, 200).map((assignment, index) => (
+                    <div
+                      key={`${assignment.status}-${assignment.product_id}-${assignment.client_id}-${index}`}
+                      className="grid grid-cols-[110px_1fr_1fr] gap-3 border-t border-slate-100 px-4 py-3 text-sm"
+                    >
+                      <span
+                        className={`w-fit rounded-md px-2 py-1 text-xs font-semibold ${
+                          assignment.status === "pending"
+                            ? "bg-amber-50 text-amber-700"
+                            : "bg-red-50 text-red-600"
+                        }`}
+                      >
+                        {assignment.status === "pending" ? "Pending" : "Failed"}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-slate-800">
+                          {assignment.product_name}
+                        </p>
+                        <p className="text-xs text-slate-400">Product #{assignment.product_id}</p>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-slate-800">
+                          {assignment.client_name}
+                        </p>
+                        <p className="truncate text-xs text-slate-400">
+                          {assignment.error || "No error message returned"}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {[...failedAssignments, ...pendingAssignments].length > 200 && (
+                    <div className="border-t border-slate-100 px-4 py-3 text-center text-xs text-slate-500">
+                      Showing first 200 rows. Download the report for the full list.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4 bg-slate-50/50">
+            <p className="text-xs text-slate-500">
+              Large selections are processed in safe sequential batches to avoid overloading the admin service.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={bulkProgress.status === "running" || failedAssignments.length === 0}
+                onClick={handleRetryFailed}
+                className="rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Retry failed only
+              </button>
+              <button
+                type="button"
+                disabled={bulkProgress.status === "running" || pendingAssignments.length === 0}
+                onClick={handleRetryPending}
+                className="rounded-lg border border-amber-200 bg-white px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Retry pending
+              </button>
+              <DialogClose
+                disabled={bulkProgress.status === "running"}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Close
+              </DialogClose>
             </div>
           </div>
         </DialogContent>

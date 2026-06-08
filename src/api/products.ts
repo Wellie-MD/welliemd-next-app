@@ -219,6 +219,10 @@ export interface BulkAssignmentResponse {
   success_count: number;
   failure_count: number;
   results: AssignmentResult[];
+  max_pairs?: number;
+  total_pairs?: number;
+  successful?: number;
+  failed?: number;
 }
 
 export interface AssignmentSummary {
