@@ -281,6 +281,7 @@ export default function Products() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [pharmacyFilter, setPharmacyFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [productSearch, setProductSearch] = useState("");
   const [clientSearch, setClientSearch] = useState("");
 
@@ -316,6 +317,9 @@ export default function Products() {
       if (pharmacyFilter !== "all") {
         params.pharmacy = pharmacyFilter;
       }
+      if (statusFilter !== "all") {
+        params.is_active = statusFilter === "active";
+      }
       if (productSearch.trim()) {
         params.search = productSearch.trim();
       }
@@ -342,7 +346,7 @@ export default function Products() {
         variant: "destructive",
       });
     }
-  }, [categoryFilter, typeFilter, pharmacyFilter, productSearch]);
+  }, [categoryFilter, typeFilter, pharmacyFilter, statusFilter, productSearch]);
 
   // Initial load
   useEffect(() => {
@@ -523,6 +527,7 @@ export default function Products() {
     setCategoryFilter("all");
     setTypeFilter("all");
     setPharmacyFilter("all");
+    setStatusFilter("all");
     setProductSearch("");
   };
 
@@ -946,10 +951,10 @@ export default function Products() {
           />
         </div>
 
-	        <div>
-	          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-	            Purchase Type
-	          </label>
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Purchase Type
+          </label>
           <FilterSelect
             label="All Types"
             value={typeFilter === "one_time" ? "One Time" : typeFilter === "subscription" ? "Subscription" : typeFilter}
@@ -959,12 +964,12 @@ export default function Products() {
               else if (val === "One Time") setTypeFilter("one_time");
               else if (val === "Subscription") setTypeFilter("subscription");
             }}
-	          />
-	        </div>
+          />
+        </div>
 
-	        <div>
-	          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-	            Pharmacy
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Pharmacy
           </label>
           <FilterSelect
             label="All Pharmacies"
@@ -977,6 +982,22 @@ export default function Products() {
                 const pharm = pharmacies.find(p => p.store_name === val);
                 if (pharm) setPharmacyFilter(pharm.id.toString());
               }
+            }}
+          />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Status
+          </label>
+          <FilterSelect
+            label="All Statuses"
+            value={statusFilter === "all" ? "all" : statusFilter === "active" ? "Active" : "Inactive"}
+            options={["Active", "Inactive"]}
+            onChange={(val) => {
+              if (val === "all") setStatusFilter("all");
+              else if (val === "Active") setStatusFilter("active");
+              else if (val === "Inactive") setStatusFilter("inactive");
             }}
           />
         </div>
@@ -1009,10 +1030,11 @@ export default function Products() {
           </div>
         </div>
 
-	        {(categoryFilter !== "all" ||
-	          typeFilter !== "all" ||
-	          pharmacyFilter !== "all" ||
-	          productSearch !== "") && (
+        {(categoryFilter !== "all" ||
+          typeFilter !== "all" ||
+          pharmacyFilter !== "all" ||
+          statusFilter !== "all" ||
+          productSearch !== "") && (
           <button
             onClick={resetFilters}
             className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium transition-colors hover:bg-slate-50 text-slate-700 outline-none"
@@ -1050,12 +1072,15 @@ export default function Products() {
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Drug Form
               </th>
-	              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-	                Purchase Type
-	              </th>
-	              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-	                Created At
-	              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Status
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Purchase Type
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Created At
+              </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 w-[100px]">
                 
               </th>
@@ -1064,8 +1089,8 @@ export default function Products() {
           <tbody className="bg-white">
             {products.length === 0 ? (
               <tr>
-	                <td
-	                  colSpan={8}
+                <td
+                  colSpan={9}
                   className="px-4 py-12 text-center text-sm text-slate-400"
                 >
                   {loading ? (
@@ -1088,13 +1113,13 @@ export default function Products() {
                     style={{
                       background: isSelected ? "#e3f3fb" : "#fff",
                     }}
-	                    onClick={() => toggleProduct(product)}
-	                  >
-	                    <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
-	                      <CustomCheckbox
-	                        checked={isSelected}
-	                        onChange={() => toggleProduct(product)}
-	                      />
+                    onClick={() => toggleProduct(product)}
+                  >
+                    <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
+                      <CustomCheckbox
+                        checked={isSelected}
+                        onChange={() => toggleProduct(product)}
+                      />
                     </td>
                     <td className="px-4 py-4 font-semibold text-slate-800">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -1136,16 +1161,28 @@ export default function Products() {
                     <td className="px-4 py-4 text-slate-500">
                       {product.rx_drug_form || "-"}
                     </td>
-	                    <td className="px-4 py-4">
-	                      {product.purchase_type ? (
-	                        <Pill>{product.purchase_type === "subscription" ? "Subscription" : "One Time"}</Pill>
-	                      ) : (
-	                        "-"
-	                      )}
-	                    </td>
-	                    <td className="px-4 py-4 text-slate-500">
-	                      {formatDate(product.created_at)}
-	                    </td>
+                    <td className="px-4 py-4">
+                      <Badge
+                        variant={product.is_active ? "default" : "secondary"}
+                        className={
+                          product.is_active
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-50"
+                            : "bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-100"
+                        }
+                      >
+                        {product.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-4">
+                      {product.purchase_type ? (
+                        <Pill>{product.purchase_type === "subscription" ? "Subscription" : "One Time"}</Pill>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td className="px-4 py-4 text-slate-500">
+                      {formatDate(product.created_at)}
+                    </td>
                     <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-3">
                         <button
