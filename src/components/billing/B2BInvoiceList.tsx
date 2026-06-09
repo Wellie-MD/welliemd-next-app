@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Loader2, AlertCircle, Filter, Search, Eye, CheckCircle2 } from "lucide-react";
-import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { FileText, Loader2, AlertCircle, Filter, Search, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -77,8 +76,6 @@ function typeVariant(type: string) {
   switch (type) {
     case "reimbursement":
       return "default";
-    case "credit_note":
-      return "destructive";
     case "saas_fee":
       return "secondary";
     case "aggregated_snapshot":
@@ -110,7 +107,6 @@ function getAccessPeriodFromInvoice(inv: any): string | null {
 }
 
 export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
-  const queryClient = useQueryClient();
   const [invoiceType, setInvoiceType] = useState<InvoiceType | "all">("all");
   const [status, setStatus] = useState<InvoiceStatusFilter>("all");
   const [search, setSearch] = useState("");
@@ -149,32 +145,7 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
   const totalCount = data?.count || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
 
-  const markRefundMutation = useMutation({
-    mutationFn: (invoiceId: string) => clientApi.markB2BRefundProcessed(clientId, invoiceId),
-    onSuccess: () => {
-      toast.success("Refund marked processed");
-      queryClient.invalidateQueries({ queryKey: ["b2bInvoices", clientId] });
-      queryClient.invalidateQueries({ queryKey: ["b2bAllInvoices"] });
-      setSelected((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: "refunded",
-              refund_required: false,
-              refund_required_amount: "0.00",
-            }
-          : prev
-      );
-    },
-    onError: (err: any) => {
-      toast.error(err?.message || "Failed to mark refund processed");
-    },
-  });
-
   const formatBreakdown = (inv: any) => {
-    if (inv.invoice_type === "credit_note") {
-      return `Credit: ${formatMoney(inv.refund_required_amount || inv.total_amount)}`;
-    }
     const items = inv.line_items ?? [];
     const pharmacy = items
       .filter((li: any) => ["medication_reimbursement", "shipping_cost"].includes(li.item_type))
@@ -212,7 +183,6 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="reimbursement">Reimbursement</SelectItem>
-                <SelectItem value="credit_note">Credit Note</SelectItem>
                 <SelectItem value="saas_fee">SaaS Fee</SelectItem>
                 <SelectItem value="aggregated_snapshot">Snapshot</SelectItem>
               </SelectContent>
@@ -357,14 +327,9 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                         {formatBreakdown(invoice)}
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col items-start gap-1">
-                          <Badge variant={statusVariant(effectiveStatus)}>
-                            {effectiveStatus}
-                          </Badge>
-                          {(invoice as any).refund_required && (
-                            <Badge variant="destructive">Refund required</Badge>
-                          )}
-                        </div>
+                        <Badge variant={statusVariant(effectiveStatus)}>
+                          {effectiveStatus}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDate(invoice.issued_at || (invoice as any).created_at)}
@@ -432,26 +397,9 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                 <h3 className="text-lg font-semibold">Invoice {selected.invoice_number}</h3>
                 <p className="text-xs text-muted-foreground">{selected.invoice_type.replace("_", " ")} · {selected.status}</p>
               </div>
-              <div className="flex items-center gap-2">
-                {(selected as any).refund_required && selected.invoice_type === "credit_note" && (
-                  <Button
-                    size="sm"
-                    type="button"
-                    onClick={() => markRefundMutation.mutate(selected.id)}
-                    disabled={markRefundMutation.isPending}
-                  >
-                    {markRefundMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                    ) : (
-                      <CheckCircle2 className="h-4 w-4 mr-1" />
-                    )}
-                    Mark Refund Processed
-                  </Button>
-                )}
-                <Button size="sm" variant="outline" type="button" onClick={() => setSelected(null)}>
-                  Close
-                </Button>
-              </div>
+              <Button size="sm" variant="outline" type="button" onClick={() => setSelected(null)}>
+                Close
+              </Button>
             </div>
 
             <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
@@ -471,22 +419,6 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                   {formatDate(selected.billing_period_start)} to {formatDate(selected.billing_period_end)}
                 </div>
               </div>
-              {(selected as any).refund_required && (
-                <>
-                  <div className="rounded-md border border-red-200 bg-red-50 p-3">
-                    <div className="text-red-700 text-xs">Refund Required</div>
-                    <div className="font-semibold text-red-800">
-                      {formatMoney((selected as any).refund_required_amount || selected.total_amount)}
-                    </div>
-                  </div>
-                  <div className="rounded-md border border-red-200 bg-red-50 p-3">
-                    <div className="text-red-700 text-xs">Refund Reason</div>
-                    <div className="font-semibold text-red-800">
-                      {String((selected as any).refund_required_reason || "rx_revision_over_reimbursed").replace(/_/g, " ")}
-                    </div>
-                  </div>
-                </>
-              )}
               {selected.invoice_type === "saas_fee" && getAccessPeriodFromInvoice(selected) && (
                 <div className="rounded-md border p-3">
                   <div className="text-muted-foreground text-xs">Renewal Access Period</div>

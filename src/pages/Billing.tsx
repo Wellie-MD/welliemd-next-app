@@ -1,19 +1,17 @@
 import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { clientApi } from "@/api/clientApi";
 import type { B2BInvoice } from "@/types/b2bBilling";
-import { CheckCircle2, Loader2, Search, GitBranch } from "lucide-react";
-import { toast } from "sonner";
+import { Search, GitBranch } from "lucide-react";
 
 type DisplayInvoice = B2BInvoice & {
   supplementalInvoices?: B2BInvoice[];
 };
 
 export default function Billing() {
-  const queryClient = useQueryClient();
   const [invoiceType, setInvoiceType] = useState<
-    "all" | "reimbursement" | "credit_note" | "saas_fee"
+    "all" | "reimbursement" | "saas_fee"
   >("all");
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -39,34 +37,6 @@ export default function Billing() {
   });
 
   const invoices: B2BInvoice[] = data?.results || [];
-  const selectedClientId = (selected as any)?.client?.id || selected?.client;
-
-  const markRefundMutation = useMutation({
-    mutationFn: (invoice: B2BInvoice) => {
-      const clientId = (invoice as any)?.client?.id || invoice.client;
-      return clientApi.markB2BRefundProcessed(clientId, invoice.id);
-    },
-    onSuccess: () => {
-      toast.success("Refund marked processed");
-      queryClient.invalidateQueries({ queryKey: ["b2bAllInvoices"] });
-      if (selectedClientId) {
-        queryClient.invalidateQueries({ queryKey: ["b2bInvoices", selectedClientId] });
-      }
-      setSelected((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: "refunded",
-              refund_required: false,
-              refund_required_amount: "0.00",
-            }
-          : prev
-      );
-    },
-    onError: (err: any) => {
-      toast.error(err?.message || "Failed to mark refund processed");
-    },
-  });
 
   const formatLabel = (value?: string | null) =>
     (value || "-")
@@ -103,9 +73,6 @@ export default function Billing() {
   };
 
   const formatBreakdown = (inv: B2BInvoice) => {
-    if (inv.invoice_type === "credit_note") {
-      return `Credit: $${parseFloat((inv as any).refund_required_amount || inv.total_amount || "0").toFixed(2)}`;
-    }
     const items = (inv as any).line_items ?? [];
     const pharmacy = items
       .filter((li: any) => ["medication_reimbursement", "shipping_cost"].includes(li.item_type))
@@ -182,7 +149,6 @@ export default function Billing() {
           {[
             { key: "all", label: "All Invoices" },
             { key: "reimbursement", label: "Reimbursement Billings" },
-            { key: "credit_note", label: "Credit Notes" },
             { key: "saas_fee", label: "Monthly SaaS Fee Invoices" },
           ].map((tab) => (
             <button
@@ -348,16 +314,9 @@ export default function Billing() {
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex flex-col items-start gap-1">
-                            <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${statusPillClass(status)}`}>
-                              {formatLabel(status)}
-                            </span>
-                            {(inv as any).refund_required && (
-                              <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">
-                                Refund Required
-                              </span>
-                            )}
-                          </div>
+                          <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${statusPillClass(status)}`}>
+                            {formatLabel(status)}
+                          </span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="font-medium">${displayAmount.toFixed(2)}</div>
@@ -398,56 +357,28 @@ export default function Billing() {
           <div className="bg-white rounded-md p-4 w-full max-w-4xl max-h-[90vh] overflow-auto">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-lg font-semibold">Invoice {selected.invoice_number}</h3>
-              <div className="flex items-center gap-2">
-                {(selected as any).refund_required && selected.invoice_type === "credit_note" && (
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 rounded border bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-60"
-                    onClick={() => markRefundMutation.mutate(selected)}
-                    disabled={markRefundMutation.isPending}
-                  >
-                    {markRefundMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <CheckCircle2 className="h-4 w-4" />
-                    )}
-                    Mark Refund Processed
-                  </button>
-                )}
-                <button onClick={() => setSelected(null)} className="text-sm px-2 py-1">
-                  Close
-                </button>
-              </div>
+              <button onClick={() => setSelected(null)} className="text-sm px-2 py-1">
+                Close
+              </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-4">
               <div className="rounded border p-3"><strong>Client:</strong> {(selected as any).client_name || "-"}</div>
               <div className="rounded border p-3"><strong>Client Order #:</strong> {getClientOrderNumber(selected)}</div>
-<<<<<<< Updated upstream
-              <div className="rounded border p-3"><strong>Type:</strong> {selected.invoice_type?.replace("_", " ")}</div>
-              <div className="rounded border p-3"><strong>Status:</strong> {selected.status}</div>
-              <div className="rounded border p-3">
-                <strong>Total:</strong> $
-                {(
-                  parseFloat((selected as any).total_amount ?? selected.amount ?? "0") +
-                  (((selected as DisplayInvoice).supplementalInvoices || []).reduce(
-                    (sum, child) => sum + parseFloat((child as any).total_amount ?? child.amount ?? "0"),
-                    0
-                  ))
-                ).toFixed(2)}
+                <div className="rounded border p-3"><strong>Type:</strong> {selected.invoice_type?.replace("_", " ")}</div>
+                <div className="rounded border p-3"><strong>Status:</strong> {selected.status}</div>
+                <div className="rounded border p-3">
+                  <strong>Total:</strong> $
+                  {(
+                    parseFloat((selected as any).total_amount ?? selected.amount ?? "0") +
+                    (((selected as DisplayInvoice).supplementalInvoices || []).reduce(
+                      (sum, child) => sum + parseFloat((child as any).total_amount ?? child.amount ?? "0"),
+                      0
+                    ))
+                  ).toFixed(2)}
+                </div>
+                <div className="rounded border p-3"><strong>Issued:</strong> {selected.issued_at ? new Date(selected.issued_at).toLocaleDateString() : "-"}</div>
+                <div className="rounded border p-3"><strong>Due:</strong> {selected.due_date ? new Date(selected.due_date).toLocaleDateString() : "N/A"}</div>
               </div>
-              <div className="rounded border p-3"><strong>Issued:</strong> {selected.issued_at ? new Date(selected.issued_at).toLocaleDateString() : "-"}</div>
-              <div className="rounded border p-3"><strong>Due:</strong> {selected.due_date ? new Date(selected.due_date).toLocaleDateString() : "N/A"}</div>
-              {(selected as any).refund_required && (
-                <>
-                  <div className="rounded border border-red-200 bg-red-50 p-3 text-red-800">
-                    <strong>Refund Required:</strong> ${(selected as any).refund_required_amount || selected.total_amount}
-                  </div>
-                  <div className="rounded border border-red-200 bg-red-50 p-3 text-red-800">
-                    <strong>Refund Reason:</strong> {formatLabel((selected as any).refund_required_reason || "rx_revision_over_reimbursed")}
-                  </div>
-                </>
-              )}
-            </div>
             {((selected as DisplayInvoice).supplementalInvoices || []).length > 0 && (
               <div className="mb-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm">
                 <div className="font-medium text-amber-900">Split Capture Details</div>
@@ -511,7 +442,6 @@ export default function Billing() {
                 })()}
               </div>
             )}
-
             {selected.invoice_type === "reimbursement" && (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-4">
                 <div className="rounded border p-3">
