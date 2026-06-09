@@ -1,4 +1,4 @@
-export type InvoiceType = 'reimbursement' | 'saas_fee' | 'aggregated_snapshot';
+export type InvoiceType = 'reimbursement' | 'credit_note' | 'saas_fee' | 'aggregated_snapshot';
 
 export type InvoiceStatus =
   | 'draft'
@@ -32,6 +32,10 @@ export interface B2BInvoiceItem {
   quantity: number;
   unit_price: string;
   total_amount: string;
+  refund_required?: boolean;
+  refund_required_amount?: string;
+  refund_required_reason?: string;
+  refund_required_at?: string | null;
   client_order_number?: string;
   patient_id?: string;
   patient_name?: string;

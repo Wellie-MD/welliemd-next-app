@@ -500,7 +500,7 @@ export const clientApi = {
 
   getB2BInvoices: async (
     clientId: string,
-    invoiceType?: 'reimbursement' | 'saas_fee' | 'aggregated_snapshot',
+    invoiceType?: 'reimbursement' | 'credit_note' | 'saas_fee' | 'aggregated_snapshot',
     params?: Record<string, unknown>
   ): Promise<import('../types/b2bBilling').B2BInvoiceListResponse> => {
     const mergedParams = { ...(params || {}), client_id: clientId } as Record<string, unknown>;
@@ -566,6 +566,14 @@ export const clientApi = {
    */
   payInvoiceNow: async (clientId: string, invoiceId: string): Promise<import('../types/b2bBilling').PayNowResult> => {
     const { data } = await axiosInstance.post(`/internal/clients/${clientId}/invoices/${invoiceId}/pay-now/`);
+    return data;
+  },
+
+  markB2BRefundProcessed: async (
+    clientId: string,
+    invoiceId: string
+  ): Promise<import('../types/b2bBilling').PayNowResult> => {
+    const { data } = await axiosInstance.post(`/internal/clients/${clientId}/invoices/${invoiceId}/mark-refunded/`);
     return data;
   },
 
