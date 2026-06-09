@@ -15,6 +15,7 @@ export interface FollowUpSession {
     questionnaire__name?: string;
     questionnaire__treatment_type?: string;
     status: 'CREATED' | 'VIEWED' | 'IN_PROGRESS' | 'COMPLETED' | 'EXPIRED';
+    is_active: boolean;
     created_at: string;
     expires_at: string | null;
     link_expires_at?: string | null;
@@ -95,6 +96,14 @@ export interface SendFollowUpNotificationResponse {
         sms?: string;
         follow_up_url?: string;
     };
+    error?: string;
+}
+
+export interface UpdateFollowUpActiveResponse {
+    success: boolean;
+    session_id: string;
+    status?: FollowUpSession['status'];
+    is_active?: boolean;
     error?: string;
 }
 
@@ -229,6 +238,26 @@ export async function sendFollowUpNotification(
     }
 }
 
+export async function updateFollowUpActive(
+    followUpId: string,
+    isActive: boolean
+): Promise<UpdateFollowUpActiveResponse> {
+    try {
+        const response = await axiosInstance.patch<UpdateFollowUpActiveResponse>(
+            `/questionnaires/follow-ups/${followUpId}/active/`,
+            { is_active: isActive }
+        );
+        return response.data;
+    } catch (error: any) {
+        console.error('Error updating follow-up active state:', error);
+        return {
+            success: false,
+            session_id: followUpId,
+            error: error.response?.data?.error || error.message || 'Failed to update follow-up',
+        };
+    }
+}
+
 export default {
     createFollowUp,
     getPatientFollowUps,
@@ -236,4 +265,5 @@ export default {
     getOnboardingTemplates,
     getFollowUpOrderCandidates,
     sendFollowUpNotification,
+    updateFollowUpActive,
 };

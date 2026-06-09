@@ -6,12 +6,12 @@
  * - Send new follow-up button
  * - History of follow-ups
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Clock, CheckCircle2, AlertCircle, Eye, RefreshCw, BellRing, Loader2, CalendarDays } from 'lucide-react';
-import { getPatientFollowUps, FollowUpSession, sendFollowUpNotification } from '@/api/followUpApi';
+import { Plus, Clock, CheckCircle2, AlertCircle, Eye, RefreshCw, BellRing, Loader2, CalendarDays, Power, PowerOff } from 'lucide-react';
+import { getPatientFollowUps, FollowUpSession, sendFollowUpNotification, updateFollowUpActive } from '@/api/followUpApi';
 import { SendFollowUpDialog } from './SendFollowUpDialog';
 import { useToast } from '@/hooks/use-toast';
 
@@ -59,13 +59,10 @@ export function PatientFollowUpStatus({
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [sendingReminderId, setSendingReminderId] = useState<string | null>(null);
+  const [updatingActiveId, setUpdatingActiveId] = useState<string | null>(null);
   const [recentlySentIds, setRecentlySentIds] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    loadFollowUps();
-  }, [patientId]);
-
-  const loadFollowUps = async () => {
+  const loadFollowUps = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getPatientFollowUps(patientId);
@@ -75,7 +72,11 @@ export function PatientFollowUpStatus({
     } finally {
       setLoading(false);
     }
-  };
+  }, [patientId]);
+
+  useEffect(() => {
+    loadFollowUps();
+  }, [loadFollowUps]);
 
   const handleFollowUpCreated = () => {
     loadFollowUps();
@@ -92,8 +93,11 @@ export function PatientFollowUpStatus({
     });
   };
 
-  const pendingFollowUps = followUps.filter((f) =>
-    ['CREATED', 'VIEWED', 'IN_PROGRESS'].includes(f.status)
+  const activeFollowUps = followUps.filter((f) =>
+    f.is_active !== false && ['CREATED', 'VIEWED', 'IN_PROGRESS'].includes(f.status)
+  );
+  const inactivePendingFollowUps = followUps.filter((f) =>
+    f.is_active === false && f.status === 'CREATED'
   );
   const completedFollowUps = followUps.filter((f) => f.status === 'COMPLETED');
   const expiredFollowUps = followUps.filter((f) => f.status === 'EXPIRED');
@@ -141,6 +145,45 @@ export function PatientFollowUpStatus({
     }
   };
 
+  const handleToggleActive = async (session: FollowUpSession) => {
+    if (session.status !== 'CREATED' || updatingActiveId === session.id) return;
+
+    const nextActive = session.is_active === false;
+    setUpdatingActiveId(session.id);
+    try {
+      const response = await updateFollowUpActive(session.id, nextActive);
+      if (response.success) {
+        setFollowUps((prev) =>
+          prev.map((followUp) =>
+            followUp.id === session.id
+              ? { ...followUp, is_active: response.is_active ?? nextActive }
+              : followUp
+          )
+        );
+        toast({
+          title: nextActive ? 'Follow-up activated' : 'Follow-up inactivated',
+          description: nextActive
+            ? 'This pending follow-up is visible to the patient again.'
+            : 'This pending follow-up is hidden from the patient portal.',
+        });
+      } else {
+        toast({
+          title: 'Failed to update follow-up',
+          description: response.error || 'Only pending follow-ups can be activated or inactivated.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Failed to update follow-up',
+        description: error?.message || 'Something went wrong while updating follow-up status.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingActiveId(null);
+    }
+  };
+
   return (
     <>
       <Card className="border-slate-200 shadow-sm">
@@ -167,21 +210,42 @@ export function PatientFollowUpStatus({
           ) : (
             <div className="space-y-4">
               {/* Pending/Active Follow-ups */}
-              {pendingFollowUps.length > 0 && (
+              {activeFollowUps.length > 0 && (
                 <div>
                   <h4 className="mb-2 text-sm font-medium text-muted-foreground">
-                    Active ({pendingFollowUps.length})
+                    Active ({activeFollowUps.length})
                   </h4>
                   <div className="space-y-2">
-                    {pendingFollowUps.map((followUp) => (
+                    {activeFollowUps.map((followUp) => (
                       <FollowUpRow
                         key={followUp.id}
                         followUp={followUp}
                         formatDate={formatDate}
                         onSendReminder={handleSendReminder}
+                        onToggleActive={handleToggleActive}
                         sendingReminder={sendingReminderId === followUp.id}
+                        updatingActive={updatingActiveId === followUp.id}
                         recentlySent={!!recentlySentIds[followUp.id]}
                         showReminderAction
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {inactivePendingFollowUps.length > 0 && (
+                <div>
+                  <h4 className="mb-2 text-sm font-medium text-muted-foreground">
+                    Inactive Pending ({inactivePendingFollowUps.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {inactivePendingFollowUps.map((followUp) => (
+                      <FollowUpRow
+                        key={followUp.id}
+                        followUp={followUp}
+                        formatDate={formatDate}
+                        onToggleActive={handleToggleActive}
+                        updatingActive={updatingActiveId === followUp.id}
                       />
                     ))}
                   </div>
@@ -253,7 +317,9 @@ interface FollowUpRowProps {
   followUp: FollowUpSession;
   formatDate: (date: string) => string;
   onSendReminder?: (session: FollowUpSession) => void;
+  onToggleActive?: (session: FollowUpSession) => void;
   sendingReminder?: boolean;
+  updatingActive?: boolean;
   recentlySent?: boolean;
   showReminderAction?: boolean;
 }
@@ -262,7 +328,9 @@ function FollowUpRow({
   followUp,
   formatDate,
   onSendReminder,
+  onToggleActive,
   sendingReminder = false,
+  updatingActive = false,
   recentlySent = false,
   showReminderAction = false,
 }: FollowUpRowProps) {
@@ -293,7 +361,7 @@ function FollowUpRow({
         </div>
       </div>
       <div className="flex items-center gap-2">
-        {showReminderAction && onSendReminder && (
+        {showReminderAction && followUp.is_active !== false && onSendReminder && (
           <Button
             variant="outline"
             size="sm"
@@ -309,9 +377,27 @@ function FollowUpRow({
             {recentlySent ? 'Reminder Sent' : 'Send Reminder'}
           </Button>
         )}
+        {followUp.status === 'CREATED' && onToggleActive && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8"
+            onClick={() => onToggleActive(followUp)}
+            disabled={updatingActive}
+          >
+            {updatingActive ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : followUp.is_active === false ? (
+              <Power className="mr-1.5 h-3.5 w-3.5" />
+            ) : (
+              <PowerOff className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            {followUp.is_active === false ? 'Activate' : 'Inactivate'}
+          </Button>
+        )}
         <Badge variant={config.variant} className="whitespace-nowrap">
           <CalendarDays className="mr-1 h-3 w-3" />
-          {config.label}
+          {followUp.is_active === false ? 'Inactive' : config.label}
         </Badge>
       </div>
     </div>
