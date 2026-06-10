@@ -420,6 +420,11 @@ export default function Orders() {
                     {hasRemaining ? (
                       <div className="text-[11px] text-amber-700">Remaining ${remaining.toFixed(2)}</div>
                     ) : null}
+                    {row.rx_revision_tag === 'refund_required' && (
+                      <div className="text-[10px] font-semibold text-red-600 dark:text-red-400">
+                        Refund Required
+                      </div>
+                    )}
                   </div>
                 )
               },
