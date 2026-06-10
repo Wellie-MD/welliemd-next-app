@@ -332,6 +332,7 @@ export default function OrderDetail() {
   const [order, setOrder] = useState<PatientOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [productImageFailed, setProductImageFailed] = useState(false);
 
   useEffect(() => {
     if (!orderId) return;
@@ -396,11 +397,20 @@ export default function OrderDetail() {
   const prescribedNameNormalized = rawPrescribedMedicineName?.trim().toLowerCase();
   const prescribedMedicineName =
     prescribedNameNormalized === 'same med' ||
-    prescribedNameNormalized === 'same medicine' ||
-    prescribedNameNormalized === 'same medication'
+      prescribedNameNormalized === 'same medicine' ||
+      prescribedNameNormalized === 'same medication'
       ? requestedMedicineName
       : rawPrescribedMedicineName;
   const displayAmount = order.chargeable_amount || order.amount;
+  const showProductImage = Boolean(order.product_image) && !productImageFailed;
+  const hasBeenPrescribed =
+    Boolean(order.prescribed_at) ||
+    ['prescribed', 'billing_pending', 'rx_sent', 'shipped'].includes(order.status);
+  let prescribedBy = hasBeenPrescribed ? (order.doctor_name || '').trim() : '';
+  if (prescribedBy === 'Healthcare Professional') {
+    prescribedBy = '';
+  }
+  const canContinueCheckout = order.status === 'payment_pending' && Boolean(order.checkout_url);
 
   return (
     <div className="pg" id="pg-orderdetail">
@@ -436,21 +446,37 @@ export default function OrderDetail() {
 
       {/* Product hero */}
       <div className="km-fade" style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: 16, background: 'var(--km-s1)', borderRadius: 12, marginBottom: 10, border: '1px solid var(--km-b)' }}>
-        <div style={{
-          width: 56, height: 56, borderRadius: 12,
-          background: getProductIconBg(prescribedMedicineName || requestedMedicineName),
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0, border: '1px solid var(--km-b)',
-        }}>
-          <ProductIcon productName={prescribedMedicineName || requestedMedicineName} />
-        </div>
+        {showProductImage ? (
+          <div style={{
+            width: 56, height: 56, borderRadius: 12,
+            background: 'var(--km-s3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0, border: '1px solid var(--km-b)', overflow: 'hidden',
+          }}>
+            <img
+              src={order.product_image || ''}
+              alt={prescribedMedicineName || requestedMedicineName}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              onError={() => setProductImageFailed(true)}
+            />
+          </div>
+        ) : (
+          <div style={{
+            width: 56, height: 56, borderRadius: 12,
+            background: getProductIconBg(prescribedMedicineName || requestedMedicineName),
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0, border: '1px solid var(--km-b)',
+          }}>
+            <ProductIcon productName={prescribedMedicineName || requestedMedicineName} />
+          </div>
+        )}
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Main Product Title - Hide ONLY if diff shown (per kinmeds3) */}
           {(order.status === 'prescribed' || order.status === 'rx_sent' || order.status === 'shipped') ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', marginTop: 2 }}>
-              <div style={{ 
-                background: 'var(--km-rep)', 
-                borderRadius: 8, 
+              <div style={{
+                background: 'var(--km-rep)',
+                borderRadius: 8,
                 padding: '8px 12px',
                 border: '1px solid rgba(239, 68, 68, 0.15)'
               }}>
@@ -461,7 +487,7 @@ export default function OrderDetail() {
                   {requestedMedicineName}
                 </div>
               </div>
-              
+
               <div style={{ paddingLeft: 12 }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--km-tm)' }}>
                   <line x1="12" y1="4" x2="12" y2="20" />
@@ -469,9 +495,9 @@ export default function OrderDetail() {
                 </svg>
               </div>
 
-              <div style={{ 
-                background: 'var(--km-grp)', 
-                borderRadius: 8, 
+              <div style={{
+                background: 'var(--km-grp)',
+                borderRadius: 8,
                 padding: '8px 12px',
                 border: '1px solid rgba(34, 197, 94, 0.15)'
               }}>
@@ -575,7 +601,7 @@ export default function OrderDetail() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderBottom: '1px solid var(--km-b)' }}>
           <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>Prescribed by</span>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>{order.doctor_name || 'Healthcare Professional'}</span>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>{prescribedBy}</span>
         </div>
         {(order.booking_scheduled_at || order.booking_location) && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderBottom: '1px solid var(--km-b)' }}>
@@ -602,8 +628,20 @@ export default function OrderDetail() {
 
       {/* Action buttons — using km-btn classes */}
       <div className="km-fade" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {canContinueCheckout && (
+          <button
+            className="km-btn km-btn-primary"
+            style={{ width: '100%', justifyContent: 'center', padding: '12px 16px' }}
+            onClick={() => {
+              window.location.assign(order.checkout_url as string);
+            }}
+          >
+            <CreditCard size={14} />
+            Continue to Checkout
+          </button>
+        )}
         <button
-          className="km-btn km-btn-primary"
+          className={canContinueCheckout ? 'km-btn km-btn-outline' : 'km-btn km-btn-primary'}
           style={{ width: '100%', justifyContent: 'center', padding: '12px 16px' }}
           onClick={() => {
             const orderRef = ref || order.id;

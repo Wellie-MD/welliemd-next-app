@@ -50,6 +50,7 @@ export interface PatientOrder {
     status: OrderStatus;
     status_display: string;
     product_name: string;
+    product_image?: string | null;
     pharmacy_name: string | null;
     tracking_number: string | null;
     shipping_carrier?: string | null;
@@ -62,6 +63,7 @@ export interface PatientOrder {
     requested_medicine_name?: string | null;
     prescribed_medicine_name?: string | null;
     doctor_name?: string | null;
+    checkout_url?: string | null;
     booking_scheduled_at?: string | null;
     booking_location?: string | null;
     created_at: string;

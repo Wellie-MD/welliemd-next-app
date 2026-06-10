@@ -2868,6 +2868,18 @@ body.light .km-btn-large-grey:hover {
   background: transparent;
 }
 
+#pg-orders .km-oimg-photo {
+  overflow: hidden;
+  background: var(--km-s3);
+}
+
+#pg-orders .km-oimg-photo-el {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 /* Completed badge — softer green */
 .km-badge-green-soft {
   background: rgba(34, 197, 94, 0.08);

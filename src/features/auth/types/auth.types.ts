@@ -92,6 +92,7 @@ export const RegisterRequestSchema = z.object({
 // Forgot password request schema
 export const ForgotPasswordRequestSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
+  portal: z.enum(['patient', 'client']).optional().default('patient'),
 });
 
 // Reset password request schema
