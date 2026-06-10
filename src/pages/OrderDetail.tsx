@@ -1983,14 +1983,29 @@ export default function OrderDetail() {
                   )}
                   {canRefundOrVoid && (
                     <PermissionGate permission={Permissions.REFUND_CREATE}>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-[10px] h-6 border-red-200 text-red-500 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400"
-                        onClick={() => setShowRefundDialog(true)}
-                      >
-                        <Undo2 className="h-3 w-3 mr-1" /> Refund
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {(order as any)?.rx_revision_tag === "refund_required" && (
+                          <span className="text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded border border-red-200 dark:border-red-800">
+                            Refund Required: ${parseFloat((order as any)?.rx_revision_refund_required_amount || "0").toFixed(2)}
+                          </span>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-[10px] h-6 border-red-200 text-red-500 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400"
+                          onClick={() => {
+                            if ((order as any)?.rx_revision_tag === "refund_required") {
+                              const amt = parseFloat((order as any)?.rx_revision_refund_required_amount || "0");
+                              if (amt > 0) setRefundAmount(amt.toFixed(2));
+                            } else {
+                              setRefundAmount("");
+                            }
+                            setShowRefundDialog(true);
+                          }}
+                        >
+                          <Undo2 className="h-3 w-3 mr-1" /> Refund
+                        </Button>
+                      </div>
                     </PermissionGate>
                   )}
                 </div>
