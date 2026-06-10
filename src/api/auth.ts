@@ -41,7 +41,7 @@ export const refreshToken = async (): Promise<{ access: string }> => {
 
 // Request password reset
 export const requestPasswordReset = async (email: string): Promise<void> => {
-  await api.post("/auth/password-reset/request/", { email });
+  await api.post("/auth/password-reset/request/", { email, portal: "client" });
 };
 
 // Confirm password reset

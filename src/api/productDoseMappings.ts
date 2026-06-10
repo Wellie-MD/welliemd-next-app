@@ -53,7 +53,31 @@ export const listDoseMappings = async (
   const response = await axiosInstance.get("/products/dose-mappings/", {
     params,
   });
-  return response.data;
+  const data = response.data;
+  if (!data || !Array.isArray(data.results) || !data.next) {
+    return data;
+  }
+
+  const firstPage = data.results;
+  const totalCount = Number(data.count || firstPage.length);
+  const pageSize = firstPage.length || Number(params?.page_size) || 100;
+  const pageCount = Math.ceil(totalCount / pageSize);
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) =>
+      axiosInstance.get("/products/dose-mappings/", {
+        params: { ...params, page: index + 2, page_size: pageSize },
+      })
+    )
+  );
+
+  return {
+    ...data,
+    results: [
+      ...firstPage,
+      ...remainingPages.flatMap((page) => page.data?.results || []),
+    ],
+  };
 };
 
 /**
@@ -107,6 +131,6 @@ export const deleteDoseMapping = async (id: number): Promise<void> => {
 export const getDoseMappingsByCategory = async (
   categoryId: number
 ): Promise<ProductDoseMapping[]> => {
-  const response = await listDoseMappings({ category: categoryId });
+  const response = await listDoseMappings({ category: categoryId, page_size: 100 });
   return response.results;
 };

@@ -30,7 +30,6 @@ import Orders from "./pages/Orders";
 import Prescriptions from "./pages/Prescriptions";
 import NotFound from "./pages/NotFound";
 import Payments from "./pages/Payments";
-import ProductAssignment from "./pages/ProductAssignment";
 import SignIn from "./pages/auth/SignIn";
 import SignUp from "./pages/auth/SignUp";
 import ForgotPassword from "./pages/auth/ForgotPassword";
@@ -74,6 +73,36 @@ const App = () => {
     };
 
     initializeAuth();
+  }, []);
+
+  useEffect(() => {
+    const AUTH_SYNC_EVENT_KEY = "admin-auth-sync-event";
+
+    const handleStorage = async (event: StorageEvent) => {
+      if (event.key !== AUTH_SYNC_EVENT_KEY || !event.newValue) {
+        return;
+      }
+
+      try {
+        const payload = JSON.parse(event.newValue) as { type?: "login" | "logout" };
+        const authStore = useAuthStore.getState();
+
+        if (payload.type === "logout") {
+          authStore.logout();
+          return;
+        }
+
+        if (payload.type === "login") {
+          authStore.clearExpiredSession();
+          await authService.hydrateAuth();
+        }
+      } catch (error) {
+        console.warn("Failed to process auth sync event:", error);
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
   if (!isInitialized) {
@@ -130,7 +159,7 @@ const App = () => {
                     {/* <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} /> // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-2 */}
                     {/* <Route path="/prescriptions" element={<ProtectedRoute><Prescriptions /></ProtectedRoute>} />  */} // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-3
                     <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
-                    <Route path="/products/assign" element={<ProtectedRoute><ProductAssignment /></ProtectedRoute>} />
+                    <Route path="/products/assign" element={<ProtectedRoute><Navigate to="/dashboard/products" replace /></ProtectedRoute>} />
                     <Route path="/products/dose-mappings" element={<ProtectedRoute><ProductDoseMappings /></ProtectedRoute>} />
                     <Route path="/products/config" element={<ProtectedRoute><ProductConfig /></ProtectedRoute>} />
                     <Route path="/products/supplies" element={<ProtectedRoute><Supplies /></ProtectedRoute>} />
