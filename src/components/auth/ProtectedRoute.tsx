@@ -4,6 +4,13 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { Skeleton } from '../ui/skeleton';
 import { Permission } from '@/constants/permissions';
+import { RoleNames } from '@/constants/permissions';
+
+const CLIENT_PORTAL_ROLES = new Set<string>([
+  RoleNames.PRIMARY_OWNER,
+  RoleNames.ADMIN,
+  RoleNames.CUSTOMER_SERVICE,
+]);
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -24,6 +31,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isLoading = useAuthStore((state) => state.isLoading);
+  const user = useAuthStore((state) => state.user);
   const location = useLocation();
   const { hasPermission, hasAnyPermission } = usePermissions();
 
@@ -37,6 +45,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   if (!isAuthenticated) {
     return <Navigate to="/auth/signin" state={{ from: location }} replace />;
+  }
+
+  if (!user?.primary_role || !CLIENT_PORTAL_ROLES.has(user.primary_role)) {
+    return <Navigate to="/forbidden" replace />;
   }
 
   // Check permissions if required
