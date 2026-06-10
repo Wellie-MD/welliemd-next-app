@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { TrendingUp, Grid3X3, Eye } from "lucide-react"
+import { Eye } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { ordersApi, Order } from "@/api/ordersApi"
 import { exportToCSV } from "@/utils/exportUtils"
@@ -130,6 +129,42 @@ const parseMoney = (value: unknown): number | null => {
   return Number.isFinite(n) ? n : null
 }
 
+const stripPharmacyAddress = (value?: string | null) => {
+  if (!value) return "-"
+  const trimmed = value.trim()
+  if (!trimmed) return "-"
+
+  const addressPattern = /\b(?:\d{3,}|street|st\.?|avenue|ave\.?|road|rd\.?|boulevard|blvd\.?|drive|dr\.?|lane|ln\.?|suite|ste\.?|city|state|zip)\b/i
+  const separators = [" - ", " | ", " · "]
+  for (const separator of separators) {
+    const [first, ...rest] = trimmed.split(separator)
+    if (first && rest.length > 0 && rest.some((part) => addressPattern.test(part))) {
+      return first.trim()
+    }
+  }
+
+  const commaParts = trimmed.split(",").map((part) => part.trim()).filter(Boolean)
+  if (commaParts.length > 1 && commaParts.slice(1).some((part) => addressPattern.test(part))) {
+    return commaParts[0]
+  }
+
+  return trimmed
+}
+
+const formatMoneyLabel = (value: unknown) => {
+  const amount = parseMoney(value)
+  if (amount == null) return "0.00"
+  return `$${amount.toFixed(2)}`
+}
+
+const formatStatusLabel = (value?: string | null) => {
+  if (!value) return "-"
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
 export default function Orders() {
   const [searchTerm, setSearchTerm] = useState("")
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
@@ -143,12 +178,7 @@ export default function Orders() {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [isLoadingOrders, setIsLoadingOrders] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [editedStatuses, setEditedStatuses] = useState<Record<string, string>>({})
-  const [editedTrackingNumbers, setEditedTrackingNumbers] = useState<Record<string, string>>({})
-  const [savingId, setSavingId] = useState<string | null>(null)
 
   // Order Details Sheet state
   const navigate = useNavigate()
@@ -160,7 +190,38 @@ export default function Orders() {
     return () => clearTimeout(timeout)
   }, [searchTerm])
 
-  const filteredOrders = useMemo(() => orders, [orders])
+  const displayOrders = useMemo(() => orders.map(o => {
+    const paymentSettlementAmount = (o as Order & { payment_settlement_amount?: string | number | null }).payment_settlement_amount
+    const settlementState = String((o as Order & { payment_settlement_state?: string | null }).payment_settlement_state || "").toLowerCase()
+    const settlementBasis = String((o as Order & { payment_settlement_basis?: string | null }).payment_settlement_basis || "").toLowerCase()
+    const amountSource = String((o as Order & { chargeable_amount_source?: string | null }).chargeable_amount_source || "").toLowerCase()
+    const hasSettlementAmount = paymentSettlementAmount != null && paymentSettlementAmount !== ""
+    const shouldUsePrescribedAmount =
+      hasSettlementAmount &&
+      (
+        settlementState === "captured" ||
+        settlementBasis === "prescribed" ||
+        amountSource === "prescribed_medicine"
+      )
+    const rawTotal = shouldUsePrescribedAmount
+      ? paymentSettlementAmount
+      : (o.pricing?.grand_total || o.grand_total || o.payable_amount || o.orderTotal || o.amount || '0.00')
+
+    return {
+      ...o,
+      order_number: o.order_id || o.display_id || "-",
+      patient_name: o.patient?.full_name || (o as Order & { patient_name?: string | null }).patient_name || o.name || o.email || '-',
+      patient_email: (o as Order & { patient_email?: string | null }).patient_email || o.email || '-',
+      patient_phone: (o as Order & { patient_phone?: string | null }).patient_phone || o.phone || '-',
+      product_name: o.product_name || '-',
+      pharmacy_name_only: stripPharmacyAddress(o.pharmacy_name || o.pharmacy_display),
+      orderDate: o.orderDate || o.created_at,
+      orderStatus: o.orderStatus || o.status || 'created',
+      orderTotal: rawTotal,
+    }
+  }), [orders])
+
+  const filteredOrders = useMemo(() => displayOrders, [displayOrders])
 
   // Same pill layout as admin portal: Order Status group, then Payment Status group
   const filters = useMemo(
@@ -247,97 +308,9 @@ export default function Orders() {
     loadOrders()
   }, [loadOrders])
 
-  const handleStatusChange = (id: string, value: string) => {
-    setEditedStatuses(prev => ({ ...prev, [id]: value }))
-  }
-
-  const handleTrackingNumberChange = (id: string, value: string) => {
-    setEditedTrackingNumbers(prev => ({ ...prev, [id]: value }))
-  }
-
-  const handleSaveOrder = async (id: string) => {
-    const newStatus = editedStatuses[id]
-    const newTrackingNumber = editedTrackingNumbers[id]
-
-    if (newStatus == null && newTrackingNumber == null) return
-
-    // Find the current order to get existing tracking number
-    const currentOrder = orders.find(o => o.id === id)
-    const existingTrackingNumber = currentOrder?.tracking_number
-
-    // Validate: tracking number required when setting status to 'shipped'
-    if (newStatus === 'shipped') {
-      const trackingToUse = newTrackingNumber ?? existingTrackingNumber
-      if (!trackingToUse || !trackingToUse.trim()) {
-        setError('Tracking number is required when setting status to Shipped. Please enter a tracking number first.')
-        return
-      }
-    }
-
-    setSavingId(id)
-    setError(null)
-    setSuccess(null)
-    try {
-      const payload: Partial<Order> = {}
-      if (newStatus != null) payload.status = newStatus
-      if (newTrackingNumber != null) payload.tracking_number = newTrackingNumber
-
-      await ordersApi.updateOrder(id, payload)
-      setSuccess('Order updated')
-      // clear local edited values for this row
-      setEditedStatuses(prev => {
-        const copy = { ...prev }
-        delete copy[id]
-        return copy
-      })
-      setEditedTrackingNumbers(prev => {
-        const copy = { ...prev }
-        delete copy[id]
-        return copy
-      })
-      await loadOrders()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update order')
-      console.error('Update order error:', err)
-    } finally {
-      setSavingId(null)
-    }
-  }
-
-
-  const handleCreateOrder = async () => {
-    const name = window.prompt('Patient name')
-    if (!name) return
-    const email = window.prompt('Email') || ''
-    const amount = window.prompt('Amount (e.g. 49.00)') || '0.00'
-    setIsSaving(true)
-    setError(null)
-    setSuccess(null)
-    try {
-      await ordersApi.createOrder({ name, email, amount })
-      setSuccess('Order created')
-      await loadOrders()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create order')
-      console.error('Create order error:', err)
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
   const handleExport = useCallback(() => {
     exportToCSV(filteredOrders, orderColumns, 'orders_export')
   }, [filteredOrders])
-
-  const handleUpgrade = () => {
-    console.log("Upgrade clicked")
-    // Implement upgrade logic
-  }
-
-  const handleGridView = () => {
-    console.log("Grid view clicked")
-    // Implement grid view toggle logic
-  }
 
   return (
     <div className="p-6 space-y-6">
@@ -350,16 +323,6 @@ export default function Orders() {
             <span>All Orders</span>
           </div>
         </div>
-        {/* Right side buttons that were originally in the top row */}
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2" onClick={handleUpgrade}>
-            <TrendingUp className="h-4 w-4" />
-            Upgrade
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleGridView}>
-            <Grid3X3 className="h-4 w-4" />
-          </Button>
-        </div>
       </div>
 
       {error && (
@@ -368,50 +331,45 @@ export default function Orders() {
 
       <DataTable
         key={dataTableKey}
-        data={filteredOrders.map(o => {
-          const paymentSettlementAmount = (o as Order & { payment_settlement_amount?: string | number | null }).payment_settlement_amount
-          const settlementState = String((o as Order & { payment_settlement_state?: string | null }).payment_settlement_state || "").toLowerCase()
-          const settlementBasis = String((o as Order & { payment_settlement_basis?: string | null }).payment_settlement_basis || "").toLowerCase()
-          const amountSource = String((o as Order & { chargeable_amount_source?: string | null }).chargeable_amount_source || "").toLowerCase()
-          const hasSettlementAmount = paymentSettlementAmount != null && paymentSettlementAmount !== ""
-          const shouldUsePrescribedAmount =
-            hasSettlementAmount &&
-            (
-              settlementState === "captured" ||
-              settlementBasis === "prescribed" ||
-              amountSource === "prescribed_medicine"
-            )
-
-          return {
-            ...o,
-            patient_name: o.patient?.full_name || o.name || o.email || '-',
-            orderTotal: shouldUsePrescribedAmount
-              ? paymentSettlementAmount
-              : (o.pricing?.grand_total || o.grand_total || o.payable_amount || o.orderTotal || o.amount || '0.00'),
-          }
-        })}
+        data={filteredOrders}
         columns={orderColumns.map(col => {
           // Canonical order number (matches invoice/admin priority).
-          if (col.key === 'order_id') {
-            return {
-              ...col,
-              render: (_: any, row: any) => (
-                <span className="text-sm font-medium">{row.order_id ?? row.display_id ?? '—'}</span>
-              ),
-            }
-          }
-
-          // Make the patient column clickable to open order detail page
-          if (col.key === 'patient_name') {
+          if (col.key === 'order_number') {
             return {
               ...col,
               render: (_: any, row: any) => {
                 const detailId = row.id
+                const orderLabel = row.order_number || '—'
+                if (!detailId) {
+                  return <span className="text-sm font-medium">{orderLabel}</span>
+                }
                 return (
                   <button
-                    onClick={() => detailId && navigate(`/dashboard/orders/details/${detailId}`)}
+                    type="button"
+                    onClick={() => navigate(`/dashboard/orders/details/${detailId}`)}
                     className="text-primary hover:underline font-medium text-left"
-                    disabled={!detailId}
+                  >
+                    {orderLabel}
+                  </button>
+                )
+              },
+            }
+          }
+
+          // Make the patient column clickable to open patient detail page
+          if (col.key === 'patient_name') {
+            return {
+              ...col,
+              render: (_: any, row: any) => {
+                const patientId = row.patient?.id
+                if (!patientId) {
+                  return <span className="text-sm font-medium">{row.patient_name || '-'}</span>
+                }
+                return (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/dashboard/patients/${patientId}`)}
+                    className="text-primary hover:underline font-medium text-left break-words"
                   >
                     {row.patient_name || '-'}
                   </button>
@@ -426,26 +384,15 @@ export default function Orders() {
               render: (_: any, row: any) => {
                 const detailId = row.id
                 return (
-                  <div className="flex gap-2">
+                  <div className="flex gap-1">
                     <Button
                       size="sm"
                       variant="ghost"
+                      className="h-8 w-8 p-0"
                       onClick={() => detailId && navigate(`/dashboard/orders/details/${detailId}`)}
                       disabled={!detailId}
                     >
                       <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleSaveOrder(row.id)}
-                      disabled={
-                        savingId === row.id ||
-                        (!(editedStatuses[row.id] && editedStatuses[row.id] !== (row.orderStatus || '')) &&
-                          !(editedTrackingNumbers[row.id] !== undefined && editedTrackingNumbers[row.id] !== (row.tracking_number || '')))
-                      }
-                    >
-                      {savingId === row.id ? 'Saving...' : 'Save'}
                     </Button>
                   </div>
                 )
@@ -453,7 +400,7 @@ export default function Orders() {
             }
           }
 
-          if (['orderDate', 'datePrescribed', 'paymentDate'].includes(col.key)) {
+          if (col.key === 'orderDate') {
             return {
               ...col,
               render: (_: any, row: any) => formatDateLabel(row[col.key]),
@@ -465,7 +412,6 @@ export default function Orders() {
               ...col,
               render: (_: any, row: any) => {
                 const currentStatus = row.orderStatus ?? 'created'
-                const isLocked = currentStatus === 'shipped' || currentStatus === 'canceled'
                 const isPrescribedStatus = String(currentStatus || "").toLowerCase() === "prescribed"
                 const recoveryState = String(row.payment_recovery_state || "").toLowerCase()
                 const remaining = parseMoney(row.remaining_supplemental_amount)
@@ -478,22 +424,9 @@ export default function Orders() {
 
                 return (
                   <div className="relative space-y-1">
-                    <Select
-                      value={editedStatuses[row.id] ?? currentStatus}
-                      onValueChange={(v) => handleStatusChange(row.id, v)}
-                      disabled={isLocked}
-                    >
-                      <SelectTrigger className={`w-44 ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}`}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ORDER_STATUS_CHOICES.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Badge variant="outline" className="max-w-full whitespace-normal text-left">
+                      {row.status_display || formatStatusLabel(currentStatus)}
+                    </Badge>
                     {hasRecoveryPending ? (
                       <Badge className="bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-100">
                         Recovery Pending
@@ -513,7 +446,7 @@ export default function Orders() {
                 const hasRemaining = remaining != null && remaining > 0
                 return (
                   <div className="space-y-1">
-                    <div>{row.orderTotal || '0.00'}</div>
+                    <div>{formatMoneyLabel(row.orderTotal)}</div>
                     {hasRemaining ? (
                       <div className="text-[11px] text-amber-700">Remaining ${remaining.toFixed(2)}</div>
                     ) : null}
@@ -522,7 +455,6 @@ export default function Orders() {
               },
             }
           }
-
 
           if (col.key === 'tracking_number') {
             return {
@@ -558,11 +490,10 @@ export default function Orders() {
               }
             }
           }
-
-
           return col
         })}
-        searchPlaceholder="Search by Order ID, Order#, affiliate order #, MRN#, patient name, phone number"
+        fitToWidth={true}
+        searchPlaceholder="Search by order number, patient name, email, or phone"
         showDatePicker={true}
         showExport={true}
         showResetFilters={true}
@@ -584,7 +515,7 @@ export default function Orders() {
             setCurrentPage(1)
           },
         }}
-        loading={isLoadingOrders || isSaving}
+        loading={isLoadingOrders}
       />
     </div>
   )

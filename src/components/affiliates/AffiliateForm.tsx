@@ -92,6 +92,19 @@ export default function AffiliateForm({ mode, open, onOpenChange, onSuccess, aff
             value={form.discount_value}
             onChange={handleChange}
           />
+
+          <div>
+            <label className="text-sm font-medium">Status</label>
+            <select
+              name="is_active"
+              value={form.is_active ? "true" : "false"}
+              onChange={(e) => setForm((prev) => ({ ...prev, is_active: e.target.value === "true" }))}
+              className="w-full border rounded p-2 bg-background text-foreground dark:bg-slate-900 dark:border-slate-700"
+            >
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 mt-4">
