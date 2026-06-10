@@ -224,7 +224,9 @@ export function ProductSelector({
   };
 
   const handleRegimenSelect = (regimenCode: string) => {
-    if (!savedCategoryName) return;
+    if (!regimenCode || !savedCategoryName) return;
+    // No-op: skip if same regimen already selected
+    if (regimenCode === value?.regimen) return;
 
     const selectedRegimen = regimens.find((r) => r.code === regimenCode);
     
@@ -254,6 +256,9 @@ export function ProductSelector({
         <Select
           value={selectedCategoryValue}
           onValueChange={(categoryName) => {
+            if (!categoryName) return;
+            // No-op: skip if same category already selected
+            if (categoryName === selectedCategoryValue) return;
             const selectedCategory = categories.find(c => c.name === categoryName);
             onChange({
               category_id: selectedCategory ? Number(selectedCategory.id) : undefined,
@@ -319,7 +324,13 @@ export function ProductSelector({
           <Select
             value={selectedDoseMappingValue}
             onValueChange={(doseMappingId) => {
-              if (doseMappingId === "__saved_dose_mapping__") return;
+              // Guard: ignore sentinel, empty, and non-numeric values
+              // (Radix Select can fire onValueChange("") during mount/reconciliation)
+              if (!doseMappingId || doseMappingId === "__saved_dose_mapping__") return;
+              const numericId = parseInt(doseMappingId, 10);
+              if (!Number.isFinite(numericId) || numericId <= 0) return;
+              // No-op: skip if already selected
+              if (savedDoseMappingId === numericId) return;
               const selectedDoseMapping = doseMappings.find(
                 (dm) => dm.id.toString() === doseMappingId
               );
@@ -327,8 +338,8 @@ export function ProductSelector({
                 ...value,
                 category: selectedCategory?.name || savedCategoryName,
                 category_id: selectedCategory ? Number(selectedCategory.id) : value?.category_id,
-                dose_mapping: parseInt(doseMappingId),
-                dose_mapping_id: parseInt(doseMappingId),
+                dose_mapping: numericId,
+                dose_mapping_id: numericId,
                 dose_mapping_label: selectedDoseMapping?.patient_label,
                 dose_mapping_name: selectedDoseMapping?.name,
               });
