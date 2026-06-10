@@ -18,6 +18,8 @@ interface User {
   id: string;
   email: string;
   name: string;
+  roles?: string[];
+  primary_role?: string;
 }
 
 interface LoginResponse {
@@ -44,7 +46,7 @@ export const authService = {
     const { data } = await api.post<LoginResponse>('/auth/login/', {
       email: normalizeEmail(credentials.email),
       password: credentials.password,
-      // portal: 'client'
+      portal: 'client'
     });
     const { access: accessToken, user } = data;
     

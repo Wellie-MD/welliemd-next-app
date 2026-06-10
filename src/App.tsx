@@ -68,11 +68,13 @@ const App = () => {
         <Route
           path="/dashboard/*"
           element={
-            <BrandingProvider>
-              <MessagesProvider pollIntervalMs={30000}>
-                <DashboardFrame />
-              </MessagesProvider>
-            </BrandingProvider>
+            <ProtectedRoute>
+              <BrandingProvider>
+                <MessagesProvider pollIntervalMs={30000}>
+                  <DashboardFrame />
+                </MessagesProvider>
+              </BrandingProvider>
+            </ProtectedRoute>
           }
         />
 
