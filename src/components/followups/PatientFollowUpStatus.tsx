@@ -161,7 +161,7 @@ export function PatientFollowUpStatus({
           )
         );
         toast({
-          title: nextActive ? 'Follow-up activated' : 'Follow-up deactivated',
+          title: nextActive ? 'Follow-up activated' : 'Follow-up inactivated',
           description: nextActive
             ? 'This pending follow-up is visible to the patient again.'
             : 'This pending follow-up is hidden from the patient portal.',
@@ -169,7 +169,7 @@ export function PatientFollowUpStatus({
       } else {
         toast({
           title: 'Failed to update follow-up',
-          description: response.error || 'Only pending follow-ups can be activated or deactivated.',
+          description: response.error || 'Only pending follow-ups can be activated or inactivated.',
           variant: 'destructive',
         });
       }
@@ -392,7 +392,7 @@ function FollowUpRow({
             ) : (
               <PowerOff className="mr-1.5 h-3.5 w-3.5" />
             )}
-            {followUp.is_active === false ? 'Activate' : 'Deactivate'}
+            {followUp.is_active === false ? 'Activate' : 'Inactivate'}
           </Button>
         )}
         <Badge variant={config.variant} className="whitespace-nowrap">
