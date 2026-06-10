@@ -43,7 +43,9 @@ export function FollowUpList({ onStartFollowUp }: FollowUpListProps) {
   }
 
   // Only show action required questionnaires according to kinmeds3 tracking
-  const pendingFollowUps = followUps.filter(f => ['CREATED', 'VIEWED', 'IN_PROGRESS'].includes(f.status));
+  const pendingFollowUps = followUps.filter(f =>
+    f.is_active !== false && ['CREATED', 'VIEWED', 'IN_PROGRESS'].includes(f.status)
+  );
 
   if (pendingFollowUps.length === 0) {
     return null; // Or some empty state, but kinmeds3 usually hides the section if 0
