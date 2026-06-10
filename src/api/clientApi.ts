@@ -569,6 +569,11 @@ export const clientApi = {
     return data;
   },
 
+  markB2BRefundProcessed: async (clientId: string, invoiceId: string): Promise<unknown> => {
+    const { data } = await axiosInstance.post(`/internal/clients/${clientId}/invoices/${invoiceId}/mark-refunded/`);
+    return data;
+  },
+
   /**
    * Admin pay all outstanding blocking invoices for a client.
    */

@@ -56,6 +56,10 @@ export interface B2BInvoice {
   status: InvoiceStatus;
   is_overdue?: boolean;
   total_amount: string;
+  refund_required?: boolean;
+  refund_required_amount?: string;
+  refund_required_reason?: string;
+  refund_required_at?: string | null;
 
   // Breakdown for aggregated snapshots
   active_patients_fee?: string;
