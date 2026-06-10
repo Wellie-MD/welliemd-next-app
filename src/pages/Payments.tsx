@@ -39,6 +39,8 @@ function transformTransactionForDisplay(transaction: DisplayPaymentRow) {
 
   return {
     ...transaction,
+    patient_name: transaction.patient_name || '-',
+    order_number: transaction.order_number || '-',
     created_at: format(new Date(transaction.created_at), 'dd/MM/yyyy HH:mm'),
     status: transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1),
     refund_status: refundStatus.charAt(0).toUpperCase() + refundStatus.slice(1),
@@ -68,6 +70,8 @@ function transformTransactionForDisplay(transaction: DisplayPaymentRow) {
 // Column configuration for the data table
 const paymentColumns = [
   { key: "created_at", label: "Created At" },
+  { key: "patient_name", label: "Patient Name" },
+  { key: "order_number", label: "Order ID" },
   {
     key: "processor_transaction_id",
     label: "Transaction ID",
@@ -179,9 +183,22 @@ export default function Payments() {
     const rows: DisplayPaymentRow[] = []
     transactions.forEach((tx) => {
       if (tx.settlement_role === "supplemental_delta") return
-      const children = supplementalByParent.get(tx.id) || []
+      const backendChildren = Array.isArray((tx as DisplayPaymentRow).split_children)
+        ? (tx as DisplayPaymentRow).split_children || []
+        : []
+      const pageChildren = supplementalByParent.get(tx.id) || []
+      const seenChildIds = new Set<string>()
+      const children = [...backendChildren, ...pageChildren].filter((child) => {
+        const key = child.id || child.processor_transaction_id || `${child.processor}-${child.amount}`
+        if (seenChildIds.has(key)) return false
+        seenChildIds.add(key)
+        return true
+      })
       const supplementalTotal = children.reduce((sum, child) => sum + parseFloat(child.amount || "0"), 0)
-      const total = parseFloat(tx.amount || "0") + supplementalTotal
+      const backendTotal = parseFloat((tx as DisplayPaymentRow).split_total_amount || "")
+      const total = Number.isFinite(backendTotal)
+        ? backendTotal
+        : parseFloat(tx.amount || "0") + supplementalTotal
       rows.push({
         ...tx,
         split_children: children,

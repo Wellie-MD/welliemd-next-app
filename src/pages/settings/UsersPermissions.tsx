@@ -173,7 +173,7 @@ export default function UsersPermissions() {
       </div>
 
       {/* Render sections for each role */}
-      {['Super Admin', 'Primary Owner', 'Admin', 'Customer Service'].map((roleName) => {
+      {['Primary Owner', 'Admin', 'Customer Service'].map((roleName) => {
         const roleUsers = usersByRole[roleName] || [];
         if (roleUsers.length === 0) return null;
 

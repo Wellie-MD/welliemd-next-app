@@ -6,6 +6,8 @@ export interface Affiliate {
     slug: string;
     commission_type: "flat" | "percent";
     commission_value: string;
+    total_referrals: number;
+    total_commission: string;
     discount_type: "flat" | "percent";
     discount_value: string;
     referral_link: string;

@@ -55,6 +55,7 @@ export interface QuestionnairePhoto {
 export interface PrescriptionMedication {
   name?: string
   strength?: string
+  price?: string | number | null
   refills?: string
   quantity?: string
   medId?: string
@@ -131,6 +132,8 @@ export interface Order {
   payment_settlement_transactions?: OrderSettlementTransaction[]
   totalRefunded?: string | null
   refundableAmount?: string | null
+  baseRefundableAmount?: string | null
+  supplementalRefundableAmount?: string | null
   created_at?: string
   updated_at?: string
   name?: string
@@ -162,6 +165,7 @@ export interface Order {
   notes?: string | null
   // Detail page: from PrescriptionEvent / Visit
   product_name?: string | null
+  product_image?: string | null
   treatment_type?: string | null
   treatment?: string | null
   doctor_name?: string | null
@@ -193,6 +197,7 @@ export interface PaginatedOrdersResponse {
 
 export interface OrderRefundRequest {
   amount?: string | number
+  refund_target?: "auto" | "base" | "supplemental"
   reason: string
   reason_description?: string
   notes?: string
@@ -225,6 +230,14 @@ export interface RetryPaymentResponse {
   transaction_status?: string
   reason_code?: string
   retryable?: boolean
+}
+
+export interface SendCheckoutLinkResponse {
+  success: boolean
+  code?: string
+  message?: string
+  order_id?: string
+  order_display_id?: string
 }
 
 export interface UpdateQuestionnaireImagesPayload {
@@ -341,6 +354,16 @@ export const retryPayment = async (id: string, payload: RetryPaymentPayload): Pr
   }
 }
 
+export const sendCheckoutLink = async (id: string): Promise<SendCheckoutLinkResponse> => {
+  try {
+    const { data } = await api.post<SendCheckoutLinkResponse>(`${ENDPOINT}${id}/send-checkout-link/`)
+    return data
+  } catch (error) {
+    console.error(`Failed to send checkout link for order ${id}:`, error)
+    throw error
+  }
+}
+
 export const changeProduct = async (
   orderId: string,
   newProductId: number | string,
@@ -382,6 +405,7 @@ export const ordersApi = {
   searchOrders,
   refundOrder,
   retryPayment,
+  sendCheckoutLink,
   changeProduct,
   updateOrderQuestionnaireImages,
 }

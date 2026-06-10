@@ -36,11 +36,13 @@ interface RefreshResponse {
 
 let refreshPromise: Promise<string | null> | null = null;
 
+const normalizeEmail = (email: string): string => email.trim().toLowerCase();
+
 export const authService = {
   login: async (credentials: LoginCredentials): Promise<User> => {
     // Include portal in the request payload
     const { data } = await api.post<LoginResponse>('/auth/login/', {
-      email: credentials.email,
+      email: normalizeEmail(credentials.email),
       password: credentials.password,
       // portal: 'client'
     });
@@ -67,7 +69,7 @@ export const authService = {
     try {
       const { data } = await api.post<RegisterResponse>('/auth/register/', {
         name: credentials.name.trim(),
-        email: credentials.email.trim().toLowerCase(),
+        email: normalizeEmail(credentials.email),
         password: credentials.password,
       });
       
@@ -282,7 +284,7 @@ export const authService = {
   },
 
   requestPasswordReset: async (email: string): Promise<void> => {
-    await api.post('/auth/password-reset/request/', { email });
+    await api.post('/auth/password-reset/request/', { email, portal: 'client' });
   },
 
   confirmPasswordReset: async (uid: string, token: string, newPassword: string): Promise<void> => {

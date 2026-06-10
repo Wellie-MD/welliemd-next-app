@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
 
 const toMoney = (value?: string | number | null) => {
   const num = typeof value === "number" ? value : Number(value ?? 0)
@@ -29,11 +30,13 @@ type ProductFormValues = {
   safety_information?: string
   side_effects?: string
   quantity?: string
+  is_active?: boolean
   
   // Client-editable pricing fields
   base_price?: string
   shipping_fee_patient?: string
   discounted_price?: string
+  service_states?: string[]
   
   // Read-only fields (displayed but not editable)
   name: string
@@ -51,6 +54,23 @@ type ProductFormValues = {
   shipping_cost_to_welliemd?: string
 }
 
+const US_STATES = [
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+  "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+  "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+  "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+  "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC", "PR",
+]
+
+const normalizeStates = (states?: string[] | null) =>
+  Array.from(
+    new Set(
+      (states || [])
+        .map((state) => String(state || "").trim().toUpperCase())
+        .filter(Boolean)
+    )
+  )
+
 export default function AddProductForm({
   open,
   onOpenChange,
@@ -62,7 +82,7 @@ export default function AddProductForm({
   onSuccess?: () => void
   product?: Product | null
 }) {
-  const { register, handleSubmit, reset, setValue } = useForm<ProductFormValues>()
+  const { register, handleSubmit, reset, setValue, watch } = useForm<ProductFormValues>()
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
   const isSupplyProduct = product?.product_type === "supply"
@@ -71,6 +91,11 @@ export default function AddProductForm({
     Boolean(isSupplyProduct) &&
     Boolean(supplyUsage?.total_links && supplyUsage.total_links > 0) &&
     Number(supplyUsage?.billable_links || 0) === 0
+  const adminAllowedStates = normalizeStates(
+    product?.admin_service_states?.length ? product.admin_service_states : product?.service_states
+  )
+  const selectedServiceStates = normalizeStates(watch("service_states") || [])
+  const orderedAdminAllowedStates = US_STATES.filter((state) => adminAllowedStates.includes(state))
 
   // Load product data for editing
   useEffect(() => {
@@ -88,6 +113,8 @@ export default function AddProductForm({
         base_price: product.base_price ?? "0.00",
         shipping_fee_patient: product.shipping_fee_patient ?? "0.00",
         discounted_price: product.discounted_price ?? "",
+        service_states: normalizeStates(product.service_states),
+        is_active: product.is_active ?? true,
         
         // Read-only fields (for display)
         name: product.name,
@@ -123,6 +150,7 @@ export default function AddProductForm({
       if (data.safety_information !== undefined) fd.append("safety_information", data.safety_information)
       if (data.side_effects !== undefined) fd.append("side_effects", data.side_effects)
       if (data.quantity !== undefined) fd.append("quantity", data.quantity)
+      if (data.is_active !== undefined) fd.append("is_active", String(data.is_active))
       
       // Client-editable pricing fields (lock when this supply is only used as Included)
       if (!isIncludedOnlySupply) {
@@ -130,13 +158,19 @@ export default function AddProductForm({
         if (data.shipping_fee_patient !== undefined) fd.append("shipping_fee_patient", data.shipping_fee_patient)
         if (data.discounted_price !== undefined) fd.append("discounted_price", data.discounted_price)
       }
+      if (data.service_states !== undefined) {
+        const selectedStates = normalizeStates(data.service_states).filter((state) =>
+          adminAllowedStates.includes(state)
+        )
+        fd.append("service_states", JSON.stringify(selectedStates))
+      }
       
       // Handle image upload
       if (data.product_image instanceof File) {
         fd.append("product_image", data.product_image)
       }
 
-      await productApi.updateProduct(product.id, Object.fromEntries(fd))
+      await productApi.updateProduct(product.id, fd)
       
       toast({
         title: "Success",
@@ -263,6 +297,74 @@ export default function AddProductForm({
                 />
               </div>
             </div>
+
+            {Array.isArray(product?.service_states) && (
+              <div className="mt-4 border-t pt-4 dark:border-slate-700">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Service States
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Select the states where this assigned product should remain available. You can only choose states configured by admin.
+                    </p>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {selectedServiceStates.length} of {adminAllowedStates.length} state(s) active
+                  </span>
+                </div>
+                {adminAllowedStates.length ? (
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setValue("service_states", orderedAdminAllowedStates, { shouldDirty: true })}
+                      >
+                        Select all states
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setValue("service_states", [], { shouldDirty: true })}
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {orderedAdminAllowedStates.map((state) => {
+                        const checked = selectedServiceStates.includes(state)
+                        return (
+                          <button
+                            key={state}
+                            type="button"
+                            onClick={() => {
+                              const nextStates = checked
+                                ? selectedServiceStates.filter((item) => item !== state)
+                                : [...selectedServiceStates, state]
+                              setValue("service_states", nextStates, { shouldDirty: true })
+                            }}
+                            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${
+                              checked
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "bg-background text-foreground dark:border-slate-700 dark:bg-slate-900/60"
+                            }`}
+                          >
+                            {state}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                    <span className="text-xs text-muted-foreground">
+                      No explicit product-level states were configured by admin. This product inherits pharmacy coverage.
+                    </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Admin Costs (Read-only) - What WellieMD charges the Client */}
@@ -422,6 +524,34 @@ export default function AddProductForm({
                   placeholder="Available quantity"
                 />
                 <p className="text-xs text-muted-foreground mt-1">Available inventory</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Product Availability */}
+          <div className="border rounded-lg p-4 bg-muted/30">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-semibold">Availability</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Inactive products are hidden from product selection in intake.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <div className="text-sm font-medium">
+                    {watch("is_active", true) ? "Active" : "Inactive"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {watch("is_active", true)
+                      ? "Visible in product selection"
+                      : "Hidden from product selection"}
+                  </div>
+                </div>
+                <Switch
+                  checked={watch("is_active", true)}
+                  onCheckedChange={(checked) => setValue("is_active", checked, { shouldDirty: true })}
+                />
               </div>
             </div>
           </div>
