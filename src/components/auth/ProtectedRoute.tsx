@@ -10,7 +10,21 @@ const CLIENT_PORTAL_ROLES = new Set<string>([
   RoleNames.PRIMARY_OWNER,
   RoleNames.ADMIN,
   RoleNames.CUSTOMER_SERVICE,
+  RoleNames.SUPER_ADMIN,
 ]);
+
+const hasClientPortalRole = (user: { primary_role?: string; roles?: string[] } | null): boolean => {
+  if (!user) {
+    return false;
+  }
+
+  const assignedRoles = [
+    user.primary_role,
+    ...(Array.isArray(user.roles) ? user.roles : []),
+  ].filter((role): role is string => Boolean(role));
+
+  return assignedRoles.some((role) => CLIENT_PORTAL_ROLES.has(role.trim()));
+};
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -47,7 +61,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/auth/signin" state={{ from: location }} replace />;
   }
 
-  if (!user?.primary_role || !CLIENT_PORTAL_ROLES.has(user.primary_role)) {
+  if (!hasClientPortalRole(user)) {
     return <Navigate to="/forbidden" replace />;
   }
 
