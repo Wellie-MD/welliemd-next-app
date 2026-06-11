@@ -5,6 +5,7 @@ import Sidebar from '@/components/Sidebar';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
 import { ImpersonationBanner } from '@/components/auth/ImpersonationBanner';
 import { useAuthStore } from '@/features/auth/store/auth.store';
+import { IntercomWidget } from '@/features/integrations/IntercomWidget';
 
 const DashboardLayout: React.FC = () => {
   const location = useLocation();
@@ -102,6 +103,7 @@ const DashboardLayout: React.FC = () => {
             </main>
           </div>
         </div>
+        <IntercomWidget />
       </div>
     </NotificationsProvider>
   );
