@@ -41,6 +41,9 @@ import { Permissions } from "@/constants/permissions";
 import { useToast } from "@/hooks/use-toast";
 import { ordersApi, type Order } from "@/api/ordersApi";
 import { patientService, type Patient, type TreatmentEpisode } from "@/services/patientService";
+import { useClients } from "@/hooks/useClients";
+import { useAuthStore } from "@/store/useAuthStore";
+import axiosInstance from "@/api/axiosInstance";
 
 const buildInitialForm = (patient: Patient) => ({
   first_name: patient.first_name || "",
@@ -59,10 +62,52 @@ const buildInitialForm = (patient: Patient) => ({
   self_reported_meds: patient.self_reported_meds || "",
 });
 
+const getApiRoot = () => {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || window.location.origin;
+  try {
+    const url = new URL(baseUrl);
+    const trimmedPath = url.pathname.replace(/\/+$/, "");
+    if (trimmedPath.endsWith("/api/v1")) {
+      const nextPath = trimmedPath.slice(0, -"/api/v1".length) || "/";
+      return `${url.origin}${nextPath.replace(/\/+$/, "")}`;
+    }
+    return `${url.origin}${trimmedPath}`.replace(/\/+$/, "");
+  } catch {
+    return baseUrl.replace(/\/+$/, "").replace(/\/api\/v1$/, "");
+  }
+};
+
+const normalizePortalUrl = (value?: string | null) => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
+};
+
 export default function PatientDetailPage() {
   const { patientId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { currentClient } = useClients();
+  const authUser = useAuthStore((state) => state.user);
+  const [isImpersonating, setIsImpersonating] = useState(false);
+
+  const canImpersonate = useMemo(() => {
+    return Boolean(authUser?.primary_role === 'Super Admin' || authUser?.roles?.includes('Super Admin'));
+  }, [authUser?.primary_role, authUser?.roles]);
+
+  const patientPortalUrl = useMemo(() => {
+    return normalizePortalUrl(
+      currentClient?.resolved_patient_portal_domain || currentClient?.patient_portal_domain
+    );
+  }, [currentClient?.patient_portal_domain, currentClient?.resolved_patient_portal_domain]);
+
+  const impersonationDisabledReason = !patientPortalUrl
+    ? 'Patient portal domain is not configured'
+    : undefined;
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -87,6 +132,42 @@ export default function PatientDetailPage() {
     medical_conditions: "",
     self_reported_meds: "",
   });
+
+  const handleImpersonate = useCallback(async () => {
+    if (!patient?.id) return;
+    if (!patientPortalUrl) {
+      toast({
+        title: 'Missing patient portal URL',
+        description: 'Set the patient portal domain before impersonating.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsImpersonating(true);
+    try {
+      const apiRoot = getApiRoot();
+      const { data } = await axiosInstance.post(
+        `${apiRoot}/api/admin/impersonate-patient/${patient.id}/`
+      );
+
+      if (!data?.token) {
+        throw new Error('No impersonation token returned');
+      }
+
+      const url = new URL(patientPortalUrl);
+      url.searchParams.set('impersonate_token', data.token);
+      window.open(url.toString(), '_blank', 'noopener');
+    } catch (err: any) {
+      toast({
+        title: 'Impersonation failed',
+        description: err?.message || 'Unable to impersonate patient.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsImpersonating(false);
+    }
+  }, [patient?.id, patientPortalUrl, toast]);
 
   const loadData = useCallback(async () => {
     if (!patientId) return;
@@ -128,11 +209,7 @@ export default function PatientDetailPage() {
   const fullName = patient?.full_name || `${patient?.first_name || ""} ${patient?.last_name || ""}`.trim();
   const initials = `${patient?.first_name?.[0] || ""}${patient?.last_name?.[0] || ""}`.toUpperCase() || "PT";
   const fullAddress = patient?.address
-    ? [
-      patient.address,
-      patient.address_line_2,
-      [patient.city, patient.state, patient.zip_code].filter(Boolean).join(" ")
-    ].filter(Boolean).join(", ")
+    ? `${patient.address}${patient.city || patient.state || patient.zip_code ? ", " : ""}${[patient.city, patient.state, patient.zip_code].filter(Boolean).join(" ")}`
     : "-";
 
   const getOrderStatusTone = (status?: string) => {
@@ -262,6 +339,17 @@ export default function PatientDetailPage() {
             </div>
 
             <div className="flex items-center gap-2">
+              {canImpersonate && (
+                <Button
+                  variant="outline"
+                  onClick={handleImpersonate}
+                  disabled={!patientPortalUrl || isImpersonating}
+                  title={impersonationDisabledReason}
+                >
+                  <ShieldAlert className="mr-2 h-4 w-4" />
+                  {isImpersonating ? "Impersonating..." : "Impersonate Patient"}
+                </Button>
+              )}
               <PermissionGate permission={Permissions.USER_UPDATE}>
                 <Button variant="outline" onClick={() => setEditOpen(true)}>
                   <Pencil className="mr-2 h-4 w-4" />
@@ -281,95 +369,95 @@ export default function PatientDetailPage() {
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
           <div className="space-y-4 xl:col-span-3">
-            <Card className="h-fit border-slate-200 bg-white shadow-sm">
-              <CardHeader className="border-b border-slate-100 pb-2">
-                <CardTitle className="flex items-center gap-2 text-base text-slate-900">
-                  <User className="h-4 w-4" />
-                  Patient Profile
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-4 text-sm">
-                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                  <div className="text-[11px] uppercase tracking-wide text-slate-500">Joined</div>
-                  <div className="mt-0.5 font-medium text-slate-900">
-                    {patient.created_at ? new Date(patient.created_at).toLocaleDateString() : "-"}
-                  </div>
+          <Card className="h-fit border-slate-200 bg-white shadow-sm">
+            <CardHeader className="border-b border-slate-100 pb-2">
+              <CardTitle className="flex items-center gap-2 text-base text-slate-900">
+                <User className="h-4 w-4" />
+                Patient Profile
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-4 text-sm">
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500">Joined</div>
+                <div className="mt-0.5 font-medium text-slate-900">
+                  {patient.created_at ? new Date(patient.created_at).toLocaleDateString() : "-"}
                 </div>
-                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                  <div className="text-[11px] uppercase tracking-wide text-slate-500">Email</div>
-                  <div className="mt-0.5 break-all font-medium text-slate-900">{patient.email || "-"}</div>
+              </div>
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500">Email</div>
+                <div className="mt-0.5 break-all font-medium text-slate-900">{patient.email || "-"}</div>
+              </div>
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500">Date of Birth</div>
+                <div className="mt-0.5 flex items-center gap-1.5 font-medium text-slate-900">
+                  <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
+                  {patient.date_of_birth || "-"}
                 </div>
-                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                  <div className="text-[11px] uppercase tracking-wide text-slate-500">Date of Birth</div>
-                  <div className="mt-0.5 flex items-center gap-1.5 font-medium text-slate-900">
-                    <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
-                    {patient.date_of_birth || "-"}
-                  </div>
+              </div>
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500">Phone</div>
+                <div className="mt-0.5 flex items-center gap-1.5 font-medium text-slate-900">
+                  <Phone className="h-3.5 w-3.5 text-slate-400" />
+                  {patient.phone || "-"}
                 </div>
-                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                  <div className="text-[11px] uppercase tracking-wide text-slate-500">Phone</div>
-                  <div className="mt-0.5 flex items-center gap-1.5 font-medium text-slate-900">
-                    <Phone className="h-3.5 w-3.5 text-slate-400" />
-                    {patient.phone || "-"}
-                  </div>
+              </div>
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500">Sex</div>
+                <div className="mt-0.5 font-medium text-slate-900">{patient.sex || "-"}</div>
+              </div>
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500">Location</div>
+                <div className="mt-0.5 flex items-center gap-1.5 font-medium text-slate-900">
+                  <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                  {patient.city && patient.state ? `${patient.city}, ${patient.state}` : patient.state || "-"}
                 </div>
-                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                  <div className="text-[11px] uppercase tracking-wide text-slate-500">Sex</div>
-                  <div className="mt-0.5 font-medium text-slate-900">{patient.sex || "-"}</div>
+              </div>
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                <div className="text-[11px] uppercase tracking-wide text-slate-500">Address</div>
+                <div className="mt-0.5 break-words font-medium text-slate-900">
+                  {fullAddress}
                 </div>
-                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                  <div className="text-[11px] uppercase tracking-wide text-slate-500">Location</div>
-                  <div className="mt-0.5 flex items-center gap-1.5 font-medium text-slate-900">
-                    <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                    {patient.city && patient.state ? `${patient.city}, ${patient.state}` : patient.state || "-"}
-                  </div>
-                </div>
-                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                  <div className="text-[11px] uppercase tracking-wide text-slate-500">Address</div>
-                  <div className="mt-0.5 break-words font-medium text-slate-900">
-                    {fullAddress}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
 
-            <Card className="h-fit border-slate-200 bg-white shadow-sm">
-              <CardHeader className="border-b border-slate-100 pb-2">
-                <CardTitle className="flex items-center gap-2 text-base text-slate-900">
-                  <Stethoscope className="h-4 w-4" />
-                  Medical History
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-4 text-sm">
-                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500">
-                    <ShieldAlert className="h-3.5 w-3.5 text-amber-600" />
-                    Allergies
-                  </div>
-                  <div className="mt-1 whitespace-pre-wrap font-medium text-slate-900">
-                    {patient.allergies || "None reported"}
-                  </div>
+          <Card className="h-fit border-slate-200 bg-white shadow-sm">
+            <CardHeader className="border-b border-slate-100 pb-2">
+              <CardTitle className="flex items-center gap-2 text-base text-slate-900">
+                <Stethoscope className="h-4 w-4" />
+                Medical History
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-4 text-sm">
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500">
+                  <ShieldAlert className="h-3.5 w-3.5 text-amber-600" />
+                  Allergies
                 </div>
-                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500">
-                    <Stethoscope className="h-3.5 w-3.5 text-blue-600" />
-                    Medical Conditions
-                  </div>
-                  <div className="mt-1 whitespace-pre-wrap font-medium text-slate-900">
-                    {patient.medical_conditions || "None reported"}
-                  </div>
+                <div className="mt-1 whitespace-pre-wrap font-medium text-slate-900">
+                  {patient.allergies || "None reported"}
                 </div>
-                <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
-                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500">
-                    <Pill className="h-3.5 w-3.5 text-violet-600" />
-                    Current Medications
-                  </div>
-                  <div className="mt-1 whitespace-pre-wrap font-medium text-slate-900">
-                    {patient.self_reported_meds || "None reported"}
-                  </div>
+              </div>
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500">
+                  <Stethoscope className="h-3.5 w-3.5 text-blue-600" />
+                  Medical Conditions
                 </div>
-              </CardContent>
-            </Card>
+                <div className="mt-1 whitespace-pre-wrap font-medium text-slate-900">
+                  {patient.medical_conditions || "None reported"}
+                </div>
+              </div>
+              <div className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-500">
+                  <Pill className="h-3.5 w-3.5 text-violet-600" />
+                  Current Medications
+                </div>
+                <div className="mt-1 whitespace-pre-wrap font-medium text-slate-900">
+                  {patient.self_reported_meds || "None reported"}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
           </div>
 
           <div className="xl:col-span-9">

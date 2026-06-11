@@ -24,7 +24,9 @@ const ORDER_STATUS_FILTER_LABELS = [
   "Prescribed",
   "Billing Pending",
   "Rx Sent",
+  "In Fulfillment",
   "Shipped",
+  "Delivered",
   "Canceled",
 ] as const
 
@@ -42,23 +44,51 @@ const ORDER_STATUS_TO_API: Record<string, string> = {
   Prescribed: "prescribed",
   "Billing Pending": "billing_pending",
   "Rx Sent": "rx_sent",
+  "In Fulfillment": "in_fulfillment",
   Shipped: "shipped",
+  Delivered: "delivered",
   Canceled: "canceled",
 }
 
 const PAYMENT_STATUS_FILTER_LABELS = ["All", "Paid", "Pending", "Failed"] as const
 
 const orderColumns = [
-  { key: "order_number", label: "Order #", width: "9%", className: "font-medium" },
-  { key: "patient_name", label: "Patient Name", width: "11%", className: "max-w-[150px]" },
-  { key: "patient_email", label: "Patient Email", width: "14%", className: "max-w-[190px]" },
-  { key: "patient_phone", label: "Patient Phone", width: "10%", className: "max-w-[125px]" },
-  { key: "product_name", label: "Product Name", width: "13%", className: "max-w-[170px]" },
-  { key: "pharmacy_name_only", label: "Pharmacy Name", width: "10%", className: "max-w-[150px]" },
-  { key: "orderDate", label: "Order Date", width: "8%" },
-  { key: "orderTotal", label: "Order Amount", width: "8%" },
-  { key: "orderStatus", label: "Order Status", width: "11%" },
-  { key: "actions", label: "Actions", width: "6%", render: (_: any, row: any) => null }
+  { key: "order_id", label: "Order #", minWidth: "120px", className: "font-medium" },
+  { key: "patient_name", label: "Patient", minWidth: "160px", className: "max-w-[220px]" },
+  { key: "email", label: "Email", minWidth: "200px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell max-w-[220px]" },
+  { key: "phone", label: "Phone", minWidth: "130px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell max-w-[140px]" },
+  { key: "pharmacy_display", label: "Pharmacy", minWidth: "150px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell max-w-[180px]" },
+  { key: "orderDate", label: "Order Date", minWidth: "120px" },
+  { key: "datePrescribed", label: "Date Prescribed", minWidth: "130px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
+  { key: "paymentDate", label: "Payment Date", minWidth: "120px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
+  { key: "mrn", label: "MRN#", minWidth: "120px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
+  { key: "paymentStatus", label: "Payment Status", minWidth: "130px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
+  { key: "visitStatus", label: "Visit Status", minWidth: "120px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
+  { key: "orderStatus", label: "Order Status", minWidth: "150px" },
+  { key: "orderTotal", label: "Order Total", minWidth: "110px" },
+  { key: "tracking_number", label: "Tracking #", minWidth: "140px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell max-w-[160px]" },
+  { key: "actions", label: "Actions", minWidth: "110px", render: (_: any, row: any) => null }
+]
+
+// Backend order status choices for row editor (value, label) — aligned with Order.ORDER_STATUS_CHOICES
+const ORDER_STATUS_CHOICES = [
+  { value: "created", label: "Created" },
+  { value: "payment_pending", label: "Payment Pending" },
+  { value: "processing", label: "Processing" },
+  { value: "visit_failed", label: "Visit Failed" },
+  { value: "visit_pending", label: "Visit Pending" },
+  { value: "consult_scheduled", label: "Consult Scheduled" },
+  { value: "consult_rescheduled", label: "Consult Rescheduled" },
+  { value: "consult_canceled", label: "Consult Canceled" },
+  { value: "no_show", label: "No Show" },
+  { value: "referred", label: "Referred" },
+  { value: "prescribed", label: "Prescribed" },
+  { value: "billing_pending", label: "Billing Pending" },
+  { value: "rx_sent", label: "Rx Sent" },
+  { value: "in_fulfillment", label: "In Fulfillment" },
+  { value: "shipped", label: "Shipped" },
+  { value: "delivered", label: "Delivered" },
+  { value: "canceled", label: "Canceled" },
 ]
 
 // Helper function to parse date strings. Handles ISO timestamps and DD/MM/YYYY.
@@ -426,7 +456,40 @@ export default function Orders() {
             }
           }
 
+          if (col.key === 'tracking_number') {
+            return {
+              ...col,
+              render: (_: any, row: any) => {
+                const originalStatus = row.orderStatus ?? 'created'
+                const editedStatus = editedStatuses[row.id]
+                const isShipmentFinalized = originalStatus === 'shipped' || originalStatus === 'delivered' // Tracking should stay visible for delivered orders
+                const isChangingToShipped = editedStatus === 'shipped' && !isShipmentFinalized // User is changing TO shipped
+                const showTrackingInput = isShipmentFinalized || isChangingToShipped
 
+                if (!showTrackingInput) {
+                  return <span className="text-sm text-muted-foreground italic">N/A</span>
+                }
+
+                // Already shipped/delivered - show as read-only
+                if (isShipmentFinalized) {
+                  return (
+                    <span className="text-sm font-medium">{row.tracking_number || '-'}</span>
+                  )
+                }
+
+                // Changing to shipped - show editable input
+                return (
+                  <input
+                    type="text"
+                    className="w-32 px-2 py-1 text-sm border rounded"
+                    placeholder="Tracking # (required)"
+                    value={editedTrackingNumbers[row.id] ?? (row.tracking_number ?? '')}
+                    onChange={(e) => handleTrackingNumberChange(row.id, e.target.value)}
+                  />
+                )
+              }
+            }
+          }
           return col
         })}
         fitToWidth={true}
