@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { clientApi } from "@/api/clientApi";
 import type { B2BInvoice } from "@/types/b2bBilling";
@@ -14,7 +14,7 @@ import { toast } from "sonner";
 export default function Billing() {
   const queryClient = useQueryClient();
   const [invoiceType, setInvoiceType] = useState<
-    "all" | "reimbursement" | "credit_note" | "saas_fee"
+    "all" | "reimbursement" | "saas_fee"
   >("all");
   const [search, setSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -104,9 +104,6 @@ export default function Billing() {
   };
 
   const formatBreakdown = (inv: B2BInvoice) => {
-    if (inv.invoice_type === "credit_note") {
-      return `Credit: $${parseFloat((inv as any).refund_required_amount || inv.total_amount || "0").toFixed(2)}`;
-    }
     const items = (inv as any).line_items ?? [];
     const pharmacy = items
       .filter((li: any) => ["medication_reimbursement", "shipping_cost"].includes(li.item_type))
@@ -347,16 +344,9 @@ export default function Billing() {
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex flex-col items-start gap-1">
-                            <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${statusPillClass(status)}`}>
-                              {formatLabel(status)}
-                            </span>
-                            {(inv as any).refund_required && (
-                              <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">
-                                Refund Required
-                              </span>
-                            )}
-                          </div>
+                          <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${statusPillClass(status)}`}>
+                            {formatLabel(status)}
+                          </span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="font-medium">${displayAmount.toFixed(2)}</div>
@@ -424,15 +414,25 @@ export default function Billing() {
               <div className="rounded border p-3">
                 <strong>Total:</strong> $
                 {(
-                  parseFloat((selected as any).total_amount ?? "0") +
+                  parseFloat(selected.total_amount ?? "0") +
                   (((selected as DisplayInvoice).supplementalInvoices || []).reduce(
-                    (sum, child) => sum + parseFloat((child as any).total_amount ?? child.total_amount ?? "0"),
+                    (sum, child) => sum + parseFloat(child.total_amount ?? "0"),
                     0
                   ))
                 ).toFixed(2)}
               </div>
               <div className="rounded border p-3"><strong>Issued:</strong> {selected.issued_at ? new Date(selected.issued_at).toLocaleDateString() : "-"}</div>
               <div className="rounded border p-3"><strong>Due:</strong> {selected.due_date ? new Date(selected.due_date).toLocaleDateString() : "N/A"}</div>
+              {(selected as any).refund_required && (
+                <>
+                  <div className="rounded border border-red-200 bg-red-50 p-3 text-red-800">
+                    <strong>Refund Required:</strong> ${(selected as any).refund_required_amount || selected.total_amount}
+                  </div>
+                  <div className="rounded border border-red-200 bg-red-50 p-3 text-red-800">
+                    <strong>Refund Reason:</strong> {formatLabel((selected as any).refund_required_reason || "rx_revision_over_reimbursed")}
+                  </div>
+                </>
+              )}
             </div>
             {((selected as DisplayInvoice).supplementalInvoices || []).length > 0 && (
               <div className="mb-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm">

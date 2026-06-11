@@ -1,4 +1,4 @@
-export type InvoiceType = 'reimbursement' | 'credit_note' | 'saas_fee' | 'aggregated_snapshot';
+export type InvoiceType = 'reimbursement' | 'saas_fee' | 'aggregated_snapshot';
 
 export type InvoiceStatus =
   | 'draft'
