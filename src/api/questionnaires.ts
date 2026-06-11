@@ -255,6 +255,15 @@ export const templateApi = {
     );
     return data;
   },
+
+  duplicateTemplate: async (
+    id: string
+  ): Promise<QuestionnaireTemplate> => {
+    const { data } = await axiosInstance.post<QuestionnaireTemplate>(
+      `questionnaires/frontend/templates/${id}/duplicate/`
+    );
+    return data;
+  },
 };
 
 // Legacy exports for backward compatibility
@@ -265,6 +274,7 @@ export const updateTemplate = templateApi.updateTemplate;
 export const deleteTemplate = templateApi.deleteTemplate;
 export const publishTemplate = templateApi.publishTemplate;
 export const unpublishTemplate = templateApi.unpublishTemplate;
+export const duplicateTemplate = templateApi.duplicateTemplate;
 
 // ==================== QUESTION API ====================
 
