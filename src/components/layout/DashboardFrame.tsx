@@ -8,6 +8,7 @@ import { groupMessages, type Conversation } from "@/utils/groupMessages";
 import BillingSuspendedBanner from "@/components/billing/BillingSuspendedBanner";
 import { useClientMessages } from "@/contexts/MessagesContext";
 import { Permissions } from "@/constants/permissions";
+import { IntercomWidget } from "@/features/integrations/IntercomWidget";
 
 import Dashboard from "@/pages/Dashboard";
 import Patients from "@/pages/Patients";
@@ -166,6 +167,8 @@ export default function DashboardFrame() {
           <Header />
 
           <BillingSuspendedBanner />
+
+          <IntercomWidget />
 
           <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
             <Routes>
