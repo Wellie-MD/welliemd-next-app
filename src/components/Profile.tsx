@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { profileService, useProfile } from '@/features/profile';
 import { MEDICAL, SUCCESS_MESSAGES, ERROR_MESSAGES, LOADING_MESSAGES } from '@/config/constants';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, ShieldOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/features/auth';
 
 export default function Profile() {
+  const { isImpersonated } = useAuth();
   const {
     userProfile,
     patientProfile,
@@ -223,6 +225,13 @@ export default function Profile() {
         <h3>Basic Information</h3>
         <div className="km-card-desc">Update your account's profile information and email address.</div>
 
+        {isImpersonated && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', marginBottom: 16, borderRadius: 8, background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.3)' }}>
+            <ShieldOff size={16} style={{ color: '#ca8a04' }} />
+            <span style={{ fontSize: 13, color: '#ca8a04' }}>Editing is disabled during impersonation</span>
+          </div>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
             <label className="km-field-label">First Name</label>
@@ -230,6 +239,7 @@ export default function Profile() {
               className="km-field-input"
               value={basicInfo.first_name}
               onChange={e => handleBasicInfoChange('first_name', e.target.value)}
+              disabled={isImpersonated}
             />
           </div>
           <div>
@@ -238,6 +248,7 @@ export default function Profile() {
               className="km-field-input"
               value={basicInfo.last_name}
               onChange={e => handleBasicInfoChange('last_name', e.target.value)}
+              disabled={isImpersonated}
             />
           </div>
           <div>
@@ -248,74 +259,85 @@ export default function Profile() {
               disabled
             />
           </div>
-          <div>
-            <button className="km-save-btn" onClick={handleSaveBasicInfo} disabled={savingBasic}>
-              {savingBasic ? LOADING_MESSAGES.SAVING_CHANGES : 'Save'}
-            </button>
-          </div>
+          {!isImpersonated && (
+            <div>
+              <button className="km-save-btn" onClick={handleSaveBasicInfo} disabled={savingBasic}>
+                {savingBasic ? LOADING_MESSAGES.SAVING_CHANGES : 'Save'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Update Password */}
-      <div className="km-profile-card km-fade">
-        <h3>Update Password</h3>
-        <div className="km-card-desc">Ensure your account is using a long, random password to stay secure.</div>
+      {!isImpersonated && (
+        <div className="km-profile-card km-fade">
+          <h3>Update Password</h3>
+          <div className="km-card-desc">Ensure your account is using a long, random password to stay secure.</div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div>
-            <label className="km-field-label">Current Password</label>
-            <div style={{ position: 'relative' }}>
-              <input
-                className="km-field-input"
-                type={showPasswords.current ? 'text' : 'password'}
-                value={passwordData.current_password}
-                onChange={e => handlePasswordChange('current_password', e.target.value)}
-              />
-              <button className="km-pw-toggle" onClick={() => togglePasswordVisibility('current')}>
-                {showPasswords.current ? <EyeOff size={16} /> : <Eye size={16} />}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              <label className="km-field-label">Current Password</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  className="km-field-input"
+                  type={showPasswords.current ? 'text' : 'password'}
+                  value={passwordData.current_password}
+                  onChange={e => handlePasswordChange('current_password', e.target.value)}
+                />
+                <button className="km-pw-toggle" onClick={() => togglePasswordVisibility('current')}>
+                  {showPasswords.current ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="km-field-label">New Password</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  className="km-field-input"
+                  type={showPasswords.new ? 'text' : 'password'}
+                  value={passwordData.new_password}
+                  onChange={e => handlePasswordChange('new_password', e.target.value)}
+                />
+                <button className="km-pw-toggle" onClick={() => togglePasswordVisibility('new')}>
+                  {showPasswords.new ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="km-field-label">Confirm Password</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  className="km-field-input"
+                  type={showPasswords.confirm ? 'text' : 'password'}
+                  value={passwordData.confirm_password}
+                  onChange={e => handlePasswordChange('confirm_password', e.target.value)}
+                />
+                <button className="km-pw-toggle" onClick={() => togglePasswordVisibility('confirm')}>
+                  {showPasswords.confirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <button className="km-save-btn" onClick={handleSavePassword} disabled={savingPassword}>
+                {savingPassword ? LOADING_MESSAGES.UPDATING_PASSWORD : 'Save'}
               </button>
             </div>
-          </div>
-          <div>
-            <label className="km-field-label">New Password</label>
-            <div style={{ position: 'relative' }}>
-              <input
-                className="km-field-input"
-                type={showPasswords.new ? 'text' : 'password'}
-                value={passwordData.new_password}
-                onChange={e => handlePasswordChange('new_password', e.target.value)}
-              />
-              <button className="km-pw-toggle" onClick={() => togglePasswordVisibility('new')}>
-                {showPasswords.new ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
-          <div>
-            <label className="km-field-label">Confirm Password</label>
-            <div style={{ position: 'relative' }}>
-              <input
-                className="km-field-input"
-                type={showPasswords.confirm ? 'text' : 'password'}
-                value={passwordData.confirm_password}
-                onChange={e => handlePasswordChange('confirm_password', e.target.value)}
-              />
-              <button className="km-pw-toggle" onClick={() => togglePasswordVisibility('confirm')}>
-                {showPasswords.confirm ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
-          <div>
-            <button className="km-save-btn" onClick={handleSavePassword} disabled={savingPassword}>
-              {savingPassword ? LOADING_MESSAGES.UPDATING_PASSWORD : 'Save'}
-            </button>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Profile Information */}
       <div className="km-profile-card km-fade">
         <h3>Profile Information</h3>
         <div className="km-card-desc">Keep your medical and contact details current so your care team can reach you quickly.</div>
+
+        {isImpersonated && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', marginBottom: 16, borderRadius: 8, background: 'rgba(234, 179, 8, 0.1)', border: '1px solid rgba(234, 179, 8, 0.3)' }}>
+            <ShieldOff size={16} style={{ color: '#ca8a04' }} />
+            <span style={{ fontSize: 13, color: '#ca8a04' }}>Editing is disabled during impersonation</span>
+          </div>
+        )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
@@ -324,6 +346,7 @@ export default function Profile() {
               className="km-field-input"
               value={profileInfo.phone}
               onChange={e => handleProfileInfoChange('phone', e.target.value)}
+              disabled={isImpersonated}
             />
           </div>
           <div>
@@ -332,6 +355,7 @@ export default function Profile() {
               className="km-field-input"
               value={profileInfo.address}
               onChange={e => handleProfileInfoChange('address', e.target.value)}
+              disabled={isImpersonated}
             />
           </div>
           <div>
@@ -341,6 +365,7 @@ export default function Profile() {
               placeholder="Apartment, suite, unit, etc."
               value={profileInfo.address_line_2}
               onChange={e => handleProfileInfoChange('address_line_2', e.target.value)}
+              disabled={isImpersonated}
             />
           </div>
           <div className="km-grid-2">
@@ -350,6 +375,7 @@ export default function Profile() {
                 className="km-field-input"
                 value={profileInfo.city}
                 onChange={e => handleProfileInfoChange('city', e.target.value)}
+                disabled={isImpersonated}
               />
             </div>
             <div>
@@ -357,6 +383,7 @@ export default function Profile() {
               <Select
                 value={profileInfo.state}
                 onValueChange={value => handleProfileInfoChange('state', value)}
+                disabled={isImpersonated}
               >
                 <SelectTrigger className="km-field-input">
                   <SelectValue placeholder="Select a state" />
@@ -378,6 +405,7 @@ export default function Profile() {
                 className="km-field-input"
                 value={profileInfo.zip_code}
                 onChange={e => handleProfileInfoChange('zip_code', e.target.value)}
+                disabled={isImpersonated}
               />
             </div>
             <div>
@@ -385,6 +413,7 @@ export default function Profile() {
               <Select
                 value={profileInfo.sex}
                 onValueChange={value => handleProfileInfoChange('sex', value)}
+                disabled={isImpersonated}
               >
                 <SelectTrigger className="km-field-input">
                   <SelectValue placeholder="Select" />
@@ -403,6 +432,7 @@ export default function Profile() {
                 type="date"
                 value={profileInfo.date_of_birth}
                 onChange={e => handleProfileInfoChange('date_of_birth', e.target.value)}
+                disabled={isImpersonated}
               />
             </div>
           </div>
@@ -414,6 +444,7 @@ export default function Profile() {
               style={{ resize: 'none' }}
               value={profileInfo.medical_conditions}
               onChange={e => handleProfileInfoChange('medical_conditions', e.target.value)}
+              disabled={isImpersonated}
             />
           </div>
           <div>
@@ -424,6 +455,7 @@ export default function Profile() {
               style={{ resize: 'none' }}
               value={profileInfo.self_reported_meds}
               onChange={e => handleProfileInfoChange('self_reported_meds', e.target.value)}
+              disabled={isImpersonated}
             />
           </div>
           <div>
@@ -434,13 +466,16 @@ export default function Profile() {
               style={{ resize: 'none' }}
               value={profileInfo.allergies}
               onChange={e => handleProfileInfoChange('allergies', e.target.value)}
+              disabled={isImpersonated}
             />
           </div>
-          <div>
-            <button className="km-save-btn" onClick={handleSaveProfileInfo} disabled={savingProfile}>
-              {savingProfile ? LOADING_MESSAGES.SAVING_CHANGES : 'Save'}
-            </button>
-          </div>
+          {!isImpersonated && (
+            <div>
+              <button className="km-save-btn" onClick={handleSaveProfileInfo} disabled={savingProfile}>
+                {savingProfile ? LOADING_MESSAGES.SAVING_CHANGES : 'Save'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

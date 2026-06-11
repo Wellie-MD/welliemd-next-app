@@ -11,7 +11,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Truck, CheckCircle2, Clock,
   XCircle, AlertCircle, ExternalLink,
-  MessageSquare, CreditCard,
+  MessageSquare, CreditCard, Calendar, Stethoscope,
 } from 'lucide-react';
 
 import { getOrder, PatientOrder, OrderActivityEvent } from '@/shared/api/ordersApi';
@@ -65,23 +65,25 @@ function getProductIconBg(productName: string): string {
 
 // ---------- Status badge mapping (full kinmeds3 set) ----------
 const STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {
-  created: { label: 'Order Created', badgeClass: 'km-badge km-badge-gray' },
-  processing: { label: 'Processing', badgeClass: 'km-badge km-badge-gray' },
-  visit_pending: { label: 'Visit Pending', badgeClass: 'km-badge km-badge-amber' },
-  visit_scheduled: { label: 'Visit Scheduled', badgeClass: 'km-badge km-badge-blue' },
-  visit_rescheduled: { label: 'Visit Rescheduled', badgeClass: 'km-badge km-badge-amber' },
-  consult_scheduled: { label: 'Consult Scheduled', badgeClass: 'km-badge km-badge-blue' },
-  consult_rescheduled: { label: 'Consult Rescheduled', badgeClass: 'km-badge km-badge-amber' },
-  visit_failed: { label: 'Visit Cancelled', badgeClass: 'km-badge km-badge-red' },
-  consult_canceled: { label: 'Visit Cancelled', badgeClass: 'km-badge km-badge-red' },
-  no_show: { label: 'No Show', badgeClass: 'km-badge km-badge-red' },
-  referred: { label: 'Referred', badgeClass: 'km-badge km-badge-amber' },
-  prescribed: { label: 'Prescribed', badgeClass: 'km-badge km-badge-green' },
-  billing_pending: { label: 'Billing Pending', badgeClass: 'km-badge km-badge-amber' },
-  rx_sent: { label: 'Rx Sent', badgeClass: 'km-badge km-badge-green' },
-  shipped: { label: 'Shipped', badgeClass: 'km-badge km-badge-green' },
-  canceled: { label: 'Cancelled', badgeClass: 'km-badge km-badge-red' },
-  refunded: { label: 'Refunded', badgeClass: 'km-badge km-badge-purple' },
+  created:            { label: 'Order Created',      badgeClass: 'km-badge km-badge-gray' },
+  processing:         { label: 'Processing',         badgeClass: 'km-badge km-badge-gray' },
+  visit_pending:      { label: 'Visit Pending',      badgeClass: 'km-badge km-badge-amber' },
+  visit_scheduled:    { label: 'Visit Scheduled',    badgeClass: 'km-badge km-badge-blue' },
+  visit_rescheduled:  { label: 'Visit Rescheduled',  badgeClass: 'km-badge km-badge-amber' },
+  consult_scheduled:  { label: 'Consult Scheduled',  badgeClass: 'km-badge km-badge-blue' },
+  consult_rescheduled:{ label: 'Consult Rescheduled',badgeClass: 'km-badge km-badge-amber' },
+  visit_failed:       { label: 'Visit Cancelled',    badgeClass: 'km-badge km-badge-red' },
+  consult_canceled:   { label: 'Visit Cancelled',    badgeClass: 'km-badge km-badge-red' },
+  no_show:            { label: 'No Show',            badgeClass: 'km-badge km-badge-red' },
+  referred:           { label: 'Referred',           badgeClass: 'km-badge km-badge-amber' },
+  prescribed:         { label: 'Prescribed',         badgeClass: 'km-badge km-badge-green' },
+  billing_pending:    { label: 'Billing Pending',    badgeClass: 'km-badge km-badge-amber' },
+  rx_sent:            { label: 'Rx Sent',            badgeClass: 'km-badge km-badge-green' },
+  in_fulfillment:     { label: 'In Fulfillment',     badgeClass: 'km-badge km-badge-blue' },
+  shipped:            { label: 'Shipped',            badgeClass: 'km-badge km-badge-green' },
+  delivered:          { label: 'Delivered',          badgeClass: 'km-badge km-badge-green' },
+  canceled:           { label: 'Cancelled',          badgeClass: 'km-badge km-badge-red' },
+  refunded:           { label: 'Refunded',           badgeClass: 'km-badge km-badge-purple' },
 };
 
 function formatDate(d: string | null) {
@@ -94,6 +96,7 @@ type TimelineStep = {
   type: 'done' | 'money' | 'warn' | 'pending' | 'bad' | 'voided';
   label: string;
   sub: string;
+  iconKind?: 'shipping' | 'clinical' | 'schedule' | 'payment' | 'error' | 'pending' | 'success';
 };
 
 function buildTimeline(order: PatientOrder): TimelineStep[] {
@@ -117,7 +120,9 @@ function buildTimeline(order: PatientOrder): TimelineStep[] {
     prescribed: 'Prescribed',
     billing_pending: 'Prescribed',
     rx_sent: 'Prescribed',
+    in_fulfillment: 'In Fulfillment',
     shipped: 'Shipped',
+    delivered: 'Delivered',
     canceled: 'Cancelled',
     refunded: 'Refunded',
   };
@@ -204,20 +209,70 @@ function buildTimelineFromEvents(events?: OrderActivityEvent[]): TimelineStep[] 
   if (!Array.isArray(events) || events.length === 0) return [];
   return events.map((evt) => {
     const status = (evt.status || '').toLowerCase();
+    const eventType = (evt.event_type || '').toLowerCase();
     let type: TimelineStep['type'] = 'done';
+    let iconKind: TimelineStep['iconKind'] = 'success';
     if (status.includes('pending')) type = 'pending';
     if (status.includes('failed') || status.includes('canceled') || status.includes('no_show')) type = 'bad';
-    if (status.includes('payment') || evt.event_type.includes('payment')) type = 'money';
+    if (status.includes('payment') || eventType.includes('payment')) type = 'money';
+
+    if (status.includes('shipped') || status.includes('delivered') || status.includes('fulfillment') || eventType.includes('pharmacy')) {
+      iconKind = 'shipping';
+    } else if (status.includes('prescribed') || status.includes('rx_sent') || status.includes('referred')) {
+      iconKind = 'clinical';
+    } else if (status.includes('scheduled') || status.includes('rescheduled') || status.includes('visit')) {
+      iconKind = 'schedule';
+    } else if (status.includes('payment') || eventType.includes('payment')) {
+      iconKind = 'payment';
+    } else if (status.includes('failed') || status.includes('canceled') || status.includes('no_show')) {
+      iconKind = 'error';
+    } else if (status.includes('pending') || status.includes('billing')) {
+      iconKind = 'pending';
+    }
+
     return {
       type,
       label: evt.title || evt.event_type.replace(/\./g, ' '),
       sub: new Date(evt.occurred_at).toLocaleString(),
+      iconKind,
     };
   });
 }
 
+function StatusIcon({ status }: { status: string }) {
+  const s = (status || '').toLowerCase();
+  if (s.includes('shipped') || s.includes('delivered') || s.includes('fulfillment')) {
+    return <Truck size={12} />;
+  }
+  if (s.includes('prescribed') || s.includes('rx_sent') || s.includes('referred')) {
+    return <Stethoscope size={12} />;
+  }
+  if (s.includes('scheduled') || s.includes('rescheduled')) {
+    return <Calendar size={12} />;
+  }
+  if (s.includes('failed') || s.includes('cancel') || s.includes('no_show')) {
+    return <XCircle size={12} />;
+  }
+  if (s.includes('pending') || s.includes('billing')) {
+    return <AlertCircle size={12} />;
+  }
+  if (s.includes('captured') || s.includes('completed') || s.includes('refunded')) {
+    return <CheckCircle2 size={12} />;
+  }
+  return <Clock size={12} />;
+}
+
 // ---------- Timeline step icon ----------
-function StepIcon({ type }: { type: TimelineStep['type'] }) {
+function StepIcon({ step }: { step: TimelineStep }) {
+  if (step.iconKind === 'shipping') return <Truck size={12} />;
+  if (step.iconKind === 'clinical') return <Stethoscope size={12} />;
+  if (step.iconKind === 'schedule') return <Calendar size={12} />;
+  if (step.iconKind === 'payment') return <CreditCard size={12} />;
+  if (step.iconKind === 'error') return <XCircle size={12} />;
+  if (step.iconKind === 'pending') return <AlertCircle size={12} />;
+  if (step.iconKind === 'success') return <CheckCircle2 size={12} />;
+
+  const { type } = step;
   if (type === 'done' || type === 'money') {
     return (
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -380,7 +435,10 @@ export default function OrderDetail() {
           </div>
           <div style={{ marginTop: 3 }}>
             <span className={statusConfig.badgeClass} style={{ fontSize: 11 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <StatusIcon status={order.status} />
               {statusConfig.label}
+              </span>
             </span>
           </div>
         </div>
@@ -494,6 +552,11 @@ export default function OrderDetail() {
             <div style={{ fontWeight: 600, color: 'var(--km-t)', marginBottom: 2, fontSize: 13 }}>
               Tracking: {order.tracking_number}
             </div>
+            {order.shipping_carrier && (
+              <div style={{ fontSize: 11, color: 'var(--km-tm)' }}>
+                Carrier: {order.shipping_carrier}
+              </div>
+            )}
             {order.tracking_url && (
               <a
                 href={order.tracking_url}
@@ -519,7 +582,7 @@ export default function OrderDetail() {
           {timeline.map((step, i) => (
             <div key={i} className="km-alog-item">
               <div className="km-alog-dot" style={stepDotStyle(step.type)}>
-                <StepIcon type={step.type} />
+                <StepIcon step={step} />
               </div>
               <div className="km-alog-body">
                 <div className="km-alog-title">{step.label}</div>

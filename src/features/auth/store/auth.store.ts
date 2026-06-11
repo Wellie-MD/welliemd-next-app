@@ -18,6 +18,22 @@ import {
   ROLE_PERMISSIONS,
 } from '../types/auth.types';
 
+function getImpersonationStatusFromJwt(): boolean {
+  const token = authService.getAccessToken();
+  if (!token) return false;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+    let payload = parts[1];
+    const padding = 4 - payload.length % 4;
+    if (padding !== 4) payload += '='.repeat(padding);
+    const decoded = JSON.parse(atob(payload));
+    return Boolean(decoded.is_impersonated);
+  } catch {
+    return false;
+  }
+}
+
 // Auth store state interface
 interface AuthState {
   // State
@@ -26,11 +42,14 @@ interface AuthState {
   permissions: Permission[];
   features: Record<string, boolean>;
   isAuthenticated: boolean;
+  isImpersonated: boolean;
   isLoading: boolean;
   error: string | null;
   
   // Actions
   login: (credentials: LoginRequest) => Promise<void>;
+  impersonateLogin: (token: string) => Promise<void>;
+  endImpersonation: () => Promise<void>;
   register: (userData: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -65,6 +84,7 @@ export const useAuthStore = create<AuthState>()(
           permissions: [],
           features: {},
           isAuthenticated: false,
+          isImpersonated: false,
           isLoading: false,
           error: null,
 
@@ -93,6 +113,7 @@ export const useAuthStore = create<AuthState>()(
                 state.permissions = response.user.role ? ROLE_PERMISSIONS[response.user.role] : [];
                 state.features = {};
                 state.isAuthenticated = true;
+                state.isImpersonated = Boolean(response.user?.is_impersonated);
                 state.isLoading = false;
                 state.error = null;
               });
@@ -121,10 +142,89 @@ export const useAuthStore = create<AuthState>()(
                 state.isLoading = false;
                 state.error = errorMessage;
                 state.isAuthenticated = false;
+                state.isImpersonated = false;
               });
 
               debugLog('Login failed:', error);
               throw error;
+            }
+          },
+
+          impersonateLogin: async (token: string) => {
+            debugLog('AuthStore.impersonateLogin');
+
+            set((state) => {
+              state.isLoading = true;
+              state.error = null;
+            });
+
+            try {
+              const response = await authService.impersonateLogin(token);
+
+              set((state) => {
+                state.user = response.user;
+                state.tokens = {
+                  accessToken: response.access,
+                  refreshToken: response.refresh,
+                  expiresIn: 3600,
+                  tokenType: 'Bearer' as const,
+                };
+                state.permissions = response.user.role ? ROLE_PERMISSIONS[response.user.role] : [];
+                state.features = {};
+                state.isAuthenticated = true;
+                state.isImpersonated = true;
+                state.isLoading = false;
+                state.error = null;
+              });
+            } catch (error: any) {
+              let errorMessage = 'Impersonation login failed';
+
+              if (typeof error?.error === 'string') {
+                errorMessage = error.error;
+              } else if (typeof error?.error?.message === 'string') {
+                errorMessage = error.error.message;
+              } else if (error?.response?.data?.error) {
+                errorMessage = typeof error.response.data.error === 'string'
+                  ? error.response.data.error
+                  : error.response.data.error.message || errorMessage;
+              } else if (error?.message) {
+                errorMessage = error.message;
+              }
+
+              set((state) => {
+                state.isLoading = false;
+                state.error = errorMessage;
+                state.isAuthenticated = false;
+                state.isImpersonated = false;
+              });
+
+              debugLog('Impersonation login failed:', error);
+              throw error;
+            }
+          },
+
+          endImpersonation: async () => {
+            debugLog('AuthStore.endImpersonation');
+
+            set((state) => {
+              state.isLoading = true;
+            });
+
+            try {
+              await authService.endImpersonation();
+            } catch (error) {
+              debugLog('Error during end impersonation:', error);
+            } finally {
+              set((state) => {
+                state.user = null;
+                state.tokens = null;
+                state.permissions = [];
+                state.features = {};
+                state.isAuthenticated = false;
+                state.isImpersonated = false;
+                state.isLoading = false;
+                state.error = null;
+              });
             }
           },
 
@@ -152,6 +252,7 @@ export const useAuthStore = create<AuthState>()(
                 state.permissions = response.user.role ? ROLE_PERMISSIONS[response.user.role] : [];
                 state.features = {};
                 state.isAuthenticated = true;
+                state.isImpersonated = Boolean(response.user?.is_impersonated);
                 state.isLoading = false;
                 state.error = null;
               });
@@ -164,6 +265,7 @@ export const useAuthStore = create<AuthState>()(
                 state.isLoading = false;
                 state.error = errorMessage;
                 state.isAuthenticated = false;
+                state.isImpersonated = false;
               });
 
               debugLog('Registration failed:', error);
@@ -189,6 +291,7 @@ export const useAuthStore = create<AuthState>()(
                 state.permissions = [];
                 state.features = {};
                 state.isAuthenticated = false;
+                state.isImpersonated = false;
                 state.isLoading = false;
                 state.error = null;
               });
@@ -205,10 +308,13 @@ export const useAuthStore = create<AuthState>()(
 
             try {
               const user = await authService.getCurrentUser();
+              const jwtImpersonated = getImpersonationStatusFromJwt();
+              const nextImpersonated = user.is_impersonated ?? jwtImpersonated ?? get().isImpersonated;
               
               set((state) => {
                 state.user = user;
                 state.permissions = user.role ? ROLE_PERMISSIONS[user.role] : [];
+                state.isImpersonated = nextImpersonated;
                 state.isLoading = false;
                 state.error = null;
               });
@@ -495,6 +601,7 @@ export const useAuthStore = create<AuthState>()(
                     state.permissions = [];
                     state.features = {};
                     state.isAuthenticated = false;
+                    state.isImpersonated = false;
                     state.isLoading = false;
                     state.error = null;
                   });
@@ -506,6 +613,8 @@ export const useAuthStore = create<AuthState>()(
           
               // Get current user profile
               const user = await authService.getCurrentUser();
+              const jwtImpersonated = getImpersonationStatusFromJwt();
+              const nextImpersonated = user.is_impersonated ?? jwtImpersonated ?? get().isImpersonated;
               
               set((state) => {
                 state.user = user;
@@ -518,6 +627,7 @@ export const useAuthStore = create<AuthState>()(
                 state.permissions = user.role ? ROLE_PERMISSIONS[user.role] : [];
                 state.features = {};
                 state.isAuthenticated = true;
+                state.isImpersonated = nextImpersonated;
                 state.isLoading = false;
                 state.error = null;
               });
@@ -546,6 +656,7 @@ export const useAuthStore = create<AuthState>()(
                 state.permissions = [];
                 state.features = {};
                 state.isAuthenticated = false;
+                state.isImpersonated = false;
                 state.isLoading = false;
                 state.error = null;
               });
@@ -615,6 +726,7 @@ export const useAuthStore = create<AuthState>()(
           permissions: state.permissions,
           features: state.features,
           isAuthenticated: state.isAuthenticated,
+          isImpersonated: state.isImpersonated,
         }),
         // Sync persisted token to tokenManager when store is rehydrated
         onRehydrateStorage: () => (state) => {

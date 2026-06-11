@@ -24,7 +24,9 @@ export type OrderStatus =
     | 'prescribed'
     | 'billing_pending'
     | 'rx_sent'
+    | 'in_fulfillment'
     | 'shipped'
+    | 'delivered'
     | 'canceled';
 
 export interface OrderActivityEvent {
@@ -51,6 +53,7 @@ export interface PatientOrder {
     product_image?: string | null;
     pharmacy_name: string | null;
     tracking_number: string | null;
+    shipping_carrier?: string | null;
     tracking_url: string | null;
     amount: string;
     chargeable_amount?: string;

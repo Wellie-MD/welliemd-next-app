@@ -23,6 +23,7 @@ export const UserSchema = z.object({
   last_name: z.string(),
   phone: z.string().nullable(),
   auth_user: z.number(),
+  is_impersonated: z.boolean().optional(),
   // Extended fields for client-side use
   role: z.nativeEnum(UserRole).optional(),
   status: z.nativeEnum(UserStatus).optional(),
@@ -143,6 +144,7 @@ export const AuthStateSchema = z.object({
   permissions: z.array(z.string()),
   features: z.record(z.boolean()),
   isAuthenticated: z.boolean(),
+  isImpersonated: z.boolean(),
   isLoading: z.boolean(),
   error: z.string().nullable(),
 });

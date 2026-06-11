@@ -56,6 +56,39 @@ export interface LabSubmission {
     submitted_at: string | null;
     created_at: string;
     updated_at: string;
+    requisition_pdf_url?: string | null;
+    booking_link?: string | null;
+    booking_url?: string | null;
+    events?: LabLifecycleEvent[] | null;
+    lifecycle_events?: LabLifecycleEvent[] | null;
+    activity_events?: LabLifecycleEvent[] | null;
+}
+
+export interface LabLifecycleEvent {
+    id?: string;
+    event_type?: string;
+    event?: string;
+    type?: string;
+    name?: string;
+    status?: string;
+    title?: string;
+    description?: string;
+    occurred_at?: string | null;
+    created_at?: string | null;
+    timestamp?: string | null;
+    requisition_pdf_url?: string | null;
+    requisition_url?: string | null;
+    requisition_link?: string | null;
+    booking_link?: string | null;
+    booking_url?: string | null;
+    result_booking_link?: string | null;
+    result_booking_url?: string | null;
+    tracking_url?: string | null;
+    tracking_link?: string | null;
+    tracking_link_url?: string | null;
+    tracking_number?: string | null;
+    carrier?: string | null;
+    payload?: Record<string, unknown> | null;
 }
 
 interface PaginatedResponse<T> {

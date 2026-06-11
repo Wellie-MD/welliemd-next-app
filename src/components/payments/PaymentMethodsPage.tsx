@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { useProfile } from '@/features/profile';
 import { useRBAC } from '@/shared/hooks/use-rbac';
+import { useAuthStore } from '@/features/auth/store/auth.store';
 import { PERMISSIONS } from '@/features/auth/types/auth.types';
 import { PaymentMethodsService } from '@/features/payment-methods/services/payment-methods.service';
 import type { PaymentConfig, PaymentGateway, PaymentMethod } from '@/features/payment-methods/types/payment-methods.types';
@@ -42,6 +43,7 @@ const resolveCardIcon = (brand?: string) => {
 export default function PaymentMethodsPage() {
   const { userProfile } = useProfile();
   const { can } = useRBAC();
+  const isImpersonated = useAuthStore((state) => state.isImpersonated);
 
   const [config, setConfig] = useState<PaymentConfig | null>(null);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
@@ -110,7 +112,7 @@ export default function PaymentMethodsPage() {
   }, []);
 
   const handleSave = async () => {
-    if (!activeGateway) return;
+    if (isImpersonated || !activeGateway) return;
     if (!userProfile?.id) {
       toast.error('User profile not loaded');
       return;
@@ -158,7 +160,7 @@ export default function PaymentMethodsPage() {
   };
 
   const handleSetDefault = async (methodId: string) => {
-    if (!activeGateway) return;
+    if (isImpersonated || !activeGateway) return;
     try {
       await PaymentMethodsService.setDefaultPaymentMethod(activeGateway, methodId);
       toast.success('Default payment method updated');
@@ -169,7 +171,7 @@ export default function PaymentMethodsPage() {
   };
 
   const handleDelete = async (methodId: string) => {
-    if (!activeGateway) return;
+    if (isImpersonated || !activeGateway) return;
     try {
       await PaymentMethodsService.deletePaymentMethod(activeGateway, methodId);
       toast.success('Payment method removed');
@@ -221,7 +223,7 @@ export default function PaymentMethodsPage() {
           {canCreate && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <button className="km-btn km-btn-primary" disabled={limitReached} style={{ marginBottom: 18, gap: 8 }}>
+                <button className="km-btn km-btn-primary" disabled={limitReached || isImpersonated} style={{ marginBottom: 18, gap: 8, opacity: isImpersonated ? 0.5 : 1, cursor: isImpersonated ? 'not-allowed' : 'pointer' }}>
                   <Pencil size={14} />
                   Add another card
                 </button>
@@ -235,7 +237,7 @@ export default function PaymentMethodsPage() {
                 </DialogHeader>
                 <div className="mt-4 space-y-4">
                   {renderGatewayForm()}
-                  <button onClick={handleSave} disabled={saving || !activeGateway} className="km-btn km-btn-primary" style={{ width: '100%', justifyContent: 'center', borderRadius: 10, padding: '10px 16px' }}>
+                  <button onClick={handleSave} disabled={saving || !activeGateway || isImpersonated} className="km-btn km-btn-primary" style={{ width: '100%', justifyContent: 'center', borderRadius: 10, padding: '10px 16px' }}>
                     {saving ? 'Saving…' : 'Save card'}
                   </button>
                 </div>
@@ -299,8 +301,9 @@ export default function PaymentMethodsPage() {
                       {canDelete && methods.length > 1 && (
                         <button
                           className="km-btn"
-                          style={{ padding: '5px 12px', fontSize: 12, background: 'var(--km-rep)', color: 'var(--km-re)', border: '1px solid rgba(239,68,68,0.2)' }}
+                          style={{ padding: '5px 12px', fontSize: 12, background: 'var(--km-rep)', color: 'var(--km-re)', border: '1px solid rgba(239,68,68,0.2)', opacity: isImpersonated ? 0.5 : 1, cursor: isImpersonated ? 'not-allowed' : 'pointer' }}
                           onClick={() => handleDelete(method.id)}
+                          disabled={isImpersonated}
                         >
                           Remove
                         </button>
@@ -351,15 +354,16 @@ export default function PaymentMethodsPage() {
                            </div>
                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               {canUpdate && (
-                                <button className="km-btn km-btn-outline" style={{ padding: '5px 12px', fontSize: 12 }} onClick={() => handleSetDefault(method.id)}>
+                                <button className="km-btn km-btn-outline" style={{ padding: '5px 12px', fontSize: 12, opacity: isImpersonated ? 0.5 : 1, cursor: isImpersonated ? 'not-allowed' : 'pointer' }} onClick={() => handleSetDefault(method.id)} disabled={isImpersonated}>
                                   Make Default
                                 </button>
                               )}
                               {canDelete && (
                                 <button
                                   className="km-btn"
-                                  style={{ padding: '5px 12px', fontSize: 12, background: 'var(--km-rep)', color: 'var(--km-re)', border: '1px solid rgba(239,68,68,0.2)' }}
+                                  style={{ padding: '5px 12px', fontSize: 12, background: 'var(--km-rep)', color: 'var(--km-re)', border: '1px solid rgba(239,68,68,0.2)', opacity: isImpersonated ? 0.5 : 1, cursor: isImpersonated ? 'not-allowed' : 'pointer' }}
                                   onClick={() => handleDelete(method.id)}
+                                  disabled={isImpersonated}
                                 >
                                   Remove
                                 </button>

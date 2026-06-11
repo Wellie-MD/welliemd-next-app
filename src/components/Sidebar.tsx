@@ -17,6 +17,7 @@ import {
   LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/features/auth";
+import { useAuthStore } from "@/features/auth/store/auth.store";
 
 interface NavigationItem {
   icon: LucideIcon;
@@ -46,7 +47,8 @@ interface SidebarProps {
 
 export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: SidebarProps) {
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, isImpersonated } = useAuth();
+  const bannerH = isImpersonated ? 44 : 0;
 
   useEffect(() => {
     onMobileClose();
@@ -116,10 +118,10 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
           flexDirection: "column",
           flexShrink: 0,
           position: "fixed",
-          top: 60,
+          top: 60 + bannerH,
           left: 0,
           width: 240,
-          height: "calc((var(--app-vh, 1vh) * 100) - 60px)",
+          height: `calc((var(--app-vh, 1vh) * 100) - 60px - ${bannerH}px)`,
           background: "var(--km-s1)",
           borderRight: "1px solid var(--km-b)",
           overflowY: "auto",
@@ -170,31 +172,33 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
             </div>
           </div>
 
-          <button
-            onClick={() => logout()}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 9,
-              padding: 10,
-              borderRadius: "var(--km-rs)",
-              cursor: "pointer",
-              color: "var(--km-re)",
-              fontSize: 13,
-              fontWeight: 500,
-              transition: "background 0.2s",
-              marginTop: 2,
-              width: "100%",
-              background: "transparent",
-              border: "none",
-              fontFamily: "'Outfit', sans-serif",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--km-rep)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-          >
-            <LogOut size={15} />
-            Sign out
-          </button>
+          {!isImpersonated && (
+            <button
+              onClick={() => logout()}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 9,
+                padding: 10,
+                borderRadius: "var(--km-rs)",
+                cursor: "pointer",
+                color: "var(--km-re)",
+                fontSize: 13,
+                fontWeight: 500,
+                transition: "background 0.2s",
+                marginTop: 2,
+                width: "100%",
+                background: "transparent",
+                border: "none",
+                fontFamily: "'Outfit', sans-serif",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--km-rep)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              <LogOut size={15} />
+              Sign out
+            </button>
+          )}
         </div>
       </aside>
     );
@@ -221,10 +225,10 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
       <nav
         style={{
           position: "fixed",
-          top: 0,
+          top: bannerH,
           left: 0,
           width: 285,
-          height: "calc(var(--app-vh, 1vh) * 100)",
+          height: `calc((var(--app-vh, 1vh) * 100) - ${bannerH}px)`,
           background: "var(--km-s1)",
           borderRight: "1px solid var(--km-b)",
           zIndex: 300,
@@ -308,30 +312,32 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
 
         {/* Footer */}
         <div style={{ padding: "12px 16px", borderTop: "1px solid var(--km-b)" }}>
-          <button
-            onClick={() => logout()}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 9,
-              padding: 10,
-              borderRadius: "var(--km-rs)",
-              cursor: "pointer",
-              color: "var(--km-re)",
-              fontSize: 13,
-              fontWeight: 500,
-              transition: "background 0.2s",
-              width: "100%",
-              background: "transparent",
-              border: "none",
-              fontFamily: "'Outfit', sans-serif",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "var(--km-rep)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-          >
-            <LogOut size={15} />
-            Sign out
-          </button>
+          {!isImpersonated && (
+            <button
+              onClick={() => logout()}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 9,
+                padding: 10,
+                borderRadius: "var(--km-rs)",
+                cursor: "pointer",
+                color: "var(--km-re)",
+                fontSize: 13,
+                fontWeight: 500,
+                transition: "background 0.2s",
+                width: "100%",
+                background: "transparent",
+                border: "none",
+                fontFamily: "'Outfit', sans-serif",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--km-rep)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              <LogOut size={15} />
+              Sign out
+            </button>
+          )}
         </div>
       </nav>
     </>

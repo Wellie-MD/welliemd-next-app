@@ -3,11 +3,15 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
+import { ImpersonationBanner } from '@/components/auth/ImpersonationBanner';
+import { useAuthStore } from '@/features/auth/store/auth.store';
 
 const DashboardLayout: React.FC = () => {
   const location = useLocation();
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const isImpersonated = useAuthStore((state) => state.isImpersonated);
+  const bannerH = isImpersonated ? 44 : 0;
   const closeMobileSidebar = useCallback(() => setIsMobileSidebarOpen(false), []);
   const toggleMobileSidebar = useCallback(() => setIsMobileSidebarOpen((prev) => !prev), []);
 
@@ -39,6 +43,10 @@ const DashboardLayout: React.FC = () => {
     };
   }, [closeMobileSidebar]);
 
+  useEffect(() => {
+    document.documentElement.style.setProperty('--km-banner-h', `${bannerH}px`);
+  }, [bannerH]);
+
   return (
     <NotificationsProvider>
       <div
@@ -48,6 +56,7 @@ const DashboardLayout: React.FC = () => {
           background: "var(--km-bg)",
           color: "var(--km-t)",
           fontFamily: "'Outfit', sans-serif",
+          paddingTop: bannerH,
         }}
       >
         <Header
@@ -57,38 +66,41 @@ const DashboardLayout: React.FC = () => {
           isMobile={isMobile}
         />
 
-        <div style={{ display: "flex", minHeight: "calc((var(--app-vh, 1vh) * 100) - 60px)", paddingTop: 60 }}>
-          <Sidebar
-            isMobile={isMobile}
-            isMobileOpen={isMobileSidebarOpen}
-            onMobileClose={closeMobileSidebar}
-          />
+        <div style={{ display: "flex", flexDirection: "column", minHeight: `calc((var(--app-vh, 1vh) * 100) - 60px - ${bannerH}px)`, paddingTop: 60 }}>
+          <ImpersonationBanner />
+          <div style={{ display: "flex", flex: 1, minHeight: `calc((var(--app-vh, 1vh) * 100) - 60px - ${bannerH}px)` }}>
+            <Sidebar
+              isMobile={isMobile}
+              isMobileOpen={isMobileSidebarOpen}
+              onMobileClose={closeMobileSidebar}
+            />
 
-          <main
-            style={{
-              flex: 1,
-              minWidth: 0,
-              marginLeft: isMobile ? 0 : 240,
-              transition: "margin-left 0.3s",
-            }}
-          >
-            {/* kinmeds3: pg padding 24px 20px → 28px 28px → 32px 36px, max-width 680→800→900 */}
-            <div
-              className={location.pathname.includes('/messages') ? '' : 'km-pg'}
-              style={location.pathname.includes('/messages') ? {
-                padding: 0,
-                maxWidth: '100%',
-                margin: 0,
-                height: 'calc((var(--app-vh, 1vh) * 100) - 60px)'
-              } : {
-                padding: isMobile ? "24px 20px 60px" : "32px 36px 60px",
-                maxWidth: isMobile ? 680 : 800,
-                margin: "0 auto",
+            <main
+              style={{
+                flex: 1,
+                minWidth: 0,
+                marginLeft: isMobile ? 0 : 240,
+                transition: "margin-left 0.3s",
               }}
             >
-              <Outlet />
-            </div>
-          </main>
+              {/* kinmeds3: pg padding 24px 20px → 28px 28px → 32px 36px, max-width 680→800→900 */}
+              <div
+                className={location.pathname.includes('/messages') ? '' : 'km-pg'}
+                style={location.pathname.includes('/messages') ? {
+                  padding: 0,
+                  maxWidth: '100%',
+                  margin: 0,
+                  height: `calc((var(--app-vh, 1vh) * 100) - 60px - ${bannerH}px)`
+                } : {
+                  padding: isMobile ? "24px 20px 60px" : "32px 36px 60px",
+                  maxWidth: isMobile ? 680 : 800,
+                  margin: "0 auto",
+                }}
+              >
+                <Outlet />
+              </div>
+            </main>
+          </div>
         </div>
       </div>
     </NotificationsProvider>
