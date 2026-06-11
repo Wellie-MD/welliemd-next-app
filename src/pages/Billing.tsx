@@ -386,9 +386,24 @@ export default function Billing() {
           <div className="bg-white rounded-md p-4 w-full max-w-4xl max-h-[90vh] overflow-auto">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-lg font-semibold">Invoice {selected.invoice_number}</h3>
-              <button onClick={() => setSelected(null)} className="text-sm px-2 py-1">
-                Close
-              </button>
+              <div className="flex items-center gap-2">
+                {String(selected.invoice_type) === "credit_note" && (selected as any).refund_required && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm("Mark this credit note as refunded in the system?")) {
+                        markRefundMutation.mutate(selected);
+                      }
+                    }}
+                    disabled={markRefundMutation.isPending}
+                    className="text-sm px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50"
+                  >
+                    {markRefundMutation.isPending ? "Processing..." : "Mark Refund Processed"}
+                  </button>
+                )}
+                <button onClick={() => setSelected(null)} className="text-sm px-2 py-1">
+                  Close
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-4">
               <div className="rounded border p-3"><strong>Client:</strong> {(selected as any).client_name || "-"}</div>
