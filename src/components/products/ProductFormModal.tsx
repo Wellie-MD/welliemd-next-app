@@ -246,17 +246,6 @@ export function ProductFormModal({
           }))
           .filter((item) => item.id && item.name);
 
-        if (product?.junction_lab_test_id) {
-          const selectedExists = mapped.some((item) => item.id === product.junction_lab_test_id);
-          if (!selectedExists) {
-            mapped.push({
-              id: product.junction_lab_test_id,
-              name: product.junction_lab_test_name_snapshot || product.junction_lab_test_id,
-              raw: { fallback: true },
-            });
-          }
-        }
-
         setJunctionLabTests(mapped);
       } catch (error) {
         console.error("Failed to fetch Junction lab tests:", error);
@@ -974,41 +963,61 @@ export function ProductFormModal({
                   <Label htmlFor="junction_lab_test_id">
                     Junction Lab Test <span className="text-red-500">*</span>
                   </Label>
-                  <Select
-                    value={formData.junction_lab_test_id || "none"}
-                    onValueChange={(value) => {
-                      const selected = junctionLabTests.find((item) => item.id === value);
-                      setFormData({
-                        ...formData,
-                        junction_lab_test_id: value === "none" ? "" : value,
-                        junction_lab_test_name_snapshot: selected?.name || "",
-                      });
-                    }}
-                    disabled={loadingJunctionLabTests}
-                  >
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          loadingJunctionLabTests
-                            ? "Loading Junction catalog..."
-                            : "Select Junction lab test"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No lab test selected</SelectItem>
-                      {junctionLabTests.map((item) => (
-                        <SelectItem key={item.id} value={item.id}>
-                          {item.name}
-                        </SelectItem>
-                      ))}
-                      {junctionLabTests.length === 0 && !loadingJunctionLabTests && (
-                        <div className="p-2 text-sm text-muted-foreground text-center">
-                          No Junction lab tests available
-                        </div>
-                      )}
-                    </SelectContent>
-                  </Select>
+                  {junctionLabTests.length > 0 ? (
+                    <Select
+                      value={formData.junction_lab_test_id || "none"}
+                      onValueChange={(value) => {
+                        const selected = junctionLabTests.find((item) => item.id === value);
+                        setFormData({
+                          ...formData,
+                          junction_lab_test_id: value === "none" ? "" : value,
+                          junction_lab_test_name_snapshot: selected?.name || "",
+                        });
+                      }}
+                      disabled={loadingJunctionLabTests}
+                    >
+                      <SelectTrigger>
+                        <SelectValue
+                          placeholder={
+                            loadingJunctionLabTests
+                              ? "Loading Junction catalog..."
+                              : "Select Junction lab test"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No lab test selected</SelectItem>
+                        {junctionLabTests.map((item) => (
+                          <SelectItem key={item.id} value={item.id}>
+                            {item.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      id="junction_lab_test_id"
+                      value={formData.junction_lab_test_id}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          junction_lab_test_id: e.target.value,
+                        })
+                      }
+                      placeholder={
+                        loadingJunctionLabTests
+                          ? "Loading Junction catalog..."
+                          : "Paste Junction lab test ID"
+                      }
+                      disabled={loadingJunctionLabTests}
+                    />
+                  )}
+                  {junctionLabTests.length === 0 && !loadingJunctionLabTests && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Catalog is unavailable in admin. Paste the Junction lab test ID and name from the tenant's
+                      Junction team.
+                    </p>
+                  )}
                 </div>
 
                 <div>
