@@ -142,7 +142,6 @@ export default function Payments() {
     stripe_secret_key: null,
     stripe_publishable_key: null,
     stripe_subscription_id: null,
-    stripe_webhook_secret: null,
     authorize_net_api_login_id: null,
     authorize_net_transaction_key: null,
     authorize_net_base_url: null,
@@ -228,8 +227,7 @@ export default function Payments() {
     if (payment_gateway === 'stripe') {
       return !!(
         gatewayConfig.stripe_secret_key &&
-        gatewayConfig.stripe_publishable_key &&
-        gatewayConfig.stripe_webhook_secret
+        gatewayConfig.stripe_publishable_key
       )
     }
     if (payment_gateway === 'nmi') {
