@@ -171,6 +171,7 @@ export default function OrderDetail() {
   const [paymentMethodsError, setPaymentMethodsError] = useState<string | null>(null)
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("")
   const [retryPaymentLoading, setRetryPaymentLoading] = useState(false)
+  const [retryJunctionLoading, setRetryJunctionLoading] = useState(false)
   const [sendCheckoutLinkLoading, setSendCheckoutLinkLoading] = useState(false)
   const retrySingleFlightRef = useRef(false)
   const [retryGateway, setRetryGateway] = useState<PatientPaymentGateway | null>(null)
@@ -680,6 +681,36 @@ export default function OrderDetail() {
     } finally {
       setRetryPaymentLoading(false)
       retrySingleFlightRef.current = false
+    }
+  }
+
+  const handleRetryJunctionOrder = async () => {
+    if (!order?.id || retryJunctionLoading) return
+
+    try {
+      setRetryJunctionLoading(true)
+      const result = await ordersApi.retryJunctionOrder(order.id)
+      if (!result.success) {
+        toast({
+          title: result.error || result.detail || "Failed to retry Junction order.",
+          variant: "destructive",
+        })
+        return
+      }
+      if (result.order) {
+        setOrder(result.order)
+      }
+      toast({ title: result.message || "Junction order retry queued." })
+      await refetchOrderWithRetries()
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { error?: string; detail?: string; message?: string } } })?.response?.data?.error ||
+        (err as { response?: { data?: { error?: string; detail?: string; message?: string } } })?.response?.data?.detail ||
+        (err as { response?: { data?: { error?: string; detail?: string; message?: string } } })?.response?.data?.message ||
+        "Failed to retry Junction order."
+      toast({ title: message, variant: "destructive" })
+    } finally {
+      setRetryJunctionLoading(false)
     }
   }
 
@@ -1677,6 +1708,32 @@ export default function OrderDetail() {
                           <div>
                             <p className="text-xs text-slate-500 mb-0.5">Junction Order ID</p>
                             <p className="text-sm font-mono text-slate-700 dark:text-slate-300 break-all">{order.junction_order_id}</p>
+                          </div>
+                        )}
+                        {order.junction_order_state === "failed" && (
+                          <div className="sm:col-span-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/60 dark:bg-red-950/20">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-red-700 dark:text-red-300">Junction submission failed</p>
+                                <p className="mt-1 text-xs text-red-600 dark:text-red-300">
+                                  {order.junction_order_last_error || "Fix the order or patient data, then retry submission."}
+                                </p>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="shrink-0 border-red-200 bg-white text-red-700 hover:bg-red-100 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50"
+                                onClick={handleRetryJunctionOrder}
+                                disabled={retryJunctionLoading}
+                              >
+                                {retryJunctionLoading ? (
+                                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <RotateCw className="mr-2 h-3.5 w-3.5" />
+                                )}
+                                Retry Junction
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </div>

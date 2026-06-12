@@ -32,6 +32,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
+import { usePermissions } from "@/hooks/usePermissions"
 import {
   Tooltip,
   TooltipContent,
@@ -53,6 +54,12 @@ const settingsMenuItems = [
   { title: "Analytics and SEO", url: "/dashboard/settings/analytics-seo", icon: TrendingUp },
   { title: "Email and Sending Domain", url: "/dashboard/settings/email-domain", icon: Globe },
   { title: "Beluga Settings", url: "/dashboard/settings/beluga-settings", icon: Cloud },
+  {
+    title: "Junction Settings",
+    url: "/dashboard/settings/junction-settings",
+    icon: Plug2,
+    requiresCredentialManager: true,
+  },
   { title: "Patient Resources", url: "/dashboard/settings/patient-resources", icon: BookOpen },
 ]
 
@@ -69,6 +76,12 @@ export function SettingsSidebar({
   const location = useLocation()
   const currentPath = location.pathname
   const { logos, isLoading } = useBranding()
+  const { hasRole } = usePermissions()
+  const canManageIntegrationCredentials =
+    hasRole("Super Admin") || hasRole("Primary Owner") || hasRole("Admin")
+  const visibleMenuItems = settingsMenuItems.filter(
+    (item) => !item.requiresCredentialManager || canManageIntegrationCredentials
+  )
   // const collapsed = state === "collapsed"
 
   const isActive = (path: string) => currentPath === path
@@ -156,7 +169,7 @@ export function SettingsSidebar({
                 )}
 
                 {/* Settings Menu Items */}
-                {settingsMenuItems.map((item) => (
+                {visibleMenuItems.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <MenuItemWrapper title={item.title}>
                       <NavLink

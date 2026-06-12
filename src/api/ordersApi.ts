@@ -172,6 +172,7 @@ export interface Order {
   junction_order_id?: string | null
   junction_order_status?: string | null
   junction_last_synced_at?: string | null
+  junction_order_last_error?: string | null
   junction_results_state?: "not_requested" | "pending" | "synced" | "failed" | null
   junction_results_synced_at?: string | null
   booking_scheduled_at?: string | null
@@ -250,6 +251,15 @@ export interface RetryPaymentResponse {
   transaction_status?: string
   reason_code?: string
   retryable?: boolean
+}
+
+export interface RetryJunctionOrderResponse {
+  success: boolean
+  error?: string
+  detail?: string
+  message?: string
+  code?: string
+  order?: Order
 }
 
 export interface SendCheckoutLinkResponse {
@@ -374,6 +384,16 @@ export const retryPayment = async (id: string, payload: RetryPaymentPayload): Pr
   }
 }
 
+export const retryJunctionOrder = async (id: string): Promise<RetryJunctionOrderResponse> => {
+  try {
+    const { data } = await api.post<RetryJunctionOrderResponse>(`${ENDPOINT}${id}/retry-junction-order/`)
+    return data
+  } catch (error) {
+    console.error(`Failed to retry Junction order for order ${id}:`, error)
+    throw error
+  }
+}
+
 export const sendCheckoutLink = async (id: string): Promise<SendCheckoutLinkResponse> => {
   try {
     const { data } = await api.post<SendCheckoutLinkResponse>(`${ENDPOINT}${id}/send-checkout-link/`)
@@ -425,6 +445,7 @@ export const ordersApi = {
   searchOrders,
   refundOrder,
   retryPayment,
+  retryJunctionOrder,
   sendCheckoutLink,
   changeProduct,
   updateOrderQuestionnaireImages,
