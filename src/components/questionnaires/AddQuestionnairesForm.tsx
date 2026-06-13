@@ -92,7 +92,11 @@ export default function AddQuestionnairesForm({
     requires_labs: false,
     requires_identity_verification: false,
     min_age: 18,
-    is_admin_template: true,
+    biological_sex: "any",
+    max_age: null,
+    min_bmi: null,
+    max_bmi: null,
+    is_active: true,
     default_followup_template: null,
   })
   const [questions, setQuestions] = useState<QuestionFormData[]>([])
@@ -110,7 +114,11 @@ export default function AddQuestionnairesForm({
         requires_labs: (template as any).requires_labs || false,
         requires_identity_verification: template.requires_identity_verification || false,
         min_age: template.min_age || 18,
-        is_admin_template: template.is_admin_template !== undefined ? template.is_admin_template : true,
+        biological_sex: template.biological_sex || "any",
+        max_age: template.max_age || null,
+        min_bmi: template.min_bmi || null,
+        max_bmi: template.max_bmi || null,
+        is_active: template.is_active !== undefined ? template.is_active : true,
         default_followup_template: template.default_followup_template || null,
       })
       setQuestions([])
@@ -126,7 +134,11 @@ export default function AddQuestionnairesForm({
         requires_labs: false,
         requires_identity_verification: false,
         min_age: 18,
-        is_admin_template: true,
+        biological_sex: "any",
+        max_age: null,
+        min_bmi: null,
+        max_bmi: null,
+        is_active: true,
         default_followup_template: null,
       })
       setQuestions([])
@@ -388,6 +400,87 @@ export default function AddQuestionnairesForm({
             />
             <p className="text-xs text-muted-foreground">
               Patient must be at least this age to complete intake. Set to 0 to disable the age rule.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="max_age">Maximum Age</Label>
+            <Input
+              id="max_age"
+              type="number"
+              min={0}
+              max={120}
+              value={formData.max_age || ""}
+              onChange={(e) => {
+                const value = e.target.value === "" ? null : Number(e.target.value);
+                if (value !== null && !Number.isFinite(value)) return;
+                setFormData({ ...formData, max_age: value === null ? null : Math.max(0, Math.min(120, value)) });
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Maximum age allowed to complete this questionnaire. Leave blank for no maximum.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="biological_sex">
+              Biological Sex
+            </Label>
+            <Select
+              value={formData.biological_sex}
+              onValueChange={(value) => setFormData({ ...formData, biological_sex: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">Any</SelectItem>
+                <SelectItem value="male">Male</SelectItem>
+                <SelectItem value="female">Female</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Biological sex required for this treatment.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="min_bmi">Minimum BMI</Label>
+            <Input
+              id="min_bmi"
+              type="number"
+              step="0.01"
+              min={0}
+              max={100}
+              value={formData.min_bmi || ""}
+              onChange={(e) => {
+                const value = e.target.value === "" ? null : Number(e.target.value);
+                if (value !== null && !Number.isFinite(value)) return;
+                setFormData({ ...formData, min_bmi: value === null ? null : Math.max(0, Math.min(100, value)) });
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Minimum BMI required for this treatment. Leave blank for no minimum.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="max_bmi">Maximum BMI</Label>
+            <Input
+              id="max_bmi"
+              type="number"
+              step="0.01"
+              min={0}
+              max={100}
+              value={formData.max_bmi || ""}
+              onChange={(e) => {
+                const value = e.target.value === "" ? null : Number(e.target.value);
+                if (value !== null && !Number.isFinite(value)) return;
+                setFormData({ ...formData, max_bmi: value === null ? null : Math.max(0, Math.min(100, value)) });
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Maximum BMI allowed for this treatment. Leave blank for no maximum.
             </p>
           </div>
 

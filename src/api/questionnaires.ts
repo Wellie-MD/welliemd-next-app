@@ -21,6 +21,10 @@ export interface QuestionnaireTemplate {
   requires_labs: boolean;
   requires_identity_verification?: boolean;
   min_age?: number;
+  biological_sex?: string;
+  max_age?: number | null;
+  min_bmi?: number | null;
+  max_bmi?: number | null;
   is_published: boolean;
   is_admin_template?: boolean;
   is_modified_need_to_re_assigned?: boolean; // True if template was modified and needs re-assignment
@@ -119,14 +123,17 @@ export interface CreateTemplatePayload {
   requires_labs?: boolean;
   requires_identity_verification?: boolean;
   min_age?: number;
-  is_admin_template?: boolean;
+  biological_sex?: string;
+  max_age?: number | null;
+  min_bmi?: number | null;
+  max_bmi?: number | null;
+  is_active?: boolean;
   default_followup_template?: string | null;
 }
 
 export interface UpdateTemplatePayload {
   name?: string;
   description?: string;
-  questionnaire_type?: "onboarding" | "follow_up";
   treatment_type?: string;
   beluga_visit_type?: string;
   slug?: string;
@@ -134,7 +141,11 @@ export interface UpdateTemplatePayload {
   requires_labs?: boolean;
   requires_identity_verification?: boolean;
   min_age?: number;
-  is_admin_template?: boolean;
+  biological_sex?: string;
+  max_age?: number | null;
+  min_bmi?: number | null;
+  max_bmi?: number | null;
+  is_active?: boolean;
   default_followup_template?: string | null;
 }
 
