@@ -87,6 +87,7 @@ interface CheckoutConfig {
   target_regimen_protocol?: string;
   dose_strategy?: "same_dose" | "next_dose_if_available_else_same";
   category?: string;
+  category_id?: number;
   medication_base_name?: string;
   regimen?: string;
   regimen_name?: string;

@@ -508,6 +508,7 @@ export function ProductFormModal({
                 />
               </div>
 
+              {/*
               <div className="col-span-2">
                 <Label htmlFor="base_medication_name">Medication Family (Base Name)</Label>
                 <Input
@@ -520,6 +521,7 @@ export function ProductFormModal({
                   Used for grouping and prefill when applicable.
                 </p>
               </div>
+              */}
 
               <div className="col-span-2">
                 <Label htmlFor="description">Description</Label>
