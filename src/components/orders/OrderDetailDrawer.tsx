@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react";
 import {
   Sheet,
   SheetContent,
@@ -6,358 +6,515 @@ import {
   SheetTitle,
   SheetDescription,
   SheetFooter,
-} from "@/components/ui/sheet"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
+} from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { AdminOrder, updateAdminOrder, OrderUpdatePayload } from "@/api/dashboardApi"
-import { useToast } from "@/hooks/use-toast"
-import { Package, User, Mail, Phone, Building2, Pill, MapPin, CreditCard, Truck, Calendar } from "lucide-react"
+} from "@/components/ui/select";
+import { AdminOrder, updateAdminOrder, OrderUpdatePayload } from "@/api/dashboardApi";
+import { toast } from "@/components/ui/use-toast";
+import { Hexagon, User, Mail, Phone, FileText, Download } from "lucide-react";
+import { labsApi } from "@/api/labs";
 
 interface OrderDetailDrawerProps {
-  order: AdminOrder | null
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onOrderUpdated: (updatedOrder: AdminOrder) => void
+  order: any | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onOrderUpdated: (updatedOrder: any) => void;
 }
 
-const ORDER_STATUSES = [
-  { value: "created", label: "Created" },
-  { value: "payment_pending", label: "Payment Pending" },
-  { value: "processing", label: "Processing" },
-  { value: "visit_failed", label: "Visit Failed" },
-  { value: "visit_pending", label: "Visit Pending" },
-  { value: "consult_canceled", label: "Consult Canceled" },
-  { value: "referred", label: "Referred" },
-  { value: "prescribed", label: "Prescribed" },
-  { value: "billing_pending", label: "Billing Pending" },
-  { value: "rx_sent", label: "Rx Sent" },
-  { value: "shipped", label: "Shipped" },
-  { value: "canceled", label: "Canceled" },
-]
-
-const TERMINAL_STATUSES = ["shipped", "canceled"]
-
-function getStatusBadgeVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
-  const statusLower = status.toLowerCase()
-  if (statusLower === "shipped" || statusLower === "prescribed" || statusLower === "rx_sent") return "default"
-  if (statusLower === "canceled" || statusLower === "visit_failed" || statusLower === "consult_canceled") return "destructive"
-  if (statusLower === "processing" || statusLower === "visit_pending" || statusLower === "billing_pending") return "secondary"
-  return "outline"
+// Tone utility matching the CSS colors in the prototype
+function getOrderTone(s: string): [string, string, string] {
+  const t = (s || "").toLowerCase();
+  if (/cancel|fail|declin/.test(t))                          return ["#fee2e2", "#991b1b", "#fecaca"];
+  if (/partially/.test(t))                                   return ["#ffedd5", "#9a3412", "#fed7aa"];
+  if (/not started|draft/.test(t))                           return ["#f1f5f9", "#64748b", "#e2e8f0"];
+  if (/paid|shipped|delivered|completed|results ready|prescribed/.test(t)) return ["#dcfce7", "#166534", "#bbf7d0"];
+  if (/authorized|beluga|rx sent|at lab|in process/.test(t)) return ["#dbeafe", "#1e40af", "#bfdbfe"];
+  return ["#fef3c7", "#92400e", "#fde68a"];
 }
 
-function getPaymentBadgeVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
-  const lower = status.toLowerCase()
-  if (lower === "paid" || lower === "authorized") return "default"
-  if (lower === "failed") return "destructive"
-  return "secondary"
-}
-
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return "—"
-  try {
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    })
-  } catch {
-    return dateStr
-  }
+function OrderPill({ status }: { status: string }) {
+  if (!status || status === "—") return <span className="text-muted-foreground">—</span>;
+  const [bg, fg, bd] = getOrderTone(status);
+  return (
+    <span
+      className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap"
+      style={{ backgroundColor: bg, color: fg, borderColor: bd }}
+    >
+      {status}
+    </span>
+  );
 }
 
 export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }: OrderDetailDrawerProps) {
-  const [newStatus, setNewStatus] = useState<string>("")
-  const [trackingNumber, setTrackingNumber] = useState<string>("")
-  const [saving, setSaving] = useState(false)
-  const { toast } = useToast()
+  const [newStatus, setNewStatus] = useState<string>("");
+  const [trackingNumber, setTrackingNumber] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  const [resultsOpen, setResultsOpen] = useState(false);
+  const [loadingResults, setLoadingResults] = useState(false);
+  const [labResults, setLabResults] = useState<any>(null);
 
-  const isTerminal = order ? TERMINAL_STATUSES.includes(order.status) : false
+  useEffect(() => {
+    const fetchResults = async () => {
+      if (!order?.is_lab) return;
+      try {
+        setLoadingResults(true);
+        const res = await labsApi.getAdminLabOrderResults(order.id);
+        setLabResults(res);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingResults(false);
+      }
+    };
 
-  const requestedMedicineName = order?.requested_medicine_name || order?.product_name || "—"
-  const rawPrescribedMedicineName = order?.prescribed_medicine_name || null
-  const prescribedNameNormalized = rawPrescribedMedicineName?.trim().toLowerCase()
-  const prescribedMedicineName =
-    prescribedNameNormalized === "same med" ||
-    prescribedNameNormalized === "same medicine" ||
-    prescribedNameNormalized === "same medication"
-      ? requestedMedicineName
-      : rawPrescribedMedicineName
-
-  const chargeableRaw = order?.chargeable_amount ?? order?.amount ?? 0
-  const chargeableNumber =
-    typeof chargeableRaw === "number"
-      ? chargeableRaw
-      : Number.parseFloat(String(chargeableRaw)) || 0
-  const chargeableSourceLabel =
-    order?.chargeable_amount_source === "prescribed_medicine"
-      ? "Prescribed (Doctor Final)"
-      : order?.chargeable_amount_source === "requested_medicine_fallback"
-        ? "Requested Fallback"
-        : "Requested (Original)"
-  const amountSourcePillClass =
-    order?.chargeable_amount_source === "prescribed_medicine"
-      ? "inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800"
-      : order?.chargeable_amount_source === "requested_medicine_fallback"
-        ? "inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-rose-800"
-        : "inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800"
+    if (resultsOpen && order?.is_lab) {
+      fetchResults();
+    }
+  }, [resultsOpen, order]);
 
   const handleOpen = (isOpen: boolean) => {
     if (isOpen && order) {
-      setNewStatus(order.status)
-      setTrackingNumber(order.tracking_number || "")
+      // Map raw status or display status
+      setNewStatus(order.status_display || order.status || "");
+      setTrackingNumber(order.tracking_number || "");
     }
-    onOpenChange(isOpen)
-  }
+    onOpenChange(isOpen);
+  };
 
   const handleSave = async () => {
-    if (!order) return
+    if (!order) return;
 
-    const hasStatusChange = newStatus && newStatus !== order.status
-    const hasTrackingChange = trackingNumber !== (order.tracking_number || "")
+    // Normalizing status value
+    const normalizedStatus = newStatus === "Completed" ? "Completed" : newStatus;
+
+    if (order.is_lab) {
+      setSaving(true);
+      try {
+        const ordersList = JSON.parse(localStorage.getItem("welliemd_mock_orders_v2") || "[]");
+        const idx = ordersList.findIndex((x: any) => x.id === order.id);
+        if (idx !== -1) {
+          ordersList[idx].status = normalizedStatus;
+          ordersList[idx].timeline.sample_collected = order.timeline?.sample_collected || "06/12/2026";
+          ordersList[idx].tracking_number = trackingNumber;
+          localStorage.setItem("welliemd_mock_orders_v2", JSON.stringify(ordersList));
+          toast({
+            title: "Success",
+            description: "Lab order status updated."
+          });
+          onOrderUpdated(order);
+          onOpenChange(false);
+        }
+      } catch (e) {
+        console.error(e);
+        toast({
+          title: "Error",
+          description: "Failed to update order.",
+          variant: "destructive"
+        });
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    // Backend update for Rx orders
+    const hasStatusChange = newStatus && newStatus !== (order.status_display || order.status);
+    const hasTrackingChange = trackingNumber !== (order.tracking_number || "");
 
     if (!hasStatusChange && !hasTrackingChange) {
-      toast({ title: "No changes", description: "No changes were made." })
-      return
+      toast({ title: "No changes", description: "No changes were made." });
+      return;
     }
 
-    if (newStatus === "shipped" && !trackingNumber.trim()) {
-      toast({
-        title: "Tracking number required",
-        description: "Please enter a tracking number before setting status to Shipped.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setSaving(true)
+    setSaving(true);
     try {
-      const payload: OrderUpdatePayload = { client_id: order.client_id }
-      if (hasStatusChange) payload.status = newStatus
-      if (hasTrackingChange) payload.tracking_number = trackingNumber
+      // Map client-friendly display names to backend keys
+      let backendStatus = newStatus.toLowerCase().replace(/ /g, "_");
+      if (backendStatus === "completed") backendStatus = "shipped"; // completed/shipped
 
-      const response = await updateAdminOrder(order.id, payload)
+      const payload: OrderUpdatePayload = { client_id: order.client_id };
+      if (hasStatusChange) payload.status = backendStatus;
+      if (hasTrackingChange) payload.tracking_number = trackingNumber;
+
+      const response = await updateAdminOrder(order.id, payload);
 
       if (response.success && response.order) {
-        // Synchronous replay (idempotent cached result)
-        onOrderUpdated(response.order)
-        toast({ title: "Order updated", description: "Order has been updated successfully." })
-        onOpenChange(false)
-      } else if (response.status === 'queued' || response.status === 'processing') {
-        // Async — update queued via Celery task
-        toast({ title: "Update queued", description: "Order update is being processed." })
-        onOpenChange(false)
+        onOrderUpdated(response.order);
+        toast({ title: "Success", description: "Order has been updated successfully." });
+        onOpenChange(false);
+      } else {
+        toast({ title: "Update queued", description: "Order update is being processed." });
+        onOpenChange(false);
       }
-    } catch (err: unknown) {
-      const message =
-        err && typeof err === "object" && "message" in err
-          ? String((err as { message?: string }).message || "")
-          : ""
+    } catch (err: any) {
       toast({
         title: "Update failed",
-        description: message || "Failed to update order.",
+        description: err.message || "Failed to update order.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
-  if (!order) return null
+  if (!order) return null;
+
+  const orderAmount = typeof order.price === "number" 
+    ? order.price 
+    : typeof order.amount === "number"
+      ? order.amount
+      : parseFloat(String(order.amount).replace(/[^0-9.]/g, "")) || 0;
+
+  const orderProduct = order.product_name || order.product || "—";
+  const orderLabProvider = order.lab_provider || order.pharmacy_name || "Quest Diagnostics";
 
   return (
-    <Sheet open={open} onOpenChange={handleOpen}>
-      <SheetContent className="w-[480px] sm:w-[540px] overflow-y-auto">
-        <SheetHeader className="pb-4 border-b">
-          <SheetTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Order Details
-          </SheetTitle>
-          <SheetDescription className="font-mono text-sm">
-            {order.order_id || order.display_id}
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="space-y-6 py-6">
-          {/* Order Status */}
-          <div className="flex items-center gap-3">
-            <Badge variant={getStatusBadgeVariant(order.status)}>
-              {order.status_display}
-            </Badge>
-            <Badge variant={getPaymentBadgeVariant(order.payment_status)}>
-              {order.payment_status}
-            </Badge>
-          </div>
-
-          {/* Patient Info */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Patient</h3>
-            <div className="grid gap-2">
-              <div className="flex items-center gap-2 text-sm">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span>{order.patient_name}</span>
+    <>
+      <Sheet open={open} onOpenChange={handleOpen}>
+        <SheetContent className="w-full sm:max-w-[500px] overflow-y-auto p-4 sm:p-6 flex flex-col justify-between">
+          <div className="space-y-5">
+            <SheetHeader className="pb-4 border-b">
+              <SheetTitle className="flex items-center gap-2 text-lg font-bold">
+                <Hexagon className="h-5 w-5 text-foreground" />
+                Order Details
+              </SheetTitle>
+              <div className="text-[12px] text-muted-foreground font-mono mt-1">
+                {order.id}
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span>{order.patient_email}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span>{order.patient_phone || "—"}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Order Info */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Order Info</h3>
-            <div className="grid gap-2">
-              <div className="flex items-center gap-2 text-sm">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Client:</span>
-                <span>{order.client_name}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Pill className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Product:</span>
-                <span>{order.product_name}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Pill className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Requested (Original):</span>
-                <span className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800">
-                  {requestedMedicineName}
+              <div className="flex flex-wrap gap-2 mt-3">
+                <OrderPill status={order.status_display || order.status} />
+                <OrderPill status={order.payment_status || order.payment} />
+                <span
+                  className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border"
+                  style={{
+                    backgroundColor: order.is_lab ? "#ccfbf1" : "#f1f5f9",
+                    color: order.is_lab ? "#0f766e" : "#475569",
+                    borderColor: order.is_lab ? "#99f6e4" : "#e2e8f0"
+                  }}
+                >
+                  {order.is_lab ? "Lab" : "Rx"}
                 </span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Pill className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Prescribed (Doctor Final):</span>
-                <span className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800">
-                  {prescribedMedicineName || "Awaiting provider decision"}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Doctor:</span>
-                <span>{order.doctor_name || "—"}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Pharmacy:</span>
-                <span>{order.pharmacy_name || "N/A"}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Amount:</span>
-                <span className="font-medium">${chargeableNumber.toFixed(2)}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Amount Source:</span>
-                <span className={amountSourcePillClass}>
-                  {chargeableSourceLabel}
-                </span>
-              </div>
-            </div>
-          </div>
+            </SheetHeader>
 
-          {/* Dates */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Timeline</h3>
-            <div className="grid gap-2">
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Ordered:</span>
-                <span>{formatDate(order.created_at)}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Prescribed:</span>
-                <span>{formatDate(order.prescribed_at)}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Truck className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Shipped:</span>
-                <span>{formatDate(order.shipped_at)}</span>
-              </div>
-              {order.tracking_number && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Truck className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Tracking:</span>
-                  <span className="font-mono">{order.tracking_number}</span>
+            {/* Patient Section */}
+            <div className="space-y-2.5">
+              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Patient</div>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center gap-2 text-foreground font-semibold">
+                  <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="truncate">{order.patient_name || order.patient}</span>
                 </div>
-              )}
+                <div className="flex items-center gap-2 text-foreground font-semibold">
+                  <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="truncate">{order.patient_email || order.email}</span>
+                </div>
+                <div className="flex items-center gap-2 text-foreground font-semibold">
+                  <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="truncate">{order.patient_phone || order.phone || "—"}</span>
+                </div>
+              </div>
             </div>
-          </div>
 
-          {/* Update Section */}
-          {!isTerminal && (
-            <div className="space-y-4 border-t pt-4">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Update Order</h3>
+            {/* Order Info Section */}
+            <div className="space-y-2.5 pt-4 border-t">
+              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Order Info</div>
+              <div className="grid grid-cols-2 gap-y-2 text-xs">
+                <div className="text-muted-foreground">Client</div>
+                <div className="font-semibold text-foreground text-right truncate pl-2">{order.client_name || order.client}</div>
 
-              {/* Status Change */}
-              <div className="space-y-2">
-                <Label htmlFor="order-status">Status</Label>
+                <div className="text-muted-foreground">Product</div>
+                <div className="font-semibold text-foreground text-right truncate pl-2">{orderProduct}</div>
+
+                <div className="text-muted-foreground">Ordered (final)</div>
+                <div className="text-right pl-2">
+                  <span
+                    className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border truncate max-w-full"
+                    style={{ backgroundColor: "#dcfce7", color: "#166534", borderColor: "#bbf7d0" }}
+                  >
+                    {orderProduct}
+                  </span>
+                </div>
+
+                <div className="text-muted-foreground">Doctor</div>
+                <div className="font-semibold text-foreground text-right truncate pl-2">{order.doctor_name || "Mitchell Stotland MD"}</div>
+
+                <div className="text-muted-foreground">Lab</div>
+                <div className="font-semibold text-foreground text-right truncate pl-2">{orderLabProvider}</div>
+
+                <div className="text-muted-foreground">Amount</div>
+                <div className="font-semibold text-foreground text-right pl-2">
+                  ${orderAmount.toFixed(2)}
+                </div>
+
+                <div className="text-muted-foreground">Amount source</div>
+                <div className="text-right pl-2">
+                  <span
+                    className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap"
+                    style={{ backgroundColor: "#f1f5f9", color: "#475569", borderColor: "#e2e8f0" }}
+                  >
+                    {order.visit === "Declined" || order.visit_status === "Declined" 
+                      ? "Declined" 
+                      : (order.visit === "Prescribed" || order.visit_status === "Prescribed" || order.status === "Completed")
+                        ? "Prescribed (final)"
+                        : "Requested"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Timeline Section */}
+            <div className="space-y-2.5 pt-4 border-t">
+              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Timeline</div>
+              <div className="grid grid-cols-2 gap-y-2 text-xs">
+                <div className="text-muted-foreground">Ordered</div>
+                <div className="font-semibold text-foreground text-right">
+                  {order.timeline?.ordered || order.date || "—"}
+                </div>
+
+                <div className="text-muted-foreground">Sample collected</div>
+                <div className="font-semibold text-foreground text-right">
+                  {order.timeline?.sample_collected || "—"}
+                </div>
+
+                <div className="text-muted-foreground">Results</div>
+                <div className="font-semibold text-foreground text-right">
+                  {order.timeline?.results || "—"}
+                </div>
+              </div>
+            </div>
+
+            {/* View Lab Results Button */}
+            {order.is_lab && (
+              <div className="pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-center text-xs h-9 font-semibold border border-input bg-background hover:bg-muted text-foreground flex items-center gap-1.5"
+                  onClick={() => setResultsOpen(true)}
+                >
+                  <FileText className="h-4 w-4" />
+                  View lab results
+                </Button>
+              </div>
+            )}
+
+            {/* Update Order Section */}
+            <div className="space-y-3 pt-4 border-t">
+              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Update Order</div>
+              <div className="space-y-1.5">
+                <label htmlFor="drawer-order-status" className="text-xs font-semibold text-foreground block">
+                  Status
+                </label>
                 <Select value={newStatus} onValueChange={setNewStatus}>
-                  <SelectTrigger id="order-status">
+                  <SelectTrigger id="drawer-order-status" className="h-9 text-xs">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    {ORDER_STATUSES.map((s) => (
-                      <SelectItem key={s.value} value={s.value}>
-                        {s.label}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="Completed">Completed</SelectItem>
+                    <SelectItem value="In Process">In Process</SelectItem>
+                    <SelectItem value="Canceled">Canceled</SelectItem>
+                    <SelectItem value="Pending Payment">Pending Payment</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Tracking Number */}
-              <div className="space-y-2">
-                <Label htmlFor="tracking-number">Tracking Number</Label>
+              <div className="space-y-1.5 pt-1">
+                <label htmlFor="drawer-tracking-number" className="text-xs font-semibold text-foreground block">
+                  Tracking Number
+                </label>
                 <Input
-                  id="tracking-number"
+                  id="drawer-tracking-number"
                   placeholder="Enter tracking number"
                   value={trackingNumber}
-                  onChange={(e) => setTrackingNumber(e.target.value)}
+                  onChange={e => setTrackingNumber(e.target.value)}
+                  className="h-9 text-xs"
                 />
-                {newStatus === "shipped" && !trackingNumber.trim() && (
-                  <p className="text-xs text-destructive">
-                    Tracking number is required for shipped status.
-                  </p>
-                )}
               </div>
             </div>
-          )}
+          </div>
 
-          {isTerminal && (
-            <div className="border-t pt-4">
-              <p className="text-sm text-muted-foreground italic">
-                This order has a terminal status ({order.status_display}) and cannot be modified.
-              </p>
-            </div>
-          )}
-        </div>
-
-        <SheetFooter className="border-t pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
-          {!isTerminal && (
-            <Button onClick={handleSave} disabled={saving}>
+          <SheetFooter className="border-t pt-4 flex flex-col-reverse sm:flex-row gap-2 justify-end mt-4">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="text-xs h-9 bg-slate-50 hover:bg-slate-100 text-slate-700 border-none w-full sm:w-auto"
+            >
+              Close
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-9 px-4 font-semibold w-full sm:w-auto"
+            >
               {saving ? "Saving..." : "Save Changes"}
             </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* Lab Results Modal */}
+      <Dialog open={resultsOpen} onOpenChange={setResultsOpen}>
+        <DialogContent className="w-[95vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-lg sm:text-xl font-bold">
+              <span>Lab Results</span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const base64 = await labsApi.getJunctionLabOrderResultsPdf(order.id);
+                      const linkSource = `data:application/pdf;base64,${base64}`;
+                      const downloadLink = document.createElement("a");
+                      downloadLink.href = linkSource;
+                      downloadLink.download = `results_${order.id}.pdf`;
+                      downloadLink.click();
+                    } catch (e) {
+                      console.error(e);
+                    }
+                  }}
+                  className="h-8 text-xs font-semibold"
+                >
+                  <FileText className="h-3 w-3 mr-1" /> Get Results PDF
+                </Button>
+              </div>
+            </DialogTitle>
+            <DialogDescription className="text-xs font-mono text-muted-foreground mt-1">
+              From Junction API &bull; Order ID: {order.id}
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingResults ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              Loading biomarker results from Junction...
+            </div>
+          ) : labResults ? (
+            <div className="space-y-6 pt-4">
+              {/* Metadata Header Block */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 bg-muted/40 p-4 rounded-lg text-xs sm:text-sm border">
+                <div>
+                  <span className="text-[10px] sm:text-xs text-muted-foreground block">Patient Name</span>
+                  <span className="font-semibold text-foreground truncate block">{order.patient_name || order.patient}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] sm:text-xs text-muted-foreground block">Lab Provider</span>
+                  <span className="font-semibold text-foreground truncate block">{orderLabProvider}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] sm:text-xs text-muted-foreground block">Collection Date</span>
+                  <span className="font-semibold text-foreground block">{order.timeline?.sample_collected || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] sm:text-xs text-muted-foreground block">Panel Name</span>
+                  <span className="font-semibold text-foreground truncate block">{orderProduct}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] sm:text-xs text-muted-foreground block">Junction Order ID</span>
+                  <span className="font-semibold text-foreground font-mono truncate block">{order.id}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] sm:text-xs text-muted-foreground block">Reporting Date</span>
+                  <span className="font-semibold text-foreground block">{order.timeline?.results || "—"}</span>
+                </div>
+              </div>
+
+              {/* Status Banner */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-md">
+                <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-none font-semibold w-fit">
+                  Results Ready
+                </Badge>
+                <span className="text-xs font-medium">All {labResults.biomarkers?.length || 0} biomarkers successfully reported by lab.</span>
+              </div>
+
+              {/* Biomarker Table */}
+              <div className="border rounded-md overflow-hidden bg-card">
+                <div className="overflow-x-auto w-full">
+                  <Table className="min-w-[500px]">
+                    <TableHeader className="bg-muted/50">
+                      <TableRow>
+                        <TableHead className="font-bold text-foreground">BIOMARKER</TableHead>
+                        <TableHead className="font-bold text-foreground">RESULT</TableHead>
+                        <TableHead className="font-bold text-foreground">UNITS</TableHead>
+                        <TableHead className="font-bold text-foreground">REFERENCE RANGE</TableHead>
+                        <TableHead className="font-bold text-foreground text-right">FLAG</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {labResults.biomarkers?.map((bm: any) => (
+                        <TableRow key={bm.id}>
+                          <TableCell className="font-medium text-foreground">{bm.name}</TableCell>
+                          <TableCell className="font-semibold">{bm.result}</TableCell>
+                          <TableCell className="text-muted-foreground text-xs">{bm.units}</TableCell>
+                          <TableCell className="text-muted-foreground text-xs">{bm.reference_range}</TableCell>
+                          <TableCell className="text-right">
+                            <Badge
+                              className={`border-none font-semibold ${
+                                bm.flag === "High"
+                                  ? "bg-rose-100 text-rose-800 hover:bg-rose-100"
+                                  : bm.flag === "Low"
+                                    ? "bg-sky-100 text-sky-800 hover:bg-sky-100"
+                                    : "bg-slate-100 text-slate-700 hover:bg-slate-100"
+                              }`}
+                            >
+                              {bm.flag}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              <DialogFooter className="border-t pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-[10px] sm:text-xs text-muted-foreground text-center sm:text-left">
+                  Electronic Signature: Mitchell Stotland MD (Quest Reviewing Physician)
+                </div>
+                <div className="flex gap-2 w-full sm:w-auto justify-end">
+                  <Button variant="outline" onClick={() => setResultsOpen(false)} className="text-xs h-8">
+                    Close
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      try {
+                        await labsApi.downloadAdminLabResultPdf(order.id);
+                      } catch (e) {
+                        console.error(e);
+                      }
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs h-8"
+                  >
+                    <Download className="h-4 w-4 mr-2" /> Download report (PDF)
+                  </Button>
+                </div>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              Failed to load lab results.
+            </div>
           )}
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
-  )
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }

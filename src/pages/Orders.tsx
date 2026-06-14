@@ -1,398 +1,504 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react"
-import { DataTable } from "@/components/ui/data-table"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { CalendarDays, RotateCcw, TrendingUp, Download, RefreshCw, Grid3X3 } from "lucide-react"
-import { DateRange } from "react-day-picker"
-import { format } from "date-fns"
-import { useAdminOrders } from "@/hooks/useAdminOrders"
-import { exportToCSV } from "@/utils/exportUtils"
-import { AdminOrder } from "@/api/dashboardApi"
-import { OrderDetailDrawer } from "@/components/orders/OrderDetailDrawer"
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Download } from "lucide-react";
+import { useAdminOrders } from "@/hooks/useAdminOrders";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SelectGroup,
+  SelectLabel,
+} from "@/components/ui/select";
+import { exportToCSV } from "@/utils/exportUtils";
+import { OrderDetailDrawer } from "@/components/orders/OrderDetailDrawer";
+import { labsApi } from "@/api/labs";
 
-// Status filters based on Order model
-const orderStatusFilters = [
-  "All",
-  "Created",
-  "Payment Pending",
-  "Processing",
-  "Visit Failed",
-  "Visit Pending",
-  "Consult Canceled",
-  "Referred",
-  "Prescribed",
-  "Billing Pending",
-  "Rx Sent",
-  "Shipped",
-  "Canceled"
-]
+// Tone utility matching the CSS colors in the prototype
+function getOrderTone(s: string): [string, string, string] {
+  const t = (s || "").toLowerCase();
+  if (/cancel|fail|declin/.test(t))                          return ["#fee2e2", "#991b1b", "#fecaca"];
+  if (/partially/.test(t))                                   return ["#ffedd5", "#9a3412", "#fed7aa"];
+  if (/not started|draft/.test(t))                           return ["#f1f5f9", "#64748b", "#e2e8f0"];
+  if (/paid|shipped|delivered|completed|results ready|prescribed/.test(t)) return ["#dcfce7", "#166534", "#bbf7d0"];
+  if (/authorized|beluga|rx sent|at lab|in process/.test(t)) return ["#dbeafe", "#1e40af", "#bfdbfe"];
+  return ["#fef3c7", "#92400e", "#fde68a"];
+}
 
-const paymentStatusFilters = ["All", "Paid", "Pending", "Failed"]
+function OrderPill({ status }: { status: string }) {
+  if (!status || status === "—") return <span className="text-muted-foreground">—</span>;
+  const [bg, fg, bd] = getOrderTone(status);
+  return (
+    <span
+      className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap"
+      style={{ backgroundColor: bg, color: fg, borderColor: bd }}
+    >
+      {status}
+    </span>
+  );
+}
 
-const formatPaymentStatusLabel = (status: string): string => {
-  const value = String(status || "").trim().toLowerCase()
-  if (!value) return "Pending"
-  return value
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ")
+interface NormalizedOrder {
+  type: "rx" | "lab";
+  id: string;
+  patient: string;
+  email: string;
+  phone: string;
+  client: string;
+  product: string;
+  fulfiller: string;
+  orderStatus: string;
+  payment: string;
+  visit: string;
+  fulfillment: string;
+  amount: number;
+  remaining?: number | null;
+  date: string;
+  _raw: any; // Keep reference to raw object for detail drawer
 }
 
 export default function Orders() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [activeOrderStatusFilter, setActiveOrderStatusFilter] = useState("All")
-  const [activePaymentStatusFilter, setActivePaymentStatusFilter] = useState("All")
-  const [date, setDate] = useState<DateRange | undefined>()
-  const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null)
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  
-  const {
-    orders,
-    loading,
-    error,
-    pagination,
-    setPage,
-    setFilters,
-    refetch
-  } = useAdminOrders()
+  const [searchTerm, setSearchTerm] = useState("");
+  const [orderType, setOrderType] = useState<"all" | "rx" | "lab">("lab"); // Default select Lab orders as in screenshot
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [payFilter, setPayFilter] = useState("all");
+  const [visitFilter, setVisitFilter] = useState("all");
+  const [fulfillFilter, setFulfillFilter] = useState("all");
 
-  const handleOrderClick = useCallback((row: any) => {
-    // Reconstruct raw AdminOrder from the formatted row
-    const rawOrder: AdminOrder = {
-      id: row.id,
-      display_id: row.display_id,
-      order_id: row.order_id ?? null,
-      patient_name: row.patient_name,
-      patient_email: row.patient_email,
-      patient_phone: row.patient_phone,
-      product_name: row.product_name,
-      pharmacy_name: row.pharmacy_name,
-      status: row.status,
-      status_display: row.status_display,
-      amount: row._raw_amount,
-      discount_amount: row.discount_amount,
-      payment_status: row._raw_payment_status,
-      created_at: row._raw_created_at,
-      prescribed_at: row._raw_prescribed_at,
-      shipped_at: row._raw_shipped_at,
-      tracking_number: row.tracking_number,
-      client_name: row.client_name,
-      client_id: row.client_id,
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [labOrders, setLabOrders] = useState<any[]>([]);
+
+  const { orders, refetch } = useAdminOrders({ page_size: 100 });
+
+  const fetchLabOrders = useCallback(async () => {
+    try {
+      const data = await labsApi.getAdminLabOrders();
+      setLabOrders(data);
+    } catch (e) {
+      console.error(e);
     }
-    setSelectedOrder(rawOrder)
-    setDrawerOpen(true)
-  }, [])
+  }, []);
 
-  const handleOrderUpdated = useCallback((updatedOrder: AdminOrder) => {
-    refetch()
-  }, [refetch])
-
-  // Column definitions with clickable order number
-  const orderColumns = useMemo(() => [
-    {
-      key: "display_id",
-      label: "Order #",
-      render: (_value: unknown, row: unknown) => {
-        const r = row as any
-        return (
-          <button
-            className="text-primary hover:underline font-medium text-left cursor-pointer"
-            onClick={() => handleOrderClick(r)}
-          >
-            {r.display_id}
-          </button>
-        )
-      }
-    },
-    { key: "patient_name", label: "Patient Name" },
-    { key: "patient_email", label: "Email" },
-    { key: "patient_phone", label: "Phone" },
-    { key: "client_name", label: "Client" },
-    { key: "product_name", label: "Product" },
-    { key: "pharmacy_name", label: "Pharmacy" },
-    {
-      key: "status_display",
-      label: "Order Status",
-      render: (_value: unknown, row: unknown) => {
-        const r = row as any
-        const recovery = String(r.payment_recovery_state || "").toLowerCase()
-        const isPrescribedStatus = String(r.status || "").toLowerCase() === "prescribed"
-        const remaining = Number.parseFloat(String(r.remaining_supplemental_amount || "0"))
-        const hasRemaining = Number.isFinite(remaining) && remaining > 0
-        const showRecoveryPending =
-          isPrescribedStatus && (recovery === "recovery_pending" || hasRemaining)
-        return (
-          <div className="space-y-1">
-            <div>{r.status_display}</div>
-            {showRecoveryPending ? (
-              <Badge className="bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-100">
-                Recovery Pending
-              </Badge>
-            ) : null}
-          </div>
-        )
-      },
-    },
-    { key: "payment_status", label: "Payment Status" },
-    {
-      key: "amount",
-      label: "Amount",
-      render: (_value: unknown, row: unknown) => {
-        const r = row as any
-        const remaining = Number.parseFloat(String(r.remaining_supplemental_amount || "0"))
-        const hasRemaining = Number.isFinite(remaining) && remaining > 0
-        return (
-          <div className="space-y-1">
-            <div>{r.amount}</div>
-            {hasRemaining ? (
-              <div className="text-[11px] text-amber-700">Remaining ${remaining.toFixed(2)}</div>
-            ) : null}
-          </div>
-        )
-      },
-    },
-    { key: "created_at", label: "Order Date" },
-    { key: "prescribed_at", label: "Prescribed Date" },
-    { key: "shipped_at", label: "Shipped Date" },
-  ], [handleOrderClick])
-
-  // Use ref to track previous filter values to prevent unnecessary updates
-  const prevFiltersRef = useRef({
-    searchTerm: "",
-    activeOrderStatusFilter: "All",
-    date: undefined as DateRange | undefined
-  });
-
-  // Apply filters when they change (with debouncing for search)
   useEffect(() => {
-    const prev = prevFiltersRef.current;
-    
-    // Check if filters actually changed
-    const filtersChanged = 
-      prev.searchTerm !== searchTerm ||
-      prev.activeOrderStatusFilter !== activeOrderStatusFilter ||
-      prev.date !== date;
-    
-    if (!filtersChanged) {
-      return;
+    fetchLabOrders();
+  }, [fetchLabOrders]);
+
+  const handleOrderClick = (row: NormalizedOrder) => {
+    if (row.type === "lab") {
+      // Pass the lab order raw structure
+      setSelectedOrder({
+        ...row._raw,
+        is_lab: true
+      });
+    } else {
+      // Pass the rx order raw structure
+      setSelectedOrder({
+        ...row._raw,
+        is_lab: false
+      });
     }
-    
-    // Update ref
-    prevFiltersRef.current = {
-      searchTerm,
-      activeOrderStatusFilter,
-      date
-    };
-    
-    // Debounce search input
-    const timeoutId = setTimeout(() => {
-      const filters: any = {}
+    setDrawerOpen(true);
+  };
+
+  const handleOrderUpdated = () => {
+    refetch();
+    fetchLabOrders();
+  };
+
+  // Map and Normalize all orders
+  const allNormalizedOrders = useMemo(() => {
+    const rxList: NormalizedOrder[] = orders.map(o => {
+      // Map order status to matching category
+      let mappedStatus = "In Process";
+      if (o.status === "canceled") mappedStatus = "Canceled";
+      else if (o.status === "payment_pending") mappedStatus = "Pending Payment";
+      else if (o.status === "shipped") mappedStatus = "Completed";
+
+      // Map payment
+      let mappedPayment = "Pending";
+      if (o.payment_status === "paid") mappedPayment = "Paid";
+      else if (o.payment_status === "authorized") mappedPayment = "Authorized";
+      else if (o.payment_status === "partially_paid") mappedPayment = "Partially Paid";
+
+      // Map visit
+      let mappedVisit = "Prescribed";
+      if (o.status === "visit_pending") mappedVisit = "Photos Submitted";
+      else if (o.status === "visit_failed" || o.status === "canceled") mappedVisit = "Declined";
+      else if (o.status === "created" || o.status === "payment_pending") mappedVisit = "Draft";
+
+      // Map fulfillment
+      let mappedFulfill = "Not Started";
+      if (o.status === "shipped") mappedFulfill = "Shipped";
+      else if (o.status === "rx_sent") mappedFulfill = "Rx Sent";
+
+      // Format Date
+      let formattedDate = "";
+      if (o.created_at) {
+        try {
+          const d = new Date(o.created_at);
+          formattedDate = `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`;
+        } catch {
+          formattedDate = o.created_at;
+        }
+      }
+
+      return {
+        type: "rx",
+        id: o.order_id || o.display_id || "",
+        patient: o.patient_name || "",
+        email: o.patient_email || "",
+        phone: o.patient_phone || "",
+        client: o.client_name || "",
+        product: o.prescribed_medicine_name || o.requested_medicine_name || o.product_name || "",
+        fulfiller: o.pharmacy_name || "DiRx",
+        orderStatus: mappedStatus,
+        payment: mappedPayment,
+        visit: mappedVisit,
+        fulfillment: mappedFulfill,
+        amount: o.amount || 0,
+        remaining: o.remaining_supplemental_amount || null,
+        date: formattedDate,
+        _raw: o
+      };
+    });
+
+    const labList: NormalizedOrder[] = labOrders.map(o => {
+      // Fulfillment Mapping
+      let mappedFulfill = "Not Started";
+      if (o.timeline.results) mappedFulfill = "Results Ready";
+      else if (o.timeline.sample_collected) mappedFulfill = "Sample Collected";
+      else if (o.timeline.ordered) mappedFulfill = "Requisition Created";
+
+      if (o.status === "Canceled") {
+        mappedFulfill = "Not Started";
+      }
+
+      // If results ready but still in process
+      if (o.resultsReady) {
+        mappedFulfill = "Results Ready";
+      } else if (o.timeline.sample_collected && o.status === "In Process" && o.lab_provider === "LabCorp") {
+        mappedFulfill = "At Lab";
+      }
+
+      return {
+        type: "lab",
+        id: o.id || "",
+        patient: o.patient_name || "",
+        email: o.patient_email || "",
+        phone: o.patient_phone || "",
+        client: o.client_name || "",
+        product: o.product_name || "",
+        fulfiller: o.lab_provider || "Quest Diagnostics",
+        orderStatus: o.status || "In Process",
+        payment: o.payment_status || "Paid",
+        visit: o.visit_status || "Prescribed",
+        fulfillment: mappedFulfill,
+        amount: o.price || 0,
+        remaining: null,
+        date: o.timeline.ordered || "",
+        _raw: o
+      };
+    });
+
+    return [...rxList, ...labList];
+  }, [orders, labOrders]);
+
+  // Apply filters
+  const filteredOrders = useMemo(() => {
+    return allNormalizedOrders.filter(o => {
+      if (orderType !== "all" && o.type !== orderType) return false;
+      if (statusFilter !== "all" && o.orderStatus !== statusFilter) return false;
+      if (payFilter !== "all" && o.payment !== payFilter) return false;
+      if (visitFilter !== "all" && o.visit !== visitFilter) return false;
+      if (fulfillFilter !== "all" && o.fulfillment !== fulfillFilter) return false;
       
       if (searchTerm) {
-        filters.search = searchTerm
+        const query = searchTerm.toLowerCase().trim();
+        const matchesSearch =
+          o.id.toLowerCase().includes(query) ||
+          o.patient.toLowerCase().includes(query) ||
+          o.email.toLowerCase().includes(query) ||
+          o.phone.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
       }
-      
-      if (activeOrderStatusFilter !== "All") {
-        // Map display names to backend status values
-        const statusMap: Record<string, string> = {
-          "Created": "created",
-          "Payment Pending": "payment_pending",
-          "Processing": "processing",
-          "Visit Failed": "visit_failed",
-          "Visit Pending": "visit_pending",
-          "Consult Canceled": "consult_canceled",
-          "Referred": "referred",
-          "Prescribed": "prescribed",
-          "Billing Pending": "billing_pending",
-          "Rx Sent": "rx_sent",
-          "Shipped": "shipped",
-          "Canceled": "canceled"
-        }
-        filters.status = statusMap[activeOrderStatusFilter]
-      }
-      
-      if (date?.from) {
-        filters.date_from = format(date.from, 'yyyy-MM-dd')
-      }
-      
-      if (date?.to) {
-        filters.date_to = format(date.to, 'yyyy-MM-dd')
-      }
-      
-      setFilters(filters)
-    }, searchTerm !== prev.searchTerm ? 500 : 0) // Debounce search by 500ms
-    
-    return () => clearTimeout(timeoutId)
-  }, [searchTerm, activeOrderStatusFilter, date, setFilters])
+      return true;
+    });
+  }, [allNormalizedOrders, orderType, statusFilter, payFilter, visitFilter, fulfillFilter, searchTerm]);
 
-  // Format orders for display while preserving raw data for the detail drawer
-  const formattedOrders = useMemo(() => {
-    return orders
-      .filter(order => {
-        // Client-side payment status filter
-        if (activePaymentStatusFilter !== "All") {
-          const current = String(order.payment_status || "").toLowerCase()
-          const wanted = activePaymentStatusFilter.toLowerCase()
-          if (wanted === "paid") {
-            return current === "paid" || current === "partially_paid"
-          }
-          return current === wanted
-        }
-        return true
-      })
-      .map(order => {
-        const canonicalOrderNumber = order.order_id || order.display_id
-        return {
-        ...order,
-        display_id: canonicalOrderNumber,
-        order_id: order.order_id ?? null,
-        // Keep raw values under _raw prefix for the drawer
-        _raw_display_id: order.display_id,
-        _raw_amount: order.amount,
-        _raw_created_at: order.created_at,
-        _raw_prescribed_at: order.prescribed_at,
-        _raw_shipped_at: order.shipped_at,
-        _raw_payment_status: order.payment_status,
-        // Formatted display values
-        amount: `$${order.amount.toFixed(2)}`,
-        created_at: order.created_at ? format(new Date(order.created_at), 'MM/dd/yyyy') : '',
-        prescribed_at: order.prescribed_at ? format(new Date(order.prescribed_at), 'MM/dd/yyyy') : '',
-        shipped_at: order.shipped_at ? format(new Date(order.shipped_at), 'MM/dd/yyyy') : '',
-        payment_status: formatPaymentStatusLabel(order.payment_status),
-        payment_recovery_state: order.payment_recovery_state || null,
-        remaining_supplemental_amount: order.remaining_supplemental_amount || null,
-      }})
-  }, [orders, activePaymentStatusFilter])
+  const handleResetFilters = () => {
+    setOrderType("all");
+    setStatusFilter("all");
+    setPayFilter("all");
+    setVisitFilter("all");
+    setFulfillFilter("all");
+    setSearchTerm("");
+  };
 
-  // Create filter configuration
-  const filters = [
-    // Order Status filters
-    ...orderStatusFilters.map(status => ({
-      key: `order-${status}`,
-      label: status === "All" ? "Order Status" : status,
-      type: 'button' as const,
-      value: activeOrderStatusFilter === status ? status : undefined,
-      onClick: () => setActiveOrderStatusFilter(status)
-    })),
-    // Payment Status filters
-    ...paymentStatusFilters.map(status => ({
-      key: `payment-${status}`,
-      label: status === "All" ? "Payment Status" : status,
-      type: 'button' as const,
-      value: activePaymentStatusFilter === status ? status : undefined,
-      onClick: () => setActivePaymentStatusFilter(status)
-    })),
-  ]
-
-  const handleResetFilters = useCallback(() => {
-    setActiveOrderStatusFilter("All")
-    setActivePaymentStatusFilter("All")
-    setDate(undefined)
-    setSearchTerm("")
-    // Reset will trigger the useEffect which will call setFilters
-  }, [])
-
-  const handleRefresh = useCallback(() => {
-    refetch()
-  }, [refetch])
-
-  const handleExport = useCallback(() => {
-    exportToCSV(formattedOrders, orderColumns, 'admin_orders_export')
-  }, [formattedOrders, orderColumns])
-
-  const handleUpgrade = () => {
-    console.log("Upgrade clicked")
-  }
-
-  const handleGridView = () => {
-    console.log("Grid view clicked")
-  }
-
-  if (error) {
-    return (
-      <div className="p-6">
-        <div className="text-red-500">Error loading orders: {error.message}</div>
-        <Button onClick={handleRefresh} className="mt-4">Retry</Button>
-      </div>
-    )
-  }
+  const handleExport = () => {
+    const columns = [
+      { key: "id", label: "Order #" },
+      { key: "patient", label: "Patient" },
+      { key: "email", label: "Email" },
+      { key: "phone", label: "Phone" },
+      { key: "client", label: "Client" },
+      { key: "product", label: "Product" },
+      { key: "fulfiller", label: "Pharmacy / Lab" },
+      { key: "orderStatus", label: "Order Status" },
+      { key: "payment", label: "Payment" },
+      { key: "visit", label: "Visit" },
+      { key: "fulfillment", label: "Fulfillment" },
+      { key: "amount", label: "Amount" },
+      { key: "date", label: "Date" }
+    ];
+    exportToCSV(filteredOrders, columns, `orders_export_${orderType}`);
+  };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Orders</h1>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-            <span>Orders</span>
-            <span>›</span>
-            <span>All Orders</span>
+          <h1 className="text-xl sm:text-2xl font-bold">Orders</h1>
+          <p className="text-xs text-muted-foreground mt-1 max-w-3xl leading-relaxed">
+            All medication and lab orders across clients
+          </p>
+        </div>
+        <div className="flex justify-start sm:justify-end">
+          <Button
+            variant="outline"
+            onClick={handleExport}
+            className="border border-input bg-background hover:bg-muted font-medium text-xs h-9 inline-flex items-center gap-1.5 w-full sm:w-auto justify-center"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export
+          </Button>
+        </div>
+      </div>
+
+      {/* Filters Bar */}
+      <div className="flex flex-col gap-4 bg-muted/10 p-3 sm:p-4 rounded-lg border border-border/40">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          {/* Order Type Tabs */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex gap-1 bg-muted/40 p-1 border rounded-lg shrink-0">
+              {(["all", "rx", "lab"] as const).map(type => (
+                <button
+                  key={type}
+                  onClick={() => setOrderType(type)}
+                  className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
+                    orderType === type
+                      ? "bg-white text-foreground shadow-sm border border-border/60"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {type === "all" ? "All" : type === "rx" ? "Rx orders" : "Lab orders"}
+                </button>
+              ))}
+            </div>
+
+            <span className="w-[1px] h-[18px] bg-border/80 mx-1 hidden sm:inline-block"></span>
+
+            {/* Select Dropdowns in a wrap container */}
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+              {/* Select Status */}
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-8 text-xs font-semibold bg-background border border-input rounded-md px-2.5 min-w-[130px] w-full sm:w-auto">
+                  <SelectValue placeholder="All order status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">All order status</SelectItem>
+                  <SelectItem value="Pending Payment" className="text-xs">Pending Payment</SelectItem>
+                  <SelectItem value="In Process" className="text-xs">In Process</SelectItem>
+                  <SelectItem value="Completed" className="text-xs">Completed</SelectItem>
+                  <SelectItem value="Canceled" className="text-xs">Canceled</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Select Payment */}
+              <Select value={payFilter} onValueChange={setPayFilter}>
+                <SelectTrigger className="h-8 text-xs font-semibold bg-background border border-input rounded-md px-2.5 min-w-[110px] w-full sm:w-auto">
+                  <SelectValue placeholder="All payment" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">All payment</SelectItem>
+                  <SelectItem value="Paid" className="text-xs">Paid</SelectItem>
+                  <SelectItem value="Pending" className="text-xs">Pending</SelectItem>
+                  <SelectItem value="Authorized" className="text-xs">Authorized</SelectItem>
+                  <SelectItem value="Partially Paid" className="text-xs">Partially Paid</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Select Visit */}
+              <Select value={visitFilter} onValueChange={setVisitFilter}>
+                <SelectTrigger className="h-8 text-xs font-semibold bg-background border border-input rounded-md px-2.5 min-w-[130px] w-full sm:w-auto">
+                  <SelectValue placeholder="All visit status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">All visit status</SelectItem>
+                  <SelectItem value="Draft" className="text-xs">Draft</SelectItem>
+                  <SelectItem value="Photos Submitted" className="text-xs">Photos Submitted</SelectItem>
+                  <SelectItem value="Sent To Beluga" className="text-xs">Sent To Beluga</SelectItem>
+                  <SelectItem value="Prescribed" className="text-xs">Prescribed</SelectItem>
+                  <SelectItem value="Declined" className="text-xs">Declined</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Select Fulfillment */}
+              <Select value={fulfillFilter} onValueChange={setFulfillFilter}>
+                <SelectTrigger className="h-8 text-xs font-semibold bg-background border border-input rounded-md px-2.5 min-w-[130px] w-full sm:w-auto">
+                  <SelectValue placeholder="All fulfillment" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">All fulfillment</SelectItem>
+                  <SelectGroup>
+                    <SelectLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground py-1 px-2.5">Pharmacy</SelectLabel>
+                    <SelectItem value="Not Started" className="text-xs">Not Started</SelectItem>
+                    <SelectItem value="Rx Sent" className="text-xs">Rx Sent</SelectItem>
+                    <SelectItem value="Shipped" className="text-xs">Shipped</SelectItem>
+                    <SelectItem value="Delivered" className="text-xs">Delivered</SelectItem>
+                  </SelectGroup>
+                  <SelectGroup>
+                    <SelectLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground py-1 px-2.5">Lab</SelectLabel>
+                    <SelectItem value="Requisition Created" className="text-xs">Requisition Created</SelectItem>
+                    <SelectItem value="Sample Collected" className="text-xs">Sample Collected</SelectItem>
+                    <SelectItem value="At Lab" className="text-xs">At Lab</SelectItem>
+                    <SelectItem value="Partial Results" className="text-xs">Partial Results</SelectItem>
+                    <SelectItem value="Results Ready" className="text-xs">Results Ready</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Reset Filters */}
+          <div className="flex justify-start lg:justify-end shrink-0">
+            <button
+              onClick={handleResetFilters}
+              className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 font-medium transition-colors"
+            >
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5" className="inline mr-0.5">
+                <path d="M3 12a9 9 0 0 1 9-9 9 9 0 0 1 6.7 3M21 12a9 9 0 0 1-9 9 9 9 0 0 1-6.7-3M3 8h6V2M21 16h-6v6" />
+              </svg>
+              Reset Filters
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2" onClick={handleUpgrade}>
-            <TrendingUp className="h-4 w-4" />
-            Upgrade
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleGridView}>
-            <Grid3X3 className="h-4 w-4" />
-          </Button>
+      </div>
+
+      {/* Search Bar */}
+      <div className="flex gap-2 w-full items-center">
+        <Input
+          placeholder="Search by order #, patient, phone, email"
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          className="w-full sm:w-96 h-9 text-xs"
+        />
+      </div>
+
+      {/* Table wrapper */}
+      <div className="border rounded-lg bg-card overflow-hidden">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full border-collapse text-left min-w-[1200px]">
+            <thead className="bg-muted/30 border-b border-border/80 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              <tr>
+                <th className="py-3 px-4 font-semibold">ORDER #</th>
+                <th className="py-3 px-4 font-semibold">PATIENT</th>
+                <th className="py-3 px-4 font-semibold">EMAIL</th>
+                <th className="py-3 px-4 font-semibold">PHONE</th>
+                <th className="py-3 px-4 font-semibold">CLIENT</th>
+                <th className="py-3 px-4 font-semibold">PRODUCT</th>
+                <th className="py-3 px-4 font-semibold">PHARMACY / LAB</th>
+                <th className="py-3 px-4 font-semibold">ORDER STATUS</th>
+                <th className="py-3 px-4 font-semibold">PAYMENT</th>
+                <th className="py-3 px-4 font-semibold">VISIT</th>
+                <th className="py-3 px-4 font-semibold">FULFILLMENT</th>
+                <th className="py-3 px-4 font-semibold">AMOUNT</th>
+                <th className="py-3 px-4 font-semibold">DATE</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60 text-xs">
+              {filteredOrders.map(o => {
+                const isLabOrder = o.type === "lab";
+                const typeBadge = isLabOrder ? (
+                  <span
+                    className="inline-block px-1.5 py-0.5 rounded text-[9.5px] font-bold border ml-1.5 select-none align-middle"
+                    style={{ backgroundColor: "#ccfbf1", color: "#0f766e", borderColor: "#99f6e4" }}
+                  >
+                    Lab
+                  </span>
+                ) : (
+                  <span
+                    className="inline-block px-1.5 py-0.5 rounded text-[9.5px] font-bold border ml-1.5 select-none align-middle"
+                    style={{ backgroundColor: "#f1f5f9", color: "#475569", borderColor: "#e2e8f0" }}
+                  >
+                    Rx
+                  </span>
+                );
+
+                return (
+                  <tr key={o.id} className="hover:bg-muted/5">
+                    <td className="py-3.5 px-4 font-medium">
+                      <button
+                        onClick={() => handleOrderClick(o)}
+                        className="text-blue-600 hover:underline font-semibold text-left"
+                      >
+                        {o.id}
+                      </button>
+                    </td>
+                    <td className="py-3.5 px-4 text-foreground font-medium">{o.patient}</td>
+                    <td className="py-3.5 px-4 text-muted-foreground text-[11.5px]">{o.email}</td>
+                    <td className="py-3.5 px-4 text-muted-foreground text-[11.5px] whitespace-nowrap">{o.phone}</td>
+                    <td className="py-3.5 px-4 text-foreground font-medium">{o.client}</td>
+                    <td className="py-3.5 px-4 text-foreground">
+                      <span className="font-medium">{o.product}</span>
+                      {typeBadge}
+                    </td>
+                    <td className="py-3.5 px-4 text-foreground font-medium">{o.fulfiller}</td>
+                    <td className="py-3.5 px-4">
+                      <OrderPill status={o.orderStatus} />
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <OrderPill status={o.payment} />
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <OrderPill status={o.visit} />
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <OrderPill status={o.fulfillment} />
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="font-semibold text-foreground">${o.amount.toFixed(2)}</div>
+                      {o.remaining != null && o.remaining > 0 && (
+                        <div className="text-[10px] text-amber-700 mt-0.5">
+                          Remaining ${o.remaining.toFixed(2)}
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4 text-muted-foreground whitespace-nowrap">{o.date}</td>
+                  </tr>
+                );
+              })}
+              {filteredOrders.length === 0 && (
+                <tr>
+                  <td colSpan={13} className="text-center py-12 text-muted-foreground text-sm">
+                    No orders match your filters.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <DataTable
-        data={formattedOrders}
-        columns={orderColumns}
-        searchPlaceholder="Search by Order#, patient name, phone number, email"
-        showDatePicker={true}
-        showExport={true}
-        showResetFilters={true}
-        filters={filters}
-        dateRange={date}
-        onDateRangeChange={setDate}
-        onSearch={setSearchTerm}
-        onResetFilters={handleResetFilters}
-        onExport={handleExport}
-        onRefresh={handleRefresh}
-        loading={loading}
-        pagination={{
-          currentPage: pagination.page,
-          totalPages: pagination.total_pages,
-          pageSize: pagination.page_size,
-          totalCount: pagination.total_count,
-          onPageChange: setPage,
-          onPageSizeChange: (newPageSize) => setFilters({ page_size: newPageSize }),
-        }}
-      />
-      
-      {/* Pagination Info */}
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <div>
-          Showing {formattedOrders.length} of {pagination.total_count} orders
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage(pagination.page - 1)}
-            disabled={pagination.page === 1 || loading}
-          >
-            Previous
-          </Button>
-          <span>
-            Page {pagination.page} of {pagination.total_pages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage(pagination.page + 1)}
-            disabled={pagination.page >= pagination.total_pages || loading}
-          >
-            Next
-          </Button>
-        </div>
+      {/* Pagination / Count Info */}
+      <div className="text-xs text-muted-foreground mt-2">
+        Showing {filteredOrders.length} of {allNormalizedOrders.length} orders
       </div>
 
-      {/* Order Detail Drawer */}
+      {/* Detail Drawer Component */}
       <OrderDetailDrawer
         order={selectedOrder}
         open={drawerOpen}
@@ -400,5 +506,5 @@ export default function Orders() {
         onOrderUpdated={handleOrderUpdated}
       />
     </div>
-  )
+  );
 }
