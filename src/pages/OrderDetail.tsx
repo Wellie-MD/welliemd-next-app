@@ -1,4 +1,6 @@
 import { ChangeProductModal, PendingProductChange } from "@/components/orders/ChangeProductModal"
+import LabOrderDetail from "./LabOrderDetail"
+import { clientLabsApi } from "@/api/labs"
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
@@ -177,6 +179,10 @@ export default function OrderDetail() {
   const [retryGateway, setRetryGateway] = useState<PatientPaymentGateway | null>(null)
   const { toast } = useToast()
   const { messages, loading: messagesLoading } = useClientMessages()
+  const isLabOrder = useMemo(() => {
+    if (!order) return false
+    return order.visitStatus === "Lab" || (order as any).is_lab || order.product_name?.toLowerCase().includes("panel") || (order as any).product_type === "lab"
+  }, [order])
   const patientUserId = order?.patient?.user_id
   const orderThreadMasterId = order?.mrn?.trim() || ""
   const hasExistingThread = Boolean(
@@ -243,6 +249,15 @@ export default function OrderDetail() {
       setLoading(false)
       return
     }
+
+    // Check mock lab orders first
+    const mockOrder = clientLabsApi.getLabOrders().find((o) => o.id === orderId)
+    if (mockOrder) {
+      setOrder(mockOrder as any)
+      setLoading(false)
+      return
+    }
+
     let cancelled = false
     setLoading(true)
     setError(null)
@@ -1137,6 +1152,10 @@ export default function OrderDetail() {
   const settlementTransactions = Array.isArray(order.payment_settlement_transactions)
     ? order.payment_settlement_transactions
     : []
+
+  if (isLabOrder) {
+    return <LabOrderDetail />
+  }
 
   return (
     <div className="p-6 lg:p-8">

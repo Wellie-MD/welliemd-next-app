@@ -14,6 +14,7 @@ import Patients from "@/pages/Patients";
 import PatientDetailPage from "@/pages/PatientDetailPage";
 import Products from "@/pages/Products";
 import ProductsRouting from "@/pages/ProductsRouting";
+import Labs from "@/pages/Labs";
 import Messages from "@/pages/Messages";
 import Analytics from "@/pages/Analytics";
 import Affiliates from "@/pages/Affiliates";
@@ -176,6 +177,8 @@ export default function DashboardFrame() {
               <Route path="/orders/details/:orderId" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
               <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
               <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
+              <Route path="/products/labs" element={<ProtectedRoute><Labs /></ProtectedRoute>} />
+              <Route path="/products/supplies" element={<ProtectedRoute><Products /></ProtectedRoute>} />
               <Route path="/products/routing" element={<ProtectedRoute><ProductsRouting /></ProtectedRoute>} />
               <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
               <Route

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Loader2,
   Save,
@@ -240,32 +241,37 @@ export default function JunctionSettings() {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Region and Environment selection */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="junction_env">Junction Environment</Label>
-                <select
-                  id="junction_env"
+                <Select
                   value={environment}
-                  onChange={(e) => setEnvironment(e.target.value as any)}
-                  className="w-full flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  onValueChange={(val) => setEnvironment(val as any)}
                 >
-                  <option value="sandbox">Sandbox (Testing)</option>
-                  <option value="production">Production (Live)</option>
-                </select>
+                  <SelectTrigger id="junction_env" className="w-full">
+                    <SelectValue placeholder="Select environment" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sandbox">Sandbox (Testing)</SelectItem>
+                    <SelectItem value="production">Production (Live)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="junction_region">Junction Region</Label>
-                <select
-                  id="junction_region"
+                <Select
                   value={region}
-                  onChange={(e) => setRegion(e.target.value as any)}
-                  className="w-full flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  onValueChange={(val) => setRegion(val as any)}
                 >
-                  <option value="us">United States (US)</option>
-                  <option value="eu">Europe (EU)</option>
-                </select>
+                  <SelectTrigger id="junction_region" className="w-full">
+                    <SelectValue placeholder="Select region" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="us">United States (US)</SelectItem>
+                    <SelectItem value="eu">Europe (EU)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
