@@ -9,6 +9,33 @@
 import { useEffect, useState } from 'react';
 import { getAvailableTreatments, startNewTreatment, AvailableTreatment } from './api';
 
+const formatCategoryName = (type: string | null | undefined): string => {
+  if (!type) return 'Other Treatments';
+  const normalized = type.toLowerCase().trim();
+  if (normalized === 'all') return 'All';
+  const mapping: Record<string, string> = {
+    weight_loss: 'Weight Loss',
+    glp: 'GLP-1 Weight Loss',
+    ed: 'Erectile Dysfunction',
+    glutathione: 'Glutathione',
+    general: 'General',
+    glp_microdosing: 'GLP Microdosing',
+    sermorelin: 'Sermorelin',
+    nad_plus: 'NAD+',
+    individualized_glp: 'Individualized GLP',
+    other: 'Other Treatments',
+  };
+  
+  if (mapping[normalized]) {
+    return mapping[normalized];
+  }
+  
+  return type
+    .split(/[_-]/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
 interface AvailableTreatmentsListProps {
   onStartTreatment?: (treatment: AvailableTreatment) => void;
 }
@@ -18,6 +45,8 @@ export function AvailableTreatmentsList({ onStartTreatment }: AvailableTreatment
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [startingId, setStartingId] = useState<string | null>(null);
+
+  const [activeTab, setActiveTab] = useState<string>('');
 
   useEffect(() => {
     loadTreatments();
@@ -73,6 +102,40 @@ export function AvailableTreatmentsList({ onStartTreatment }: AvailableTreatment
     });
   };
 
+  // Extract and sort unique categories from treatments list
+  const categories = (() => {
+    const rawCats = treatments.map(t => t.treatment_type?.toLowerCase().trim() || 'other');
+    const uniqueCats = Array.from(new Set(rawCats));
+    
+    // Sort categories: custom priority order first, then alphabetical, 'other' always last
+    const sortedCats = uniqueCats.sort((a, b) => {
+      const priority = ['weight_loss', 'glp', 'ed', 'glutathione', 'sermorelin', 'nad_plus', 'general'];
+      const aIdx = priority.indexOf(a);
+      const bIdx = priority.indexOf(b);
+      
+      if (a === 'other') return 1;
+      if (b === 'other') return -1;
+      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+      if (aIdx !== -1) return -1;
+      if (bIdx !== -1) return 1;
+      return a.localeCompare(b);
+    });
+
+    // Add 'all' to the front if there's more than one category
+    return sortedCats.length > 1 ? ['all', ...sortedCats] : sortedCats;
+  })();
+
+  // Keep active tab in sync with loaded categories list
+  useEffect(() => {
+    if (categories.length > 0) {
+      if (!activeTab || !categories.includes(activeTab)) {
+        setActiveTab(categories.includes('all') ? 'all' : categories[0]);
+      }
+    } else {
+      setActiveTab('');
+    }
+  }, [treatments]);
+
   if (loading) {
     return (
       <div className="km-sc km-fade" style={{ padding: 14 }}>
@@ -120,20 +183,42 @@ export function AvailableTreatmentsList({ onStartTreatment }: AvailableTreatment
     );
   }
 
-  // Separate available and blocked treatments
-  const availableTreatments = treatments.filter(t => t.can_start);
-  const blockedTreatments = treatments.filter(t => !t.can_start);
+  // Filter available and blocked treatments for the active category
+  const filteredAvailable = treatments.filter(t => {
+    const cat = t.treatment_type?.toLowerCase().trim() || 'other';
+    return t.can_start && (categories.length <= 1 || activeTab === 'all' || cat === activeTab);
+  });
+
+  const filteredBlocked = treatments.filter(t => {
+    const cat = t.treatment_type?.toLowerCase().trim() || 'other';
+    return !t.can_start && (categories.length <= 1 || activeTab === 'all' || cat === activeTab);
+  });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Category Tabs Switcher */}
+      {categories.length > 1 && (
+        <div className="km-tabs" style={{ marginBottom: 4 }}>
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              className={`km-tab ${activeTab === cat ? 'active' : ''}`}
+              onClick={() => setActiveTab(cat)}
+            >
+              {formatCategoryName(cat)}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Available Treatments */}
-      {availableTreatments.length > 0 && (
+      {filteredAvailable.length > 0 && (
         <div>
           <div className="fd" style={{ fontSize: 11, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '.5px' }}>
             Available Treatments
           </div>
           <div className="fd" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {availableTreatments.map((treatment) => (
+            {filteredAvailable.map((treatment) => (
               <TreatmentCard
                 key={treatment.id}
                 treatment={treatment}
@@ -146,13 +231,13 @@ export function AvailableTreatmentsList({ onStartTreatment }: AvailableTreatment
       )}
 
       {/* Blocked Treatments */}
-      {blockedTreatments.length > 0 && (
+      {filteredBlocked.length > 0 && (
         <div style={{ opacity: 0.7 }}>
           <div className="fd" style={{ fontSize: 11, fontWeight: 700, color: 'var(--km-tm)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '.5px' }}>
             Recently Completed Treatments
           </div>
           <div className="fd" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {blockedTreatments.map((treatment) => (
+            {filteredBlocked.map((treatment) => (
               <TreatmentCard
                 key={treatment.id}
                 treatment={treatment}
@@ -160,6 +245,14 @@ export function AvailableTreatmentsList({ onStartTreatment }: AvailableTreatment
                 compact
               />
             ))}
+          </div>
+        </div>
+      )}
+
+      {filteredAvailable.length === 0 && filteredBlocked.length === 0 && (
+        <div className="km-empty" style={{ padding: '36px 18px' }}>
+          <div className="km-et">
+            {activeTab === 'all' ? 'No treatments available' : 'No treatments available in this category'}
           </div>
         </div>
       )}
