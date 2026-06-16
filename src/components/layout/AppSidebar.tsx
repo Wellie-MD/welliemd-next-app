@@ -77,6 +77,17 @@ const menuSections = [
   {
     label: "TOOLS & SERVICES",
     items: [
+      {
+        title: "Treatments",
+        icon: Stethoscope,
+        children: [
+          { title: "Custom Programs", url: "/dashboard/treatments/custom-programs" },
+          { title: "Programs", url: "/dashboard/treatments/programs" },
+          { title: "Sections", url: "/dashboard/treatments/sections" },
+          { title: "Consents", url: "/dashboard/treatments/consents" },
+          { title: "Treatment Types", url: "/dashboard/treatments/treatment-types" },
+        ]
+      },
       { title: "Questionnaires", url: "/dashboard/questionnaires", icon: FileText },
 
       // ✅ NEW: Pharmacies top-level item
@@ -277,7 +288,7 @@ export function AppSidebar() {
                                         to={child.url}
                                         className={`
                                           flex items-center w-full px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
-                                          ${currentPath === child.url
+                                          ${currentPath === child.url || currentPath.startsWith(`${child.url}/`)
                                             ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm border-l-2 border-[#12517A] -ml-[1px]"
                                             : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
                                           }

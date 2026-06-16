@@ -50,6 +50,18 @@ import UsersPermissions from "./pages/management/UsersPermissions";
 import MasterKeyAccess from "./pages/MasterKeyAccess";
 import CrossTenantAccessUsers from "./pages/CrossTenantAccessUsers";
 import ClientPerformance from "./pages/ClientPerformance";
+import {
+  ConsentsPage,
+  ContentLibrariesPage,
+  CustomProgramBuilderPage,
+  CustomProgramsPage,
+  ProgramDetailPage,
+  ProgramQuestionEditorPage,
+  ProgramsPage,
+  SectionsPage,
+  TreatmentTypeDetailPage,
+  TreatmentTypesPage,
+} from "./features/treatments/pages";
 
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -152,7 +164,16 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
-                    <Route path="/treatments" element={<ProtectedRoute><Treatments /></ProtectedRoute>} />
+                    <Route path="/treatments" element={<ProtectedRoute><ContentLibrariesPage /></ProtectedRoute>} />
+                    <Route path="/treatments/custom-programs" element={<ProtectedRoute><CustomProgramsPage /></ProtectedRoute>} />
+                    <Route path="/treatments/custom-programs/:customProgramId/builder" element={<ProtectedRoute><CustomProgramBuilderPage /></ProtectedRoute>} />
+                    <Route path="/treatments/programs" element={<ProtectedRoute><ProgramsPage /></ProtectedRoute>} />
+                    <Route path="/treatments/programs/:programId" element={<ProtectedRoute><ProgramDetailPage /></ProtectedRoute>} />
+                    <Route path="/treatments/programs/:programId/questions/:questionId" element={<ProtectedRoute><ProgramQuestionEditorPage /></ProtectedRoute>} />
+                    <Route path="/treatments/sections" element={<ProtectedRoute><SectionsPage /></ProtectedRoute>} />
+                    <Route path="/treatments/consents" element={<ProtectedRoute><ConsentsPage /></ProtectedRoute>} />
+                    <Route path="/treatments/treatment-types" element={<ProtectedRoute><TreatmentTypesPage /></ProtectedRoute>} />
+                    <Route path="/treatments/treatment-types/:treatmentTypeKey" element={<ProtectedRoute><TreatmentTypeDetailPage /></ProtectedRoute>} />
                     <Route path="/treatments/configurations" element={<ProtectedRoute><TreatmentConfigurations /></ProtectedRoute>} />
                     <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
                     <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
