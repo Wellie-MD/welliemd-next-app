@@ -3,46 +3,85 @@ import { Button } from "@/components/ui/button";
 import type { CommonSection } from "../../types";
 import { formatScope } from "../../utils/labels";
 import { StatusPill } from "../common";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface SectionListTableProps {
   sections: CommonSection[];
+  onEdit?: (section: CommonSection) => void;
+  onDelete?: (id: string) => void;
 }
 
-export function SectionListTable({ sections }: SectionListTableProps) {
+export function SectionListTable({ sections, onEdit, onDelete }: SectionListTableProps) {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-          <tr>
-            <th className="px-4 py-3">Name</th>
-            <th className="px-4 py-3">Scope</th>
-            <th className="px-4 py-3">Visit Type</th>
-            <th className="px-4 py-3">Fields</th>
-            <th className="px-4 py-3">Last Updated</th>
-            <th className="px-4 py-3">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
+      <Table>
+        <TableHeader className="bg-slate-50">
+          <TableRow>
+            <TableHead className="w-[300px] text-xs font-semibold uppercase tracking-wider text-slate-500">Name</TableHead>
+            <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-500">Scope</TableHead>
+            <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-500">Visit Type</TableHead>
+            <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-500">Fields</TableHead>
+            <TableHead className="text-xs font-semibold uppercase tracking-wider text-slate-500">Last Updated</TableHead>
+            <TableHead className="text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {sections.map((section) => (
-            <tr key={section.id} className="hover:bg-slate-50">
-              <td className="px-4 py-3 font-semibold text-slate-950">{section.name}</td>
-              <td className="px-4 py-3">
-                <StatusPill tone={section.scope === "global" ? "green" : "blue"}>{formatScope(section.scope)}</StatusPill>
-              </td>
-              <td className="px-4 py-3">{section.visitTypeKeys.length ? section.visitTypeKeys.join(", ") : "All"}</td>
-              <td className="px-4 py-3">{section.fieldCount}</td>
-              <td className="px-4 py-3">{section.updatedAt}</td>
-              <td className="px-4 py-3">
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm"><Eye className="h-4 w-4" /></Button>
-                  <Button variant="outline" size="sm"><Pencil className="h-4 w-4" /></Button>
-                  <Button variant="outline" size="sm"><Trash2 className="h-4 w-4 text-red-500" /></Button>
+            <TableRow key={section.id} className="group hover:bg-slate-50/50">
+              <TableCell className="font-medium">
+                <div
+                  className="text-slate-900 cursor-pointer hover:text-[#12517A] hover:underline"
+                  onClick={() => onEdit?.(section)}
+                >
+                  {section.name}
                 </div>
-              </td>
-            </tr>
+                <div className="text-xs text-slate-500 font-normal mt-1">
+                  {section.description || "Common section block"}
+                </div>
+              </TableCell>
+              <TableCell>
+                <StatusPill tone={section.scope === "global" ? "green" : "blue"}>{formatScope(section.scope)}</StatusPill>
+              </TableCell>
+              <TableCell>
+                {section.visitTypeKeys.length ? (
+                  <div className="flex flex-wrap gap-1">
+                    {section.visitTypeKeys.map((key) => (
+                      <code key={key} className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700 font-medium">
+                        {key}
+                      </code>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-slate-500 text-sm">All</span>
+                )}
+              </TableCell>
+              <TableCell className="text-slate-600">{section.fieldCount}</TableCell>
+              <TableCell className="text-slate-500 text-xs">{section.updatedAt}</TableCell>
+              <TableCell className="text-right">
+                <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                  {onEdit && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-[#12517A]" title="Edit" onClick={() => onEdit(section)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {onDelete && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-600" title="Delete" onClick={() => onDelete(section.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }

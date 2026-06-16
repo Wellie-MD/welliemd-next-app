@@ -97,6 +97,10 @@ export interface Product {
   allow_client_modifications?: boolean;
   sync_to_tenants?: boolean;
   is_modified_need_to_re_assigned?: boolean; // True if product was modified and needs re-assignment
+  // Visit Type Restrictions (Slice 4)
+  allowed_visit_types?: string[];
+  restrict_visit_types?: boolean;
+
   is_active: boolean;
   created_at: string;
   updated_at?: string;

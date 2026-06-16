@@ -86,6 +86,7 @@ export interface ConsentForm {
 
 export interface CheckoutProductOption {
   id: string;
+  productId: string;
   treatmentTypeKey: string;
   category: string;
   regimen: string;
@@ -104,6 +105,13 @@ export interface ProgramQuestion {
   required: boolean;
   answerCount?: number;
   flags?: Array<"conditional" | "disqualifying" | "consent">;
+  choices?: string[];
+  consentText?: string;
+  checkoutProductIds?: string[];
+  visibilityRule?: {
+    questionId: string;
+    value: string;
+  };
 }
 
 export interface CustomProgramFlowItem {
@@ -113,6 +121,12 @@ export interface CustomProgramFlowItem {
   subtitle: string;
   locked?: boolean;
   treatmentTypeKey?: string;
+}
+
+export type CustomProgramFlowItemInput = Omit<CustomProgramFlowItem, "id">;
+
+export interface CustomProgramBuilderAddItem extends CustomProgramFlowItemInput {
+  checkoutOption?: Omit<CheckoutProductOption, "id">;
 }
 
 export interface CustomProgram {

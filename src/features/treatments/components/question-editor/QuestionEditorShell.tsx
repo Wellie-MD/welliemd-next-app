@@ -1,7 +1,25 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Play, Save } from "lucide-react";
+import {
+  Play,
+  Save,
+  ChevronLeft,
+  ShieldCheck,
+  FileText,
+  ShoppingCart,
+  MessageSquare,
+  LayoutTemplate,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { ProgramQuestion } from "../../types";
+import { toast } from "@/components/ui/use-toast";
+import type { ProgramQuestion, QuestionKind } from "../../types";
+import { PatientFlowTestModal } from "../builder/PatientFlowTestModal";
+import { useSaveProgramQuestion } from "../../hooks/useTreatmentLibraries";
+
+import { QuestionSetupTab } from "./subcomponents/QuestionSetupTab";
+import { QuestionContentTab } from "./subcomponents/QuestionContentTab";
+import { QuestionVisibilityTab } from "./subcomponents/QuestionVisibilityTab";
+import { QuestionPreviewTab } from "./subcomponents/QuestionPreviewTab";
 
 interface QuestionEditorShellProps {
   programId: string;
@@ -17,100 +35,249 @@ export function QuestionEditorShell({
   activeQuestion,
 }: QuestionEditorShellProps) {
   const currentQuestion = activeQuestion ?? questions[0];
+  const [isTestModalOpen, setIsTestModalOpen] = useState(false);
+
+  // Controlled states for active question settings
+  const [text, setText] = useState("");
+  const [kind, setKind] = useState<QuestionKind>("text");
+  const [required, setRequired] = useState(false);
+
+  // Controlled states for Choices configuration (type-specific)
+  const [choices, setChoices] = useState<string[]>([]);
+  const [newChoiceText, setNewChoiceText] = useState("");
+
+  // Controlled state for Consent configuration (type-specific)
+  const [consentText, setConsentText] = useState("");
+
+  // Controlled states for Visibility Rules
+  const [hasVisibilityRule, setHasVisibilityRule] = useState(false);
+  const [visQuestionId, setVisQuestionId] = useState("");
+  const [visValue, setVisValue] = useState("");
+
+  // Save mutation
+  const { mutate: saveQuestion, isPending } = useSaveProgramQuestion(programId);
+
+  // Sync state when active question changes
+  useEffect(() => {
+    if (currentQuestion) {
+      setText(currentQuestion.text || "");
+      setKind(currentQuestion.kind || "text");
+      setRequired(!!currentQuestion.required);
+      setChoices(currentQuestion.choices || []);
+      setConsentText(currentQuestion.consentText || "");
+      if (currentQuestion.visibilityRule) {
+        setHasVisibilityRule(true);
+        setVisQuestionId(currentQuestion.visibilityRule.questionId || "");
+        setVisValue(currentQuestion.visibilityRule.value || "");
+      } else {
+        setHasVisibilityRule(false);
+        setVisQuestionId("");
+        setVisValue("");
+      }
+    }
+  }, [currentQuestion]);
+
+  const handleAddChoice = () => {
+    if (!newChoiceText.trim()) return;
+    if (choices.includes(newChoiceText.trim())) {
+      toast({
+        title: "Duplicate Choice",
+        description: "This choice already exists.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setChoices([...choices, newChoiceText.trim()]);
+    setNewChoiceText("");
+  };
+
+  const handleRemoveChoice = (index: number) => {
+    const updated = [...choices];
+    updated.splice(index, 1);
+    setChoices(updated);
+  };
+
+  const handleSave = () => {
+    if (!text.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Question text is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const updatedQuestion: ProgramQuestion = {
+      ...currentQuestion,
+      text,
+      kind,
+      required,
+      choices: kind === "choice" || kind === "single_choice" || kind === "multiple_choice" ? choices : undefined,
+      consentText: kind === "consent" ? consentText : undefined,
+      visibilityRule: hasVisibilityRule && visQuestionId
+        ? { questionId: visQuestionId, value: visValue }
+        : undefined,
+    };
+
+    saveQuestion(updatedQuestion, {
+      onSuccess: () => {
+        toast({
+          title: "Changes Saved",
+          description: "Question configuration has been updated.",
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Error",
+          description: "Failed to save changes.",
+          variant: "destructive",
+        });
+      },
+    });
+  };
+
+  const renderIcon = (type: string) => {
+    switch (type) {
+      case "auth":
+        return <ShieldCheck className="h-4 w-4" />;
+      case "section":
+        return <LayoutTemplate className="h-4 w-4" />;
+      case "consent":
+        return <FileText className="h-4 w-4" />;
+      case "checkout":
+        return <ShoppingCart className="h-4 w-4" />;
+      default:
+        return <MessageSquare className="h-4 w-4" />;
+    }
+  };
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-slate-100">
-      <div className="sticky top-0 z-20 border-b border-slate-200 bg-white px-6 py-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-3">
-            <Button asChild variant="outline" size="sm">
-              <Link to={`/dashboard/treatments/programs/${programId}`}>Back</Link>
-            </Button>
-            <div>
-              <div className="text-lg font-semibold text-slate-950">{programName}</div>
-              <div className="text-sm text-slate-500">Question {currentQuestion?.order ?? 1} of {questions.length} · Draft</div>
+    <div className="h-screen max-h-screen flex flex-col bg-[#f8fafc] overflow-hidden">
+      {/* Header */}
+      <div className="shrink-0 z-20 border-b border-slate-200 bg-white px-6 py-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between shadow-sm">
+        <div className="flex items-center gap-4">
+          <Button asChild variant="outline" size="icon" className="shrink-0 h-9 w-9 text-slate-500">
+            <Link to={`/dashboard/treatments/programs/${programId}`}>
+              <ChevronLeft className="h-5 w-5" />
+            </Link>
+          </Button>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold text-slate-900 leading-none">{programName}</h1>
+              <span className="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                Draft
+              </span>
             </div>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              <Play className="mr-2 h-4 w-4" />
-              Test Patient Flow
-            </Button>
-            <Button size="sm">
-              <Save className="mr-2 h-4 w-4" />
-              Save Changes
-            </Button>
+            <div className="text-xs text-slate-500 mt-1 font-medium">
+              Question {currentQuestion?.order ?? 1} of {questions.length}
+            </div>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="bg-white" onClick={() => setIsTestModalOpen(true)}>
+            <Play className="mr-2 h-4 w-4" />
+            Test Patient Flow
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={isPending}
+            className="bg-[#12517A] text-white hover:bg-[#12517A]/90"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            {isPending ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
       </div>
-      <div className="grid min-h-[calc(100vh-152px)] grid-cols-1 lg:grid-cols-[260px,1fr,320px]">
-        <aside className="border-r border-slate-200 bg-white p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Flow</span>
-            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">{questions.length}</span>
+
+      <PatientFlowTestModal open={isTestModalOpen} onOpenChange={setIsTestModalOpen} />
+
+      {/* Main Grid */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[280px,1fr,360px] overflow-hidden">
+        {/* Left Column: Flow Sidebar */}
+        <aside className="border-r border-slate-200 bg-white overflow-y-auto">
+          <div className="sticky top-0 bg-white/95 backdrop-blur z-10 px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Flow Layout</span>
+            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-600">
+              {questions.length}
+            </span>
           </div>
-          <div className="space-y-2">
-            {questions.map((question) => (
-              <Link
-                key={question.id}
-                to={`/dashboard/treatments/programs/${programId}/questions/${question.id}`}
-                className={`block rounded-lg border px-3 py-2 text-sm ${
-                  question.id === currentQuestion?.id
-                    ? "border-blue-200 bg-blue-50 text-blue-950"
-                    : "border-slate-200 bg-white text-slate-700"
-                }`}
-              >
-                <div className="font-semibold">#{question.order}</div>
-                <div className="line-clamp-2">{question.text}</div>
-              </Link>
-            ))}
+          <div className="p-3 space-y-1.5">
+            {questions.map((question) => {
+              const isActive = question.id === currentQuestion?.id;
+              return (
+                <Link
+                  key={question.id}
+                  to={`/dashboard/treatments/programs/${programId}/questions/${question.id}`}
+                  className={`flex items-start gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
+                    isActive
+                      ? "bg-blue-50/50 text-[#12517A] shadow-sm ring-1 ring-blue-200"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border border-transparent"
+                  }`}
+                >
+                  <div className={`shrink-0 mt-0.5 ${isActive ? "text-[#12517A]" : "text-slate-400"}`}>
+                    {renderIcon(question.kind)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div
+                      className={`font-semibold text-[10px] mb-0.5 ${
+                        isActive ? "text-[#12517A]" : "text-slate-500"
+                      }`}
+                    >
+                      Step {question.order}
+                    </div>
+                    <div className={`line-clamp-2 leading-tight text-xs ${isActive ? "font-semibold" : "font-medium"}`}>
+                      {question.text}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </aside>
-        <main className="overflow-y-auto bg-white p-6">
-          <section className="mb-6 rounded-xl border border-slate-200 p-5">
-            <div className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">Question Setup</div>
-            <label className="text-sm font-semibold text-slate-800">Question Text</label>
-            <textarea
-              className="mt-2 min-h-24 w-full rounded-lg border border-slate-200 p-3 text-sm"
-              defaultValue={currentQuestion?.text}
+
+        {/* Middle Column: Configuration Editor */}
+        <main className="overflow-y-auto p-8 relative">
+          <div className="max-w-3xl mx-auto space-y-8 pb-12">
+            <QuestionSetupTab
+              text={text}
+              setText={setText}
+              kind={kind}
+              setKind={setKind}
+              required={required}
+              setRequired={setRequired}
             />
-            <label className="mt-4 block text-sm font-semibold text-slate-800">Question Type</label>
-            <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-              {currentQuestion?.kind}
-            </div>
-          </section>
-          <section className="mb-6 rounded-xl border border-slate-200 p-5">
-            <div className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Content</div>
-            <p className="text-sm text-slate-500">
-              The frontend agent must implement answer choices, checkout product config, rich consent text, and type-specific controls here.
-            </p>
-          </section>
-          <section className="mb-6 rounded-xl border border-slate-200 p-5">
-            <div className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Visibility</div>
-            <p className="text-sm text-slate-500">
-              Add simple and advanced nested rule builders here. Do not place rule logic directly in page files.
-            </p>
-          </section>
-          <section className="rounded-xl border border-slate-200 p-5">
-            <div className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">Behavior</div>
-            <p className="text-sm text-slate-500">Required, include in QA, hidden, and prefill controls live here.</p>
-          </section>
+
+            <QuestionContentTab
+              kind={kind}
+              choices={choices}
+              newChoiceText={newChoiceText}
+              setNewChoiceText={setNewChoiceText}
+              handleAddChoice={handleAddChoice}
+              handleRemoveChoice={handleRemoveChoice}
+              consentText={consentText}
+              setConsentText={setConsentText}
+            />
+
+            <QuestionVisibilityTab
+              hasVisibilityRule={hasVisibilityRule}
+              setHasVisibilityRule={setHasVisibilityRule}
+              visQuestionId={visQuestionId}
+              setVisQuestionId={setVisQuestionId}
+              visValue={visValue}
+              setVisValue={setVisValue}
+              questions={questions}
+              currentQuestionId={currentQuestion?.id || ""}
+            />
+          </div>
         </main>
-        <aside className="bg-slate-950 p-5 text-white">
-          <div className="mb-4 flex items-center justify-between text-xs font-semibold uppercase tracking-wide">
-            <span>Patient Preview</span>
-            <span className="text-green-300">Updates live</span>
-          </div>
-          <div className="overflow-hidden rounded-xl bg-white text-slate-950">
-            <div className="border-b border-slate-200 bg-slate-100 px-4 py-2 text-xs text-slate-500">
-              welliemd.com/intake
-            </div>
-            <div className="p-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Question Preview</div>
-              <div className="mt-3 text-base font-semibold">{currentQuestion?.text}</div>
-            </div>
-          </div>
-        </aside>
+
+        {/* Right Column: Live Patient Preview */}
+        <QuestionPreviewTab
+          text={text}
+          kind={kind}
+          choices={choices}
+          consentText={consentText}
+        />
       </div>
     </div>
   );

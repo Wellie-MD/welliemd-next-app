@@ -1,16 +1,18 @@
 import { Link } from "react-router-dom";
-import { Eye, GitBranch, Pencil, Users } from "lucide-react";
+import { Eye, GitBranch, Pencil, Users, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { CustomProgram } from "../../types";
 import { StatusPill } from "../common";
 
 interface CustomProgramCardProps {
   customProgram: CustomProgram;
+  onEdit?: (program: CustomProgram) => void;
+  onDelete?: (id: string) => void;
 }
 
-export function CustomProgramCard({ customProgram }: CustomProgramCardProps) {
+export function CustomProgramCard({ customProgram, onEdit, onDelete }: CustomProgramCardProps) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm group hover:border-slate-300 transition-colors">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -19,46 +21,46 @@ export function CustomProgramCard({ customProgram }: CustomProgramCardProps) {
               {customProgram.status}
             </StatusPill>
           </div>
-          <p className="mt-1 text-sm leading-6 text-slate-500">{customProgram.description}</p>
+          <p className="mt-1 text-xs leading-6 text-slate-500">{customProgram.description}</p>
         </div>
       </div>
-      <div className="mt-4 grid gap-3 text-sm text-slate-600 md:grid-cols-4">
-        <div className="rounded-lg bg-slate-50 p-3">
-          <div className="text-xs uppercase text-slate-400">Programs</div>
-          <div className="font-semibold">{customProgram.includedProgramIds.length}</div>
+      <div className="mt-4 grid gap-3 text-xs text-slate-600 grid-cols-4">
+        <div className="rounded-lg bg-slate-50 p-2 text-center">
+          <div className="text-[10px] uppercase text-slate-400">Programs</div>
+          <div className="font-semibold mt-0.5">{customProgram.includedProgramIds.length}</div>
         </div>
-        <div className="rounded-lg bg-slate-50 p-3">
-          <div className="text-xs uppercase text-slate-400">Sections</div>
-          <div className="font-semibold">{customProgram.sectionIds.length}</div>
+        <div className="rounded-lg bg-slate-50 p-2 text-center">
+          <div className="text-[10px] uppercase text-slate-400">Sections</div>
+          <div className="font-semibold mt-0.5">{customProgram.sectionIds.length}</div>
         </div>
-        <div className="rounded-lg bg-slate-50 p-3">
-          <div className="text-xs uppercase text-slate-400">Consents</div>
-          <div className="font-semibold">{customProgram.consentIds.length}</div>
+        <div className="rounded-lg bg-slate-50 p-2 text-center">
+          <div className="text-[10px] uppercase text-slate-400">Consents</div>
+          <div className="font-semibold mt-0.5">{customProgram.consentIds.length}</div>
         </div>
-        <div className="rounded-lg bg-slate-50 p-3">
-          <div className="text-xs uppercase text-slate-400">Checkout options</div>
-          <div className="font-semibold">{customProgram.checkoutOptions.length}</div>
+        <div className="rounded-lg bg-slate-50 p-2 text-center">
+          <div className="text-[10px] uppercase text-slate-400">Checkout</div>
+          <div className="font-semibold mt-0.5">{customProgram.checkoutOptions.length}</div>
         </div>
       </div>
-      <div className="mt-5 flex flex-wrap gap-2">
-        <Button asChild size="sm">
+      <div className="mt-5 flex flex-wrap gap-2 pt-2 border-t border-slate-100">
+        <Button asChild size="sm" className="bg-[#12517A] text-white hover:bg-[#12517A]/90">
           <Link to={`/dashboard/treatments/custom-programs/${customProgram.id}/builder`}>
             <GitBranch className="mr-2 h-4 w-4" />
-            Open Builder
+            Builder
           </Link>
         </Button>
-        <Button variant="outline" size="sm">
-          <Eye className="mr-2 h-4 w-4" />
-          Preview
-        </Button>
-        <Button variant="outline" size="sm">
-          <Pencil className="mr-2 h-4 w-4" />
-          Edit
-        </Button>
-        <Button variant="outline" size="sm">
-          <Users className="mr-2 h-4 w-4" />
-          Assign
-        </Button>
+        {onEdit && (
+          <Button variant="outline" size="sm" onClick={() => onEdit(customProgram)}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Edit
+          </Button>
+        )}
+        {onDelete && (
+          <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => onDelete(customProgram.id)}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -1,35 +1,6 @@
 import { FileText, GitBranch, LayoutGrid, ShieldCheck } from "lucide-react";
-import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { LibraryStatCard, TreatmentPageHeader } from "../components/common";
+import { LibraryStatCard, TreatmentPageHeader, LibraryContentCard } from "../components/common";
 import { useContentLibraryStats } from "../hooks/useTreatmentLibraries";
-
-const libraryCards = [
-  {
-    title: "Consent Forms Library",
-    description: "Legal documents that are global or treatment-specific.",
-    href: "/dashboard/treatments/consents",
-    action: "Manage consents",
-  },
-  {
-    title: "Common Sections",
-    description: "Reusable patient data sections shared across custom forms.",
-    href: "/dashboard/treatments/sections",
-    action: "View sections",
-  },
-  {
-    title: "Programs",
-    description: "Treatment-specific intake and follow-up questionnaires.",
-    href: "/dashboard/treatments/programs",
-    action: "Manage programs",
-  },
-  {
-    title: "Custom Programs",
-    description: "Patient-facing flows composed from programs, sections, consents, and checkout.",
-    href: "/dashboard/treatments/custom-programs",
-    action: "View custom programs",
-  },
-];
 
 export default function ContentLibrariesPage() {
   const { data: stats } = useContentLibraryStats();
@@ -53,16 +24,65 @@ export default function ContentLibrariesPage() {
         <LibraryStatCard label="Custom Programs" value={stats?.customPrograms ?? 0} icon={<FileText className="h-5 w-5" />} tone="indigo" />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {libraryCards.map((card) => (
-          <div key={card.title} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-950">{card.title}</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500">{card.description}</p>
-            <Button asChild className="mt-5" variant="outline">
-              <Link to={card.href}>{card.action}</Link>
-            </Button>
-          </div>
-        ))}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <LibraryContentCard
+          title="Consent Forms Library"
+          subtitle="Legal documents · versioned & scoped"
+          icon={<ShieldCheck className="h-6 w-6" />}
+          tone="purple"
+          stat={<strong>1</strong>}
+          listItems={[
+            "Consent (Truthfulness) · global · all plans"
+          ]}
+          recentText={<span><strong>Consent (Truthfulness)</strong> · auto-shown on every plan</span>}
+          href="/dashboard/treatments/consents"
+          actionLabel="Manage consents"
+        />
+
+        <LibraryContentCard
+          title="Common Sections"
+          subtitle="Reusable patient data · shared across custom forms"
+          icon={<LayoutGrid className="h-6 w-6" />}
+          tone="teal"
+          stat={<><strong>2</strong> sections · global · Beluga-mapped</>}
+          listItems={[
+            "Medical Baseline · 3 fields · Beluga-mapped",
+            "Identity Verification · photo ID upload"
+          ]}
+          recentText={<span><strong>Medical Baseline</strong> · mapped to medicalConditions, selfReportedMeds, allergies · 4 days ago</span>}
+          href="/dashboard/treatments/sections"
+          actionLabel="View sections"
+        />
+
+        <LibraryContentCard
+          title="Programs"
+          subtitle="Treatment-specific questionnaires · onboarding & follow-up"
+          icon={<GitBranch className="h-6 w-6" />}
+          tone="blue"
+          stat={<><strong>24</strong> eligibility modules · 12 onboarding, 12 follow-up</>}
+          listItems={[
+            "ED Intake · v2 · 8 questions",
+            "TRT Intake · v2 · 12 questions"
+          ]}
+          recentText={<span><strong>TRT Intake v2</strong> published · 5 days ago</span>}
+          href="/dashboard/treatments/programs"
+          actionLabel="Manage programs"
+        />
+
+        <LibraryContentCard
+          title="Custom Programs"
+          subtitle="Client-customized intakes · single & multi-treatment routing"
+          icon={<FileText className="h-6 w-6" />}
+          tone="indigo"
+          stat={<><strong>2</strong> custom forms · both multi-treatment routing</>}
+          listItems={[
+            "WellieMD Universal Intake · routes across all treatments",
+            "Men's Sexual Health · multi [ED, PE, Herpes]"
+          ]}
+          recentText={<span>Single-treatment plans moved to <strong>Programs</strong> · Phase 3 migration complete</span>}
+          href="/dashboard/treatments/custom-programs"
+          actionLabel="View custom programs"
+        />
       </div>
     </div>
   );

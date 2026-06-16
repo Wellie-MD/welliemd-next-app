@@ -4,3 +4,4 @@ export * from "./LibraryStatCard";
 export * from "./PrototypeNotice";
 export * from "./StatusPill";
 export * from "./TreatmentPageHeader";
+export * from "./LibraryContentCard";

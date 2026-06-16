@@ -1,11 +1,37 @@
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FilterToolbar, TreatmentPageHeader } from "../components/common";
 import { SectionListTable } from "../components/sections/SectionListTable";
-import { useSections } from "../hooks/useTreatmentLibraries";
+import { SectionModal } from "../components/sections/SectionModal";
+import { useSections, useDeleteSection } from "../hooks/useTreatmentLibraries";
+import { toast } from "@/components/ui/use-toast";
+import type { CommonSection } from "../types";
 
 export default function SectionsPage() {
   const { data: sections = [] } = useSections();
+  const { mutate: deleteSection } = useDeleteSection();
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedSection, setSelectedSection] = useState<CommonSection | null>(null);
+
+  const handleEdit = (section: CommonSection) => {
+    setSelectedSection(section);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm("Are you sure you want to delete this section?")) {
+      deleteSection(id, {
+        onSuccess: () => {
+          toast({
+            title: "Section Deleted",
+            description: "Section has been successfully deleted.",
+          });
+        },
+      });
+    }
+  };
 
   return (
     <div className="p-6">
@@ -13,14 +39,30 @@ export default function SectionsPage() {
         title="Common Sections"
         subtitle="Reusable patient data sections referenced across custom forms."
         actions={
-          <Button>
+          <Button
+            onClick={() => {
+              setSelectedSection(null);
+              setIsModalOpen(true);
+            }}
+            className="bg-[#12517A] text-white hover:bg-[#12517A]/90"
+          >
             <Plus className="mr-2 h-4 w-4" />
             Create Section
           </Button>
         }
       />
       <FilterToolbar placeholder="Search sections by name or scope" />
-      <SectionListTable sections={sections} />
+      <SectionListTable
+        sections={sections}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
+
+      <SectionModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        section={selectedSection}
+      />
     </div>
   );
 }

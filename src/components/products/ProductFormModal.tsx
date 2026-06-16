@@ -31,6 +31,7 @@ import { TitrationCategoryManager } from "./TitrationCategoryManager";
 import { pharmacyApi } from "@/api/pharmacyApi";
 import { listDoseMappings, ProductDoseMapping } from "@/api/productDoseMappings";
 import { templateApi } from "@/api/questionnaires";
+import { useTreatmentTypes } from "@/features/treatments/hooks/useTreatmentLibraries";
 
 type TreatmentOption = {
   value: string;  // slug, e.g. "branded_weight_loss"
@@ -78,6 +79,7 @@ export function ProductFormModal({
   onSuccess,
   defaultProductType = "single",
 }: ProductFormModalProps) {
+  const { data: treatmentTypes = [] } = useTreatmentTypes();
   const [loading, setLoading] = useState(false);
   const [pharmacies, setPharmacies] = useState<any[]>([]);
   const [doseMappings, setDoseMappings] = useState<ProductDoseMapping[]>([]);
@@ -124,7 +126,30 @@ export function ProductFormModal({
     requires_video_visit: false,
     allow_client_modifications: true,
     sync_to_tenants: false,
+    allowed_visit_types: [] as string[],
+    restrict_visit_types: false,
   });
+
+  const visitTypeOptions = (() => {
+    const options = new Map<string, string>();
+    treatmentTypes.forEach((t) => {
+      if (t.intakeVisitType) {
+        options.set(t.intakeVisitType, `${t.name} Intake (${t.intakeVisitType})`);
+      }
+      if (t.followupVisitType) {
+        options.set(t.followupVisitType, `${t.name} Follow-up (${t.followupVisitType})`);
+      }
+    });
+    if (options.size === 0) {
+      options.set("weightloss", "GLP Weight Loss Intake (weightloss)");
+      options.set("weightlossFollowup", "GLP Weight Loss Follow-up (weightlossFollowup)");
+      options.set("ED", "ED Intake (ED)");
+      options.set("EDFollowup", "ED Follow-up (EDFollowup)");
+      options.set("TRT", "TRT Intake (TRT)");
+      options.set("TRTFollowup", "TRT Follow-up (TRTFollowup)");
+    }
+    return Array.from(options.entries()).map(([value, label]) => ({ value, label }));
+  })();
 
   // Fetch pharmacies on mount
   useEffect(() => {
@@ -349,6 +374,8 @@ export function ProductFormModal({
         requires_video_visit: product.requires_video_visit || false,
         allow_client_modifications: product.allow_client_modifications !== undefined ? product.allow_client_modifications : true,
         sync_to_tenants: product.sync_to_tenants || false,
+        allowed_visit_types: product.allowed_visit_types || [],
+        restrict_visit_types: product.restrict_visit_types || false,
       });
       const existingLinks = ((product as any).linked_supplies || []) as any[];
       setLinkedSupplies(
@@ -394,6 +421,8 @@ export function ProductFormModal({
         requires_video_visit: false,
         allow_client_modifications: true,
         sync_to_tenants: false,
+        allowed_visit_types: [],
+        restrict_visit_types: false,
       });
       setLinkedSupplies([]);
     }
@@ -421,6 +450,15 @@ export function ProductFormModal({
       toast({
         title: "Validation Error",
         description: "Beluga Medicine ID is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.restrict_visit_types && (!formData.allowed_visit_types || formData.allowed_visit_types.length === 0)) {
+      toast({
+        title: "Validation Error",
+        description: "Please select at least one allowed visit type, or turn off restrictions.",
         variant: "destructive",
       });
       return;
@@ -1111,6 +1149,55 @@ export function ProductFormModal({
               </Button>
             </div>
           )}
+
+          {/* Visit Type Restrictions */}
+          <div className="space-y-4 border-t pt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">Visit Type Restrictions</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Restrict checkout recommendation visibility of this product to specific visit types.
+                </p>
+              </div>
+              <Switch
+                id="restrict_visit_types"
+                checked={formData.restrict_visit_types}
+                onCheckedChange={(checked) => setFormData({ ...formData, restrict_visit_types: checked })}
+              />
+            </div>
+
+            {formData.restrict_visit_types && (
+              <div className="bg-slate-50 border rounded-xl p-4 space-y-3 mt-3">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Select Allowed Visit Types</Label>
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  {visitTypeOptions.map((opt) => {
+                    const isChecked = formData.allowed_visit_types.includes(opt.value);
+                    return (
+                      <label key={opt.value} className="flex items-center gap-3 p-3 rounded-lg border bg-white shadow-sm cursor-pointer hover:bg-slate-50/50 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            const updated = isChecked
+                              ? formData.allowed_visit_types.filter((v) => v !== opt.value)
+                              : [...formData.allowed_visit_types, opt.value];
+                            setFormData({ ...formData, allowed_visit_types: updated });
+                          }}
+                          className="rounded border-slate-300 text-[#12517A] focus:ring-[#12517A] h-4 w-4"
+                        />
+                        <span className="text-sm font-medium text-slate-700">{opt.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {formData.allowed_visit_types.length === 0 && (
+                  <p className="text-xs text-amber-600 font-medium mt-1">
+                    Warning: No visit types selected. When restrictions are active, at least one visit type should be selected.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Settings */}
           <div className="space-y-4">

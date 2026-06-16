@@ -187,6 +187,7 @@ export const mockCustomPrograms: CustomProgram[] = [
     checkoutOptions: [
       {
         id: "checkout-glp-025",
+        productId: "glp-semaglutide-025",
         treatmentTypeKey: "glp_weight_loss",
         category: "Semaglutide",
         regimen: "Alternative Regimen",
@@ -197,6 +198,7 @@ export const mockCustomPrograms: CustomProgram[] = [
       },
       {
         id: "checkout-ed",
+        productId: "ed-tadalafil-5",
         treatmentTypeKey: "ed",
         category: "ED",
         regimen: "Daily",
