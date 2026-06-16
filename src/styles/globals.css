@@ -24,8 +24,8 @@
   --km-acp: rgba(79, 142, 247, 0.12);
   --km-gr: #22c55e;
   --km-grp: rgba(34, 197, 94, 0.12);
-  --km-am: #f59e0b;
-  --km-amp: rgba(245, 158, 11, 0.12);
+  --km-am: #c2772a;
+  --km-amp: rgba(194, 119, 42, 0.14);
   --km-pu: #a78bfa;
   --km-pup: rgba(167, 139, 250, 0.12);
   --km-re: #ef4444;
@@ -1704,6 +1704,11 @@ body.light .km-nbtn {
   color: var(--km-tm);
   line-height: 1.5;
   max-width: 210px;
+}
+
+/* --- Health tabs (hide scrollbar = no thick underline) --- */
+.km-health-tabs::-webkit-scrollbar {
+  height: 0;
 }
 
 /* --- Page subtitle --- */
