@@ -294,6 +294,51 @@ export function PatientResponsesModal({
   const isNumericAnswer = (value: unknown): boolean =>
     /^\d+(\.\d+)?\s*(lbs?|pounds?)?$/i.test(String(value || "").trim())
 
+  const parseHeightInches = (height: unknown): number | null => {
+    if (!height) return null
+
+    if (typeof height === "object" && height !== null) {
+      const h = height as { feet?: number | string; inches?: number | string }
+      const feet = Number(h.feet)
+      const inches = Number(h.inches || 0)
+      if (Number.isFinite(feet) && Number.isFinite(inches)) {
+        return feet * 12 + inches
+      }
+    }
+
+    const text = String(height).trim()
+    if (!text) return null
+
+    if (text.includes("feet") && text.includes("inches")) {
+      const feetMatch = text.match(/feet['":\s]+(\d+)/)
+      const inchesMatch = text.match(/inches['":\s]+(\d+)/)
+      if (feetMatch) {
+        return Number(feetMatch[1]) * 12 + Number(inchesMatch?.[1] || 0)
+      }
+    }
+
+    const shorthandMatch = text.match(/(\d+)\s*'\s*(\d+)?/)
+    if (shorthandMatch) {
+      return Number(shorthandMatch[1]) * 12 + Number(shorthandMatch[2] || 0)
+    }
+
+    return null
+  }
+
+  const parseWeightPounds = (weight: unknown): number | null => {
+    const match = String(weight || "").trim().match(/^(\d+(?:\.\d+)?)/)
+    if (!match) return null
+    const pounds = Number(match[1])
+    return Number.isFinite(pounds) && pounds > 0 ? pounds : null
+  }
+
+  const calculateBmi = (height: unknown, weight: unknown): string => {
+    const heightInches = parseHeightInches(height)
+    const weightPounds = parseWeightPounds(weight)
+    if (!heightInches || !weightPounds) return ""
+    return ((weightPounds / (heightInches * heightInches)) * 703).toFixed(1)
+  }
+
   const findAnswerByQuestion = (
     matcher: (question: string, answer: string) => boolean
   ): string => {
@@ -322,15 +367,18 @@ export function PatientResponsesModal({
     (question.includes("bmi") || question.includes("body mass index")) &&
     isNumericAnswer(answer)
   )
+  const resolvedHeight = patientInfo.height || heightFromQuestion
+  const resolvedWeight = patientInfo.weight || weightFromQuestion
+  const computedBmi = calculateBmi(resolvedHeight, resolvedWeight)
 
   // Extract patient info from formObj
   // Prefer explicit patientInfo, then label-aware Q/A values. Avoid assuming A3/A4
   // are always weight/BMI because older payloads can have different question order.
   const extractedPatientInfo = {
     dateOfBirth: patientInfo.dateOfBirth || dobFromQuestion,
-    height: formatHeight(patientInfo.height || heightFromQuestion),
-    weight: patientInfo.weight || weightFromQuestion,
-    bmi: patientInfo.bmi || bmiFromQuestion,
+    height: formatHeight(resolvedHeight),
+    weight: resolvedWeight,
+    bmi: patientInfo.bmi || bmiFromQuestion || computedBmi,
     sex: patientInfo.sex || '',
     // Location fields - look in patientResponses root and formObj
     address: patientInfo.address || String(patientResponses.address || ''),
