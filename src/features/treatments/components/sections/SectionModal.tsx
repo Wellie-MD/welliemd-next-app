@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useSaveSection } from "../../hooks/useTreatmentLibraries";
 import { toast } from "@/components/ui/use-toast";
 import type { CommonSection } from "../../types";
+import { createMockId, currentDateStamp } from "../../data/factories";
 
 interface SectionModalProps {
   open: boolean;
@@ -52,12 +53,12 @@ export function SectionModal({ open, onOpenChange, section }: SectionModalProps)
       .filter(Boolean);
 
     const payload: CommonSection = {
-      id: section?.id || `section-${Math.random().toString(36).substr(2, 9)}`,
+      id: section?.id || createMockId("section"),
       name,
       scope,
       visitTypeKeys,
       fieldCount,
-      updatedAt: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      updatedAt: currentDateStamp(),
     };
 
     saveSection(payload, {

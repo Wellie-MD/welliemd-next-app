@@ -10,6 +10,11 @@ interface FlowItemCardProps {
   onMoveDown?: () => void;
   isFirst?: boolean;
   isLast?: boolean;
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDragEnd?: () => void;
+  onDrop?: (e: React.DragEvent) => void;
 }
 
 export function FlowItemCard({
@@ -19,10 +24,26 @@ export function FlowItemCard({
   onMoveDown,
   isFirst = false,
   isLast = false,
+  draggable = false,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  onDrop,
 }: FlowItemCardProps) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm group hover:border-slate-300 transition-colors">
-      <div className="text-slate-300 cursor-grab hover:text-slate-500">
+    <div
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragEnd={onDragEnd}
+      onDrop={onDrop}
+      className={`flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm group transition-all duration-150 ${
+        draggable
+          ? "cursor-grab active:cursor-grabbing hover:border-slate-300 select-none"
+          : "hover:border-slate-200"
+      }`}
+    >
+      <div className="text-slate-300 hover:text-slate-500">
         <GripVertical className="h-4 w-4 shrink-0" />
       </div>
       <div className="min-w-0 flex-1">

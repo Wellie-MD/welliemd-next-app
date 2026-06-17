@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FilterToolbar, TreatmentPageHeader } from "../components/common";
+import { DeleteConfirmDialog, FilterToolbar, TreatmentPageHeader } from "../components/common";
 import { SectionListTable } from "../components/sections/SectionListTable";
 import { SectionModal } from "../components/sections/SectionModal";
 import { useSections, useDeleteSection } from "../hooks/useTreatmentLibraries";
@@ -14,6 +14,7 @@ export default function SectionsPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSection, setSelectedSection] = useState<CommonSection | null>(null);
+  const [deleteSectionId, setDeleteSectionId] = useState<string | null>(null);
 
   const handleEdit = (section: CommonSection) => {
     setSelectedSection(section);
@@ -21,16 +22,20 @@ export default function SectionsPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this section?")) {
-      deleteSection(id, {
-        onSuccess: () => {
-          toast({
-            title: "Section Deleted",
-            description: "Section has been successfully deleted.",
-          });
-        },
-      });
-    }
+    setDeleteSectionId(id);
+  };
+
+  const confirmDeleteSection = () => {
+    if (!deleteSectionId) return;
+    deleteSection(deleteSectionId, {
+      onSuccess: () => {
+        toast({
+          title: "Section Deleted",
+          description: "Section has been successfully deleted.",
+        });
+        setDeleteSectionId(null);
+      },
+    });
   };
 
   return (
@@ -62,6 +67,15 @@ export default function SectionsPage() {
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
         section={selectedSection}
+      />
+      <DeleteConfirmDialog
+        open={Boolean(deleteSectionId)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteSectionId(null);
+        }}
+        title="Delete section?"
+        description="This removes the common section from the library. Custom programs using it may need review."
+        onConfirm={confirmDeleteSection}
       />
     </div>
   );

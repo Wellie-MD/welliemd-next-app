@@ -11,6 +11,7 @@ import {
   useSections,
   useSaveCustomProgram,
 } from "../hooks/useTreatmentLibraries";
+import { createMockId } from "../data/factories";
 import type { CustomProgram, CustomProgramBuilderAddItem, CustomProgramFlowItem } from "../types";
 
 export default function CustomProgramBuilderPage() {
@@ -46,12 +47,19 @@ export default function CustomProgramBuilderPage() {
   };
 
   const handleAddItem = (item: CustomProgramBuilderAddItem) => {
-    // We insert before the locked checkout item, which is usually the last item.
     const items = [...customProgram.flowItems];
-    const insertIdx = items.length; // Appends at end
+    // Find the first terminal step (consent or checkout) from the end to insert before it.
+    let insertIdx = items.length;
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (items[i].kind === "checkout" || items[i].kind === "consent") {
+        insertIdx = i;
+      } else {
+        break;
+      }
+    }
 
     const newItem: CustomProgramFlowItem = {
-      id: `${item.kind}-${Math.random().toString(36).substr(2, 9)}`,
+      id: createMockId(item.kind),
       kind: item.kind,
       title: item.title,
       subtitle: item.subtitle,
@@ -65,7 +73,7 @@ export default function CustomProgramBuilderPage() {
     if (item.kind === "checkout" && item.checkoutOption) {
       updatedCheckoutOptions.push({
         ...item.checkoutOption,
-        id: `co-${Math.random().toString(36).substr(2, 9)}`,
+        id: createMockId("co"),
       });
     }
 
@@ -127,6 +135,7 @@ export default function CustomProgramBuilderPage() {
         sections={sections}
         consents={consents}
         onAddItem={handleAddItem}
+        flowItems={customProgram.flowItems}
       />
     </div>
   );

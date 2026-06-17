@@ -189,7 +189,15 @@ export function QuestionEditorShell({
         </div>
       </div>
 
-      <PatientFlowTestModal open={isTestModalOpen} onOpenChange={setIsTestModalOpen} />
+      <PatientFlowTestModal
+        open={isTestModalOpen}
+        onOpenChange={setIsTestModalOpen}
+        previewContext={{
+          mode: "program",
+          id: programId,
+          title: programName,
+        }}
+      />
 
       {/* Main Grid */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[280px,1fr,360px] overflow-hidden">

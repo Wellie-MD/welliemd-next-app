@@ -7,6 +7,7 @@ import { Trash2, Plus } from "lucide-react";
 import { useConsents, useSaveConsent } from "../../hooks/useTreatmentLibraries";
 import { toast } from "@/components/ui/use-toast";
 import type { ConsentForm } from "../../types";
+import { createMockId } from "../../data/factories";
 
 interface ConsentEditModalProps {
   open: boolean;
@@ -89,7 +90,7 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
     }
 
     const payload: ConsentForm = {
-      id: consentId || `consent-${Math.random().toString(36).substr(2, 9)}`,
+      id: consentId || createMockId("consent"),
       name,
       scope,
       text,
@@ -250,4 +251,3 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
     </Dialog>
   );
 }
-

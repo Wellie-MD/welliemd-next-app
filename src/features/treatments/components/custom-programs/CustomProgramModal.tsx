@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { User, Users } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -80,88 +81,152 @@ export function CustomProgramModal({ open, onOpenChange, onSubmit, program }: Cu
         <form onSubmit={handleSubmit} className="space-y-6 py-4">
           <div className="space-y-4">
             <div>
-              <Label htmlFor="name">
+              <Label htmlFor="name" className="text-xs font-semibold text-slate-700">
                 Custom Program Name<span className="text-red-500">*</span>
               </Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g., Acme Health TRT Intake, Men's Sexual Health Form"
+                placeholder="e.g., Acme Health TRT Intake, Men's Wellness Form"
                 required
+                className="mt-1.5"
               />
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-[11px] text-slate-400">
                 The form name shown to admins. Patients see whatever you configure in the form's branding.
               </p>
             </div>
 
             <div>
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description" className="text-xs font-semibold text-slate-700">
+                Description
+              </Label>
               <Textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Brief description shown to patients in Explore Treatments"
                 rows={3}
+                className="mt-1.5"
               />
             </div>
 
             <div>
-              <Label>Patient Avatar<span className="text-red-500">*</span></Label>
+              <Label className="text-xs font-semibold text-slate-700">
+                Patient Avatar<span className="text-red-500">*</span>
+              </Label>
               <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
-                <label className="flex cursor-pointer rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-300">
+                {/* Male Radio Card */}
+                <label
+                  className={`flex cursor-pointer flex-col items-center text-center rounded-lg border p-4 shadow-sm transition-all hover:border-slate-300 ${
+                    formData.audience === "male"
+                      ? "border-[#1b5bf7] bg-[#f4f7ff]"
+                      : "border-slate-200 bg-white"
+                  }`}
+                >
                   <input
                     type="radio"
                     name="audience"
                     value="male"
                     checked={formData.audience === "male"}
-                    onChange={(e) => setFormData({ ...formData, audience: e.target.value as CustomProgram["audience"] })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, audience: e.target.value as CustomProgram["audience"] })
+                    }
                     className="sr-only"
                   />
-                  <div className={`flex flex-col items-center text-center w-full ${formData.audience === "male" ? "text-blue-600" : "text-slate-600"}`}>
-                    <div className="font-semibold text-sm mt-2">Male</div>
-                    <div className="text-xs text-slate-500 mt-1">Shown to male patients only</div>
+                  <div
+                    className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                      formData.audience === "male" ? "bg-blue-100 text-blue-600" : "bg-slate-100 text-slate-400"
+                    }`}
+                  >
+                    <User className="h-5 w-5" />
+                  </div>
+                  <div className={`font-semibold text-sm mt-2.5 ${formData.audience === "male" ? "text-blue-900" : "text-slate-700"}`}>
+                    Male
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1 leading-normal">
+                    Shown to male patients only
                   </div>
                 </label>
 
-                <label className="flex cursor-pointer rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-300">
+                {/* Female Radio Card */}
+                <label
+                  className={`flex cursor-pointer flex-col items-center text-center rounded-lg border p-4 shadow-sm transition-all hover:border-slate-300 ${
+                    formData.audience === "female"
+                      ? "border-pink-500 bg-pink-50/50"
+                      : "border-slate-200 bg-white"
+                  }`}
+                >
                   <input
                     type="radio"
                     name="audience"
                     value="female"
                     checked={formData.audience === "female"}
-                    onChange={(e) => setFormData({ ...formData, audience: e.target.value as CustomProgram["audience"] })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, audience: e.target.value as CustomProgram["audience"] })
+                    }
                     className="sr-only"
                   />
-                  <div className={`flex flex-col items-center text-center w-full ${formData.audience === "female" ? "text-pink-600" : "text-slate-600"}`}>
-                    <div className="font-semibold text-sm mt-2">Female</div>
-                    <div className="text-xs text-slate-500 mt-1">Shown to female patients only</div>
+                  <div
+                    className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                      formData.audience === "female" ? "bg-pink-100 text-pink-600" : "bg-slate-100 text-slate-400"
+                    }`}
+                  >
+                    <User className="h-5 w-5" />
+                  </div>
+                  <div className={`font-semibold text-sm mt-2.5 ${formData.audience === "female" ? "text-pink-900" : "text-slate-700"}`}>
+                    Female
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1 leading-normal">
+                    Shown to female patients only
                   </div>
                 </label>
 
-                <label className="flex cursor-pointer rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-slate-300">
+                {/* All Patients Radio Card */}
+                <label
+                  className={`flex cursor-pointer flex-col items-center text-center rounded-lg border p-4 shadow-sm transition-all hover:border-slate-300 ${
+                    formData.audience === "all"
+                      ? "border-purple-500 bg-purple-50/50"
+                      : "border-slate-200 bg-white"
+                  }`}
+                >
                   <input
                     type="radio"
                     name="audience"
                     value="all"
                     checked={formData.audience === "all"}
-                    onChange={(e) => setFormData({ ...formData, audience: e.target.value as CustomProgram["audience"] })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, audience: e.target.value as CustomProgram["audience"] })
+                    }
                     className="sr-only"
                   />
-                  <div className={`flex flex-col items-center text-center w-full ${formData.audience === "all" ? "text-purple-600" : "text-slate-600"}`}>
-                    <div className="font-semibold text-sm mt-2">All Patients</div>
-                    <div className="text-xs text-slate-500 mt-1">Shown to all patients</div>
+                  <div
+                    className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                      formData.audience === "all" ? "bg-purple-100 text-purple-600" : "bg-slate-100 text-slate-400"
+                    }`}
+                  >
+                    <Users className="h-5 w-5" />
+                  </div>
+                  <div className={`font-semibold text-sm mt-2.5 ${formData.audience === "all" ? "text-purple-900" : "text-slate-700"}`}>
+                    All Patients
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1 leading-normal">
+                    Shown to all patients
                   </div>
                 </label>
               </div>
             </div>
 
             <div>
-              <Label>Age Requirement<span className="text-red-500">*</span></Label>
-              <div className="mt-2 flex items-center gap-4">
+              <Label className="text-xs font-semibold text-slate-700">
+                Age Requirement<span className="text-red-500">*</span>
+              </Label>
+              <div className="mt-2.5 flex items-center gap-4">
                 <div className="flex-1">
-                  <Label htmlFor="minAge" className="text-xs text-slate-500">Minimum</Label>
-                  <div className="relative mt-1 flex items-center">
+                  <Label htmlFor="minAge" className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
+                    Minimum
+                  </Label>
+                  <div className="relative mt-1.5 flex items-center">
                     <Input
                       id="minAge"
                       type="number"
@@ -169,14 +234,17 @@ export function CustomProgramModal({ open, onOpenChange, onSubmit, program }: Cu
                       max="120"
                       value={formData.minAge}
                       onChange={(e) => setFormData({ ...formData, minAge: e.target.value })}
+                      className="pr-14 text-sm"
                     />
-                    <span className="absolute right-3 text-sm text-slate-400">years</span>
+                    <span className="absolute right-3 text-xs text-slate-400 pointer-events-none">years</span>
                   </div>
                 </div>
-                <div className="text-slate-400 mt-5">—</div>
+                <div className="text-slate-300 mt-6 font-semibold">—</div>
                 <div className="flex-1">
-                  <Label htmlFor="maxAge" className="text-xs text-slate-500">Maximum (optional)</Label>
-                  <div className="relative mt-1 flex items-center">
+                  <Label htmlFor="maxAge" className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">
+                    Maximum (optional)
+                  </Label>
+                  <div className="relative mt-1.5 flex items-center">
                     <Input
                       id="maxAge"
                       type="number"
@@ -185,22 +253,23 @@ export function CustomProgramModal({ open, onOpenChange, onSubmit, program }: Cu
                       value={formData.maxAge}
                       onChange={(e) => setFormData({ ...formData, maxAge: e.target.value })}
                       placeholder="No limit"
+                      className="pr-14 text-sm"
                     />
-                    <span className="absolute right-3 text-sm text-slate-400">years</span>
+                    <span className="absolute right-3 text-xs text-slate-400 pointer-events-none">years</span>
                   </div>
                 </div>
               </div>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-2.5 text-[11px] text-slate-400 leading-normal">
                 Only patients within this age range will see this plan. Leave maximum blank for no upper limit (e.g., 18+ only).
               </p>
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit">
+            <Button type="submit" className="bg-[#12517A] text-white hover:bg-[#12517A]/90">
               {program ? "Save Changes" : "Create Custom Program"}
             </Button>
           </div>

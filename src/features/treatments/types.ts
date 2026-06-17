@@ -1,6 +1,6 @@
 export type TreatmentLibraryScope = "global" | "shared" | "treatment";
 
-export type ProgramStage = "intake" | "followup";
+export type ProgramStage = "intake" | "follow_up";
 
 export type ProgramStatus = "draft" | "published" | "archived";
 
@@ -54,6 +54,40 @@ export interface TreatmentType {
   isActive: boolean;
 }
 
+export interface ProgramAuthConfig {
+  email: boolean;
+  phone: boolean;
+  identity: boolean;
+  account: boolean;
+}
+
+export interface VisibilityRule {
+  id?: string;
+  questionId: string;
+  operator: "equals" | "not_equals";
+  value: string;
+}
+
+export interface VisibilityRuleGroup {
+  mode: "simple" | "nested";
+  rules: VisibilityRule[];
+}
+
+export interface ProgramCheckoutProduct {
+  id: string;
+  category: string;
+  regimen: string;
+  doseLabel: string;
+  productId?: string;
+}
+
+export interface ProgramCheckoutQuestion {
+  id: string;
+  text: string;
+  products: ProgramCheckoutProduct[];
+  visibilityRules: VisibilityRuleGroup;
+}
+
 export interface Program {
   id: string;
   name: string;
@@ -65,6 +99,9 @@ export interface Program {
   status: ProgramStatus;
   updatedAt: string;
   slug: string;
+  authConfig?: ProgramAuthConfig;
+  checkoutQuestions?: ProgramCheckoutQuestion[];
+  consentIds?: string[];
 }
 
 export interface CommonSection {
@@ -121,6 +158,7 @@ export interface CustomProgramFlowItem {
   subtitle: string;
   locked?: boolean;
   treatmentTypeKey?: string;
+  sourceId?: string; // stable ID linking to the original program/section/consent/question
 }
 
 export type CustomProgramFlowItemInput = Omit<CustomProgramFlowItem, "id">;
@@ -144,6 +182,14 @@ export interface CustomProgram {
   flowItems: CustomProgramFlowItem[];
   updatedAt: string;
   slug: string;
+  visitType?: string | null;
+  onboardingName?: string;
+  questionCount?: number;
+  icon?: string;
+  iconBg?: string;
+  iconColor?: string;
+  tags?: string[];
+  isMulti?: boolean;
 }
 
 export interface ContentLibraryStats {

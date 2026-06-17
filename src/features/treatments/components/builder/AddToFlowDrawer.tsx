@@ -21,6 +21,7 @@ interface AddToFlowDrawerProps {
   sections: CommonSection[];
   consents: ConsentForm[];
   onAddItem: (item: CustomProgramBuilderAddItem) => void;
+  flowItems?: Array<{ kind: string; title: string }>;
 }
 
 type TabKey = "fields" | "question" | "eligibility" | "consent" | "checkout";
@@ -32,19 +33,20 @@ export function AddToFlowDrawer({
   sections,
   consents,
   onAddItem,
+  flowItems = [],
 }: AddToFlowDrawerProps) {
   const [activeTab, setActiveTab] = useState<TabKey>("fields");
 
   const renderTabContent = () => {
     switch (activeTab) {
       case "fields":
-        return <FieldLibraryTab sections={sections} onAddItem={onAddItem} />;
+        return <FieldLibraryTab sections={sections} onAddItem={onAddItem} flowItems={flowItems} />;
       case "question":
-        return <QuestionCreatorTab onAddItem={onAddItem} />;
+        return <QuestionCreatorTab onAddItem={onAddItem} flowItems={flowItems} />;
       case "eligibility":
-        return <ProgramLibraryTab programs={programs} onAddItem={onAddItem} />;
+        return <ProgramLibraryTab programs={programs} onAddItem={onAddItem} flowItems={flowItems} />;
       case "consent":
-        return <ConsentLibraryTab consents={consents} onAddItem={onAddItem} />;
+        return <ConsentLibraryTab consents={consents} onAddItem={onAddItem} flowItems={flowItems} />;
       case "checkout":
         return <CheckoutOptionTab onAddItem={onAddItem} />;
       default:

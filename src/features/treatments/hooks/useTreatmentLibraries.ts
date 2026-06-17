@@ -128,6 +128,16 @@ export const useReorderProgramQuestions = (programId: string) => {
   });
 };
 
+export const useSaveProgramQuestions = (programId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (questions: ProgramQuestion[]) => treatmentsApi.saveProgramQuestions(programId, questions),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(programId) });
+    },
+  });
+};
+
 export const useSaveSection = () => {
   const queryClient = useQueryClient();
   return useMutation({

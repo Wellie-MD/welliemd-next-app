@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FilterToolbar, TreatmentPageHeader } from "../components/common";
+import { DeleteConfirmDialog, FilterToolbar, TreatmentPageHeader } from "../components/common";
 import { TreatmentTypeTable } from "../components/treatment-types/TreatmentTypeTable";
 import { useTreatmentTypes, useDeleteTreatmentType } from "../hooks/useTreatmentLibraries";
 import { TreatmentTypeModal } from "../components/treatment-types/TreatmentTypeModal";
@@ -12,6 +12,7 @@ export default function TreatmentTypesPage() {
   const { mutate: deleteTreatmentType } = useDeleteTreatmentType();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [deleteTreatmentTypeKey, setDeleteTreatmentTypeKey] = useState<string | null>(null);
 
   const handleCreate = () => {
     setSelectedKey(null);
@@ -24,16 +25,20 @@ export default function TreatmentTypesPage() {
   };
 
   const handleDelete = (key: string) => {
-    if (confirm("Are you sure you want to delete this treatment type? This could affect linked programs.")) {
-      deleteTreatmentType(key, {
-        onSuccess: () => {
-          toast({
-            title: "Treatment Type Deleted",
-            description: "Treatment type has been successfully deleted.",
-          });
-        },
-      });
-    }
+    setDeleteTreatmentTypeKey(key);
+  };
+
+  const confirmDeleteTreatmentType = () => {
+    if (!deleteTreatmentTypeKey) return;
+    deleteTreatmentType(deleteTreatmentTypeKey, {
+      onSuccess: () => {
+        toast({
+          title: "Treatment Type Deleted",
+          description: "Treatment type has been successfully deleted.",
+        });
+        setDeleteTreatmentTypeKey(null);
+      },
+    });
   };
 
   return (
@@ -59,6 +64,15 @@ export default function TreatmentTypesPage() {
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
         treatmentTypeKey={selectedKey}
+      />
+      <DeleteConfirmDialog
+        open={Boolean(deleteTreatmentTypeKey)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTreatmentTypeKey(null);
+        }}
+        title="Delete treatment type?"
+        description="This can affect linked programs, products, and Beluga routing configuration."
+        onConfirm={confirmDeleteTreatmentType}
       />
     </div>
   );

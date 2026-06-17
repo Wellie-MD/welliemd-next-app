@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConsentListTable } from "../components/consents/ConsentListTable";
-import { FilterToolbar, TreatmentPageHeader } from "../components/common";
+import { DeleteConfirmDialog, FilterToolbar, TreatmentPageHeader } from "../components/common";
 import { useConsents, useDeleteConsent } from "../hooks/useTreatmentLibraries";
 import { ConsentEditModal } from "../components/consents/ConsentEditModal";
 import { ConsentDetailModal } from "../components/consents/ConsentDetailModal";
@@ -16,6 +16,7 @@ export default function ConsentsPage() {
 
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [detailConsentId, setDetailConsentId] = useState<string | null>(null);
+  const [deleteConsentId, setDeleteConsentId] = useState<string | null>(null);
 
   const handleCreate = () => {
     setSelectedConsentId(null);
@@ -33,16 +34,20 @@ export default function ConsentsPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this consent form?")) {
-      deleteConsent(id, {
-        onSuccess: () => {
-          toast({
-            title: "Consent Deleted",
-            description: "Consent form has been successfully deleted.",
-          });
-        },
-      });
-    }
+    setDeleteConsentId(id);
+  };
+
+  const confirmDeleteConsent = () => {
+    if (!deleteConsentId) return;
+    deleteConsent(deleteConsentId, {
+      onSuccess: () => {
+        toast({
+          title: "Consent Deleted",
+          description: "Consent form has been successfully deleted.",
+        });
+        setDeleteConsentId(null);
+      },
+    });
   };
 
   const activeDetailConsent = consents.find(c => c.id === detailConsentId);
@@ -78,6 +83,15 @@ export default function ConsentsPage() {
         onOpenChange={setIsDetailModalOpen}
         consent={activeDetailConsent}
         onEdit={handleEdit}
+      />
+      <DeleteConfirmDialog
+        open={Boolean(deleteConsentId)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteConsentId(null);
+        }}
+        title="Delete consent form?"
+        description="This removes the consent from the library. Programs and custom programs using it may need review."
+        onConfirm={confirmDeleteConsent}
       />
     </div>
   );

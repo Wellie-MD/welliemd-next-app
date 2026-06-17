@@ -15,7 +15,8 @@ import {
   mockPrograms,
   mockSections,
   mockTreatmentTypes,
-} from "../data/mockTreatmentLibraries";
+} from "../data";
+import { createMockId, currentDateStamp } from "../data/factories";
 
 // Keys for localStorage
 const KEYS = {
@@ -26,6 +27,39 @@ const KEYS = {
   CUSTOM_PROGRAMS: "welliemd_mock_custom_programs",
   PROGRAM_QUESTIONS: "welliemd_mock_program_questions",
 };
+
+const SEED_VERSION_KEY = "welliemd_mock_data_version_v5";
+
+const checkAndSeedMockData = () => {
+  const seeded = localStorage.getItem(SEED_VERSION_KEY);
+  if (!seeded) {
+    localStorage.removeItem(KEYS.CUSTOM_PROGRAMS);
+    localStorage.removeItem(KEYS.PROGRAMS);
+    localStorage.removeItem(KEYS.TREATMENT_TYPES);
+    localStorage.removeItem(KEYS.SECTIONS);
+    localStorage.removeItem(KEYS.CONSENTS);
+    localStorage.removeItem(KEYS.PROGRAM_QUESTIONS);
+
+    localStorage.setItem(KEYS.CUSTOM_PROGRAMS, JSON.stringify(mockCustomPrograms));
+    localStorage.setItem(KEYS.PROGRAMS, JSON.stringify(mockPrograms));
+    localStorage.setItem(KEYS.TREATMENT_TYPES, JSON.stringify(mockTreatmentTypes));
+    localStorage.setItem(KEYS.SECTIONS, JSON.stringify(mockSections));
+    localStorage.setItem(KEYS.CONSENTS, JSON.stringify(mockConsents));
+
+    const initialQuestions: Record<string, ProgramQuestion[]> = {
+      "program-glp-intake": mockProgramQuestions,
+      "program-ed-intake": mockProgramQuestions.slice(0, 2),
+      "program-trt-intake": mockProgramQuestions.slice(0, 3),
+    };
+    localStorage.setItem(KEYS.PROGRAM_QUESTIONS, JSON.stringify(initialQuestions));
+
+    localStorage.setItem(SEED_VERSION_KEY, "true");
+  }
+};
+
+if (typeof window !== "undefined") {
+  checkAndSeedMockData();
+}
 
 // Initializers
 const getStored = <T>(key: string, defaults: T): T => {
@@ -46,7 +80,20 @@ const getTreatmentTypes = () => getStored(KEYS.TREATMENT_TYPES, mockTreatmentTyp
 const getPrograms = () => getStored(KEYS.PROGRAMS, mockPrograms);
 const getSections = () => getStored(KEYS.SECTIONS, mockSections);
 const getConsents = () => getStored(KEYS.CONSENTS, mockConsents);
-const getCustomPrograms = () => getStored(KEYS.CUSTOM_PROGRAMS, mockCustomPrograms);
+const getCustomPrograms = () => {
+  const stored = getStored<CustomProgram[]>(KEYS.CUSTOM_PROGRAMS, mockCustomPrograms);
+  if (stored.length < mockCustomPrograms.length) {
+    const merged = [...stored];
+    mockCustomPrograms.forEach(def => {
+      if (!merged.some(p => p.id === def.id)) {
+        merged.push(def);
+      }
+    });
+    setStored(KEYS.CUSTOM_PROGRAMS, merged);
+    return merged;
+  }
+  return stored;
+};
 const getProgramQuestions = (programId: string) => {
   const allQuestions = getStored<Record<string, ProgramQuestion[]>>(KEYS.PROGRAM_QUESTIONS, {
     "program-glp-intake": mockProgramQuestions,
@@ -93,14 +140,19 @@ export const treatmentsApi = {
   listProgramQuestions: (programId: string): Promise<ProgramQuestion[]> =>
     resolveMock(getProgramQuestions(programId)),
 
+  saveProgramQuestions: (programId: string, questions: ProgramQuestion[]): Promise<ProgramQuestion[]> => {
+    setProgramQuestions(programId, questions);
+    return resolveMock(questions);
+  },
+
   // Mutations
   saveCustomProgram: (program: CustomProgram): Promise<CustomProgram> => {
     const list = getCustomPrograms();
     const index = list.findIndex((p) => p.id === program.id);
     if (index >= 0) {
-      list[index] = { ...program, updatedAt: new Date().toISOString().split("T")[0] };
+      list[index] = { ...program, updatedAt: currentDateStamp() };
     } else {
-      list.push({ ...program, id: `custom-${Math.random().toString(36).substr(2, 9)}`, updatedAt: new Date().toISOString().split("T")[0] });
+      list.push({ ...program, id: createMockId("custom"), updatedAt: currentDateStamp() });
     }
     setStored(KEYS.CUSTOM_PROGRAMS, list);
     return resolveMock(program);
@@ -158,9 +210,9 @@ export const treatmentsApi = {
     const list = getSections();
     const index = list.findIndex((s) => s.id === section.id);
     if (index >= 0) {
-      list[index] = { ...section, updatedAt: new Date().toISOString().split("T")[0] };
+      list[index] = { ...section, updatedAt: currentDateStamp() };
     } else {
-      list.push({ ...section, id: `section-${Math.random().toString(36).substr(2, 9)}`, updatedAt: new Date().toISOString().split("T")[0] });
+      list.push({ ...section, id: createMockId("section"), updatedAt: currentDateStamp() });
     }
     setStored(KEYS.SECTIONS, list);
     return resolveMock(section);
@@ -176,9 +228,9 @@ export const treatmentsApi = {
     const list = getConsents();
     const index = list.findIndex((c) => c.id === consent.id);
     if (index >= 0) {
-      list[index] = { ...consent, updatedAt: new Date().toISOString().split("T")[0] };
+      list[index] = { ...consent, updatedAt: currentDateStamp() };
     } else {
-      list.push({ ...consent, id: `consent-${Math.random().toString(36).substr(2, 9)}`, updatedAt: new Date().toISOString().split("T")[0] });
+      list.push({ ...consent, id: createMockId("consent"), updatedAt: currentDateStamp() });
     }
     setStored(KEYS.CONSENTS, list);
     return resolveMock(consent);
@@ -196,7 +248,7 @@ export const treatmentsApi = {
     if (index >= 0) {
       list[index] = type;
     } else {
-      list.push({ ...type, id: `tt-${Math.random().toString(36).substr(2, 9)}` });
+      list.push({ ...type, id: createMockId("tt") });
     }
     setStored(KEYS.TREATMENT_TYPES, list);
     return resolveMock(type);
