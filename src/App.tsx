@@ -50,18 +50,16 @@ import UsersPermissions from "./pages/management/UsersPermissions";
 import MasterKeyAccess from "./pages/MasterKeyAccess";
 import CrossTenantAccessUsers from "./pages/CrossTenantAccessUsers";
 import ClientPerformance from "./pages/ClientPerformance";
-import {
-  ConsentsPage,
-  ContentLibrariesPage,
-  CustomProgramBuilderPage,
-  CustomProgramsPage,
-  ProgramDetailPage,
-  ProgramQuestionsListPage,
-  ProgramsPage,
-  SectionsPage,
-  TreatmentTypeDetailPage,
-  TreatmentTypesPage,
-} from "./features/treatments/pages";
+import ConsentsPage from "./features/treatments/libraries/pages/ConsentsPage";
+import ContentLibrariesPage from "./features/treatments/libraries/pages/ContentLibrariesPage";
+import CustomProgramBuilderPage from "./features/treatments/flow-builder/pages/CustomProgramBuilderPage";
+import CustomProgramsPage from "./features/treatments/custom-programs/pages/CustomProgramsPage";
+import ProgramDetailPage from "./features/treatments/programs/pages/ProgramDetailPage";
+import ProgramQuestionsListPage from "./features/treatments/programs/pages/ProgramQuestionsListPage";
+import ProgramsPage from "./features/treatments/programs/pages/ProgramsPage";
+import SectionsPage from "./features/treatments/libraries/pages/SectionsPage";
+import TreatmentTypeDetailPage from "./features/treatments/libraries/pages/TreatmentTypeDetailPage";
+import TreatmentTypesPage from "./features/treatments/libraries/pages/TreatmentTypesPage";
 
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);

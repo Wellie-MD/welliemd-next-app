@@ -6,17 +6,15 @@ import type {
   Program,
   ProgramQuestion,
   TreatmentType,
-} from "../types";
-import {
-  mockConsents,
-  mockContentLibraryStats,
-  mockCustomPrograms,
-  mockProgramQuestions,
-  mockPrograms,
-  mockSections,
-  mockTreatmentTypes,
-} from "../data";
-import { createMockId, currentDateStamp } from "../data/factories";
+} from "@/features/treatments/types";
+import { mockConsents } from "@/features/treatments/libraries/data/consents.mock";
+import { mockCustomPrograms } from "@/features/treatments/custom-programs/data/customPrograms.mock";
+import { mockProgramQuestions } from "@/features/treatments/programs/data/programQuestions.mock";
+import { mockPrograms } from "@/features/treatments/programs/data/programs.mock";
+import { mockSections } from "@/features/treatments/libraries/data/sections.mock";
+import { mockTreatmentTypes } from "@/features/treatments/libraries/data/treatmentTypes.mock";
+import { mockContentLibraryStats } from "@/features/treatments/libraries/data/stats.mock";
+import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
 
 // Keys for localStorage
 const KEYS = {

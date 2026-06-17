@@ -33,7 +33,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { ProductFormModal } from "@/components/products/ProductFormModal";
-import { useTreatmentTypes } from "@/features/treatments/hooks/useTreatmentLibraries";
+import { useTreatmentTypes } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import {
   AssignmentBatch,
   AssignmentPair,

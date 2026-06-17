@@ -31,7 +31,7 @@ import { TitrationCategoryManager } from "./TitrationCategoryManager";
 import { pharmacyApi } from "@/api/pharmacyApi";
 import { listDoseMappings, ProductDoseMapping } from "@/api/productDoseMappings";
 import { templateApi } from "@/api/questionnaires";
-import { useTreatmentTypes } from "@/features/treatments/hooks/useTreatmentLibraries";
+import { useTreatmentTypes } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 
 type TreatmentOption = {
   value: string;  // slug, e.g. "branded_weight_loss"

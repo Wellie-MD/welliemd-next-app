@@ -1,4 +1,4 @@
-import type { FlowItemKind, ProgramStage, TreatmentLibraryScope } from "../types";
+import type { FlowItemKind, ProgramStage, TreatmentLibraryScope } from "@/features/treatments/types";
 
 export const formatProgramStage = (stage: ProgramStage) =>
   stage === "intake" ? "Intake" : "Follow-up";
