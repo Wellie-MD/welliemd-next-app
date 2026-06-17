@@ -288,14 +288,49 @@ export function PatientResponsesModal({
     return String(height)
   }
 
+  const normalizeText = (value: unknown): string =>
+    String(value || "").trim().toLowerCase()
+
+  const isNumericAnswer = (value: unknown): boolean =>
+    /^\d+(\.\d+)?\s*(lbs?|pounds?)?$/i.test(String(value || "").trim())
+
+  const findAnswerByQuestion = (
+    matcher: (question: string, answer: string) => boolean
+  ): string => {
+    for (const item of questionsArray) {
+      const question = normalizeText(item.question)
+      const answer = String(item.answer || "").trim()
+      if (answer && matcher(question, answer)) {
+        return answer
+      }
+    }
+    return ""
+  }
+
+  const dobFromQuestion = findAnswerByQuestion((question) =>
+    question === "date of birth" || question.includes("date of birth")
+  )
+  const heightFromQuestion = findAnswerByQuestion((question) =>
+    question.includes("height") || question.includes("feet and inches")
+  )
+  const weightFromQuestion = findAnswerByQuestion((question, answer) =>
+    question.includes("weight") &&
+    !question.includes("weight management") &&
+    isNumericAnswer(answer)
+  )
+  const bmiFromQuestion = findAnswerByQuestion((question, answer) =>
+    (question.includes("bmi") || question.includes("body mass index")) &&
+    isNumericAnswer(answer)
+  )
+
   // Extract patient info from formObj
-  // Looking at Beluga payload structure: A1=DOB, A2=height, A3=weight, A4=BMI
-  // Location fields might be in different answer keys - check common patterns
+  // Prefer explicit patientInfo, then label-aware Q/A values. Avoid assuming A3/A4
+  // are always weight/BMI because older payloads can have different question order.
   const extractedPatientInfo = {
-    dateOfBirth: patientInfo.dateOfBirth || String(formObj.A1 || ''),
-    height: formatHeight(patientInfo.height || formObj.A2),
-    weight: patientInfo.weight || String(formObj.A3 || ''),
-    bmi: patientInfo.bmi || String(formObj.A4 || ''),
+    dateOfBirth: patientInfo.dateOfBirth || dobFromQuestion,
+    height: formatHeight(patientInfo.height || heightFromQuestion),
+    weight: patientInfo.weight || weightFromQuestion,
+    bmi: patientInfo.bmi || bmiFromQuestion,
     sex: patientInfo.sex || '',
     // Location fields - look in patientResponses root and formObj
     address: patientInfo.address || String(patientResponses.address || ''),
@@ -395,11 +430,17 @@ export function PatientResponsesModal({
                   <h3 className="font-semibold text-lg">Medications Selected</h3>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {medications.map((med: any, idx: number) => (
-                    <Badge key={idx} variant="secondary" className="text-sm">
-                      {typeof med === 'string' ? med : med.name || med.medName || JSON.stringify(med)}
-                    </Badge>
-                  ))}
+                  {medications.map((med: unknown, idx: number) => {
+                    const medication = med && typeof med === "object" ? med as Record<string, unknown> : null
+                    const label = typeof med === "string"
+                      ? med
+                      : String(medication?.name || medication?.medName || JSON.stringify(med))
+                    return (
+                      <Badge key={idx} variant="secondary" className="text-sm">
+                        {label}
+                      </Badge>
+                    )
+                  })}
                 </div>
               </div>
               <Separator className="my-6" />
