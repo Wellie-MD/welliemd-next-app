@@ -1,3 +1,5 @@
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { QuestionKind } from "../../types";
 
 interface QuestionPreviewTabProps {
@@ -5,6 +7,8 @@ interface QuestionPreviewTabProps {
   kind: QuestionKind;
   choices: string[];
   consentText: string;
+  order: number;
+  totalQuestions: number;
 }
 
 export function QuestionPreviewTab({
@@ -12,84 +16,88 @@ export function QuestionPreviewTab({
   kind,
   choices,
   consentText,
+  order,
+  totalQuestions,
 }: QuestionPreviewTabProps) {
   const isChoiceType = kind === "choice" || kind === "single_choice" || kind === "multiple_choice";
 
   return (
-    <aside className="border-l border-slate-200 bg-[#0f172a] flex flex-col">
-      <div className="px-5 py-4 flex items-center justify-between border-b border-white/10 shrink-0">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Patient Preview</span>
-        <div className="flex items-center gap-1.5">
-          <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Live</span>
+    <aside className="bg-[#1c2333] h-full flex flex-col overflow-hidden">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-white">PATIENT PREVIEW</span>
         </div>
+        <span className="text-[10px] text-slate-400">Updates live</span>
       </div>
 
-      <div className="flex-1 p-6 flex flex-col items-center overflow-y-auto">
-        {/* Phone Mockup Frame */}
-        <div className="w-[320px] bg-white rounded-[2rem] shadow-2xl overflow-hidden border-4 border-slate-800 flex flex-col h-[600px] shrink-0 relative">
-          {/* Fake Browser Header */}
-          <div className="bg-slate-100 px-4 py-3 border-b border-slate-200 flex items-center justify-center relative shrink-0">
-            <div className="absolute left-4 flex gap-1.5">
-              <div className="h-2.5 w-2.5 rounded-full bg-slate-300"></div>
-              <div className="h-2.5 w-2.5 rounded-full bg-slate-300"></div>
-              <div className="h-2.5 w-2.5 rounded-full bg-slate-300"></div>
+      <div className="flex-1 p-6 overflow-y-auto">
+        <div className="w-full max-w-sm mx-auto bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col">
+          {/* Mock Browser Header */}
+          <div className="flex items-center px-4 py-3 border-b border-slate-100 bg-slate-50/50 shrink-0">
+            <div className="flex gap-1.5 mr-4">
+              <div className="h-2.5 w-2.5 rounded-full bg-red-400"></div>
+              <div className="h-2.5 w-2.5 rounded-full bg-amber-400"></div>
+              <div className="h-2.5 w-2.5 rounded-full bg-green-400"></div>
             </div>
-            <div className="text-[10px] font-medium text-slate-400 font-mono bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
-              welliemd.com/intake
+            <div className="flex-1 flex justify-center">
+              <div className="bg-slate-100/80 rounded px-4 py-1 text-[10px] text-slate-400 font-medium">
+                welliemd.com/intake
+              </div>
             </div>
+            <div className="w-[42px]"></div> {/* Spacer for centering */}
           </div>
 
-          {/* App Content */}
-          <div className="flex-1 overflow-y-auto bg-white flex flex-col relative">
-            {/* Progress Bar Mock */}
-            <div className="h-1 bg-slate-100 w-full shrink-0">
-              <div className="h-full bg-[#12517A] w-1/3"></div>
+          {/* Mock Browser Body */}
+          <div className="p-6">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">
+              QUESTION {order} OF {totalQuestions}
             </div>
+            
+            <h2 className="text-lg font-bold text-slate-900 leading-snug mb-6">
+              {text || "Enter question text..."}
+            </h2>
 
-            <div className="p-6 flex-1 flex flex-col">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4">
-                Question Preview
-              </div>
-
-              <h3 className="text-base font-semibold text-slate-900 leading-snug mb-8">
-                {text || "Question text will appear here."}
-              </h3>
-
-              {isChoiceType && (
-                <div className="space-y-2">
-                  {choices.map((choice, index) => (
-                    <div
-                      key={index}
-                      className="h-12 rounded-xl bg-slate-100/50 border border-slate-200 flex items-center px-4 hover:bg-slate-100 cursor-pointer text-xs font-semibold text-slate-700"
-                    >
-                      <div className="h-4 w-4 rounded-full border border-slate-300 mr-3 shrink-0"></div>
-                      {choice}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {kind === "consent" && (
-                <div className="p-4 border rounded bg-slate-50 max-h-[200px] overflow-y-auto text-[10px] leading-relaxed text-slate-600">
-                  {consentText || "No consent text defined."}
-                </div>
-              )}
-
-              {!isChoiceType && kind !== "consent" && (
-                <div className="mt-auto space-y-3 pb-4">
-                  <div className="h-12 rounded-xl bg-slate-100/50 border border-slate-200 flex items-center px-4 opacity-50">
-                    <div className="h-2.5 w-32 bg-slate-300 rounded"></div>
+            {kind === "text" || kind === "textarea" ? (
+              <Input placeholder="Enter your answer" className="bg-slate-50 text-sm h-10" disabled />
+            ) : kind === "number" ? (
+              <Input type="number" placeholder="Enter number" className="bg-slate-50 text-sm h-10" disabled />
+            ) : isChoiceType ? (
+              <div className="space-y-2">
+                {(choices.length > 0 ? choices : ["Option 1", "Option 2"]).map((choice, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg bg-slate-50 opacity-80">
+                    <div className="h-4 w-4 rounded border border-slate-300 bg-white"></div>
+                    <span className="text-sm font-medium text-slate-700">{choice}</span>
                   </div>
+                ))}
+              </div>
+            ) : kind === "consent" ? (
+              <div className="space-y-4">
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-xs text-slate-600 h-32 overflow-hidden relative">
+                  {consentText || "Consent document text appears here..."}
+                  <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-slate-50 to-transparent"></div>
                 </div>
-              )}
-
-              <div className="pt-4 border-t border-slate-100 shrink-0 mt-auto">
-                <div className="h-12 w-full rounded-xl bg-[#12517A] text-white flex items-center justify-center font-bold text-sm shadow-sm select-none">
-                  Continue
+                <div className="flex items-start gap-3">
+                  <Checkbox disabled className="mt-0.5" />
+                  <span className="text-xs font-medium text-slate-700">
+                    I have read and agree to the terms above.
+                  </span>
                 </div>
               </div>
-            </div>
+            ) : kind === "yes_no" ? (
+              <div className="space-y-2">
+                {["Yes", "No"].map((choice, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg bg-slate-50 opacity-80">
+                    <div className="h-4 w-4 rounded-full border border-slate-300 bg-white"></div>
+                    <span className="text-sm font-medium text-slate-700">{choice}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 border border-dashed border-slate-200 rounded-lg bg-slate-50 text-center text-xs text-slate-400">
+                Standard Input Preview
+              </div>
+            )}
           </div>
         </div>
       </div>

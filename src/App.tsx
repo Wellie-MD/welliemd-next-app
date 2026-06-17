@@ -56,7 +56,6 @@ import {
   CustomProgramBuilderPage,
   CustomProgramsPage,
   ProgramDetailPage,
-  ProgramQuestionEditorPage,
   ProgramQuestionsListPage,
   ProgramsPage,
   SectionsPage,
@@ -171,7 +170,6 @@ const App = () => {
                     <Route path="/treatments/programs" element={<ProtectedRoute><ProgramsPage /></ProtectedRoute>} />
                     <Route path="/treatments/programs/:programId" element={<ProtectedRoute><ProgramDetailPage /></ProtectedRoute>} />
                     <Route path="/treatments/programs/:programId/questions" element={<ProtectedRoute><ProgramQuestionsListPage /></ProtectedRoute>} />
-                    <Route path="/treatments/programs/:programId/questions/:questionId" element={<ProtectedRoute><ProgramQuestionEditorPage /></ProtectedRoute>} />
                     <Route path="/treatments/sections" element={<ProtectedRoute><SectionsPage /></ProtectedRoute>} />
                     <Route path="/treatments/consents" element={<ProtectedRoute><ConsentsPage /></ProtectedRoute>} />
                     <Route path="/treatments/treatment-types" element={<ProtectedRoute><TreatmentTypesPage /></ProtectedRoute>} />

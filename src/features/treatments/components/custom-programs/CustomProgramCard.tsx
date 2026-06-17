@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Sparkles, Pill, ShoppingCart, TestTube, Package, Pencil, Trash2, ArrowRight, Info, Eye } from "lucide-react";
 import type { CustomProgram } from "../../types";
+import { cn } from "@/lib/utils";
 
 interface CustomProgramCardProps {
   customProgram: CustomProgram;
@@ -23,6 +24,14 @@ export function CustomProgramCard({ customProgram, onEdit, onDelete, onPreview, 
     }
     return <Sparkles className={iconClass} />;
   };
+
+  const getIconFrameClass = () =>
+    cn(
+      "flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg",
+      customProgram.icon === "pill"
+        ? "bg-emerald-50 text-emerald-700"
+        : "bg-pink-50 text-pink-700"
+    );
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "";
@@ -72,11 +81,7 @@ export function CustomProgramCard({ customProgram, onEdit, onDelete, onPreview, 
       {/* Header */}
       <div className="flex items-start justify-between border-b border-slate-100 p-3.5 gap-2.5">
         <div
-          className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg"
-          style={{
-            backgroundColor: customProgram.iconBg || "#fdf2f8",
-            color: customProgram.iconColor || "#be185d",
-          }}
+          className={getIconFrameClass()}
         >
           {renderIcon()}
         </div>

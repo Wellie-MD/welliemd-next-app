@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -7,6 +8,7 @@ import { AlertTriangle, Plus, Loader2, Info } from "lucide-react";
 import { productApi, type Product } from "@/api/products";
 import { useTreatmentTypes } from "../../../hooks/useTreatmentLibraries";
 import type { CheckoutProductOption } from "../../../types";
+import { toast } from "@/components/ui/use-toast";
 
 interface CheckoutOptionTabProps {
   onAddItem: (item: {
@@ -30,8 +32,6 @@ const INHERITED_MODULES = [
   { name: "Sermorelin Intake", count: 2 },
   { name: "Glutathione Intake", count: 1 },
 ];
-
-import { Link } from "react-router-dom";
 
 const nameToIdMap: Record<string, string> = {
   "GLP Weight Loss Intake": "program-glp-intake",
@@ -68,8 +68,12 @@ export function CheckoutOptionTab({ onAddItem }: CheckoutOptionTabProps) {
         setProducts(data || []);
         setLoading(false);
       })
-      .catch((err) => {
-        console.error("Failed to load products for checkout option tab:", err);
+      .catch(() => {
+        toast({
+          title: "Unable to load products",
+          description: "Checkout products could not be loaded. Retry by reopening this drawer.",
+          variant: "destructive",
+        });
         setLoading(false);
       });
   }, []);

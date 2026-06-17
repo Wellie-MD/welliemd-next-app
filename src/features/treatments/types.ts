@@ -102,6 +102,11 @@ export interface Program {
   authConfig?: ProgramAuthConfig;
   checkoutQuestions?: ProgramCheckoutQuestion[];
   consentIds?: string[];
+  sexRequirement?: "any" | "male" | "female";
+  minAge?: number | null;
+  maxAge?: number | null;
+  minBmi?: number | null;
+  maxBmi?: number | null;
 }
 
 export interface CommonSection {
@@ -143,12 +148,17 @@ export interface ProgramQuestion {
   answerCount?: number;
   flags?: Array<"conditional" | "disqualifying" | "consent">;
   choices?: string[];
+  dqChoices?: string[];
   consentText?: string;
   checkoutProductIds?: string[];
   visibilityRule?: {
     questionId: string;
     value: string;
   };
+  visibilityRuleGroup?: VisibilityRuleGroup;
+  includeInQa?: boolean;
+  hiddenFromPatient?: boolean;
+  prefillFromPrevious?: boolean;
 }
 
 export interface CustomProgramFlowItem {

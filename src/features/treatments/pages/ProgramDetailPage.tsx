@@ -27,11 +27,7 @@ import { createMockId } from "../data/factories";
 import type { ProgramCheckoutQuestion, ProgramQuestion, QuestionKind } from "../types";
 import { DeleteConfirmDialog } from "../components/common";
 
-interface QuestionEditorPayload {
-  title: string;
-  type: string;
-  choices?: string[];
-}
+
 
 const defaultAuthConfig = {
   email: true,
@@ -221,6 +217,7 @@ export default function ProgramDetailPage() {
       <ProgramDetailHeader
         programName={foundProgram.name}
         programStatus={foundProgram.status}
+        programStage={foundProgram.stage}
         visitType={foundProgram.visitType || "weightloss"}
         slug={foundProgram.slug}
         viewMode={viewMode}
@@ -228,6 +225,16 @@ export default function ProgramDetailPage() {
         onPublishToggle={handlePublish}
         onSimulate={() => setIsSimulateOpen(true)}
         onCopySlug={handleCopySlug}
+        onSaveSlug={(newSlug) => {
+          saveProgramMutation.mutate({
+            ...foundProgram,
+            slug: newSlug,
+          });
+          toast({
+            title: "Slug Updated",
+            description: `Program slug updated to: ${newSlug}`,
+          });
+        }}
       />
 
       <ProgramMetrics
@@ -308,35 +315,19 @@ export default function ProgramDetailPage() {
       <QuestionEditorDialog
         open={isScreeningOpen}
         onOpenChange={setIsScreeningOpen}
-        existingQuestionsCount={allQuestions.length}
-        initialQuestion={
-          editingScreeningId 
-            ? (() => {
-                const sq = allQuestions.find(q => q.id === editingScreeningId);
-                return sq ? { title: sq.text, type: sq.kind === "single_choice" ? "single" : "multiple", choices: sq.choices || [] } : null;
-              })()
-            : null
-        }
-        onSave={(q: QuestionEditorPayload) => {
-          const kindVal = normalizeQuestionKind(q.type);
+        questions={allQuestions}
+        programId={foundProgram.id}
+        initialQuestionId={editingScreeningId || null}
+        onSave={(updatedQuestion: ProgramQuestion) => {
           if (editingScreeningId) {
             const updatedQuestions: ProgramQuestion[] = allQuestions.map((sq) =>
               sq.id === editingScreeningId
-                ? { ...sq, text: q.title, kind: kindVal, choices: q.choices }
+                ? updatedQuestion
                 : sq
             );
             saveProgramQuestionsMutation.mutate(updatedQuestions);
           } else {
-            const newQuestion: ProgramQuestion = {
-              id: createMockId("q"),
-              order: allQuestions.length + 1,
-              text: q.title,
-              kind: kindVal,
-              section: "General Intake",
-              required: true,
-              choices: q.choices,
-            };
-            saveProgramQuestionsMutation.mutate([...allQuestions, newQuestion]);
+            saveProgramQuestionsMutation.mutate([...allQuestions, updatedQuestion]);
             saveProgramMutation.mutate({
               ...foundProgram,
               questionCount: allQuestions.length + 1,

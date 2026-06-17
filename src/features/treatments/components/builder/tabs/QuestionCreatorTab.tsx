@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Check } from "lucide-react";
 import { QuestionEditorDialog } from "../../question-editor/QuestionEditorDialog";
+import type { ProgramQuestion } from "../../../types";
 
 interface QuestionCreatorTabProps {
   onAddItem: (item: {
@@ -23,11 +24,11 @@ const AVAILABLE_QUESTIONS = [
 
 export function QuestionCreatorTab({ onAddItem, flowItems = [] }: QuestionCreatorTabProps) {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const handleCreateQuestion = (q: { title: string; type: string; choices: string[] }) => {
+  const handleCreateQuestion = (q: ProgramQuestion) => {
     onAddItem({
       kind: "routing_question",
-      title: q.title || "(untitled question)",
-      subtitle: `Routing question (${q.type}).`,
+      title: q.text || "(untitled question)",
+      subtitle: `Routing question (${q.kind}).`,
     });
   };
 
@@ -92,7 +93,8 @@ export function QuestionCreatorTab({ onAddItem, flowItems = [] }: QuestionCreato
         open={isEditorOpen}
         onOpenChange={setIsEditorOpen}
         onSave={handleCreateQuestion}
-        existingQuestionsCount={AVAILABLE_QUESTIONS.length}
+        questions={[]}
+        initialQuestionId={null}
       />
     </div>
   );

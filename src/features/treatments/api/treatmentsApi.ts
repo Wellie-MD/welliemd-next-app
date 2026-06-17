@@ -28,7 +28,7 @@ const KEYS = {
   PROGRAM_QUESTIONS: "welliemd_mock_program_questions",
 };
 
-const SEED_VERSION_KEY = "welliemd_mock_data_version_v5";
+const SEED_VERSION_KEY = "welliemd_mock_data_version_v6";
 
 const checkAndSeedMockData = () => {
   const seeded = localStorage.getItem(SEED_VERSION_KEY);
@@ -48,6 +48,9 @@ const checkAndSeedMockData = () => {
 
     const initialQuestions: Record<string, ProgramQuestion[]> = {
       "program-glp-intake": mockProgramQuestions,
+      "program-compounded-glp-intake": mockProgramQuestions,
+      "program-branded-glp-intake": mockProgramQuestions,
+      "program-glp-microdose": mockProgramQuestions,
       "program-ed-intake": mockProgramQuestions.slice(0, 2),
       "program-trt-intake": mockProgramQuestions.slice(0, 3),
     };
@@ -97,6 +100,9 @@ const getCustomPrograms = () => {
 const getProgramQuestions = (programId: string) => {
   const allQuestions = getStored<Record<string, ProgramQuestion[]>>(KEYS.PROGRAM_QUESTIONS, {
     "program-glp-intake": mockProgramQuestions,
+    "program-compounded-glp-intake": mockProgramQuestions,
+    "program-branded-glp-intake": mockProgramQuestions,
+    "program-glp-microdose": mockProgramQuestions,
     "program-ed-intake": mockProgramQuestions.slice(0, 2),
     "program-trt-intake": mockProgramQuestions.slice(0, 3),
   });
@@ -106,6 +112,9 @@ const getProgramQuestions = (programId: string) => {
 const setProgramQuestions = (programId: string, questions: ProgramQuestion[]) => {
   const allQuestions = getStored<Record<string, ProgramQuestion[]>>(KEYS.PROGRAM_QUESTIONS, {
     "program-glp-intake": mockProgramQuestions,
+    "program-compounded-glp-intake": mockProgramQuestions,
+    "program-branded-glp-intake": mockProgramQuestions,
+    "program-glp-microdose": mockProgramQuestions,
     "program-ed-intake": mockProgramQuestions.slice(0, 2),
     "program-trt-intake": mockProgramQuestions.slice(0, 3),
   });
