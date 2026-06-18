@@ -1075,7 +1075,7 @@ export default function OrderDetail() {
 
   const previewOriginalPrice = pendingProductChange != null
     ? pendingProductChange.subtotal
-    : originalPrice
+    : (shouldPreferPrescribedDisplay ? (parseMoney(order.original_price) ?? originalPrice) : originalPrice)
 
   const previewDiscountAmount = pendingProductChange != null
     ? pendingProductChange.discountAmount
