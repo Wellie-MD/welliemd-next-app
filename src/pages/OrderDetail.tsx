@@ -906,9 +906,10 @@ export default function OrderDetail() {
         const cleanDescription = (evt: any, baseDesc?: string) => {
           const desc = baseDesc || evt.description || ""
           if (evt.event_type === "rx_revision" && desc.includes("Newly prescribed: ")) {
-            const match = desc.match(/Newly prescribed: (.*?)(?=\. (?:Supplemental|Refund)|$)/)
+            const match = desc.match(/Newly prescribed:\s*([\s\S]*?)(?=(?:\.\s*|\n)(?:Supplemental|Refund)|$)/)
             if (match) {
-              let newDesc = `Prescribed: ${match[1]}.`
+              let newDesc = `Prescribed: ${match[1].trim()}`
+              if (!newDesc.endsWith(".")) newDesc += "."
               if (desc.includes("Supplemental capture triggered")) {
                 const suppMatch = desc.match(/(Supplemental capture triggered for \$[\d,.]+)/)
                 if (suppMatch) newDesc += `\n${suppMatch[1]}.`
@@ -920,6 +921,15 @@ export default function OrderDetail() {
               return newDesc
             }
           }
+          
+          // Inject prescribed product into initial Prescribed event if missing
+          if (evt.event_type === "status.prescribed" && !desc.includes("Prescribed: ")) {
+             const pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
+             if (pName && pName.toLowerCase() !== "same med" && pName.toLowerCase() !== "same medicine" && pName !== "Unknown Product") {
+                 return `${desc}\n\nPrescribed: ${pName}.`
+             }
+          }
+
           return desc || undefined
         }
 
