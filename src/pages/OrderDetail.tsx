@@ -903,10 +903,30 @@ export default function OrderDetail() {
           return evt.description || "Lab update received."
         })()
 
+        const cleanDescription = (evt: any, baseDesc?: string) => {
+          const desc = baseDesc || evt.description || ""
+          if (evt.event_type === "rx_revision" && desc.includes("Newly prescribed: ")) {
+            const match = desc.match(/Newly prescribed: (.*?)(?=\. (?:Supplemental|Refund)|$)/)
+            if (match) {
+              let newDesc = `Prescribed: ${match[1]}.`
+              if (desc.includes("Supplemental capture triggered")) {
+                const suppMatch = desc.match(/(Supplemental capture triggered for \$[\d,.]+)/)
+                if (suppMatch) newDesc += `\n${suppMatch[1]}.`
+              }
+              if (desc.includes("Refund required")) {
+                const refundMatch = desc.match(/(Refund required for \$[\d,.]+)/)
+                if (refundMatch) newDesc += `\n${refundMatch[1]}.`
+              }
+              return newDesc
+            }
+          }
+          return desc || undefined
+        }
+
         return {
           title: evt.title || evt.event_type.replace(/\./g, " "),
           date: formatDateTime(evt.occurred_at),
-          description: labDescription || evt.description || undefined,
+          description: cleanDescription(evt, labDescription),
           icon,
           iconBg,
           actions,
