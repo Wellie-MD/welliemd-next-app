@@ -54,7 +54,8 @@ export interface CategoryDef {
 
 export interface HealthSection {
   id: string;
-  title: string;
+  title: string;       // button label
+  heading?: string;    // section heading (if different from title)
   subtitle: string;
 }
 

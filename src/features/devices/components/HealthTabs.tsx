@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { WeightData } from '../types';
+import type { WeightData, TrendData } from '../types';
 import { HEALTH_SECTIONS, HEALTH, TRENDS } from '../constants';
 
 /* ─── Simple SVG Sparkline Trend Chart ─── */
@@ -130,13 +130,15 @@ function DataSection({
   title,
   subtitle,
   sectionId,
+  overrideTrend,
 }: {
   title: string;
   subtitle: string;
   sectionId: string;
+  overrideTrend?: TrendData;
 }) {
   const metrics = HEALTH[sectionId] || [];
-  const trend = TRENDS[sectionId];
+  const trend = overrideTrend ?? TRENDS[sectionId];
 
   // Pair metrics into rows of 2
   const rows: typeof metrics[] = [];
@@ -330,18 +332,14 @@ export default function HealthTabs({ weightData }: HealthTabsProps) {
         const isVisible = activeTab === sec.id;
         const isBody = sec.id === 'body';
 
-        // When body tab, show weight-based trend data
-        if (isBody && bodyTrend && bodyTrend.series && bodyTrend.series.length) {
-          return (
-            <div key={sec.id} style={{ display: isVisible ? 'block' : 'none' }}>
-              <DataSection title={sec.title} subtitle={sec.subtitle} sectionId={sec.id} />
-            </div>
-          );
-        }
-
         return (
           <div key={sec.id} style={{ display: isVisible ? 'block' : 'none' }}>
-            <DataSection title={sec.title} subtitle={sec.subtitle} sectionId={sec.id} />
+            <DataSection
+              title={sec.heading ?? sec.title}
+              subtitle={sec.subtitle}
+              sectionId={sec.id}
+              overrideTrend={isBody && bodyTrend ? bodyTrend : undefined}
+            />
           </div>
         );
       })}
