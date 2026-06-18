@@ -9,13 +9,13 @@ import {
 } from "@/components/ui/dialog";
 import {
   buildQuestionnairePreviewUrl,
-  type QuestionnairePreviewContext,
 } from "@/features/treatments/utils/previewUrl";
+import type { PreviewContext } from "@/features/treatments/types";
 
 interface PatientFlowTestModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  previewContext: QuestionnairePreviewContext;
+  previewContext: PreviewContext;
 }
 
 export function PatientFlowTestModal({
@@ -83,7 +83,7 @@ export function PatientFlowTestModal({
         <div className="min-h-0 flex-1 bg-slate-100">
           <iframe
             key={refreshKey}
-            title={`${previewContext.title || "Questionnaire"} preview`}
+            title={`Questionnaire preview`}
             src={previewUrl}
             className="h-full w-full border-0 bg-white"
             sandbox="allow-forms allow-scripts allow-same-origin allow-popups"

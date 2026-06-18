@@ -2,6 +2,7 @@ import { Check, Eye, LayoutGrid, List as ListIcon, Plus, Save, X } from "lucide-
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { FlowBuilderViewMode } from "@/features/treatments/flow-builder/hooks/useCustomProgramFlowBuilder";
+import { BuilderHeaderToggle } from "@/features/treatments/common/components/builder/BuilderHeaderToggle";
 
 interface FlowBuilderHeaderProps {
   name: string;
@@ -80,30 +81,7 @@ export function FlowBuilderHeader({
         </div>
 
         <div className="flex flex-wrap items-center gap-3 md:justify-end">
-          <div className="flex items-center rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
-            <button
-              onClick={() => onViewModeChange("list")}
-              className={cn(
-                "flex items-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                viewMode === "list" ? "bg-slate-100 text-slate-900" : "text-slate-500 hover:text-slate-900"
-              )}
-              data-testid="custom-program-list-view"
-            >
-              <ListIcon className="mr-2 h-4 w-4" />
-              List
-            </button>
-            <button
-              onClick={() => onViewModeChange("flow")}
-              className={cn(
-                "flex items-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                viewMode === "flow" ? "bg-slate-100 text-slate-900" : "text-slate-500 hover:text-slate-900"
-              )}
-              data-testid="custom-program-flow-view"
-            >
-              <LayoutGrid className="mr-2 h-4 w-4" />
-              Flow
-            </button>
-          </div>
+          <BuilderHeaderToggle viewMode={viewMode} onViewModeChange={onViewModeChange} />
           <Button variant="secondary" className="bg-[#12517A] text-white hover:bg-[#12517A]/90" onClick={onOpenDrawer} data-testid="open-add-to-flow-drawer">
             <Plus className="mr-2 h-4 w-4" />
             Add to flow

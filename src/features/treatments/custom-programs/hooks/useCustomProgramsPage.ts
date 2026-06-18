@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { toast } from "@/components/ui/use-toast";
 import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
 import type { CustomProgram } from "@/features/treatments/types";
-import type { QuestionnairePreviewContext } from "@/features/treatments/utils/previewUrl";
+import type { PreviewContext } from "@/features/treatments/types";
 import { useCustomPrograms, useDeleteCustomProgram, useSaveCustomProgram } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import type { CustomProgramFormData } from "@/features/treatments/custom-programs/components/CustomProgramModal";
 
@@ -67,7 +67,7 @@ export function useCustomProgramsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<CustomProgram | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [previewContext, setPreviewContext] = useState<QuestionnairePreviewContext | null>(null);
+  const [previewContext, setPreviewContext] = useState<PreviewContext | null>(null);
   const [deleteCustomProgramId, setDeleteCustomProgramId] = useState<string | null>(null);
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const [catalogProgram, setCatalogProgram] = useState<CustomProgram | null>(null);
@@ -103,7 +103,7 @@ export function useCustomProgramsPage() {
   }, [filteredPrograms]);
 
   const handlePreview = (program: CustomProgram) => {
-    setPreviewContext({ mode: "custom_program", id: program.id, slug: program.slug, title: program.name });
+    setPreviewContext({ type: "custom_program", id: program.id, slug: program.slug });
     setIsPreviewOpen(true);
   };
 

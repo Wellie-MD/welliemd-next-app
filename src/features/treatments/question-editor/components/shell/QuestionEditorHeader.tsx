@@ -1,10 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Play } from "lucide-react";
+import type { ProgramQuestion } from "@/features/treatments/types";
+import { QuestionTags } from "@/features/treatments/common/components/QuestionTags";
+import { getQuestionTags } from "@/features/treatments/utils/questionTags";
 
 interface QuestionEditorHeaderProps {
   title: string;
   subtitle: string;
   isEditMode: boolean;
+  activeQuestion?: ProgramQuestion | null;
   hideSave?: boolean;
   onClose: () => void;
   onSave: () => void;
@@ -14,6 +18,7 @@ export function QuestionEditorHeader({
   title,
   subtitle,
   isEditMode,
+  activeQuestion,
   hideSave = false,
   onClose,
   onSave,
@@ -30,9 +35,12 @@ export function QuestionEditorHeader({
           Back
         </Button>
         <div>
-          <h2 className="text-[17px] font-extrabold text-slate-900 leading-tight tracking-tight">
-            {title}
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-[17px] font-extrabold text-slate-900 leading-tight tracking-tight">
+              {title}
+            </h2>
+            <QuestionTags tags={getQuestionTags(activeQuestion)} />
+          </div>
           <div className="text-[11px] text-slate-500 font-medium mt-0.5">
             {subtitle}
           </div>

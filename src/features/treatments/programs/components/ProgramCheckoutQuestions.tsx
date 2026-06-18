@@ -16,8 +16,8 @@ const renderProductSummary = (products: ProgramCheckoutProduct[]) => {
 
   return (
     <div className="space-y-1.5">
-      {products.map((product) => (
-        <div key={product.id}>
+      {products.map((product, index) => (
+        <div key={product.id || `prod-${index}`}>
           <span className="font-bold text-slate-900">{product.category}</span>
           <span className="text-slate-400">
             {" · "}

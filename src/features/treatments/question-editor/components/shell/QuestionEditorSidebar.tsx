@@ -2,6 +2,8 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type { ProgramQuestion } from "@/features/treatments/types";
+import { QuestionTags } from "@/features/treatments/common/components/QuestionTags";
+import { getQuestionTags } from "@/features/treatments/utils/questionTags";
 
 interface QuestionEditorSidebarProps {
   questions: ProgramQuestion[];
@@ -44,11 +46,6 @@ export function QuestionEditorSidebar({
       <div className="flex-1 overflow-y-auto p-3 space-y-1">
         {filteredQuestions.map((question) => {
           const isActive = question.id === activeQuestionId;
-          const hasVisibility = !!question.visibilityRuleGroup || !!question.visibilityRule;
-          const isDQ = question.dqChoices && question.dqChoices.length > 0;
-          const isConsent = question.kind === "consent";
-          const isAuth = question.kind === "auth" || question.kind === "personal_details";
-          const isCheckout = question.kind === "checkout";
 
           return (
             <button
@@ -76,33 +73,7 @@ export function QuestionEditorSidebar({
                   {question.text || "(untitled question)"}
                 </div>
 
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {hasVisibility && (
-                    <span className="inline-flex px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase bg-amber-100 text-amber-700">
-                      IF
-                    </span>
-                  )}
-                  {isDQ && (
-                    <span className="inline-flex px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase bg-red-100 text-red-700">
-                      DQ
-                    </span>
-                  )}
-                  {isConsent && (
-                    <span className="inline-flex px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase bg-purple-100 text-purple-700">
-                      CONSENT
-                    </span>
-                  )}
-                  {isAuth && (
-                    <span className="inline-flex px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase bg-orange-100 text-orange-700">
-                      AUTH
-                    </span>
-                  )}
-                  {isCheckout && (
-                    <span className="inline-flex px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase bg-emerald-100 text-emerald-700">
-                      CHECKOUT
-                    </span>
-                  )}
-                </div>
+                <QuestionTags tags={getQuestionTags(question)} className="mt-1" />
               </div>
             </button>
           );

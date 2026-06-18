@@ -49,7 +49,7 @@ export function QuestionCreatorTab({ onAddItem, flowItems = [] }: QuestionCreato
         </div>
 
         {AVAILABLE_QUESTIONS.map((q) => {
-          const added = isQuestionAdded(q.title);
+          const added = flowItems.some((item) => item.title === q.title);
           return (
             <div
               key={q.id}

@@ -24,9 +24,10 @@ const KEYS = {
   CONSENTS: "welliemd_mock_consents",
   CUSTOM_PROGRAMS: "welliemd_mock_custom_programs",
   PROGRAM_QUESTIONS: "welliemd_mock_program_questions",
+  SECTION_FIELDS: "welliemd_mock_section_fields",
 };
 
-const SEED_VERSION_KEY = "welliemd_mock_data_version_v6";
+const SEED_VERSION_KEY = "welliemd_mock_data_version_v8";
 
 const checkAndSeedMockData = () => {
   const seeded = localStorage.getItem(SEED_VERSION_KEY);
@@ -37,6 +38,7 @@ const checkAndSeedMockData = () => {
     localStorage.removeItem(KEYS.SECTIONS);
     localStorage.removeItem(KEYS.CONSENTS);
     localStorage.removeItem(KEYS.PROGRAM_QUESTIONS);
+    localStorage.removeItem(KEYS.SECTION_FIELDS);
 
     localStorage.setItem(KEYS.CUSTOM_PROGRAMS, JSON.stringify(mockCustomPrograms));
     localStorage.setItem(KEYS.PROGRAMS, JSON.stringify(mockPrograms));
@@ -51,8 +53,82 @@ const checkAndSeedMockData = () => {
       "program-glp-microdose": mockProgramQuestions,
       "program-ed-intake": mockProgramQuestions.slice(0, 2),
       "program-trt-intake": mockProgramQuestions.slice(0, 3),
+      "sec-medical-baseline": [
+        {
+          id: "medical-conditions",
+          order: 1,
+          text: "Please identify all your current medical conditions",
+          kind: "multiple_choice",
+          section: "Medical Baseline",
+          required: true,
+          choices: ["Hypertension", "Diabetes", "Asthma", "None"]
+        },
+        {
+          id: "current-medications",
+          order: 2,
+          text: "Please list all your current medications including dosages",
+          kind: "text",
+          section: "Medical Baseline",
+          required: true,
+        },
+        {
+          id: "known-allergies",
+          order: 3,
+          text: "Please list all of your known allergies",
+          kind: "multiple_choice",
+          section: "Medical Baseline",
+          required: true,
+          choices: ["Penicillin", "Peanuts", "None"]
+        },
+        {
+          id: "past-surgeries",
+          order: 4,
+          text: "Past surgeries",
+          kind: "text",
+          section: "Medical Baseline",
+          required: false,
+        },
+        {
+          id: "family-medical-history",
+          order: 5,
+          text: "Family medical history",
+          kind: "text",
+          section: "Medical Baseline",
+          required: false,
+        },
+      ],
+      "sec-body-stats": [
+        {
+          id: "highest-weight",
+          order: 1,
+          text: "What was the highest weight that you have reached?",
+          kind: "text",
+          section: "Body Stats",
+          required: true,
+        },
+      ]
     };
     localStorage.setItem(KEYS.PROGRAM_QUESTIONS, JSON.stringify(initialQuestions));
+
+    const initialSectionFields: Record<string, any[]> = {
+      "sec-medical-baseline": initialQuestions["sec-medical-baseline"].map(q => ({
+        id: q.id,
+        sectionId: "sec-medical-baseline",
+        order: q.order,
+        label: q.text,
+        kind: q.kind,
+        required: q.required,
+      })),
+      "sec-body-stats": initialQuestions["sec-body-stats"].map(q => ({
+        id: q.id,
+        sectionId: "sec-body-stats",
+        order: q.order,
+        label: q.text,
+        kind: q.kind,
+        required: q.required,
+      }))
+    };
+    localStorage.setItem(KEYS.SECTION_FIELDS, JSON.stringify(initialSectionFields));
 
     localStorage.setItem(SEED_VERSION_KEY, "true");
   }
@@ -95,6 +171,21 @@ const getCustomPrograms = () => {
   }
   return stored;
 };
+
+const getInitialSectionFields = () => {
+  return {
+    "sec-medical-baseline": [
+      { id: "medical-conditions", sectionId: "sec-medical-baseline", order: 1, label: "Please identify all your current medical conditions", kind: "multiple_choice", required: true },
+      { id: "current-medications", sectionId: "sec-medical-baseline", order: 2, label: "Please list all your current medications including dosages", kind: "text", required: true },
+      { id: "known-allergies", sectionId: "sec-medical-baseline", order: 3, label: "Please list all of your known allergies", kind: "multiple_choice", required: true },
+      { id: "past-surgeries", sectionId: "sec-medical-baseline", order: 4, label: "Past surgeries", kind: "text", required: false },
+      { id: "family-medical-history", sectionId: "sec-medical-baseline", order: 5, label: "Family medical history", kind: "text", required: false },
+    ],
+    "sec-body-stats": [
+      { id: "highest-weight", sectionId: "sec-body-stats", order: 1, label: "What was the highest weight that you have reached?", kind: "text", required: true },
+    ]
+  };
+};
 const getProgramQuestions = (programId: string) => {
   const allQuestions = getStored<Record<string, ProgramQuestion[]>>(KEYS.PROGRAM_QUESTIONS, {
     "program-glp-intake": mockProgramQuestions,
@@ -103,6 +194,60 @@ const getProgramQuestions = (programId: string) => {
     "program-glp-microdose": mockProgramQuestions,
     "program-ed-intake": mockProgramQuestions.slice(0, 2),
     "program-trt-intake": mockProgramQuestions.slice(0, 3),
+    "sec-medical-baseline": [
+      {
+        id: "medical-conditions",
+        order: 1,
+        text: "Please identify all your current medical conditions",
+        kind: "multiple_choice",
+        section: "Medical Baseline",
+        required: true,
+        choices: ["Hypertension", "Diabetes", "Asthma", "None"]
+      },
+      {
+        id: "current-medications",
+        order: 2,
+        text: "Please list all your current medications including dosages",
+        kind: "text",
+        section: "Medical Baseline",
+        required: true,
+      },
+      {
+        id: "known-allergies",
+        order: 3,
+        text: "Please list all of your known allergies",
+        kind: "multiple_choice",
+        section: "Medical Baseline",
+        required: true,
+        choices: ["Penicillin", "Peanuts", "None"]
+      },
+      {
+        id: "past-surgeries",
+        order: 4,
+        text: "Past surgeries",
+        kind: "text",
+        section: "Medical Baseline",
+        required: false,
+      },
+      {
+        id: "family-medical-history",
+        order: 5,
+        text: "Family medical history",
+        kind: "text",
+        section: "Medical Baseline",
+        required: false,
+      },
+    ],
+    "sec-body-stats": [
+      {
+        id: "highest-weight",
+        order: 1,
+        text: "What was the highest weight that you have reached?",
+        kind: "text",
+        section: "Body Stats",
+        required: true,
+      },
+    ]
   });
   return allQuestions[programId] || [];
 };
@@ -115,10 +260,76 @@ const setProgramQuestions = (programId: string, questions: ProgramQuestion[]) =>
     "program-glp-microdose": mockProgramQuestions,
     "program-ed-intake": mockProgramQuestions.slice(0, 2),
     "program-trt-intake": mockProgramQuestions.slice(0, 3),
+    "sec-medical-baseline": [
+      {
+        id: "medical-conditions",
+        order: 1,
+        text: "Please identify all your current medical conditions",
+        kind: "multiple_choice",
+        section: "Medical Baseline",
+        required: true,
+        choices: ["Hypertension", "Diabetes", "Asthma", "None"]
+      },
+      {
+        id: "current-medications",
+        order: 2,
+        text: "Please list all your current medications including dosages",
+        kind: "text",
+        section: "Medical Baseline",
+        required: true,
+      },
+      {
+        id: "known-allergies",
+        order: 3,
+        text: "Please list all of your known allergies",
+        kind: "multiple_choice",
+        section: "Medical Baseline",
+        required: true,
+        choices: ["Penicillin", "Peanuts", "None"]
+      },
+      {
+        id: "past-surgeries",
+        order: 4,
+        text: "Past surgeries",
+        kind: "text",
+        section: "Medical Baseline",
+        required: false,
+      },
+      {
+        id: "family-medical-history",
+        order: 5,
+        text: "Family medical history",
+        kind: "text",
+        section: "Medical Baseline",
+        required: false,
+      },
+    ],
+    "sec-body-stats": [
+      {
+        id: "highest-weight",
+        order: 1,
+        text: "What was the highest weight that you have reached?",
+        kind: "text",
+        section: "Body Stats",
+        required: true,
+      },
+    ]
   });
   allQuestions[programId] = questions;
   setStored(KEYS.PROGRAM_QUESTIONS, allQuestions);
 };
+
+const getSectionFields = (sectionId: string) => {
+  const allFields = getStored<Record<string, any[]>>(KEYS.SECTION_FIELDS, getInitialSectionFields());
+  return allFields[sectionId] || [];
+};
+
+const setSectionFields = (sectionId: string, fields: any[]) => {
+  const allFields = getStored<Record<string, any[]>>(KEYS.SECTION_FIELDS, getInitialSectionFields());
+  allFields[sectionId] = fields;
+  setStored(KEYS.SECTION_FIELDS, allFields);
+};
+
 
 const resolveMock = async <T>(value: T): Promise<T> => Promise.resolve(value);
 
@@ -210,6 +421,42 @@ export const treatmentsApi = {
       return { ...found!, order: index + 1 };
     });
     setProgramQuestions(programId, reordered);
+    return resolveMock(undefined);
+  },
+
+  listSectionFields: (sectionId: string): Promise<any[]> => resolveMock(getSectionFields(sectionId)),
+
+  saveSectionFields: (sectionId: string, fields: any[]): Promise<any[]> => {
+    setSectionFields(sectionId, fields);
+    return resolveMock(fields);
+  },
+
+  saveSectionField: (sectionId: string, field: any): Promise<any> => {
+    const list = getSectionFields(sectionId);
+    const index = list.findIndex((f) => f.id === field.id);
+    if (index >= 0) {
+      list[index] = field;
+    } else {
+      list.push(field);
+    }
+    setSectionFields(sectionId, list);
+    return resolveMock(field);
+  },
+
+  deleteSectionField: (sectionId: string, fieldId: string): Promise<void> => {
+    const list = getSectionFields(sectionId).filter((f) => f.id !== fieldId);
+    const updated = list.map((f, idx) => ({ ...f, order: idx + 1 }));
+    setSectionFields(sectionId, updated);
+    return resolveMock(undefined);
+  },
+
+  reorderSectionFields: (sectionId: string, fieldIds: string[]): Promise<void> => {
+    const list = getSectionFields(sectionId);
+    const reordered = fieldIds.map((id, index) => {
+      const found = list.find((f) => f.id === id);
+      return { ...found!, order: index + 1 };
+    });
+    setSectionFields(sectionId, reordered);
     return resolveMock(undefined);
   },
 

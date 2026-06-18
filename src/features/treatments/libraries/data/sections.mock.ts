@@ -14,7 +14,7 @@ export const mockSections: CommonSection[] = [
     id: MOCK_IDS.SECTION_BODY_STATS,
     name: "Body Stats",
     scope: "shared",
-    visitTypeKeys: ["glp_weight_loss"],
+    visitTypeKeys: ["Weight", "GLP", "Microdose"],
     fieldCount: 1,
     updatedAt: "2026-05-22",
   },

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -23,6 +23,7 @@ import { ProgramAuthentication } from "@/features/treatments/programs/components
 import { CheckoutQuestionModal } from "@/features/treatments/programs/components/CheckoutQuestionModal";
 import { QuestionEditorDialog } from "@/features/treatments/question-editor/components/shell/QuestionEditorDialog";
 import { AddConsentModal } from "@/features/treatments/programs/components/AddConsentModal";
+import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
 import { createMockId } from "@/features/treatments/common/data/factories";
 import type { ProgramCheckoutQuestion, ProgramQuestion, QuestionKind } from "@/features/treatments/types";
 import { DeleteConfirmDialog } from "@/features/treatments/common/components";
@@ -67,7 +68,12 @@ export default function ProgramDetailPage() {
   const saveProgramMutation = useSaveProgram();
   const saveProgramQuestionsMutation = useSaveProgramQuestions(foundProgram?.id || "");
 
-  const [viewMode, setViewMode] = useState<"list" | "flow">("list");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const viewMode = searchParams.get("view") === "flow" ? "flow" : "list";
+
+  const setViewMode = (mode: "list" | "flow") => {
+    setSearchParams({ view: mode }, { replace: true });
+  };
 
   // Dialog control states
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -343,18 +349,11 @@ export default function ProgramDetailPage() {
         attachedConsentIds={foundProgram.consentIds || []}
       />
 
-      <Dialog open={isSimulateOpen} onOpenChange={setIsSimulateOpen}>
-        <DialogContent className="max-w-md bg-slate-900 text-white p-6 rounded-2xl shadow-2xl flex flex-col">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-[9px] font-bold uppercase text-slate-400">Simulation</span>
-            <button onClick={() => setIsSimulateOpen(false)} className="text-slate-400 hover:text-white"><X className="h-4 w-4" /></button>
-          </div>
-          <div className="text-sm">Welcome to the simulator! Here you can test the patient flow.</div>
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" size="sm" onClick={() => setIsSimulateOpen(false)} className="h-8 text-xs bg-slate-800 text-white border-slate-700">Close</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <PatientFlowTestModal
+        open={isSimulateOpen}
+        onOpenChange={setIsSimulateOpen}
+        previewContext={{ type: "program", id: foundProgram.id, slug: foundProgram.slug }}
+      />
 
       <DeleteConfirmDialog
         open={Boolean(checkoutDeleteId)}

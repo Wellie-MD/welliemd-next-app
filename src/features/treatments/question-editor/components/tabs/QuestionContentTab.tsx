@@ -10,6 +10,7 @@ interface QuestionContentTabProps {
   newChoiceText: string;
   setNewChoiceText: (val: string) => void;
   handleAddChoice: () => void;
+  handleUpdateChoice: (idx: number, value: string) => void;
   handleRemoveChoice: (idx: number) => void;
   handleToggleDqChoice: (choice: string) => void;
   consentText: string;
@@ -23,12 +24,13 @@ export function QuestionContentTab({
   newChoiceText,
   setNewChoiceText,
   handleAddChoice,
+  handleUpdateChoice,
   handleRemoveChoice,
   handleToggleDqChoice,
   consentText,
   setConsentText,
 }: QuestionContentTabProps) {
-  const isChoiceType = kind === "choice" || kind === "single_choice" || kind === "multiple_choice";
+  const isChoiceType = kind === "single_choice" || kind === "multiple_choice";
 
   return (
     <div className="space-y-4">
@@ -53,6 +55,7 @@ export function QuestionContentTab({
               variant="outline"
               size="sm"
               className="h-8 text-xs font-semibold text-slate-600 border-slate-200"
+              data-testid="question-choice-add"
             >
               <Plus className="h-3.5 w-3.5 mr-1" /> Add Answer
             </Button>
@@ -70,7 +73,13 @@ export function QuestionContentTab({
                     {index + 1}
                   </div>
                   <div className="flex-1">
-                    <span className="text-sm font-semibold text-slate-700">{choice}</span>
+                    <Input
+                      value={choice}
+                      onChange={(event) => handleUpdateChoice(index, event.target.value)}
+                      className="h-8 border-transparent bg-transparent px-0 text-sm font-semibold text-slate-700 shadow-none focus-visible:border-slate-200 focus-visible:px-2 focus-visible:ring-1 focus-visible:ring-blue-500"
+                      aria-label={`Answer choice ${index + 1}`}
+                      data-testid={`question-choice-${index + 1}`}
+                    />
                   </div>
                   <Button
                     variant="outline"
@@ -81,12 +90,16 @@ export function QuestionContentTab({
                         : "border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700"
                     }`}
                     onClick={() => handleToggleDqChoice(choice)}
+                    data-testid={`question-choice-${index + 1}-dq-toggle`}
                   >
-                    Mark DQ
+                    {isDq ? "Disqualifying" : "Mark DQ"}
                   </Button>
                   <button
+                    type="button"
                     onClick={() => handleRemoveChoice(index)}
                     className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                    aria-label={`Remove answer choice ${index + 1}`}
+                    data-testid={`question-choice-${index + 1}-remove`}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -104,6 +117,8 @@ export function QuestionContentTab({
                 onChange={(e) => setNewChoiceText(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleAddChoice()}
                 className="h-8 bg-transparent border-none shadow-none focus-visible:ring-0 px-0 text-sm font-medium placeholder:font-normal"
+                aria-label="New answer choice"
+                data-testid="question-choice-new-input"
               />
             </div>
           </div>
@@ -118,6 +133,7 @@ export function QuestionContentTab({
             value={consentText}
             onChange={(e) => setConsentText(e.target.value)}
             className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none min-h-[150px]"
+            data-testid="question-consent-text"
           />
         </div>
       ) : (

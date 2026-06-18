@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { checkoutProductFactory, visibilityRuleFactory } from "@/features/treatments/common/data/factories";
-import type { ProgramCheckoutProduct, ProgramCheckoutQuestion, VisibilityRule } from "@/features/treatments/types";
+import { checkoutProductFactory } from "@/features/treatments/common/data/factories";
+import type { ProgramCheckoutProduct, ProgramCheckoutQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
 
 type ProductForm = ProgramCheckoutProduct;
-type VisibilityRuleForm = VisibilityRule;
+type VisibilityRuleGroupForm = VisibilityRuleGroup;
 
 interface UseCheckoutQuestionFormArgs {
   open: boolean;
@@ -14,8 +14,7 @@ interface UseCheckoutQuestionFormArgs {
 
 export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenChange }: UseCheckoutQuestionFormArgs) {
   const [products, setProducts] = useState<ProductForm[]>([checkoutProductFactory({ category: "", regimen: "", doseLabel: "" })]);
-  const [visibilityMode, setVisibilityMode] = useState<"simple" | "nested">("nested");
-  const [rules, setRules] = useState<VisibilityRuleForm[]>([]);
+  const [visibilityRuleGroup, setVisibilityRuleGroup] = useState<VisibilityRuleGroupForm | undefined>(undefined);
   const [selectedPreviewIdx, setSelectedPreviewIdx] = useState(0);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -31,19 +30,23 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           productId: product.productId,
         }))
       );
-      setVisibilityMode(initialQuestion.visibilityRules?.mode || "nested");
-      setRules(
-        (initialQuestion.visibilityRules?.rules || []).map((rule) => ({
-          id: rule.id,
-          questionId: rule.questionId,
-          operator: rule.operator,
-          value: rule.value,
-        }))
+      setVisibilityRuleGroup(
+        initialQuestion.visibilityRules
+          ? {
+              mode: initialQuestion.visibilityRules.mode,
+              rules: (initialQuestion.visibilityRules.rules || []).map((rule) => ({
+                id: rule.id,
+                questionId: rule.questionId,
+                operator: rule.operator,
+                value: rule.value,
+              })),
+              subgroups: initialQuestion.visibilityRules.subgroups,
+            }
+          : undefined
       );
     } else {
       setProducts([checkoutProductFactory({ category: "", regimen: "", doseLabel: "" })]);
-      setVisibilityMode("nested");
-      setRules([]);
+      setVisibilityRuleGroup(undefined);
     }
     setSelectedPreviewIdx(0);
     setFormError(null);
@@ -71,15 +74,8 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     );
   };
 
-  const handleAddRule = () => setRules((current) => [...current, visibilityRuleFactory({ questionId: "", operator: "equals", value: "" })]);
-  const handleRemoveRule = (index: number) => setRules((current) => current.filter((_, itemIndex) => itemIndex !== index));
-
-  const handleRuleFieldChange = (index: number, field: keyof VisibilityRuleForm, value: string) => {
-    setRules((current) =>
-      current.map((rule, itemIndex) =>
-        itemIndex === index ? { ...rule, [field]: field === "operator" ? (value as VisibilityRule["operator"]) : value } : rule
-      )
-    );
+  const handleVisibilityRuleGroupChange = (group: VisibilityRuleGroupForm | undefined) => {
+    setVisibilityRuleGroup(group);
   };
 
   const handleSaveModal = () => {
@@ -91,19 +87,20 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     onSave({
       text: validProducts.map((product) => product.doseLabel).join(" & ") || "Checkout Options",
       products: validProducts,
-      visibilityRules: {
-        mode: visibilityMode,
-        rules: rules.filter((rule) => rule.questionId && rule.operator && rule.value),
-      },
+      visibilityRules: visibilityRuleGroup
+        ? {
+            mode: visibilityRuleGroup.mode,
+            rules: visibilityRuleGroup.rules.filter((rule) => rule.questionId && rule.operator && rule.value),
+            subgroups: visibilityRuleGroup.subgroups,
+          }
+        : { mode: "simple", rules: [] },
     });
     onOpenChange(false);
   };
 
   return {
     products,
-    visibilityMode,
-    setVisibilityMode,
-    rules,
+    visibilityRuleGroup,
     selectedPreviewIdx,
     setSelectedPreviewIdx,
     formError,
@@ -111,9 +108,7 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     handleAddProduct,
     handleRemoveProduct,
     handleProductFieldChange,
-    handleAddRule,
-    handleRemoveRule,
-    handleRuleFieldChange,
+    handleVisibilityRuleGroupChange,
     handleSaveModal,
   };
 }

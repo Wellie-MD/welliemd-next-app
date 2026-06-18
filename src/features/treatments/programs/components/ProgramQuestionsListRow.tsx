@@ -3,6 +3,8 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Check, Pencil, Trash2 } from "lucide-react";
 import type { ProgramQuestion } from "@/features/treatments/types";
 import { Button } from "@/components/ui/button";
+import { QuestionTags } from "@/features/treatments/common/components/QuestionTags";
+import { getQuestionTags } from "@/features/treatments/utils/questionTags";
 
 interface ProgramQuestionsListRowProps {
   question: ProgramQuestion;
@@ -101,11 +103,12 @@ export function ProgramQuestionsListRow({
         )}
       </div>
 
-      {/* 4. Type Pill */}
-      <div>
+      {/* 4. Type & Tags */}
+      <div className="flex flex-col gap-1.5 items-start justify-center">
         <div className="inline-flex items-center px-2.5 py-1 rounded-md border border-slate-200 text-[10px] font-bold text-slate-600 bg-slate-50/50 shadow-sm">
           {formatKindLabel(question.kind)}
         </div>
+        <QuestionTags tags={getQuestionTags(question)} />
       </div>
 
       {/* 5. Actions (Hover Only) */}

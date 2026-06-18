@@ -1,8 +1,8 @@
 import { QuestionEditorHeader } from "@/features/treatments/question-editor/components/shell/QuestionEditorHeader";
 import { CheckoutProductsSection } from "@/features/treatments/programs/checkout-question/components/CheckoutProductsSection";
-import { CheckoutVisibilitySection } from "@/features/treatments/programs/checkout-question/components/CheckoutVisibilitySection";
 import { CheckoutPatientPreview } from "@/features/treatments/programs/checkout-question/components/CheckoutPatientPreview";
 import { useCheckoutQuestionForm } from "@/features/treatments/programs/checkout-question/hooks/useCheckoutQuestionForm";
+import { QuestionVisibilityTab } from "@/features/treatments/question-editor/components/tabs/QuestionVisibilityTab";
 import type { ProgramQuestion, ProgramCheckoutQuestion, ProgramCheckoutProduct } from "@/features/treatments/types";
 import { useMemo } from "react";
 
@@ -26,22 +26,20 @@ export function CheckoutEditor({
   // Map ProgramQuestion to the shape useCheckoutQuestionForm expects
   const initialCheckoutQuestion = useMemo<ProgramCheckoutQuestion | null>(() => {
     if (!activeQuestion) return null;
-    
-    // In a real integration, the backend would supply full product details.
-    // For now, we mock the ProgramCheckoutProduct array based on what's available.
-    const mockProducts: ProgramCheckoutProduct[] = [
+
+    const fallbackProducts: ProgramCheckoutProduct[] = [
       {
         id: "mock-1",
-        category: "Test Category",
-        regimen: "Test Regimen",
-        doseLabel: activeQuestion.text || "Test Dose",
+        category: "Glutathione",
+        regimen: "Rapid",
+        doseLabel: activeQuestion.text || "Glutathione 200mg",
       }
     ];
 
     return {
       id: activeQuestion.id,
       text: activeQuestion.text,
-      products: mockProducts,
+      products: activeQuestion.checkoutProducts?.length ? activeQuestion.checkoutProducts : fallbackProducts,
       visibilityRules: activeQuestion.visibilityRuleGroup || { mode: "simple", rules: [] },
     };
   }, [activeQuestion]);
@@ -58,8 +56,8 @@ export function CheckoutEditor({
         section: activeQuestion?.section || "Checkout",
         required: true,
         visibilityRuleGroup: data.visibilityRules,
-        // Passing product details up via a typed contract would happen here.
-        // For the mock, we just resolve to text and visibility rules.
+        checkoutProducts: data.products,
+        checkoutProductIds: data.products.map((product) => product.productId || product.id),
       };
       onSave(updatedQuestion);
       onClose();
@@ -76,6 +74,7 @@ export function CheckoutEditor({
         title={`Checkout · Step ${questionOrder}`}
         subtitle={programName}
         isEditMode={isEditMode}
+        activeQuestion={activeQuestion}
         onClose={onClose}
         onSave={form.handleSaveModal}
       />
@@ -91,14 +90,11 @@ export function CheckoutEditor({
               onRemoveProduct={form.handleRemoveProduct}
               onProductFieldChange={form.handleProductFieldChange}
             />
-            <CheckoutVisibilitySection
-              visibilityMode={form.visibilityMode}
-              rules={form.rules}
-              screeningQuestions={questions.map((q) => ({ id: q.id, text: q.text }))}
-              onVisibilityModeChange={form.setVisibilityMode}
-              onAddRule={form.handleAddRule}
-              onRemoveRule={form.handleRemoveRule}
-              onRuleFieldChange={form.handleRuleFieldChange}
+            <QuestionVisibilityTab
+              visibilityRuleGroup={form.visibilityRuleGroup}
+              setVisibilityRuleGroup={form.handleVisibilityRuleGroupChange}
+              questions={questions}
+              currentQuestionId={activeQuestion?.id || ""}
             />
             {form.formError && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11.5px] font-semibold text-red-700">
@@ -111,7 +107,7 @@ export function CheckoutEditor({
         <CheckoutPatientPreview
           validProducts={form.validProducts}
           selectedPreviewIdx={form.selectedPreviewIdx}
-          rules={form.rules}
+          visibilityRuleGroup={form.visibilityRuleGroup}
           onSelectedPreviewChange={form.setSelectedPreviewIdx}
         />
       </div>

@@ -82,9 +82,21 @@ export function StandardEditor({
   }, [activeQuestion]);
 
   const handleAddChoice = () => {
-    if (!newChoiceText.trim()) return;
-    setChoices([...choices, newChoiceText.trim()]);
+    const label = newChoiceText.trim() || `Option ${choices.length + 1}`;
+    setChoices([...choices, label]);
     setNewChoiceText("");
+  };
+
+  const handleUpdateChoice = (index: number, value: string) => {
+    const previousChoice = choices[index];
+    const updatedChoices = choices.map((choice, choiceIndex) => (
+      choiceIndex === index ? value : choice
+    ));
+
+    setChoices(updatedChoices);
+    if (dqChoices.includes(previousChoice)) {
+      setDqChoices(dqChoices.map((choice) => (choice === previousChoice ? value : choice)));
+    }
   };
 
   const handleRemoveChoice = (index: number) => {
@@ -105,7 +117,7 @@ export function StandardEditor({
   };
 
   const handleSaveClick = () => {
-    const isChoiceType = questionType === "choice" || questionType === "single_choice" || questionType === "multiple_choice";
+    const isChoiceType = questionType === "single_choice" || questionType === "multiple_choice";
     const updatedQuestion: ProgramQuestion = {
       id: activeQuestion?.id || `q-new-${Date.now()}`,
       order: activeQuestion?.order || questions.length + 1,
@@ -134,6 +146,7 @@ export function StandardEditor({
         title={programName}
         subtitle={`Question ${questionOrder} of ${questions.length || 1} ${isEditMode ? "- Edit" : "- Draft"}`}
         isEditMode={isEditMode}
+        activeQuestion={activeQuestion}
         onClose={onClose}
         onSave={handleSaveClick}
       />
@@ -150,6 +163,7 @@ export function StandardEditor({
               newChoiceText={newChoiceText}
               setNewChoiceText={setNewChoiceText}
               handleAddChoice={handleAddChoice}
+              handleUpdateChoice={handleUpdateChoice}
               handleRemoveChoice={handleRemoveChoice}
               handleToggleDqChoice={handleToggleDqChoice}
               consentText={consentText}
@@ -218,6 +232,7 @@ export function StandardEditor({
           text={questionText}
           kind={questionType}
           choices={choices}
+          dqChoices={dqChoices}
           consentText={consentText}
           order={questionOrder}
           totalQuestions={questions.length || 1}

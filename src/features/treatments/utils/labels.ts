@@ -19,5 +19,5 @@ export const formatFlowItemKind = (kind: FlowItemKind) => {
     checkout: "Checkout",
   };
 
-  return labels[kind];
+  return labels[kind] || String(kind).replace(/_/g, " ");
 };

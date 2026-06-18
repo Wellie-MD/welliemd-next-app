@@ -1,11 +1,11 @@
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import type { ProgramCheckoutQuestion } from "@/features/treatments/types";
+import type { ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
 import { CheckoutPatientPreview } from "@/features/treatments/programs/checkout-question/components/CheckoutPatientPreview";
 import { CheckoutProductsSection } from "@/features/treatments/programs/checkout-question/components/CheckoutProductsSection";
-import { CheckoutVisibilitySection } from "@/features/treatments/programs/checkout-question/components/CheckoutVisibilitySection";
 import { useCheckoutQuestionForm } from "@/features/treatments/programs/checkout-question/hooks/useCheckoutQuestionForm";
+import { QuestionVisibilityTab } from "@/features/treatments/question-editor/components/tabs/QuestionVisibilityTab";
 
 interface CheckoutQuestionModalProps {
   open: boolean;
@@ -13,7 +13,7 @@ interface CheckoutQuestionModalProps {
   onSave: (data: Omit<ProgramCheckoutQuestion, "id">) => void;
   initialQuestion?: ProgramCheckoutQuestion | null;
   programName?: string;
-  screeningQuestions?: Array<{ id: string; text: string }>;
+  screeningQuestions?: ProgramQuestion[];
 }
 
 export function CheckoutQuestionModal({
@@ -49,21 +49,18 @@ export function CheckoutQuestionModal({
               onRemoveProduct={form.handleRemoveProduct}
               onProductFieldChange={form.handleProductFieldChange}
             />
-            <CheckoutVisibilitySection
-              visibilityMode={form.visibilityMode}
-              rules={form.rules}
-              screeningQuestions={screeningQuestions}
-              onVisibilityModeChange={form.setVisibilityMode}
-              onAddRule={form.handleAddRule}
-              onRemoveRule={form.handleRemoveRule}
-              onRuleFieldChange={form.handleRuleFieldChange}
+            <QuestionVisibilityTab
+              visibilityRuleGroup={form.visibilityRuleGroup}
+              setVisibilityRuleGroup={form.handleVisibilityRuleGroupChange}
+              questions={screeningQuestions}
+              currentQuestionId=""
             />
           </div>
 
           <CheckoutPatientPreview
             validProducts={form.validProducts}
             selectedPreviewIdx={form.selectedPreviewIdx}
-            rules={form.rules}
+            visibilityRuleGroup={form.visibilityRuleGroup}
             onSelectedPreviewChange={form.setSelectedPreviewIdx}
           />
         </div>

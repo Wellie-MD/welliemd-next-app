@@ -6,3 +6,5 @@ export * from "./StatusPill";
 export * from "./TreatmentPageHeader";
 export * from "./LibraryContentCard";
 export * from "./DeleteConfirmDialog";
+export * from "./AddElementDropdown";
+export * from "./SharedQuestionsList";

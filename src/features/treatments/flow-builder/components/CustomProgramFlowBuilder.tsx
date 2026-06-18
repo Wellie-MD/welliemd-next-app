@@ -37,7 +37,7 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
       <PatientFlowTestModal
         open={builder.isTestModalOpen}
         onOpenChange={builder.setIsTestModalOpen}
-        previewContext={{ mode: "custom_program", id: customProgram.id, slug: customProgram.slug, title: customProgram.name }}
+        previewContext={{ type: "custom_program", id: customProgram.id, slug: customProgram.slug }}
       />
 
       {builder.viewMode === "list" && (
