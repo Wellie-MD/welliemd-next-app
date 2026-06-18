@@ -1073,6 +1073,16 @@ export default function OrderDetail() {
       ? medicationSubtotalAfterDiscount + discountAmount
       : null
 
+  const chargeableAmountSource = order.chargeable_amount_source || "requested_medicine"
+  const prescribedDisplayTotal = settlementState === "captured"
+    ? settlementAmount
+    : (prescribedFinalAmount ?? chargeableAmount)
+
+  const shouldPreferPrescribedDisplay =
+    pendingProductChange == null &&
+    chargeableAmountSource === "prescribed_medicine" &&
+    prescribedDisplayTotal != null
+
   const previewOriginalPrice = pendingProductChange != null
     ? pendingProductChange.subtotal
     : (shouldPreferPrescribedDisplay ? (parseMoney(order.original_price) ?? originalPrice) : originalPrice)
@@ -1088,16 +1098,6 @@ export default function OrderDetail() {
   const previewShippingFee = pendingProductChange != null
     ? pendingProductChange.shippingFee
     : shippingFee
-
-  const chargeableAmountSource = order.chargeable_amount_source || "requested_medicine"
-  const prescribedDisplayTotal = settlementState === "captured"
-    ? settlementAmount
-    : (prescribedFinalAmount ?? chargeableAmount)
-
-  const shouldPreferPrescribedDisplay =
-    pendingProductChange == null &&
-    chargeableAmountSource === "prescribed_medicine" &&
-    prescribedDisplayTotal != null
 
   const calculatedTotal = hasBreakdown
     ? ((productSubtotalAfterDiscount ?? 0) + (shippingFee ?? 0))
