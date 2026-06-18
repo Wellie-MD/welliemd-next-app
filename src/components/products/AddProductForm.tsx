@@ -460,8 +460,9 @@ export default function AddProductForm({
                   >
                     {selectedImageUrl || product?.product_image ? (
                       <img
+                        key={selectedImageUrl || product?.product_image}
                         src={selectedImageUrl || product?.product_image}
-                        alt={product.name}
+                        alt={product?.name || "Product"}
                         className="h-full w-full object-contain"
                         onError={(event) => {
                           event.currentTarget.style.display = "none"
