@@ -82,7 +82,7 @@ export default function AddProductForm({
   const selectedServiceStates = normalizeStates(watch("service_states") || [])
   const availableServiceStates = adminAllowedStates.length
     ? US_STATES.filter((state) => adminAllowedStates.includes(state))
-    : US_STATES
+    : []
   const isActive = watch("is_active", product?.is_active ?? true)
   const selectedImage = watch("product_image")
 
@@ -158,10 +158,9 @@ export default function AddProductForm({
       if (data.is_active !== undefined) fd.append("is_active", String(data.is_active))
       if (data.base_price !== undefined) fd.append("base_price", data.base_price)
       if (data.shipping_fee_patient !== undefined) fd.append("shipping_fee_patient", data.shipping_fee_patient)
-      if (data.discounted_price !== undefined) fd.append("discounted_price", data.discounted_price)
+      if (data.discounted_price !== undefined && data.discounted_price !== '') fd.append("discounted_price", data.discounted_price)
       if (data.service_states !== undefined) {
-        const allowedStates = adminAllowedStates.length ? adminAllowedStates : US_STATES
-        const selectedStates = normalizeStates(data.service_states).filter((state) => allowedStates.includes(state))
+        const selectedStates = normalizeStates(data.service_states).filter((state) => adminAllowedStates.includes(state))
         fd.append("service_states", JSON.stringify(selectedStates))
       }
       if (data.product_image instanceof File) {
@@ -387,50 +386,58 @@ export default function AddProductForm({
               <p className="text-[15px] text-slate-500">
                 Select the states where this assigned product should remain available. You can only choose states configured by admin.
               </p>
-              <div className="mt-4 flex items-center gap-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-9 rounded-lg border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 hover:bg-slate-50"
-                  onClick={() => setValue("service_states", availableServiceStates, { shouldDirty: true })}
-                >
-                  Select all states
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-9 px-0 text-sm font-semibold text-slate-500 hover:bg-transparent hover:text-slate-700"
-                  onClick={() => setValue("service_states", [], { shouldDirty: true })}
-                >
-                  Clear
-                </Button>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {availableServiceStates.map((state) => {
-                  const checked = selectedServiceStates.includes(state)
-                  return (
-                    <button
-                      key={state}
+              {adminAllowedStates.length ? (
+                <>
+                  <div className="mt-4 flex items-center gap-4">
+                    <Button
                       type="button"
-                      onClick={() => {
-                        const nextStates = checked
-                          ? selectedServiceStates.filter((item) => item !== state)
-                          : [...selectedServiceStates, state]
-                        setValue("service_states", nextStates, { shouldDirty: true })
-                      }}
-                      className="rounded-full border px-3 py-1 text-xs font-medium transition-colors"
-                      style={{
-                        minWidth: "44px",
-                        borderColor: checked ? "#46b6e6" : "#e8ebee",
-                        backgroundColor: checked ? "#46b6e6" : "#ffffff",
-                        color: checked ? "#ffffff" : "#1f2937",
-                      }}
+                      variant="outline"
+                      className="h-9 rounded-lg border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+                      onClick={() => setValue("service_states", availableServiceStates, { shouldDirty: true })}
                     >
-                      {state}
-                    </button>
-                  )
-                })}
-              </div>
+                      Select all states
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-9 px-0 text-sm font-semibold text-slate-500 hover:bg-transparent hover:text-slate-700"
+                      onClick={() => setValue("service_states", [], { shouldDirty: true })}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {availableServiceStates.map((state) => {
+                      const checked = selectedServiceStates.includes(state)
+                      return (
+                        <button
+                          key={state}
+                          type="button"
+                          onClick={() => {
+                            const nextStates = checked
+                              ? selectedServiceStates.filter((item) => item !== state)
+                              : [...selectedServiceStates, state]
+                            setValue("service_states", nextStates, { shouldDirty: true })
+                          }}
+                          className="rounded-full border px-3 py-1 text-xs font-medium transition-colors"
+                          style={{
+                            minWidth: "44px",
+                            borderColor: checked ? "#46b6e6" : "#e8ebee",
+                            backgroundColor: checked ? "#46b6e6" : "#ffffff",
+                            color: checked ? "#ffffff" : "#1f2937",
+                          }}
+                        >
+                          {state}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              ) : (
+                <p className="mt-4 text-sm text-slate-500">
+                  No explicit product-level states were configured by admin. This product inherits pharmacy coverage.
+                </p>
+              )}
             </Panel>
 
             <Panel
