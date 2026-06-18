@@ -39,11 +39,11 @@ export default function Billing() {
   });
 
   const invoices: B2BInvoice[] = data?.results || [];
-  const selectedClientId = (selected as any)?.client?.id || selected?.client;
+  const selectedClientId = (selected as any)?.client?.id || (selected as any)?.client_id || (selected as any)?.client;
 
   const markRefundMutation = useMutation({
     mutationFn: (invoice: B2BInvoice) => {
-      const clientId = (invoice as any)?.client?.id || invoice.client;
+      const clientId = (invoice as any)?.client?.id || (invoice as any)?.client_id || (invoice as any)?.client;
       return clientApi.markB2BRefundProcessed(clientId, invoice.id);
     },
     onSuccess: () => {
