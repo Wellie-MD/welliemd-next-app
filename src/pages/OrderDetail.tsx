@@ -924,9 +924,29 @@ export default function OrderDetail() {
           
           // Inject prescribed product into initial Prescribed event if missing
           if (evt.event_type === "status.prescribed" && !desc.includes("Prescribed: ")) {
-             const pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
+             let pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
+             
+             // If there are revisions, the CURRENT product name might not be the INITIAL one.
+             // We can find the initial product from the FIRST rx_revision event.
+             const firstRxRevision = Array.isArray(order.activity_events) 
+                ? order.activity_events.find((e: any) => e.event_type === "rx_revision") 
+                : null;
+             
+             if (firstRxRevision && firstRxRevision.description) {
+                 const rxDesc = firstRxRevision.description;
+                 const prevMatch = rxDesc.match(/Previously prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
+                 if (prevMatch && prevMatch[1]) {
+                     pName = prevMatch[1].trim();
+                 } else if (rxDesc.includes("Prescribed: ")) {
+                     const newMatch = rxDesc.match(/Prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
+                     if (newMatch && newMatch[1]) {
+                         pName = newMatch[1].trim();
+                     }
+                 }
+             }
+
              if (pName && pName.toLowerCase() !== "same med" && pName.toLowerCase() !== "same medicine" && pName !== "Unknown Product") {
-                 return `${desc}\n\nPrescribed: ${pName}.`
+                 return `${desc}\nPrescribed: ${pName}.`
              }
           }
 
@@ -1617,7 +1637,7 @@ export default function OrderDetail() {
                           <span className="text-xs text-slate-400 whitespace-nowrap">{item.date}</span>
                         </div>
                         {item.description && (
-                          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{item.description}</p>
+                          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 whitespace-pre-line">{item.description}</p>
                         )}
                         {item.actions && item.actions.length > 0 && (
                           <div className="mt-2 flex flex-wrap gap-2">
