@@ -30,6 +30,7 @@ import {
   CalendarIcon,
   X,
   Building2,
+  Loader2,
 } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
@@ -80,6 +81,7 @@ interface DataTableProps {
   onRefresh?: () => void;
   getRowClassName?: (row: unknown) => string;
   loading?: boolean;
+  loadingMessage?: string;
   pagination?: PaginationConfig; // External pagination config
 }
 
@@ -102,6 +104,7 @@ export function DataTable({
   onRefresh,
   getRowClassName,
   loading,
+  loadingMessage = "Loading data",
   pagination,
 }: DataTableProps) {
   // ---- pagination state (internal or external) ----
@@ -325,7 +328,25 @@ export function DataTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visibleData.length > 0 ? (
+              {loading ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-32 text-center py-8"
+                  >
+                    <div className="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      <p className="mt-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {loadingMessage}
+                      </p>
+                      <div className="mt-4 flex w-full max-w-sm flex-col gap-2">
+                        <div className="h-2.5 w-full animate-pulse rounded bg-gray-100 dark:bg-gray-800" />
+                        <div className="mx-auto h-2.5 w-4/5 animate-pulse rounded bg-gray-100 dark:bg-gray-800" />
+                      </div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : visibleData.length > 0 ? (
                 visibleData.map((row, index) => (
                   <TableRow
                     key={index}

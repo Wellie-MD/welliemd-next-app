@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Sheet,
   SheetContent,
@@ -79,6 +79,17 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
   const [trackingNumber, setTrackingNumber] = useState<string>("")
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
+
+  // Reset form state whenever the selected order changes
+  useEffect(() => {
+    if (order) {
+      setNewStatus(order.status)
+      setTrackingNumber(order.tracking_number || "")
+    } else {
+      setNewStatus("")
+      setTrackingNumber("")
+    }
+  }, [order?.id])
 
   const isTerminal = order ? TERMINAL_STATUSES.includes(order.status) : false
 

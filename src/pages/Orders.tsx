@@ -372,6 +372,7 @@ export default function Orders() {
         onExport={handleExport}
         onRefresh={handleRefresh}
         loading={loading}
+        loadingMessage="Loading orders"
         pagination={{
           currentPage: pagination.page,
           totalPages: pagination.total_pages,

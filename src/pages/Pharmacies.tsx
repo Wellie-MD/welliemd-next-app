@@ -39,14 +39,18 @@ export default function Pharmacies() {
   const [deleteTarget, setDeleteTarget] = useState<Pharmacy | null>(null);
   const [syncToClientsLoading, setSyncToClientsLoading] = useState(false);
   const [confirmSyncToClients, setConfirmSyncToClients] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const fetchList = async () => {
+    setLoading(true);
     try {
       const list = await pharmacyApi.list({ search });
       setItems(list);
     } catch (e) {
       console.error(e);
       setItems([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -278,6 +282,8 @@ export default function Pharmacies() {
           );
         }}
         onRefresh={() => setRefreshKey(v => v + 1)}
+        loading={loading}
+        loadingMessage="Loading pharmacies"
       />
 
       {/* Delete Confirmation Modal */}

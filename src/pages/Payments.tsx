@@ -207,6 +207,7 @@ export default function Payments() {
         onExport={handleExport}
         onRefresh={handleRefresh}
         loading={loading}
+        loadingMessage="Loading payments"
         pagination={{
           currentPage,
           totalPages,
