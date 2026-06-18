@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
 import { useNavigate } from "react-router-dom";
-import { templateApi, QuestionnaireTemplate } from "@/api/questionnaires";
+import {
+  templateApi,
+  QuestionnaireTemplate,
+  PaginatedQuestionnaireTemplatesResponse,
+} from "@/api/questionnaires";
 import { useClients } from "@/hooks/useClients";
 import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
@@ -190,11 +194,13 @@ export default function TemplateManagement() {
   const [activeStatusFilter, setActiveStatusFilter] = useState("All");
   const [activeTypeFilter, setActiveTypeFilter] = useState("All Types");
   const [date, setDate] = useState<DateRange | undefined>();
-  const [refreshKey, setRefreshKey] = useState(0);
   const [publishingIds, setPublishingIds] = useState<Set<string>>(new Set());
   const [editingSlugTemplate, setEditingSlugTemplate] = useState<QuestionnaireTemplate | null>(null);
   const [slugInputValue, setSlugInputValue] = useState("");
   const [slugSaving, setSlugSaving] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { currentClient } = useClients();
@@ -209,19 +215,26 @@ export default function TemplateManagement() {
     [currentClient]
   );
 
-  const fetchTemplates = async () => {
+  const fetchTemplates = useCallback(async (page: number, size: number) => {
     try {
       setLoading(true);
-      const data = await templateApi.listTemplates();
+      const data = await templateApi.listTemplates({
+        page,
+        page_size: size,
+      });
 
       // Handle both array response and paginated response
       if (Array.isArray(data)) {
         setTemplates(data);
+        setTotalCount(data.length);
       } else if (data && typeof data === "object" && "results" in data) {
         // Paginated response
-        setTemplates((data as unknown).results || []);
+        const paginatedData = data as PaginatedQuestionnaireTemplatesResponse;
+        setTemplates(paginatedData.results || []);
+        setTotalCount(paginatedData.count || 0);
       } else {
         setTemplates([]);
+        setTotalCount(0);
       }
     } catch (error: unknown) {
       console.error("Failed to fetch templates:", error);
@@ -234,15 +247,15 @@ export default function TemplateManagement() {
         variant: "destructive",
       });
       setTemplates([]); // Set empty array on error
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
-    fetchTemplates();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    fetchTemplates(currentPage, pageSize);
+  }, [fetchTemplates, currentPage, pageSize]);
 
   const handleManageQuestions = (template: QuestionnaireTemplate) => {
     navigate(`/dashboard/templates/${template.id}/flow-builder`);
@@ -283,7 +296,7 @@ export default function TemplateManagement() {
       });
       setEditingSlugTemplate(null);
       setSlugInputValue("");
-      fetchTemplates();
+      fetchTemplates(currentPage, pageSize);
     } catch (error: unknown) {
       toast({
         title: "Error",
@@ -296,7 +309,7 @@ export default function TemplateManagement() {
     } finally {
       setSlugSaving(false);
     }
-  }, [editingSlugTemplate, slugInputValue, toast]);
+  }, [currentPage, editingSlugTemplate, fetchTemplates, pageSize, slugInputValue, toast]);
 
   const handleCopyQuestionnaireLink = async (
     template: QuestionnaireTemplate
@@ -391,7 +404,7 @@ export default function TemplateManagement() {
         });
       }
       // Refresh templates to get updated status
-      fetchTemplates();
+      fetchTemplates(currentPage, pageSize);
     } catch (error: unknown) {
       toast({
         title: "Error",
@@ -476,7 +489,10 @@ export default function TemplateManagement() {
       label: status,
       type: "button" as const,
       value: activeStatusFilter === status ? status : undefined,
-      onClick: () => setActiveStatusFilter(status),
+      onClick: () => {
+        setActiveStatusFilter(status);
+        setCurrentPage(1);
+      },
     })),
     // Type filters
     ...typeFilters.map((type) => ({
@@ -484,7 +500,10 @@ export default function TemplateManagement() {
       label: type,
       type: "button" as const,
       value: activeTypeFilter === type ? type : undefined,
-      onClick: () => setActiveTypeFilter(type),
+      onClick: () => {
+        setActiveTypeFilter(type);
+        setCurrentPage(1);
+      },
     })),
   ];
 
@@ -493,13 +512,19 @@ export default function TemplateManagement() {
     setActiveTypeFilter("All Types");
     setDate(undefined);
     setSearchTerm("");
+    setCurrentPage(1);
   }, []);
 
   const handleRefresh = useCallback(() => {
-    setRefreshKey((prev) => prev + 1);
-    fetchTemplates();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchTemplates(currentPage, pageSize);
+  }, [currentPage, fetchTemplates, pageSize]);
+
+  const handlePageSizeChange = useCallback((nextPageSize: number) => {
+    setPageSize(nextPageSize);
+    setCurrentPage(1);
   }, []);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   const handleExport = useCallback(() => {
     const exportData = filteredTemplates.map((template) => {
@@ -640,11 +665,7 @@ export default function TemplateManagement() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center p-12">
-          <p className="text-muted-foreground">Loading templates...</p>
-        </div>
-      ) : templates.length === 0 ? (
+      {!loading && templates.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-lg">
           <p className="text-muted-foreground mb-4">
             No templates assigned yet
@@ -666,11 +687,26 @@ export default function TemplateManagement() {
           showResetFilters={true}
           filters={filters}
           dateRange={date}
-          onDateRangeChange={setDate}
-          onSearch={setSearchTerm}
+          onDateRangeChange={(nextDate) => {
+            setDate(nextDate);
+            setCurrentPage(1);
+          }}
+          onSearch={(nextSearchTerm) => {
+            setSearchTerm(nextSearchTerm);
+            setCurrentPage(1);
+          }}
           onResetFilters={handleResetFilters}
           onExport={handleExport}
           onRefresh={handleRefresh}
+          loading={loading}
+          pagination={{
+            currentPage,
+            totalPages,
+            pageSize,
+            totalCount,
+            onPageChange: setCurrentPage,
+            onPageSizeChange: handlePageSizeChange,
+          }}
         />
       )}
 

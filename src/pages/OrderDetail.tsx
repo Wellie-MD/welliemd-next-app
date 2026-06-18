@@ -221,11 +221,11 @@ export default function OrderDetail() {
       toast({
         title: response.message || "Checkout link email processed.",
       })
-    } catch (err: any) {
+    } catch (err: unknown) {
       const message =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.response?.data?.detail ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.message ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.error ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.detail ||
         "Failed to send checkout link email."
       toast({
         title: message,
@@ -651,11 +651,11 @@ export default function OrderDetail() {
         return
       }
       const txStatus = String(result.transaction_status || "").toLowerCase()
-      const settledStatuses = new Set(["captured", "succeeded"])
+      const settledStatuses = new Set(["approved", "captured", "succeeded"])
       const settlementState = String(result.payment_settlement_state || "").toLowerCase()
       if (
         normalizeRetryErrorMessage(responseMessage) !== responseMessage ||
-        !settledStatuses.has(txStatus) ||
+        (txStatus && !settledStatuses.has(txStatus)) ||
         settlementState !== "captured"
       ) {
         toast({
@@ -672,6 +672,21 @@ export default function OrderDetail() {
       setShowRetryPaymentDialog(false)
       await refetchOrderWithRetries()
     } catch (err: unknown) {
+      if (orderId) {
+        try {
+          const refreshed = await (isUuid(orderId)
+            ? ordersApi.fetchOrder(orderId, true)
+            : ordersApi.fetchOrderByOrderId(orderId, true))
+          setOrder(refreshed)
+          if (String(refreshed.payment_settlement_state || "").toLowerCase() === "captured") {
+            toast({ title: "Payment retry completed successfully." })
+            setShowRetryPaymentDialog(false)
+            return
+          }
+        } catch {
+          // Keep the original retry error below; this refresh is only a reconciliation check.
+        }
+      }
       const message =
         (err as { response?: { data?: { error?: string; detail?: string } } })?.response?.data?.error ||
         (err as { response?: { data?: { error?: string; detail?: string } } })?.response?.data?.detail ||

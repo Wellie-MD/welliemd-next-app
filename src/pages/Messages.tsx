@@ -204,6 +204,7 @@ export default function Messages() {
   // attachments state (ENABLED only for Patient tab)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [sendError, setSendError] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const conversations = useMemo(() => {
@@ -555,6 +556,7 @@ export default function Messages() {
       });
       return next;
     });
+    if (sendError) setSendError("");
     e.currentTarget.value = ""; // allow re-pick same file
   };
 
@@ -617,6 +619,7 @@ export default function Messages() {
     sendInFlightRef.current = true;
     setSending(true);
     setUploading(true);
+    setSendError("");
     try {
       // 1) upload all attachments in parallel
       const uploads = await Promise.all(
@@ -719,6 +722,7 @@ export default function Messages() {
       });
     } catch (err) {
       console.error("Failed to send message with attachments", err);
+      setSendError(err instanceof Error ? err.message : "Unable to send message. Please try again.");
     } finally {
       setUploading(false);
       setSending(false);
@@ -1096,6 +1100,7 @@ export default function Messages() {
                     value={newMessage}
                     onChange={(e) => {
                       setNewMessage(e.target.value)
+                      if (sendError) setSendError("")
                       resizeComposer()
                     }}
                     onKeyDown={(e) => {
@@ -1115,6 +1120,11 @@ export default function Messages() {
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
+                {sendError && (
+                  <div className="mt-2 px-1 text-sm text-destructive">
+                    {sendError}
+                  </div>
+                )}
 
                 {/* Selected files preview — hidden on Support tab */}
                 {tab !== "support" && attachedFiles.length > 0 && (
