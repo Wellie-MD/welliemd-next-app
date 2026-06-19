@@ -1273,6 +1273,9 @@ export default function OrderDetail() {
       : null) ??
     parseMoney(order.pricing?.subtotal_before_discount ?? order.original_price) ??
     0
+  const requestedProductShippingAmount =
+    parseMoney(order.requested_medicines?.[0]?.shipping_fee) ??
+    previewShippingFee
 
   const itemPrice = formatMoney(displayItemUnitPrice)
   const lineTotalPrice = formatMoney(displayLineTotal)
@@ -1612,7 +1615,7 @@ export default function OrderDetail() {
                           Requested Product Shipping:
                         </td>
                         <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                          ${formatMoney(previewShippingFee)}
+                          ${formatMoney(requestedProductShippingAmount)}
                         </td>
                       </tr>
                       {hasSplitSettlement && (

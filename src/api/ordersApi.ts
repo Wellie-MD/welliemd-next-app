@@ -60,6 +60,7 @@ export interface PrescriptionMedication {
   quantity?: string
   medId?: string
   rxId?: string
+  shipping_fee?: string | number | null
 }
 
 export interface OrderPricingSupplyLineItem {
