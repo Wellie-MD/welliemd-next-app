@@ -1016,6 +1016,7 @@ export default function OrderDetail() {
   const settlementAmount = parseMoney((order as Order & { payment_settlement_amount?: string | number | null }).payment_settlement_amount)
   const chargeableAmount = parseMoney((order as Order & { chargeable_amount?: string | number | null }).chargeable_amount)
   const refundedAmount = parseMoney(order.totalRefunded) ?? 0
+  const netCollectedAmount = parseMoney(order.netCollected)
   const netTotalAmount =
     totalAmount != null
       ? Math.max(0, totalAmount - refundedAmount)
@@ -1100,7 +1101,7 @@ export default function OrderDetail() {
     : (shouldPreferPrescribedDisplay ? prescribedDisplayTotal : calculatedTotal)
 
   const previewNetTotal = previewTotal != null
-    ? Math.max(0, previewTotal - refundedAmount)
+    ? (shouldPreferPrescribedDisplay ? previewTotal : Math.max(0, previewTotal - refundedAmount))
     : netTotalAmount
 
   // In split-capture rows, always reconcile remaining amount against the
@@ -1240,6 +1241,7 @@ export default function OrderDetail() {
   )
   const totalPrice = formatMoney(previewTotal)
   const netTotalPrice = formatMoney(previewNetTotal)
+  const netCollectedPrice = formatMoney(netCollectedAmount ?? previewNetTotal)
 
   const TimelineIcon = ({ name, iconBg }: { name: TimelineItem["icon"]; iconBg: string }) => {
     const iconMap = {
@@ -2145,7 +2147,7 @@ export default function OrderDetail() {
               {refundedAmount > 0 && (
                 <div className="flex justify-between">
                   <span className="text-slate-500 dark:text-slate-400">Net Collected</span>
-                  <span className="text-slate-900 dark:text-white font-medium">${netTotalPrice}</span>
+                  <span className="text-slate-900 dark:text-white font-medium">${netCollectedPrice}</span>
                 </div>
               )}
               <div className="pt-3 border-t border-border flex justify-between items-center mt-2">

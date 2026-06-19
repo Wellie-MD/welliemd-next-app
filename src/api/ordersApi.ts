@@ -132,6 +132,7 @@ export interface Order {
   supplemental_captured_amount?: string | null
   payment_settlement_transactions?: OrderSettlementTransaction[]
   totalRefunded?: string | null
+  netCollected?: string | null
   refundableAmount?: string | null
   baseRefundableAmount?: string | null
   supplementalRefundableAmount?: string | null
