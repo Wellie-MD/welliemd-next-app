@@ -29,11 +29,15 @@ import {
 } from "@dnd-kit/sortable";
 import type { ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
 import { createMockId } from "@/features/treatments/common/data/factories";
+import { useQueryClient } from "@tanstack/react-query";
+import { treatmentsApi } from "@/features/treatments/api/treatmentsApi";
 import {
   useSaveProgramQuestion,
   useDeleteProgramQuestion,
   useReorderProgramQuestions,
+  treatmentQueryKeys,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import type { QuestionFlowAdapter, QuestionFlowItem } from "@/features/treatments/question-flow-builder/types";
 import { toast } from "@/components/ui/use-toast";
 
 // Sub-modals & components
@@ -59,7 +63,6 @@ export interface SharedQuestionsListProps {
   authConfig?: any;
   viewMode?: "list" | "flow";
   onViewModeChange?: (mode: "list" | "flow") => void;
-  flowAdapter?: any;
   onOpenPreview?: () => void;
 }
 
@@ -75,7 +78,6 @@ export function SharedQuestionsList({
   authConfig,
   viewMode = "list",
   onViewModeChange,
-  flowAdapter,
   onOpenPreview,
 }: SharedQuestionsListProps) {
   const [questions, setQuestions] = useState<ProgramQuestion[]>(initialQuestions);
@@ -101,9 +103,53 @@ export function SharedQuestionsList({
   }, [initialQuestions]);
 
   // Mutations
+  const queryClient = useQueryClient();
   const saveQuestionMutation = useSaveProgramQuestion(entityId);
   const deleteQuestionMutation = useDeleteProgramQuestion(entityId);
   const reorderQuestionsMutation = useReorderProgramQuestions(entityId);
+
+  // Flow-builder adapter derived from the live questions, so the Flow view and
+  // the List view share one source of truth and one persistence store. Adding
+  // an element via the modals (which updates `questions`) re-seeds the canvas;
+  // canvas reorders/deletes persist through the same program-questions store.
+  const flowSubtitle = entityType === "program"
+    ? `Internal Program • ${questions.length} elements`
+    : `Common Section • ${questions.length} fields`;
+
+  const flowBuilderAdapter = useMemo<QuestionFlowAdapter>(() => ({
+    entityType,
+    entityId,
+    title: headerTitle,
+    subtitle: flowSubtitle,
+    items: [...questions]
+      .sort((a, b) => a.order - b.order)
+      .map((q) => ({
+        id: q.id,
+        order: q.order,
+        text: q.text,
+        kind: q.kind,
+        required: q.required,
+        metadata: { section: q.section, choices: q.choices },
+      })),
+    saveItems: async (newItems: QuestionFlowItem[]) => {
+      const updated: ProgramQuestion[] = newItems.map((item, index) => {
+        const existing = questions.find((q) => q.id === item.id);
+        return {
+          ...existing,
+          id: item.id,
+          order: index + 1,
+          text: item.text,
+          kind: item.kind,
+          required: item.required,
+          section: existing?.section ?? (entityType === "section" ? entityName : "Default"),
+        } as ProgramQuestion;
+      });
+      await treatmentsApi.saveProgramQuestions(entityId, updated);
+      setQuestions(updated);
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(entityId) });
+      toast({ title: "Flow Saved", description: "Question sequence saved successfully." });
+    },
+  }), [questions, entityType, entityId, entityName, headerTitle, flowSubtitle, queryClient]);
 
   // dnd-kit sensors
   const sensors = useSensors(
@@ -265,15 +311,13 @@ export function SharedQuestionsList({
     setActiveEditingQuestion(null);
   };
 
-  if (viewMode === "flow" && flowAdapter) {
-    const subtitle = entityType === "program" 
-      ? `Internal Program • ${questions.length} elements`
-      : `Common Section • ${questions.length} fields`;
+  if (viewMode === "flow") {
+    const subtitle = flowSubtitle;
 
     return (
       <div className="flex flex-col min-h-screen bg-slate-50 w-full p-6">
         <QuestionFlowBuilder
-          adapter={flowAdapter}
+          adapter={flowBuilderAdapter}
           entityType={entityType}
           title={headerTitle}
           subtitle={subtitle}

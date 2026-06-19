@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import type { QuestionFlowAdapter, QuestionFlowItem } from "../types";
 import { createMockId } from "@/features/treatments/common/data/factories";
 import type { QuestionKind } from "@/features/treatments/types";
@@ -10,6 +10,20 @@ export function useQuestionFlowBuilder(adapter: QuestionFlowAdapter) {
   const [items, setItems] = useState<QuestionFlowItem[]>(adapter.items);
   const [isSaving, setIsSaving] = useState(false);
   const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
+
+  // Keep the builder in sync with the source-of-truth items. The adapter is
+  // rebuilt whenever the underlying questions change (e.g. a modal adds an
+  // element, or an external edit persists), so re-seed local state on those
+  // content changes. Local drag reorders don't change the signature until they
+  // are saved, so in-progress reorders are preserved.
+  const adapterSignature = useMemo(
+    () => adapter.items.map((item) => `${item.id}:${item.order}:${item.kind}:${item.required}:${item.text}`).join("|"),
+    [adapter.items]
+  );
+  useEffect(() => {
+    setItems(adapter.items);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adapterSignature]);
 
   // Sorting items by order just to be safe
   const sortedItems = useMemo(() => [...items].sort((a, b) => a.order - b.order), [items]);

@@ -12,55 +12,67 @@ interface TreatmentTypeModalProps {
   treatmentTypeKey?: string | null;
 }
 
+const Code = ({ children }: { children: React.ReactNode }) => (
+  <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px] text-slate-700">{children}</code>
+);
+
 export function TreatmentTypeModal({ open, onOpenChange, treatmentTypeKey }: TreatmentTypeModalProps) {
   const { data: treatmentTypes = [] } = useTreatmentTypes();
   const { mutate: saveTreatmentType, isPending } = useSaveTreatmentType();
 
   const [name, setName] = useState("");
-  const [key, setKey] = useState("");
-  const [followupVisitType, setFollowupVisitType] = useState("");
+  const [intake, setIntake] = useState("");
+  const [followup, setFollowup] = useState("");
+  // Tracks whether the admin manually edited follow-up; until then it is
+  // auto-derived from the intake identifier (convention: <intake>followup).
+  const [followupTouched, setFollowupTouched] = useState(false);
 
   useEffect(() => {
-    if (treatmentTypeKey) {
-      const existing = treatmentTypes.find((t) => t.key === treatmentTypeKey);
-      if (existing) {
-        setName(existing.name || "");
-        setKey(existing.key || "");
-        setFollowupVisitType(existing.followupVisitType || "");
-      }
+    if (!open) return;
+    const existing = treatmentTypeKey ? treatmentTypes.find((t) => t.key === treatmentTypeKey) : undefined;
+    if (existing) {
+      setName(existing.name || "");
+      setIntake(existing.intakeVisitType || "");
+      setFollowup(existing.followupVisitType || "");
+      setFollowupTouched(true);
     } else {
       setName("");
-      setKey("");
-      setFollowupVisitType("");
+      setIntake("");
+      setFollowup("");
+      setFollowupTouched(false);
     }
   }, [treatmentTypeKey, open, treatmentTypes]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleIntakeChange = (value: string) => {
+    setIntake(value);
+    if (!followupTouched) {
+      setFollowup(value.trim() ? `${value.trim()}followup` : "");
+    }
+  };
+
+  const handleFollowupChange = (value: string) => {
+    setFollowup(value);
+    setFollowupTouched(true);
+  };
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     if (!name.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Name is required.",
-        variant: "destructive",
-      });
+      toast({ title: "Validation Error", description: "Display name is required.", variant: "destructive" });
       return;
     }
-    if (!key.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Intake Visit Type is required.",
-        variant: "destructive",
-      });
+    if (!intake.trim()) {
+      toast({ title: "Validation Error", description: "Intake visit-type identifier is required.", variant: "destructive" });
       return;
     }
 
-    const existing = treatmentTypes.find((t) => t.key === treatmentTypeKey);
+    const existing = treatmentTypeKey ? treatmentTypes.find((t) => t.key === treatmentTypeKey) : undefined;
     const payload: TreatmentType = {
-      id: existing?.id || key.trim(),
-      name,
-      key: key.trim(),
-      intakeVisitType: key.trim(),
-      followupVisitType: followupVisitType.trim() || undefined,
+      id: existing?.id || `tt-${intake.trim()}`,
+      name: name.trim(),
+      key: existing?.key || intake.trim(),
+      intakeVisitType: intake.trim(),
+      followupVisitType: followup.trim() || undefined,
       description: existing?.description || "",
       programCount: existing?.programCount || 0,
       productCount: existing?.productCount || 0,
@@ -73,83 +85,87 @@ export function TreatmentTypeModal({ open, onOpenChange, treatmentTypeKey }: Tre
       onSuccess: () => {
         toast({
           title: treatmentTypeKey ? "Treatment Type Updated" : "Treatment Type Created",
-          description: `Successfully saved "${name}".`,
+          description: `Successfully saved "${name.trim()}".`,
         });
         onOpenChange(false);
       },
       onError: () => {
-        toast({
-          title: "Error",
-          description: "Failed to save treatment type.",
-          variant: "destructive",
-        });
+        toast({ title: "Error", description: "Failed to save treatment type.", variant: "destructive" });
       },
     });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] bg-slate-50 overflow-hidden flex flex-col p-0">
-        <DialogHeader className="px-6 py-5 border-b border-slate-200 bg-white shrink-0">
+      <DialogContent className="flex flex-col gap-0 overflow-hidden bg-white p-0 sm:max-w-[540px]">
+        <DialogHeader className="shrink-0 border-b border-slate-200 px-6 py-5">
           <DialogTitle className="text-xl font-bold text-slate-900">
             {treatmentTypeKey ? "Edit Treatment Type" : "Create Treatment Type"}
           </DialogTitle>
-          <p className="text-sm text-slate-500 mt-1">
-            {treatmentTypeKey 
-              ? "Update this treatment type. Visit-type identifiers can be shared with other treatments." 
+          <p className="mt-1 text-sm text-slate-500">
+            {treatmentTypeKey
+              ? "Update this treatment type. Visit-type identifiers can be shared with other treatments."
               : "Add a new treatment to the catalog. Multiple treatment types can share the same visit-type identifiers."}
           </p>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="p-6 bg-white space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 p-6">
           <div>
-            <label className="block text-sm font-semibold text-slate-900 mb-1.5">
-              Name <span className="text-red-500">*</span>
+            <label className="mb-1.5 block text-sm font-semibold text-slate-900" htmlFor="tt-name">
+              Display Name <span className="text-red-500">*</span>
             </label>
             <Input
-              type="text"
+              id="tt-name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Branded GLP-1"
-              required
+              onChange={(event) => setName(event.target.value)}
+              placeholder="e.g., Branded GLP, Compounded GLP, Testosterone Replacement"
+              data-testid="treatment-type-name"
             />
-            <p className="text-xs text-slate-500 mt-1.5">Human-readable name shown to admins and patients.</p>
+            <p className="mt-1.5 text-xs text-slate-500">
+              Human-readable name shown to admins and (often) to patients. This is the treatment type.
+            </p>
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slate-900 mb-1.5">
-              Intake Visit Type <span className="text-red-500">*</span>
+            <label className="mb-1.5 block text-sm font-semibold text-slate-900" htmlFor="tt-intake">
+              Intake visit-type identifier <span className="text-red-500">*</span>
             </label>
             <Input
-              type="text"
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              disabled={!!treatmentTypeKey} // Keep key read-only on edit to prevent identity mismatch
-              placeholder="e.g., weightloss"
-              required
+              id="tt-intake"
+              value={intake}
+              onChange={(event) => handleIntakeChange(event.target.value)}
+              placeholder="e.g., weightloss, trt, ed"
               className="font-mono"
+              data-testid="treatment-type-intake"
             />
-            <p className="text-xs text-slate-500 mt-1.5">System identifier used for routing intake visits. Can be shared.</p>
+            <p className="mt-1.5 text-xs text-slate-500">
+              System identifier used for routing intake visits. <span className="font-semibold text-slate-700">Can be shared</span> across treatment types — e.g. Branded GLP and Compounded GLP both use <Code>weightloss</Code>.
+            </p>
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slate-900 mb-1.5">
-              Follow-up Visit Type
+            <label className="mb-1.5 block text-sm font-semibold text-slate-900" htmlFor="tt-followup">
+              Follow-up visit-type identifier
             </label>
             <Input
-              type="text"
-              value={followupVisitType}
-              onChange={(e) => setFollowupVisitType(e.target.value)}
-              placeholder="e.g., weightloss_fu"
+              id="tt-followup"
+              value={followup}
+              onChange={(event) => handleFollowupChange(event.target.value)}
+              placeholder="e.g., weightlossfollowup, trtFollowup"
               className="font-mono"
+              data-testid="treatment-type-followup"
             />
-            <p className="text-xs text-slate-500 mt-1.5">System identifier for follow-ups.</p>
+            <p className="mt-1.5 text-xs text-slate-500">
+              Optional. System identifier for follow-up visits. Auto-generated from the intake identifier (convention: <Code>&lt;intake&gt;followup</Code>). Leave blank if this treatment doesn&apos;t have follow-ups.
+            </p>
           </div>
 
-          <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 -mx-6 -mb-6 flex justify-end gap-2 shrink-0">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={isPending} className="bg-[#12517A] text-white hover:bg-[#12517A]/90">
-              {isPending ? "Saving..." : treatmentTypeKey ? "Update Treatment Type" : "Create Treatment Type"}
+          <div className="-mx-6 -mb-6 flex shrink-0 justify-end gap-2 border-t border-slate-200 bg-slate-50 px-6 py-4">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isPending} className="bg-[#2563eb] text-white hover:bg-blue-700" data-testid="treatment-type-save">
+              {isPending ? "Saving…" : treatmentTypeKey ? "Update Treatment Type" : "Create Treatment Type"}
             </Button>
           </div>
         </form>

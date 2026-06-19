@@ -64,6 +64,7 @@ export default function CustomProgramBuilderPage() {
       title: item.title,
       subtitle: item.subtitle,
       treatmentTypeKey: item.treatmentTypeKey,
+      sourceId: item.sourceId,
     };
 
     items.splice(insertIdx, 0, newItem);

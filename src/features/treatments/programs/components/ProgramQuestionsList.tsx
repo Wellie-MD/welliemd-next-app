@@ -1,13 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Grid3X3, List as ListIcon, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { X } from "lucide-react";
 import type { Program, ProgramQuestion } from "@/features/treatments/types";
 import { SharedQuestionsList } from "@/features/treatments/common/components/SharedQuestionsList";
-import { programQuestionFlowAdapter } from "@/features/treatments/question-flow-builder/utils/questionFlowAdapters";
-import { QuestionFlowBuilder } from "@/features/treatments/question-flow-builder/components/QuestionFlowBuilder";
 import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
 
 interface ProgramQuestionsListProps {
@@ -29,11 +25,6 @@ export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuest
   const setViewMode = (mode: "list" | "flow") => {
     setSearchParams({ view: mode }, { replace: true });
   };
-
-  const [adapter, setAdapter] = useState<any>(null);
-  useEffect(() => {
-    programQuestionFlowAdapter(program.id, program.name).then(setAdapter);
-  }, [program.id, program.name]);
 
   const headerExtraActions = (
     <div className="flex items-center gap-2">
@@ -85,7 +76,6 @@ export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuest
         authConfig={program.authConfig}
         viewMode={viewMode as "list" | "flow"}
         onViewModeChange={setViewMode}
-        flowAdapter={adapter}
         onOpenPreview={() => setIsSimulateOpen(true)}
       />
 

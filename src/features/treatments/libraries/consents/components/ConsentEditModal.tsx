@@ -1,13 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Trash2, Plus } from "lucide-react";
-import { useConsents, useSaveConsent } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RichTextEditor } from "@/components/primitives/RichTextEditor";
+import { Trash2, Plus, Check, X } from "lucide-react";
+import {
+  useConsents,
+  useSaveConsent,
+  useTreatmentTypes,
+} from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { toast } from "@/components/ui/use-toast";
-import type { ConsentForm } from "@/features/treatments/types";
-import { createMockId } from "@/features/treatments/common/data/factories";
+import type { ConsentForm, ConsentOption, TreatmentLibraryScope } from "@/features/treatments/types";
+import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
+import { cn } from "@/lib/utils";
 
 interface ConsentEditModalProps {
   open: boolean;
@@ -15,235 +21,298 @@ interface ConsentEditModalProps {
   consentId?: string | null;
 }
 
+const defaultOption = (): ConsentOption => ({
+  id: createMockId("opt"),
+  text: "I understand and agree",
+  disqualifies: false,
+});
+
 export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditModalProps) {
   const { data: consents = [] } = useConsents();
+  const { data: treatmentTypes = [] } = useTreatmentTypes();
   const { mutate: saveConsent, isPending } = useSaveConsent();
 
   const [name, setName] = useState("");
-  const [scope, setScope] = useState<"universal" | "treatment">("universal");
+  const [scope, setScope] = useState<TreatmentLibraryScope>("global");
+  const [visitTypeKeys, setVisitTypeKeys] = useState<string[]>([]);
   const [text, setText] = useState("");
-  const [options, setOptions] = useState<Array<{ text: string; disqualifies: boolean }>>([
-    { text: "I understand and agree", disqualifies: false },
-  ]);
+  const [options, setOptions] = useState<ConsentOption[]>([defaultOption()]);
+
+  const existing = useMemo(
+    () => (consentId ? consents.find((c) => c.id === consentId) : undefined),
+    [consentId, consents]
+  );
+
+  // Visit types available for treatment-scoped consents: union of treatment-type
+  // intake/follow-up visit types plus any already attached to this consent.
+  const visitTypeOptions = useMemo(() => {
+    const keys = new Set<string>();
+    treatmentTypes.forEach((type) => {
+      if (type.intakeVisitType) keys.add(type.intakeVisitType);
+      if (type.followupVisitType) keys.add(type.followupVisitType);
+    });
+    (existing?.visitTypeKeys ?? []).forEach((key) => keys.add(key));
+    return Array.from(keys).sort((a, b) => a.localeCompare(b));
+  }, [treatmentTypes, existing]);
 
   useEffect(() => {
-    if (consentId) {
-      const existing = consents.find((c) => c.id === consentId);
-      if (existing) {
-        setName(existing.name || "");
-        setScope(existing.scope || "universal");
-        setText(existing.text || "");
-        // In our mock model, options might not exist yet, let's fall back to default
-        setOptions(
-          existing.options || [
-            { text: "I understand and agree", disqualifies: false },
-          ]
-        );
-      }
+    if (!open) return;
+    if (existing) {
+      setName(existing.name || "");
+      setScope(existing.scope === "global" ? "global" : "treatment");
+      setVisitTypeKeys(existing.visitTypeKeys ?? []);
+      setText(existing.text || "");
+      setOptions(existing.options?.length ? existing.options : [defaultOption()]);
     } else {
       setName("");
-      setScope("universal");
+      setScope("global");
+      setVisitTypeKeys([]);
       setText("");
-      setOptions([{ text: "I understand and agree", disqualifies: false }]);
+      setOptions([defaultOption()]);
     }
-  }, [consentId, open, consents]);
+  }, [existing, open]);
 
-  const handleAddOption = () => {
-    setOptions([...options, { text: "", disqualifies: false }]);
+  const handleScopeChange = (next: TreatmentLibraryScope) => {
+    setScope(next);
+    if (next === "global") setVisitTypeKeys([]);
   };
 
-  const handleRemoveOption = (index: number) => {
-    const updated = [...options];
-    updated.splice(index, 1);
-    setOptions(updated);
+  const toggleVisitType = (key: string, checked: boolean) => {
+    setVisitTypeKeys((current) =>
+      checked ? [...current, key] : current.filter((item) => item !== key)
+    );
   };
 
-  const handleOptionTextChange = (index: number, val: string) => {
-    const updated = [...options];
-    updated[index].text = val;
-    setOptions(updated);
-  };
+  const handleAddOption = () =>
+    setOptions((current) => [...current, { id: createMockId("opt"), text: "", disqualifies: false }]);
 
-  const handleOptionDisqualifiesChange = (index: number, val: boolean) => {
-    const updated = [...options];
-    updated[index].disqualifies = val;
-    setOptions(updated);
-  };
+  const handleRemoveOption = (id: string) =>
+    setOptions((current) => current.filter((option) => option.id !== id));
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleOptionTextChange = (id: string, value: string) =>
+    setOptions((current) => current.map((option) => (option.id === id ? { ...option, text: value } : option)));
+
+  const handleOptionDisqualifiesChange = (id: string, value: boolean) =>
+    setOptions((current) => current.map((option) => (option.id === id ? { ...option, disqualifies: value } : option)));
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     if (!name.trim()) {
+      toast({ title: "Validation Error", description: "Consent name is required.", variant: "destructive" });
+      return;
+    }
+    if (!text.replace(/<[^>]*>/g, "").trim()) {
+      toast({ title: "Validation Error", description: "Consent text is required.", variant: "destructive" });
+      return;
+    }
+    if (scope === "treatment" && visitTypeKeys.length === 0) {
       toast({
         title: "Validation Error",
-        description: "Consent name is required.",
+        description: "Select at least one visit type for a treatment-specific consent.",
         variant: "destructive",
       });
       return;
     }
-    if (!text.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Consent text is required.",
-        variant: "destructive",
-      });
-      return;
-    }
+
+    const cleanedOptions = options
+      .map((option) => ({ ...option, text: option.text.trim() }))
+      .filter((option) => option.text.length > 0);
 
     const payload: ConsentForm = {
       id: consentId || createMockId("consent"),
-      name,
+      name: name.trim(),
       scope,
+      visitTypeKeys: scope === "treatment" ? visitTypeKeys : [],
       text,
-      options,
+      options: cleanedOptions,
+      updatedAt: existing?.updatedAt ?? currentDateStamp(),
     };
 
     saveConsent(payload, {
       onSuccess: () => {
         toast({
           title: consentId ? "Consent Updated" : "Consent Created",
-          description: `Successfully saved "${name}".`,
+          description: `Successfully saved "${name.trim()}".`,
         });
         onOpenChange(false);
       },
       onError: () => {
-        toast({
-          title: "Error",
-          description: "Failed to save consent form.",
-          variant: "destructive",
-        });
+        toast({ title: "Error", description: "Failed to save consent form.", variant: "destructive" });
       },
     });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[640px] bg-slate-50 overflow-hidden flex flex-col p-0 max-h-[90vh]">
-        <DialogHeader className="px-6 py-5 border-b border-slate-200 bg-white shrink-0">
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden bg-slate-50 p-0 sm:max-w-[680px]">
+        <DialogHeader className="shrink-0 border-b border-slate-200 bg-white px-6 py-5">
           <DialogTitle className="text-xl font-bold text-slate-900">
             {consentId ? "Edit Consent" : "Create Consent"}
           </DialogTitle>
-          <p className="text-sm text-slate-500 mt-1">
-            Update name, scope, treatment mapping, and text.
-          </p>
+          <p className="mt-1 text-sm text-slate-500">Update name, scope, visit-type mapping, options, and document text.</p>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6 bg-white">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-slate-900 mb-1.5">
-                Consent Name <span className="text-red-500">*</span>
-              </label>
-              <Input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Consent (Telehealth)"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-900 mb-1.5">
-                Scope <span className="text-red-500">*</span>
-              </label>
-              <div className="flex gap-2 h-10">
-                <label className={`flex-1 flex items-center gap-2 px-3 border rounded-md cursor-pointer transition-colors ${scope === "universal" ? "border-[#12517A] bg-blue-50/20" : "border-slate-200 bg-white"}`}>
-                  <input
-                    type="radio"
-                    name="scope"
-                    value="universal"
-                    checked={scope === "universal"}
-                    onChange={() => setScope("universal")}
-                    className="text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-slate-700">Universal</span>
+        <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex-1 space-y-6 overflow-y-auto bg-white p-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-slate-900" htmlFor="consent-name">
+                  Consent Name <span className="text-red-500">*</span>
                 </label>
-                <label className={`flex-1 flex items-center gap-2 px-3 border rounded-md cursor-pointer transition-colors ${scope === "treatment" ? "border-[#12517A] bg-blue-50/20" : "border-slate-200 bg-white"}`}>
-                  <input
-                    type="radio"
-                    name="scope"
-                    value="treatment"
-                    checked={scope === "treatment"}
-                    onChange={() => setScope("treatment")}
-                    className="text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-slate-700">Treatment</span>
+                <Input
+                  id="consent-name"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="e.g., Consent (Telehealth)"
+                  data-testid="consent-name-input"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-slate-900">
+                  Scope <span className="text-red-500">*</span>
                 </label>
+                <div className="flex h-10 gap-2">
+                  {(["global", "treatment"] as const).map((value) => (
+                    <label
+                      key={value}
+                      className={cn(
+                        "flex flex-1 cursor-pointer items-center gap-2 rounded-md border px-3 transition-colors",
+                        scope === value ? "border-[#12517A] bg-blue-50/20" : "border-slate-200 bg-white"
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="consent-scope"
+                        value={value}
+                        checked={scope === value}
+                        onChange={() => handleScopeChange(value)}
+                        className="text-blue-600 focus:ring-blue-500"
+                        data-testid={`consent-scope-${value}`}
+                      />
+                      <span className="text-sm font-medium text-slate-700">
+                        {value === "global" ? "Universal" : "Treatment-specific"}
+                      </span>
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-slate-900 mb-1.5">
-              Answer Options <span className="text-red-500">*</span>
-            </label>
-            <p className="text-xs text-slate-500 mb-3">
-              Each option a patient can pick. Mark which option(s) disqualify the patient.
-            </p>
-            <div className="space-y-2 mb-3">
-              {options.map((opt, index) => (
-                <div key={index} className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg bg-slate-50">
-                  <Input
-                    type="text"
-                    value={opt.text}
-                    onChange={(e) => handleOptionTextChange(index, e.target.value)}
-                    className="flex-1 h-9 bg-white"
-                    placeholder="Option text..."
-                    required
-                  />
-                  <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={opt.disqualifies}
-                      onChange={(e) => handleOptionDisqualifiesChange(index, e.target.checked)}
-                      className="rounded border-slate-300 text-red-600 focus:ring-red-500"
-                    />
-                    Disqualifies
-                  </label>
-                  {options.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-red-500 hover:text-red-700"
-                      onClick={() => handleRemoveOption(index)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+            {scope === "treatment" && (
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-slate-900">
+                  Visit Types <span className="text-red-500">*</span>
+                </label>
+                <p className="mb-3 text-xs text-slate-500">
+                  This consent only appears for patients on the selected visit types.
+                </p>
+                <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-3">
+                  {visitTypeOptions.length === 0 ? (
+                    <p className="col-span-full text-xs italic text-slate-400">No visit types available.</p>
+                  ) : (
+                    visitTypeOptions.map((key) => (
+                      <label key={key} className="flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-700">
+                        <Checkbox
+                          checked={visitTypeKeys.includes(key)}
+                          onCheckedChange={(checked) => toggleVisitType(key, checked === true)}
+                          aria-label={key}
+                          data-testid={`consent-visit-type-${key}`}
+                        />
+                        <code className="rounded bg-white px-1.5 py-0.5 text-[11px] text-slate-700">{key}</code>
+                      </label>
+                    ))
                   )}
                 </div>
-              ))}
+              </div>
+            )}
+
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-slate-900">
+                Answer Options <span className="text-red-500">*</span>
+              </label>
+              <p className="mb-3 text-xs text-slate-500">
+                Each option a patient can pick. Mark which option(s) disqualify the patient (block them from proceeding). Typically you&apos;ll have one &ldquo;agree&rdquo; option and one &ldquo;decline / disqualifying&rdquo; option.
+              </p>
+              <div className="mb-3 space-y-2">
+                {options.map((option) => (
+                  <div key={option.id} className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <Input
+                      value={option.text}
+                      onChange={(event) => handleOptionTextChange(option.id, event.target.value)}
+                      className="h-9 flex-1 bg-white"
+                      placeholder="Option text…"
+                      aria-label="Answer option text"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleOptionDisqualifiesChange(option.id, !option.disqualifies)}
+                      aria-pressed={option.disqualifies}
+                      className={cn(
+                        "flex shrink-0 items-center gap-1 rounded-md border px-2.5 py-1.5 text-[11px] font-bold transition-colors",
+                        option.disqualifies
+                          ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      )}
+                      data-testid={`consent-option-toggle-${option.id}`}
+                    >
+                      {option.disqualifies ? (
+                        <>
+                          <X className="h-3 w-3" /> Disqualifying
+                        </>
+                      ) : (
+                        <>
+                          <Check className="h-3 w-3" /> Continue
+                        </>
+                      )}
+                    </button>
+                    {options.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-500 hover:text-red-700"
+                        onClick={() => handleRemoveOption(option.id)}
+                        aria-label="Remove option"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddOption}
+                className="w-full border-dashed border-slate-300 bg-white text-slate-500 hover:text-slate-900"
+                data-testid="consent-add-option"
+              >
+                <Plus className="mr-1.5 h-4 w-4" /> Add answer option
+              </Button>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleAddOption}
-              className="w-full border-dashed border-slate-300 text-slate-500 hover:text-slate-900 bg-white"
-            >
-              <Plus className="mr-1.5 h-4 w-4" /> Add answer option
+
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-slate-900">
+                Consent Text <span className="text-red-500">*</span>
+              </label>
+              <p className="mb-3 text-xs text-slate-500">Bold key risks; use bullet lists for itemized acknowledgments.</p>
+              <RichTextEditor
+                value={text}
+                onChange={setText}
+                placeholder="Type the legal consent document here…"
+                maxLength={8000}
+                data-testid="consent-text-editor"
+              />
+            </div>
+          </div>
+
+          <div className="flex shrink-0 justify-end gap-2 border-t border-slate-200 bg-slate-50 px-6 py-4">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
             </Button>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-slate-900 mb-1.5">
-              Consent Text <span className="text-red-500">*</span>
-            </label>
-            <p className="text-xs text-slate-500 mb-3">
-              Bold key risks, use bullet lists for itemized acknowledgments.
-            </p>
-            <Textarea
-              className="w-full min-h-[150px] p-4 text-sm border border-slate-200 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-              placeholder="Type consent text here..."
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 -mx-6 -mb-6 flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={isPending} className="bg-[#12517A] text-white hover:bg-[#12517A]/90">
-              {isPending ? "Saving..." : "Save Changes"}
+            <Button type="submit" disabled={isPending} className="bg-[#12517A] text-white hover:bg-[#12517A]/90" data-testid="consent-save">
+              {isPending ? "Saving…" : consentId ? "Save Changes" : "Create Consent"}
             </Button>
           </div>
         </form>

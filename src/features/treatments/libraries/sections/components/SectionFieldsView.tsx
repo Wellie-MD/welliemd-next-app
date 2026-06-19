@@ -1,12 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Grid3X3, List as ListIcon, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { CommonSection } from "@/features/treatments/types";
 import { useProgramQuestions } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { SharedQuestionsList } from "@/features/treatments/common/components/SharedQuestionsList";
-import { sectionQuestionFlowAdapter } from "@/features/treatments/question-flow-builder/utils/questionFlowAdapters";
-import { QuestionFlowBuilder } from "@/features/treatments/question-flow-builder/components/QuestionFlowBuilder";
 import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
 
 interface SectionFieldsViewProps {
@@ -24,11 +22,6 @@ export function SectionFieldsView({ section, onBack }: SectionFieldsViewProps) {
   const setViewMode = (mode: "list" | "flow") => {
     setSearchParams({ sectionId: section.id, view: mode }, { replace: true });
   };
-
-  const [adapter, setAdapter] = useState<any>(null);
-  useEffect(() => {
-    sectionQuestionFlowAdapter(section.id, section.name).then(setAdapter);
-  }, [section.id, section.name]);
 
   const headerExtraActions = (
     <div className="flex items-center gap-2">
@@ -79,7 +72,6 @@ export function SectionFieldsView({ section, onBack }: SectionFieldsViewProps) {
         headerExtraActions={headerExtraActions}
         viewMode={viewMode as "list" | "flow"}
         onViewModeChange={setViewMode}
-        flowAdapter={adapter}
         onOpenPreview={() => setIsSimulateOpen(true)}
       />
 

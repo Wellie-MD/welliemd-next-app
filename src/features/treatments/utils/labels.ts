@@ -9,6 +9,14 @@ export const formatScope = (scope: TreatmentLibraryScope) => {
   return "Treatment";
 };
 
+/** Format an ISO date (YYYY-MM-DD) as MM/DD/YYYY; passes through unknown formats. */
+export const formatDateUS = (iso: string): string => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!match) return iso;
+  const [, year, month, day] = match;
+  return `${month}/${day}/${year}`;
+};
+
 export const formatFlowItemKind = (kind: FlowItemKind) => {
   const labels: Record<FlowItemKind, string> = {
     authentication: "Patient Authentication",

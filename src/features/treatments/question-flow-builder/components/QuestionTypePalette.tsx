@@ -60,6 +60,11 @@ export function QuestionTypePalette({ entityType, onAddItem }: QuestionTypePalet
     event.dataTransfer.setData("application/json", JSON.stringify({ kind: item.kind, text: item.text }));
   };
 
+  // Program "elements" (auth/section/consent/checkout/question) are added via
+  // dedicated modals, so they are click-only — dragging them onto the canvas
+  // would create items with non-question kinds. Section field types support drag.
+  const isDraggable = entityType === "section";
+
   return (
     <div className="flex flex-col h-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-100 p-4 shrink-0">
@@ -104,9 +109,12 @@ export function QuestionTypePalette({ entityType, onAddItem }: QuestionTypePalet
               key={item.kind}
               type="button"
               onClick={() => onAddItem(item.kind, item.text)}
-              draggable
-              onDragStart={(e) => handleDragStart(e, item)}
-              className="flex w-full cursor-grab items-center justify-between rounded-lg border border-slate-100 bg-white p-2 text-left transition-all duration-150 hover:border-slate-200 hover:bg-slate-50/80 hover:shadow-sm active:cursor-grabbing"
+              draggable={isDraggable}
+              onDragStart={isDraggable ? (e) => handleDragStart(e, item) : undefined}
+              className={cn(
+                "flex w-full items-center justify-between rounded-lg border border-slate-100 bg-white p-2 text-left transition-all duration-150 hover:border-slate-200 hover:bg-slate-50/80 hover:shadow-sm",
+                isDraggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+              )}
               data-testid={`palette-item-${item.kind}`}
             >
               <span className="flex min-w-0 items-center gap-2.5">

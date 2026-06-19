@@ -27,7 +27,7 @@ const KEYS = {
   SECTION_FIELDS: "welliemd_mock_section_fields",
 };
 
-const SEED_VERSION_KEY = "welliemd_mock_data_version_v9";
+const SEED_VERSION_KEY = "welliemd_mock_data_version_v12";
 
 const checkAndSeedMockData = () => {
   const seeded = localStorage.getItem(SEED_VERSION_KEY);
