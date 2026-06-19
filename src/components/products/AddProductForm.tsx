@@ -1,6 +1,6 @@
 "use client"
 
-import { ReactNode, useEffect, useMemo, useState } from "react"
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { UseFormRegisterReturn, useForm } from "react-hook-form"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { Box, DollarSign, ImageIcon, Lock, MapPin, Power, X } from "lucide-react"
@@ -74,6 +74,7 @@ export default function AddProductForm({
   const { register, handleSubmit, reset, setValue, watch } = useForm<ProductFormValues>()
   const [loading, setLoading] = useState(false)
   const [selectedImageUrl, setSelectedImageUrl] = useState("")
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
   const adminAllowedStates = normalizeStates(
@@ -122,6 +123,24 @@ export default function AddProductForm({
 
     return () => URL.revokeObjectURL(objectUrl)
   }, [selectedImage])
+
+  useEffect(() => {
+    if (!open) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [open])
+
+  const handleImageFileChange = (file: File | null) => {
+    setValue("product_image", file, { shouldDirty: true })
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
 
   useEffect(() => {
     if (!product) return
@@ -189,7 +208,7 @@ export default function AddProductForm({
   }
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={false}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-slate-950/55" />
         <DialogPrimitive.Content
@@ -494,26 +513,29 @@ export default function AddProductForm({
                   )}
                 </div>
 
-                <label
+                <div
+                  role="button"
+                  tabIndex={0}
                   className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-8 text-center transition-colors hover:border-sky-400"
                   style={{
                     minHeight: "242px",
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault()
+                      fileInputRef.current?.click()
+                    }
                   }}
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={(event) => {
                     event.preventDefault()
                     const file = event.dataTransfer.files?.[0]
                     if (file && file.type.startsWith("image/")) {
-                      setValue("product_image", file, { shouldDirty: true })
+                      handleImageFileChange(file)
                     }
                   }}
                 >
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/jpg"
-                    className="sr-only"
-                    onChange={(event) => setValue("product_image", event.target.files?.[0] ?? null, { shouldDirty: true })}
-                  />
                   <span className="flex h-11 w-11 items-center justify-center rounded-full bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400">
                     <ImageIcon className="h-5 w-5" />
                   </span>
@@ -524,7 +546,16 @@ export default function AddProductForm({
                   <span className="mt-2 rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
                     PNG or JPG - up to 5MB
                   </span>
-                </label>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg"
+                  className="hidden"
+                  tabIndex={-1}
+                  aria-hidden
+                  onChange={(event) => handleImageFileChange(event.target.files?.[0] ?? null)}
+                />
               </div>
             </Panel>
           </div>
