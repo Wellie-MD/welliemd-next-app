@@ -53,25 +53,38 @@ function arraysEqual(a: Message[], b: Message[]) {
   return true;
 }
 
+function uploadErrorMessage(error: unknown): string {
+  if (typeof error === "object" && error !== null && "response" in error) {
+    const response = (error as { response?: { data?: { detail?: string; error?: string } } }).response;
+    const detail = response?.data?.detail || response?.data?.error;
+    if (detail) return detail;
+  }
+  return error instanceof Error ? error.message : "File upload failed.";
+}
+
 export const messageService = {
   /** Upload a single file to S3 via BE StorageUploadView */
   async uploadAttachment(file: File): Promise<{ url: string; fileName: string; mimeType: string }> {
     const fd = new FormData();
     fd.append("file", file);
-    const { data } = await api.post<{
-      url: string;
-      fileName: string;
-      mimeType: string;
-      path: string;
-      originalFileName?: string;
-      original_file_name?: string;
-    }>(
-      "/storage/upload/",
-      fd,
-      { headers: { "Content-Type": "multipart/form-data" } }
-    );
-    const originalName = data.originalFileName || data.original_file_name || file.name;
-    return { url: data.url, fileName: originalName, mimeType: data.mimeType };
+    try {
+      const { data } = await api.post<{
+        url: string;
+        fileName: string;
+        mimeType: string;
+        path: string;
+        originalFileName?: string;
+        original_file_name?: string;
+      }>(
+        "/storage/upload/",
+        fd,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      const originalName = data.originalFileName || data.original_file_name || file.name;
+      return { url: data.url, fileName: originalName, mimeType: data.mimeType };
+    } catch (error: unknown) {
+      throw new Error(uploadErrorMessage(error));
+    }
   },
 
   /** All patient/support/doctor messages (BE /messages/all/). Pass afterId for incremental polls (unscoped only). */

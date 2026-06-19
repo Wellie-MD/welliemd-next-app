@@ -221,11 +221,11 @@ export default function OrderDetail() {
       toast({
         title: response.message || "Checkout link email processed.",
       })
-    } catch (err: any) {
+    } catch (err: unknown) {
       const message =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        err?.response?.data?.detail ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.message ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.error ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.detail ||
         "Failed to send checkout link email."
       toast({
         title: message,
@@ -651,11 +651,11 @@ export default function OrderDetail() {
         return
       }
       const txStatus = String(result.transaction_status || "").toLowerCase()
-      const settledStatuses = new Set(["captured", "succeeded"])
+      const settledStatuses = new Set(["approved", "captured", "succeeded"])
       const settlementState = String(result.payment_settlement_state || "").toLowerCase()
       if (
         normalizeRetryErrorMessage(responseMessage) !== responseMessage ||
-        !settledStatuses.has(txStatus) ||
+        (txStatus && !settledStatuses.has(txStatus)) ||
         settlementState !== "captured"
       ) {
         toast({
@@ -672,6 +672,21 @@ export default function OrderDetail() {
       setShowRetryPaymentDialog(false)
       await refetchOrderWithRetries()
     } catch (err: unknown) {
+      if (orderId) {
+        try {
+          const refreshed = await (isUuid(orderId)
+            ? ordersApi.fetchOrder(orderId, true)
+            : ordersApi.fetchOrderByOrderId(orderId, true))
+          setOrder(refreshed)
+          if (String(refreshed.payment_settlement_state || "").toLowerCase() === "captured") {
+            toast({ title: "Payment retry completed successfully." })
+            setShowRetryPaymentDialog(false)
+            return
+          }
+        } catch {
+          // Keep the original retry error below; this refresh is only a reconciliation check.
+        }
+      }
       const message =
         (err as { response?: { data?: { error?: string; detail?: string } } })?.response?.data?.error ||
         (err as { response?: { data?: { error?: string; detail?: string } } })?.response?.data?.detail ||
@@ -1050,9 +1065,19 @@ export default function OrderDetail() {
       ? medicationSubtotalAfterDiscount + discountAmount
       : null
 
+  const chargeableAmountSource = order.chargeable_amount_source || "requested_medicine"
+  const prescribedDisplayTotal = settlementState === "captured"
+    ? settlementAmount
+    : (prescribedFinalAmount ?? chargeableAmount)
+
+  const shouldPreferPrescribedDisplay =
+    pendingProductChange == null &&
+    chargeableAmountSource === "prescribed_medicine" &&
+    prescribedDisplayTotal != null
+
   const previewOriginalPrice = pendingProductChange != null
     ? pendingProductChange.subtotal
-    : originalPrice
+    : (shouldPreferPrescribedDisplay ? (parseMoney(order.original_price) ?? originalPrice) : originalPrice)
 
   const previewDiscountAmount = pendingProductChange != null
     ? pendingProductChange.discountAmount
@@ -1065,16 +1090,6 @@ export default function OrderDetail() {
   const previewShippingFee = pendingProductChange != null
     ? pendingProductChange.shippingFee
     : shippingFee
-
-  const chargeableAmountSource = order.chargeable_amount_source || "requested_medicine"
-  const prescribedDisplayTotal = settlementState === "captured"
-    ? settlementAmount
-    : (prescribedFinalAmount ?? chargeableAmount)
-
-  const shouldPreferPrescribedDisplay =
-    pendingProductChange == null &&
-    chargeableAmountSource === "prescribed_medicine" &&
-    prescribedDisplayTotal != null
 
   const calculatedTotal = hasBreakdown
     ? ((productSubtotalAfterDiscount ?? 0) + (shippingFee ?? 0))
@@ -1126,7 +1141,6 @@ export default function OrderDetail() {
     : formatMoney(previewNetTotal)
   const paymentInfoAmountLabel = hasRemainingSupplemental ? "Remaining to Capture" : "Amount"
 
-  const displayProductName = pendingProductChange?.productName || order.product_name || "—"
   const displayQuantity = String(qty)
   const requestedMedicineName =
     order.requested_medicines?.[0]?.name ||
@@ -1156,6 +1170,9 @@ export default function OrderDetail() {
   const prescribedMedicineDisplayName =
     prescribedMedicineName ||
     (isLikelyLegacyPrescribed ? legacyPrescribedFallbackName : "Awaiting provider decision")
+  const isPrescribed = chargeableAmountSource === "prescribed_medicine"
+  const displayProductName = pendingProductChange?.productName
+    || (isPrescribed ? prescribedMedicineDisplayName : (order.product_name || "—"))
   const requestedPillClass =
     "inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
   const prescribedPillClass =

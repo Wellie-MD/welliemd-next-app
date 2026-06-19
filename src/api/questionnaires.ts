@@ -28,6 +28,18 @@ export interface QuestionnaireTemplate {
   questions?: Question[];
 }
 
+export interface PaginatedQuestionnaireTemplatesResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: QuestionnaireTemplate[];
+}
+
+export interface ListTemplatesParams {
+  page?: number;
+  page_size?: number;
+}
+
 export interface ConsentForm {
   id?: string;
   consent_type: string;
@@ -107,9 +119,14 @@ export interface CreateQuestionPayload {
 // ==================== TEMPLATE API ====================
 
 export const templateApi = {
-  listTemplates: async (): Promise<QuestionnaireTemplate[]> => {
-    const { data } = await axiosInstance.get<QuestionnaireTemplate[]>(
-      "questionnaires/frontend/templates/"
+  listTemplates: async (
+    params?: ListTemplatesParams
+  ): Promise<QuestionnaireTemplate[] | PaginatedQuestionnaireTemplatesResponse> => {
+    const { data } = await axiosInstance.get<
+      QuestionnaireTemplate[] | PaginatedQuestionnaireTemplatesResponse
+    >(
+      "questionnaires/frontend/templates/",
+      { params }
     );
     return data;
   },
