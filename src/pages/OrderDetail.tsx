@@ -760,208 +760,208 @@ export default function OrderDetail() {
 
   const eventTimelineItems: TimelineItem[] = Array.isArray(order.activity_events)
     ? order.activity_events.map((evt) => {
-        const payload = (evt.payload && typeof evt.payload === "object") ? evt.payload as Record<string, unknown> : {}
-        const status = (evt.status || "").toLowerCase()
-        const eventType = (evt.event_type || "").toLowerCase()
-        let icon: TimelineItem["icon"] = "schedule"
-        let iconBg = "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800"
-        if (status.includes("payment") || eventType.includes("payment")) {
-          icon = "payments"
-          iconBg = "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800"
-        } else if (eventType.startsWith("lab.") || eventType.includes("lab_")) {
-          icon = "medical_services"
-          iconBg = "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 border-4 border-white dark:border-slate-800"
-        } else if (status === "prescribed" || status === "rx_sent" || status === "referred") {
-          icon = "prescriptions"
-          iconBg = "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-4 border-white dark:border-slate-800"
-        } else if (
-          status === "visit_pending" ||
-          status === "visit_failed" ||
-          status === "consult_scheduled" ||
-          status === "consult_rescheduled"
-        ) {
-          icon = "medical_services"
-          iconBg = "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border-4 border-white dark:border-slate-800"
-        } else if (status === "in_fulfillment" || eventType.includes("in_fulfillment")) {
-          icon = "local_shipping"
-          iconBg = "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-4 border-white dark:border-slate-800"
-        } else if (status === "shipped") {
-          icon = "local_shipping"
-          iconBg = "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-4 border-white dark:border-slate-800"
-        } else if (status === "delivered" || eventType.includes("delivered")) {
-          icon = "local_shipping"
-          iconBg = "bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 border-4 border-white dark:border-slate-800"
-        } else if (status.includes("cancel") || status.includes("no_show")) {
-          icon = "schedule"
-          iconBg = "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-4 border-white dark:border-slate-800"
-        } else if (status.includes("processing") || status.includes("created")) {
-          icon = "schedule"
-          iconBg = "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-4 border-white dark:border-slate-800"
+      const payload = (evt.payload && typeof evt.payload === "object") ? evt.payload as Record<string, unknown> : {}
+      const status = (evt.status || "").toLowerCase()
+      const eventType = (evt.event_type || "").toLowerCase()
+      let icon: TimelineItem["icon"] = "schedule"
+      let iconBg = "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800"
+      if (status.includes("payment") || eventType.includes("payment")) {
+        icon = "payments"
+        iconBg = "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800"
+      } else if (eventType.startsWith("lab.") || eventType.includes("lab_")) {
+        icon = "medical_services"
+        iconBg = "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 border-4 border-white dark:border-slate-800"
+      } else if (status === "prescribed" || status === "rx_sent" || status === "referred") {
+        icon = "prescriptions"
+        iconBg = "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-4 border-white dark:border-slate-800"
+      } else if (
+        status === "visit_pending" ||
+        status === "visit_failed" ||
+        status === "consult_scheduled" ||
+        status === "consult_rescheduled"
+      ) {
+        icon = "medical_services"
+        iconBg = "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border-4 border-white dark:border-slate-800"
+      } else if (status === "in_fulfillment" || eventType.includes("in_fulfillment")) {
+        icon = "local_shipping"
+        iconBg = "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-4 border-white dark:border-slate-800"
+      } else if (status === "shipped") {
+        icon = "local_shipping"
+        iconBg = "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-4 border-white dark:border-slate-800"
+      } else if (status === "delivered" || eventType.includes("delivered")) {
+        icon = "local_shipping"
+        iconBg = "bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 border-4 border-white dark:border-slate-800"
+      } else if (status.includes("cancel") || status.includes("no_show")) {
+        icon = "schedule"
+        iconBg = "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-4 border-white dark:border-slate-800"
+      } else if (status.includes("processing") || status.includes("created")) {
+        icon = "schedule"
+        iconBg = "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-4 border-white dark:border-slate-800"
+      }
+
+      const toUrl = (raw: unknown): string | null => {
+        if (typeof raw !== "string") return null
+        const trimmed = raw.trim()
+        if (!trimmed) return null
+        if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:application/pdf;base64,")) return trimmed
+        return null
+      }
+      const info = payload.info && typeof payload.info === "object" ? payload.info as Record<string, unknown> : {}
+      const pick = (obj: Record<string, unknown>, ...keys: string[]): string | null => {
+        for (const key of keys) {
+          const value = obj[key]
+          if (typeof value === "string" && value.trim()) return value.trim()
+        }
+        return null
+      }
+
+      const rawLabReqPdf = pick(payload, "labReqPdf")
+      const requisitionFromPdf = rawLabReqPdf && !rawLabReqPdf.startsWith("http") && !rawLabReqPdf.startsWith("data:")
+        ? `data:application/pdf;base64,${rawLabReqPdf}`
+        : toUrl(rawLabReqPdf)
+
+      const requisitionUrl =
+        toUrl(payload.requisition_pdf_url) ||
+        toUrl(payload.requisition_url) ||
+        toUrl(payload.requisition_link) ||
+        requisitionFromPdf
+
+      const bookingUrl =
+        toUrl(payload.booking_link) ||
+        toUrl(payload.booking_url) ||
+        toUrl(payload.result_booking_link) ||
+        toUrl(payload.result_booking_url) ||
+        toUrl(payload.bookingLink)
+
+      const trackingUrl =
+        toUrl(payload.tracking_url) ||
+        toUrl(payload.tracking_link) ||
+        toUrl(payload.tracking_link_url) ||
+        toUrl(payload.trackingUrl) ||
+        (
+          payload.info && typeof payload.info === "object"
+            ? toUrl((payload.info as Record<string, unknown>).trackingUrl) ||
+            toUrl((payload.info as Record<string, unknown>).tracking_url)
+            : null
+        )
+      const trackingNumber =
+        pick(payload, "trackingNumber", "tracking") ||
+        pick(info, "tracking")
+      const carrier =
+        pick(payload, "carrier") ||
+        pick(info, "carrier")
+
+      const actions: Array<{ label: string; url: string }> = []
+      if (requisitionUrl) actions.push({ label: "Requisition", url: requisitionUrl })
+      if (bookingUrl) actions.push({ label: "Book", url: bookingUrl })
+      if (trackingUrl) actions.push({ label: "Track", url: trackingUrl })
+      else if (trackingNumber) {
+        const carrierLower = (carrier || "").toLowerCase()
+        const fallbackTrackingUrl = carrierLower.includes("fedex")
+          ? `https://www.fedex.com/en-us/tracking.html?tracknumbers=${encodeURIComponent(trackingNumber)}`
+          : carrierLower.includes("ups")
+            ? `https://www.ups.com/track?tracknum=${encodeURIComponent(trackingNumber)}`
+            : `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(trackingNumber)}`
+        actions.push({ label: carrier ? `Track ${carrier}` : "Track", url: fallbackTrackingUrl })
+      }
+      const resultPdfUrl = toUrl(payload.resultPdfUrl) || toUrl(payload.result_pdf_url)
+      if (resultPdfUrl) actions.push({ label: "Report", url: resultPdfUrl })
+
+      const labDescription = (() => {
+        if (!(eventType.startsWith("lab.") || eventType.includes("lab_"))) return undefined
+        if (eventType.includes("results")) {
+          return pick(payload, "resultSummary", "testResult") || evt.description || "Lab results are available."
+        }
+        if (eventType.includes("shipped_to_patient") || eventType.includes("shipped-to-patient") || eventType.includes("shipped_to_lab") || eventType.includes("shipped-to-lab")) {
+          const tracking = trackingNumber
+          if (carrier && tracking) return `Carrier: ${carrier} • Tracking: ${tracking}`
+          if (carrier) return `Carrier: ${carrier}`
+          if (tracking) return `Tracking: ${tracking}`
+          return "Shipment update received from lab."
+        }
+        if (eventType.includes("delivered_to_patient") || eventType.includes("delivered-to-patient")) {
+          const proof = pick(payload, "deliveryProof")
+          return proof ? `Delivery proof: ${proof.replace(/_/g, " ")}` : "Lab kit delivered to patient."
+        }
+        if (eventType.includes("received_by_lab") || eventType.includes("received-by-lab")) {
+          const specimen = payload.specimen && typeof payload.specimen === "object" ? payload.specimen as Record<string, unknown> : null
+          const accession = specimen?.accessionNumber
+          if (typeof accession === "string" && accession.trim()) return `Accession: ${accession.trim()}`
+          return "Lab has received the specimen and started processing."
+        }
+        if (eventType.includes("requisition_created") || eventType.includes("requisition-created")) {
+          return rawLabReqPdf ? "Requisition generated and ready to download." : "Requisition event received."
+        }
+        if (eventType.includes("order_created") || eventType.includes("order-created")) {
+          const method = pick(payload, "labMethod")
+          const panel = pick(payload, "panel")
+          if (method && panel) return `Method: ${method} • Panel: ${panel}`
+          if (method) return `Method: ${method}`
+          if (panel) return `Panel: ${panel}`
+          return "Lab order created."
+        }
+        return evt.description || "Lab update received."
+      })()
+
+      const cleanDescription = (evt: any, baseDesc?: string) => {
+        const desc = baseDesc || evt.description || ""
+        if (evt.event_type === "rx_revision" && desc.includes("Newly prescribed: ")) {
+          const match = desc.match(/Newly prescribed:\s*([\s\S]*?)(?=(?:\.\s*|\n)(?:Supplemental|Refund)|$)/)
+          if (match) {
+            let newDesc = `Prescribed: ${match[1].trim()}`
+            if (!newDesc.endsWith(".")) newDesc += "."
+            if (desc.includes("Supplemental capture triggered")) {
+              const suppMatch = desc.match(/(Supplemental capture triggered for \$[\d,.]+)/)
+              if (suppMatch) newDesc += `\n${suppMatch[1]}.`
+            }
+            if (desc.includes("Refund required")) {
+              const refundMatch = desc.match(/(Refund required for \$[\d,.]+)/)
+              if (refundMatch) newDesc += `\n${refundMatch[1]}.`
+            }
+            return newDesc
+          }
         }
 
-        const toUrl = (raw: unknown): string | null => {
-          if (typeof raw !== "string") return null
-          const trimmed = raw.trim()
-          if (!trimmed) return null
-          if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:application/pdf;base64,")) return trimmed
-          return null
-        }
-        const info = payload.info && typeof payload.info === "object" ? payload.info as Record<string, unknown> : {}
-        const pick = (obj: Record<string, unknown>, ...keys: string[]): string | null => {
-          for (const key of keys) {
-            const value = obj[key]
-            if (typeof value === "string" && value.trim()) return value.trim()
-          }
-          return null
-        }
+        // Inject prescribed product into initial Prescribed event if missing
+        if (evt.event_type === "status.prescribed" && !desc.includes("Prescribed: ")) {
+          let pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
 
-        const rawLabReqPdf = pick(payload, "labReqPdf")
-        const requisitionFromPdf = rawLabReqPdf && !rawLabReqPdf.startsWith("http") && !rawLabReqPdf.startsWith("data:")
-          ? `data:application/pdf;base64,${rawLabReqPdf}`
-          : toUrl(rawLabReqPdf)
+          // If there are revisions, the CURRENT product name might not be the INITIAL one.
+          // We can find the initial product from the FIRST rx_revision event.
+          const firstRxRevision = Array.isArray(order.activity_events)
+            ? order.activity_events.find((e: any) => e.event_type === "rx_revision")
+            : null;
 
-        const requisitionUrl =
-          toUrl(payload.requisition_pdf_url) ||
-          toUrl(payload.requisition_url) ||
-          toUrl(payload.requisition_link) ||
-          requisitionFromPdf
-
-        const bookingUrl =
-          toUrl(payload.booking_link) ||
-          toUrl(payload.booking_url) ||
-          toUrl(payload.result_booking_link) ||
-          toUrl(payload.result_booking_url) ||
-          toUrl(payload.bookingLink)
-
-        const trackingUrl =
-          toUrl(payload.tracking_url) ||
-          toUrl(payload.tracking_link) ||
-          toUrl(payload.tracking_link_url) ||
-          toUrl(payload.trackingUrl) ||
-          (
-            payload.info && typeof payload.info === "object"
-              ? toUrl((payload.info as Record<string, unknown>).trackingUrl) ||
-                toUrl((payload.info as Record<string, unknown>).tracking_url)
-              : null
-          )
-        const trackingNumber =
-          pick(payload, "trackingNumber", "tracking") ||
-          pick(info, "tracking")
-        const carrier =
-          pick(payload, "carrier") ||
-          pick(info, "carrier")
-
-        const actions: Array<{ label: string; url: string }> = []
-        if (requisitionUrl) actions.push({ label: "Requisition", url: requisitionUrl })
-        if (bookingUrl) actions.push({ label: "Book", url: bookingUrl })
-        if (trackingUrl) actions.push({ label: "Track", url: trackingUrl })
-        else if (trackingNumber) {
-          const carrierLower = (carrier || "").toLowerCase()
-          const fallbackTrackingUrl = carrierLower.includes("fedex")
-            ? `https://www.fedex.com/en-us/tracking.html?tracknumbers=${encodeURIComponent(trackingNumber)}`
-            : carrierLower.includes("ups")
-              ? `https://www.ups.com/track?tracknum=${encodeURIComponent(trackingNumber)}`
-              : `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(trackingNumber)}`
-          actions.push({ label: carrier ? `Track ${carrier}` : "Track", url: fallbackTrackingUrl })
-        }
-        const resultPdfUrl = toUrl(payload.resultPdfUrl) || toUrl(payload.result_pdf_url)
-        if (resultPdfUrl) actions.push({ label: "Report", url: resultPdfUrl })
-
-        const labDescription = (() => {
-          if (!(eventType.startsWith("lab.") || eventType.includes("lab_"))) return undefined
-          if (eventType.includes("results")) {
-            return pick(payload, "resultSummary", "testResult") || evt.description || "Lab results are available."
-          }
-          if (eventType.includes("shipped_to_patient") || eventType.includes("shipped-to-patient") || eventType.includes("shipped_to_lab") || eventType.includes("shipped-to-lab")) {
-            const tracking = trackingNumber
-            if (carrier && tracking) return `Carrier: ${carrier} • Tracking: ${tracking}`
-            if (carrier) return `Carrier: ${carrier}`
-            if (tracking) return `Tracking: ${tracking}`
-            return "Shipment update received from lab."
-          }
-          if (eventType.includes("delivered_to_patient") || eventType.includes("delivered-to-patient")) {
-            const proof = pick(payload, "deliveryProof")
-            return proof ? `Delivery proof: ${proof.replaceAll("_", " ")}` : "Lab kit delivered to patient."
-          }
-          if (eventType.includes("received_by_lab") || eventType.includes("received-by-lab")) {
-            const specimen = payload.specimen && typeof payload.specimen === "object" ? payload.specimen as Record<string, unknown> : null
-            const accession = specimen?.accessionNumber
-            if (typeof accession === "string" && accession.trim()) return `Accession: ${accession.trim()}`
-            return "Lab has received the specimen and started processing."
-          }
-          if (eventType.includes("requisition_created") || eventType.includes("requisition-created")) {
-            return rawLabReqPdf ? "Requisition generated and ready to download." : "Requisition event received."
-          }
-          if (eventType.includes("order_created") || eventType.includes("order-created")) {
-            const method = pick(payload, "labMethod")
-            const panel = pick(payload, "panel")
-            if (method && panel) return `Method: ${method} • Panel: ${panel}`
-            if (method) return `Method: ${method}`
-            if (panel) return `Panel: ${panel}`
-            return "Lab order created."
-          }
-          return evt.description || "Lab update received."
-        })()
-
-        const cleanDescription = (evt: any, baseDesc?: string) => {
-          const desc = baseDesc || evt.description || ""
-          if (evt.event_type === "rx_revision" && desc.includes("Newly prescribed: ")) {
-            const match = desc.match(/Newly prescribed:\s*([\s\S]*?)(?=(?:\.\s*|\n)(?:Supplemental|Refund)|$)/)
-            if (match) {
-              let newDesc = `Prescribed: ${match[1].trim()}`
-              if (!newDesc.endsWith(".")) newDesc += "."
-              if (desc.includes("Supplemental capture triggered")) {
-                const suppMatch = desc.match(/(Supplemental capture triggered for \$[\d,.]+)/)
-                if (suppMatch) newDesc += `\n${suppMatch[1]}.`
+          if (firstRxRevision && firstRxRevision.description) {
+            const rxDesc = firstRxRevision.description;
+            const prevMatch = rxDesc.match(/Previously prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
+            if (prevMatch && prevMatch[1]) {
+              pName = prevMatch[1].trim();
+            } else if (rxDesc.includes("Prescribed: ")) {
+              const newMatch = rxDesc.match(/Prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
+              if (newMatch && newMatch[1]) {
+                pName = newMatch[1].trim();
               }
-              if (desc.includes("Refund required")) {
-                const refundMatch = desc.match(/(Refund required for \$[\d,.]+)/)
-                if (refundMatch) newDesc += `\n${refundMatch[1]}.`
-              }
-              return newDesc
             }
           }
-          
-          // Inject prescribed product into initial Prescribed event if missing
-          if (evt.event_type === "status.prescribed" && !desc.includes("Prescribed: ")) {
-             let pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
-             
-             // If there are revisions, the CURRENT product name might not be the INITIAL one.
-             // We can find the initial product from the FIRST rx_revision event.
-             const firstRxRevision = Array.isArray(order.activity_events) 
-                ? order.activity_events.find((e: any) => e.event_type === "rx_revision") 
-                : null;
-             
-             if (firstRxRevision && firstRxRevision.description) {
-                 const rxDesc = firstRxRevision.description;
-                 const prevMatch = rxDesc.match(/Previously prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
-                 if (prevMatch && prevMatch[1]) {
-                     pName = prevMatch[1].trim();
-                 } else if (rxDesc.includes("Prescribed: ")) {
-                     const newMatch = rxDesc.match(/Prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
-                     if (newMatch && newMatch[1]) {
-                         pName = newMatch[1].trim();
-                     }
-                 }
-             }
 
-             if (pName && pName.toLowerCase() !== "same med" && pName.toLowerCase() !== "same medicine" && pName !== "Unknown Product") {
-                 return `${desc}\nPrescribed: ${pName}.`
-             }
+          if (pName && pName.toLowerCase() !== "same med" && pName.toLowerCase() !== "same medicine" && pName !== "Unknown Product") {
+            return `${desc}\nPrescribed: ${pName}.`
           }
-
-          return desc || undefined
         }
 
-        return {
-          title: evt.title || evt.event_type.replace(/\./g, " "),
-          date: formatDateTime(evt.occurred_at),
-          description: cleanDescription(evt, labDescription),
-          icon,
-          iconBg,
-          actions,
-        }
-      })
+        return desc || undefined
+      }
+
+      return {
+        title: evt.title || evt.event_type.replace(/\./g, " "),
+        date: formatDateTime(evt.occurred_at),
+        description: cleanDescription(evt, labDescription),
+        icon,
+        iconBg,
+        actions,
+      }
+    })
     : []
   const renderedTimelineItems = eventTimelineItems.length > 0 ? eventTimelineItems : timelineItems
 
@@ -1194,15 +1194,25 @@ export default function OrderDetail() {
         : itemUnitPrice)
       : (medicationSubtotalAfterDiscount != null ? medicationSubtotalAfterDiscount / quantity : itemUnitPrice)
 
-  const displayLineTotal = pendingProductChange != null
-    ? (previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount)
-    : shouldPreferPrescribedDisplay
-      ? Math.max(0, (previewTotal ?? 0) - (previewShippingFee ?? 0))
-    : hasNonIncludedSupplies
-      ? ((pricingMedicationSubtotal != null ? pricingMedicationSubtotal : medicationSubtotalAfterDiscount) != null
-        ? (pricingMedicationSubtotal != null ? pricingMedicationSubtotal : medicationSubtotalAfterDiscount)
-        : (previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount))
-      : (medicationSubtotalAfterDiscount != null ? medicationSubtotalAfterDiscount : (previewProductSubtotal != null ? previewProductSubtotal : productSubtotalAfterDiscount))
+  const displayItemOriginalUnitPrice = pendingProductChange != null
+    ? pendingProductChange.unitPrice
+    : (medicationOriginalSubtotal != null ? medicationOriginalSubtotal / quantity : null)
+
+  const prescribedProductOriginalAmount = shouldPreferPrescribedDisplay
+    ? Math.max(0, (previewTotal ?? 0) - (previewShippingFee ?? 0)) + previewDiscountAmount
+    : null
+  const displayLineTotal = prescribedProductOriginalAmount != null
+    ? prescribedProductOriginalAmount
+    : (displayItemOriginalUnitPrice != null
+      ? displayItemOriginalUnitPrice * quantity
+      : (previewOriginalPrice ?? 0))
+  const requestedProductAmount =
+    parseMoney(order.requested_medicines?.[0]?.price) ??
+    parseMoney(order.pricing?.subtotal_before_discount ?? order.original_price) ??
+    0
+  const requestedProductShippingAmount =
+    parseMoney(order.requested_medicines?.[0]?.shipping_fee) ??
+    previewShippingFee
 
   const itemPrice = formatMoney(displayItemUnitPrice)
   const lineTotalPrice = formatMoney(displayLineTotal)
@@ -1462,126 +1472,232 @@ export default function OrderDetail() {
                   })}
                 </tbody>
                 <tfoot className="bg-muted/30">
-                  {hasBreakdown && previewOriginalPrice != null && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        {shouldPreferPrescribedDisplay
-                          ? "Requested original total (reference):"
-                          : "Product list price:"}
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${previewOriginalPrice.toFixed(2)}
-                      </td>
-                    </tr>
-                  )}
-                  {previewDiscountAmount > 0 && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        Product discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}:
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
-                        −${previewDiscountAmount.toFixed(2)}
-                      </td>
-                    </tr>
-                  )}
-                  {productSubtotalAfterDiscount != null && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        {shouldPreferPrescribedDisplay ? "Prescribed subtotal:" : "Product subtotal:"}
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${productSubtotalPrice}
-                      </td>
-                    </tr>
-                  )}
-                  {(hasBreakdown || previewShippingFee != null) && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        Shipping:
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${formatMoney(previewShippingFee)}
-                      </td>
-                    </tr>
-                  )}
-                  {!hasBreakdown && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        {shouldPreferPrescribedDisplay ? "Prescribed subtotal:" : "Product subtotal:"}
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${totalPrice}
-                      </td>
-                    </tr>
-                  )}
-                  {hasSplitSettlement && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        Prescribed total:
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${prescribedFinalDisplay}
-                      </td>
-                    </tr>
-                  )}
-                  {hasSplitSettlement && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        Captured (base):
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${baseCapturedDisplay}
-                      </td>
-                    </tr>
-                  )}
-                  {hasSplitSettlement && supplementalCapturedAmount != null && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        Captured (supplemental):
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                        ${supplementalCapturedDisplay}
-                      </td>
-                    </tr>
-                  )}
-                  {hasRemainingSupplemental && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400" colSpan={3}>
-                        Remaining supplemental amount:
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-amber-600 dark:text-amber-400">
-                        ${formatMoney(remainingSupplementalAmount)}
-                      </td>
-                    </tr>
-                  )}
-                  <tr>
-                    <td
-                      className="px-6 py-3 text-right font-bold text-slate-900 dark:text-white border-t border-border"
-                      colSpan={3}
-                    >
-                      {refundedAmount > 0 ? "Net Total (USD):" : "Total (USD):"}
-                    </td>
-                    <td className="px-6 py-3 text-right font-bold text-primary border-t border-border">
-                      <div className="flex flex-col items-end">
-                        <span>${netTotalPrice}</span>
-                        <span className="mt-1 text-[11px] font-normal text-slate-500 dark:text-slate-400">
-                          Amount Source:
-                        </span>
-                        <span className={`mt-1 text-[11px] ${amountSourcePillClass}`}>
-                          {amountSourceLabel} + shipping
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                  {refundedAmount > 0 && (
-                    <tr>
-                      <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                        Refunded:
-                      </td>
-                      <td className="px-6 py-3 text-right font-medium text-red-600 dark:text-red-400">
-                        −${refundedAmount.toFixed(2)}
-                      </td>
-                    </tr>
+                  {shouldPreferPrescribedDisplay ? (
+                    <>
+                      <tr>
+                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                          Product Amount:
+                        </td>
+                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                          ${formatMoney(prescribedProductOriginalAmount)}
+                        </td>
+                      </tr>
+                      {previewDiscountAmount > 0 && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                            Discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
+                            −${previewDiscountAmount.toFixed(2)}
+                          </td>
+                        </tr>
+                      )}
+                      <tr>
+                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                          Prescribed Subtotal:
+                        </td>
+                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                          ${productSubtotalPrice}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                          Shipping:
+                        </td>
+                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                          ${formatMoney(previewShippingFee)}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                          Prescribed Total:
+                        </td>
+                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                          ${prescribedFinalDisplay ?? totalPrice}
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                          Request Product Amount:
+                        </td>
+                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                          ${formatMoney(requestedProductAmount)}
+                        </td>
+                      </tr>
+                      {previewDiscountAmount > 0 && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                            Discount:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
+                            −${previewDiscountAmount.toFixed(2)}
+                          </td>
+                        </tr>
+                      )}
+                      <tr>
+                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                          Request Product Subtotal:
+                        </td>
+                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                          ${formatMoney(Math.max(0, requestedProductAmount - previewDiscountAmount))}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                          Request Product Shipping:
+                        </td>
+                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                          ${formatMoney(requestedProductShippingAmount)}
+                        </td>
+                      </tr>
+
+                      {hasSplitSettlement && (
+                        <>
+                          <tr>
+                            <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                              Captured Base:
+                            </td>
+                            <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                              ${baseCapturedDisplay}
+                            </td>
+                          </tr>
+                          {supplementalCapturedAmount != null && (
+                            <tr>
+                              <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                                Captured Supplemental:
+                              </td>
+                              <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                                ${supplementalCapturedDisplay}
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      )}
+
+                      {hasRemainingSupplemental && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400" colSpan={3}>
+                            Remaining Supplemental Amount:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-amber-600 dark:text-amber-400">
+                            ${formatMoney(remainingSupplementalAmount)}
+                          </td>
+                        </tr>
+                      )}
+
+                      <tr>
+                        <td
+                          className="px-6 py-3 text-right font-bold text-slate-900 dark:text-white border-t border-border"
+                          colSpan={3}
+                        >
+                          {refundedAmount > 0 ? "Net Total (USD):" : "Total (USD):"}
+                        </td>
+                        <td className="px-6 py-3 text-right font-bold text-primary border-t border-border">
+                          <div className="flex flex-col items-end">
+                            <span>${netTotalPrice}</span>
+                            <span className="mt-1 text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                              Amount Source:
+                            </span>
+                            <span className={`mt-1 text-[11px] ${amountSourcePillClass}`}>
+                              {amountSourceLabel} + shipping
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                      {refundedAmount > 0 && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                            Refunded:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-red-600 dark:text-red-400">
+                            −${refundedAmount.toFixed(2)}
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {hasBreakdown && previewOriginalPrice != null && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                            Product list price:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                            ${previewOriginalPrice.toFixed(2)}
+                          </td>
+                        </tr>
+                      )}
+                      {previewDiscountAmount > 0 && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                            Product discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
+                            −${previewDiscountAmount.toFixed(2)}
+                          </td>
+                        </tr>
+                      )}
+                      {productSubtotalAfterDiscount != null && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                            Product subtotal:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                            ${productSubtotalPrice}
+                          </td>
+                        </tr>
+                      )}
+                      {(hasBreakdown || previewShippingFee != null) && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                            Shipping:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                            ${formatMoney(previewShippingFee)}
+                          </td>
+                        </tr>
+                      )}
+                      {!hasBreakdown && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                            Product subtotal:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
+                            ${totalPrice}
+                          </td>
+                        </tr>
+                      )}
+                      <tr>
+                        <td
+                          className="px-6 py-3 text-right font-bold text-slate-900 dark:text-white border-t border-border"
+                          colSpan={3}
+                        >
+                          {refundedAmount > 0 ? "Net Total (USD):" : "Total (USD):"}
+                        </td>
+                        <td className="px-6 py-3 text-right font-bold text-primary border-t border-border">
+                          <div className="flex flex-col items-end">
+                            <span>${netTotalPrice}</span>
+                            <span className="mt-1 text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                              Amount Source:
+                            </span>
+                            <span className={`mt-1 text-[11px] ${amountSourcePillClass}`}>
+                              {amountSourceLabel} + shipping
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                      {refundedAmount > 0 && (
+                        <tr>
+                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
+                            Refunded:
+                          </td>
+                          <td className="px-6 py-3 text-right font-medium text-red-600 dark:text-red-400">
+                            −${refundedAmount.toFixed(2)}
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   )}
                 </tfoot>
               </table>
