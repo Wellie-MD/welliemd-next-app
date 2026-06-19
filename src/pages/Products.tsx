@@ -68,6 +68,10 @@ function extractProducts(response: unknown): Product[] {
   return Array.isArray(response) ? response as Product[] : []
 }
 
+function getProductPharmacyName(product: Product) {
+  return product.pharmacy_name?.trim() || ""
+}
+
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([])
   const [optionProducts, setOptionProducts] = useState<Product[]>([])
@@ -94,11 +98,10 @@ export default function Products() {
         page_size: size,
       }
 
-      const manufacturerSearch = pharmacy !== ALL_VALUE ? pharmacy : ""
-      const searchTerms = [manufacturerSearch, search.trim()].filter(Boolean).join(" ")
-      if (searchTerms) params.search = searchTerms
+      if (search.trim()) params.search = search.trim()
       if (category !== ALL_VALUE) params.category = category
       if (purchaseType !== ALL_VALUE) params.purchase_type = purchaseType as ProductListParams["purchase_type"]
+      if (pharmacy !== ALL_VALUE) params.pharmacy = pharmacy
       if (status !== ALL_VALUE) params.is_active = status === "active"
 
       const response = await productApi.listProducts(params)
@@ -184,14 +187,19 @@ export default function Products() {
   }, [allKnownProducts, categoryOptions])
 
   const pharmacyOptions = useMemo(() => {
-    return dedupeOptions(
-      allKnownProducts
-        .filter((product) => product.manufacturer_name)
-        .map((product) => ({
-          value: product.manufacturer_name || "",
-          label: product.manufacturer_name || "",
-        }))
-    ).sort((a, b) => a.label.localeCompare(b.label))
+    const byPharmacyId = new Map<string, string>()
+
+    for (const product of allKnownProducts) {
+      const pharmacyId = product.pharmacy ? String(product.pharmacy) : ""
+      const pharmacyName = getProductPharmacyName(product)
+      if (pharmacyId && pharmacyName) {
+        byPharmacyId.set(pharmacyId, pharmacyName)
+      }
+    }
+
+    return Array.from(byPharmacyId.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label))
   }, [allKnownProducts])
 
   const hasActiveFilters =
@@ -357,7 +365,7 @@ export default function Products() {
                       <ProductTableCell>
                         <Pill tone="blue">{product.category_name || "-"}</Pill>
                       </ProductTableCell>
-                      <ProductTableCell>{product.manufacturer_name || "-"}</ProductTableCell>
+                      <ProductTableCell>{getProductPharmacyName(product) || "-"}</ProductTableCell>
                       <ProductTableCell>{formatDrugForm(product.rx_drug_form)}</ProductTableCell>
                       <ProductTableCell>
                         <Pill tone={product.is_active ? "green" : "red"}>
