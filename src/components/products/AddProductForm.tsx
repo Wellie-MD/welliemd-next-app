@@ -342,20 +342,20 @@ export default function AddProductForm({
                   <CostRow label="Total cost" value={money(totalCost)} strong />
                 </div>
 
-                <div className="rounded-xl border border-emerald-200/50 dark:border-emerald-950/30 bg-emerald-50/70 dark:bg-emerald-950/10 p-5">
+                <div className={cn("rounded-xl border p-5", profit < 0 ? "border-red-200/50 dark:border-red-950/30 bg-red-50/70 dark:bg-red-950/10" : "border-emerald-200/50 dark:border-emerald-950/30 bg-emerald-50/70 dark:bg-emerald-950/10")}>
                   <div className="mb-4 text-sm font-bold text-slate-900 dark:text-slate-100">Profit breakdown</div>
                   <CostRow label="Patient pays" value={money(effectivePatientPrice)} />
                   <CostRow label="Shipping fee" value={`+ ${money(shippingFee)}`} />
                   <CostRow label="Your cost" value={`- ${money(totalCost)}`} />
-                  <div className="my-4 border-t border-emerald-200/30 dark:border-emerald-900/30" />
+                  <div className={cn("my-4 border-t", profit < 0 ? "border-red-200/30 dark:border-red-900/30" : "border-emerald-200/30 dark:border-emerald-900/30")} />
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="font-bold text-slate-900 dark:text-slate-100">Profit per order</div>
                       <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">Excludes visit cost</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{money(profit)}</div>
-                      <span className="mt-1 inline-flex rounded-full bg-emerald-100 dark:bg-emerald-950/30 px-2 py-0.5 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                      <div className={cn("text-2xl font-bold", profit < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400")}>{money(profit)}</div>
+                      <span className={cn("mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-bold", profit < 0 ? "bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400" : "bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400")}>
                         {margin.toFixed(1)}%
                       </span>
                     </div>
