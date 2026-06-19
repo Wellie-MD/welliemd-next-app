@@ -28,6 +28,8 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           regimen: product.regimen,
           doseLabel: product.doseLabel,
           productId: product.productId,
+          price: product.price,
+          visibilityRules: product.visibilityRules,
         }))
       );
       setVisibilityRuleGroup(
@@ -74,6 +76,22 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     );
   };
 
+  const handleProductPriceChange = (index: number, value: string) => {
+    setProducts((current) =>
+      current.map((product, itemIndex) => {
+        if (itemIndex !== index) return product;
+        const parsed = value.trim() === "" ? undefined : Number(value);
+        return { ...product, price: parsed !== undefined && Number.isFinite(parsed) ? parsed : undefined };
+      })
+    );
+  };
+
+  const handleProductVisibilityChange = (index: number, group: VisibilityRuleGroupForm | undefined) => {
+    setProducts((current) =>
+      current.map((product, itemIndex) => (itemIndex === index ? { ...product, visibilityRules: group } : product))
+    );
+  };
+
   const handleVisibilityRuleGroupChange = (group: VisibilityRuleGroupForm | undefined) => {
     setVisibilityRuleGroup(group);
   };
@@ -84,9 +102,22 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
       return;
     }
 
+    const normalizeGroup = (group: VisibilityRuleGroupForm | undefined): VisibilityRuleGroupForm | undefined => {
+      if (!group) return undefined;
+      const rules = group.rules.filter((rule) => rule.questionId && rule.operator && rule.value);
+      const subgroups = (group.subgroups || [])
+        .map(normalizeGroup)
+        .filter((subgroup): subgroup is VisibilityRuleGroupForm => Boolean(subgroup));
+      if (rules.length === 0 && subgroups.length === 0) return undefined;
+      return { mode: group.mode, rules, subgroups };
+    };
+
     onSave({
       text: validProducts.map((product) => product.doseLabel).join(" & ") || "Checkout Options",
-      products: validProducts,
+      products: validProducts.map((product) => ({
+        ...product,
+        visibilityRules: normalizeGroup(product.visibilityRules),
+      })),
       visibilityRules: visibilityRuleGroup
         ? {
             mode: visibilityRuleGroup.mode,
@@ -108,6 +139,8 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     handleAddProduct,
     handleRemoveProduct,
     handleProductFieldChange,
+    handleProductPriceChange,
+    handleProductVisibilityChange,
     handleVisibilityRuleGroupChange,
     handleSaveModal,
   };

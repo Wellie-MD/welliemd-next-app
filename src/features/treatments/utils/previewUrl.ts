@@ -1,8 +1,14 @@
 import type { PreviewContext } from "@/features/treatments/types";
 
-const DEFAULT_LOCAL_QUESTIONNAIRE_URL = "http://localhost:3001";
+const DEFAULT_LOCAL_QUESTIONNAIRE_URL = "http://localhost:3000";
 
 const normalizeBaseUrl = (baseUrl: string) => baseUrl.replace(/\/+$/, "");
+
+export interface QuestionnairePreviewTarget {
+  url: string;
+  supported: boolean;
+  reason?: string;
+}
 
 export const getQuestionnairePreviewBaseUrl = () => {
   return normalizeBaseUrl(
@@ -10,7 +16,9 @@ export const getQuestionnairePreviewBaseUrl = () => {
   );
 };
 
-export const buildQuestionnairePreviewUrl = (context: PreviewContext) => {
+export const buildQuestionnairePreviewTarget = (
+  context: PreviewContext
+): QuestionnairePreviewTarget => {
   const baseUrl = getQuestionnairePreviewBaseUrl();
   const params = new URLSearchParams({
     preview: "true",
@@ -19,17 +27,33 @@ export const buildQuestionnairePreviewUrl = (context: PreviewContext) => {
     mode: context.type,
   });
 
-  if (context.type === "program") {
-    params.set("program_id", context.id);
-  } else if (context.type === "custom_program") {
-    params.set("custom_program_id", context.id);
-  } else if (context.type === "section") {
-    params.set("section_id", context.id);
-  }
+  params.set(
+    context.type === "program"
+      ? "program_id"
+      : context.type === "custom_program"
+        ? "custom_program_id"
+        : "section_id",
+    context.id
+  );
 
   if (context.slug) params.set("slug", context.slug);
-  // Optional title could be passed via context, but the user spec didn't have title in PreviewContext
-  // If we want title, we can pass it, but for now we'll stick to the strict type.
 
-  return `${baseUrl}/preview?${params.toString()}`;
+  if (context.type === "program" && context.slug) {
+    return {
+      url: `${baseUrl}/visit/${context.slug}?${params.toString()}`,
+      supported: true,
+    };
+  }
+
+  return {
+    url: `${baseUrl}/preview?${params.toString()}`,
+    supported: false,
+    reason:
+      context.type === "section"
+        ? "Section preview is not wired to questionnaire runtime yet because sections do not have a standalone runtime route."
+        : "Custom program preview is not wired to questionnaire runtime yet because the questionnaire app does not consume custom_program preview routes.",
+  };
 };
+
+export const buildQuestionnairePreviewUrl = (context: PreviewContext) =>
+  buildQuestionnairePreviewTarget(context).url;

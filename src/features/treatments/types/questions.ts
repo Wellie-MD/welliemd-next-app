@@ -26,10 +26,19 @@ export type QuestionKind =
   | "labs_preference"
   | "checkout";
 
+export type VisibilityRuleOperator =
+  | "equals"
+  | "not_equals"
+  | "in"
+  | "not_in"
+  | "contains"
+  | "not_contains";
+
 export interface VisibilityRule {
   id?: string;
   questionId: string;
-  operator: "equals" | "not_equals";
+  operator: VisibilityRuleOperator;
+  /** For "in"/"not_in" the value is a comma-separated list of choices. */
   value: string;
 }
 

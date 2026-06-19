@@ -1,14 +1,17 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, ArrowDownAZ, Clock, List as ListIcon } from "lucide-react";
+import { Plus, Search, ArrowDownAZ, Clock, List as ListIcon, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import { TreatmentPageHeader } from "@/features/treatments/common/components";
 import { TreatmentProgramCard } from "@/features/treatments/programs/components/TreatmentProgramCard";
+import { ProgramListTable } from "@/features/treatments/programs/components/ProgramListTable";
 import { usePrograms, useTreatmentTypes, useSaveProgram } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
 import type { Program, ProgramStage } from "@/features/treatments/types";
 import { CreateProgramModal } from "@/features/treatments/programs/components/CreateProgramModal";
+
+type ProgramsViewMode = "cards" | "list";
 
 export default function ProgramsPage() {
   const { data: programs = [] } = usePrograms();
@@ -17,6 +20,7 @@ export default function ProgramsPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"alpha" | "recent">("recent");
+  const [viewMode, setViewMode] = useState<ProgramsViewMode>("cards");
 
   // Create Program Form State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -90,6 +94,26 @@ export default function ProgramsPage() {
 
     return result;
   }, [treatmentTypes, programs, searchQuery, sortBy]);
+
+  // Flat program list for the list view (search-filtered, sorted).
+  const filteredPrograms = useMemo(() => {
+    let result = [...programs];
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.treatmentTypeKey.toLowerCase().includes(q) ||
+          (p.description && p.description.toLowerCase().includes(q))
+      );
+    }
+    if (sortBy === "alpha") {
+      result.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      result.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    }
+    return result;
+  }, [programs, searchQuery, sortBy]);
 
   return (
     <div className="p-6 max-w-[1600px] mx-auto min-h-screen">
@@ -176,15 +200,35 @@ export default function ProgramsPage() {
 
         <Button
           variant="outline"
+          onClick={() => setViewMode((mode) => (mode === "cards" ? "list" : "cards"))}
           className="h-9 px-3 text-xs font-semibold bg-white text-slate-600 border-slate-200 hover:bg-slate-50 rounded-lg shadow-sm"
+          data-testid="programs-view-toggle"
+          aria-pressed={viewMode === "list"}
         >
-          <ListIcon className="mr-1.5 h-4 w-4" />
-          List view
+          {viewMode === "cards" ? (
+            <>
+              <ListIcon className="mr-1.5 h-4 w-4" />
+              List view
+            </>
+          ) : (
+            <>
+              <LayoutGrid className="mr-1.5 h-4 w-4" />
+              Card view
+            </>
+          )}
         </Button>
       </div>
 
-      {/* Grid of Treatment Cards */}
-      {processedTreatments.length === 0 ? (
+      {/* Treatments — card grid or program list */}
+      {viewMode === "list" ? (
+        filteredPrograms.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
+            <p className="text-sm text-slate-500">No programs found matching your criteria.</p>
+          </div>
+        ) : (
+          <ProgramListTable programs={filteredPrograms} />
+        )
+      ) : processedTreatments.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
           <p className="text-sm text-slate-500">No treatments found matching your criteria.</p>
         </div>

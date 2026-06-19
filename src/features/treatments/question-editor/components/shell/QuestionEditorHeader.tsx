@@ -10,6 +10,8 @@ interface QuestionEditorHeaderProps {
   isEditMode: boolean;
   activeQuestion?: ProgramQuestion | null;
   hideSave?: boolean;
+  /** Called when the user clicks "Test Patient Flow". If omitted the button is disabled. */
+  onTestFlow?: () => void;
   onClose: () => void;
   onSave: () => void;
 }
@@ -20,6 +22,7 @@ export function QuestionEditorHeader({
   isEditMode,
   activeQuestion,
   hideSave = false,
+  onTestFlow,
   onClose,
   onSave,
 }: QuestionEditorHeaderProps) {
@@ -50,7 +53,10 @@ export function QuestionEditorHeader({
       <div className="flex items-center gap-3">
         <Button
           variant="outline"
-          className="h-9 px-4 text-xs font-bold bg-white text-slate-700 border-slate-200 hover:bg-slate-50 shadow-sm"
+          onClick={onTestFlow}
+          disabled={!onTestFlow}
+          className="h-9 px-4 text-xs font-bold bg-white text-slate-700 border-slate-200 hover:bg-slate-50 shadow-sm disabled:opacity-50"
+          data-testid="question-editor-test-patient-flow"
         >
           <Play className="mr-2 h-3.5 w-3.5 text-slate-400 fill-slate-400" />
           Test Patient Flow
@@ -59,6 +65,7 @@ export function QuestionEditorHeader({
           <Button
             onClick={onSave}
             className="h-9 px-5 text-xs font-bold bg-[#3b82f6] text-white hover:bg-[#2563eb] shadow-sm"
+            data-testid="question-editor-save"
           >
             {isEditMode ? "Save Changes" : "Add Question"}
           </Button>

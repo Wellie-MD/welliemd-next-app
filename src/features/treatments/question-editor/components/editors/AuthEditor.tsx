@@ -10,6 +10,7 @@ interface AuthEditorProps {
   sidebar: React.ReactNode;
   onSave: (question: ProgramQuestion) => void;
   onClose: () => void;
+  onTestFlow?: () => void;
 }
 
 export function AuthEditor({
@@ -19,6 +20,7 @@ export function AuthEditor({
   sidebar,
   onSave,
   onClose,
+  onTestFlow,
 }: AuthEditorProps) {
   const questionOrder = activeQuestion ? activeQuestion.order : questions.length + 1;
   const isEditMode = !!activeQuestion;
@@ -33,6 +35,7 @@ export function AuthEditor({
         hideSave={true}
         onClose={onClose}
         onSave={() => {}}
+        onTestFlow={onTestFlow}
       />
       
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)_340px] overflow-hidden">

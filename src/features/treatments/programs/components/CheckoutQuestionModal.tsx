@@ -45,9 +45,12 @@ export function CheckoutQuestionModal({
           <div className="space-y-5 overflow-y-auto border-r border-slate-150 p-6">
             <CheckoutProductsSection
               products={form.products}
+              eligibleQuestions={screeningQuestions}
               onAddProduct={form.handleAddProduct}
               onRemoveProduct={form.handleRemoveProduct}
               onProductFieldChange={form.handleProductFieldChange}
+              onProductPriceChange={form.handleProductPriceChange}
+              onProductVisibilityChange={form.handleProductVisibilityChange}
             />
             <QuestionVisibilityTab
               visibilityRuleGroup={form.visibilityRuleGroup}

@@ -15,6 +15,7 @@ interface StandardEditorProps {
   sidebar: React.ReactNode;
   onSave: (question: ProgramQuestion) => void;
   onClose: () => void;
+  onTestFlow?: () => void;
 }
 
 export function StandardEditor({
@@ -24,6 +25,7 @@ export function StandardEditor({
   sidebar,
   onSave,
   onClose,
+  onTestFlow,
 }: StandardEditorProps) {
   const [questionText, setQuestionText] = useState("");
   const [questionType, setQuestionType] = useState<QuestionKind>("single_choice");
@@ -149,6 +151,7 @@ export function StandardEditor({
         activeQuestion={activeQuestion}
         onClose={onClose}
         onSave={handleSaveClick}
+        onTestFlow={onTestFlow}
       />
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)_340px] overflow-hidden">
         {sidebar}

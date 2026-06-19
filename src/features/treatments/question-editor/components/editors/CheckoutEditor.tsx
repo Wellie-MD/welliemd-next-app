@@ -13,6 +13,7 @@ interface CheckoutEditorProps {
   sidebar: React.ReactNode;
   onSave: (question: ProgramQuestion) => void;
   onClose: () => void;
+  onTestFlow?: () => void;
 }
 
 export function CheckoutEditor({
@@ -22,6 +23,7 @@ export function CheckoutEditor({
   sidebar,
   onSave,
   onClose,
+  onTestFlow,
 }: CheckoutEditorProps) {
   // Map ProgramQuestion to the shape useCheckoutQuestionForm expects
   const initialCheckoutQuestion = useMemo<ProgramCheckoutQuestion | null>(() => {
@@ -68,6 +70,15 @@ export function CheckoutEditor({
   const questionOrder = activeQuestion ? activeQuestion.order : questions.length + 1;
   const isEditMode = !!activeQuestion;
 
+  // Earlier (already-answered) questions can drive per-product visibility.
+  const eligibleQuestions = useMemo(
+    () =>
+      questions.filter(
+        (question) => question.id !== activeQuestion?.id && question.order < questionOrder
+      ),
+    [questions, activeQuestion?.id, questionOrder]
+  );
+
   return (
     <div className="flex flex-col h-full w-full bg-slate-50">
       <QuestionEditorHeader
@@ -77,6 +88,7 @@ export function CheckoutEditor({
         activeQuestion={activeQuestion}
         onClose={onClose}
         onSave={form.handleSaveModal}
+        onTestFlow={onTestFlow}
       />
       
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)_340px] overflow-hidden">
@@ -86,9 +98,12 @@ export function CheckoutEditor({
           <div className="space-y-5">
             <CheckoutProductsSection
               products={form.products}
+              eligibleQuestions={eligibleQuestions}
               onAddProduct={form.handleAddProduct}
               onRemoveProduct={form.handleRemoveProduct}
               onProductFieldChange={form.handleProductFieldChange}
+              onProductPriceChange={form.handleProductPriceChange}
+              onProductVisibilityChange={form.handleProductVisibilityChange}
             />
             <QuestionVisibilityTab
               visibilityRuleGroup={form.visibilityRuleGroup}

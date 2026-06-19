@@ -2,10 +2,11 @@ import { Button } from "@/components/ui/button";
 import { Eye } from "lucide-react";
 import {
   VisibilityRuleBuilder,
-  createDefaultVisibilityGroup,
-  type VisibilityCondition,
-  type VisibilityGroup,
 } from "@/components/questionnaires/VisibilityRuleBuilder";
+import {
+  fromBuilderGroup,
+  toBuilderGroup,
+} from "@/features/treatments/utils/visibilityBuilderAdapters";
 import type { ProgramQuestion, VisibilityRule, VisibilityRuleGroup } from "@/features/treatments/types";
 
 interface QuestionVisibilityTabProps {
@@ -26,48 +27,6 @@ const createTreatmentRuleGroup = (): VisibilityRuleGroup => ({
   rules: [createEmptyRule()],
   subgroups: [],
 });
-
-const toBuilderGroup = (group: VisibilityRuleGroup | undefined): VisibilityGroup => {
-  if (!group) return createDefaultVisibilityGroup();
-
-  return {
-    type: "group",
-    operator: group.mode === "nested" ? "AND" : "OR",
-    children: [
-      ...group.rules.map<VisibilityCondition>((rule) => ({
-        type: "condition",
-        question_id: rule.questionId,
-        operator: rule.operator,
-        value: rule.value,
-      })),
-      ...(group.subgroups || []).map(toBuilderGroup),
-    ],
-  };
-};
-
-const fromBuilderGroup = (group: VisibilityGroup): VisibilityRuleGroup => {
-  const rules: VisibilityRule[] = [];
-  const subgroups: VisibilityRuleGroup[] = [];
-
-  group.children.forEach((child) => {
-    if (child.type === "group") {
-      subgroups.push(fromBuilderGroup(child));
-      return;
-    }
-
-    rules.push({
-      questionId: child.question_id,
-      operator: child.operator === "not_equals" ? "not_equals" : "equals",
-      value: Array.isArray(child.value) ? child.value.join(",") : String(child.value || ""),
-    });
-  });
-
-  return {
-    mode: group.operator === "AND" ? "nested" : "simple",
-    rules,
-    subgroups,
-  };
-};
 
 export function QuestionVisibilityTab({
   visibilityRuleGroup,

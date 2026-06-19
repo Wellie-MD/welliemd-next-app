@@ -45,6 +45,8 @@ export const checkoutProductFactory = (
   regimen: overrides.regimen,
   doseLabel: overrides.doseLabel,
   productId: overrides.productId,
+  price: overrides.price,
+  visibilityRules: overrides.visibilityRules,
 });
 
 export const visibilityRuleFactory = (

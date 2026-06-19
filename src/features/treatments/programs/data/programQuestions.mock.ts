@@ -1,4 +1,17 @@
-import type { ProgramQuestion } from "@/features/treatments/types";
+import type { ProgramQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
+
+const MED_PREFERENCE_QUESTION_ID = "q-med-preference";
+
+const PREF_SEMAGLUTIDE = "Semaglutide (Ozempic, Wegovy)";
+const PREF_TIRZEPATIDE = "Tirzepatide (Mounjaro, Zepbound)";
+const PREF_NONE = "No preference";
+
+/** Show a checkout product only when the patient's medication preference matches. */
+const preferenceRule = (value: string): VisibilityRuleGroup => ({
+  mode: "nested",
+  rules: [{ id: `vr-pref-${value}`, questionId: MED_PREFERENCE_QUESTION_ID, operator: "equals", value }],
+  subgroups: [],
+});
 
 export const mockProgramQuestions: ProgramQuestion[] = [
   {
@@ -9,6 +22,7 @@ export const mockProgramQuestions: ProgramQuestion[] = [
     section: "GLP Intake",
     required: true,
     choices: ["Yes", "No"],
+    dqChoices: ["Yes"],
     flags: ["conditional", "disqualifying"],
   },
   {
@@ -26,7 +40,11 @@ export const mockProgramQuestions: ProgramQuestion[] = [
     kind: "single_choice",
     section: "GLP Intake",
     required: true,
-    choices: ["Diet and exercise", "Medication", "Surgery", "Other"],
+    choices: [
+      "Actively managing diet and exercise",
+      "Have tried multiple approaches without success",
+      "Not yet started a structured approach",
+    ],
   },
   {
     id: "q-medical-conditions",
@@ -35,7 +53,26 @@ export const mockProgramQuestions: ProgramQuestion[] = [
     kind: "multiple_choice",
     section: "Medical Baseline",
     required: true,
-    choices: ["Thyroid Cancer", "Pancreatitis", "Multiple Endocrine Neoplasia", "Kidney Disease", "None of the above"],
+    choices: [
+      "Gastroparesis (Paralysis of your intestines)",
+      "Triglycerides over 600 at any point",
+      "Pancreatic cancer or pancreatitis",
+      "Type 1 Diabetes/Insulin-dependent diabetes",
+      "Hypoglycemia (low blood sugar)",
+      "Personal or family history of medullary thyroid cancer",
+      "Anorexia or bulimia",
+      "None of the above",
+    ],
+    dqChoices: [
+      "Gastroparesis (Paralysis of your intestines)",
+      "Triglycerides over 600 at any point",
+      "Pancreatic cancer or pancreatitis",
+      "Type 1 Diabetes/Insulin-dependent diabetes",
+      "Hypoglycemia (low blood sugar)",
+      "Personal or family history of medullary thyroid cancer",
+      "Anorexia or bulimia",
+    ],
+    flags: ["disqualifying"],
   },
   {
     id: "q-consent-gallstone",
@@ -91,7 +128,7 @@ export const mockProgramQuestions: ProgramQuestion[] = [
     kind: "single_choice",
     section: "Treatment Readiness",
     required: true,
-    choices: ["Yes, I can do it myself", "Yes, someone can help me", "No"],
+    choices: ["Yes, I can self-inject", "Yes, someone can help", "No"],
   },
   {
     id: "q-last-medication-date",
@@ -102,57 +139,95 @@ export const mockProgramQuestions: ProgramQuestion[] = [
     required: true,
   },
   {
-    id: "q-diagnosed-mtc",
+    id: MED_PREFERENCE_QUESTION_ID,
     order: 12,
-    text: "Have you ever been diagnosed with Medullary Thyroid Carcinoma (MTC)?",
+    text: "Do you have a preference for your medication?",
     kind: "single_choice",
-    section: "Medical History",
+    section: "Treatment Readiness",
     required: true,
-    choices: ["Yes", "No"],
+    choices: [PREF_SEMAGLUTIDE, PREF_TIRZEPATIDE, PREF_NONE],
   },
   {
-    id: "q-diagnosed-men2",
+    id: "q-currently-taking-glp",
     order: 13,
-    text: "Have you ever been diagnosed with Multiple Endocrine Neoplasia syndrome type 2 (MEN 2)?",
+    text: "Are you currently taking GLP medication?",
     kind: "single_choice",
-    section: "Medical History",
+    section: "Treatment Readiness",
     required: true,
-    choices: ["Yes", "No"],
+    choices: ["Yes", "No (new patient)"],
   },
   {
-    id: "q-history-pancreatitis",
+    id: "q-continue-treatment",
     order: 14,
-    text: "Do you have a personal history of pancreatitis?",
+    text: "How would you like to continue your treatment?",
     kind: "single_choice",
-    section: "Medical History",
+    section: "Treatment Readiness",
     required: true,
-    choices: ["Yes", "No"],
+    choices: ["Increase the dose if a higher one is available", "Maintain current dose", "Decrease dose"],
   },
   {
     id: "q-checkout-semaglutide",
     order: 15,
-    text: "Recommended Compounded Semaglutide options",
+    text: "Product Options — Compounded Semaglutide",
     kind: "checkout",
     section: "Checkout",
     required: true,
     flags: ["conditional"],
+    checkoutProducts: [
+      {
+        id: "pcp-sema-wegovy-025",
+        category: "Semaglutide",
+        regimen: "Standard",
+        doseLabel: "Wegovy 0.25mg",
+        price: 249,
+        visibilityRules: preferenceRule(PREF_SEMAGLUTIDE),
+      },
+    ],
   },
   {
     id: "q-checkout-tirzepatide",
     order: 16,
-    text: "Recommended Compounded Tirzepatide options",
+    text: "Product Options — Compounded Tirzepatide",
     kind: "checkout",
     section: "Checkout",
     required: true,
     flags: ["conditional"],
+    checkoutProducts: [
+      {
+        id: "pcp-tirz-zepbound-25",
+        category: "Tirzepatide",
+        regimen: "Standard",
+        doseLabel: "Zepbound 2.5mg",
+        price: 299,
+        visibilityRules: preferenceRule(PREF_TIRZEPATIDE),
+      },
+    ],
   },
   {
-    id: "q-checkout-branded",
+    id: "q-checkout-recommended",
     order: 17,
-    text: "Recommended Branded Weight Loss options",
+    text: "Product Options — No Preference (Recommended)",
     kind: "checkout",
     section: "Checkout",
     required: true,
     flags: ["conditional"],
+    checkoutProducts: [
+      {
+        id: "pcp-rec-sema-025",
+        category: "Semaglutide",
+        regimen: "Standard",
+        doseLabel: "Wegovy 0.25mg",
+        price: 249,
+        visibilityRules: preferenceRule(PREF_NONE),
+      },
+      {
+        id: "pcp-rec-tirz-25",
+        category: "Tirzepatide",
+        regimen: "Standard",
+        doseLabel: "Zepbound 2.5mg",
+        price: 299,
+        visibilityRules: preferenceRule(PREF_NONE),
+      },
+    ],
   },
 ];
