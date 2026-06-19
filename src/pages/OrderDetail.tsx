@@ -1229,7 +1229,7 @@ export default function OrderDetail() {
     0
   const requestedProductShippingAmount =
     parseMoney(order.requested_medicines?.[0]?.shipping_fee) ??
-    previewShippingFee
+    0
 
   const itemPrice = formatMoney(displayItemUnitPrice)
   const lineTotalPrice = formatMoney(displayLineTotal)
