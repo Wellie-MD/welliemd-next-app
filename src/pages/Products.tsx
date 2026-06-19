@@ -220,15 +220,15 @@ export default function Products() {
   }
 
   return (
-    <div className="min-h-full bg-slate-50 px-5 py-8 sm:px-7 lg:px-9">
+    <div className="min-h-full bg-slate-50 dark:bg-slate-950/20 px-5 py-8 sm:px-7 lg:px-9">
       <div className="space-y-6">
         <div>
-          <h1 className="text-[26px] font-bold leading-8 tracking-normal text-slate-950">
+          <h1 className="text-[26px] font-bold leading-8 tracking-normal text-slate-950 dark:text-slate-50">
             Products
           </h1>
-          <div className="mt-1 flex items-center gap-2 text-sm text-slate-500">
+          <div className="mt-1 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
             <span>Home</span>
-            <span className="text-slate-400">›</span>
+            <span className="text-slate-400 dark:text-slate-500">›</span>
             <span>Products</span>
           </div>
         </div>
@@ -279,11 +279,11 @@ export default function Products() {
               }}
             />
             <div className="space-y-2">
-              <label className="block text-xs font-bold uppercase tracking-normal text-slate-500">
+              <label className="block text-xs font-bold uppercase tracking-normal text-slate-500 dark:text-slate-400">
                 Search
               </label>
               <div className="relative">
-                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
                 <Input
                   value={search}
                   onChange={(event) => {
@@ -291,7 +291,7 @@ export default function Products() {
                     setCurrentPage(1)
                   }}
                   placeholder="Search products..."
-                  className="h-11 w-full rounded-md border-slate-200 bg-white pl-10 text-[15px] text-slate-700 shadow-none placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-sky-300"
+                  className="h-11 w-full rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 pl-10 text-[15px] text-slate-700 dark:text-slate-200 shadow-none placeholder:text-slate-400 dark:placeholder:text-slate-500 focus-visible:ring-1 focus-visible:ring-sky-300"
                 />
               </div>
             </div>
@@ -301,7 +301,7 @@ export default function Products() {
                   type="button"
                   variant="outline"
                   onClick={resetFilters}
-                  className="h-11 rounded-md border-slate-200 bg-white px-4 text-[15px] font-semibold text-slate-950 shadow-none"
+                  className="h-11 rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 text-[15px] font-semibold text-slate-950 dark:text-slate-200 shadow-none hover:bg-slate-50 dark:hover:bg-slate-800/50"
                 >
                   <RotateCcw className="mr-2 h-4 w-4" />
                   Reset Filters
@@ -310,16 +310,16 @@ export default function Products() {
             )}
           </div>
 
-          <div className="pb-3 text-sm text-slate-500 xl:text-right">
+          <div className="pb-3 text-sm text-slate-500 dark:text-slate-400 xl:text-right">
             Showing {showingStart}-{showingEnd} of {totalCount}
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
           <div className="overflow-x-auto">
             <Table className="min-w-[1120px] text-[15px]">
               <TableHeader>
-                <TableRow className="border-slate-200 hover:bg-transparent">
+                <TableRow className="border-slate-200 dark:border-slate-800 hover:bg-transparent">
                   <ProductTableHead className="w-[35%]">Name</ProductTableHead>
                   <ProductTableHead>Category</ProductTableHead>
                   <ProductTableHead>Pharmacy</ProductTableHead>
@@ -333,7 +333,7 @@ export default function Products() {
                 {loading ? (
                   <TableRow>
                     <TableCell colSpan={7} className="h-40 text-center">
-                      <div className="flex items-center justify-center gap-2 text-slate-500">
+                      <div className="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
                         <Loader2 className="h-5 w-5 animate-spin" />
                         <span>Loading products...</span>
                       </div>
@@ -349,9 +349,9 @@ export default function Products() {
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") setEditing(product)
                       }}
-                      className="h-[62px] cursor-pointer border-slate-200 hover:bg-slate-50/70"
+                      className="h-[62px] cursor-pointer border-slate-200 dark:border-slate-800 hover:bg-slate-50/70 dark:hover:bg-slate-800/40"
                     >
-                      <ProductTableCell className="font-semibold text-slate-950">
+                      <ProductTableCell className="font-semibold text-slate-950 dark:text-slate-100">
                         {product.name}
                       </ProductTableCell>
                       <ProductTableCell>
@@ -372,7 +372,7 @@ export default function Products() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-40 text-center text-sm text-slate-500">
+                    <TableCell colSpan={7} className="h-40 text-center text-sm text-slate-500 dark:text-slate-400">
                       No products found.
                     </TableCell>
                   </TableRow>
@@ -381,11 +381,11 @@ export default function Products() {
             </Table>
           </div>
 
-          <div className="flex flex-col gap-4 border-t border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3 text-sm text-slate-500">
+          <div className="flex flex-col gap-4 border-t border-slate-200 dark:border-slate-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
               <span>Rows per page</span>
               <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
-                <SelectTrigger className="h-9 w-[72px] rounded-md border-slate-200 bg-white">
+                <SelectTrigger className="h-9 w-[72px] rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-755 dark:text-slate-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -398,7 +398,7 @@ export default function Products() {
               </Select>
             </div>
 
-            <div className="flex items-center gap-4 text-sm text-slate-500">
+            <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
               <span>
                 Page {currentPage} of {totalPages}
               </span>
@@ -406,7 +406,7 @@ export default function Products() {
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-9 w-9 rounded-md border-slate-200 bg-white text-slate-500 disabled:bg-slate-50"
+                  className="h-9 w-9 rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 disabled:bg-slate-50 dark:disabled:bg-slate-950 disabled:text-slate-300 dark:disabled:text-slate-700"
                   disabled={currentPage <= 1 || loading}
                   onClick={() => fetchProducts(currentPage - 1, pageSize)}
                 >
@@ -415,7 +415,7 @@ export default function Products() {
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-9 w-9 rounded-md border-slate-200 bg-white text-slate-950 disabled:bg-slate-50 disabled:text-slate-300"
+                  className="h-9 w-9 rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-955 dark:text-slate-200 disabled:bg-slate-50 dark:disabled:bg-slate-950 disabled:text-slate-300 dark:disabled:text-slate-700"
                   disabled={currentPage >= totalPages || loading}
                   onClick={() => fetchProducts(currentPage + 1, pageSize)}
                 >
@@ -459,11 +459,11 @@ function FilterSelect({
 }) {
   return (
     <div className="space-y-2">
-      <label className="block text-xs font-bold uppercase tracking-normal text-slate-500">
+      <label className="block text-xs font-bold uppercase tracking-normal text-slate-500 dark:text-slate-400">
         {label}
       </label>
       <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger className="h-11 min-w-[194px] rounded-md border-slate-200 bg-white px-4 text-[15px] text-slate-500 shadow-none focus:ring-1 focus:ring-sky-300">
+        <SelectTrigger className="h-11 min-w-[194px] rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 text-[15px] text-slate-500 dark:text-slate-300 shadow-none focus:ring-1 focus:ring-sky-300">
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
@@ -489,7 +489,7 @@ function ProductTableHead({
   return (
     <TableHead
       className={cn(
-        "h-11 px-5 text-xs font-bold uppercase tracking-normal text-slate-500",
+        "h-11 px-5 text-xs font-bold uppercase tracking-normal text-slate-500 dark:text-slate-400",
         className
       )}
     >
@@ -506,7 +506,7 @@ function ProductTableCell({
   children: React.ReactNode
 }) {
   return (
-    <TableCell className={cn("px-5 py-3 text-[15px] text-slate-500", className)}>
+    <TableCell className={cn("px-5 py-3 text-[15px] text-slate-500 dark:text-slate-400", className)}>
       {children}
     </TableCell>
   )
@@ -523,9 +523,9 @@ function Pill({
     <span
       className={cn(
         "inline-flex min-h-7 items-center rounded-md px-3 text-sm font-medium",
-        tone === "blue" && "bg-sky-100 text-sky-700",
-        tone === "green" && "bg-emerald-100 text-emerald-600",
-        tone === "red" && "bg-red-100 text-red-600"
+        tone === "blue" && "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
+        tone === "green" && "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400",
+        tone === "red" && "bg-red-100 text-red-600 dark:bg-red-950/30 dark:text-red-400"
       )}
     >
       {children}
