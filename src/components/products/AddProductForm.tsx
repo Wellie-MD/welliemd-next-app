@@ -193,7 +193,7 @@ export default function AddProductForm({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-slate-950/55" />
         <DialogPrimitive.Content
-          className="fixed z-50 flex w-[calc(100vw-24px)] max-w-[990px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl outline-none"
+          className="fixed z-50 flex w-[calc(100vw-24px)] max-w-[990px] flex-col overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border dark:border-slate-800 shadow-2xl outline-none"
           style={{
             top: "24px",
             bottom: "24px",
@@ -203,27 +203,27 @@ export default function AddProductForm({
             transform: "translateX(-50%)",
           }}
         >
-          <div className="shrink-0 border-b border-slate-200 px-8 py-6 text-left">
+          <div className="shrink-0 border-b border-slate-200 dark:border-slate-800 px-8 py-6 text-left">
           <div className="flex items-start gap-4">
             <SectionIcon>
               <Box className="h-5 w-5" />
             </SectionIcon>
             <div className="min-w-0">
               <div className="flex items-center gap-3">
-                <DialogPrimitive.Title className="text-xl font-bold text-slate-900">
+                <DialogPrimitive.Title className="text-xl font-bold text-slate-900 dark:text-slate-50">
                   Edit Product
                 </DialogPrimitive.Title>
                 <StatusBadge active={Boolean(isActive)} />
               </div>
-              <div className="mt-1 truncate text-[15px] font-medium text-slate-900">
+              <div className="mt-1 truncate text-[15px] font-medium text-slate-900 dark:text-slate-100">
                 {product?.name}
               </div>
-              <DialogPrimitive.Description className="text-sm text-slate-500">
+              <DialogPrimitive.Description className="text-sm text-slate-500 dark:text-slate-400">
                 Fields marked read-only are managed by the admin and cannot be edited.
               </DialogPrimitive.Description>
             </div>
           </div>
-          <DialogPrimitive.Close className="absolute right-6 top-6 rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-900">
+          <DialogPrimitive.Close className="absolute right-6 top-6 rounded-md p-1 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100">
             <X className="h-5 w-5" />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
@@ -233,7 +233,7 @@ export default function AddProductForm({
           onSubmit={handleSubmit(onSubmit)}
           className="flex min-h-0 flex-1 flex-col overflow-hidden"
         >
-          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain bg-slate-50 px-8 py-6 [scrollbar-gutter:stable]">
+          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain bg-slate-50 dark:bg-slate-950/30 px-8 py-6 [scrollbar-gutter:stable]">
             <Panel
               icon={<Box className="h-5 w-5" />}
               title="Product Information"
@@ -261,7 +261,7 @@ export default function AddProductForm({
                   description
                 />
               </div>
-              <div className="my-4 border-t border-slate-200" />
+              <div className="my-4 border-t border-slate-200 dark:border-slate-800" />
               <div
                 className="grid"
                 style={{
@@ -309,8 +309,8 @@ export default function AddProductForm({
               </div>
 
               <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
-                  <div className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-900">
+                <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/20 p-5">
+                  <div className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100">
                     Your cost
                     <SmallBadge>
                       <Lock className="h-3.5 w-3.5" />
@@ -319,24 +319,24 @@ export default function AddProductForm({
                   </div>
                   <CostRow label="Cost to Client" value={money(costToClient)} />
                   <CostRow label="Shipping cost" value={money(shippingCost)} />
-                  <div className="my-4 border-t border-slate-200" />
+                  <div className="my-4 border-t border-slate-200 dark:border-slate-800" />
                   <CostRow label="Total cost" value={money(totalCost)} strong />
                 </div>
 
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
-                  <div className="mb-4 text-sm font-bold text-slate-900">Profit breakdown</div>
+                <div className="rounded-xl border border-emerald-200/50 dark:border-emerald-950/30 bg-emerald-50/70 dark:bg-emerald-950/10 p-5">
+                  <div className="mb-4 text-sm font-bold text-slate-900 dark:text-slate-100">Profit breakdown</div>
                   <CostRow label="Patient pays" value={money(effectivePatientPrice)} />
                   <CostRow label="Shipping fee" value={`+ ${money(shippingFee)}`} />
                   <CostRow label="Your cost" value={`- ${money(totalCost)}`} />
-                  <div className="my-4 border-t border-emerald-200" />
+                  <div className="my-4 border-t border-emerald-200/30 dark:border-emerald-900/30" />
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="font-bold text-slate-900">Profit per order</div>
-                      <div className="mt-1 text-sm text-slate-500">Excludes visit cost</div>
+                      <div className="font-bold text-slate-900 dark:text-slate-100">Profit per order</div>
+                      <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">Excludes visit cost</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-emerald-600">{money(profit)}</div>
-                      <span className="mt-1 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
+                      <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{money(profit)}</div>
+                      <span className="mt-1 inline-flex rounded-full bg-emerald-100 dark:bg-emerald-950/30 px-2 py-0.5 text-xs font-bold text-emerald-700 dark:text-emerald-400">
                         {margin.toFixed(1)}%
                       </span>
                     </div>
@@ -347,13 +347,13 @@ export default function AddProductForm({
 
             <Panel icon={<Power className="h-5 w-5" />} title="Availability">
               <div className="flex items-center justify-between gap-6">
-                <p className="text-[15px] text-slate-500">
+                <p className="text-[15px] text-slate-500 dark:text-slate-400">
                   Inactive products are hidden from product selection in intake.
                 </p>
                 <div className="flex shrink-0 items-center gap-3">
                   <div className="text-right">
-                    <div className="font-bold text-slate-900">{isActive ? "Active" : "Inactive"}</div>
-                    <div className="text-xs text-slate-500">
+                    <div className="font-bold text-slate-900 dark:text-slate-100">{isActive ? "Active" : "Inactive"}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
                       {isActive ? "Shown in product selection" : "Hidden from product selection"}
                     </div>
                   </div>
@@ -362,10 +362,10 @@ export default function AddProductForm({
                     role="switch"
                     aria-checked={Boolean(isActive)}
                     onClick={() => setValue("is_active", !isActive, { shouldDirty: true })}
-                    className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border-0 p-0 transition-colors"
-                    style={{
-                      backgroundColor: isActive ? "#46b6e6" : "#cbd5e1",
-                    }}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border-0 p-0 transition-colors",
+                      isActive ? "bg-sky-400" : "bg-slate-300 dark:bg-slate-700"
+                    )}
                   >
                     <span
                       className="inline-block h-5 w-5 rounded-full bg-white shadow transition-transform"
@@ -383,7 +383,7 @@ export default function AddProductForm({
               title="Service States"
               rightBadge={`${activeStateCount} of ${availableServiceStates.length} active`}
             >
-              <p className="text-[15px] text-slate-500">
+              <p className="text-[15px] text-slate-500 dark:text-slate-400">
                 Select the states where this assigned product should remain available. You can only choose states configured by admin.
               </p>
               {adminAllowedStates.length ? (
@@ -392,7 +392,7 @@ export default function AddProductForm({
                     <Button
                       type="button"
                       variant="outline"
-                      className="h-9 rounded-lg border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+                      className="h-9 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 text-sm font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800"
                       onClick={() => setValue("service_states", availableServiceStates, { shouldDirty: true })}
                     >
                       Select all states
@@ -400,7 +400,7 @@ export default function AddProductForm({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="h-9 px-0 text-sm font-semibold text-slate-500 hover:bg-transparent hover:text-slate-700"
+                      className="h-9 px-0 text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-transparent hover:text-slate-700 dark:hover:text-slate-350"
                       onClick={() => setValue("service_states", [], { shouldDirty: true })}
                     >
                       Clear
@@ -419,13 +419,12 @@ export default function AddProductForm({
                               : [...selectedServiceStates, state]
                             setValue("service_states", nextStates, { shouldDirty: true })
                           }}
-                          className="rounded-full border px-3 py-1 text-xs font-medium transition-colors"
-                          style={{
-                            minWidth: "44px",
-                            borderColor: checked ? "#46b6e6" : "#e8ebee",
-                            backgroundColor: checked ? "#46b6e6" : "#ffffff",
-                            color: checked ? "#ffffff" : "#1f2937",
-                          }}
+                          className={cn(
+                            "rounded-full border px-3 py-1 text-xs font-medium transition-colors min-w-[44px]",
+                            checked
+                              ? "border-sky-400 bg-sky-400 text-white"
+                              : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
+                          )}
                         >
                           {state}
                         </button>
@@ -434,7 +433,7 @@ export default function AddProductForm({
                   </div>
                 </>
               ) : (
-                <p className="mt-4 text-sm text-slate-500">
+                <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
                   No explicit product-level states were configured by admin. This product inherits pharmacy coverage.
                 </p>
               )}
@@ -454,16 +453,11 @@ export default function AddProductForm({
                 }}
               >
                 <div className="min-w-0">
-                  <div className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                  <div className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-450">
                     {selectedImageUrl ? "Selected" : "Current"}
                   </div>
                   <div
-                    className="flex items-center justify-center overflow-hidden rounded-xl border border-slate-200"
-                    style={{
-                      width: "132px",
-                      height: "150px",
-                      background: "linear-gradient(180deg,#fbfcfd,#eef2f5)",
-                    }}
+                    className="flex items-center justify-center overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 w-[132px] h-[150px]"
                   >
                     {selectedImageUrl || product?.product_image ? (
                       <img
@@ -481,7 +475,7 @@ export default function AddProductForm({
                   </div>
                   {imageName && (
                     <div
-                      className="mt-2 truncate text-xs font-medium text-slate-900"
+                      className="mt-2 truncate text-xs font-medium text-slate-900 dark:text-slate-200"
                       style={{ maxWidth: "132px" }}
                       title={imageName}
                     >
@@ -493,7 +487,7 @@ export default function AddProductForm({
                       href={product.product_image}
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-1 inline-block text-xs font-medium text-sky-700 hover:underline"
+                      className="mt-1 inline-block text-xs font-medium text-sky-500 hover:underline"
                     >
                       View original
                     </a>
@@ -501,7 +495,7 @@ export default function AddProductForm({
                 </div>
 
                 <label
-                  className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-white px-6 py-8 text-center transition-colors hover:border-sky-300"
+                  className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-8 text-center transition-colors hover:border-sky-400"
                   style={{
                     minHeight: "242px",
                   }}
@@ -520,14 +514,14 @@ export default function AddProductForm({
                     className="sr-only"
                     onChange={(event) => setValue("product_image", event.target.files?.[0] ?? null, { shouldDirty: true })}
                   />
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-sky-100 text-sky-600">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400">
                     <ImageIcon className="h-5 w-5" />
                   </span>
-                  <span className="mt-3 text-sm font-semibold text-slate-900">
+                  <span className="mt-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
                     {selectedImage instanceof File ? selectedImage.name : "Click to upload"}
                   </span>
-                  <span className="text-sm text-slate-500">or drag and drop an image here</span>
-                  <span className="mt-2 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500">
+                  <span className="text-sm text-slate-500 dark:text-slate-400">or drag and drop an image here</span>
+                  <span className="mt-2 rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
                     PNG or JPG - up to 5MB
                   </span>
                 </label>
@@ -535,19 +529,19 @@ export default function AddProductForm({
             </Panel>
           </div>
 
-          <div className="flex shrink-0 justify-end gap-3 border-t border-slate-200 bg-white px-7 py-4 shadow-[0_-1px_3px_rgba(16,32,48,0.04)]">
+          <div className="flex shrink-0 justify-end gap-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-7 py-4 shadow-[0_-1px_3px_rgba(16,32,48,0.04)]">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="h-11 min-w-[93px] shrink-0 rounded-lg border-slate-200 px-5 text-sm font-medium text-slate-900 hover:bg-slate-50"
+              className="h-11 min-w-[93px] shrink-0 rounded-lg border-slate-200 dark:border-slate-800 px-5 text-sm font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 bg-transparent"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={loading}
-              className="h-11 min-w-[144px] shrink-0 whitespace-nowrap rounded-lg bg-sky-500 px-5 text-sm font-semibold text-white hover:bg-sky-600"
+              className="h-11 min-w-[144px] shrink-0 whitespace-nowrap rounded-lg bg-sky-500 hover:bg-sky-600 px-5 text-sm font-semibold text-white"
             >
               {loading ? "Saving..." : "Save Changes"}
             </Button>
@@ -561,7 +555,7 @@ export default function AddProductForm({
 
 function SectionIcon({ children }: { children: ReactNode }) {
   return (
-    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-100 text-sky-600">
+    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400">
       {children}
     </span>
   )
@@ -585,13 +579,13 @@ function Panel({
   children: ReactNode
 }) {
   return (
-    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+    <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 px-5 py-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-100 text-sky-600">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-955 text-sky-600 dark:text-sky-400">
             {icon}
           </span>
-          <h3 className="font-bold text-slate-900">{title}</h3>
+          <h3 className="font-bold text-slate-900 dark:text-slate-100">{title}</h3>
           {badge && (
             <SmallBadge tone={badgeTone}>
               {badgeIcon}
@@ -600,7 +594,7 @@ function Panel({
           )}
         </div>
         {rightBadge && (
-          <span className="rounded-full bg-sky-100 px-4 py-1.5 text-sm font-bold text-sky-700">
+          <span className="rounded-full bg-sky-100 dark:bg-sky-950 px-4 py-1.5 text-sm font-bold text-sky-700 dark:text-sky-400">
             {rightBadge}
           </span>
         )}
@@ -622,8 +616,8 @@ function SmallBadge({
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold",
         tone === "green"
-          ? "bg-emerald-100 text-emerald-600"
-          : "bg-slate-100 text-slate-500"
+          ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400"
+          : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
       )}
     >
       {children}
@@ -636,7 +630,7 @@ function StatusBadge({ active }: { active: boolean }) {
     <span
       className={cn(
         "inline-flex rounded-md px-3 py-1 text-sm font-semibold",
-        active ? "bg-emerald-100 text-emerald-600" : "bg-red-100 text-red-600"
+        active ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400" : "bg-red-100 text-red-600 dark:bg-red-950/30 dark:text-red-400"
       )}
     >
       {active ? "Active" : "Inactive"}
@@ -659,14 +653,14 @@ function ReadOnlyField({
 }) {
   return (
     <div className={className}>
-      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+      <div className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
         {label}
       </div>
       <div
         className={cn(
-          "mt-1 text-[15px] font-medium leading-5 text-slate-950",
-          strong && "text-base font-semibold leading-6",
-          description && "text-sm font-normal leading-6"
+          "mt-1 text-[15px] font-medium leading-5 text-slate-955 dark:text-slate-200",
+          strong && "text-base font-semibold leading-6 text-slate-900 dark:text-slate-100",
+          description && "text-sm font-normal leading-6 text-slate-900 dark:text-slate-300"
         )}
       >
         {value || "-"}
@@ -686,18 +680,18 @@ function MoneyInput({
 }) {
   return (
     <div>
-      <label className="mb-2 block text-sm font-semibold text-slate-500">{label}</label>
+      <label className="mb-2 block text-sm font-semibold text-slate-500 dark:text-slate-400">{label}</label>
       <div className="relative">
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">$</span>
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">$</span>
         <input
           type="number"
           step="0.01"
           {...registration}
-          className="h-11 w-full rounded-md border border-slate-200 bg-white pl-8 pr-3 text-[15px] text-slate-900 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-300"
+          className="h-11 w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 pl-8 pr-3 text-[15px] text-slate-900 dark:text-slate-100 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-300"
           placeholder="0.00"
         />
       </div>
-      <p className="mt-2 text-sm text-slate-500">{helper}</p>
+      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{helper}</p>
     </div>
   )
 }
@@ -713,8 +707,8 @@ function CostRow({
 }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-3 text-[15px]">
-      <span className="text-slate-500">{label}</span>
-      <span className={cn("text-slate-900", strong ? "font-bold" : "font-semibold")}>{value}</span>
+      <span className="text-slate-500 dark:text-slate-400">{label}</span>
+      <span className={cn("text-slate-900 dark:text-slate-100", strong ? "font-bold" : "font-semibold")}>{value}</span>
     </div>
   )
 }
