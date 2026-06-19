@@ -2,20 +2,35 @@ import { useState, useMemo } from "react";
 import { Search, AlignLeft, CheckSquare, List, Hash, Calendar, Mail, Phone, MapPin, Upload, Scale, HeartPulse, Stethoscope, FileText, Lock, LayoutGrid, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { QuestionKind } from "@/features/treatments/types";
+import type { ProgramFlowPaletteAction, QuestionFlowPaletteAction } from "../types";
 
-export interface PaletteItem {
-  kind: QuestionKind | "auth" | "section" | "consent" | "checkout" | "question";
+interface BasePaletteItem {
   text: string;
   category: "basic" | "medical" | "element";
   icon: React.ElementType;
 }
 
-interface QuestionTypePaletteProps {
-  entityType: "program" | "section";
-  onAddItem: (kind: string, text: string) => void;
+export interface SectionPaletteItem extends BasePaletteItem {
+  kind: QuestionKind;
 }
 
-const SECTION_PALETTE_ITEMS: PaletteItem[] = [
+export interface ProgramPaletteItem extends BasePaletteItem {
+  kind: ProgramFlowPaletteAction;
+}
+
+export type PaletteItem = SectionPaletteItem | ProgramPaletteItem;
+
+interface DragPayload {
+  kind: QuestionKind;
+  text: string;
+}
+
+interface QuestionTypePaletteProps {
+  entityType: "program" | "section";
+  onAddItem: (kind: QuestionFlowPaletteAction, text: string) => void;
+}
+
+const SECTION_PALETTE_ITEMS: SectionPaletteItem[] = [
   { kind: "text", text: "Short Answer", category: "basic", icon: AlignLeft },
   { kind: "textarea", text: "Long Answer", category: "basic", icon: AlignLeft },
   { kind: "single_choice", text: "Single Choice", category: "basic", icon: List },
@@ -33,7 +48,7 @@ const SECTION_PALETTE_ITEMS: PaletteItem[] = [
   { kind: "height_weight", text: "Height & Weight", category: "medical", icon: Scale },
 ];
 
-const PROGRAM_PALETTE_ITEMS: PaletteItem[] = [
+const PROGRAM_PALETTE_ITEMS: ProgramPaletteItem[] = [
   { kind: "question", text: "Question", category: "element", icon: AlignLeft },
   { kind: "auth", text: "Patient Authentication", category: "element", icon: Lock },
   { kind: "section", text: "Common Section", category: "element", icon: LayoutGrid },
@@ -45,25 +60,29 @@ export function QuestionTypePalette({ entityType, onAddItem }: QuestionTypePalet
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
 
-  const activeItems = entityType === "program" ? PROGRAM_PALETTE_ITEMS : SECTION_PALETTE_ITEMS;
+  const filteredProgramItems = useMemo(() => {
+    return PROGRAM_PALETTE_ITEMS.filter((item) => {
+      const matchesSearch = item.text.toLowerCase().includes(search.toLowerCase());
+      const matchesFilter = true;
+      return matchesSearch && matchesFilter;
+    });
+  }, [search]);
 
-  const filteredItems = useMemo(() => {
-    return activeItems.filter((item) => {
+  const filteredSectionItems = useMemo(() => {
+    return SECTION_PALETTE_ITEMS.filter((item) => {
       const matchesSearch = item.text.toLowerCase().includes(search.toLowerCase());
       const matchesFilter = filter === "all" || item.category === filter;
       return matchesSearch && matchesFilter;
     });
-  }, [search, filter, activeItems]);
+  }, [search, filter]);
 
-  const handleDragStart = (event: React.DragEvent, item: PaletteItem) => {
+  const filteredItems = entityType === "program" ? filteredProgramItems : filteredSectionItems;
+
+  const handleDragStart = (event: React.DragEvent, item: SectionPaletteItem) => {
+    const payload: DragPayload = { kind: item.kind, text: item.text };
     event.dataTransfer.effectAllowed = "copy";
-    event.dataTransfer.setData("application/json", JSON.stringify({ kind: item.kind, text: item.text }));
+    event.dataTransfer.setData("application/json", JSON.stringify(payload));
   };
-
-  // Program "elements" (auth/section/consent/checkout/question) are added via
-  // dedicated modals, so they are click-only — dragging them onto the canvas
-  // would create items with non-question kinds. Section field types support drag.
-  const isDraggable = entityType === "section";
 
   return (
     <div className="flex flex-col h-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -102,18 +121,17 @@ export function QuestionTypePalette({ entityType, onAddItem }: QuestionTypePalet
       </div>
 
       <div className="flex-1 space-y-1 overflow-y-auto bg-slate-50/50 p-2.5 min-h-0">
-        {filteredItems.map((item) => {
+        {entityType === "program" && filteredProgramItems.map((item) => {
           const Icon = item.icon;
           return (
             <button
               key={item.kind}
               type="button"
               onClick={() => onAddItem(item.kind, item.text)}
-              draggable={isDraggable}
-              onDragStart={isDraggable ? (e) => handleDragStart(e, item) : undefined}
+              draggable={false}
               className={cn(
                 "flex w-full items-center justify-between rounded-lg border border-slate-100 bg-white p-2 text-left transition-all duration-150 hover:border-slate-200 hover:bg-slate-50/80 hover:shadow-sm",
-                isDraggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+                "cursor-pointer"
               )}
               data-testid={`palette-item-${item.kind}`}
             >
@@ -124,6 +142,33 @@ export function QuestionTypePalette({ entityType, onAddItem }: QuestionTypePalet
                 <span className="truncate text-[11.5px] font-semibold text-slate-700">{item.text}</span>
               </span>
               
+              <span className="rounded bg-slate-100 border border-slate-200 px-1.5 py-0.5 text-[8.5px] font-bold text-slate-500">
+                {item.category.toUpperCase()}
+              </span>
+            </button>
+          );
+        })}
+        {entityType === "section" && filteredSectionItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.kind}
+              type="button"
+              onClick={() => onAddItem(item.kind, item.text)}
+              draggable
+              onDragStart={(event) => handleDragStart(event, item)}
+              className={cn(
+                "flex w-full cursor-grab items-center justify-between rounded-lg border border-slate-100 bg-white p-2 text-left transition-all duration-150 hover:border-slate-200 hover:bg-slate-50/80 hover:shadow-sm active:cursor-grabbing"
+              )}
+              data-testid={`palette-item-${item.kind}`}
+            >
+              <span className="flex min-w-0 items-center gap-2.5">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-500">
+                  <Icon className="h-3.5 w-3.5" />
+                </div>
+                <span className="truncate text-[11.5px] font-semibold text-slate-700">{item.text}</span>
+              </span>
+
               <span className="rounded bg-slate-100 border border-slate-200 px-1.5 py-0.5 text-[8.5px] font-bold text-slate-500">
                 {item.category.toUpperCase()}
               </span>

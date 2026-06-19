@@ -245,8 +245,8 @@ export function usePatientFlowTest({ previewContext, open }: UsePatientFlowTestA
   }, [answers, modules]);
 
   // ── Derive visible checkout products, grouped by treatment ────────────────
-  // Faithful to the prototype: any disqualifier in any active module blocks the
-  // entire checkout (no products shown), surfacing the disqualification note.
+  // Faithful to the prototype: a disqualifier in an active module blocks the
+  // checkout entirely, hides products, and surfaces the disqualification note.
   const checkoutGroups: FlowTestCheckoutGroup[] = useMemo(() => {
     if (disqualifiedModuleIds.size > 0) return [];
 

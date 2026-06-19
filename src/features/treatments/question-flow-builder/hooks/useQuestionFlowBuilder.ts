@@ -6,6 +6,73 @@ import type { QuestionKind } from "@/features/treatments/types";
 export type QuestionFlowViewMode = "list" | "flow";
 export type QuestionTypePaletteFilter = "all" | "basic" | "medical";
 
+const QUESTION_KINDS: readonly QuestionKind[] = [
+  "text",
+  "textarea",
+  "number",
+  "date",
+  "email",
+  "phone",
+  "zip",
+  "single_choice",
+  "multiple_choice",
+  "yes_no",
+  "height_weight",
+  "consent",
+  "file_upload",
+  "state_routing",
+  "medication_dose",
+  "pharmacy",
+  "personal_details",
+  "shipping_address",
+  "sex",
+  "medical_conditions",
+  "self_reported_meds",
+  "allergies",
+  "labs_preference",
+  "checkout",
+];
+
+interface PaletteDragPayload {
+  kind: QuestionKind;
+  text: string;
+}
+
+const QUESTION_KIND_SET = new Set<string>(QUESTION_KINDS);
+
+const isQuestionKind = (value: unknown): value is QuestionKind =>
+  typeof value === "string" && QUESTION_KIND_SET.has(value);
+
+const isPaletteDragPayload = (value: unknown): value is PaletteDragPayload => {
+  if (!value || typeof value !== "object") return false;
+  if (!("kind" in value) || !("text" in value)) return false;
+  return isQuestionKind(value.kind) && typeof value.text === "string";
+};
+
+const parsePalettePayload = (raw: string): PaletteDragPayload | null => {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return isPaletteDragPayload(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const createFlowItem = (
+  payload: PaletteDragPayload,
+  order: number
+): QuestionFlowItem => ({
+  id: createMockId("q"),
+  order,
+  text: payload.text,
+  kind: payload.kind,
+  required: false,
+});
+
+const normalizeOrder = (items: QuestionFlowItem[]): QuestionFlowItem[] =>
+  items.map((item, idx) => ({ ...item, order: idx + 1 }));
+
 export function useQuestionFlowBuilder(adapter: QuestionFlowAdapter) {
   const [items, setItems] = useState<QuestionFlowItem[]>(adapter.items);
   const [isSaving, setIsSaving] = useState(false);
@@ -22,8 +89,7 @@ export function useQuestionFlowBuilder(adapter: QuestionFlowAdapter) {
   );
   useEffect(() => {
     setItems(adapter.items);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adapterSignature]);
+  }, [adapter.items, adapterSignature]);
 
   // Sorting items by order just to be safe
   const sortedItems = useMemo(() => [...items].sort((a, b) => a.order - b.order), [items]);
@@ -41,48 +107,26 @@ export function useQuestionFlowBuilder(adapter: QuestionFlowAdapter) {
     setDraggedItemIndex(index);
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", index.toString());
-    
-    // Create drag image if needed, or rely on browser default
-    const target = event.target as HTMLElement;
-    target.style.opacity = "0.5";
   }, []);
 
-  const handleDragEnd = useCallback((event: React.DragEvent) => {
+  const handleDragEnd = useCallback(() => {
     setDraggedItemIndex(null);
-    const target = event.target as HTMLElement;
-    target.style.opacity = "1";
   }, []);
 
   const handleDropOnArrow = useCallback(
     (event: React.DragEvent, afterItemId: string) => {
       event.preventDefault();
       
-      const draggedPaletteKind = event.dataTransfer.getData("application/json");
-      if (draggedPaletteKind) {
-        // We dropped a new item from the palette
-        try {
-          const paletteData = JSON.parse(draggedPaletteKind) as { kind: QuestionKind; text: string };
-          
+      const paletteData = parsePalettePayload(event.dataTransfer.getData("application/json"));
+      if (paletteData) {
           setItems((prev) => {
             const newItems = [...prev].sort((a, b) => a.order - b.order);
             const targetIndex = newItems.findIndex(i => i.id === afterItemId) + 1;
+            if (targetIndex === 0) return prev;
             
-            const newItem: QuestionFlowItem = {
-              id: createMockId("q"),
-              order: 0, // will recompute
-              text: paletteData.text,
-              kind: paletteData.kind,
-              required: false,
-            };
-            
-            newItems.splice(targetIndex, 0, newItem);
-            
-            // Recompute order
-            return newItems.map((item, idx) => ({ ...item, order: idx + 1 }));
+            newItems.splice(targetIndex, 0, createFlowItem(paletteData, targetIndex + 1));
+            return normalizeOrder(newItems);
           });
-        } catch (e) {
-          // ignore
-        }
         return;
       }
 
@@ -92,6 +136,7 @@ export function useQuestionFlowBuilder(adapter: QuestionFlowAdapter) {
       setItems((prev) => {
         const newItems = [...prev].sort((a, b) => a.order - b.order);
         const targetIndex = newItems.findIndex(i => i.id === afterItemId);
+        if (targetIndex === -1) return prev;
         
         // If dropping exactly where it already is, do nothing
         if (draggedItemIndex === targetIndex || draggedItemIndex === targetIndex + 1) {
@@ -99,14 +144,14 @@ export function useQuestionFlowBuilder(adapter: QuestionFlowAdapter) {
         }
 
         const [draggedItem] = newItems.splice(draggedItemIndex, 1);
+        if (!draggedItem) return prev;
         
         // Find new index after removal
         const newTargetIndex = newItems.findIndex(i => i.id === afterItemId) + 1;
+        if (newTargetIndex === 0) return prev;
         
         newItems.splice(newTargetIndex, 0, draggedItem);
-
-        // Recompute order
-        return newItems.map((item, idx) => ({ ...item, order: idx + 1 }));
+        return normalizeOrder(newItems);
       });
       setDraggedItemIndex(null);
     },
@@ -116,23 +161,13 @@ export function useQuestionFlowBuilder(adapter: QuestionFlowAdapter) {
   const handleCanvasDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     // Drop at the end of the canvas
-    const draggedPaletteKind = event.dataTransfer.getData("application/json");
-    if (draggedPaletteKind) {
-      try {
-        const paletteData = JSON.parse(draggedPaletteKind) as { kind: QuestionKind; text: string };
+    const paletteData = parsePalettePayload(event.dataTransfer.getData("application/json"));
+    if (paletteData) {
         setItems((prev) => {
           const newItems = [...prev].sort((a, b) => a.order - b.order);
-          const newItem: QuestionFlowItem = {
-            id: createMockId("q"),
-            order: newItems.length + 1,
-            text: paletteData.text,
-            kind: paletteData.kind,
-            required: false,
-          };
-          newItems.push(newItem);
+          newItems.push(createFlowItem(paletteData, newItems.length + 1));
           return newItems;
         });
-      } catch(e) {}
     }
   }, []);
 

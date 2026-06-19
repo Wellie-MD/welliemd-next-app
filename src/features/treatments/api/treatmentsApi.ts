@@ -5,6 +5,7 @@ import type {
   CustomProgram,
   Program,
   ProgramQuestion,
+  CommonSectionField,
   TreatmentType,
 } from "@/features/treatments/types";
 import { mockConsents } from "@/features/treatments/libraries/data/consents.mock";
@@ -28,6 +29,61 @@ const KEYS = {
 };
 
 const SEED_VERSION_KEY = "welliemd_mock_data_version_v12";
+
+const defaultSectionFields: Record<string, CommonSectionField[]> = {
+  "sec-medical-baseline": [
+    {
+      id: "medical-conditions",
+      sectionId: "sec-medical-baseline",
+      order: 1,
+      label: "Please identify all your current medical conditions",
+      kind: "multiple_choice",
+      required: true,
+    },
+    {
+      id: "current-medications",
+      sectionId: "sec-medical-baseline",
+      order: 2,
+      label: "Please list all your current medications including dosages",
+      kind: "text",
+      required: true,
+    },
+    {
+      id: "known-allergies",
+      sectionId: "sec-medical-baseline",
+      order: 3,
+      label: "Please list all of your known allergies",
+      kind: "multiple_choice",
+      required: true,
+    },
+    {
+      id: "past-surgeries",
+      sectionId: "sec-medical-baseline",
+      order: 4,
+      label: "Past surgeries",
+      kind: "text",
+      required: false,
+    },
+    {
+      id: "family-medical-history",
+      sectionId: "sec-medical-baseline",
+      order: 5,
+      label: "Family medical history",
+      kind: "text",
+      required: false,
+    },
+  ],
+  "sec-body-stats": [
+    {
+      id: "highest-weight",
+      sectionId: "sec-body-stats",
+      order: 1,
+      label: "What was the highest weight that you have reached?",
+      kind: "text",
+      required: true,
+    },
+  ],
+};
 
 const checkAndSeedMockData = () => {
   const seeded = localStorage.getItem(SEED_VERSION_KEY);
@@ -110,8 +166,8 @@ const checkAndSeedMockData = () => {
     };
     localStorage.setItem(KEYS.PROGRAM_QUESTIONS, JSON.stringify(initialQuestions));
 
-    const initialSectionFields: Record<string, any[]> = {
-      "sec-medical-baseline": initialQuestions["sec-medical-baseline"].map(q => ({
+    const initialSectionFields: Record<string, CommonSectionField[]> = {
+      "sec-medical-baseline": initialQuestions["sec-medical-baseline"].map((q) => ({
         id: q.id,
         sectionId: "sec-medical-baseline",
         order: q.order,
@@ -119,7 +175,7 @@ const checkAndSeedMockData = () => {
         kind: q.kind,
         required: q.required,
       })),
-      "sec-body-stats": initialQuestions["sec-body-stats"].map(q => ({
+      "sec-body-stats": initialQuestions["sec-body-stats"].map((q) => ({
         id: q.id,
         sectionId: "sec-body-stats",
         order: q.order,
@@ -172,20 +228,7 @@ const getCustomPrograms = () => {
   return stored;
 };
 
-const getInitialSectionFields = () => {
-  return {
-    "sec-medical-baseline": [
-      { id: "medical-conditions", sectionId: "sec-medical-baseline", order: 1, label: "Please identify all your current medical conditions", kind: "multiple_choice", required: true },
-      { id: "current-medications", sectionId: "sec-medical-baseline", order: 2, label: "Please list all your current medications including dosages", kind: "text", required: true },
-      { id: "known-allergies", sectionId: "sec-medical-baseline", order: 3, label: "Please list all of your known allergies", kind: "multiple_choice", required: true },
-      { id: "past-surgeries", sectionId: "sec-medical-baseline", order: 4, label: "Past surgeries", kind: "text", required: false },
-      { id: "family-medical-history", sectionId: "sec-medical-baseline", order: 5, label: "Family medical history", kind: "text", required: false },
-    ],
-    "sec-body-stats": [
-      { id: "highest-weight", sectionId: "sec-body-stats", order: 1, label: "What was the highest weight that you have reached?", kind: "text", required: true },
-    ]
-  };
-};
+const getInitialSectionFields = (): Record<string, CommonSectionField[]> => defaultSectionFields;
 const getProgramQuestions = (programId: string) => {
   const allQuestions = getStored<Record<string, ProgramQuestion[]>>(KEYS.PROGRAM_QUESTIONS, {
     "program-glp-intake": mockProgramQuestions,
@@ -320,12 +363,18 @@ const setProgramQuestions = (programId: string, questions: ProgramQuestion[]) =>
 };
 
 const getSectionFields = (sectionId: string) => {
-  const allFields = getStored<Record<string, any[]>>(KEYS.SECTION_FIELDS, getInitialSectionFields());
+  const allFields = getStored<Record<string, CommonSectionField[]>>(
+    KEYS.SECTION_FIELDS,
+    getInitialSectionFields()
+  );
   return allFields[sectionId] || [];
 };
 
-const setSectionFields = (sectionId: string, fields: any[]) => {
-  const allFields = getStored<Record<string, any[]>>(KEYS.SECTION_FIELDS, getInitialSectionFields());
+const setSectionFields = (sectionId: string, fields: CommonSectionField[]) => {
+  const allFields = getStored<Record<string, CommonSectionField[]>>(
+    KEYS.SECTION_FIELDS,
+    getInitialSectionFields()
+  );
   allFields[sectionId] = fields;
   setStored(KEYS.SECTION_FIELDS, allFields);
 };
@@ -418,20 +467,30 @@ export const treatmentsApi = {
     const list = getProgramQuestions(programId);
     const reordered = questionIds.map((id, index) => {
       const found = list.find((q) => q.id === id);
-      return { ...found!, order: index + 1 };
+      if (!found) {
+        throw new Error(`Program question ${id} was not found`);
+      }
+      return { ...found, order: index + 1 };
     });
     setProgramQuestions(programId, reordered);
     return resolveMock(undefined);
   },
 
-  listSectionFields: (sectionId: string): Promise<any[]> => resolveMock(getSectionFields(sectionId)),
+  listSectionFields: (sectionId: string): Promise<CommonSectionField[]> =>
+    resolveMock(getSectionFields(sectionId)),
 
-  saveSectionFields: (sectionId: string, fields: any[]): Promise<any[]> => {
+  saveSectionFields: (
+    sectionId: string,
+    fields: CommonSectionField[]
+  ): Promise<CommonSectionField[]> => {
     setSectionFields(sectionId, fields);
     return resolveMock(fields);
   },
 
-  saveSectionField: (sectionId: string, field: any): Promise<any> => {
+  saveSectionField: (
+    sectionId: string,
+    field: CommonSectionField
+  ): Promise<CommonSectionField> => {
     const list = getSectionFields(sectionId);
     const index = list.findIndex((f) => f.id === field.id);
     if (index >= 0) {
@@ -454,7 +513,10 @@ export const treatmentsApi = {
     const list = getSectionFields(sectionId);
     const reordered = fieldIds.map((id, index) => {
       const found = list.find((f) => f.id === id);
-      return { ...found!, order: index + 1 };
+      if (!found) {
+        throw new Error(`Section field ${id} was not found`);
+      }
+      return { ...found, order: index + 1 };
     });
     setSectionFields(sectionId, reordered);
     return resolveMock(undefined);

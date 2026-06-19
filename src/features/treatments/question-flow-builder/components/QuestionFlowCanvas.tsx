@@ -52,8 +52,8 @@ export function QuestionFlowCanvas({
           <QuestionFlowChip
             item={item}
             index={index}
-            onDragStart={onDragStart as any}
-            onDragEnd={onDragEnd as any}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
             onDelete={() => onDeleteItem(item.id)}
           />
         </div>

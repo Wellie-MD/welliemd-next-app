@@ -1,6 +1,13 @@
 import type { QuestionKind } from "@/features/treatments/types";
 
 export type QuestionFlowEntityType = "program" | "section";
+export type ProgramFlowPaletteAction =
+  | "question"
+  | "auth"
+  | "section"
+  | "consent"
+  | "checkout";
+export type QuestionFlowPaletteAction = QuestionKind | ProgramFlowPaletteAction;
 
 export interface QuestionFlowItem {
   id: string;

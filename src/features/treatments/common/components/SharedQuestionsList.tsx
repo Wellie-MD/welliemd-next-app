@@ -27,7 +27,7 @@ import {
   verticalListSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
-import type { ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
+import type { ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
 import { createMockId } from "@/features/treatments/common/data/factories";
 import { useQueryClient } from "@tanstack/react-query";
 import { treatmentsApi } from "@/features/treatments/api/treatmentsApi";
@@ -60,7 +60,7 @@ export interface SharedQuestionsListProps {
   headerSubtitle: string;
   onBack: () => void;
   headerExtraActions?: React.ReactNode;
-  authConfig?: any;
+  authConfig?: ProgramAuthConfig;
   viewMode?: "list" | "flow";
   onViewModeChange?: (mode: "list" | "flow") => void;
   onOpenPreview?: () => void;
@@ -135,14 +135,24 @@ export function SharedQuestionsList({
       const updated: ProgramQuestion[] = newItems.map((item, index) => {
         const existing = questions.find((q) => q.id === item.id);
         return {
-          ...existing,
+          choices: existing?.choices,
+          dqChoices: existing?.dqChoices,
+          flags: existing?.flags,
+          consentText: existing?.consentText,
+          checkoutProductIds: existing?.checkoutProductIds,
+          checkoutProducts: existing?.checkoutProducts,
+          visibilityRule: existing?.visibilityRule,
+          visibilityRuleGroup: existing?.visibilityRuleGroup,
+          includeInQa: existing?.includeInQa,
+          hiddenFromPatient: existing?.hiddenFromPatient,
+          prefillFromPrevious: existing?.prefillFromPrevious,
           id: item.id,
           order: index + 1,
           text: item.text,
           kind: item.kind,
           required: item.required,
           section: existing?.section ?? (entityType === "section" ? entityName : "Default"),
-        } as ProgramQuestion;
+        };
       });
       await treatmentsApi.saveProgramQuestions(entityId, updated);
       setQuestions(updated);

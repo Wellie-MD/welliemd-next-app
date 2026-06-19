@@ -1,8 +1,10 @@
 import { Eye, Plus, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BuilderHeaderToggle } from "@/features/treatments/common/components/builder/BuilderHeaderToggle";
+import { BuilderHeaderToggle, type BuilderMode } from "@/features/treatments/common/components/builder/BuilderHeaderToggle";
 import { AddElementDropdown } from "@/features/treatments/common/components/AddElementDropdown";
-import type { QuestionFlowViewMode } from "../hooks/useQuestionFlowBuilder";
+import type { ProgramFlowPaletteAction } from "../types";
+
+type QuestionFlowViewMode = BuilderMode;
 
 interface QuestionFlowHeaderProps {
   entityType: "program" | "section";
@@ -11,7 +13,7 @@ interface QuestionFlowHeaderProps {
   viewMode: QuestionFlowViewMode;
   onViewModeChange: (mode: QuestionFlowViewMode) => void;
   onAddElementClick: () => void;
-  onAddItemRequest: (kind: string, text: string) => void;
+  onAddItemRequest: (kind: ProgramFlowPaletteAction, text: string) => void;
   onOpenPreview: () => void;
   onSave: () => void;
 }
@@ -46,7 +48,7 @@ export function QuestionFlowHeader({
         </div>
 
         <div className="flex flex-wrap items-center gap-3 md:justify-end">
-          <BuilderHeaderToggle viewMode={viewMode} onViewModeChange={onViewModeChange as any} />
+          <BuilderHeaderToggle viewMode={viewMode} onViewModeChange={onViewModeChange} />
           {entityType === "program" ? (
             <AddElementDropdown
               onAddQuestion={() => onAddItemRequest("question", "")}

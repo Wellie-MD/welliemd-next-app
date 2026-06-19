@@ -2,7 +2,7 @@ import { BuilderHeaderToggle } from "@/features/treatments/common/components/bui
 import { QuestionTypePalette } from "./QuestionTypePalette";
 import { QuestionFlowCanvas } from "./QuestionFlowCanvas";
 import { useQuestionFlowBuilder, type QuestionFlowViewMode } from "../hooks/useQuestionFlowBuilder";
-import type { QuestionFlowAdapter } from "../types";
+import type { ProgramFlowPaletteAction, QuestionFlowAdapter, QuestionFlowPaletteAction } from "../types";
 import { QuestionFlowHeader } from "./QuestionFlowHeader";
 
 interface QuestionFlowBuilderProps {
@@ -13,7 +13,7 @@ interface QuestionFlowBuilderProps {
   viewMode: QuestionFlowViewMode;
   onViewModeChange: (mode: QuestionFlowViewMode) => void;
   onAddElementClick: () => void;
-  onAddItemRequest: (kind: string, text: string) => void;
+  onAddItemRequest: (kind: ProgramFlowPaletteAction, text: string) => void;
   onOpenPreview: () => void;
 }
 
@@ -40,6 +40,30 @@ export function QuestionFlowBuilder({
     handleDeleteItem,
   } = useQuestionFlowBuilder(adapter);
 
+  const handlePaletteAdd = (kind: QuestionFlowPaletteAction, text: string) => {
+    if (entityType === "program") {
+      if (
+        kind === "question" ||
+        kind === "auth" ||
+        kind === "section" ||
+        kind === "consent" ||
+        kind === "checkout"
+      ) {
+        onAddItemRequest(kind, text);
+      }
+      return;
+    }
+
+    if (
+      kind !== "question" &&
+      kind !== "auth" &&
+      kind !== "section" &&
+      kind !== "consent"
+    ) {
+      handleAddItem(kind, text);
+    }
+  };
+
   return (
     <div className="flex h-full min-h-[calc(100vh-160px)] flex-col gap-4">
       <QuestionFlowHeader
@@ -57,13 +81,7 @@ export function QuestionFlowBuilder({
         <div className="w-72 shrink-0 h-full">
           <QuestionTypePalette
             entityType={entityType}
-            onAddItem={(kind, text) => {
-              if (entityType === "program") {
-                onAddItemRequest(kind, text);
-              } else {
-                handleAddItem(kind as any, text);
-              }
-            }}
+            onAddItem={handlePaletteAdd}
           />
         </div>
         <div className="flex-1 h-full min-w-0">
