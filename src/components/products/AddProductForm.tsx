@@ -275,7 +275,7 @@ export default function AddProductForm({
                   label="Product Description"
                   value={
                     product?.description ||
-                    `${product?.name || "Product"} - prescription ${product?.rx_drug_form || "medication"} dispensed by ${product?.manufacturer_name || "the pharmacy"}.`
+                    `${product?.name || "Product"} - prescription ${product?.rx_drug_form || "medication"} dispensed by ${product?.pharmacy_name || "the pharmacy"}.`
                   }
                   description
                 />
@@ -290,7 +290,7 @@ export default function AddProductForm({
               >
                 <div className="space-y-4">
                   <ReadOnlyField label="Product Type" value={titleCase(product?.product_type)} />
-                  <ReadOnlyField label="Pharmacy" value={product?.manufacturer_name || "-"} />
+                  <ReadOnlyField label="Pharmacy" value={product?.pharmacy_name || "-"} />
                 </div>
                 <div className="space-y-4">
                   <ReadOnlyField label="Purchase Type" value={purchaseTypeLabel(product?.purchase_type)} />
