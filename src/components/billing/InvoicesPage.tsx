@@ -275,10 +275,9 @@ function RevisionInvoiceModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-slate-200 p-2 text-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-900"
-              aria-label="Close invoice"
+              className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-900"
             >
-              <X className="h-4 w-4" />
+              Close
             </button>
           </div>
         </header>
