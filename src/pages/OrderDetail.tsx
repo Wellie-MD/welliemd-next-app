@@ -1139,7 +1139,7 @@ export default function OrderDetail() {
   const canRetryPayment = hasRemainingSupplemental || baseRetryEligibility
   const paymentInfoAmount = hasRemainingSupplemental
     ? formatMoney(remainingSupplementalAmount)
-    : formatMoney(previewNetTotal)
+    : formatMoney(isRefundable || refundedAmount > 0 ? remainingRefundable : previewNetTotal)
   const paymentInfoAmountLabel = hasRemainingSupplemental ? "Remaining to Capture" : "Amount"
 
   const displayQuantity = String(qty)
@@ -2150,10 +2150,12 @@ export default function OrderDetail() {
                   <span className="text-slate-900 dark:text-white font-medium">${netCollectedPrice}</span>
                 </div>
               )}
-              <div className="pt-3 border-t border-border flex justify-between items-center mt-2">
+              <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-border pt-3">
                 <span className="text-slate-900 dark:text-white font-bold">{paymentInfoAmountLabel}</span>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-slate-900 dark:text-white font-bold">${paymentInfoAmount}</span>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <span className="min-w-14 text-right text-xs font-bold tabular-nums text-slate-900 dark:text-white">
+                    ${paymentInfoAmount}
+                  </span>
                   {canRetryPayment && (
                     <PermissionGate permission={Permissions.ORDER_UPDATE}>
                       <Button
@@ -2169,9 +2171,9 @@ export default function OrderDetail() {
                   {canRefundOrVoid && (
                     <PermissionGate permission={Permissions.REFUND_CREATE}>
                       <div className="flex items-center gap-2">
-                        {(order as any)?.rx_revision_tag === "refund_required" && (
-                          <span className="text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded border border-red-200 dark:border-red-800">
-                            Refund Required: ${parseFloat((order as any)?.rx_revision_refund_required_amount || "0").toFixed(2)}
+                        {order.rx_revision_tag === "refund_required" && (
+                          <span className="whitespace-nowrap rounded border border-red-200 bg-red-100 px-2 py-1 text-xs font-bold tabular-nums text-red-600 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
+                            Refund Required
                           </span>
                         )}
                         <Button
@@ -2179,12 +2181,7 @@ export default function OrderDetail() {
                           size="sm"
                           className="text-[10px] h-6 border-red-200 text-red-500 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400"
                           onClick={() => {
-                            if ((order as any)?.rx_revision_tag === "refund_required") {
-                              const amt = parseFloat((order as any)?.rx_revision_refund_required_amount || "0");
-                              if (amt > 0) setRefundAmount(amt.toFixed(2));
-                            } else {
-                              setRefundAmount("");
-                            }
+                            setRefundAmount("");
                             setShowRefundDialog(true);
                           }}
                         >
