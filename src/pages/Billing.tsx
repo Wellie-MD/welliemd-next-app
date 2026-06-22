@@ -183,12 +183,8 @@ export default function Billing() {
     const amount = Number(value || 0);
     return `$${Number.isFinite(amount) ? amount.toFixed(2) : "0.00"}`;
   };
-  const hasRevisionLedger = (invoice: B2BInvoice | null) =>
-    Boolean(
-      invoice &&
-      invoice.invoice_type === "reimbursement" &&
-      invoice.revision_adjustments?.length
-    );
+  const isReimbursementInvoice = (invoice: B2BInvoice | null) =>
+    Boolean(invoice && invoice.invoice_type === "reimbursement");
 
   const renderCostTable = (
     medication?: string,
@@ -222,6 +218,13 @@ export default function Billing() {
     </table>
   );
 
+  const infoRow = (label: string, value: React.ReactNode) => (
+    <div className="flex justify-between gap-4 border-b py-2.5 text-xs last:border-b-0">
+      <span className="font-medium text-muted-foreground">{label}</span>
+      <span className="text-right font-semibold">{value}</span>
+    </div>
+  );
+
   const renderRevisionInvoiceModal = (invoice: B2BInvoice) => {
     const requested = invoice.requested_breakdown;
     const adjustments = invoice.revision_adjustments || [];
@@ -235,12 +238,6 @@ export default function Billing() {
     const pendingCreditTotal = pendingCredits.reduce(
       (sum, adjustment) => sum + Number(adjustment.adjustment_amount || 0),
       0
-    );
-    const infoRow = (label: string, value: React.ReactNode) => (
-      <div className="flex justify-between gap-4 border-b py-2.5 text-xs last:border-b-0">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="text-right font-semibold">{value}</span>
-      </div>
     );
 
     return (
@@ -505,6 +502,121 @@ export default function Billing() {
     );
   };
 
+  const renderSaasInvoiceModal = (invoice: B2BInvoice) => {
+    return (
+      <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
+        <div className="w-full max-w-5xl overflow-hidden rounded-xl border bg-white shadow-2xl">
+          <header className="border-b px-5 py-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                  SAAS FEE INVOICE
+                </div>
+                <div className="mt-1 font-mono text-xs text-muted-foreground">{invoice.invoice_number}</div>
+                <div className="mt-3 flex items-center gap-3">
+                  <span className="text-2xl font-bold">{money(invoice.total_amount)}</span>
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${statusPillClass(invoice.status || "")}`}>
+                    {formatLabel(invoice.status)}
+                  </span>
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {(invoice as any).client_name || "-"}
+                </div>
+              </div>
+              <button onClick={() => setSelected(null)} className="rounded-md border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted">
+                Close
+              </button>
+            </div>
+          </header>
+
+          <div className="grid md:grid-cols-[320px_1fr]">
+            <aside className="border-b md:border-b-0 md:border-r">
+              <section className="border-b p-5">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Summary</h4>
+                {infoRow("Client", (invoice as any).client_name || "-")}
+                {infoRow("Client order #", "—")}
+                {infoRow("Type", "SaaS Fee")}
+                {infoRow("Issued", invoice.issued_at ? new Date(invoice.issued_at).toLocaleDateString() : "-")}
+              </section>
+              <section className="border-b p-5">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Amounts</h4>
+                {infoRow("Invoice total", money(invoice.total_amount))}
+              </section>
+              <section className="p-5">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Payment diagnostics</h4>
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-xs font-medium text-sky-600">Show auth &amp; capture details</summary>
+                  <div className="mt-2">
+                    {infoRow("Billing period", "N/A to N/A")}
+                    {infoRow("Intended auth amount", money(invoice.intended_authorization_amount || invoice.total_amount))}
+                    {infoRow("Auth retry count", invoice.authorization_retry_count ?? 0)}
+                    {infoRow("Next auth retry", invoice.authorization_next_retry_at ? new Date(invoice.authorization_next_retry_at).toLocaleString() : "—")}
+                    {infoRow("Auth error code", invoice.authorization_last_error_code || "—")}
+                    {infoRow("Auth error message", invoice.authorization_last_error_message || "—")}
+                  </div>
+                </details>
+              </section>
+            </aside>
+
+            <main>
+              <section className="p-5">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Line items</h4>
+                <div className="mt-2">
+                  <table className="w-full text-xs">
+                    <colgroup>
+                      <col />
+                      <col className="w-12" />
+                      <col className="w-24" />
+                      <col className="w-24" />
+                    </colgroup>
+                    <thead className="text-muted-foreground">
+                      <tr className="border-b">
+                        <th className="pb-2 text-left font-medium uppercase tracking-wider text-[10px]">Type</th>
+                        <th className="pb-2 text-center font-medium uppercase tracking-wider text-[10px]">Qty</th>
+                        <th className="pb-2 text-right font-medium uppercase tracking-wider text-[10px]">Unit</th>
+                        <th className="pb-2 text-right font-medium uppercase tracking-wider text-[10px]">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoice.line_items?.map((item) => (
+                        <tr key={item.id} className="border-b last:border-b-0">
+                          <td className="py-2.5">{lineItemTypeLabel(item)}</td>
+                          <td className="py-2.5 text-center text-muted-foreground">{item.quantity ?? 1}</td>
+                          <td className="py-2.5 text-right text-muted-foreground">{money(item.unit_price)}</td>
+                          <td className="py-2.5 text-right font-semibold">{money(item.total_amount)}</td>
+                        </tr>
+                      ))}
+                      <tr className="border-t">
+                        <td className="pt-3 font-bold" colSpan={3}>Total</td>
+                        <td className="pt-3 text-right font-bold">{money(invoice.total_amount)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </main>
+          </div>
+
+          <footer className="flex justify-end gap-3 border-t bg-muted/20 px-5 py-4">
+            <button className="rounded-md border px-4 py-2 text-sm" onClick={() => setSelected(null)}>
+              Close
+            </button>
+            {invoice.status !== "refunded" && invoice.status === "paid" && (
+              <button
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                onClick={() => {
+                  alert("Refund SaaS invoices from Stripe dashboard.");
+                }}
+              >
+                Refund
+              </button>
+            )}
+          </footer>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -732,10 +844,11 @@ export default function Billing() {
         </CardContent>
       </Card>
 
-      {selected && hasRevisionLedger(selected) && renderRevisionInvoiceModal(selected)}
+      {selected && isReimbursementInvoice(selected) && renderRevisionInvoiceModal(selected)}
       {selected && selected.invoice_type === "credit_note" && renderCreditNoteModal(selected)}
+      {selected && selected.invoice_type === "saas_fee" && renderSaasInvoiceModal(selected)}
 
-      {selected && !hasRevisionLedger(selected) && selected.invoice_type !== "credit_note" && (
+      {selected && !isReimbursementInvoice(selected) && selected.invoice_type !== "credit_note" && selected.invoice_type !== "saas_fee" && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
           <div className="bg-white rounded-md p-4 w-full max-w-4xl max-h-[90vh] overflow-auto">
             <div className="flex justify-between items-center mb-3">
