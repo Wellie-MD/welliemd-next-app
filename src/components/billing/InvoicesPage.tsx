@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import billingService, { Invoice, InvoiceListResponse } from "@/services/billingService";
 import { Link } from "react-router-dom";
-import { Loader2, Search, Eye, GitBranch, X } from "lucide-react";
+import { Loader2, Search, Eye, GitBranch } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
@@ -49,6 +49,15 @@ function invoiceCombinedTotal(inv: DisplayInvoice) {
 
 function isReimbursementInvoice(inv: Invoice | null): inv is Invoice {
   return Boolean(inv && inv.invoice_type === "reimbursement");
+}
+
+function hasRevisionLedger(inv: Invoice | null): inv is Invoice {
+  return Boolean(
+    inv &&
+    inv.invoice_type === "reimbursement" &&
+    Array.isArray(inv.revision_adjustments) &&
+    inv.revision_adjustments.length > 0
+  );
 }
 
 function formatDate(value?: string) {
