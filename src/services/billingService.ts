@@ -61,6 +61,34 @@ export interface Invoice {
     issued_at?: string | null;
     created_at?: string | null;
   }>;
+  requested_breakdown?: {
+    product_name?: string;
+    medication_amount?: string;
+    shipping_amount?: string;
+    product_total?: string;
+    consultation_amount?: string;
+    consult_mode?: string;
+  } | null;
+  revision_adjustments?: Array<{
+    id: string;
+    invoice_number: string;
+    kind: "supplemental_charge" | "credit_note";
+    status: string;
+    revision_number?: number | string | null;
+    product_name?: string;
+    medication_amount: string;
+    shipping_amount: string;
+    product_total: string;
+    adjustment_amount: string;
+    created_at?: string | null;
+  }>;
+  adjustment_summary?: {
+    invoice_total: string;
+    supplemental_charges: string;
+    credit_notes: string;
+    net_adjustment: string;
+    adjusted_total: string;
+  } | null;
   intended_authorization_amount?: string | number;
   authorization_retry_count?: number;
   authorization_retry_exhausted_at?: string | null;
