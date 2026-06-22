@@ -136,6 +136,8 @@ export interface Order {
   refundableAmount?: string | null
   baseRefundableAmount?: string | null
   supplementalRefundableAmount?: string | null
+  rx_revision_tag?: string | null
+  rx_revision_refund_required_amount?: string | null
   created_at?: string
   updated_at?: string
   name?: string
