@@ -302,10 +302,30 @@ export default function Billing() {
               {Number(requested?.consultation_amount || 0) > 0 && (
                 <section className="border-b p-5">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Consultation</h4>
-                  <div className="mt-2 flex justify-between text-xs">
-                    <span>{requested?.consult_mode === "sync" ? "Sync Consult" : "Async Consult"}</span>
-                    <span className="font-semibold">{money(requested?.consultation_amount)}</span>
-                  </div>
+                  <table className="mt-2 w-full table-fixed text-xs">
+                    <colgroup>
+                      <col />
+                      <col className="w-12" />
+                      <col className="w-24" />
+                      <col className="w-24" />
+                    </colgroup>
+                    <thead className="text-muted-foreground">
+                      <tr>
+                        <th className="pb-1 text-left text-[10px] font-medium uppercase tracking-wider">Type</th>
+                        <th className="pb-1 text-center text-[10px] font-medium uppercase tracking-wider">Qty</th>
+                        <th className="pb-1 text-right text-[10px] font-medium uppercase tracking-wider">Unit</th>
+                        <th className="pb-1 text-right text-[10px] font-medium uppercase tracking-wider">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="py-1.5">{requested?.consult_mode === "sync" ? "Sync Consult" : "Async Consult"}</td>
+                        <td className="py-1.5 text-center text-muted-foreground">1</td>
+                        <td className="py-1.5 text-right text-muted-foreground">{money(requested?.consultation_amount)}</td>
+                        <td className="py-1.5 text-right font-semibold">{money(requested?.consultation_amount)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </section>
               )}
               <section className="border-b p-5">
