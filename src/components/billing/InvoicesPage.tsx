@@ -47,13 +47,8 @@ function invoiceCombinedTotal(inv: DisplayInvoice) {
   return invoiceAmount(inv) + invoiceSupplementalTotal(inv);
 }
 
-function hasRevisionLedger(inv: Invoice | null): inv is Invoice {
-  return Boolean(
-    inv &&
-    inv.invoice_type === "reimbursement" &&
-    Array.isArray(inv.revision_adjustments) &&
-    inv.revision_adjustments.length > 0
-  );
+function isReimbursementInvoice(inv: Invoice | null): inv is Invoice {
+  return Boolean(inv && inv.invoice_type === "reimbursement");
 }
 
 function formatDate(value?: string) {
@@ -372,6 +367,234 @@ function RevisionInvoiceModal({
             </div>
           </main>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function CreditNoteModal({ invoice, onClose }: { invoice: Invoice; onClose: () => void }) {
+  const isRefunded = invoice.status === "refunded";
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
+      <div className="w-full max-w-5xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-950">
+        <header className="border-b border-slate-200 px-5 py-5 dark:border-slate-800">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                Credit note
+              </div>
+              <div className="mt-1 font-mono text-xs text-slate-500">{invoice.invoice_number}</div>
+              <div className="mt-3 flex items-center gap-3">
+                <span className="text-2xl font-bold text-slate-950 dark:text-white">
+                  {formatMoney(invoice.total_amount)}
+                </span>
+                <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${getStatusBadgeClassStatic(invoice.status)}`}>
+                  {formatLabel(invoice.status)}
+                </span>
+              </div>
+              <div className="mt-1 text-xs text-slate-400">
+                Order {invoice.client_order_number || invoice.source_tenant_order_display_id || "-"} · Issued {formatDate(invoice.issued_at || invoice.created_at)}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-900"
+            >
+              Close
+            </button>
+          </div>
+        </header>
+
+        <div className="grid md:grid-cols-[320px_1fr]">
+          <aside className="border-b border-slate-200 md:border-b-0 md:border-r dark:border-slate-800">
+            <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Details</h4>
+              <div className="mt-3 space-y-3">
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium text-slate-500">Type</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">Credit note</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium text-slate-500">Issued against</span>
+                  <span className="font-mono text-blue-600 dark:text-blue-400">{invoice.source_tenant_order_display_id || "—"}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium text-slate-500">Status</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">{formatLabel(invoice.status)}</span>
+                </div>
+                {isRefunded && (
+                  <div className="flex justify-between text-xs">
+                    <span className="font-medium text-slate-500">Refunded on</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formatDate(invoice.paid_at)}</span>
+                  </div>
+                )}
+              </div>
+            </section>
+          </aside>
+
+          <main>
+            <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Refund reason</h4>
+              <div className="mt-2 rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm font-medium text-orange-900 dark:border-orange-800 dark:bg-orange-900/30 dark:text-orange-200">
+                {formatLabel((invoice as any).refund_required_reason || "Rx Revision Over Reimbursed")}
+              </div>
+            </section>
+            <section className="p-5">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Refund</h4>
+              <div className="mt-2">
+                <table className="w-full text-xs">
+                  <colgroup>
+                    <col />
+                    <col className="w-12" />
+                    <col className="w-24" />
+                    <col className="w-24" />
+                  </colgroup>
+                  <tbody>
+                    <tr>
+                      <td className="py-1.5 text-slate-900 dark:text-slate-100">Refund · {invoice.source_tenant_order_display_id || ""}</td>
+                      <td className="py-1.5 text-center text-slate-500">1</td>
+                      <td className="py-1.5 text-right text-slate-500">{formatMoney(invoice.total_amount)}</td>
+                      <td className="py-1.5 text-right font-semibold text-slate-900 dark:text-slate-100">{formatMoney(invoice.total_amount)}</td>
+                    </tr>
+                    <tr className="border-t border-slate-200 dark:border-slate-800">
+                      <td className="pt-2 font-bold text-slate-900 dark:text-slate-100" colSpan={3}>Refund total</td>
+                      <td className="pt-2 text-right font-bold text-slate-900 dark:text-slate-100">{formatMoney(invoice.total_amount)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </main>
+        </div>
+
+        <footer className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50/50 px-5 py-4 dark:border-slate-800 dark:bg-slate-900/50">
+          <button className="rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" onClick={onClose}>
+            Close
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function SaasInvoiceModal({ invoice, onClose }: { invoice: Invoice; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
+      <div className="w-full max-w-5xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-950">
+        <header className="border-b border-slate-200 px-5 py-5 dark:border-slate-800">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                SAAS FEE INVOICE
+              </div>
+              <div className="mt-1 font-mono text-xs text-slate-500">{invoice.invoice_number}</div>
+              <div className="mt-3 flex items-center gap-3">
+                <span className="text-2xl font-bold text-slate-950 dark:text-white">
+                  {formatMoney(invoice.total_amount)}
+                </span>
+                <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${getStatusBadgeClassStatic(invoice.status)}`}>
+                  {formatLabel(invoice.status)}
+                </span>
+              </div>
+              <div className="mt-1 text-xs text-slate-400">
+                Issued {formatDate(invoice.issued_at || invoice.created_at)}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-900"
+            >
+              Close
+            </button>
+          </div>
+        </header>
+
+        <div className="grid md:grid-cols-[320px_1fr]">
+          <aside className="border-b border-slate-200 md:border-b-0 md:border-r dark:border-slate-800">
+            <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Summary</h4>
+              <div className="mt-3 space-y-3">
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium text-slate-500">Type</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">SaaS Fee</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium text-slate-500">Issued</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">{formatDate(invoice.issued_at || invoice.created_at)}</span>
+                </div>
+              </div>
+            </section>
+            <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Amounts</h4>
+              <div className="mt-3 space-y-3">
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium text-slate-500">Invoice total</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">{formatMoney(invoice.total_amount)}</span>
+                </div>
+              </div>
+            </section>
+            <section className="p-5">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Payment diagnostics</h4>
+              <details className="mt-3">
+                <summary className="cursor-pointer text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400">
+                  Show auth &amp; capture details
+                </summary>
+                <div className="mt-3 space-y-3 pl-2 border-l-2 border-slate-100 dark:border-slate-800">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Intended auth amount</span>
+                    <span className="font-medium text-slate-900 dark:text-slate-100">{formatMoney(invoice.intended_authorization_amount || invoice.total_amount)}</span>
+                  </div>
+                </div>
+              </details>
+            </section>
+          </aside>
+
+          <main>
+            <section className="p-5">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Line items</h4>
+              <div className="mt-2">
+                <table className="w-full text-xs">
+                  <colgroup>
+                    <col />
+                    <col className="w-12" />
+                    <col className="w-24" />
+                    <col className="w-24" />
+                  </colgroup>
+                  <thead className="text-slate-500">
+                    <tr className="border-b border-slate-200 dark:border-slate-800">
+                      <th className="pb-2 text-left font-medium uppercase tracking-wider text-[10px]">Type</th>
+                      <th className="pb-2 text-center font-medium uppercase tracking-wider text-[10px]">Qty</th>
+                      <th className="pb-2 text-right font-medium uppercase tracking-wider text-[10px]">Unit</th>
+                      <th className="pb-2 text-right font-medium uppercase tracking-wider text-[10px]">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoice.line_items?.map((item) => (
+                      <tr key={item.id} className="border-b border-slate-100 last:border-b-0 dark:border-slate-800/50">
+                        <td className="py-2.5 text-slate-900 dark:text-slate-100">{item.item_type === 'saas_fee' ? 'Monthly SaaS fee' : item.description || item.item_type}</td>
+                        <td className="py-2.5 text-center text-slate-500">{item.quantity ?? 1}</td>
+                        <td className="py-2.5 text-right text-slate-500">{formatMoney(item.unit_price)}</td>
+                        <td className="py-2.5 text-right font-semibold text-slate-900 dark:text-slate-100">{formatMoney(item.total_amount)}</td>
+                      </tr>
+                    ))}
+                    <tr className="border-t border-slate-200 dark:border-slate-800">
+                      <td className="pt-3 font-bold text-slate-900 dark:text-slate-100" colSpan={3}>Total</td>
+                      <td className="pt-3 text-right font-bold text-slate-900 dark:text-slate-100">{formatMoney(invoice.total_amount)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </main>
+        </div>
+
+        <footer className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50/50 px-5 py-4 dark:border-slate-800 dark:bg-slate-900/50">
+          <button className="rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" onClick={onClose}>
+            Close
+          </button>
+        </footer>
       </div>
     </div>
   );
@@ -876,11 +1099,17 @@ export default function InvoicesPage() {
         </button>
       </div>
 
-      {selected && hasRevisionLedger(selected) && (
+      {selected && isReimbursementInvoice(selected) && (
         <RevisionInvoiceModal invoice={selected} onClose={() => setSelected(null)} />
       )}
+      {selected && selected.invoice_type === "credit_note" && (
+        <CreditNoteModal invoice={selected} onClose={() => setSelected(null)} />
+      )}
+      {selected && selected.invoice_type === "saas_fee" && (
+        <SaasInvoiceModal invoice={selected} onClose={() => setSelected(null)} />
+      )}
 
-      {selected && !hasRevisionLedger(selected) && (
+      {selected && !isReimbursementInvoice(selected) && selected.invoice_type !== "credit_note" && selected.invoice_type !== "saas_fee" && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-md p-4 w-full max-w-4xl max-h-[90vh] overflow-auto">
             <div className="flex justify-between items-center mb-3">
