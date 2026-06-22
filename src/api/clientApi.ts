@@ -569,7 +569,10 @@ export const clientApi = {
     return data;
   },
 
-  markB2BRefundProcessed: async (clientId: string, invoiceId: string): Promise<unknown> => {
+  markB2BRefundProcessed: async (
+    clientId: string,
+    invoiceId: string
+  ): Promise<{ success?: boolean; pending?: boolean; message?: string; status?: string }> => {
     const { data } = await axiosInstance.post(`/internal/clients/${clientId}/invoices/${invoiceId}/mark-refunded/`);
     return data;
   },
