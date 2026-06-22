@@ -252,19 +252,19 @@ export default function Billing() {
                   Reimbursement invoice
                 </div>
                 <div className="mt-1 font-mono text-xs text-muted-foreground">{invoice.invoice_number}</div>
-                <div className="mt-3 text-2xl font-bold">{money(summary?.invoice_total || invoice.total_amount)}</div>
+                <div className="mt-3 flex items-center gap-3">
+                  <span className="text-2xl font-bold">{money(summary?.invoice_total || invoice.total_amount)}</span>
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${statusPillClass(invoice.status || "")}`}>
+                    {formatLabel(invoice.status)}
+                  </span>
+                </div>
                 <div className="mt-1 text-xs text-muted-foreground">
                   {(invoice as any).client_name || "-"} · {getClientOrderNumber(invoice)}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${statusPillClass(invoice.status || "")}`}>
-                  {formatLabel(invoice.status)}
-                </span>
-                <button onClick={() => setSelected(null)} className="rounded-md border p-2 text-muted-foreground hover:bg-muted">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+              <button onClick={() => setSelected(null)} className="rounded-md border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted">
+                Close
+              </button>
             </div>
           </header>
 
@@ -391,6 +391,111 @@ export default function Billing() {
                 }
               >
                 Issue refund via Stripe · {money(pendingCreditTotal)}
+              </button>
+            )}
+          </footer>
+        </div>
+      </div>
+    );
+  };
+
+  const renderCreditNoteModal = (invoice: B2BInvoice) => {
+    const isRefunded = invoice.status === "refunded";
+    return (
+      <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
+        <div className="w-full max-w-5xl overflow-hidden rounded-xl border bg-white shadow-2xl">
+          <header className="border-b px-5 py-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                  Credit note
+                </div>
+                <div className="mt-1 font-mono text-xs text-muted-foreground">{invoice.invoice_number}</div>
+                <div className="mt-3 flex items-center gap-3">
+                  <span className="text-2xl font-bold">{money(invoice.total_amount)}</span>
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${statusPillClass(invoice.status || "")}`}>
+                    {formatLabel(invoice.status)}
+                  </span>
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {(invoice as any).client_name || "-"}
+                </div>
+              </div>
+              <button onClick={() => setSelected(null)} className="rounded-md border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted">
+                Close
+              </button>
+            </div>
+          </header>
+
+          <div className="grid md:grid-cols-[320px_1fr]">
+            <aside className="border-b md:border-b-0 md:border-r">
+              <section className="border-b p-5">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Details</h4>
+                {infoRow("Client", (invoice as any).client_name || "-")}
+                {infoRow("Type", "Credit note")}
+                {infoRow("Issued against", (invoice as any).source_tenant_order_display_id ? <span className="font-mono text-blue-600">{(invoice as any).source_tenant_order_display_id}</span> : "—")}
+                {infoRow("Status", formatLabel(invoice.status))}
+                {isRefunded && infoRow("Refunded on", invoice.paid_at ? new Date(invoice.paid_at).toLocaleDateString() : "-")}
+              </section>
+            </aside>
+
+            <main>
+              <section className="border-b p-5">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Refund reason</h4>
+                <div className="mt-2 rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm font-medium text-orange-900">
+                  {formatLabel((invoice as any).refund_required_reason || "Rx Revision Over Reimbursed")}
+                </div>
+              </section>
+              <section className="border-b p-5">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Refund</h4>
+                <div className="mt-2">
+                  <table className="w-full text-xs">
+                    <colgroup>
+                      <col />
+                      <col className="w-12" />
+                      <col className="w-24" />
+                      <col className="w-24" />
+                    </colgroup>
+                    <tbody>
+                      <tr>
+                        <td className="py-1.5">Refund · {(invoice as any).source_tenant_order_display_id || ""}</td>
+                        <td className="py-1.5 text-center text-muted-foreground">1</td>
+                        <td className="py-1.5 text-right text-muted-foreground">{money(invoice.total_amount)}</td>
+                        <td className="py-1.5 text-right font-semibold">{money(invoice.total_amount)}</td>
+                      </tr>
+                      <tr className="border-t">
+                        <td className="pt-2 font-bold" colSpan={3}>Refund total</td>
+                        <td className="pt-2 text-right font-bold">{money(invoice.total_amount)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </main>
+          </div>
+
+          <footer className="flex justify-end gap-3 border-t bg-muted/20 px-5 py-4">
+            <button className="rounded-md border px-4 py-2 text-sm" onClick={() => setSelected(null)}>
+              Close
+            </button>
+            {!isRefunded && (
+              <button
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                onClick={() =>
+                  setRefundTargets([
+                    {
+                      id: invoice.id,
+                      invoice_number: invoice.invoice_number,
+                      invoice_type: "credit_note",
+                      status: invoice.status as any,
+                      total_amount: invoice.total_amount,
+                      client: (invoice as any).client,
+                      client_id: invoice.client_id,
+                    } as any,
+                  ])
+                }
+              >
+                Issue refund via Stripe
               </button>
             )}
           </footer>
@@ -627,8 +732,9 @@ export default function Billing() {
       </Card>
 
       {selected && hasRevisionLedger(selected) && renderRevisionInvoiceModal(selected)}
+      {selected && selected.invoice_type === "credit_note" && renderCreditNoteModal(selected)}
 
-      {selected && !hasRevisionLedger(selected) && (
+      {selected && !hasRevisionLedger(selected) && selected.invoice_type !== "credit_note" && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
           <div className="bg-white rounded-md p-4 w-full max-w-4xl max-h-[90vh] overflow-auto">
             <div className="flex justify-between items-center mb-3">
