@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import billingService, { Invoice, InvoiceListResponse } from "@/services/billingService";
 import { Link } from "react-router-dom";
-import { Loader2, Search, Eye, GitBranch } from "lucide-react";
+import { Loader2, Search, Eye, GitBranch, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
@@ -42,7 +42,18 @@ function invoiceSupplementalTotal(inv: DisplayInvoice) {
 }
 
 function invoiceCombinedTotal(inv: DisplayInvoice) {
+  const adjusted = Number(inv.adjustment_summary?.adjusted_total);
+  if (Number.isFinite(adjusted)) return adjusted;
   return invoiceAmount(inv) + invoiceSupplementalTotal(inv);
+}
+
+function hasRevisionLedger(inv: Invoice | null): inv is Invoice {
+  return Boolean(
+    inv &&
+    inv.invoice_type === "reimbursement" &&
+    Array.isArray(inv.revision_adjustments) &&
+    inv.revision_adjustments.length > 0
+  );
 }
 
 function formatDate(value?: string) {
@@ -70,6 +81,7 @@ function formatLabel(value?: string) {
 function statusClass(status: string) {
   const s = status.toLowerCase();
   if (s === "paid") return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300";
+  if (s === "refunded") return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
   if (s === "failed" || s === "overdue") return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
   if (s === "due" || s === "pending" || s === "authorization_failed") {
     return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
@@ -112,6 +124,268 @@ function lineItemTypeLabel(li: any): string {
   return formatLabel(li?.item_type);
 }
 
+function AdjustmentPill({
+  kind,
+  status,
+}: {
+  kind: "supplemental_charge" | "credit_note";
+  status: string;
+}) {
+  const normalized = status.toLowerCase();
+  const label =
+    kind === "supplemental_charge"
+      ? normalized === "paid" ? "Charged" : formatLabel(status)
+      : normalized === "refunded"
+        ? "Refunded"
+        : ["pending", "due", "draft"].includes(normalized)
+          ? "Pending"
+          : formatLabel(status);
+  const classes =
+    label === "Charged"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : label === "Refunded"
+        ? "border-slate-200 bg-slate-100 text-slate-600"
+        : label === "Failed" || label === "Canceled"
+          ? "border-red-200 bg-red-50 text-red-700"
+        : "border-amber-200 bg-amber-50 text-amber-700";
+  return (
+    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${classes}`}>
+      {label}
+    </span>
+  );
+}
+
+function InvoiceMoneyRow({
+  label,
+  value,
+  formatted,
+  tone = "default",
+  strong = false,
+}: {
+  label: string;
+  value: string | number | undefined;
+  formatted?: string;
+  tone?: "default" | "positive" | "negative";
+  strong?: boolean;
+}) {
+  const toneClass =
+    tone === "positive"
+      ? "text-emerald-600"
+      : tone === "negative"
+        ? "text-red-600"
+        : "text-slate-900 dark:text-white";
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-slate-100 py-2.5 text-xs last:border-b-0 dark:border-slate-800">
+      <span className="text-slate-500 dark:text-slate-400">{label}</span>
+      <span className={`${toneClass} text-right ${strong ? "font-bold" : "font-semibold"}`}>
+        {formatted ?? formatMoney(value)}
+      </span>
+    </div>
+  );
+}
+
+function InvoiceInfoRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number | undefined;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-slate-100 py-2.5 text-xs last:border-b-0 dark:border-slate-800">
+      <span className="text-slate-500 dark:text-slate-400">{label}</span>
+      <span className="text-right font-semibold text-slate-900 dark:text-white">{value ?? "—"}</span>
+    </div>
+  );
+}
+
+function CostTable({
+  medication,
+  shipping,
+  total,
+}: {
+  medication?: string;
+  shipping?: string;
+  total?: string;
+}) {
+  const rows = [
+    ["Medication", medication],
+    ["Shipping", shipping],
+  ];
+  return (
+    <table className="w-full table-fixed text-xs">
+      <colgroup>
+        <col />
+        <col className="w-12" />
+        <col className="w-24" />
+        <col className="w-24" />
+      </colgroup>
+      <tbody>
+        {rows.map(([label, amount]) => (
+          <tr key={label}>
+            <td className="py-1.5">{label}</td>
+            <td className="py-1.5 text-center text-slate-400">1</td>
+            <td className="py-1.5 text-right text-slate-500">{formatMoney(amount)}</td>
+            <td className="py-1.5 text-right font-semibold">{formatMoney(amount)}</td>
+          </tr>
+        ))}
+        <tr className="border-t border-slate-200 dark:border-slate-700">
+          <td className="pt-2 font-bold" colSpan={3}>Total</td>
+          <td className="pt-2 text-right font-bold">{formatMoney(total)}</td>
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
+function RevisionInvoiceModal({
+  invoice,
+  onClose,
+}: {
+  invoice: Invoice;
+  onClose: () => void;
+}) {
+  const requested = invoice.requested_breakdown;
+  const adjustments = invoice.revision_adjustments || [];
+  const summary = invoice.adjustment_summary;
+  const netAdjustment = Number(summary?.net_adjustment || 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
+      <div className="w-full max-w-5xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-950">
+        <header className="border-b border-slate-200 px-5 py-5 dark:border-slate-800">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                Reimbursement invoice
+              </div>
+              <div className="mt-1 font-mono text-xs text-slate-500">{invoice.invoice_number}</div>
+              <div className="mt-3 flex items-center gap-3">
+                <span className="text-2xl font-bold text-slate-950 dark:text-white">
+                  {formatMoney(summary?.invoice_total ?? invoice.total_amount)}
+                </span>
+                <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${getStatusBadgeClassStatic(invoice.status)}`}>
+                  {formatLabel(invoice.status)}
+                </span>
+              </div>
+              <div className="mt-1 text-xs text-slate-400">
+                Order {invoice.client_order_number || invoice.source_tenant_order_display_id || "-"} · Issued {formatDate(invoice.issued_at || invoice.created_at)}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-slate-200 p-2 text-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-900"
+              aria-label="Close invoice"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </header>
+
+        <div className="grid md:grid-cols-[320px_1fr]">
+          <aside className="border-b border-slate-200 md:border-b-0 md:border-r dark:border-slate-800">
+            <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Summary</h4>
+              <InvoiceInfoRow label="Type" value="Reimbursement" />
+              <InvoiceInfoRow label="Client order #" value={invoice.client_order_number || "-"} />
+              <InvoiceInfoRow label="Issued" value={formatDate(invoice.issued_at || invoice.created_at)} />
+              <InvoiceInfoRow label="Due" value={invoice.due_date ? formatDate(invoice.due_date) : "N/A"} />
+            </section>
+            <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Amounts</h4>
+              <InvoiceMoneyRow label="Invoice total" value={summary?.invoice_total} />
+              {Number(summary?.supplemental_charges || 0) > 0 && (
+                <InvoiceMoneyRow label="Supplemental charges" value={summary?.supplemental_charges} formatted={`+${formatMoney(summary?.supplemental_charges)}`} tone="negative" />
+              )}
+              {Number(summary?.credit_notes || 0) > 0 && (
+                <InvoiceMoneyRow label="Credit notes" value={summary?.credit_notes} formatted={`−${formatMoney(summary?.credit_notes)}`} tone="positive" />
+              )}
+              <InvoiceMoneyRow label="Adjusted total" value={summary?.adjusted_total} strong />
+            </section>
+            <section className="p-5">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Payment diagnostics</h4>
+              <details className="mt-3">
+                <summary className="cursor-pointer text-xs font-medium text-sky-600">Show auth &amp; capture details</summary>
+                <div className="mt-2">
+                  <InvoiceInfoRow label="Billing period" value="N/A to N/A" />
+                  <InvoiceMoneyRow label="Intended auth amount" value={invoice.intended_authorization_amount || summary?.invoice_total} />
+                  <InvoiceInfoRow label="Auth retry count" value={invoice.authorization_retry_count ?? 0} />
+                  <InvoiceInfoRow label="Next auth retry" value={invoice.authorization_next_retry_at ? formatDate(invoice.authorization_next_retry_at) : "—"} />
+                  <InvoiceInfoRow label="Auth error code" value={invoice.authorization_last_error_code || "—"} />
+                  <InvoiceInfoRow label="Auth error message" value={invoice.authorization_last_error_message || "—"} />
+                </div>
+              </details>
+            </section>
+          </aside>
+
+          <main>
+            {Number(requested?.consultation_amount || 0) > 0 && (
+              <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Consultation</h4>
+                <table className="mt-2 w-full text-xs">
+                  <tbody>
+                    <tr>
+                      <td className="py-1.5">{requested?.consult_mode === "sync" ? "Sync Consult" : "Async Consult"}</td>
+                      <td className="py-1.5 text-center text-slate-400">1</td>
+                      <td className="py-1.5 text-right text-slate-500">{formatMoney(requested?.consultation_amount)}</td>
+                      <td className="py-1.5 text-right font-semibold">{formatMoney(requested?.consultation_amount)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </section>
+            )}
+            <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Requested · {requested?.product_name || "Original prescription"}
+              </h4>
+              <div className="mt-2">
+                <CostTable medication={requested?.medication_amount} shipping={requested?.shipping_amount} total={requested?.product_total} />
+              </div>
+            </section>
+            {adjustments.map((adjustment, index) => {
+              const isCredit = adjustment.kind === "credit_note";
+              return (
+                <section key={adjustment.id} className="border-b border-slate-200 p-5 dark:border-slate-800">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Revision {adjustment.revision_number || index + 1} · {adjustment.product_name || "Revised prescription"}
+                  </h4>
+                  <div className="mt-2">
+                    <CostTable medication={adjustment.medication_amount} shipping={adjustment.shipping_amount} total={adjustment.product_total} />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs font-semibold">
+                    <span className={`flex items-center gap-2 ${isCredit ? "text-emerald-600" : "text-red-600"}`}>
+                      {isCredit ? "Credit note" : "Supplemental charge"}
+                      <AdjustmentPill kind={adjustment.kind} status={adjustment.status} />
+                    </span>
+                    <span className={isCredit ? "text-emerald-600" : "text-red-600"}>
+                      {isCredit ? "−" : "+"}{formatMoney(adjustment.adjustment_amount)}
+                    </span>
+                  </div>
+                </section>
+              );
+            })}
+            <div className="flex items-center justify-between px-5 py-4 text-sm font-bold">
+              <span>Net adjustment</span>
+              <span className={netAdjustment < 0 ? "text-emerald-600" : "text-red-600"}>
+                {netAdjustment >= 0 ? "+" : "−"}{formatMoney(Math.abs(netAdjustment))}
+              </span>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function getStatusBadgeClassStatic(status?: string) {
+  const normalized = (status || "").toLowerCase();
+  if (normalized === "paid") return "bg-emerald-50 text-emerald-700";
+  if (normalized === "refunded") return "bg-blue-50 text-blue-700";
+  if (normalized === "failed" || normalized === "overdue") return "bg-red-50 text-red-700";
+  return "bg-amber-50 text-amber-700";
+}
+
 export default function InvoicesPage() {
   const [activeTab, setActiveTab] = useState<InvoiceTab>("all");
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -133,10 +407,18 @@ export default function InvoicesPage() {
     if (normalized === "paid") {
       return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
     }
+    if (normalized === "refunded") {
+      return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
+    }
     if (normalized === "failed" || normalized === "overdue" || isOverdue) {
       return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
     }
-    if (normalized === "due" || normalized === "pending" || normalized === "authorization_failed") {
+    if (
+      normalized === "due" ||
+      normalized === "pending" ||
+      normalized === "refund_pending" ||
+      normalized === "authorization_failed"
+    ) {
       return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300";
     }
     if (normalized === "canceled") {
@@ -468,7 +750,19 @@ export default function InvoicesPage() {
                   </tr>
                 )}
                 {displayedInvoices.map((inv: DisplayInvoice) => {
-                  const effectiveStatus = inv.is_overdue && inv.status !== "paid" ? "overdue" : (inv.status || "-");
+                  const effectiveStatus =
+                    inv.invoice_type === "credit_note" && inv.status === "pending"
+                      ? "refund_pending"
+                      : inv.is_overdue && inv.status !== "paid"
+                        ? "overdue"
+                        : (inv.status || "-");
+                  const hasPendingCredit = (inv.revision_adjustments || []).some(
+                    (adjustment) =>
+                      adjustment.kind === "credit_note" &&
+                      !["refunded", "canceled", "failed"].includes(
+                        adjustment.status.toLowerCase()
+                      )
+                  );
                   const supplementalTotal = invoiceSupplementalTotal(inv);
                   const hasNestedSupplementals = (inv.supplementalInvoices || []).length > 0;
                   return (
@@ -503,6 +797,11 @@ export default function InvoicesPage() {
                         <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${getStatusBadgeClass(inv.status, inv.is_overdue)}`}>
                           {formatLabel(effectiveStatus)}
                         </span>
+                        {hasPendingCredit && (
+                          <div className="mt-1 text-[11px] font-semibold text-amber-600">
+                            Refund pending
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-text-secondary-light dark:text-text-secondary-dark">
                         <div>{formatBreakdown(inv)}</div>
@@ -578,7 +877,11 @@ export default function InvoicesPage() {
         </button>
       </div>
 
-      {selected && (
+      {selected && hasRevisionLedger(selected) && (
+        <RevisionInvoiceModal invoice={selected} onClose={() => setSelected(null)} />
+      )}
+
+      {selected && !hasRevisionLedger(selected) && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-md p-4 w-full max-w-4xl max-h-[90vh] overflow-auto">
             <div className="flex justify-between items-center mb-3">
@@ -592,6 +895,12 @@ export default function InvoicesPage() {
               <div className="rounded border p-3">
                 <strong>Status:</strong> {formatLabel(selected.status)}
               </div>
+              {selected.invoice_type === "credit_note" && (
+                <div className="rounded border p-3">
+                  <strong>Refund Status:</strong>{" "}
+                  {selected.status === "refunded" ? "Refunded" : "Refund Pending"}
+                </div>
+              )}
               <div className="rounded border p-3">
                 <strong>Type:</strong> {formatLabel(selected.invoice_type)}
               </div>
