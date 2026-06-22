@@ -51,15 +51,6 @@ function isReimbursementInvoice(inv: Invoice | null): inv is Invoice {
   return Boolean(inv && inv.invoice_type === "reimbursement");
 }
 
-function hasRevisionLedger(inv: Invoice | null): inv is Invoice {
-  return Boolean(
-    inv &&
-    inv.invoice_type === "reimbursement" &&
-    Array.isArray(inv.revision_adjustments) &&
-    inv.revision_adjustments.length > 0
-  );
-}
-
 function formatDate(value?: string) {
   if (!value) return "N/A";
   return new Date(value).toLocaleDateString("en-US", {
