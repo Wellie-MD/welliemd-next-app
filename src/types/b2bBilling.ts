@@ -56,6 +56,7 @@ export interface B2BInvoice {
   status: InvoiceStatus;
   is_overdue?: boolean;
   total_amount: string;
+  client_id?: string;
   refund_required?: boolean;
   refund_required_amount?: string;
   refund_required_reason?: string;
