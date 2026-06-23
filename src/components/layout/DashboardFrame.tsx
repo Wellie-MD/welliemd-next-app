@@ -14,7 +14,7 @@ import Patients from "@/pages/Patients";
 import PatientDetailPage from "@/pages/PatientDetailPage";
 import Products from "@/pages/Products";
 import ProductsRouting from "@/pages/ProductsRouting";
-import Labs from "@/pages/Labs";
+import Labs from "@/features/labs/pages/Labs";
 import Messages from "@/pages/Messages";
 import Analytics from "@/pages/Analytics";
 import Affiliates from "@/pages/Affiliates";

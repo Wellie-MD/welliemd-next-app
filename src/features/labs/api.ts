@@ -5,7 +5,7 @@
  * assignment actions. All data is scoped to the authenticated client/tenant.
  */
 
-import axiosInstance from "./axiosInstance";
+import axiosInstance from "@/api/axiosInstance";
 
 // ---------------------------------------------------------------------------
 // Shared types
@@ -92,6 +92,7 @@ export interface ClientLabPanel {
 
   service_states: string[];
   image_url?: string;
+  created_at?: string;
 }
 
 export interface LabOrderResult {
@@ -221,6 +222,7 @@ const normalizePanel = (raw: Record<string, unknown>): ClientLabPanel => {
       ? (raw.service_states as string[])
       : [],
     image_url: raw.image_url ? String(raw.image_url) : undefined,
+    created_at: raw.created_at ? String(raw.created_at) : undefined,
   };
 };
 

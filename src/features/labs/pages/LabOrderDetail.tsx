@@ -12,8 +12,7 @@ import {
 } from "@/components/ui/breadcrumb"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
-import { clientLabsApi } from "@/api/labs"
-import { ordersApi } from "@/api/ordersApi"
+import { clientLabsApi } from "@/features/labs/api"
 
 const getInitials = (name?: string) => {
   if (!name) return "U"
@@ -26,6 +25,27 @@ const getInitials = (name?: string) => {
 
 const isUuid = (s: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
+
+const extractResultRows = (result: Record<string, unknown> | null | undefined) => {
+  if (!result) return []
+  const maybeRows =
+    (Array.isArray(result.biomarkers) && result.biomarkers) ||
+    (Array.isArray(result.results) && result.results) ||
+    (Array.isArray(result.items) && result.items) ||
+    []
+  return maybeRows.map((row: any) => ({
+    biomarker: row.biomarker || row.test_name || row.name || "",
+    result: row.result || row.value || "",
+    units: row.units || "",
+    reference_range: row.reference_range || row.range || "",
+    flag: row.flag || row.interpretation || "",
+  }))
+}
+
+const eventTime = (events: Array<Record<string, unknown>>, matcher: (event: Record<string, unknown>) => boolean) => {
+  const event = events.find(matcher)
+  return String(event?.created_at || event?.timestamp || event?.occurred_at || "")
+}
 
 export default function LabOrderDetail() {
   const { orderId } = useParams<{ orderId: string }>()
@@ -42,62 +62,48 @@ export default function LabOrderDetail() {
       setLoading(false)
       return
     }
-    
-    // First, check for mock lab order
-    const mockOrder = clientLabsApi.getLabOrders().find((o) => o.id === orderId)
-    if (mockOrder) {
-      // Hydrate with Quest CMP biomarkers if missing to match screenshot
-      if (!mockOrder.biomarkers || mockOrder.biomarkers.length === 0) {
-        mockOrder.biomarkers = [
-          { biomarker: "Glucose", result: "73", units: "mg/dL", reference_range: "70-99", flag: "Normal" },
-          { biomarker: "BUN", result: "10", units: "mg/dL", reference_range: "7-20", flag: "Normal" },
-          { biomarker: "Creatinine", result: "1.3", units: "mg/dL", reference_range: "0.6-1.3", flag: "Normal" },
-          { biomarker: "Sodium", result: "145", units: "mmol/L", reference_range: "135-145", flag: "Normal" },
-          { biomarker: "Potassium", result: "3.8", units: "mmol/L", reference_range: "3.5-5.1", flag: "Normal" },
-          { biomarker: "Chloride", result: "99", units: "mmol/L", reference_range: "98-107", flag: "Normal" },
-          { biomarker: "CO2", result: "29", units: "mmol/L", reference_range: "22-29", flag: "Normal" },
-          { biomarker: "Calcium", result: "10.3", units: "mg/dL", reference_range: "8.5-10.2", flag: "High" },
-        ]
-        mockOrder.resultsReady = true
-        mockOrder.status = "Completed"
-      }
-      setOrder(mockOrder)
-      setLoading(false)
-      return
-    }
-
     let cancelled = false
-    setLoading(true)
-    setError(null)
-    const fetchFn = isUuid(orderId)
-      ? ordersApi.fetchOrder(orderId, true)
-      : ordersApi.fetchOrderByOrderId(orderId, true)
-    fetchFn
-      .then((data) => {
-        if (!cancelled) {
-          // If fetched order lacks biomarkers but is a lab, add them for display
-          if (!data.biomarkers || data.biomarkers.length === 0) {
-            data.biomarkers = [
-              { biomarker: "Glucose", result: "73", units: "mg/dL", reference_range: "70-99", flag: "Normal" },
-              { biomarker: "BUN", result: "10", units: "mg/dL", reference_range: "7-20", flag: "Normal" },
-              { biomarker: "Creatinine", result: "1.3", units: "mg/dL", reference_range: "0.6-1.3", flag: "Normal" },
-              { biomarker: "Sodium", result: "145", units: "mmol/L", reference_range: "135-145", flag: "Normal" },
-              { biomarker: "Potassium", result: "3.8", units: "mmol/L", reference_range: "3.5-5.1", flag: "Normal" },
-              { biomarker: "Chloride", result: "99", units: "mmol/L", reference_range: "98-107", flag: "Normal" },
-              { biomarker: "CO2", result: "29", units: "mmol/L", reference_range: "22-29", flag: "Normal" },
-              { biomarker: "Calcium", result: "10.3", units: "mg/dL", reference_range: "8.5-10.2", flag: "High" },
-            ]
-            data.resultsReady = true
-          }
-          setOrder(data)
+    const loadLabOrder = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        if (!isUuid(orderId)) {
+          throw new Error("Standalone lab order id must be a UUID")
         }
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err?.response?.data?.detail || "Failed to load order")
-      })
-      .finally(() => {
+        const detail = await clientLabsApi.getLabOrderDetail(orderId)
+        const events = detail.lifecycle_events || []
+        const resultRows = extractResultRows(detail.result)
+        if (!cancelled) {
+          setOrder({
+            ...detail.order,
+            product_name: detail.order.lab_panel_name,
+            pharmacy_display: detail.order.lab_provider,
+            orderTotal: String(detail.order.total_paid),
+            price: detail.order.total_paid,
+            status: detail.order.order_status,
+            resultsReady: detail.order.results_status?.toLowerCase().includes("result") || resultRows.length > 0,
+            resultsReleased: detail.result_access_allowed,
+            biomarkers: resultRows,
+            timeline: {
+              ordered: detail.order.created_at,
+              sample_collected: eventTime(events, (event) =>
+                String(event.status || event.event_type || "").toLowerCase().includes("sample")
+              ),
+              results: eventTime(events, (event) =>
+                String(event.status || event.event_type || "").toLowerCase().includes("result")
+              ),
+            },
+            lifecycle_events: events,
+            result_access_message: detail.result_access_message,
+          })
+        }
+      } catch (err: any) {
+        if (!cancelled) setError(err?.response?.data?.detail || err?.message || "Failed to load lab order")
+      } finally {
         if (!cancelled) setLoading(false)
-      })
+      }
+    }
+    loadLabOrder()
     return () => {
       cancelled = true
     }
@@ -105,25 +111,16 @@ export default function LabOrderDetail() {
 
   const handleToggleReleaseResults = () => {
     if (!orderId || !order) return
-    const mockOrder = clientLabsApi.getLabOrders().find((o) => o.id === orderId)
-    
     const newReleasedState = !order.resultsReleased
-    if (mockOrder) {
-      const updated = clientLabsApi.releaseLabResults(orderId, newReleasedState)
-      // Make sure biomarkers are maintained
-      updated.biomarkers = order.biomarkers
-      setOrder(updated)
-    } else {
-      setOrder((prev: any) => {
-        if (!prev) return prev
-        return {
-          ...prev,
-          resultsReleased: newReleasedState,
-          releasedAt: newReleasedState ? new Date().toISOString() : null,
-          releasedBy: newReleasedState ? "Staff Member" : null,
-        }
-      })
-    }
+    setOrder((prev: any) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        resultsReleased: newReleasedState,
+        releasedAt: newReleasedState ? new Date().toISOString() : null,
+        releasedBy: newReleasedState ? "Staff Member" : null,
+      }
+    })
 
     toast({
       title: newReleasedState ? "Results Released" : "Results Gated",

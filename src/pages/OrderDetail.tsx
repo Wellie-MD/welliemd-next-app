@@ -1,6 +1,6 @@
 import { ChangeProductModal, PendingProductChange } from "@/components/orders/ChangeProductModal"
-import LabOrderDetail from "./LabOrderDetail"
-import { clientLabsApi } from "@/api/labs"
+import LabOrderDetail from "@/features/labs/pages/LabOrderDetail"
+import { clientLabsApi } from "@/features/labs/api"
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
@@ -250,30 +250,56 @@ export default function OrderDetail() {
       return
     }
 
-    // Check mock lab orders first
-    const mockOrder = clientLabsApi.getLabOrders().find((o) => o.id === orderId)
-    if (mockOrder) {
-      setOrder(mockOrder as any)
-      setLoading(false)
-      return
+    let cancelled = false
+
+    const loadOrder = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        if (isUuid(orderId)) {
+          try {
+            const detail = await clientLabsApi.getLabOrderDetail(orderId)
+            if (!cancelled) {
+              setOrder({
+                id: detail.order.id,
+                display_id: detail.order.display_id,
+                order_id: detail.order.display_id,
+                patient: { full_name: detail.order.patient_name },
+                name: detail.order.patient_name,
+                email: detail.order.patient_email,
+                product_name: detail.order.lab_panel_name,
+                pharmacy_display: detail.order.lab_provider,
+                paymentStatus: detail.order.payment_status,
+                orderStatus: detail.order.order_status,
+                status: detail.order.order_status,
+                orderTotal: String(detail.order.total_paid),
+                visitStatus: "Lab",
+                is_lab: true,
+                created_at: detail.order.created_at,
+                lifecycle_events: detail.lifecycle_events,
+                lab_result: detail.result,
+                result_access_allowed: detail.result_access_allowed,
+                result_access_message: detail.result_access_message,
+              } as any)
+              return
+            }
+          } catch {
+            // Not a standalone lab order; fall back to the regular order API.
+          }
+        }
+
+        const data = isUuid(orderId)
+          ? await ordersApi.fetchOrder(orderId, true)
+          : await ordersApi.fetchOrderByOrderId(orderId, true)
+        if (!cancelled) setOrder(data)
+      } catch (err: any) {
+        if (!cancelled) setError(err?.response?.data?.detail || "Failed to load order")
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
 
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-    const fetchFn = isUuid(orderId)
-      ? ordersApi.fetchOrder(orderId, true)
-      : ordersApi.fetchOrderByOrderId(orderId, true)
-    fetchFn
-      .then((data) => {
-        if (!cancelled) setOrder(data)
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err?.response?.data?.detail || "Failed to load order")
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
+    loadOrder()
     return () => { cancelled = true }
   }, [orderId])
 

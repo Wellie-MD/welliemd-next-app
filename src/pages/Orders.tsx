@@ -8,7 +8,7 @@ import { TrendingUp, Grid3X3, Eye, RefreshCw, Calendar as CalendarIcon, Download
 import { DateRange } from "react-day-picker"
 import { ordersApi, Order } from "@/api/ordersApi"
 import { exportToCSV } from "@/utils/exportUtils"
-import { clientLabsApi } from "@/api/labs"
+import { clientLabsApi, type LabOrder } from "@/features/labs/api"
 import { cn } from "@/lib/utils"
 
 /** Match admin portal order status filter pills → API `status` param */
@@ -126,6 +126,36 @@ const parseMoney = (value: unknown): number | null => {
   return Number.isFinite(n) ? n : null
 }
 
+const titleCaseStatus = (value?: string) => {
+  if (!value) return "Processing"
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+const labOrderResultsReady = (order: LabOrder) => {
+  const status = `${order.results_status} ${order.order_status}`.toLowerCase()
+  return status.includes("result") || status.includes("complete") || status.includes("final")
+}
+
+const toLabOrderRow = (order: LabOrder) => ({
+  id: order.display_id || order.id,
+  raw_id: order.id,
+  patient_name: order.patient_name,
+  patient_email: order.patient_email,
+  patient_phone: "-",
+  product_name: order.lab_panel_name,
+  lab_provider: order.lab_provider,
+  status: titleCaseStatus(order.order_status),
+  payment_status: titleCaseStatus(order.payment_status),
+  price: order.total_paid,
+  timeline: {
+    ordered: order.created_at || new Date().toISOString(),
+  },
+  resultsReady: labOrderResultsReady(order),
+  resultsReleased: Boolean(order.result_access_allowed),
+})
+
 export default function Orders() {
   const [searchTerm, setSearchTerm] = useState("")
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
@@ -152,6 +182,7 @@ export default function Orders() {
   const [labVisitStateFilter, setLabVisitStateFilter] = useState("All")
   const [labFulfillmentFilter, setLabFulfillmentFilter] = useState("All")
   const [labSearchTerm, setLabSearchTerm] = useState("")
+  const [labOrders, setLabOrders] = useState<LabOrder[]>([])
 
   const handleResetLabFilters = () => {
     setLabOrderStatusFilter("All")
@@ -162,8 +193,7 @@ export default function Orders() {
   }
 
   const filteredLabOrders = useMemo(() => {
-    const mockOrders = clientLabsApi.getLabOrders()
-    return mockOrders.filter((mo) => {
+    return labOrders.map(toLabOrderRow).filter((mo) => {
       // Search term
       if (labSearchTerm) {
         const s = labSearchTerm.toLowerCase()
@@ -203,7 +233,7 @@ export default function Orders() {
       }
       return true
     })
-  }, [labSearchTerm, labOrderStatusFilter, labPaymentStatusFilter, labVisitStateFilter, labFulfillmentFilter])
+  }, [labOrders, labSearchTerm, labOrderStatusFilter, labPaymentStatusFilter, labVisitStateFilter, labFulfillmentFilter])
 
   // Order Details Sheet state
   const navigate = useNavigate()
@@ -286,10 +316,11 @@ export default function Orders() {
       if (date?.to) params["created_at__lte"] = date.to.toISOString().slice(0, 10)
 
       const data = await ordersApi.fetchOrders(params)
-      const mockLabOrders = clientLabsApi.getLabOrders()
+      const mockLabOrders = await clientLabsApi.getLabOrders()
+      setLabOrders(mockLabOrders)
 
       // Filter mock orders based on the search/status/payment/date params
-      const filteredMockLabOrders = mockLabOrders.filter((mo) => {
+      const filteredMockLabOrders = mockLabOrders.map(toLabOrderRow).filter((mo) => {
         if (debouncedSearchTerm) {
           const s = debouncedSearchTerm.toLowerCase()
           const matchesName = mo.patient_name.toLowerCase().includes(s)
@@ -302,7 +333,7 @@ export default function Orders() {
         }
         if (activeOrderStatusFilter !== "All") {
           const apiStatus = ORDER_STATUS_TO_API[activeOrderStatusFilter]
-          const mappedStatus = mo.status.toLowerCase().replace(" ", "_")
+          const mappedStatus = mo.status.toLowerCase().replace(/ /g, "_")
           if (mappedStatus !== apiStatus) {
             return false
           }
@@ -330,12 +361,12 @@ export default function Orders() {
       filteredMockLabOrders.forEach((mockOrd) => {
         if (!mergedOrders.some((o) => o.id === mockOrd.id)) {
           mergedOrders.push({
-            id: mockOrd.id,
+            id: mockOrd.raw_id,
             display_id: mockOrd.id,
             order_id: mockOrd.id,
             name: mockOrd.patient_name,
             patient: {
-              id: `p-${mockOrd.id}`,
+              id: `p-${mockOrd.raw_id}`,
               full_name: mockOrd.patient_name,
             },
             email: mockOrd.patient_email,
@@ -345,7 +376,7 @@ export default function Orders() {
             orderDate: mockOrd.timeline.ordered,
             paymentStatus: mockOrd.payment_status.toLowerCase(),
             visitStatus: "Lab",
-            orderStatus: mockOrd.status.toLowerCase().replace(" ", "_"),
+            orderStatus: mockOrd.status.toLowerCase().replace(/ /g, "_"),
             orderTotal: mockOrd.price.toString(),
             is_lab: true,
             timeline: mockOrd.timeline,
@@ -353,7 +384,7 @@ export default function Orders() {
             resultsReleased: mockOrd.resultsReleased || false,
             releasedAt: mockOrd.releasedAt || null,
             releasedBy: mockOrd.releasedBy || null,
-            biomarkers: mockOrd.biomarkers,
+            biomarkers: [],
           } as any)
         }
       })
