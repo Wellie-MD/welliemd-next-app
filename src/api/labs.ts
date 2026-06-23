@@ -305,6 +305,11 @@ export const labsApi = {
     return data;
   },
 
+  archiveLabPanel: async (id: string): Promise<{ success: boolean; archived: boolean }> => {
+    const { data } = await axiosInstance.delete(`admin/labs/panels/${id}/`);
+    return data;
+  },
+
   getAdminLabOrders: async (): Promise<LabOrder[]> => {
     const { data } = await axiosInstance.get("admin/labs/orders/");
     return (data.results || data || []).map(normalizeOrder);
