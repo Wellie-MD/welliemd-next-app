@@ -13,7 +13,8 @@ import {
   Tag,
   Globe,
   Palette,
-  TrendingUp
+  TrendingUp,
+  TestTube2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -26,6 +27,7 @@ const settingsMenuItems = [
   { title: "Payments", url: "/dashboard/settings/payments", icon: CreditCard },
   { title: "Notifications", url: "/dashboard/settings/notifications", icon: Bell },
   { title: "Webhooks & APIs", url: "/dashboard/settings/webhooks-apis", icon: Webhook },
+  { title: "Junction Labs", url: "/dashboard/settings/junction-labs", icon: TestTube2 },
   { title: "Files", url: "/dashboard/settings/files", icon: FileText },
   { title: "Policies", url: "/dashboard/settings/policies", icon: Shield },
   { title: "Metafields", url: "/dashboard/settings/metafields", icon: Tag },

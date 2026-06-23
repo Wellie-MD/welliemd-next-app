@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -31,8 +32,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatCard } from "@/components/ui/stat-card";
-import { Pencil, Plus, RefreshCw, Trash2, UserPlus } from "lucide-react";
-import { labsApi, LabPanel, Biomarker } from "@/api/labs";
+import { Pencil, Plus, RefreshCw, Settings, Trash2, UserPlus } from "lucide-react";
+import { labsApi, LabPanel, Biomarker, ClientAssignment, CatalogLab } from "@/api/labs";
 
 const STATES_LIST = ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"];
 
@@ -48,12 +49,20 @@ interface AssignClient {
   name: string;
   email: string;
   checked: boolean;
+  assignment_id?: string | null;
+  junction_lab_test_id?: string;
+  junction_status?: string;
+  junction_external_status?: string;
+  operational_status?: string;
+  is_orderable?: boolean;
   linkedLabAccountIds?: string[];
 }
 
 export default function Labs() {
+  const navigate = useNavigate();
   const [labs, setLabs] = useState<LabPanel[]>([]);
   const [biomarkers, setBiomarkers] = useState<Biomarker[]>([]);
+  const [catalogLabs, setCatalogLabs] = useState<CatalogLab[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Pending approval" | "Inactive">("All");
   
@@ -75,12 +84,14 @@ export default function Labs() {
   const [assignClients, setAssignClients] = useState<AssignClient[]>([]);
   const [assignItemSearch, setAssignItemSearch] = useState("");
   const [assignClientSearch, setAssignClientSearch] = useState("");
+  const [assignmentActionId, setAssignmentActionId] = useState<string | null>(null);
 
   // Create Form state
   const [createForm, setCreateForm] = useState({
     name: "",
     description: "",
     lab_provider: "",
+    lab_provider_id: "",
     fasting_required: "yes" as "yes" | "no",
     collection_method: "at_home_phlebotomy" as any,
     cost_to_client: 0,
@@ -106,6 +117,8 @@ export default function Labs() {
       setLabs(allLabs);
       const allMarkers = await labsApi.getBiomarkers();
       setBiomarkers(allMarkers);
+      const allCatalogLabs = await labsApi.getCatalogLabs();
+      setCatalogLabs(allCatalogLabs);
     } catch (e) {
       console.error(e);
     }
@@ -146,8 +159,8 @@ export default function Labs() {
       if (!matchesSearch) return false;
 
       // Status filter
-      if (statusFilter === "Active") return lab.is_active && lab.junction_status === "Active";
-      if (statusFilter === "Pending approval") return lab.junction_status === "Pending";
+      if (statusFilter === "Active") return lab.is_active;
+      if (statusFilter === "Pending approval") return lab.junction_status === "pending_approval" || lab.junction_status === "Pending";
       if (statusFilter === "Inactive") return !lab.is_active;
 
       return true;
@@ -156,14 +169,14 @@ export default function Labs() {
 
   const stats = useMemo(() => {
     const total = labs.length;
-    const active = labs.filter(l => l.is_active && l.junction_status === "Active").length;
-    const synced = labs.filter(l => l.junction_status === "Active").length;
+    const active = labs.filter(l => l.is_active).length;
+    const synced = labs.filter(l => l.junction_status === "active" || l.junction_status === "Active").length;
     return { total, active, synced };
   }, [labs]);
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!createForm.lab_provider) {
+    if (!createForm.lab_provider_id || !createForm.lab_provider) {
       toast({
         title: "Validation Error",
         description: "Please choose a lab provider first.",
@@ -191,6 +204,7 @@ export default function Labs() {
         name: "",
         description: "",
         lab_provider: "",
+        lab_provider_id: "",
         fasting_required: "yes",
         collection_method: "at_home_phlebotomy",
         cost_to_client: 0,
@@ -203,7 +217,7 @@ export default function Labs() {
       loadData();
       toast({
         title: "Success",
-        description: "Lab panel created successfully and sent to Junction for approval."
+        description: "Lab panel created. Submit it to Junction from each client assignment."
       });
     } catch (e) {
       console.error(e);
@@ -247,22 +261,25 @@ export default function Labs() {
     }
   };
 
-  const handleCheckJunctionStatus = async (lab: LabPanel) => {
-    try {
-      await labsApi.checkLabPanelJunctionStatus(lab.id);
-      loadData();
-      toast({
-        title: "Junction Status Synchronized",
-        description: `Junction validated "${lab.name}". Status is now active — price, turnaround times, and collection instructions are now available.`
-      });
-    } catch (e) {
-      console.error(e);
-      toast({
-        title: "Error",
-        description: "Failed to update Junction status.",
-        variant: "destructive"
-      });
-    }
+  const mapAssignmentClient = (c: ClientAssignment): AssignClient => ({
+    id: c.id,
+    name: c.name,
+    email: c.email,
+    checked: c.assigned,
+    assignment_id: c.assignment_id,
+    junction_lab_test_id: c.junction_lab_test_id,
+    junction_status: c.junction_status,
+    junction_external_status: c.junction_external_status,
+    operational_status: c.operational_status,
+    is_orderable: c.is_orderable,
+    linkedLabAccountIds: c.linkedLabAccountIds,
+  });
+
+  const refreshAssignmentClients = async () => {
+    const checkedItems = assignItemPool.filter(it => it.checked);
+    if (checkedItems.length !== 1) return;
+    const clientList = await labsApi.getClientsForLabAssignment(checkedItems[0].id);
+    setAssignClients(clientList.map(mapAssignmentClient));
   };
 
   const handleAssignOpenSingle = async (lab: LabPanel) => {
@@ -279,13 +296,7 @@ export default function Labs() {
 
     try {
       const clientList = await labsApi.getClientsForLabAssignment(lab.id);
-      const mappedClients: AssignClient[] = clientList.map(c => ({
-        id: c.id,
-        name: c.name,
-        email: c.email,
-        checked: c.assigned,
-        linkedLabAccountIds: c.linkedLabAccountIds
-      }));
+      const mappedClients: AssignClient[] = clientList.map(mapAssignmentClient);
       setAssignClients(mappedClients);
       setAssignOpen(true);
     } catch (e) {
@@ -311,13 +322,7 @@ export default function Labs() {
       // For multiple, fetch clients from first checked item to get a baseline
       const firstId = selectedRowIds[0];
       const clientList = await labsApi.getClientsForLabAssignment(firstId);
-      const mappedClients: AssignClient[] = clientList.map(c => ({
-        id: c.id,
-        name: c.name,
-        email: c.email,
-        checked: c.assigned,
-        linkedLabAccountIds: c.linkedLabAccountIds
-      }));
+      const mappedClients: AssignClient[] = clientList.map(mapAssignmentClient);
       setAssignClients(mappedClients);
       setAssignOpen(true);
     } catch (e) {
@@ -341,9 +346,14 @@ export default function Labs() {
       for (const item of checkedItems) {
         await labsApi.assignLabPanelToClients(item.id, checkedClientIds);
       }
-      setAssignOpen(false);
       setSelectedRowIds([]);
       loadData();
+      if (checkedItems.length === 1) {
+        const clientList = await labsApi.getClientsForLabAssignment(checkedItems[0].id);
+        setAssignClients(clientList.map(mapAssignmentClient));
+      } else {
+        setAssignOpen(false);
+      }
       toast({
         title: "Success",
         description: "Assignments updated successfully."
@@ -355,6 +365,79 @@ export default function Labs() {
         description: "Failed to assign items.",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleSubmitAssignmentToJunction = async (client: AssignClient) => {
+    if (!client.assignment_id) return;
+    setAssignmentActionId(client.assignment_id);
+    try {
+      const response = await labsApi.submitAssignmentToJunction(client.assignment_id);
+      await refreshAssignmentClients();
+      toast({
+        title: "Submitted to Junction",
+        description: response.message || `${client.name}'s lab panel was submitted to their Junction Team.`
+      });
+    } catch (e: any) {
+      console.error(e);
+      toast({
+        title: "Junction submission failed",
+        description: e?.response?.data?.message || e?.response?.data?.detail || "Failed to submit the assignment.",
+        variant: "destructive"
+      });
+    } finally {
+      setAssignmentActionId(null);
+    }
+  };
+
+  const handleCheckAssignmentStatus = async (client: AssignClient) => {
+    if (!client.assignment_id) return;
+    setAssignmentActionId(client.assignment_id);
+    try {
+      const response = await labsApi.checkAssignmentJunctionStatus(client.assignment_id);
+      await refreshAssignmentClients();
+      toast({
+        title: "Junction status checked",
+        description: response.message || `${client.name}'s Junction status was synchronized.`
+      });
+    } catch (e: any) {
+      console.error(e);
+      toast({
+        title: "Junction status check failed",
+        description: e?.response?.data?.message || e?.response?.data?.detail || "Failed to check Junction status.",
+        variant: "destructive"
+      });
+    } finally {
+      setAssignmentActionId(null);
+    }
+  };
+
+  const handleReplaceAssignmentSubmission = async (client: AssignClient) => {
+    if (!client.assignment_id) return;
+    const confirmed = confirm(
+      `Create a replacement Junction submission for ${client.name}? The current lab_test_id will be preserved for history.`
+    );
+    if (!confirmed) return;
+    setAssignmentActionId(client.assignment_id);
+    try {
+      const response = await labsApi.replaceAssignmentSubmission(
+        client.assignment_id,
+        "Replacement created from admin portal after Junction rejection/correction."
+      );
+      await refreshAssignmentClients();
+      toast({
+        title: "Replacement created",
+        description: response.message || "Submit the replacement assignment to Junction when ready."
+      });
+    } catch (e: any) {
+      console.error(e);
+      toast({
+        title: "Replacement failed",
+        description: e?.response?.data?.detail || "Failed to create a replacement assignment.",
+        variant: "destructive"
+      });
+    } finally {
+      setAssignmentActionId(null);
     }
   };
 
@@ -437,15 +520,19 @@ export default function Labs() {
 
   // Grouped and filtered biomarkers for the Create Modal
   const createModalGroupedBiomarkers = useMemo(() => {
-    if (!createForm.lab_provider) return [];
+    if (!createForm.lab_provider_id) return [];
     
     // Filter by provider and search query
     const filtered = biomarkers.filter(bm => {
-      const matchesProvider = bm.labs ? bm.labs.includes(createForm.lab_provider) : true;
+      const matchesProvider = createForm.lab_provider_id
+        ? bm.lab_id === createForm.lab_provider_id
+        : true;
       const matchesSearch = createMarkerSearch.trim() === "" ||
         bm.name.toLowerCase().includes(createMarkerSearch.toLowerCase()) ||
         bm.id.toLowerCase().includes(createMarkerSearch.toLowerCase()) ||
-        bm.code.toLowerCase().includes(createMarkerSearch.toLowerCase());
+        bm.code.toLowerCase().includes(createMarkerSearch.toLowerCase()) ||
+        (bm.provider_id || "").toLowerCase().includes(createMarkerSearch.toLowerCase()) ||
+        (bm.slug || "").toLowerCase().includes(createMarkerSearch.toLowerCase());
       return matchesProvider && matchesSearch;
     });
 
@@ -460,7 +547,7 @@ export default function Labs() {
       g.items.push(bm);
     });
     return groups;
-  }, [biomarkers, createForm.lab_provider, createMarkerSearch]);  const getCollectionMethodLabel = (method: string) => {
+  }, [biomarkers, createForm.lab_provider_id, createMarkerSearch]);  const getCollectionMethodLabel = (method: string) => {
     const map: Record<string, string> = {
       at_home_phlebotomy: 'At-home phlebotomy',
       on_site_collection: 'On-site collection',
@@ -471,23 +558,31 @@ export default function Labs() {
   };
 
   const renderJunctionStatusBadge = (status: string) => {
-    if (status === "Active") {
+    const normalized = (status || "").toLowerCase();
+    if (normalized === "active") {
       return (
         <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-[#dcfce7] text-[#166534] border-[#bbf7d0]">
           Active
         </span>
       );
     }
-    if (status === "Pending") {
+    if (normalized === "pending" || normalized === "pending_approval" || normalized === "pending_submission") {
       return (
         <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-[#fef3c7] text-[#92400e] border-[#fde68a]">
-          Pending approval
+          {normalized === "pending_submission" ? "Pending submission" : "Pending approval"}
+        </span>
+      );
+    }
+    if (normalized === "failed") {
+      return (
+        <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-[#fee2e2] text-[#991b1b] border-[#fecaca]">
+          Failed
         </span>
       );
     }
     return (
-      <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-[#fee2e2] text-[#991b1b] border-[#fecaca]">
-        Inactive
+      <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-[#f1f5f9] text-[#475569] border-[#e2e8f0]">
+        Draft
       </span>
     );
   };
@@ -515,6 +610,15 @@ export default function Labs() {
         <div className="flex items-center gap-2.5">
           <Button
             variant="outline"
+            onClick={() => navigate("/dashboard/settings/junction-labs")}
+            className="border border-input bg-background hover:bg-muted font-semibold text-xs h-9 inline-flex items-center gap-1.5"
+          >
+            <Settings className="h-4 w-4" />
+            Junction Settings
+          </Button>
+
+          <Button
+            variant="outline"
             onClick={() => {
               if (selectedRowIds.length === 0) {
                 toast({
@@ -538,6 +642,7 @@ export default function Labs() {
                 name: "",
                 description: "",
                 lab_provider: "",
+                lab_provider_id: "",
                 fasting_required: "yes",
                 collection_method: "at_home_phlebotomy",
                 cost_to_client: 0,
@@ -682,7 +787,7 @@ export default function Labs() {
                     {renderJunctionStatusBadge(lab.junction_status)}
                   </TableCell>
                   <TableCell>
-                    {lab.junction_status === "Active" ? (
+                    {lab.is_active ? (
                       <button
                         type="button"
                         onClick={async () => {
@@ -713,9 +818,9 @@ export default function Labs() {
                   <TableCell className="text-right pr-6">
                     <div className="flex items-center justify-end gap-1">
                       <button
-                        onClick={() => handleCheckJunctionStatus(lab)}
+                        onClick={() => handleAssignOpenSingle(lab)}
                         className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
-                        title="Check Junction Status"
+                        title="Open client assignments for Junction status"
                       >
                         <RefreshCw className="h-4 w-4" />
                       </button>
@@ -764,9 +869,15 @@ export default function Labs() {
             <div className="space-y-1.5">
               <Label htmlFor="lab_provider" className="font-semibold text-xs text-foreground">Choose your lab *</Label>
               <Select
-                value={createForm.lab_provider}
+                value={createForm.lab_provider_id}
                 onValueChange={val => {
-                  setCreateForm(prev => ({ ...prev, lab_provider: val, biomarkers: [] }));
+                  const selectedLab = catalogLabs.find(lab => lab.id === val);
+                  setCreateForm(prev => ({
+                    ...prev,
+                    lab_provider_id: val,
+                    lab_provider: selectedLab?.name || "",
+                    biomarkers: []
+                  }));
                   setCreateMarkerSearch("");
                 }}
               >
@@ -774,8 +885,11 @@ export default function Labs() {
                   <SelectValue placeholder="Select a lab..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Quest Diagnostics">Quest Diagnostics</SelectItem>
-                  <SelectItem value="LabCorp">LabCorp</SelectItem>
+                  {catalogLabs.map(lab => (
+                    <SelectItem key={lab.id} value={lab.id}>
+                      {lab.name}{lab.marker_count ? ` (${lab.marker_count})` : ""}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <p className="text-[10px] text-muted-foreground leading-normal mt-1">
@@ -794,18 +908,46 @@ export default function Labs() {
                 placeholder="Filter biomarkers…"
                 value={createMarkerSearch}
                 onChange={e => setCreateMarkerSearch(e.target.value)}
-                disabled={!createForm.lab_provider}
+                disabled={!createForm.lab_provider_id}
                 className="h-8 text-xs placeholder:text-muted-foreground/80 mb-2"
               />
 
               <div className="border border-border/80 rounded-lg p-2 max-h-48 overflow-y-auto bg-background/50 space-y-2.5">
-                {!createForm.lab_provider ? (
+                {!createForm.lab_provider_id ? (
                   <div className="p-4 text-center text-xs text-muted-foreground">
-                    Select a lab above to choose biomarkers.
+                    {catalogLabs.length === 0 ? (
+                      <div className="space-y-2">
+                        <p className="font-medium text-foreground">No Junction labs available.</p>
+                        <p>Sync the Junction marker catalog first to populate lab and biomarker options.</p>
+                        <button
+                          type="button"
+                          onClick={() => { setCreateOpen(false); navigate("/dashboard/settings/junction-labs"); }}
+                          className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 font-semibold underline-offset-2 hover:underline"
+                        >
+                          Go to Junction Settings → Sync marker catalog
+                        </button>
+                      </div>
+                    ) : (
+                      "Select a lab above to choose biomarkers."
+                    )}
                   </div>
                 ) : createModalGroupedBiomarkers.length === 0 ? (
-                  <div className="p-4 text-center text-xs text-muted-foreground">
-                    No biomarkers match for this lab.
+                  <div className="p-4 text-center text-xs text-muted-foreground space-y-2">
+                    {biomarkers.length === 0 ? (
+                      <>
+                        <p className="font-medium text-foreground">No biomarkers available.</p>
+                        <p>Sync the Junction marker catalog first to populate the biomarker picker.</p>
+                        <button
+                          type="button"
+                          onClick={() => { setCreateOpen(false); navigate("/dashboard/settings/junction-labs"); }}
+                          className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 font-semibold underline-offset-2 hover:underline"
+                        >
+                          Go to Junction Settings → Sync marker catalog
+                        </button>
+                      </>
+                    ) : (
+                      <p>No biomarkers match for this lab.</p>
+                    )}
                   </div>
                 ) : (
                   createModalGroupedBiomarkers.map(group => (
@@ -827,7 +969,12 @@ export default function Labs() {
                               className="h-4 w-4"
                             />
                             <span className="font-medium text-foreground truncate">{bm.name}</span>
-                            <span className="ml-auto font-mono text-[10px] text-muted-foreground/80 pr-1">{bm.id}</span>
+                            <span
+                              className="ml-auto font-mono text-[10px] text-muted-foreground/80 pr-1 max-w-[150px] truncate"
+                              title={`Provider ID: ${bm.provider_id || "N/A"} · Marker ID: ${bm.junction_marker_id || "N/A"} · Slug: ${bm.slug}`}
+                            >
+                              {bm.display_code || bm.provider_id || bm.junction_marker_id || bm.slug}
+                            </span>
                           </label>
                         ))}
                       </div>
@@ -986,12 +1133,12 @@ export default function Labs() {
                   <span className="text-muted-foreground block font-bold uppercase tracking-wider text-[10px] mb-1.5">Junction Status</span>
                   <span
                     className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                      selectedLab.junction_status === "Active"
+                      String(selectedLab.junction_status).toLowerCase() === "active"
                         ? "bg-emerald-100 text-emerald-800"
                         : "bg-amber-100 text-amber-800"
                     }`}
                   >
-                    {selectedLab.junction_status}
+                    {String(selectedLab.junction_status).replace(/_/g, " ")}
                   </span>
                 </div>
                 <div>
@@ -1043,10 +1190,7 @@ export default function Labs() {
                 <div className="col-span-2">
                   <span className="text-muted-foreground block font-bold uppercase tracking-wider text-[10px] mb-0.5">Lab (processing facility)</span>
                   <span className="text-foreground font-semibold">
-                    {selectedLab.lab_provider === "Quest Diagnostics" 
-                      ? "Quest Diagnostics — 500 Plaza Dr, Secaucus, NJ 07094"
-                      : "LabCorp — 358 S Main St, Burlington, NC 27215"
-                    }
+                    {selectedLab.lab_provider || "Provider from Junction catalog"}
                   </span>
                 </div>
                 <div>
@@ -1305,23 +1449,87 @@ export default function Labs() {
                 className="h-8 text-xs"
               />
               <div className="space-y-1">
-                {filteredAssignClients.map(c => (
-                  <label key={c.id} className="flex items-center gap-2.5 p-2 border-b border-border/60 hover:bg-muted/40 rounded cursor-pointer select-none">
-                    <Checkbox
-                      checked={c.checked}
-                      onCheckedChange={(checked) => {
-                        setAssignClients(prev => prev.map(x => x.id === c.id ? { ...x, checked: !!checked } : x));
-                      }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-xs text-foreground truncate">{c.name}</div>
-                      <div className="text-[10px] text-muted-foreground truncate">{c.email}</div>
+                {filteredAssignClients.map(c => {
+                  const status = c.junction_status || "";
+                  const normalizedStatus = status.toLowerCase();
+                  const actionBusy = !!c.assignment_id && assignmentActionId === c.assignment_id;
+                  const canSubmit = !!c.assignment_id && c.checked && (!c.junction_lab_test_id || normalizedStatus === "failed");
+                  const canCheck = !!c.assignment_id && c.checked && !!c.junction_lab_test_id;
+                  const canReplace = !!c.assignment_id && c.checked && normalizedStatus === "failed";
+
+                  return (
+                    <div key={c.id} className="flex items-start gap-2.5 p-2 border-b border-border/60 hover:bg-muted/40 rounded">
+                      <Checkbox
+                        checked={c.checked}
+                        onCheckedChange={(checked) => {
+                          setAssignClients(prev => prev.map(x => x.id === c.id ? { ...x, checked: !!checked } : x));
+                        }}
+                        className="mt-1"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-xs text-foreground truncate">{c.name}</div>
+                        <div className="text-[10px] text-muted-foreground truncate">{c.email}</div>
+                        {c.checked && c.assignment_id && (
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                            {renderJunctionStatusBadge(status || "pending_submission")}
+                            {c.is_orderable && (
+                              <span className="inline-block border px-[8px] py-[2px] rounded-[10px] text-[10px] font-semibold bg-[#ecfdf5] text-[#047857] border-[#a7f3d0]">
+                                Orderable
+                              </span>
+                            )}
+                            {c.junction_lab_test_id && (
+                              <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[150px]">
+                                {c.junction_lab_test_id}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span className="text-[10px] text-muted-foreground pr-1">
+                          {(c.linkedLabAccountIds || []).length} acct{(c.linkedLabAccountIds || []).length === 1 ? '' : 's'}
+                        </span>
+                        {c.checked && c.assignment_id && (
+                          <div className="flex items-center gap-1">
+                            {canSubmit && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => handleSubmitAssignmentToJunction(c)}
+                                disabled={actionBusy}
+                                className="h-6 px-2 text-[10px]"
+                              >
+                                Submit
+                              </Button>
+                            )}
+                            {canCheck && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => handleCheckAssignmentStatus(c)}
+                                disabled={actionBusy}
+                                className="h-6 px-2 text-[10px]"
+                              >
+                                Check
+                              </Button>
+                            )}
+                            {canReplace && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => handleReplaceAssignmentSubmission(c)}
+                                disabled={actionBusy}
+                                className="h-6 px-2 text-[10px] text-rose-600 hover:text-rose-700"
+                              >
+                                Replace
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-[10px] text-muted-foreground shrink-0 pr-1">
-                      {(c.linkedLabAccountIds || []).length} acct{(c.linkedLabAccountIds || []).length === 1 ? '' : 's'}
-                    </span>
-                  </label>
-                ))}
+                  );
+                })}
                 {filteredAssignClients.length === 0 && (
                   <div className="p-6 text-center text-xs text-muted-foreground">No matches</div>
                 )}

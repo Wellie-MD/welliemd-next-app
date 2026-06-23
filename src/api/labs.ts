@@ -1,6 +1,6 @@
-/**
- * Mock Lab Management API for Admin Portal
- */
+import axiosInstance from "./axiosInstance";
+
+type Money = { amount: string; currency?: string } | number | string | null | undefined;
 
 export interface Biomarker {
   id: string;
@@ -8,10 +8,35 @@ export interface Biomarker {
   category: string;
   code: string;
   slug: string;
+  provider_id?: string;
+  display_code?: string;
+  junction_marker_id?: string;
+  lab_id?: string;
+  lab_slug?: string;
+  lab_name?: string;
+  lab_account_ids?: string[];
   common_tat: string;
   worst_case_tat: string;
   labs?: string[];
 }
+
+export interface CatalogLab {
+  id: string;
+  name: string;
+  slug: string;
+  marker_count: number;
+  lab_account_ids: string[];
+}
+
+export type JunctionStatus =
+  | "draft"
+  | "pending_submission"
+  | "pending_approval"
+  | "active"
+  | "inactive"
+  | "failed"
+  | "Pending"
+  | "Active";
 
 export interface LabPanel {
   id: string;
@@ -23,8 +48,12 @@ export interface LabPanel {
   collection_method: "testkit" | "walk_in_test" | "at_home_phlebotomy" | "on_site_collection";
   cost_to_client: number;
   cost_to_welliemd: number;
+  patient_price?: number;
+  discounted_patient_price?: number | null;
   is_active: boolean;
-  junction_status: "Pending" | "Active";
+  junction_status: JunctionStatus;
+  junction_external_status?: string;
+  junction_rejection_reason?: string;
   service_states: string[];
   junction_price?: number;
   sample_type?: string;
@@ -38,6 +67,14 @@ export interface ClientAssignment {
   name: string;
   email: string;
   assigned: boolean;
+  assigned_at?: string | null;
+  assignment_id?: string | null;
+  is_current?: boolean;
+  junction_lab_test_id?: string;
+  junction_status?: string;
+  junction_external_status?: string;
+  operational_status?: string;
+  is_orderable?: boolean;
   linkedLabAccountIds?: string[];
 }
 
@@ -45,7 +82,7 @@ export interface LabOrder {
   id: string;
   patient_name: string;
   patient_email: string;
-  patient_phone: string;
+  patient_phone?: string;
   client_name: string;
   product_name: string;
   lab_provider: string;
@@ -53,7 +90,7 @@ export interface LabOrder {
   status: "Completed" | "In Process" | "Requisition Created" | "Failed";
   payment_status: "Paid" | "Unpaid";
   visit_status: "Lab";
-  doctor_name: string;
+  doctor_name?: string;
   timeline: {
     ordered?: string;
     sample_collected?: string;
@@ -69,557 +106,229 @@ export interface LabOrder {
   }>;
 }
 
-// Global Mock Storage (to persist state in local memory for this session)
-const LOCAL_STORAGE_KEY_LABS = "welliemd_mock_labs_v2";
-const LOCAL_STORAGE_KEY_ASSIGNMENTS = "welliemd_mock_assignments_v2";
-const LOCAL_STORAGE_KEY_ORDERS = "welliemd_mock_orders_v2";
-
-const MOCK_BIOMARKERS: Biomarker[] = [
-  { id: "glucose", name: "Glucose", category: "Metabolic", code: "GLU", slug: "glucose", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "bun", name: "BUN (Urea Nitrogen)", category: "Renal", code: "BUN", slug: "bun", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "creatinine", name: "Creatinine", category: "Renal", code: "CRE", slug: "creatinine", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "sodium", name: "Sodium", category: "Electrolytes", code: "SOD", slug: "sodium", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "potassium", name: "Potassium", category: "Electrolytes", code: "POT", slug: "potassium", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "chloride", name: "Chloride", category: "Electrolytes", code: "CHL", slug: "chloride", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "co2", name: "CO2 (Bicarbonate)", category: "Electrolytes", code: "CO2", slug: "co2", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "calcium", name: "Calcium", category: "Metabolic", code: "CAL", slug: "calcium", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "albumin", name: "Albumin", category: "Liver", code: "ALB", slug: "albumin", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "total_protein", name: "Total Protein", category: "Liver", code: "TP", slug: "total_protein", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "alt", name: "ALT", category: "Liver", code: "ALT", slug: "alt", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "ast", name: "AST", category: "Liver", code: "AST", slug: "ast", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "alp", name: "ALP", category: "Liver", code: "ALP", slug: "alp", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "bilirubin", name: "Bilirubin", category: "Liver", code: "BIL", slug: "bilirubin", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "total_cholesterol", name: "Total Cholesterol", category: "Lipids", code: "CHO", slug: "total_cholesterol", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "hdl", name: "HDL", category: "Lipids", code: "HDL", slug: "hdl", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "ldl", name: "LDL", category: "Lipids", code: "LDL", slug: "ldl", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "triglycerides", name: "Triglycerides", category: "Lipids", code: "TRI", slug: "triglycerides", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "wbc", name: "WBC", category: "CBC", code: "WBC", slug: "wbc", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "rbc", name: "RBC", category: "CBC", code: "RBC", slug: "rbc", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "hemoglobin", name: "Hemoglobin", category: "CBC", code: "HEM", slug: "hemoglobin", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "hematocrit", name: "Hematocrit", category: "CBC", code: "HCT", slug: "hematocrit", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "platelets", name: "Platelets", category: "CBC", code: "PLT", slug: "platelets", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "testosterone_total", name: "Testosterone, Total", category: "Hormones", code: "TESTO_TOT", slug: "testosterone_total", common_tat: "2-3 days", worst_case_tat: "5 days" },
-  { id: "testosterone_free", name: "Testosterone, Free", category: "Hormones", code: "TESTO_FREE", slug: "testosterone_free", common_tat: "2-3 days", worst_case_tat: "5 days" },
-  { id: "shbg", name: "SHBG", category: "Hormones", code: "SHBG", slug: "shbg", common_tat: "2-3 days", worst_case_tat: "5 days" },
-  { id: "estradiol", name: "Estradiol (E2)", category: "Hormones", code: "ESTR", slug: "estradiol", common_tat: "2-3 days", worst_case_tat: "5 days" },
-  { id: "lh", name: "LH", category: "Hormones", code: "LH", slug: "lh", common_tat: "2-3 days", worst_case_tat: "5 days" },
-  { id: "fsh", name: "FSH", category: "Hormones", code: "FSH", slug: "fsh", common_tat: "2-3 days", worst_case_tat: "5 days" },
-  { id: "prolactin", name: "Prolactin", category: "Hormones", code: "PROL", slug: "prolactin", common_tat: "2-3 days", worst_case_tat: "5 days" },
-  { id: "psa", name: "PSA", category: "Hormones", code: "PSA", slug: "psa", common_tat: "2-3 days", worst_case_tat: "5 days" },
-  { id: "hba1c", name: "Hemoglobin A1c", category: "Endocrine", code: "A1C", slug: "hba1c", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "tsh", name: "TSH", category: "Endocrine", code: "TSH", slug: "tsh", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "ft4", name: "Free T4", category: "Endocrine", code: "FT4", slug: "ft4", common_tat: "1-2 days", worst_case_tat: "3 days" },
-  { id: "vitamin_d", name: "Vitamin D, 25-OH", category: "Endocrine", code: "VITD", slug: "vitamin_d", common_tat: "2-3 days", worst_case_tat: "5 days" },
-  { id: "hcg", name: "hCG (Pregnancy)", category: "Endocrine", code: "HCG", slug: "hcg", common_tat: "1-2 days", worst_case_tat: "2-3 days" }
-];
-
-const INITIAL_LABS: LabPanel[] = [
-  {
-    id: "lab_1",
-    name: "Comprehensive Metabolic Panel",
-    description: "Baseline metabolic markers including glucose, electrolytes, and kidney/liver function.",
-    lab_provider: "Quest Diagnostics",
-    biomarkers: [
-      MOCK_BIOMARKERS[0], MOCK_BIOMARKERS[1], MOCK_BIOMARKERS[2], MOCK_BIOMARKERS[3],
-      MOCK_BIOMARKERS[4], MOCK_BIOMARKERS[5], MOCK_BIOMARKERS[6], MOCK_BIOMARKERS[7],
-      MOCK_BIOMARKERS[8], MOCK_BIOMARKERS[9], MOCK_BIOMARKERS[10], MOCK_BIOMARKERS[11],
-      MOCK_BIOMARKERS[12], MOCK_BIOMARKERS[13]
-    ],
-    fasting_required: "yes",
-    collection_method: "at_home_phlebotomy",
-    cost_to_client: 45.00,
-    cost_to_welliemd: 12.00,
-    is_active: true,
-    junction_status: "Active",
-    service_states: ["NY", "CA", "TX", "FL"],
-    junction_price: 39.00,
-    sample_type: "serum",
-    turnaround_days: "2-4 days",
-    vital_slug: "jl_cmp14_quest",
-    required: "required",
-  },
-  {
-    id: "lab_2",
-    name: "Lipid Panel",
-    description: "Total cholesterol, HDL, LDL, and triglycerides.",
-    lab_provider: "Quest Diagnostics",
-    biomarkers: [MOCK_BIOMARKERS[14], MOCK_BIOMARKERS[15], MOCK_BIOMARKERS[16], MOCK_BIOMARKERS[17]],
-    fasting_required: "yes",
-    collection_method: "at_home_phlebotomy",
-    cost_to_client: 35.00,
-    cost_to_welliemd: 9.00,
-    is_active: true,
-    junction_status: "Active",
-    service_states: ["NY", "CA", "TX", "FL", "IL"],
-    junction_price: 29.00,
-    sample_type: "serum",
-    turnaround_days: "2-4 days",
-    vital_slug: "jl_lipid_quest",
-    required: "required",
-  },
-  {
-    id: "lab_3",
-    name: "Complete Blood Count",
-    description: "Red blood cells, white blood cells, platelets, and hemoglobin.",
-    lab_provider: "Quest Diagnostics",
-    biomarkers: [MOCK_BIOMARKERS[18], MOCK_BIOMARKERS[19], MOCK_BIOMARKERS[20], MOCK_BIOMARKERS[21], MOCK_BIOMARKERS[22]],
-    fasting_required: "no",
-    collection_method: "at_home_phlebotomy",
-    cost_to_client: 25.00,
-    cost_to_welliemd: 7.00,
-    is_active: true,
-    junction_status: "Active",
-    service_states: ["CA", "NY"],
-    junction_price: 19.00,
-    sample_type: "serum",
-    turnaround_days: "2-3 days",
-    vital_slug: "jl_cbc_quest",
-    required: "required",
-  },
-  {
-    id: "lab_4",
-    name: "Testosterone — Total + Free",
-    description: "Total and free testosterone levels. Required for TRT eligibility and monitoring.",
-    lab_provider: "LabCorp",
-    biomarkers: [MOCK_BIOMARKERS[23], MOCK_BIOMARKERS[24]],
-    fasting_required: "no",
-    collection_method: "at_home_phlebotomy",
-    cost_to_client: 75.00,
-    cost_to_welliemd: 22.00,
-    is_active: true,
-    junction_status: "Active",
-    service_states: ["CA", "TX", "NV"],
-    junction_price: 65.00,
-    sample_type: "serum",
-    turnaround_days: "3-5 days",
-    vital_slug: "jl_test_tf_labcorp",
-    required: "required",
-  },
-  {
-    id: "lab_5",
-    name: "PSA — Prostate Specific Antigen",
-    description: "Required PSA baseline for men 45+ starting TRT.",
-    lab_provider: "LabCorp",
-    biomarkers: [MOCK_BIOMARKERS[30]],
-    fasting_required: "no",
-    collection_method: "at_home_phlebotomy",
-    cost_to_client: 50.00,
-    cost_to_welliemd: 14.00,
-    is_active: true,
-    junction_status: "Active",
-    service_states: ["CA", "TX"],
-    junction_price: 42.00,
-    sample_type: "serum",
-    turnaround_days: "3-5 days",
-    vital_slug: "jl_psa_labcorp",
-    required: "required",
-  },
-  {
-    id: "lab_6",
-    name: "Hemoglobin A1C",
-    description: "3-month average blood glucose. Required for GLP-1 monitoring.",
-    lab_provider: "Quest Diagnostics",
-    biomarkers: [MOCK_BIOMARKERS[31]],
-    fasting_required: "no",
-    collection_method: "at_home_phlebotomy",
-    cost_to_client: 30.00,
-    cost_to_welliemd: 8.00,
-    is_active: true,
-    junction_status: "Active",
-    service_states: ["NY", "CA", "FL"],
-    junction_price: 24.00,
-    sample_type: "serum",
-    turnaround_days: "2-4 days",
-    vital_slug: "jl_hba1c_quest",
-    required: "required",
-  },
-  {
-    id: "lab_7",
-    name: "TSH — Thyroid Stimulating Hormone",
-    description: "Thyroid function screen.",
-    lab_provider: "Quest Diagnostics",
-    biomarkers: [MOCK_BIOMARKERS[32]],
-    fasting_required: "no",
-    collection_method: "at_home_phlebotomy",
-    cost_to_client: 30.00,
-    cost_to_welliemd: 9.00,
-    is_active: true,
-    junction_status: "Active",
-    service_states: ["NY", "CA"],
-    junction_price: 26.00,
-    sample_type: "serum",
-    turnaround_days: "2-4 days",
-    vital_slug: "jl_tsh_quest",
-    required: "optional",
-  },
-  {
-    id: "lab_8",
-    name: "Vitamin D 25-OH",
-    description: "Vitamin D deficiency screen.",
-    lab_provider: "LabCorp",
-    biomarkers: [MOCK_BIOMARKERS[34]],
-    fasting_required: "no",
-    collection_method: "at_home_phlebotomy",
-    cost_to_client: 45.00,
-    cost_to_welliemd: 13.00,
-    is_active: true,
-    junction_status: "Active",
-    service_states: ["CA", "TX", "FL"],
-    junction_price: 38.00,
-    sample_type: "serum",
-    turnaround_days: "4-7 days",
-    vital_slug: "jl_vitd_labcorp",
-    required: "optional",
-  },
-  {
-    id: "lab_9",
-    name: "Estradiol",
-    description: "Estrogen levels — required for TRT aromatization monitoring.",
-    lab_provider: "LabCorp",
-    biomarkers: [MOCK_BIOMARKERS[26]],
-    fasting_required: "no",
-    collection_method: "at_home_phlebotomy",
-    cost_to_client: 55.00,
-    cost_to_welliemd: 16.00,
-    is_active: true,
-    junction_status: "Active",
-    service_states: ["CA", "TX", "FL", "NY"],
-    junction_price: 48.00,
-    sample_type: "serum",
-    turnaround_days: "3-5 days",
-    vital_slug: "jl_e2_labcorp",
-    required: "optional",
-  },
-  {
-    id: "lab_10",
-    name: "Sex Hormone Binding Globulin",
-    description: "SHBG levels to interpret free testosterone calculations.",
-    lab_provider: "LabCorp",
-    biomarkers: [MOCK_BIOMARKERS[25]],
-    fasting_required: "no",
-    collection_method: "at_home_phlebotomy",
-    cost_to_client: 40.00,
-    cost_to_welliemd: 12.00,
-    is_active: false,
-    junction_status: "Pending",
-    service_states: ["CA", "TX"],
-    junction_price: 34.00,
-    sample_type: "serum",
-    turnaround_days: "4-6 days",
-    vital_slug: "jl_shbg_labcorp",
-    required: "optional",
-  },
-  {
-    id: "lab_11",
-    name: "Pregnancy Test (hCG, urine)",
-    description: "Required negative pregnancy test before GLP-1 prescription for women of childbearing age.",
-    lab_provider: "BioReference",
-    biomarkers: [MOCK_BIOMARKERS[35]],
-    fasting_required: "no",
-    collection_method: "testkit",
-    cost_to_client: 15.00,
-    cost_to_welliemd: 4.00,
-    is_active: true,
-    junction_status: "Active",
-    service_states: ["NY", "CA", "TX", "FL", "NJ"],
-    junction_price: 12.00,
-    sample_type: "urine",
-    turnaround_days: "1-2 days",
-    vital_slug: "jl_hcg_u_bioref",
-    required: "required",
-  }
-];
-
-const INITIAL_ASSIGNMENTS: Record<string, string[]> = {
-  "lab_1": [],
-  "lab_2": [],
-  "lab_3": [],
-  "lab_4": [],
-  "lab_5": [],
-  "lab_6": [],
-  "lab_7": [],
-  "lab_8": [],
-  "lab_9": [],
-  "lab_10": [],
-  "lab_11": []
+const moneyToNumber = (value: Money): number => {
+  if (value == null) return 0;
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return Number.parseFloat(value) || 0;
+  return Number.parseFloat(value.amount) || 0;
 };
 
-const INITIAL_CLIENTS: ClientAssignment[] = [
-  { id: "client_1", name: "Kin Meds", email: "info@kinmeds.com", assigned: false, linkedLabAccountIds: ["acct_1"] },
-  { id: "client_2", name: "RVD Rx", email: "orders@rvdrx.com", assigned: false, linkedLabAccountIds: ["acct_2", "acct_3"] },
-  { id: "client_3", name: "Moxie Health", email: "care@moxie.com", assigned: false, linkedLabAccountIds: ["acct_4"] }
-];
+const moneyPayload = (amount: number | undefined | null) => ({
+  amount: String(amount ?? 0),
+  currency: "USD",
+});
 
-const INITIAL_ORDERS: LabOrder[] = [
-  {
-    id: "kinmeds-00319",
-    patient_name: "Jennifer Glancy",
-    patient_email: "j.glance@aol.com",
-    patient_phone: "+17326043910",
-    client_name: "Kin Meds",
-    product_name: "Comprehensive Metabolic Panel",
-    lab_provider: "Quest Diagnostics",
-    price: 45.00,
-    status: "Completed",
-    payment_status: "Paid",
-    visit_status: "Lab",
-    doctor_name: "Mitchell Stotland MD",
-    timeline: {
-      ordered: "06/12/2026",
-      sample_collected: "06/12/2026",
-      results: "06/12/2026"
-    },
-    resultsReady: true,
-    biomarkers: [
-      { biomarker: "Glucose", result: "100", units: "mg/dL", reference_range: "70 - 99", flag: "High" },
-      { biomarker: "BUN (Urea Nitrogen)", result: "14", units: "mg/dL", reference_range: "7 - 20", flag: "Normal" },
-      { biomarker: "Creatinine", result: "1.05", units: "mg/dL", reference_range: "0.5 - 1.3", flag: "Normal" },
-      { biomarker: "Sodium", result: "140", units: "mmol/L", reference_range: "135 - 145", flag: "Normal" },
-      { biomarker: "Potassium", result: "4.2", units: "mmol/L", reference_range: "3.5 - 5.1", flag: "Normal" },
-      { biomarker: "Chloride", result: "102", units: "mmol/L", reference_range: "98 - 107", flag: "Normal" },
-      { biomarker: "CO2 (Bicarbonate)", result: "25", units: "mmol/L", reference_range: "22 - 29", flag: "Normal" }
-    ]
-  },
-  {
-    id: "mavnhealth-00058",
-    patient_name: "Diana Essoka",
-    patient_email: "dianasoppo@gmail.com",
-    patient_phone: "+17155605785",
-    client_name: "Mavn Health",
-    product_name: "Lipid Panel",
-    lab_provider: "Quest Diagnostics",
-    price: 35.00,
-    status: "In Process",
-    payment_status: "Paid",
-    visit_status: "Lab",
-    doctor_name: "Mitchell Stotland MD",
-    timeline: {
-      ordered: "06/10/2026",
-      sample_collected: "06/12/2026"
-    },
-    resultsReady: false
-  },
-  {
-    id: "rvdrx-00122",
-    patient_name: "Robert Pimentel",
-    patient_email: "robertpimen@gmail.com",
-    patient_phone: "+15512219488",
-    client_name: "RVD Rx",
-    product_name: "Complete Blood Count",
-    lab_provider: "Quest Diagnostics",
-    price: 25.00,
-    status: "In Process",
-    payment_status: "Paid",
-    visit_status: "Lab",
-    doctor_name: "Mitchell Stotland MD",
-    timeline: {
-      ordered: "06/10/2026",
-      sample_collected: "06/12/2026"
-    },
-    resultsReady: false
-  },
-  {
-    id: "kinmeds-00318",
-    patient_name: "David Vose",
-    patient_email: "dvose11@gmail.com",
-    patient_phone: "+16174801124",
-    client_name: "Kin Meds",
-    product_name: "Testosterone — Total + Free",
-    lab_provider: "LabCorp",
-    price: 75.00,
-    status: "In Process",
-    payment_status: "Paid",
-    visit_status: "Lab",
-    doctor_name: "Mitchell Stotland MD",
-    timeline: {
-      ordered: "06/09/2026"
-    },
-    resultsReady: false
-  },
-  {
-    id: "kinmeds-00317",
-    patient_name: "David Vose",
-    patient_email: "dvose11@gmail.com",
-    patient_phone: "+16174801124",
-    client_name: "Kin Meds",
-    product_name: "PSA — Prostate Specific Antigen",
-    lab_provider: "LabCorp",
-    price: 50.00,
-    status: "Completed",
-    payment_status: "Paid",
-    visit_status: "Lab",
-    doctor_name: "Mitchell Stotland MD",
-    timeline: {
-      ordered: "06/09/2026",
-      sample_collected: "06/10/2026",
-      results: "06/11/2026"
-    },
-    resultsReady: true,
-    biomarkers: [
-      { biomarker: "PSA", result: "1.2", units: "ng/mL", reference_range: "0.0 - 4.0", flag: "Normal" }
-    ]
-  },
-  {
-    id: "moxie-00911",
-    patient_name: "Clara Oswald",
-    patient_email: "coswald@moxie.com",
-    patient_phone: "+14159902231",
-    client_name: "Moxie Health",
-    product_name: "Hemoglobin A1C",
-    lab_provider: "Quest Diagnostics",
-    price: 30.00,
-    status: "Completed",
-    payment_status: "Paid",
-    visit_status: "Lab",
-    doctor_name: "Mitchell Stotland MD",
-    timeline: {
-      ordered: "06/08/2026",
-      sample_collected: "06/09/2026",
-      results: "06/10/2026"
-    },
-    resultsReady: true,
-    biomarkers: [
-      { biomarker: "Hemoglobin A1c", result: "5.4", units: "%", reference_range: "4.0 - 5.6", flag: "Normal" }
-    ]
-  },
-  {
-    id: "vidarx-00030",
-    patient_name: "Richard Sanso",
-    patient_email: "sansori16@yahoo.com",
-    patient_phone: "+15126634814",
-    client_name: "Vida RX",
-    product_name: "Vitamin D 25-OH",
-    lab_provider: "LabCorp",
-    price: 45.00,
-    status: "Failed",
-    payment_status: "Unpaid",
-    visit_status: "Lab",
-    doctor_name: "Mitchell Stotland MD",
-    timeline: {
-      ordered: "06/09/2026"
-    },
-    resultsReady: false
-  }
-];
+const normalizeBiomarker = (raw: any): Biomarker => ({
+  id: String(raw.id),
+  name: raw.name || "",
+  category: raw.category || "General",
+  code: raw.code || raw.slug || String(raw.id),
+  slug: raw.slug || raw.code || String(raw.id),
+  provider_id: raw.provider_id || "",
+  display_code: raw.display_code || raw.provider_id || raw.code || raw.slug || String(raw.id),
+  junction_marker_id: raw.junction_marker_id ? String(raw.junction_marker_id) : "",
+  lab_id: raw.lab_id ? String(raw.lab_id) : "",
+  lab_slug: raw.lab_slug || "",
+  lab_name: raw.lab_name || "",
+  lab_account_ids: raw.lab_account_ids || [],
+  common_tat: raw.common_tat || raw.common_turnaround_time || "Varies",
+  worst_case_tat: raw.worst_case_tat || raw.worst_case_turnaround_time || "Varies",
+  labs: raw.labs || (raw.lab_id ? [String(raw.lab_id)] : []),
+});
 
-// Load from local storage or set defaults
-const loadFromStorage = (key: string, defaults: any) => {
-  const data = localStorage.getItem(key);
-  if (!data) {
-    localStorage.setItem(key, JSON.stringify(defaults));
-    return defaults;
-  }
-  return JSON.parse(data);
-};
+const normalizePanel = (raw: any): LabPanel => ({
+  id: String(raw.id),
+  name: raw.name || "",
+  description: raw.description || "",
+  lab_provider: raw.lab_provider || "",
+  biomarkers: (raw.biomarkers || []).map(normalizeBiomarker),
+  fasting_required: raw.fasting_required === true || raw.fasting_required === "yes" ? "yes" : "no",
+  collection_method: raw.collection_method || "at_home_phlebotomy",
+  cost_to_client: moneyToNumber(raw.cost_to_client),
+  cost_to_welliemd: moneyToNumber(raw.cost_to_welliemd),
+  patient_price: moneyToNumber(raw.patient_price),
+  discounted_patient_price: raw.discounted_patient_price ? moneyToNumber(raw.discounted_patient_price) : null,
+  is_active: !!raw.is_active,
+  junction_status: raw.junction_status || "draft",
+  junction_external_status: raw.junction_external_status || "",
+  junction_rejection_reason: raw.junction_rejection_reason || "",
+  service_states: raw.service_states || [],
+  junction_price: moneyToNumber(raw.patient_price),
+  sample_type: raw.sample_type || raw.specimen || "",
+  turnaround_days: raw.common_turnaround_time || raw.worst_case_turnaround_time || "",
+  vital_slug: raw.junction_lab_test_id || "",
+  required: "required",
+});
 
-const saveToStorage = (key: string, data: any) => {
-  localStorage.setItem(key, JSON.stringify(data));
-};
+const normalizeClientAssignment = (raw: any): ClientAssignment => ({
+  id: String(raw.client_id || raw.id),
+  name: raw.client_name || raw.name || "",
+  email: raw.client_email || raw.email || "",
+  assigned: !!raw.assigned,
+  assigned_at: raw.assigned_at || null,
+  assignment_id: raw.assignment_id || null,
+  is_current: raw.is_current,
+  junction_lab_test_id: raw.junction_lab_test_id || "",
+  junction_status: raw.junction_status || "",
+  junction_external_status: raw.junction_external_status || "",
+  operational_status: raw.operational_status || "",
+  is_orderable: !!raw.is_orderable,
+  linkedLabAccountIds: raw.lab_account_id ? [raw.lab_account_id] : raw.linkedLabAccountIds || [],
+});
+
+const normalizeOrder = (raw: any): LabOrder => ({
+  id: String(raw.id),
+  patient_name: raw.patient_name || "",
+  patient_email: raw.patient_email || "",
+  client_name: raw.client_name || "",
+  product_name: raw.lab_panel_name || raw.product_name || "",
+  lab_provider: raw.lab_provider || "",
+  price: moneyToNumber(raw.total_paid || raw.price),
+  status:
+    raw.order_status === "completed" || raw.results_status === "final"
+      ? "Completed"
+      : raw.order_status === "failed"
+        ? "Failed"
+        : raw.order_status === "requisition_created"
+          ? "Requisition Created"
+          : "In Process",
+  payment_status: raw.payment_status === "paid" || raw.payment_status === "succeeded" ? "Paid" : "Unpaid",
+  visit_status: "Lab",
+  timeline: { ordered: raw.created_at },
+  resultsReady: raw.results_status === "final" || raw.results_status === "partial",
+});
 
 export const labsApi = {
   getBiomarkers: async (): Promise<Biomarker[]> => {
-    return MOCK_BIOMARKERS;
+    const { data } = await axiosInstance.get("admin/labs/biomarkers/");
+    return (data.results || data || []).map(normalizeBiomarker);
   },
 
-  getLabPanels: async (): Promise<LabPanel[]> => {
-    return loadFromStorage(LOCAL_STORAGE_KEY_LABS, INITIAL_LABS);
-  },
-
-  createLabPanel: async (payload: Omit<LabPanel, "id" | "junction_status" | "junction_price">): Promise<LabPanel> => {
-    const panels = loadFromStorage(LOCAL_STORAGE_KEY_LABS, INITIAL_LABS);
-    const newPanel: LabPanel = {
-      ...payload,
-      id: `lab_${panels.length + 1}`,
-      junction_status: "Pending",
-      junction_price: parseFloat((payload.cost_to_welliemd * 0.85).toFixed(2)),
-      sample_type: "Blood draw",
-      turnaround_days: "1-2 days",
-      vital_slug: `quest-${payload.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`
-    };
-    panels.push(newPanel);
-    saveToStorage(LOCAL_STORAGE_KEY_LABS, panels);
-    return newPanel;
-  },
-
-  updateLabPanel: async (id: string, payload: Partial<LabPanel>): Promise<LabPanel> => {
-    const panels = loadFromStorage(LOCAL_STORAGE_KEY_LABS, INITIAL_LABS);
-    const index = panels.findIndex((p: any) => p.id === id);
-    if (index === -1) throw new Error("Lab panel not found");
-    
-    // Definition fields (lab_provider, biomarkers, fasting_required, collection_method) are immutable,
-    // only pricing, availability, and service states are editable.
-    const updated = {
-      ...panels[index],
-      cost_to_client: payload.cost_to_client ?? panels[index].cost_to_client,
-      cost_to_welliemd: payload.cost_to_welliemd ?? panels[index].cost_to_welliemd,
-      is_active: payload.is_active ?? panels[index].is_active,
-      service_states: payload.service_states ?? panels[index].service_states,
-    };
-    panels[index] = updated;
-    saveToStorage(LOCAL_STORAGE_KEY_LABS, panels);
-    return updated;
-  },
-
-  checkLabPanelJunctionStatus: async (id: string): Promise<LabPanel> => {
-    const panels = loadFromStorage(LOCAL_STORAGE_KEY_LABS, INITIAL_LABS);
-    const index = panels.findIndex((p: any) => p.id === id);
-    if (index === -1) throw new Error("Lab panel not found");
-    
-    panels[index].junction_status = "Active";
-    saveToStorage(LOCAL_STORAGE_KEY_LABS, panels);
-    return panels[index];
-  },
-
-  getClientsForLabAssignment: async (labId: string): Promise<ClientAssignment[]> => {
-    const assignments = loadFromStorage(LOCAL_STORAGE_KEY_ASSIGNMENTS, INITIAL_ASSIGNMENTS);
-    const assignedClientIds = assignments[labId] || [];
-    return INITIAL_CLIENTS.map(client => ({
-      ...client,
-      assigned: assignedClientIds.includes(client.id)
+  getCatalogLabs: async (): Promise<CatalogLab[]> => {
+    const { data } = await axiosInstance.get("admin/labs/catalog/labs/");
+    return (data.results || data || []).map((raw: any) => ({
+      id: String(raw.id),
+      name: raw.name || `Lab ${raw.id}`,
+      slug: raw.slug || "",
+      marker_count: raw.marker_count || 0,
+      lab_account_ids: raw.lab_account_ids || [],
     }));
   },
 
-  assignLabPanelToClients: async (labId: string, clientIds: string[]): Promise<{ success: boolean }> => {
-    const assignments = loadFromStorage(LOCAL_STORAGE_KEY_ASSIGNMENTS, INITIAL_ASSIGNMENTS);
-    assignments[labId] = clientIds;
-    saveToStorage(LOCAL_STORAGE_KEY_ASSIGNMENTS, assignments);
-    return { success: true };
+  getLabPanels: async (): Promise<LabPanel[]> => {
+    const { data } = await axiosInstance.get("admin/labs/panels/");
+    return (data.results || data || []).map(normalizePanel);
+  },
+
+  createLabPanel: async (
+    payload: Omit<LabPanel, "id" | "junction_status" | "junction_price">
+  ): Promise<LabPanel> => {
+    const { data } = await axiosInstance.post("admin/labs/panels/", {
+      name: payload.name,
+      description: payload.description,
+      lab_provider: payload.lab_provider,
+      fasting_required: payload.fasting_required === "yes",
+      collection_method: payload.collection_method,
+      cost_to_client: moneyPayload(payload.cost_to_client),
+      cost_to_welliemd: moneyPayload(payload.cost_to_welliemd),
+      patient_price: moneyPayload(payload.patient_price ?? payload.cost_to_client),
+      discounted_patient_price: payload.discounted_patient_price
+        ? moneyPayload(payload.discounted_patient_price)
+        : null,
+      is_active: payload.is_active,
+      service_states: payload.service_states,
+      biomarker_ids: payload.biomarkers.map(biomarker => biomarker.id),
+    });
+    return normalizePanel(data);
+  },
+
+  updateLabPanel: async (id: string, payload: Partial<LabPanel>): Promise<LabPanel> => {
+    const { data } = await axiosInstance.patch(`admin/labs/panels/${id}/`, {
+      description: payload.description,
+      cost_to_client:
+        payload.cost_to_client === undefined ? undefined : moneyPayload(payload.cost_to_client),
+      cost_to_welliemd:
+        payload.cost_to_welliemd === undefined ? undefined : moneyPayload(payload.cost_to_welliemd),
+      patient_price:
+        payload.patient_price === undefined ? undefined : moneyPayload(payload.patient_price),
+      discounted_patient_price:
+        payload.discounted_patient_price === undefined
+          ? undefined
+          : payload.discounted_patient_price === null
+            ? null
+            : moneyPayload(payload.discounted_patient_price),
+      is_active: payload.is_active,
+      service_states: payload.service_states,
+    });
+    return normalizePanel(data);
+  },
+
+  checkLabPanelJunctionStatus: async (id: string): Promise<LabPanel> => {
+    const { data } = await axiosInstance.post(`admin/labs/panels/${id}/check-junction-status/`);
+    return normalizePanel(data.panel || data);
+  },
+
+  getClientsForLabAssignment: async (labId: string): Promise<ClientAssignment[]> => {
+    const { data } = await axiosInstance.get(`admin/labs/panels/${labId}/clients/`);
+    return (data.results || data || []).map(normalizeClientAssignment);
+  },
+
+  assignLabPanelToClients: async (
+    labId: string,
+    clientIds: string[]
+  ): Promise<{ success: boolean; assigned_count?: number }> => {
+    const { data } = await axiosInstance.post(`admin/labs/panels/${labId}/clients/`, {
+      client_ids: clientIds,
+    });
+    return data;
+  },
+
+  submitAssignmentToJunction: async (assignmentId: string) => {
+    const { data } = await axiosInstance.post(
+      `admin/labs/assignments/${assignmentId}/submit-to-junction/`
+    );
+    return data;
+  },
+
+  checkAssignmentJunctionStatus: async (assignmentId: string) => {
+    const { data } = await axiosInstance.post(
+      `admin/labs/assignments/${assignmentId}/check-junction-status/`
+    );
+    return data;
+  },
+
+  replaceAssignmentSubmission: async (assignmentId: string, supportNotes = "") => {
+    const { data } = await axiosInstance.post(
+      `admin/labs/assignments/${assignmentId}/replace-submission/`,
+      { support_notes: supportNotes }
+    );
+    return data;
   },
 
   getAdminLabOrders: async (): Promise<LabOrder[]> => {
-    return loadFromStorage(LOCAL_STORAGE_KEY_ORDERS, INITIAL_ORDERS);
+    const { data } = await axiosInstance.get("admin/labs/orders/");
+    return (data.results || data || []).map(normalizeOrder);
   },
 
   getAdminLabOrderResults: async (orderId: string) => {
-    const orders = loadFromStorage(LOCAL_STORAGE_KEY_ORDERS, INITIAL_ORDERS);
-    const order = orders.find((o: any) => o.id === orderId);
-    if (!order) throw new Error("Order not found");
-    return {
-      patient_name: order.patient_name,
-      lab_provider: order.lab_provider,
-      product_name: order.product_name,
-      order_id: order.id,
-      collection_date: order.timeline.sample_collected || "N/A",
-      reporting_date: order.timeline.results || "N/A",
-      status: order.resultsReady ? "Results Ready" : "In Progress",
-      biomarkers: (order.biomarkers || []).map((bm: any, index: number) => ({
-        id: bm.id || `bm_${index}`,
-        name: bm.biomarker || bm.name,
-        result: bm.result,
-        units: bm.units,
-        reference_range: bm.reference_range,
-        flag: bm.flag
-      }))
-    };
+    const { data } = await axiosInstance.get(`admin/labs/orders/${orderId}/results/`);
+    return data;
   },
 
   downloadAdminLabResultPdf: async (orderId: string): Promise<Blob> => {
-    // Return a dummy PDF blob
-    return new Blob(["%PDF-1.4 Mock Lab Report PDF Content"], { type: "application/pdf" });
+    const { data } = await axiosInstance.get(`admin/labs/orders/${orderId}/result-pdf/`, {
+      responseType: "blob",
+    });
+    return data;
   },
 
   getJunctionLabOrderResultsPdf: async (orderId: string): Promise<string> => {
-    // Return dummy base64 representation of a PDF
-    return "JVBERi0xLjQKJVRleHQgQ29udGVudCBmb3IgTW9jayBMYWIgUmVwb3J0IFBERg==";
-  }
+    const blob = await labsApi.downloadAdminLabResultPdf(orderId);
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(String(reader.result).split(",")[1] || "");
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  },
 };
