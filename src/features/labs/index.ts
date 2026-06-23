@@ -5,12 +5,16 @@ export { LabsPage } from './LabsPage';
 export { 
     getLabResults, 
     getLabSubmissions, 
-    getPatientLabResults 
+    getPatientLabResults,
+    getStandaloneLabSubmissions,
+    getStandaloneLabResults,
+    downloadStandaloneLabResultPdf,
 } from './api';
 export type { 
     LabResult, 
     LabSubmission, 
     PatientMedication,
-    LabResultsResponse,
-    LabSubmissionsResponse 
+    StandaloneLabResult,
+    StandaloneLabResultRow,
+    StandaloneLabSubmission,
 } from './api';

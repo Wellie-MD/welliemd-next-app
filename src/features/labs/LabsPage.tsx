@@ -6,7 +6,17 @@ import {
   Download,
   ExternalLink
 } from 'lucide-react';
-import { getLabResults, getLabSubmissions, type LabResult, type LabSubmission } from './api';
+import {
+  getLabResults,
+  getLabSubmissions,
+  getStandaloneLabSubmissions,
+  getStandaloneLabResults,
+  downloadStandaloneLabResultPdf,
+  type LabResult,
+  type LabSubmission,
+  type StandaloneLabResult,
+  type StandaloneLabSubmission,
+} from './api';
 import {
   Dialog,
   DialogContent,
@@ -175,17 +185,21 @@ interface GroupedLabPanel {
   reportedDate: string;
   biomarkers: LabResult[];
   status: string;
+  standaloneOrderId?: string;
 }
 
 export default function LabsPage() {
   const [labResults, setLabResults] = useState<LabResult[]>([]);
   const [labSubmissions, setLabSubmissions] = useState<LabSubmission[]>([]);
+  const [standaloneResults, setStandaloneResults] = useState<StandaloneLabResult[]>([]);
+  const [standaloneSubmissions, setStandaloneSubmissions] = useState<StandaloneLabSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'results' | 'submissions'>('results');
   const [expandedSubmission, setExpandedSubmission] = useState<string | null>(null);
   const [selectedPanel, setSelectedPanel] = useState<GroupedLabPanel | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -195,12 +209,16 @@ export default function LabsPage() {
     try {
       setLoading(true);
       setError(null);
-      const [results, submissions] = await Promise.all([
+      const [results, submissions, sResults, sSubmissions] = await Promise.all([
         getLabResults(),
         getLabSubmissions(),
+        getStandaloneLabResults(),
+        getStandaloneLabSubmissions(),
       ]);
       setLabResults(results);
       setLabSubmissions(submissions);
+      setStandaloneResults(sResults);
+      setStandaloneSubmissions(sSubmissions);
     } catch (err) {
       setError('Failed to load lab data. Please try again.');
     } finally {
@@ -249,36 +267,129 @@ export default function LabsPage() {
     });
   }, [labResults]);
 
+  // Standalone Junction lab orders → grouped panels (post-order results display)
+  const standalonePanels = useMemo<GroupedLabPanel[]>(() => {
+    const flagToIndicator = (flag: string): 'H' | 'L' | 'N' => {
+      if (flag === 'high' || flag === 'critical') return 'H';
+      if (flag === 'low') return 'L';
+      return 'N';
+    };
+    return standaloneResults.map((r) => ({
+      orderId: r.order_id,
+      standaloneOrderId: r.order_id,
+      name: r.lab_panel_name || 'Lab Panel',
+      lab: r.lab_provider || 'Junction',
+      collectedDate: r.collected_at || '',
+      reportedDate: r.reported_at || '',
+      status: r.status === 'critical' ? 'Critical' : 'Results Ready',
+      biomarkers: (r.biomarkers || []).map((bm, idx) => ({
+        id: `${r.order_id}-${idx}`,
+        patient: '',
+        patient_name: '',
+        visit: null,
+        source_system: 'junction',
+        external_order_id: r.order_id,
+        test_name: bm.biomarker,
+        test_result: bm.result,
+        test_result_units: bm.units,
+        reference_range: bm.reference_range,
+        status_indicator: flagToIndicator(bm.flag),
+        result_interpretation: bm.interpretation,
+        screening_date: bm.collected_at || r.collected_at || '',
+        report_date: bm.reported_at || r.reported_at || '',
+        sample_source: 'BLOOD',
+        test_to_treat: false,
+        submission_status: r.status,
+        beluga_visit_id: null,
+        submitted_at: r.reported_at,
+        created_at: bm.collected_at || '',
+        updated_at: bm.reported_at || '',
+      } as LabResult)),
+    }));
+  }, [standaloneResults]);
+
+  const allPanels = useMemo(
+    () => [...standalonePanels, ...groupedPanels],
+    [standalonePanels, groupedPanels]
+  );
+
   // Filter panels based on search term
   const filteredPanels = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
-    if (!term) return groupedPanels;
-    return groupedPanels.filter(panel => 
+    if (!term) return allPanels;
+    return allPanels.filter(panel => 
       panel.name.toLowerCase().includes(term) ||
       panel.orderId.toLowerCase().includes(term) ||
       panel.lab.toLowerCase().includes(term) ||
       panel.biomarkers.some(bm => bm.test_name.toLowerCase().includes(term))
     );
-  }, [groupedPanels, searchTerm]);
+  }, [allPanels, searchTerm]);
+
+  // Merge standalone submissions into the submissions list (mapped to LabSubmission shape)
+  const allSubmissions = useMemo<LabSubmission[]>(() => {
+    const standaloneMapped: LabSubmission[] = standaloneSubmissions.map((s) => ({
+      id: s.id,
+      visit: '',
+      patient_name: s.patient_name,
+      lab_results: [],
+      patient_medications: [],
+      test_to_treat: false,
+      patient_preferences: null,
+      pharmacy_id: null,
+      custom_questions: null,
+      master_id: s.id,
+      beluga_visit_id: null,
+      submission_status: (s.submission_status as LabSubmission['submission_status']) || 'pending',
+      submission_response: null,
+      error_details: null,
+      submitted_at: s.submitted_at,
+      created_at: s.submitted_at || new Date().toISOString(),
+      updated_at: s.submitted_at || new Date().toISOString(),
+      lifecycle_events: s.lifecycle_events || [],
+      requisition_pdf_url: s.requisition_pdf_url,
+      booking_link: s.booking_link,
+    }));
+    return [...standaloneMapped, ...labSubmissions];
+  }, [standaloneSubmissions, labSubmissions]);
 
   // Filter submissions
   const filteredSubmissions = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
-    if (!term) return labSubmissions;
-    return labSubmissions.filter(sub => {
+    if (!term) return allSubmissions;
+    return allSubmissions.filter(sub => {
       const matchesId = sub.id.toLowerCase().includes(term);
       const matchesMaster = (sub.master_id || '').toLowerCase().includes(term);
       const matchesResults = sub.lab_results.some(r => r.test_name.toLowerCase().includes(term));
       return matchesId || matchesMaster || matchesResults;
     });
-  }, [labSubmissions, searchTerm]);
+  }, [allSubmissions, searchTerm]);
 
   const toggleSubmission = (id: string) => {
     setExpandedSubmission(expandedSubmission === id ? null : id);
   };
 
-  const handleDownloadPdfDummy = (panelName: string) => {
-    alert(`Downloading official clinical PDF report for ${panelName}...`);
+  const handleDownloadPdf = async (panel: GroupedLabPanel) => {
+    if (!panel.standaloneOrderId) {
+      // Medication-visit lab results don't have a standalone proxy PDF endpoint.
+      alert('A downloadable PDF is not available for this result.');
+      return;
+    }
+    setDownloadingPdf(true);
+    try {
+      const blob = await downloadStandaloneLabResultPdf(panel.standaloneOrderId);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `lab-result-${panel.orderId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Failed to download the result PDF. Please try again or contact support.');
+    } finally {
+      setDownloadingPdf(false);
+    }
   };
 
   if (loading) {
@@ -645,9 +756,10 @@ export default function LabsPage() {
               <button
                 className="km-btn km-btn-primary"
                 style={{ width: '100%', marginTop: 16, justifyContent: 'center' }}
-                onClick={() => handleDownloadPdfDummy(selectedPanel.name)}
+                onClick={() => handleDownloadPdf(selectedPanel)}
+                disabled={downloadingPdf}
               >
-                <Download size={14} /> Download report (PDF)
+                <Download size={14} /> {downloadingPdf ? 'Downloading...' : 'Download report (PDF)'}
               </button>
             </div>
           )}

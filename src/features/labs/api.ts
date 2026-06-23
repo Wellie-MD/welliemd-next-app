@@ -618,8 +618,108 @@ export async function getPatientLabResults(patientId: string): Promise<LabResult
     }
 }
 
+// ---------------------------------------------------------------------------
+// Standalone Junction lab storefront orders (post-order history + results)
+//
+// These are separate from medication-visit lab results above. The standalone
+// lab checkout happens in the questionnaire app; the patient portal Labs
+// dashboard only displays the resulting order history and results here.
+// ---------------------------------------------------------------------------
+
+export interface StandaloneLabResultRow {
+    id: string;
+    biomarker: string;
+    result: string;
+    units: string;
+    reference_range: string;
+    flag: 'normal' | 'high' | 'low' | 'abnormal' | 'critical' | 'unknown';
+    interpretation: string;
+    loinc: string;
+    provider_id: string;
+    collected_at: string | null;
+    reported_at: string | null;
+}
+
+export interface StandaloneLabResult {
+    id: string;
+    order_id: string;
+    lab_panel_id: string;
+    lab_panel_name: string;
+    lab_provider: string;
+    status: string;
+    flagged_count: number;
+    collected_at: string | null;
+    reported_at: string | null;
+    pdf_url: string | null;
+    biomarkers: StandaloneLabResultRow[];
+    lifecycle_events?: Array<Record<string, unknown>>;
+}
+
+export interface StandaloneLabSubmission {
+    id: string;
+    patient_name: string;
+    lab_panel_name: string;
+    lab_provider: string;
+    submission_status: string;
+    submitted_at: string | null;
+    requisition_pdf_url: string | null;
+    booking_link: string | null;
+    lifecycle_events: Array<Record<string, unknown>>;
+}
+
+/**
+ * Get the authenticated patient's standalone lab submissions (order history).
+ * GET /patient/labs/submissions/
+ */
+export async function getStandaloneLabSubmissions(): Promise<StandaloneLabSubmission[]> {
+    try {
+        const response = await apiClient.get<PaginatedResponse<StandaloneLabSubmission> | StandaloneLabSubmission[]>(
+            '/patient/labs/submissions/'
+        );
+        if (Array.isArray(response.data)) return response.data;
+        if (response.data && 'results' in response.data) return response.data.results || [];
+        return [];
+    } catch (error) {
+        console.warn('Failed to fetch standalone lab submissions');
+        return [];
+    }
+}
+
+/**
+ * Get the authenticated patient's standalone lab results.
+ * GET /patient/labs/results/
+ */
+export async function getStandaloneLabResults(): Promise<StandaloneLabResult[]> {
+    try {
+        const response = await apiClient.get<PaginatedResponse<StandaloneLabResult> | StandaloneLabResult[]>(
+            '/patient/labs/results/'
+        );
+        if (Array.isArray(response.data)) return response.data;
+        if (response.data && 'results' in response.data) return response.data.results || [];
+        return [];
+    } catch (error) {
+        console.warn('Failed to fetch standalone lab results');
+        return [];
+    }
+}
+
+/**
+ * Download the result PDF for one standalone lab order via the authenticated
+ * WellieMD proxy endpoint (never the raw Junction URL).
+ * GET /patient/labs/results/{orderId}/pdf/
+ */
+export async function downloadStandaloneLabResultPdf(orderId: string): Promise<Blob> {
+    const response = await apiClient.get(`/patient/labs/results/${orderId}/pdf/`, {
+        responseType: 'blob',
+    });
+    return response.data as Blob;
+}
+
 export default {
     getLabResults,
     getLabSubmissions,
     getPatientLabResults,
+    getStandaloneLabSubmissions,
+    getStandaloneLabResults,
+    downloadStandaloneLabResultPdf,
 };
