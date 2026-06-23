@@ -100,11 +100,11 @@ export default function Labs() {
   // Editing dialog state
   const [editingLab, setEditingLab] = useState<ClientLabPanel | null>(null);
 
-  // Load labs
-  const fetchLabs = () => {
+  // Load labs from real backend
+  const fetchLabs = async () => {
     try {
       setLoading(true);
-      const data = clientLabsApi.getLabPanels();
+      const data = await clientLabsApi.getLabPanels();
       setLabs(data);
     } catch (error) {
       console.error("Failed to fetch client labs:", error);
@@ -167,16 +167,18 @@ export default function Labs() {
     });
   }, [labs, search, selectedPanel, selectedLab, selectedCollection, selectedStatus]);
 
-  // Copy storefront link
+  // Copy backend-generated storefront (Checkout Link)
   const handleCopyLink = (lab: ClientLabPanel) => {
-    const slug = (lab.name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const baseUrl = isLocalhost ? 'http://localhost:3000' : 'https://kinmeds.com';
-    const url = `${baseUrl}/labs/${slug}`;
+    if (!lab.is_orderable) return; // guard: should not reach here when disabled
+    const url = lab.storefront_url;
+    if (!url) {
+      toast({ title: "Unavailable", description: "Checkout link is not available yet.", variant: "destructive" });
+      return;
+    }
     navigator.clipboard.writeText(url);
     toast({
       title: "Copied!",
-      description: "Storefront checkout link copied to clipboard.",
+      description: "Checkout link copied to clipboard.",
     });
   };
 
@@ -290,7 +292,7 @@ export default function Labs() {
                 <th className="p-4 py-3">Biomarkers</th>
                 <th className="p-4 py-3">Status</th>
                 <th className="p-4 py-3">Created At</th>
-                <th className="p-4 py-3 text-center">Storefront Link</th>
+                <th className="p-4 py-3 text-center">Checkout Link</th>
               </tr>
             </thead>
             <tbody className="divide-y text-xs">
@@ -308,7 +310,7 @@ export default function Labs() {
                   </td>
                 </tr>
               ) : (
-                filteredLabs.map((lab, index) => (
+                filteredLabs.map((lab) => (
                   <tr
                     key={lab.id}
                     className="hover:bg-muted/10 transition-colors cursor-pointer group"
@@ -351,17 +353,37 @@ export default function Labs() {
                         {lab.is_active ? "Active" : "Inactive"}
                       </Badge>
                     </td>
-                    <td className="p-4 py-3.5 text-muted-foreground">{getCreatedAt(index)}</td>
+                    <td className="p-4 py-3.5 text-muted-foreground">{lab.created_at ? new Date(lab.created_at as unknown as string).toLocaleDateString() : "—"}</td>
                     <td className="p-4 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 hover:bg-muted text-sky-500 hover:text-sky-600 rounded-md"
-                        title="Copy storefront link"
-                        onClick={() => handleCopyLink(lab)}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
+                      {lab.is_orderable ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-muted text-sky-500 hover:text-sky-600 rounded-md"
+                          title="Copy Checkout Link"
+                          onClick={() => handleCopyLink(lab)}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <span
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground cursor-not-allowed"
+                          title={
+                            lab.junction_status === "pending_submission"
+                              ? "Submit to Junction first"
+                              : lab.junction_status === "pending_approval"
+                                ? "Awaiting Junction approval"
+                                : lab.operational_status === "failed" || lab.junction_status === "failed"
+                                  ? "Submission failed — replace and resubmit"
+                                  : !lab.is_active
+                                    ? "Lab is inactive"
+                                    : "Unavailable"
+                          }
+                        >
+                          <Copy className="h-3.5 w-3.5 opacity-30" />
+                          <span className="hidden sm:inline opacity-50">Unavailable</span>
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -481,6 +503,42 @@ export default function Labs() {
                     <p className="text-[13.5px] font-medium text-gray-900 mt-0.5 leading-relaxed">
                       A phlebotomy kit ships to the patient. Collect the sample per the enclosed guide and return it in the prepaid mailer the same day. Fasting 8–12 hours beforehand is required.
                     </p>
+                  </div>
+
+                  {/* Junction approval status — locked, admin-managed */}
+                  <div className="border-t border-[#e8ebee] mt-3.5 pt-3.5">
+                    <div className="text-[10.5px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Junction Approval Status</div>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      {editingLab.is_orderable ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                          ✓ Active — Checkout Link available
+                        </span>
+                      ) : editingLab.junction_status === "pending_submission" ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-50 text-gray-500 border border-gray-200">
+                          Pending Submission — submit from Admin portal
+                        </span>
+                      ) : editingLab.junction_status === "pending_approval" ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                          Pending Junction Approval
+                        </span>
+                      ) : editingLab.junction_status === "failed" || editingLab.operational_status === "failed" ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-100">
+                          Submission Failed — contact admin
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-50 text-gray-500 border border-gray-200">
+                          {editingLab.junction_status || "Not submitted"}
+                        </span>
+                      )}
+                      {editingLab.junction_lab_test_id && (
+                        <span className="font-mono text-[10px] text-gray-400 truncate max-w-[200px]" title={editingLab.junction_lab_test_id}>
+                          ID: {editingLab.junction_lab_test_id}
+                        </span>
+                      )}
+                    </div>
+                    {editingLab.junction_rejection_reason && (
+                      <p className="mt-1.5 text-[11px] text-rose-600">{editingLab.junction_rejection_reason}</p>
+                    )}
                   </div>
                 </div>
 
