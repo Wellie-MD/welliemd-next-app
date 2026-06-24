@@ -197,6 +197,14 @@ export default function Billing() {
         <col className="w-24" />
         <col className="w-24" />
       </colgroup>
+      <thead className="text-muted-foreground">
+        <tr>
+          <th className="pb-1 text-left text-[10px] font-medium uppercase tracking-wider">Type</th>
+          <th className="pb-1 text-center text-[10px] font-medium uppercase tracking-wider">Qty</th>
+          <th className="pb-1 text-right text-[10px] font-medium uppercase tracking-wider">Unit</th>
+          <th className="pb-1 text-right text-[10px] font-medium uppercase tracking-wider">Total</th>
+        </tr>
+      </thead>
       <tbody>
         {[
           ["Medication", medication],
@@ -865,170 +873,6 @@ export default function Billing() {
       {selected && isReimbursementInvoice(selected) && renderRevisionInvoiceModal(selected)}
       {selected && selected.invoice_type === "credit_note" && renderCreditNoteModal(selected)}
       {selected && selected.invoice_type === "saas_fee" && renderSaasInvoiceModal(selected)}
-
-      {selected && !isReimbursementInvoice(selected) && selected.invoice_type !== "credit_note" && selected.invoice_type !== "saas_fee" && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-md p-4 w-full max-w-4xl max-h-[90vh] overflow-auto">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-lg font-semibold">Invoice {selected.invoice_number}</h3>
-              <div className="flex items-center gap-2">
-                {String(selected.invoice_type) === "credit_note" && (selected as any).refund_required && (
-                  <button
-                    onClick={() => {
-                      if (window.confirm("Refund this credit note through Stripe? This moves funds back to the client.")) {
-                        markRefundMutation.mutate(selected);
-                      }
-                    }}
-                    disabled={markRefundMutation.isPending}
-                    className="text-sm px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50"
-                  >
-                    {markRefundMutation.isPending ? "Refunding..." : "Refund via Stripe"}
-                  </button>
-                )}
-                <button onClick={() => setSelected(null)} className="text-sm px-2 py-1">
-                  Close
-                </button>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-4">
-              <div className="rounded border p-3"><strong>Client:</strong> {(selected as any).client_name || "-"}</div>
-              <div className="rounded border p-3"><strong>Client Order #:</strong> {getClientOrderNumber(selected)}</div>
-              <div className="rounded border p-3"><strong>Type:</strong> {selected.invoice_type?.replace("_", " ")}</div>
-              <div className="rounded border p-3"><strong>Status:</strong> {selected.status}</div>
-              <div className="rounded border p-3">
-                <strong>Total:</strong> $
-                {(
-                  parseFloat((selected as any).total_amount ?? "0") +
-                  (((selected as DisplayInvoice).supplementalInvoices || []).reduce(
-                    (sum, child) => sum + parseFloat((child as any).total_amount ?? child.total_amount ?? "0"),
-                    0
-                  ))
-                ).toFixed(2)}
-              </div>
-              <div className="rounded border p-3"><strong>Issued:</strong> {selected.issued_at ? new Date(selected.issued_at).toLocaleDateString() : "-"}</div>
-              <div className="rounded border p-3"><strong>Due:</strong> {selected.due_date ? new Date(selected.due_date).toLocaleDateString() : "N/A"}</div>
-            </div>
-            {((selected as DisplayInvoice).supplementalInvoices || []).length > 0 && (
-              <div className="mb-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm">
-                <div className="font-medium text-amber-900">Split Capture Details</div>
-                <div className="mt-1 text-amber-800">
-                  Supplemental reimbursements are consolidated into this invoice row for readability.
-                </div>
-                {(() => {
-                  const parentAmount = parseFloat((selected as any).total_amount ?? selected.total_amount ?? "0");
-                  const supplemental = ((selected as DisplayInvoice).supplementalInvoices || []);
-                  const supplementalTotal = supplemental.reduce(
-                    (sum, child) => sum + parseFloat((child as any).total_amount ?? child.total_amount ?? "0"),
-                    0
-                  );
-                  const combined = parentAmount + supplementalTotal;
-                  return (
-                    <>
-                      <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <div className="rounded border border-amber-200 bg-white px-2 py-1">
-                          <div className="text-[11px] text-amber-700">Base Invoice</div>
-                          <div className="font-semibold text-amber-900">
-                            {selected.invoice_number}: ${parentAmount.toFixed(2)}
-                          </div>
-                        </div>
-                        <div className="rounded border border-amber-200 bg-white px-2 py-1">
-                          <div className="text-[11px] text-amber-700">Supplemental Total</div>
-                          <div className="font-semibold text-amber-900">${supplementalTotal.toFixed(2)}</div>
-                        </div>
-                        <div className="rounded border border-amber-200 bg-white px-2 py-1">
-                          <div className="text-[11px] text-amber-700">Combined Settlement</div>
-                          <div className="font-semibold text-amber-900">${combined.toFixed(2)}</div>
-                        </div>
-                      </div>
-                      <div className="mt-2 rounded border border-amber-200 bg-white overflow-x-auto">
-                        <table className="w-full text-xs">
-                          <thead className="bg-amber-100/70">
-                            <tr>
-                              <th className="px-2 py-1 text-left">Invoice #</th>
-                              <th className="px-2 py-1 text-left">Status</th>
-                              <th className="px-2 py-1 text-left">Issued</th>
-                              <th className="px-2 py-1 text-right">Amount</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {supplemental.map((child) => {
-                              const childAmount = parseFloat((child as any).total_amount ?? child.total_amount ?? "0");
-                              const issued = (child as any).issued_at || (child as any).created_at;
-                              return (
-                                <tr key={child.id} className="border-t border-amber-100">
-                                  <td className="px-2 py-1 font-medium">{child.invoice_number}</td>
-                                  <td className="px-2 py-1">{formatLabel(child.status)}</td>
-                                  <td className="px-2 py-1">{issued ? new Date(issued).toLocaleString() : "-"}</td>
-                                  <td className="px-2 py-1 text-right">${childAmount.toFixed(2)}</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            )}
-            {selected.invoice_type === "reimbursement" && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-sm mb-4">
-                <div className="rounded border p-3">
-                  <strong>Intended Auth Amount:</strong> {(selected as any).intended_authorization_amount || "-"}
-                </div>
-                <div className="rounded border p-3">
-                  <strong>Auth Retry Count:</strong> {(selected as any).authorization_retry_count ?? "-"}
-                </div>
-                <div className="rounded border p-3">
-                  <strong>Next Auth Retry:</strong> {(selected as any).authorization_next_retry_at ? new Date((selected as any).authorization_next_retry_at).toLocaleString() : "-"}
-                </div>
-                <div className="rounded border p-3">
-                  <strong>Retry Exhausted At:</strong> {(selected as any).authorization_retry_exhausted_at ? new Date((selected as any).authorization_retry_exhausted_at).toLocaleString() : "-"}
-                </div>
-                <div className="rounded border p-3">
-                  <strong>Auth Error Code:</strong> {(selected as any).authorization_last_error_code || "-"}
-                </div>
-                <div className="rounded border p-3">
-                  <strong>Auth Error Message:</strong> {(selected as any).authorization_last_error_message || "-"}
-                </div>
-              </div>
-            )}
-            <div className="mt-4">
-              <h4 className="font-medium mb-2">Line Items</h4>
-              {(selected.line_items ?? []).length === 0 ? (
-                <div className="rounded border p-3 text-sm text-muted-foreground">No line items</div>
-              ) : (
-                <div className="rounded border overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/30">
-                      <tr>
-                        <th className="text-left px-3 py-2">Type</th>
-                        <th className="text-left px-3 py-2">Client Order #</th>
-                        <th className="text-left px-3 py-2">Description</th>
-                        <th className="text-right px-3 py-2">Qty</th>
-                        <th className="text-right px-3 py-2">Unit Price</th>
-                        <th className="text-right px-3 py-2">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(selected.line_items ?? []).map((li) => (
-                        <tr key={li.id} className="border-t">
-                          <td className="px-3 py-2">{lineItemTypeLabel(li)}</td>
-                          <td className="px-3 py-2 font-mono text-xs">{(li as any).client_order_number || li.order_display_id || getClientOrderNumber(selected)}</td>
-                          <td className="px-3 py-2">{li.description || "-"}</td>
-                          <td className="px-3 py-2 text-right">{li.quantity ?? 0}</td>
-                          <td className="px-3 py-2 text-right">{li.unit_price ?? 0}</td>
-                          <td className="px-3 py-2 text-right">{(li as any).total_amount ?? 0}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {refundTargets.length > 0 && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/55 p-4">
