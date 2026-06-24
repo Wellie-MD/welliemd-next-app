@@ -215,6 +215,14 @@ function CostTable({
         <col className="w-24" />
         <col className="w-24" />
       </colgroup>
+      <thead className="text-muted-foreground">
+        <tr>
+          <th className="pb-1 text-left text-[10px] font-medium uppercase tracking-wider">Item</th>
+          <th className="pb-1 text-center text-[10px] font-medium uppercase tracking-wider">Qty</th>
+          <th className="pb-1 text-right text-[10px] font-medium uppercase tracking-wider">Unit</th>
+          <th className="pb-1 text-right text-[10px] font-medium uppercase tracking-wider">Total</th>
+        </tr>
+      </thead>
       <tbody>
         {rows.map(([label, amount]) => (
           <tr key={label}>
