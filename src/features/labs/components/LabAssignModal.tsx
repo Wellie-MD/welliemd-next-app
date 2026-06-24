@@ -175,15 +175,21 @@ export default function LabAssignModal({
             <div className="space-y-1">
               {filteredClients.map(c => {
                 const statusNorm = (c.junction_status ?? "").toLowerCase();
+                const operationalNorm = (c.operational_status ?? "").toLowerCase();
                 const busy = !!c.assignment_id && assignmentActionId === c.assignment_id;
                 const canSubmit =
                   !!c.assignment_id &&
                   c.checked &&
-                  (!c.junction_lab_test_id || statusNorm === "failed");
+                  !c.junction_lab_test_id;
                 const canCheck =
                   !!c.assignment_id && c.checked && !!c.junction_lab_test_id;
                 const canReplace =
-                  !!c.assignment_id && c.checked && statusNorm === "failed";
+                  !!c.assignment_id &&
+                  c.checked &&
+                  (statusNorm === "failed" ||
+                    statusNorm === "rejected" ||
+                    operationalNorm === "failed" ||
+                    operationalNorm === "needs_support");
 
                 return (
                   <div
