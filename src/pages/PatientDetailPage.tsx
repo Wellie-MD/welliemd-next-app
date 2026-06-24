@@ -137,7 +137,7 @@ export default function PatientDetailPage() {
 
   const getOrderStatusTone = (status?: string) => {
     const s = (status || "").toLowerCase();
-    if (["prescribed", "rx_sent", "shipped", "completed"].includes(s)) return "text-emerald-700 bg-emerald-50 border-emerald-200";
+    if (["prescribed", "rx_sent", "shipped", "in_transit", "completed"].includes(s)) return "text-emerald-700 bg-emerald-50 border-emerald-200";
     if (["billing_pending", "pending", "processing"].includes(s)) return "text-amber-700 bg-amber-50 border-amber-200";
     if (["canceled", "visit_failed", "declined", "error"].includes(s)) return "text-red-700 bg-red-50 border-red-200";
     return "text-slate-700 bg-slate-50 border-slate-200";

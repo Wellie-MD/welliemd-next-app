@@ -73,6 +73,7 @@ const statusColors: Record<string, string> = {
   billing_pending: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800",
   rx_sent: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800",
   shipped: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
+  in_transit: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
   canceled: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800",
 }
 
@@ -91,6 +92,7 @@ const statusLabels: Record<string, string> = {
   billing_pending: "Billing Pending",
   rx_sent: "Rx Sent",
   shipped: "Shipped",
+  in_transit: "In Transit",
   canceled: "Canceled",
 }
 
@@ -786,7 +788,7 @@ export default function OrderDetail() {
         icon = "prescriptions"
       } else if (status === "visit_pending" || status === "visit_failed") {
         icon = "medical_services"
-      } else if (status === "shipped") {
+      } else if (status === "shipped" || status === "in_transit") {
         icon = "local_shipping"
         iconBg = "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-4 border-white dark:border-slate-800"
       }

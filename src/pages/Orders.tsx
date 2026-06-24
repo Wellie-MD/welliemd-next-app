@@ -24,6 +24,7 @@ const ORDER_STATUS_FILTER_LABELS = [
   "Prescribed",
   "Billing Pending",
   "Rx Sent",
+  "In Transit",
   "Shipped",
   "Canceled",
 ] as const
@@ -42,6 +43,7 @@ const ORDER_STATUS_TO_API: Record<string, string> = {
   Prescribed: "prescribed",
   "Billing Pending": "billing_pending",
   "Rx Sent": "rx_sent",
+  "In Transit": "in_transit",
   Shipped: "shipped",
   Canceled: "canceled",
 }
