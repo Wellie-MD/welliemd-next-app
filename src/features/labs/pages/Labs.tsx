@@ -25,6 +25,9 @@ function getCollectionMethodLabel(method: string) {
 }
 
 function getDisplaySpecimen(lab: ClientLabPanel) {
+  if (lab.is_combined) {
+    return "multiple methods";
+  }
   if (lab.collection_method === "at_home_phlebotomy" || lab.collection_method === "walk_in_test") {
     return "blood draw";
   }
@@ -99,8 +102,11 @@ export default function Labs() {
 
       // Collection Method Filter
       if (selectedCollection !== "all") {
-        if (selectedCollection === "at_home" && lab.collection_method !== "at_home_phlebotomy") return false;
-        if (selectedCollection === "walk_in" && lab.collection_method !== "walk_in_test") return false;
+        const methods = lab.is_combined
+          ? (lab.combined_methods || []).map((method) => method.collection_method)
+          : [lab.collection_method];
+        if (selectedCollection === "at_home" && !methods.includes("at_home_phlebotomy")) return false;
+        if (selectedCollection === "walk_in" && !methods.includes("walk_in_test")) return false;
       }
 
       // Status Filter
@@ -267,7 +273,7 @@ export default function Labs() {
                     </td>
                     <td className="p-4 py-3.5">
                       <Badge variant="outline" className="bg-teal-50 text-teal-700 border-teal-200 font-semibold px-2 py-0.5 text-[10px]">
-                        Lab Panel
+                        {lab.is_combined ? "Combined Panel" : "Lab Panel"}
                       </Badge>
                     </td>
                     <td className="p-4 py-3.5 text-muted-foreground">{lab.lab_provider}</td>
@@ -281,7 +287,9 @@ export default function Labs() {
                             : "bg-amber-50 text-amber-700 border-amber-200"
                         }`}
                       >
-                        {getCollectionMethodLabel(lab.collection_method)}
+                      {lab.is_combined
+                        ? (lab.combined_methods || []).map((method) => getCollectionMethodLabel(method.collection_method)).join(" + ")
+                        : getCollectionMethodLabel(lab.collection_method)}
                       </Badge>
                     </td>
                     <td className="p-4 py-3.5 text-muted-foreground">

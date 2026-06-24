@@ -24,10 +24,10 @@ const US_STATES = [
 
 function getCollectionDetailLabel(method: string) {
   switch (method) {
-    case "walk_in_test": return "Walk-in test";
-    case "at_home_phlebotomy": return "At-home kit";
+    case "walk_in_test": return "Walk-in lab draw";
+    case "at_home_phlebotomy": return "At-home phlebotomy";
     case "on_site_collection": return "On-site collection";
-    case "testkit": return "Testkit";
+    case "testkit": return "At-home test kit";
     default: return method.replace(/_/g, " ");
   }
 }

@@ -89,6 +89,18 @@ export interface ClientLabPanel {
   // Storefront — backend-generated, never synthesized on the frontend
   storefront_url: string;
   storefront_slug: string;
+  is_combined?: boolean;
+  combined_storefront_slug?: string;
+  combined_methods?: Array<{
+    assignment_id: string;
+    collection_method: ClientLabPanel["collection_method"];
+    panel_name: string;
+    lab_provider: string;
+    junction_status: JunctionStatus;
+    operational_status: OperationalStatus;
+    junction_lab_test_id?: string;
+    is_orderable: boolean;
+  }>;
 
   service_states: string[];
   image_url?: string;
@@ -111,6 +123,7 @@ export interface LabOrder {
   patient_email: string;
   lab_panel_name: string;
   lab_provider: string;
+  collection_method?: string;
   payment_status: string;
   order_status: string;
   results_status: string;
@@ -218,6 +231,11 @@ const normalizePanel = (raw: Record<string, unknown>): ClientLabPanel => {
     replaced_by: raw.replaced_by ? String(raw.replaced_by) : null,
     storefront_url: String(raw.storefront_url ?? ""),
     storefront_slug: String(raw.storefront_slug ?? ""),
+    is_combined: Boolean(raw.is_combined),
+    combined_storefront_slug: raw.combined_storefront_slug ? String(raw.combined_storefront_slug) : undefined,
+    combined_methods: Array.isArray(raw.combined_methods)
+      ? raw.combined_methods as ClientLabPanel["combined_methods"]
+      : [],
     service_states: Array.isArray(raw.service_states)
       ? (raw.service_states as string[])
       : [],
@@ -233,6 +251,7 @@ const normalizeOrder = (raw: Record<string, unknown>): LabOrder => ({
   patient_email: String(raw.patient_email ?? ""),
   lab_panel_name: String(raw.lab_panel_name ?? ""),
   lab_provider: String(raw.lab_provider ?? ""),
+  collection_method: raw.collection_method ? String(raw.collection_method) : undefined,
   payment_status: String(raw.payment_status ?? ""),
   order_status: String(raw.order_status ?? ""),
   results_status: String(raw.results_status ?? ""),
@@ -301,6 +320,27 @@ export const clientLabsApi = {
       result_access_allowed: Boolean(data.result_access_allowed),
       result_access_message: data.result_access_message ?? null,
     };
+  },
+
+  /**
+   * Toggle result access for a client lab order.
+   * Backend: PATCH /api/v1/client/labs/orders/{id}/result-access/
+   * NOTE: If backend doesn't have this endpoint yet, result_access_allowed
+   * lives on the ClientLabPanelAssignment, not the order.
+   * For V1 the toggle is assignment-level: PATCH /client/labs/tests/{assignment_id}/
+   */
+  toggleResultAccess: async (orderId: string, allow: boolean): Promise<void> => {
+    // The result_access_allowed flag is stored on the assignment, not the order.
+    // We need to load the order detail first to get the assignment_id, then PATCH the assignment.
+    const detail = await axiosInstance.patch(`client/labs/orders/${orderId}/result-access/`, { result_access_allowed: allow });
+    return detail.data;
+  },
+
+  getLabOrderResultPdf: async (orderId: string): Promise<Blob> => {
+    const { data } = await axiosInstance.get(`client/labs/orders/${orderId}/result-pdf/`, {
+      responseType: "blob",
+    });
+    return data as Blob;
   },
 
   /**

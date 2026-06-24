@@ -1,7 +1,10 @@
 import { useState, useEffect, useMemo } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
-import { FileText, Loader2, MapPin } from "lucide-react"
+import { Loader2 } from "lucide-react"
+import LabResultsTable from "@/features/labs/components/LabResultsTable";
+import LabOrderDetailRightColumn from "@/features/labs/components/LabOrderDetailRightColumn";
+import { cn } from "@/lib/utils"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -11,7 +14,6 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { useToast } from "@/hooks/use-toast"
-import { cn } from "@/lib/utils"
 import { clientLabsApi } from "@/features/labs/api"
 
 const getInitials = (name?: string) => {
@@ -47,6 +49,36 @@ const eventTime = (events: Array<Record<string, unknown>>, matcher: (event: Reco
   return String(event?.created_at || event?.timestamp || event?.occurred_at || "")
 }
 
+const formatTimelineDate = (value?: string) => {
+  if (!value) return "—"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "—"
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).replace(",", " •")
+}
+
+const formatOrderDate = (value?: string) => {
+  if (!value) return "—"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "—"
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })
+}
+
+const formatCollectionMethod = (method?: string) => {
+  if (!method) return "Collection method unavailable"
+  return method.replace(/_/g, " ")
+}
+
 export default function LabOrderDetail() {
   const { orderId } = useParams<{ orderId: string }>()
   const navigate = useNavigate()
@@ -55,6 +87,8 @@ export default function LabOrderDetail() {
   const [order, setOrder] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
+  const [togglingRelease, setTogglingRelease] = useState(false)
 
   useEffect(() => {
     if (!orderId) {
@@ -109,25 +143,55 @@ export default function LabOrderDetail() {
     }
   }, [orderId])
 
-  const handleToggleReleaseResults = () => {
+  const handleToggleReleaseResults = async () => {
     if (!orderId || !order) return
     const newReleasedState = !order.resultsReleased
-    setOrder((prev: any) => {
-      if (!prev) return prev
-      return {
-        ...prev,
-        resultsReleased: newReleasedState,
-        releasedAt: newReleasedState ? new Date().toISOString() : null,
-        releasedBy: newReleasedState ? "Staff Member" : null,
-      }
-    })
+    setTogglingRelease(true)
+    try {
+      await clientLabsApi.toggleResultAccess(orderId, newReleasedState)
+      setOrder((prev: any) => {
+        if (!prev) return prev
+        return { ...prev, resultsReleased: newReleasedState }
+      })
+      toast({
+        title: newReleasedState ? "Results Released" : "Results Gated",
+        description: newReleasedState
+          ? "The patient can now view their lab results in the patient portal."
+          : "Patient access to these lab results has been blocked.",
+      })
+    } catch (err: any) {
+      toast({
+        title: "Failed to update result access",
+        description: err?.response?.data?.detail ?? "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setTogglingRelease(false)
+    }
+  }
 
-    toast({
-      title: newReleasedState ? "Results Released" : "Results Gated",
-      description: newReleasedState
-        ? "The patient can now view their lab results in the patient portal."
-        : "Patient access to these lab results has been blocked.",
-    })
+  const handleDownloadPdf = async () => {
+    if (!orderId) return
+    setDownloadingPdf(true)
+    try {
+      const blob = await clientLabsApi.getLabOrderResultPdf(orderId)
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `lab-result-${order?.display_id ?? orderId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err: any) {
+      toast({
+        title: "Download failed",
+        description: err?.response?.data?.detail ?? "Could not download the result PDF.",
+        variant: "destructive",
+      })
+    } finally {
+      setDownloadingPdf(false)
+    }
   }
 
   if (loading) {
@@ -151,91 +215,34 @@ export default function LabOrderDetail() {
   }
 
   const orderTitle = order.display_id || order.id
-  const orderDateStr = order.orderDate || order.created_at || "2026-06-11T10:00:00Z"
-  const formattedOrderDate = new Date(orderDateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
+  const orderDateStr = order.orderDate || order.created_at
+  const formattedOrderDate = formatOrderDate(orderDateStr)
+  const collectionMethodLabel = formatCollectionMethod(order.collection_method)
+  const statusLabel = order.results_status || order.order_status || "In Progress"
 
-  // Milestones matching screenshot exactly
   const timelineMilestones = [
     {
       title: "Processing",
       description: "Payment Pending → Processing",
-      date: order.timeline?.ordered
-        ? new Date(new Date(order.timeline.ordered).getTime() + 10 * 60 * 1000).toLocaleString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          }).replace(",", " •")
-        : "Jun 11, 2026 • 8:40 AM",
-      active: true,
+      date: formatTimelineDate(order.timeline?.ordered),
+      active: !!order.timeline?.ordered,
     },
     {
       title: "Ordered",
-      description: `Lab order created with ${order.pharmacy_display || order.lab_provider || "Quest Diagnostics"}`,
-      date: order.timeline?.ordered
-        ? new Date(order.timeline.ordered).toLocaleString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          }).replace(",", " •")
-        : "Jun 11, 2026 • 7:05 AM",
-      active: true,
+      description: `Lab order created${order.pharmacy_display || order.lab_provider ? ` with ${order.pharmacy_display || order.lab_provider}` : ""}`,
+      date: formatTimelineDate(order.timeline?.ordered),
+      active: !!order.timeline?.ordered,
     },
     {
       title: "Sample Collected",
-      description: "At-home phlebotomy completed",
-      date: order.timeline?.sample_collected
-        ? new Date(order.timeline.sample_collected).toLocaleString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          }).replace(",", " •")
-        : order.timeline?.ordered
-        ? new Date(new Date(order.timeline.ordered).getTime() + 3 * 60 * 60 * 1000).toLocaleString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          }).replace(",", " •")
-        : "Jun 11, 2026 • 11:20 AM",
+      description: `${collectionMethodLabel} completed`,
+      date: formatTimelineDate(order.timeline?.sample_collected),
       active: !!order.timeline?.sample_collected || order.resultsReady,
     },
     {
       title: "Results Ready",
       description: "Results returned by lab",
-      date: order.timeline?.results
-        ? new Date(order.timeline.results).toLocaleString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          }).replace(",", " •")
-        : order.timeline?.ordered
-        ? new Date(new Date(order.timeline.ordered).getTime() + 6 * 60 * 60 * 1000).toLocaleString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          }).replace(",", " •")
-        : "Jun 11, 2026 • 4:55 PM",
+      date: formatTimelineDate(order.timeline?.results),
       active: !!order.timeline?.results || order.resultsReady,
     },
   ];
@@ -280,23 +287,23 @@ export default function LabOrderDetail() {
             </div>
             <div>
               <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-                {order.product_name || "Comprehensive Metabolic Panel"}
+                {order.product_name || "Lab Panel"}
               </h4>
               <p className="text-xs text-gray-550 mb-6">
-                {order.pharmacy_display || order.lab_provider || "Quest Diagnostics"} • {order.biomarkers?.length || 14} biomarkers • at-home phlebotomy
+                {order.pharmacy_display || order.lab_provider || "Lab provider unavailable"} • {order.biomarkers?.length || 0} biomarkers • {collectionMethodLabel}
               </p>
               
               <div className="border-t border-gray-100 dark:border-gray-800/60 pt-4 space-y-3">
                 <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
                   <span>Panel price</span>
                   <span className="font-semibold text-gray-900 dark:text-white">
-                    ${parseFloat(order.orderTotal || order.price || "45.00").toFixed(2)}
+                    ${parseFloat(order.orderTotal || order.price || "0").toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm font-bold pt-1">
                   <span className="text-gray-900 dark:text-white">Total (USD)</span>
                   <span className="text-blue-600 dark:text-blue-400 font-bold">
-                    ${parseFloat(order.orderTotal || order.price || "45.00").toFixed(2)}
+                    ${parseFloat(order.orderTotal || order.price || "0").toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -308,7 +315,7 @@ export default function LabOrderDetail() {
             <div className="flex items-center gap-3 mb-6">
               <h3 className="text-base font-semibold text-gray-900 dark:text-white">Order Status</h3>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/40">
-                Completed
+                {statusLabel.replace(/_/g, " ")}
               </span>
               {order.resultsReady && (
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/40">
@@ -348,253 +355,22 @@ export default function LabOrderDetail() {
           </div>
 
           {/* Lab Results Table Card */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white">Lab Results</h3>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 text-xs border border-gray-200 hover:bg-gray-50 text-gray-700 dark:text-gray-300 dark:border-gray-800 dark:hover:bg-gray-850"
-              >
-                <FileText className="h-4 w-4 text-gray-400" />
-                Download PDF
-              </Button>
-            </div>
-            
-            <div className="overflow-x-auto -mx-6">
-              <table className="w-full text-left text-sm border-t border-b border-gray-100 dark:border-gray-800/60">
-                <thead className="bg-gray-50/50 dark:bg-gray-900/50 text-gray-400 dark:text-gray-550 font-bold text-[11px] uppercase tracking-wider">
-                  <tr>
-                    <th className="px-6 py-3">Biomarker</th>
-                    <th className="px-6 py-3 text-right">Result</th>
-                    <th className="px-6 py-3">Units</th>
-                    <th className="px-6 py-3">Reference</th>
-                    <th className="px-6 py-3 text-right">Flag</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800/60">
-                  {order.biomarkers && order.biomarkers.length > 0 ? (
-                    order.biomarkers.map((row: any, i: number) => {
-                      const isHigh = row.flag?.toLowerCase() === "high"
-                      const isLow = row.flag?.toLowerCase() === "low"
-                      
-                      return (
-                        <tr key={i} className="hover:bg-gray-50/30 dark:hover:bg-gray-850/30">
-                          <td className="px-6 py-4 font-semibold text-gray-900 dark:text-white">
-                            {row.biomarker}
-                          </td>
-                          <td className={cn(
-                            "px-6 py-4 text-right font-bold",
-                            isHigh ? "text-red-500 dark:text-red-400" : isLow ? "text-blue-500 dark:text-blue-400" : "text-gray-900 dark:text-white"
-                          )}>
-                            {row.result}
-                          </td>
-                          <td className="px-6 py-4 text-gray-500 dark:text-gray-450 text-xs">
-                            {row.units}
-                          </td>
-                          <td className="px-6 py-4 text-gray-500 dark:text-gray-450 text-xs">
-                            {row.reference_range}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <span className={cn(
-                              "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border",
-                              isHigh 
-                                ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/45"
-                                : isLow
-                                ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/45"
-                                : "bg-gray-50 text-gray-600 border-gray-200/60 dark:bg-gray-850 dark:text-gray-400 dark:border-gray-800"
-                            )}>
-                              {row.flag || "Normal"}
-                            </span>
-                          </td>
-                        </tr>
-                      )
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                        No biomarker results loaded
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <LabResultsTable
+            biomarkers={order.biomarkers ?? []}
+            resultsReleased={!!order.resultsReleased}
+            downloadingPdf={downloadingPdf}
+            onDownloadPdf={handleDownloadPdf}
+          />
         </div>
 
-        {/* Right Column (col-span-4) */}
-        <div className="lg:col-span-4 space-y-6">
-          
-          {/* Lab Card */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 space-y-4">
-            <h3 className="text-xs font-bold uppercase text-gray-400 dark:text-gray-550 tracking-wider">
-              Lab
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <p className="text-xs text-gray-400 dark:text-gray-550 font-semibold mb-0.5">
-                  PROCESSING LAB
-                </p>
-                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                  {order.pharmacy_display || order.lab_provider || "Quest Diagnostics"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 dark:text-gray-555 font-semibold mb-0.5">
-                  COLLECTION
-                </p>
-                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                  At-home phlebotomy
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 dark:text-gray-555 font-semibold mb-0.5">
-                  STATUS
-                </p>
-                <div>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/40">
-                    Results Ready
-                  </span>
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 dark:text-gray-555 font-semibold mb-0.5">
-                  COLLECTED
-                </p>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {order.timeline?.sample_collected 
-                    ? new Date(order.timeline.sample_collected).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })
-                    : formattedOrderDate}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 dark:text-gray-555 font-semibold mb-0.5">
-                  REPORTED
-                </p>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {order.timeline?.results 
-                    ? new Date(order.timeline.results).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })
-                    : formattedOrderDate}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Patient Details Card */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 space-y-4">
-            <h3 className="text-xs font-bold uppercase text-gray-400 dark:text-gray-550 tracking-wider">
-              Patient Details
-            </h3>
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-full bg-indigo-650 text-white flex items-center justify-center font-bold text-sm text-center">
-                  {getInitials(order.patient?.full_name || order.patient_name || order.name)}
-                </div>
-                <span className="font-bold text-gray-800 dark:text-gray-200 text-sm">
-                  {order.patient?.full_name || order.patient_name || order.name}
-                </span>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 dark:text-gray-555 font-semibold mb-0.5">
-                  EMAIL
-                </p>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 break-all">
-                  {order.patient_email || order.email}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 dark:text-gray-555 font-semibold mb-0.5">
-                  PHONE
-                </p>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {order.patient_phone || order.phone || "-"}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Medical Network Card */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 space-y-4">
-            <h3 className="text-xs font-bold uppercase text-gray-400 dark:text-gray-550 tracking-wider">
-              Medical Network
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <p className="text-xs text-gray-400 dark:text-gray-555 font-semibold mb-0.5">
-                  ORDERING PROVIDER
-                </p>
-                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                  {order.doctor_name || "Mitchell Stotland MD"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 dark:text-gray-555 font-semibold mb-0.5">
-                  RESULTS RELEASED TO
-                </p>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Patient + ordering physician
-                </p>
-              </div>
-              
-              <div className="pt-3 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-2">
-                <p className="text-xs text-gray-500 leading-normal">
-                  Patient Portal Gating: {order.resultsReleased ? (
-                    <span className="text-emerald-600 font-semibold">Released</span>
-                  ) : (
-                    <span className="text-amber-600 font-semibold">Gated (Hidden)</span>
-                  )}
-                </p>
-                <Button
-                  size="sm"
-                  variant={order.resultsReleased ? "outline" : "default"}
-                  onClick={handleToggleReleaseResults}
-                  className="w-full text-xs font-semibold h-8"
-                >
-                  {order.resultsReleased ? "Gate Results" : "Release Results"}
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Payment Info Card */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 space-y-4">
-            <h3 className="text-xs font-bold uppercase text-gray-400 dark:text-gray-550 tracking-wider">
-              Payment Info
-            </h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-400 dark:text-gray-500 text-xs font-semibold">Date</span>
-                <span className="text-gray-700 dark:text-gray-350 font-medium">{formattedOrderDate}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-400 dark:text-gray-500 text-xs font-semibold">Provider</span>
-                <span className="text-gray-700 dark:text-gray-350 font-medium">authorizenet</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-400 dark:text-gray-500 text-xs font-semibold">Status</span>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/40">
-                  captured
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-sm pt-1 border-t border-gray-50 dark:border-gray-800/40">
-                <span className="text-gray-900 dark:text-white font-bold">Amount</span>
-                <span className="text-gray-900 dark:text-white font-bold">
-                  ${parseFloat(order.orderTotal || order.price || "45.00").toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-        </div>
+        {/* Right Column */}
+        <LabOrderDetailRightColumn
+          order={order}
+          formattedOrderDate={formattedOrderDate}
+          togglingRelease={togglingRelease}
+          onToggleRelease={handleToggleReleaseResults}
+          getInitials={getInitials}
+        />
       </div>
     </div>
   )
