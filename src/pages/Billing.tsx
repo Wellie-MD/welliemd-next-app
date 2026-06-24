@@ -185,26 +185,36 @@ export default function Billing() {
   const isReimbursementInvoice = (invoice: B2BInvoice | null) =>
     Boolean(invoice && invoice.invoice_type === "reimbursement");
 
+
+  const sharedColgroup = (
+    <colgroup>
+      <col />
+      <col className="w-12" />
+      <col className="w-24" />
+      <col className="w-24" />
+    </colgroup>
+  );
+
+  const sharedThead = (
+    <thead className="text-muted-foreground">
+      <tr>
+        <th className="pb-2 text-left text-[10px] font-medium uppercase tracking-wider">Type / Item</th>
+        <th className="pb-2 text-center text-[10px] font-medium uppercase tracking-wider">Qty</th>
+        <th className="pb-2 text-right text-[10px] font-medium uppercase tracking-wider">Unit</th>
+        <th className="pb-2 text-right text-[10px] font-medium uppercase tracking-wider">Total</th>
+      </tr>
+    </thead>
+  );
+
   const renderCostTable = (
     medication?: string,
     shipping?: string,
-    total?: string
+    total?: string,
+    showHeaders: boolean = false
   ) => (
-    <table className="w-full table-fixed text-xs">
-      <colgroup>
-        <col />
-        <col className="w-12" />
-        <col className="w-24" />
-        <col className="w-24" />
-      </colgroup>
-      <thead className="text-muted-foreground">
-        <tr>
-          <th className="pb-1 text-left text-[10px] font-medium uppercase tracking-wider">Type</th>
-          <th className="pb-1 text-center text-[10px] font-medium uppercase tracking-wider">Qty</th>
-          <th className="pb-1 text-right text-[10px] font-medium uppercase tracking-wider">Unit</th>
-          <th className="pb-1 text-right text-[10px] font-medium uppercase tracking-wider">Total</th>
-        </tr>
-      </thead>
+    <table className="mt-2 w-full table-fixed text-xs">
+      {sharedColgroup}
+      {showHeaders && sharedThead}
       <tbody>
         {[
           ["Medication", medication],
@@ -311,20 +321,8 @@ export default function Billing() {
                 <section className="border-b p-5">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Consultation</h4>
                   <table className="mt-2 w-full table-fixed text-xs">
-                    <colgroup>
-                      <col />
-                      <col className="w-12" />
-                      <col className="w-24" />
-                      <col className="w-24" />
-                    </colgroup>
-                    <thead className="text-muted-foreground">
-                      <tr>
-                        <th className="pb-1 text-left text-[10px] font-medium uppercase tracking-wider">Type</th>
-                        <th className="pb-1 text-center text-[10px] font-medium uppercase tracking-wider">Qty</th>
-                        <th className="pb-1 text-right text-[10px] font-medium uppercase tracking-wider">Unit</th>
-                        <th className="pb-1 text-right text-[10px] font-medium uppercase tracking-wider">Total</th>
-                      </tr>
-                    </thead>
+                    {sharedColgroup}
+                    {sharedThead}
                     <tbody>
                       <tr>
                         <td className="py-1.5">{requested?.consult_mode === "sync" ? "Sync Consult" : "Async Consult"}</td>
@@ -338,14 +336,39 @@ export default function Billing() {
               )}
               <section className="border-b p-5">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Requested · {requested?.product_name || "Original prescription"}
+                  Requested · {requested?.prescribed_differs
+                    ? (requested?.original_requested_product_name || "Original request")
+                    : (requested?.product_name || "Original prescription")}
                 </h4>
-                <div className="mt-2">
-                  {renderCostTable(requested?.medication_amount, requested?.shipping_amount, requested?.product_total)}
-                </div>
+                {requested?.prescribed_differs
+                  ? renderCostTable(
+                      requested?.original_requested_medication_amount,
+                      requested?.original_requested_shipping_amount,
+                      requested?.original_requested_product_total,
+                      Number(requested?.consultation_amount || 0) === 0
+                    )
+                  : renderCostTable(
+                      requested?.medication_amount,
+                      requested?.shipping_amount,
+                      requested?.product_total,
+                      Number(requested?.consultation_amount || 0) === 0
+                    )
+                }
               </section>
+              {/* When prescribed differs, insert the base prescribed product as Revision 1 */}
+              {requested?.prescribed_differs && (
+                <section className="border-b p-5">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Revision 1 · {requested?.product_name || "Initial prescription"}
+                  </h4>
+                  <div className="mt-2">
+                    {renderCostTable(requested?.medication_amount, requested?.shipping_amount, requested?.product_total)}
+                  </div>
+                </section>
+              )}
               {adjustments.map((adjustment, index) => {
                 const isCredit = adjustment.kind === "credit_note";
+                const revOffset = requested?.prescribed_differs ? 1 : 0;
                 const state =
                   isCredit
                     ? adjustment.status === "refunded"
@@ -357,7 +380,7 @@ export default function Billing() {
                 return (
                   <section key={adjustment.id} className="border-b p-5">
                     <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Revision {adjustment.revision_number || index + 1} · {adjustment.product_name || "Revised prescription"}
+                      Revision {(Number(adjustment.revision_number) || index + 1) + revOffset} · {adjustment.product_name || "Revised prescription"}
                     </h4>
                     <div className="mt-2">
                       {renderCostTable(adjustment.medication_amount, adjustment.shipping_amount, adjustment.product_total)}

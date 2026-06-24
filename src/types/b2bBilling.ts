@@ -91,6 +91,11 @@ export interface B2BInvoice {
     product_total?: string;
     consultation_amount?: string;
     consult_mode?: string;
+    prescribed_differs?: boolean;
+    original_requested_product_name?: string;
+    original_requested_medication_amount?: string;
+    original_requested_shipping_amount?: string;
+    original_requested_product_total?: string;
   } | null;
   revision_adjustments?: Array<{
     id: string;
