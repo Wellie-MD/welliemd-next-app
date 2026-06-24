@@ -310,6 +310,90 @@ export const labsApi = {
     return data;
   },
 
+  // ---------------------------------------------------------------------------
+  // Combined panel API methods
+  // ---------------------------------------------------------------------------
+
+  getCombinedPanels: async () => {
+    const { data } = await axiosInstance.get("admin/labs/combined-panels/");
+    return (data.results || data || []) as import("@/features/labs/types").CombinedLabPanel[];
+  },
+
+  createCombinedPanel: async (payload: {
+    name: string;
+    description?: string;
+    member_panel_ids: string[];
+    cost_to_client?: { amount: string; currency: string };
+    cost_to_welliemd?: { amount: string; currency: string };
+    patient_price?: { amount: string; currency: string };
+    service_states?: string[];
+  }) => {
+    const { data } = await axiosInstance.post("admin/labs/combined-panels/", payload);
+    return data as import("@/features/labs/types").CombinedLabPanel;
+  },
+
+  updateCombinedPanel: async (
+    id: string,
+    payload: Partial<{
+      name: string;
+      description: string;
+      is_active: boolean;
+      service_states: string[];
+      patient_price: { amount: string; currency: string };
+      cost_to_client: { amount: string; currency: string };
+      cost_to_welliemd: { amount: string; currency: string };
+    }>
+  ) => {
+    const { data } = await axiosInstance.patch(`admin/labs/combined-panels/${id}/`, payload);
+    return data as import("@/features/labs/types").CombinedLabPanel;
+  },
+
+  archiveCombinedPanel: async (id: string): Promise<{ success: boolean; archived: boolean }> => {
+    const { data } = await axiosInstance.delete(`admin/labs/combined-panels/${id}/`);
+    return data;
+  },
+
+  validateCombinedMembers: async (panelIds: string[]): Promise<{
+    valid: boolean;
+    errors: string[];
+    warnings: string[];
+  }> => {
+    const { data } = await axiosInstance.post("admin/labs/combined-panels/validate/", {
+      member_panel_ids: panelIds,
+    });
+    return data;
+  },
+
+  getCombinedPanelClients: async (combinedId: string) => {
+    const { data } = await axiosInstance.get(`admin/labs/combined-panels/${combinedId}/clients/`);
+    return (data.results || data || []) as Array<{
+      client_id: string;
+      client_name: string;
+      client_email: string | null;
+      assigned: boolean;
+      derived_status: string;
+      orderable_count: number;
+      member_count: number;
+      methods: Array<{
+        assignment_id: string;
+        collection_method: string;
+        junction_status: string;
+        junction_lab_test_id: string;
+        is_orderable: boolean;
+      }>;
+    }>;
+  },
+
+  assignCombinedPanelToClients: async (
+    combinedId: string,
+    clientIds: string[]
+  ): Promise<{ success: boolean; assigned_client_count: number }> => {
+    const { data } = await axiosInstance.post(`admin/labs/combined-panels/${combinedId}/clients/`, {
+      client_ids: clientIds,
+    });
+    return data;
+  },
+
   getAdminLabOrders: async (): Promise<LabOrder[]> => {
     const { data } = await axiosInstance.get("admin/labs/orders/");
     return (data.results || data || []).map(normalizeOrder);

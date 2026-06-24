@@ -1,12 +1,10 @@
 /**
  * Labs page — admin lab panel management.
  *
- * This file is intentionally slim: all state and UI live in focused
- * feature components under src/features/labs/.
- *
  * Component map:
  *   LabsTable          — filter bar + data table
  *   LabCreateModal     — Create Lab Panel dialog
+ *   LabCombinedModal   — Create combined panel dialog
  *   LabEditModal       — Lab Test Details / edit dialog
  *   LabAssignModal     — Assign to Clients two-pane dialog
  *   LabMarkerDetailModal — Biomarker detail popup
@@ -19,6 +17,7 @@ import { Settings, UserPlus } from "lucide-react";
 import { labsApi, type Biomarker, type CatalogLab, type ClientAssignment, type LabPanel } from "@/api/labs";
 import {
   LabCreateModal,
+  LabCombinedModal,
   LabEditModal,
   LabAssignModal,
   LabMarkerDetailModal,
@@ -43,9 +42,9 @@ interface EditFormState {
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 const toAssignClient = (c: ClientAssignment): AssignClient => ({
-  id: c.id,
-  name: c.name,
-  email: c.email,
+  id: (c as any).client_id || c.id,
+  name: (c as any).client_name || c.name,
+  email: (c as any).client_email || c.email || "",
   checked: c.assigned,
   assignment_id: c.assignment_id,
   junction_lab_test_id: c.junction_lab_test_id,
@@ -63,6 +62,7 @@ export default function Labs() {
 
   // ── data ──
   const [labs, setLabs] = useState<LabPanel[]>([]);
+  const [combinedPanels, setCombinedPanels] = useState<import("@/features/labs/types").CombinedLabPanel[]>([]);
   const [biomarkers, setBiomarkers] = useState<Biomarker[]>([]);
   const [catalogLabs, setCatalogLabs] = useState<CatalogLab[]>([]);
   const [assignmentsCount, setAssignmentsCount] = useState<Record<string, number>>({});
@@ -74,6 +74,7 @@ export default function Labs() {
 
   // ── modal visibility ──
   const [createOpen, setCreateOpen] = useState(false);
+  const [combinedOpen, setCombinedOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [markerOpen, setMarkerOpen] = useState(false);
@@ -96,19 +97,22 @@ export default function Labs() {
   const [assignItemSearch, setAssignItemSearch] = useState("");
   const [assignClientSearch, setAssignClientSearch] = useState("");
   const [assignmentActionId, setAssignmentActionId] = useState<string | null>(null);
+  const [assignMode, setAssignMode] = useState<"single" | "combined">("single");
 
   // ── data loading ──────────────────────────────────────────────────────────
 
   const loadData = useCallback(async () => {
     try {
-      const [allLabs, allMarkers, allCatalogLabs] = await Promise.all([
+      const [allLabs, allMarkers, allCatalogLabs, allCombined] = await Promise.all([
         labsApi.getLabPanels(),
         labsApi.getBiomarkers(),
         labsApi.getCatalogLabs(),
+        labsApi.getCombinedPanels(),
       ]);
       setLabs(allLabs);
       setBiomarkers(allMarkers);
       setCatalogLabs(allCatalogLabs);
+      setCombinedPanels(allCombined);
     } catch (e) {
       console.error(e);
     }
@@ -141,12 +145,12 @@ export default function Labs() {
   // ── stats ─────────────────────────────────────────────────────────────────
 
   const stats = useMemo(() => ({
-    total: labs.length,
+    total: labs.length + combinedPanels.filter(c => !c.is_archived).length,
     active: labs.filter(l => l.is_active).length,
     synced: labs.filter(l =>
       l.junction_status === "active" || l.junction_status === "Active"
     ).length,
-  }), [labs]);
+  }), [labs, combinedPanels]);
 
   // ── grouped biomarkers for create modal ───────────────────────────────────
 
@@ -294,16 +298,34 @@ export default function Labs() {
     }
   };
 
+  const handleArchiveCombined = async (combined: import("@/features/labs/types").CombinedLabPanel) => {
+    if (!confirm(`Archive combined panel "${combined.name}"? All linked client assignments will be deactivated.`)) return;
+    try {
+      await labsApi.archiveCombinedPanel(combined.id);
+      loadData();
+      toast({ title: "Combined Panel Archived", description: `"${combined.name}" has been archived.` });
+    } catch (e: any) {
+      toast({
+        title: "Archive Failed",
+        description: e?.response?.data?.detail ?? "Failed to archive combined panel.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // ── assign helpers ────────────────────────────────────────────────────────
 
   const refreshAssignClients = async () => {
     const checked = assignItemPool.filter(it => it.checked);
     if (checked.length !== 1) return;
-    const list = await labsApi.getClientsForLabAssignment(checked[0].id);
+    const list = assignMode === "combined"
+      ? await labsApi.getCombinedPanelClients(checked[0].id)
+      : await labsApi.getClientsForLabAssignment(checked[0].id);
     setAssignClients(list.map(toAssignClient));
   };
 
   const handleAssignOpenSingle = async (lab: LabPanel) => {
+    setAssignMode("single");
     setAssignItemPool(labs.map(l => ({ id: l.id, name: l.name, sub: l.lab_provider || "Lab panel", checked: l.id === lab.id })));
     setAssignItemSearch("");
     setAssignClientSearch("");
@@ -314,11 +336,24 @@ export default function Labs() {
     } catch (e) { console.error(e); }
   };
 
+  const handleAssignOpenCombined = async (combined: import("@/features/labs/types").CombinedLabPanel) => {
+    setAssignMode("combined");
+    setAssignItemPool(combinedPanels.map(c => ({ id: c.id, name: c.name, sub: `${c.members.length} collection method${c.members.length === 1 ? "" : "s"}`, checked: c.id === combined.id })));
+    setAssignItemSearch("");
+    setAssignClientSearch("");
+    try {
+      const list = await labsApi.getCombinedPanelClients(combined.id);
+      setAssignClients(list.map(toAssignClient));
+      setAssignOpen(true);
+    } catch (e) { console.error(e); }
+  };
+
   const handleAssignOpenMultiple = async () => {
     if (selectedRowIds.length === 0) {
       toast({ title: "Selection Required", description: "Select one or more lab panels first.", variant: "destructive" });
       return;
     }
+    setAssignMode("single");
     setAssignItemPool(labs.map(l => ({ id: l.id, name: l.name, sub: l.lab_provider || "Lab panel", checked: selectedRowIds.includes(l.id) })));
     setAssignItemSearch("");
     setAssignClientSearch("");
@@ -338,12 +373,18 @@ export default function Labs() {
     const clientIds = assignClients.filter(c => c.checked).map(c => c.id);
     try {
       for (const item of checkedItems) {
-        await labsApi.assignLabPanelToClients(item.id, clientIds);
+        if (assignMode === "combined") {
+          await labsApi.assignCombinedPanelToClients(item.id, clientIds);
+        } else {
+          await labsApi.assignLabPanelToClients(item.id, clientIds);
+        }
       }
       setSelectedRowIds([]);
       loadData();
       if (checkedItems.length === 1) {
-        const list = await labsApi.getClientsForLabAssignment(checkedItems[0].id);
+        const list = assignMode === "combined"
+          ? await labsApi.getCombinedPanelClients(checkedItems[0].id)
+          : await labsApi.getClientsForLabAssignment(checkedItems[0].id);
         setAssignClients(list.map(toAssignClient));
       } else {
         setAssignOpen(false);
@@ -442,6 +483,14 @@ export default function Labs() {
           </Button>
 
           <Button
+            variant="outline"
+            onClick={() => setCombinedOpen(true)}
+            className="border border-input bg-background hover:bg-muted font-semibold text-xs h-9 inline-flex items-center gap-1.5"
+          >
+            Create combined panel
+          </Button>
+
+          <Button
             onClick={() => {
               setCreateForm(INITIAL_CREATE_FORM);
               setCreateMarkerSearch("");
@@ -461,16 +510,9 @@ export default function Labs() {
           { label: "Active Labs", value: stats.active },
           { label: "Junction-Synced", value: stats.synced },
         ].map(({ label, value }) => (
-          <div
-            key={label}
-            className="bg-card border border-border/60 rounded-xl px-[18px] py-[14px] flex flex-col justify-between shadow-sm min-h-[90px]"
-          >
-            <span className="text-[11.5px] uppercase font-bold tracking-wider text-muted-foreground">
-              {label}
-            </span>
-            <span className="text-2xl font-semibold font-mono text-foreground mt-2">
-              {value}
-            </span>
+          <div key={label} className="bg-card border border-border/60 rounded-xl px-[18px] py-[14px] flex flex-col justify-between shadow-sm min-h-[90px]">
+            <span className="text-[11.5px] uppercase font-bold tracking-wider text-muted-foreground">{label}</span>
+            <span className="text-2xl font-semibold font-mono text-foreground mt-2">{value}</span>
           </div>
         ))}
       </div>
@@ -478,6 +520,7 @@ export default function Labs() {
       {/* Filter bar + table */}
       <LabsTable
         labs={labs}
+        combinedPanels={combinedPanels}
         assignmentsCount={assignmentsCount}
         search={search}
         onSearchChange={setSearch}
@@ -489,7 +532,9 @@ export default function Labs() {
         onToggleActive={handleToggleActive}
         onEditOpen={handleEditOpen}
         onAssignOpenSingle={handleAssignOpenSingle}
+        onAssignOpenCombined={handleAssignOpenCombined}
         onArchive={handleArchive}
+        onArchiveCombined={handleArchiveCombined}
       />
 
       {/* Modals */}
@@ -504,6 +549,16 @@ export default function Labs() {
         onMarkerSearchChange={setCreateMarkerSearch}
         groupedBiomarkers={createModalGroupedBiomarkers}
         onSubmit={handleCreateSubmit}
+      />
+
+      <LabCombinedModal
+        open={combinedOpen}
+        onOpenChange={setCombinedOpen}
+        labs={labs}
+        onCreated={() => {
+          loadData();
+          toast({ title: "Combined panel created." });
+        }}
       />
 
       <LabEditModal

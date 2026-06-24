@@ -1,7 +1,3 @@
-/**
- * LabsTable — filter bar + data table for the admin Labs page.
- * Handles search/status filtering and renders the labs list.
- */
 import React, { useMemo } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -13,14 +9,38 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Pencil, RefreshCw, Trash2 } from "lucide-react";
+import { Pencil, RefreshCw, Trash2, UserPlus } from "lucide-react";
 import { type LabPanel } from "@/api/labs";
+import { type CombinedLabPanel, type CombinedDerivedStatus } from "@/features/labs/types";
 import { getCollectionMethodLabel, renderJunctionStatusBadge } from "@/features/labs/utils";
+
+type AnyPanel = LabPanel | CombinedLabPanel;
+
+function isCombined(panel: AnyPanel): panel is CombinedLabPanel {
+  return (panel as CombinedLabPanel).is_combined === true;
+}
 
 type StatusFilter = "All" | "Active" | "Pending approval" | "Inactive";
 
+function renderDerivedStatusBadge(s: CombinedDerivedStatus) {
+  const map: Record<CombinedDerivedStatus, { label: string; cls: string }> = {
+    ready:           { label: "Ready",           cls: "bg-[#dcfce7] text-[#166534] border-[#bbf7d0]" },
+    degraded:        { label: "Degraded",         cls: "bg-[#fef3c7] text-[#92400e] border-[#fde68a]" },
+    unavailable:     { label: "Unavailable",      cls: "bg-[#fee2e2] text-[#991b1b] border-[#fecaca]" },
+    needs_attention: { label: "Needs Attention",  cls: "bg-[#fef3c7] text-[#92400e] border-[#fde68a]" },
+    archived:        { label: "Archived",         cls: "bg-[#f1f5f9] text-[#475569] border-[#e2e8f0]" },
+  };
+  const { label, cls } = map[s] ?? map.unavailable;
+  return (
+    <span className={`inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
 interface Props {
   labs: LabPanel[];
+  combinedPanels?: CombinedLabPanel[];
   assignmentsCount: Record<string, number>;
   search: string;
   onSearchChange: (v: string) => void;
@@ -32,11 +52,14 @@ interface Props {
   onToggleActive: (lab: LabPanel) => Promise<void>;
   onEditOpen: (lab: LabPanel) => void;
   onAssignOpenSingle: (lab: LabPanel) => Promise<void>;
+  onAssignOpenCombined?: (combined: CombinedLabPanel) => Promise<void>;
   onArchive: (lab: LabPanel) => Promise<void>;
+  onArchiveCombined?: (combined: CombinedLabPanel) => Promise<void>;
 }
 
 export default function LabsTable({
   labs,
+  combinedPanels = [],
   assignmentsCount,
   search,
   onSearchChange,
@@ -48,7 +71,9 @@ export default function LabsTable({
   onToggleActive,
   onEditOpen,
   onAssignOpenSingle,
+  onAssignOpenCombined,
   onArchive,
+  onArchiveCombined,
 }: Props) {
   const filtered = useMemo(() => {
     return labs.filter(lab => {
@@ -274,7 +299,7 @@ export default function LabsTable({
               );
             })}
 
-            {filtered.length === 0 && (
+            {filtered.length === 0 && combinedPanels.filter(c => !c.is_archived).length === 0 && (
               <TableRow>
                 <TableCell
                   colSpan={7}
@@ -284,6 +309,78 @@ export default function LabsTable({
                 </TableCell>
               </TableRow>
             )}
+
+            {/* Combined panel rows */}
+            {combinedPanels.filter(c => !c.is_archived).map(combined => {
+              const methodSummary = combined.members
+                .map(m => getCollectionMethodLabel(m.collection_method))
+                .join(" · ");
+              const labSummary = [...new Set(combined.members.map(m => m.lab_provider))].join(", ");
+              return (
+                <TableRow key={combined.id} className="hover:bg-muted/5 bg-sky-50/30">
+                  <TableCell className="text-center">
+                    <Checkbox
+                      checked={selectedRowIds.includes(combined.id)}
+                      onCheckedChange={v => onRowSelect(combined.id, !!v)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2.5">
+                      <span className={`h-2 w-2 rounded-full inline-block shrink-0 ${combined.is_active ? "bg-[#16a34a]" : "bg-[#94a3b8]"}`} />
+                      <div>
+                        <div className="font-semibold text-foreground text-[13.5px] flex items-center gap-1.5 leading-normal">
+                          {combined.name}
+                          <span className="inline-block border px-[8px] py-[1px] rounded-[8px] text-[9.5px] font-bold bg-sky-50 text-sky-700 border-sky-200">
+                            Combined
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">{methodSummary}</div>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-[12.5px] font-medium text-muted-foreground">{labSummary}</TableCell>
+                  <TableCell>
+                    <div className="text-[12.5px] leading-tight">
+                      <span className="font-semibold text-foreground block">
+                        ${parseFloat(combined.patient_price?.amount ?? "0").toFixed(2)}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>{renderDerivedStatusBadge(combined.derived_status)}</TableCell>
+                  <TableCell>
+                    <span className={`inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold ${
+                      combined.is_active
+                        ? "bg-[#dcfce7] text-[#15803d] border-[#bbf7d0]"
+                        : "bg-[#f1f5f9] text-[#64748b] border-[#e2e8f0]"
+                    }`}>
+                      {combined.is_active ? "Enabled" : "Disabled"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right pr-6">
+                    <div className="flex items-center justify-end gap-1">
+                      {onAssignOpenCombined && (
+                        <button
+                          onClick={() => onAssignOpenCombined(combined)}
+                          className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+                          title="Assign combined panel to clients"
+                        >
+                          <UserPlus className="h-4 w-4" />
+                        </button>
+                      )}
+                      {onArchiveCombined && (
+                        <button
+                          onClick={() => onArchiveCombined(combined)}
+                          className="p-1.5 hover:bg-rose-50 rounded text-rose-500 hover:text-rose-600 transition-colors"
+                          title="Archive combined panel"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
