@@ -32,12 +32,12 @@ const SignIn = () => {
       navigate("/");  // Navigate to dashboard on successful login
     } catch (err) {
       console.error('Login failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to sign in. Please check your credentials.');
       const message =
-      err?.response?.data?.message ||
-      "Failed to sign in. Please check your credentials.";
-
-    showToast(message);
+        err instanceof Error
+          ? err.message
+          : "Failed to sign in. Please check your credentials.";
+      setError(message);
+      showToast(message);
     }
   };
 
