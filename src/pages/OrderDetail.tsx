@@ -157,11 +157,11 @@ export default function OrderDetail() {
   const retrySingleFlightRef = useRef(false)
   const [retryGateway, setRetryGateway] = useState<PatientPaymentGateway | null>(null)
   const { toast } = useToast()
-  const { messages, loading: messagesLoading } = useClientMessages()
+  const { conversations, loading: conversationsLoading } = useClientMessages()
   const patientUserId = order?.patient?.user_id
   const orderThreadMasterId = order?.mrn?.trim() || ""
   const hasExistingThread = Boolean(
-    orderThreadMasterId && messages.some((message) => message.master_id === orderThreadMasterId)
+    orderThreadMasterId && conversations.some((c) => c.master_id === orderThreadMasterId)
   )
 
   const isUuid = (s: string) =>
@@ -176,7 +176,7 @@ export default function OrderDetail() {
       })
       return
     }
-    if (messagesLoading) {
+    if (conversationsLoading) {
       toast({
         title: "Checking chat thread",
         description: "Please try again in a moment.",
