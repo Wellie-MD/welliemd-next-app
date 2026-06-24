@@ -1,7 +1,7 @@
 // TypeScript interfaces for B2B Billing System (Client Portal)
 // Matches backend models from apps/b2b_billing/models.py
 
-export type InvoiceType = 'reimbursement' | 'saas_fee' | 'aggregated_snapshot';
+export type InvoiceType = 'reimbursement' | 'credit_note' | 'saas_fee' | 'aggregated_snapshot';
 
 export type InvoiceStatus = 
   | 'draft' 
