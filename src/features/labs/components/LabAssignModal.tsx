@@ -182,7 +182,11 @@ export default function LabAssignModal({
                   c.checked &&
                   !c.junction_lab_test_id;
                 const canCheck =
-                  !!c.assignment_id && c.checked && !!c.junction_lab_test_id;
+                  !!c.assignment_id &&
+                  c.checked &&
+                  !!c.junction_lab_test_id &&
+                  !c.is_orderable &&
+                  statusNorm !== "active";
                 const canReplace =
                   !!c.assignment_id &&
                   c.checked &&
@@ -212,6 +216,11 @@ export default function LabAssignModal({
                           {c.is_orderable && (
                             <span className="inline-block border px-[8px] py-[2px] rounded-[10px] text-[10px] font-semibold bg-[#ecfdf5] text-[#047857] border-[#a7f3d0]">
                               Orderable
+                            </span>
+                          )}
+                          {c.is_orderable && statusNorm === "active" && (
+                            <span className="inline-block border px-[8px] py-[2px] rounded-[10px] text-[10px] font-semibold bg-sky-50 text-sky-700 border-sky-200">
+                              Synced
                             </span>
                           )}
                           {c.junction_lab_test_id && (

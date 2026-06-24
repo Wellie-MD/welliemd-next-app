@@ -1,14 +1,3 @@
-/**
- * Labs page — admin lab panel management.
- *
- * Component map:
- *   LabsTable          — filter bar + data table
- *   LabCreateModal     — Create Lab Panel dialog
- *   LabCombinedModal   — Create combined panel dialog
- *   LabEditModal       — Lab Test Details / edit dialog
- *   LabAssignModal     — Assign to Clients two-pane dialog
- *   LabMarkerDetailModal — Biomarker detail popup
- */
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -28,9 +17,8 @@ import {
   INITIAL_CREATE_FORM,
 } from "@/features/labs";
 
-// ── types ────────────────────────────────────────────────────────────────────
-
 type StatusFilter = "All" | "Active" | "Pending approval" | "Inactive";
+type AssignmentSummary = { assigned: number; submitted: number; live: number };
 
 interface EditFormState {
   cost_to_client: number;
@@ -38,8 +26,6 @@ interface EditFormState {
   is_active: boolean;
   service_states: string[];
 }
-
-// ── helpers ───────────────────────────────────────────────────────────────────
 
 const toAssignClient = (c: ClientAssignment): AssignClient => ({
   id: (c as any).client_id || c.id,
@@ -55,31 +41,25 @@ const toAssignClient = (c: ClientAssignment): AssignClient => ({
   linkedLabAccountIds: c.linkedLabAccountIds,
 });
 
-// ── component ─────────────────────────────────────────────────────────────────
-
 export default function Labs() {
   const navigate = useNavigate();
 
-  // ── data ──
   const [labs, setLabs] = useState<LabPanel[]>([]);
   const [combinedPanels, setCombinedPanels] = useState<import("@/features/labs/types").CombinedLabPanel[]>([]);
   const [biomarkers, setBiomarkers] = useState<Biomarker[]>([]);
   const [catalogLabs, setCatalogLabs] = useState<CatalogLab[]>([]);
-  const [assignmentsCount, setAssignmentsCount] = useState<Record<string, number>>({});
+  const [assignmentSummary, setAssignmentSummary] = useState<Record<string, AssignmentSummary>>({});
 
-  // ── table state ──
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
 
-  // ── modal visibility ──
   const [createOpen, setCreateOpen] = useState(false);
   const [combinedOpen, setCombinedOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [markerOpen, setMarkerOpen] = useState(false);
 
-  // ── modal data ──
   const [selectedLab, setSelectedLab] = useState<LabPanel | null>(null);
   const [selectedMarker, setSelectedMarker] = useState<Biomarker | null>(null);
   const [createForm, setCreateForm] = useState<CreateFormState>(INITIAL_CREATE_FORM);
@@ -91,15 +71,12 @@ export default function Labs() {
     service_states: [],
   });
 
-  // ── assign modal state ──
   const [assignItemPool, setAssignItemPool] = useState<AssignItem[]>([]);
   const [assignClients, setAssignClients] = useState<AssignClient[]>([]);
   const [assignItemSearch, setAssignItemSearch] = useState("");
   const [assignClientSearch, setAssignClientSearch] = useState("");
   const [assignmentActionId, setAssignmentActionId] = useState<string | null>(null);
   const [assignMode, setAssignMode] = useState<"single" | "combined">("single");
-
-  // ── data loading ──────────────────────────────────────────────────────────
 
   const loadData = useCallback(async () => {
     try {
@@ -122,22 +99,25 @@ export default function Labs() {
     loadData();
   }, [loadData]);
 
-  // Lazy-load assignment counts after labs arrive
   useEffect(() => {
     if (labs.length === 0) return;
     let cancelled = false;
     (async () => {
-      const counts: Record<string, number> = {};
+      const summary: Record<string, AssignmentSummary> = {};
       for (const lab of labs) {
         if (cancelled) break;
         try {
           const list = await labsApi.getClientsForLabAssignment(lab.id);
-          counts[lab.id] = list.filter(c => c.assigned).length;
+          summary[lab.id] = {
+            assigned: list.filter(c => c.assigned).length,
+            submitted: list.filter(c => c.assigned && (!!c.junction_lab_test_id || ["pending_approval", "active", "inactive", "failed"].includes((c.junction_status || "").toLowerCase()))).length,
+            live: list.filter(c => c.assigned && (c.is_orderable || (c.junction_status || "").toLowerCase() === "active")).length,
+          };
         } catch {
           /* non-critical */
         }
       }
-      if (!cancelled) setAssignmentsCount(counts);
+      if (!cancelled) setAssignmentSummary(summary);
     })();
     return () => { cancelled = true; };
   }, [labs]);
@@ -146,11 +126,9 @@ export default function Labs() {
 
   const stats = useMemo(() => ({
     total: labs.length + combinedPanels.filter(c => !c.is_archived).length,
-    active: labs.filter(l => l.is_active).length,
-    synced: labs.filter(l =>
-      l.junction_status === "active" || l.junction_status === "Active"
-    ).length,
-  }), [labs, combinedPanels]);
+    active: labs.filter(l => (assignmentSummary[l.id]?.live ?? 0) > 0).length,
+    synced: labs.filter(l => (assignmentSummary[l.id]?.submitted ?? 0) > 0).length,
+  }), [labs, combinedPanels, assignmentSummary]);
 
   // ── grouped biomarkers for create modal ───────────────────────────────────
 
@@ -158,8 +136,10 @@ export default function Labs() {
     if (!createForm.lab_provider_id) return [];
     const q = createMarkerSearch.toLowerCase().trim();
     const filtered = biomarkers.filter(bm => {
-      const matchesLab = bm.lab_id === createForm.lab_provider_id;
-      if (!matchesLab) return false;
+      // Only show markers for the selected lab
+      if (bm.lab_id !== createForm.lab_provider_id) return false;
+      // Filter out compound tests (Junction "panel" type) — those are not individual biomarkers
+      if (bm.marker_type === "panel") return false;
       if (!q) return true;
       return (
         bm.name.toLowerCase().includes(q) ||
@@ -168,13 +148,22 @@ export default function Labs() {
         bm.code.toLowerCase().includes(q)
       );
     });
-    const groups: { category: string; items: Biomarker[] }[] = [];
+
+    // Group by backend category; if no real category is present the backend returns "Biomarkers"
+    const groups: { category: string; items: Biomarker[]; isPanel: boolean }[] = [];
     for (const bm of filtered) {
-      let g = groups.find(c => c.category === bm.category);
-      if (!g) { g = { category: bm.category, items: [] }; groups.push(g); }
+      const cat = bm.category || "Biomarkers";
+      let g = groups.find(c => c.category === cat);
+      if (!g) { g = { category: cat, items: [], isPanel: false }; groups.push(g); }
       g.items.push(bm);
     }
-    return groups;
+
+    // Sort: real categories first (alphabetically), generic "Biomarkers" last
+    return groups.sort((a, b) => {
+      if (a.category === "Biomarkers" && b.category !== "Biomarkers") return 1;
+      if (a.category !== "Biomarkers" && b.category === "Biomarkers") return -1;
+      return a.category.localeCompare(b.category);
+    });
   }, [biomarkers, createForm.lab_provider_id, createMarkerSearch]);
 
   // ── table row selection ───────────────────────────────────────────────────
@@ -518,10 +507,10 @@ export default function Labs() {
       </div>
 
       {/* Filter bar + table */}
-      <LabsTable
-        labs={labs}
-        combinedPanels={combinedPanels}
-        assignmentsCount={assignmentsCount}
+        <LabsTable
+          labs={labs}
+          combinedPanels={combinedPanels}
+          assignmentSummary={assignmentSummary}
         search={search}
         onSearchChange={setSearch}
         statusFilter={statusFilter}

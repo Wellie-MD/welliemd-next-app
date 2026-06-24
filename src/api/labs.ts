@@ -5,6 +5,7 @@ type Money = { amount: string; currency?: string } | number | string | null | un
 export interface Biomarker {
   id: string;
   name: string;
+  /** Backend-derived category from source_snapshot.category/category_name. Fallback: "Biomarkers". */
   category: string;
   code: string;
   slug: string;
@@ -15,9 +16,33 @@ export interface Biomarker {
   lab_slug?: string;
   lab_name?: string;
   lab_account_ids?: string[];
+  /**
+   * Raw Junction type field (e.g. "panel", null). Used to filter compound
+   * tests out of the biomarker picker. Do NOT use as a clinical category.
+   */
+  marker_type?: string;
+  units?: string;
+  reference_range?: string;
   common_tat: string;
   worst_case_tat: string;
   labs?: string[];
+  aoe_questions?: Array<{
+    question_id: string;
+    code: string;
+    label: string;
+    type: string;
+    required: boolean;
+    options: Array<{ code: string; value: string }>;
+  }>;
+  loinc_map?: Array<{
+    name: string;
+    test_code: string;
+    slug: string;
+    required: boolean;
+    loinc: string;
+    loinc_name?: string;
+    unit?: string;
+  }>;
 }
 
 export interface CatalogLab {
@@ -121,7 +146,9 @@ const moneyPayload = (amount: number | undefined | null) => ({
 const normalizeBiomarker = (raw: any): Biomarker => ({
   id: String(raw.id),
   name: raw.name || "",
-  category: raw.category || "General",
+  // category from backend (source_snapshot.category/category_name). Fallback: "Biomarkers".
+  // Never use marker_type as category — see Phase 1 backend comments.
+  category: raw.category || "Biomarkers",
   code: raw.code || raw.slug || String(raw.id),
   slug: raw.slug || raw.code || String(raw.id),
   provider_id: raw.provider_id || "",
@@ -131,9 +158,15 @@ const normalizeBiomarker = (raw: any): Biomarker => ({
   lab_slug: raw.lab_slug || "",
   lab_name: raw.lab_name || "",
   lab_account_ids: raw.lab_account_ids || [],
-  common_tat: raw.common_tat || raw.common_turnaround_time || "Varies",
-  worst_case_tat: raw.worst_case_tat || raw.worst_case_turnaround_time || "Varies",
+  // marker_type is the raw Junction type field ("panel" = compound test to filter out)
+  marker_type: raw.marker_type || "",
+  units: raw.units || "",
+  reference_range: raw.reference_range || "",
+  common_tat: raw.common_tat || raw.common_turnaround_time || (raw.common_tat_days != null ? String(raw.common_tat_days) : "") || "Varies",
+  worst_case_tat: raw.worst_case_tat || raw.worst_case_turnaround_time || (raw.worst_case_tat_days != null ? String(raw.worst_case_tat_days) : "") || "Varies",
   labs: raw.labs || (raw.lab_id ? [String(raw.lab_id)] : []),
+  aoe_questions: Array.isArray(raw.aoe_questions) ? raw.aoe_questions : [],
+  loinc_map: Array.isArray(raw.loinc_map) ? raw.loinc_map : [],
 });
 
 const normalizePanel = (raw: any): LabPanel => ({

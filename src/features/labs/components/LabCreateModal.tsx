@@ -54,6 +54,8 @@ export default function LabCreateModal({
   onSubmit,
 }: Props) {
   const navigate = useNavigate();
+  const showCategoryHeaders =
+    groupedBiomarkers.length > 1 || groupedBiomarkers.some(group => group.category !== "Biomarkers");
 
   const toggleBiomarker = (id: string) => {
     onFormChange(prev => ({
@@ -109,7 +111,7 @@ export default function LabCreateModal({
             <p className="text-[10px] text-muted-foreground leading-normal mt-1">
               The lab that fulfills this panel — biomarkers below are filtered to it. At
               order time the <code>lab_account_id</code> is the ordering client's linked
-              account for this lab.
+              account for this lab. Only providers with synced markers appear here.
             </p>
           </div>
 
@@ -174,9 +176,11 @@ export default function LabCreateModal({
               ) : (
                 groupedBiomarkers.map(group => (
                   <div key={group.category} className="space-y-1">
-                    <div className="text-[9.5px] font-bold tracking-wider text-muted-foreground uppercase px-1 py-0.5">
-                      {group.category}
-                    </div>
+                    {showCategoryHeaders && (
+                      <div className="text-[9.5px] font-bold tracking-wider text-muted-foreground uppercase px-1 py-0.5">
+                        {group.category}
+                      </div>
+                    )}
                     <div className="space-y-0.5">
                       {group.items.map(bm => (
                         <label
@@ -188,14 +192,16 @@ export default function LabCreateModal({
                             onCheckedChange={() => toggleBiomarker(bm.id)}
                             className="h-4 w-4"
                           />
-                          <span className="font-medium text-foreground truncate">
+                          {/* Human-readable name — primary */}
+                          <span className="font-medium text-foreground min-w-0 flex-1 truncate">
                             {bm.name}
                           </span>
+                          {/* Provider ID — right side, as Junction prefers this for stability */}
                           <span
-                            className="ml-auto font-mono text-[10px] text-muted-foreground/80 pr-1 max-w-[150px] truncate"
-                            title={`Provider ID: ${bm.provider_id ?? "N/A"} · Marker ID: ${bm.junction_marker_id ?? "N/A"}`}
+                            className="ml-auto font-mono text-[10px] text-muted-foreground/70 pr-1 shrink-0"
+                            title={`Provider ID (preferred): ${bm.provider_id || "N/A"} · Slug: ${bm.slug} · Marker ID: ${bm.junction_marker_id || "N/A"}`}
                           >
-                            {bm.display_code ?? bm.provider_id ?? bm.junction_marker_id ?? bm.slug}
+                            {bm.provider_id || bm.slug}
                           </span>
                         </label>
                       ))}
@@ -301,7 +307,7 @@ export default function LabCreateModal({
                 min="0"
                 required
                 placeholder="0.00"
-                value={form.cost_to_client || ""}
+                value={form.cost_to_client}
                 onChange={e =>
                   onFormChange(prev => ({ ...prev, cost_to_client: parseFloat(e.target.value) || 0 }))
                 }
@@ -319,7 +325,7 @@ export default function LabCreateModal({
                 min="0"
                 required
                 placeholder="0.00"
-                value={form.cost_to_welliemd || ""}
+                value={form.cost_to_welliemd}
                 onChange={e =>
                   onFormChange(prev => ({ ...prev, cost_to_welliemd: parseFloat(e.target.value) || 0 }))
                 }

@@ -38,10 +38,39 @@ function renderDerivedStatusBadge(s: CombinedDerivedStatus) {
   );
 }
 
+function renderWellieMdBadge(lab: LabPanel, liveCount: number, onToggleActive: (lab: LabPanel) => Promise<void>) {
+  const normalized = (lab.junction_status || "").toLowerCase();
+  if (liveCount > 0) {
+    return <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-[#dcfce7] text-[#15803d] border-[#bbf7d0]">{liveCount} client{liveCount === 1 ? "" : "s"} live</span>;
+  }
+  if (normalized === "active") {
+    return (
+      <button
+        type="button"
+        onClick={() => onToggleActive(lab)}
+        className={`inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold cursor-pointer transition-all duration-150 ${
+          lab.is_active
+            ? "bg-[#dcfce7] text-[#15803d] border-[#bbf7d0] hover:bg-[#bbf7d0]"
+            : "bg-[#f1f5f9] text-[#64748b] border-[#e2e8f0] hover:bg-[#e2e8f0]"
+        }`}
+      >
+        {lab.is_active ? "Enabled" : "Disabled"}
+      </button>
+    );
+  }
+  if (normalized === "pending_approval" || normalized === "pending" || normalized === "pending_submission") {
+    return <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-[#fefce8] text-[#854d0e] border-[#fde68a]">Pending Junction</span>;
+  }
+  if (normalized === "failed") {
+    return <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-[#fff1f2] text-[#be123c] border-[#fecdd3]">Needs resubmission</span>;
+  }
+  return <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-[#f8fafc] text-[#64748b] border-[#e2e8f0]">Not live yet</span>;
+}
+
 interface Props {
   labs: LabPanel[];
   combinedPanels?: CombinedLabPanel[];
-  assignmentsCount: Record<string, number>;
+  assignmentSummary: Record<string, { assigned: number; submitted: number; live: number }>;
   search: string;
   onSearchChange: (v: string) => void;
   statusFilter: StatusFilter;
@@ -60,7 +89,7 @@ interface Props {
 export default function LabsTable({
   labs,
   combinedPanels = [],
-  assignmentsCount,
+  assignmentSummary,
   search,
   onSearchChange,
   statusFilter,
@@ -86,16 +115,16 @@ export default function LabsTable({
       ) {
         return false;
       }
-      if (statusFilter === "Active") return lab.is_active;
+      if (statusFilter === "Active") return (assignmentSummary[lab.id]?.live ?? 0) > 0;
       if (statusFilter === "Pending approval")
         return (
           lab.junction_status === "pending_approval" ||
           lab.junction_status === "Pending"
         );
-      if (statusFilter === "Inactive") return !lab.is_active;
+      if (statusFilter === "Inactive") return (assignmentSummary[lab.id]?.live ?? 0) === 0;
       return true;
     });
-  }, [labs, search, statusFilter]);
+  }, [labs, search, statusFilter, assignmentSummary]);
 
   const allVisible = filtered.length > 0 && filtered.every(l => selectedRowIds.includes(l.id));
 
@@ -186,11 +215,13 @@ export default function LabsTable({
           </TableHeader>
           <TableBody>
             {filtered.map(lab => {
-              const count = assignmentsCount[lab.id] ?? 0;
+              const meta = assignmentSummary[lab.id] ?? { assigned: 0, submitted: 0, live: 0 };
+              const count = meta.assigned;
               const assignedText =
                 count > 0
                   ? ` · Assigned to ${count} client${count > 1 ? "s" : ""}`
                   : "";
+              const derivedStatus = meta.live > 0 ? "active" : meta.submitted > 0 ? "pending_approval" : lab.junction_status;
 
               return (
                 <TableRow key={lab.id} className="hover:bg-muted/5">
@@ -243,32 +274,14 @@ export default function LabsTable({
                     </div>
                   </TableCell>
 
-                  <TableCell>{renderJunctionStatusBadge(lab.junction_status)}</TableCell>
-
                   <TableCell>
-                    {lab.junction_status === "active" || lab.junction_status === "Active" ? (
-                      <button
-                        type="button"
-                        onClick={() => onToggleActive(lab)}
-                        className={`inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold cursor-pointer transition-all duration-150 ${
-                          lab.is_active
-                            ? "bg-[#dcfce7] text-[#15803d] border-[#bbf7d0] hover:bg-[#bbf7d0]"
-                            : "bg-[#f1f5f9] text-[#64748b] border-[#e2e8f0] hover:bg-[#e2e8f0]"
-                        }`}
-                      >
-                        {lab.is_active ? "Enabled" : "Disabled"}
-                      </button>
-                    ) : (
-                      <div className="space-y-0.5">
-                        <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-[#f1f5f9] text-[#64748b] border-[#e2e8f0] opacity-55 cursor-not-allowed">
-                          Disabled
-                        </span>
-                        <div className="text-[10px] text-muted-foreground pl-[10px]">
-                          locked
-                        </div>
-                      </div>
-                    )}
+                    <div className="space-y-1">
+                      {renderJunctionStatusBadge(derivedStatus)}
+                      {meta.live > 0 && <div className="text-[10px] text-muted-foreground">{meta.live} client synced</div>}
+                    </div>
                   </TableCell>
+
+                  <TableCell>{renderWellieMdBadge(lab, meta.live, onToggleActive)}</TableCell>
 
                   <TableCell className="text-right pr-6">
                     <div className="flex items-center justify-end gap-1">

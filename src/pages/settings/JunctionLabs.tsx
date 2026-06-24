@@ -104,7 +104,7 @@ export default function JunctionLabs() {
 
       toast({
         title: "Marker catalog synced",
-        description: `Created ${result.created_count}, updated ${result.updated_count}, total ${result.total_seen} markers. Labs ${result.labs_seen ?? 0}, accounts ${result.lab_accounts_seen ?? 0}.${warningNote}`,
+        description: `Created ${result.created_count}, updated ${result.updated_count}, total ${result.total_seen} markers. Junction provider catalog entries seen: ${result.labs_seen ?? 0}; panel builder shows only providers with synced markers. Accounts ${result.lab_accounts_seen ?? 0}.${warningNote}`,
       })
     } catch (error: unknown) {
       const err = error as { response?: { data?: { detail?: string; error?: string } } }

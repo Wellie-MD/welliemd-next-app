@@ -181,7 +181,7 @@ export default function LabEditModal({
                   min="0"
                   required
                   placeholder="0.00"
-                  value={editForm.cost_to_client || ""}
+                  value={editForm.cost_to_client}
                   onChange={e =>
                     onEditFormChange(prev => ({
                       ...prev,
@@ -202,7 +202,7 @@ export default function LabEditModal({
                   min="0"
                   required
                   placeholder="0.00"
-                  value={editForm.cost_to_welliemd || ""}
+                  value={editForm.cost_to_welliemd}
                   onChange={e =>
                     onEditFormChange(prev => ({
                       ...prev,
