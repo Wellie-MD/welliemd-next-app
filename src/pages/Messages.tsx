@@ -204,6 +204,8 @@ export default function Messages() {
 
     belugaCache,
     belugaLoading,
+    appendMessage,
+    refreshBeluga,
   } = useClientMessages();
 
   // tabs: "patient" (normal support/doctor thread) and "support" (Beluga)
@@ -622,27 +624,7 @@ export default function Messages() {
           from_client: true,
         });
 
-        // Refresh beluga messages
-        const msgs = await messageService.getBelugaThread(activeConvSummary.master_id);
-        setBelugaCache((prev) => ({ ...prev, [activeConvSummary.master_id]: msgs }));
-
-        const newMsg: Message = {
-          id: Date.now(),
-          master_id: activeConvSummary.master_id,
-          content: text,
-          created_at: new Date().toISOString(),
-          read: true,
-          sender_name: "Client",
-          senderType: "client",
-          side: "right",
-          patientName: activeConvSummary.patient_name,
-          message_type: "client_to_beluga_support",
-        };
-
-        setBelugaCache((prev) => {
-          const list = prev[activeConvSummary.master_id] || [];
-          return { ...prev, [activeConvSummary.master_id]: [...list, newMsg] };
-        });
+        await refreshBeluga(activeConvSummary.master_id);
 
         setNewMessage("");
         requestAnimationFrame(() => scrollToBottom(true));
@@ -666,7 +648,6 @@ export default function Messages() {
         attachedFiles.map((f) => messageService.uploadAttachment(f))
       );
 
-      const optimistic: Message[] = [];
       const sendTextFirst = !!text;
 
       if (sendTextFirst) {
@@ -682,7 +663,7 @@ export default function Messages() {
           from_client: true,
         });
 
-        optimistic.push({
+        appendMessage({
           id: Date.now(),
           master_id: activeConvSummary.master_id,
           content: text,
@@ -714,7 +695,7 @@ export default function Messages() {
           from_client: true,
         });
 
-        optimistic.push({
+        appendMessage({
           id: Date.now() + Math.random(),
           master_id: activeConvSummary.master_id,
           content: up.fileName || "Attachment",

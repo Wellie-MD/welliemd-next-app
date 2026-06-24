@@ -45,6 +45,9 @@ export type ClientMessagesContextValue = {
 
   belugaCache: Record<string, Message[]>;
   belugaLoading: boolean;
+
+  appendMessage: (msg: Message) => void;
+  refreshBeluga: (masterId: string) => Promise<void>;
 };
 
 const MessagesContext = createContext<ClientMessagesContextValue | null>(null);
@@ -397,6 +400,9 @@ export function MessagesProvider({
 
       belugaCache,
       belugaLoading,
+
+      appendMessage: (msg: Message) => setActiveMessages((prev) => [...prev, msg]),
+      refreshBeluga: fetchBeluga,
     }),
     [
       conversations,
@@ -424,6 +430,8 @@ export function MessagesProvider({
 
       belugaCache,
       belugaLoading,
+
+      fetchBeluga,
     ]
   );
 
