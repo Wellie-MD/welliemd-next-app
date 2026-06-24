@@ -26,6 +26,15 @@ export interface Biomarker {
   reference_range?: string;
   common_tat?: string;
   worst_case_tat?: string;
+  loinc_map?: Array<{
+    name: string;
+    test_code: string;
+    slug: string;
+    required: boolean;
+    loinc: string;
+    loinc_name?: string;
+    unit?: string;
+  }>;
 }
 
 export type JunctionStatus =
@@ -157,7 +166,7 @@ const moneyToNumber = (value: unknown): number => {
 const normalizeBiomarker = (raw: Record<string, unknown>): Biomarker => ({
   id: String(raw.id ?? ""),
   name: String(raw.name ?? ""),
-  category: String(raw.category ?? "General"),
+  category: String(raw.category ?? "Biomarkers"),
   code: String(raw.code ?? raw.slug ?? raw.id ?? ""),
   slug: String(raw.slug ?? raw.code ?? raw.id ?? ""),
   provider_id: String(raw.provider_id ?? ""),
@@ -169,6 +178,7 @@ const normalizeBiomarker = (raw: Record<string, unknown>): Biomarker => ({
   reference_range: String(raw.reference_range ?? ""),
   common_tat: String(raw.common_tat ?? raw.common_tat_days ?? "Varies"),
   worst_case_tat: String(raw.worst_case_tat ?? raw.worst_case_tat_days ?? "Varies"),
+  loinc_map: Array.isArray(raw.loinc_map) ? (raw.loinc_map as Biomarker["loinc_map"]) : [],
 });
 
 const normalizePanel = (raw: Record<string, unknown>): ClientLabPanel => {

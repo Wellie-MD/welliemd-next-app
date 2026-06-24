@@ -39,6 +39,15 @@ function getDisplaySpecimen(lab: ClientLabPanel) {
   return lab.sample_type || "serum";
 }
 
+function getCompositionRows(lab: ClientLabPanel) {
+  return lab.biomarkers.map((bm) => ({
+    id: bm.id,
+    name: bm.name,
+    units: bm.units || (bm.loinc_map?.length === 1 ? bm.loinc_map[0].unit || "" : ""),
+    reference_range: bm.reference_range || "",
+  }));
+}
+
 interface Props {
   editingLab: ClientLabPanel | null;
   onClose: () => void;
@@ -63,6 +72,7 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
 
   const effectivePatientPrice = Number.parseFloat(patientPrice) || 0;
   const profit = effectivePatientPrice - (editingLab?.cost_to_client || 0);
+  const compositionRows = editingLab ? getCompositionRows(editingLab) : [];
 
   const toggleState = (state: string) => {
     setServiceStates((current) =>
@@ -200,7 +210,7 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
                     <span className="w-[26px] h-[26px] rounded-[7px] bg-[#e3f3fb] text-[#2b7da6] flex items-center justify-center shrink-0"><FlaskConical className="w-[15px] h-[15px]" /></span>
                     <h3 className="text-[13.5px] font-bold text-gray-900">Panel Composition</h3>
                   </div>
-                  <span className="text-[10.5px] font-semibold bg-[#e3f3fb] text-[#2b7da6] rounded-full px-2 py-0.5">{editingLab.biomarkers.length} biomarkers</span>
+                  <span className="text-[10.5px] font-semibold bg-[#e3f3fb] text-[#2b7da6] rounded-full px-2 py-0.5">{compositionRows.length} biomarkers</span>
                 </div>
                 <p className="text-xs text-gray-550">Biomarkers measured by this panel and their reference ranges. Collected with an {getCollectionDetailLabel(editingLab.collection_method).toLowerCase()} ({getDisplaySpecimen(editingLab)}); results in {editingLab.turnaround_days || "1-2 days"}.</p>
                 <div className="border border-[#e8ebee] rounded-lg overflow-hidden">
@@ -209,11 +219,11 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
                       <tr><th className="px-3 py-2">Biomarker</th><th className="px-3 py-2">Units</th><th className="px-3 py-2">Reference Range</th></tr>
                     </thead>
                     <tbody className="divide-y divide-[#e8ebee]">
-                      {editingLab.biomarkers.map((bm) => (
-                        <tr key={bm.id}>
-                          <td className="px-3 py-2 font-semibold text-gray-900">{bm.name}</td>
-                          <td className="px-3 py-2 text-gray-550">{bm.units || "-"}</td>
-                          <td className="px-3 py-2 text-gray-550">{bm.reference_range || "-"}</td>
+                      {compositionRows.map((row) => (
+                        <tr key={row.id}>
+                          <td className="px-3 py-2 font-semibold text-gray-900">{row.name}</td>
+                          <td className="px-3 py-2 text-gray-550">{row.units || "-"}</td>
+                          <td className="px-3 py-2 text-gray-550">{row.reference_range || "-"}</td>
                         </tr>
                       ))}
                     </tbody>
