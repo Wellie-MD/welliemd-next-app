@@ -3,7 +3,6 @@
  * All calls are made via the authenticated apiClient (JWT-backed).
  */
 import { apiClient } from '@/shared/api/client';
-import { MOCK_LAB_RESULTS, MOCK_LAB_SUBMISSIONS } from './mocks';
 import type {
     LabResult,
     LabSubmission,
@@ -22,10 +21,11 @@ export async function getLabResults(): Promise<LabResult[]> {
         const results = Array.isArray(response.data)
             ? response.data
             : response.data?.results ?? [];
-        return results.length > 0 ? results : MOCK_LAB_RESULTS;
+        // Do NOT fall back to mock data on empty — an empty array is a valid real state.
+        return results;
     } catch {
-        console.warn('Failed to fetch lab results, using fallback mock data');
-        return MOCK_LAB_RESULTS;
+        console.warn('Failed to fetch lab results');
+        return [];
     }
 }
 
@@ -37,10 +37,11 @@ export async function getLabSubmissions(): Promise<LabSubmission[]> {
         const submissions = Array.isArray(response.data)
             ? response.data
             : response.data?.results ?? [];
-        return submissions.length > 0 ? submissions : MOCK_LAB_SUBMISSIONS;
+        // Do NOT fall back to mock data on empty — an empty array is a valid real state.
+        return submissions;
     } catch {
-        console.warn('Failed to fetch lab submissions, using fallback mock data');
-        return MOCK_LAB_SUBMISSIONS;
+        console.warn('Failed to fetch lab submissions');
+        return [];
     }
 }
 
@@ -92,6 +93,17 @@ export async function getStandaloneLabResults(): Promise<StandaloneLabResult[]> 
  */
 export async function downloadStandaloneLabResultPdf(orderId: string): Promise<Blob> {
     const response = await apiClient.get(`/patient/labs/results/${orderId}/pdf/`, {
+        responseType: 'blob',
+    });
+    return response.data as Blob;
+}
+
+/**
+ * Download requisition PDF via the WellieMD proxy.
+ * GET /patient/labs/results/{orderId}/requisition/
+ */
+export async function downloadStandaloneLabRequisitionPdf(orderId: string): Promise<Blob> {
+    const response = await apiClient.get(`/patient/labs/results/${orderId}/requisition/`, {
         responseType: 'blob',
     });
     return response.data as Blob;

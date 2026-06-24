@@ -6,7 +6,6 @@
  *     index.ts      — re-exports types + endpoint functions
  *     types.ts      — TypeScript interfaces
  *     endpoints.ts  — real API calls
- *     mocks.ts      — dev/fallback fixture data
  *   utils/
  *     index.ts      — re-exports formatters, timeline, types
  *     types.ts      — UI-layer types (TimelineItem, GroupedLabPanel, etc.)
@@ -23,6 +22,7 @@ export {
     getStandaloneLabSubmissions,
     getStandaloneLabResults,
     downloadStandaloneLabResultPdf,
+    downloadStandaloneLabRequisitionPdf,
 } from './api/index';
 export type {
     LabResult,

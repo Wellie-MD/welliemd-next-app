@@ -4,7 +4,6 @@
  * Internal structure:
  *   types.ts     — TypeScript interfaces matching Django serializer output
  *   endpoints.ts — Real API calls (apiClient-backed)
- *   mocks.ts     — Development/fallback fixture data
  */
 export type {
     LabResult,
@@ -23,4 +22,5 @@ export {
     getStandaloneLabSubmissions,
     getStandaloneLabResults,
     downloadStandaloneLabResultPdf,
+    downloadStandaloneLabRequisitionPdf,
 } from './endpoints';

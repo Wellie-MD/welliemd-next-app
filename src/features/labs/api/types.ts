@@ -64,6 +64,7 @@ export interface LabSubmission {
     events?: Array<Record<string, unknown>>;
     activity_events?: Array<Record<string, unknown>>;
     requisition_pdf_url?: string | null;
+    requisition_available?: boolean;
     booking_link?: string | null;
     booking_url?: string | null;
 }
@@ -109,7 +110,14 @@ export interface StandaloneLabSubmission {
     submission_status: string;
     submitted_at: string | null;
     requisition_pdf_url: string | null;
+    requisition_available?: boolean;
     booking_link: string | null;
+    booking_url?: string | null;
+    collection_method?: string;
+    collection_method_display?: string;
+    stage?: string;
+    stage_display?: string;
+    bucket?: string;
     lifecycle_events: Array<Record<string, unknown>>;
 }
 
