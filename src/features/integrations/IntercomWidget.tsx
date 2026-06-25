@@ -25,6 +25,59 @@ interface IntercomPayload {
   };
 }
 
+/** Reset body-level styles Intercom may have added for its inline banner. */
+function scheduleBannerCleanup() {
+  setTimeout(() => {
+    document.body.style.marginTop = '';
+    document.body.style.paddingTop = '';
+  }, 500);
+}
+
+// Re-mint the identity JWT well within the 24h messenger session. The signed
+// JWT itself is short-lived, so a fresh one is fetched periodically and the
+// messenger is re-booted with it to keep the verified session alive. Lives at
+// module scope (like the client portal) so a single timer survives re-renders.
+const JWT_REFRESH_INTERVAL_MS = 43200000; // 12 hours
+let jwtRefreshTimer: ReturnType<typeof setInterval> | null = null;
+
+function bootIntercomFromPayload(payload: IntercomPayload) {
+  window.Intercom?.('boot', {
+    app_id: payload.intercom_app_id,
+    intercom_user_jwt: payload.intercom_user_jwt,
+    session_duration: payload.session_duration,
+    name: payload.attributes.name,
+    email: payload.attributes.email,
+    role: payload.attributes.role,
+  });
+  scheduleBannerCleanup();
+}
+
+function stopJwtRefresh() {
+  if (jwtRefreshTimer !== null) {
+    clearInterval(jwtRefreshTimer);
+    jwtRefreshTimer = null;
+  }
+}
+
+function startJwtRefresh() {
+  stopJwtRefresh();
+  jwtRefreshTimer = setInterval(() => {
+    if (!useAuthStore.getState().isAuthenticated) {
+      stopJwtRefresh();
+      return;
+    }
+    apiClient
+      .post<IntercomPayload>('/auth/intercom-identity-token/')
+      .then((response) => {
+        if (!useAuthStore.getState().isAuthenticated) return;
+        bootIntercomFromPayload(response.data);
+      })
+      .catch(() => {
+        // Silently fail — the next refresh will retry.
+      });
+  }, JWT_REFRESH_INTERVAL_MS);
+}
+
 export const IntercomWidget = () => {
   const location = useLocation();
   const initialized = useRef(false);
@@ -48,14 +101,8 @@ export const IntercomWidget = () => {
             
             const bootIntercom = () => {
               if (!isMounted.current || !useAuthStore.getState().isAuthenticated) return;
-              window.Intercom?.('boot', {
-                app_id: payload.intercom_app_id,
-                intercom_user_jwt: payload.intercom_user_jwt,
-                session_duration: payload.session_duration,
-                name: payload.attributes.name,
-                email: payload.attributes.email,
-                role: payload.attributes.role,
-              });
+              bootIntercomFromPayload(payload);
+              startJwtRefresh();
             };
 
             // Inject script if not present
@@ -87,6 +134,7 @@ export const IntercomWidget = () => {
           }
         } else {
           // If logged out, shut down Intercom
+          stopJwtRefresh();
           window.Intercom?.('shutdown');
           setShowFallback(false);
         }
@@ -96,6 +144,7 @@ export const IntercomWidget = () => {
 
     return () => {
       isMounted.current = false;
+      stopJwtRefresh();
       unsubscribe();
       window.Intercom?.('shutdown');
     };

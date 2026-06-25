@@ -4,6 +4,8 @@ import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
 import { IntercomWidget } from '@/features/integrations/IntercomWidget';
+import { IntercomBannersProvider } from '@/features/announcements/IntercomBannersContext';
+import { IntercomCardBanner } from '@/features/announcements/IntercomBanners';
 
 const DashboardLayout: React.FC = () => {
   const location = useLocation();
@@ -41,6 +43,7 @@ const DashboardLayout: React.FC = () => {
   }, [closeMobileSidebar]);
 
   return (
+    <IntercomBannersProvider>
     <NotificationsProvider>
       <div
         style={{
@@ -92,8 +95,10 @@ const DashboardLayout: React.FC = () => {
           </main>
         </div>
         <IntercomWidget />
+        <IntercomCardBanner />
       </div>
     </NotificationsProvider>
+    </IntercomBannersProvider>
   );
 };
 

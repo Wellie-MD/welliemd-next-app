@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { IntercomInlineBanner } from "@/features/announcements/IntercomBanners";
 import { FollowUpList } from "@/features/followups";
 import { ActiveTreatmentsList } from "@/components/ActiveTreatmentsList";
 import { useAuth } from "@/features/auth";
@@ -94,6 +95,9 @@ export default function Dashboard() {
 
   return (
     <div>
+      {/* ── Proactive announcement (top banner, Intercom-driven) ── */}
+      <IntercomInlineBanner className="mb-5" />
+
       {/* ── Greeting ── */}
       <div className="km-fade" style={{ paddingTop: 4, marginBottom: 20 }}>
         <div style={{ fontSize: 13, color: "var(--km-tm)", marginBottom: 2 }}>
