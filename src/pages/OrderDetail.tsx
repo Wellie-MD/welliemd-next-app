@@ -77,6 +77,7 @@ const statusColors: Record<string, string> = {
   rx_sent: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800",
   in_fulfillment: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800",
   shipped: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
+  in_transit: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
   delivered: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800",
   canceled: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800",
 }
@@ -97,6 +98,7 @@ const statusLabels: Record<string, string> = {
   rx_sent: "Rx Sent",
   in_fulfillment: "In Fulfillment",
   shipped: "Shipped",
+  in_transit: "In Transit",
   delivered: "Delivered",
   canceled: "Canceled",
 }
@@ -785,6 +787,7 @@ export default function OrderDetail() {
         iconBg = "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800"
       } else if (eventType.startsWith("lab.") || eventType.includes("lab_")) {
         icon = "medical_services"
+      } else if (status === "shipped" || status === "in_transit") {
         iconBg = "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 border-4 border-white dark:border-slate-800"
       } else if (status === "prescribed" || status === "rx_sent" || status === "referred") {
         icon = "prescriptions"
