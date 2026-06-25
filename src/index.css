@@ -127,5 +127,36 @@ All colors MUST be HSL.
     @apply inline-flex items-center justify-center rounded-md px-2 py-1 bg-slate-900/10 dark:bg-white/10 border border-slate-300/60 dark:border-white/20;
   }
 
+  /* Hide Intercom's native injected UI (incl. the default banner — we render our
+     own custom banners) by default. Use visibility so whitelisted items below
+     can override. */
+  [class*="intercom-"] {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
 
+  /* ...but keep the floating chat launcher + messenger panel visible. Covers the
+     MODERN lightweight launcher (a div + its icon children, hence the prefix
+     match) and the legacy iframe launcher, plus the messenger frames. The old
+     code only whitelisted `iframe.intercom-launcher-frame`, so the modern
+     `.intercom-lightweight-app-launcher` stayed hidden and the launcher vanished
+     once the messenger was closed. */
+  .intercom-lightweight-app,
+  [class*="intercom-lightweight-app-launcher"],
+  .intercom-launcher,
+  .intercom-launcher-frame,
+  iframe.intercom-launcher-frame,
+  iframe.intercom-launcher-badge-frame,
+  .intercom-messenger-frame,
+  #intercom-container,
+  #intercom-frame {
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
+  /* Reset any body-level spacing Intercom may add for its inline banner */
+  body {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
 }

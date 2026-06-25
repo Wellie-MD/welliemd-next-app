@@ -9,6 +9,8 @@ import BillingSuspendedBanner from "@/components/billing/BillingSuspendedBanner"
 import { useClientMessages } from "@/contexts/MessagesContext";
 import { Permissions } from "@/constants/permissions";
 import { IntercomWidget } from "@/features/integrations/IntercomWidget";
+import { IntercomBannersProvider } from "@/features/announcements/IntercomBannersContext";
+import { IntercomCardBanner } from "@/features/announcements/IntercomBanners";
 
 import Dashboard from "@/pages/Dashboard";
 import Patients from "@/pages/Patients";
@@ -157,6 +159,7 @@ export default function DashboardFrame() {
   }, [conversations, lsTick]);
 
   return (
+    <IntercomBannersProvider>
     <SidebarProvider>
       <div className="min-h-screen flex w-full min-w-0 overflow-x-hidden">
         <AppSidebar unseenCount={unseenCount} />
@@ -169,6 +172,8 @@ export default function DashboardFrame() {
           <BillingSuspendedBanner />
 
           <IntercomWidget />
+
+          <IntercomCardBanner />
 
           <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
             <Routes>
@@ -208,5 +213,6 @@ export default function DashboardFrame() {
         </div>
       </div>
     </SidebarProvider>
+    </IntercomBannersProvider>
   );
 }
