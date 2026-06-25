@@ -9,7 +9,7 @@
  * Source: Patient_Portal (1).html — pg-labs div with #labAttn, #labProg, #labDone
  */
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Download } from 'lucide-react';
+import { Search } from 'lucide-react';
 import {
   getLabResults,
   getLabSubmissions,
@@ -28,6 +28,7 @@ import {
   type GroupedLabPanel,
 } from './utils/index';
 import LabResultModal from './components/LabResultModal';
+import LabBookingModal from './components/LabBookingModal';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -101,6 +102,7 @@ export default function LabsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedSubmission, setExpandedSubmission] = useState<string | null>(null);
   const [selectedPanel, setSelectedPanel] = useState<GroupedLabPanel | null>(null);
+  const [bookingSubmission, setBookingSubmission] = useState<(LabSubmission & any) | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   useEffect(() => { loadData(); }, []);
@@ -209,6 +211,7 @@ export default function LabsPage() {
       requisition_pdf_url: s.requisition_pdf_url,
       requisition_available: s.requisition_available,
       booking_link: s.booking_link,
+      booking_url: s.booking_url,
       // Carry through provider + collection info from standalone
       _lab_panel_name: (s as any).lab_panel_name,
       _lab_provider: (s as any).lab_provider,
@@ -346,6 +349,7 @@ export default function LabsPage() {
                   expanded={expandedSubmission === sub.id}
                   onToggle={() => setExpandedSubmission(v => v === sub.id ? null : sub.id)}
                   onDownloadRequisition={handleDownloadRequisition}
+                  onBookAppointment={setBookingSubmission}
                 />
               ))}
             </div>
@@ -364,6 +368,7 @@ export default function LabsPage() {
                   expanded={expandedSubmission === sub.id}
                   onToggle={() => setExpandedSubmission(v => v === sub.id ? null : sub.id)}
                   onDownloadRequisition={handleDownloadRequisition}
+                  onBookAppointment={setBookingSubmission}
                 />
               ))}
             </div>
@@ -409,6 +414,11 @@ export default function LabsPage() {
         downloadingPdf={downloadingPdf}
         onDownloadPdf={handleDownloadPdf}
       />
+      <LabBookingModal
+        submission={bookingSubmission}
+        onClose={() => setBookingSubmission(null)}
+        onDownloadRequisition={handleDownloadRequisition}
+      />
     </div>
   );
 }
@@ -417,17 +427,20 @@ export { LabsPage };
 
 // ── SubmissionCard sub-component ──────────────────────────────────────────────
 
-function SubmissionCard({ sub, expanded, onToggle, onDownloadRequisition }: {
+function SubmissionCard({ sub, expanded, onToggle, onDownloadRequisition, onBookAppointment }: {
   sub: LabSubmission & any;
   expanded: boolean;
   onToggle: () => void;
   onDownloadRequisition: (orderId: string) => void;
+  onBookAppointment: (submission: LabSubmission & any) => void;
 }) {
   const timelineItems = normalizeTimeline(sub);
   const panelName = sub._lab_panel_name || (sub.lab_results?.[0]?.test_name) || 'Lab Panel';
   const provider = sub._lab_provider || '—';
   const collection = sub._collection_method_display || collectionLabel(sub._collection_method);
   const stage = sub._stage_display || stageLabel(sub._stage || sub.submission_status);
+  const hasBooking = Boolean(sub.booking_link || sub.booking_url);
+  const hasRequisition = Boolean(sub.requisition_pdf_url || sub.requisition_available);
 
   return (
     <div style={{ borderBottom: '1px solid var(--km-b)' }}>
@@ -445,6 +458,25 @@ function SubmissionCard({ sub, expanded, onToggle, onDownloadRequisition }: {
           <div className="km-oiph">{provider}{collection ? ` · ${collection}` : ''}</div>
         </div>
         <div className="km-oiright">
+          {hasBooking ? (
+            <button
+              type="button"
+              className="km-btn km-btn-primary"
+              style={{ fontSize: 11, padding: '5px 12px', marginBottom: 6 }}
+              onClick={event => { event.stopPropagation(); onBookAppointment(sub); }}
+            >
+              Book appointment
+            </button>
+          ) : hasRequisition ? (
+            <button
+              type="button"
+              className="km-btn km-btn-outline"
+              style={{ fontSize: 11, padding: '5px 12px', marginBottom: 6 }}
+              onClick={event => { event.stopPropagation(); onDownloadRequisition(sub.id); }}
+            >
+              Download requisition
+            </button>
+          ) : null}
           <div className="km-oidt">{formatDate(sub.created_at)}</div>
         </div>
       </div>
@@ -452,17 +484,17 @@ function SubmissionCard({ sub, expanded, onToggle, onDownloadRequisition }: {
       {expanded && (
         <div style={{ padding: '16px 20px', background: 'var(--km-s2)' }}>
           {/* Requisition / booking links */}
-          {(sub.requisition_pdf_url || sub.requisition_available || sub.booking_link || sub.booking_url) && (
+          {(hasRequisition || hasBooking) && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-              {(sub.requisition_pdf_url || sub.requisition_available) && (
+              {hasRequisition && (
                 <button type="button" onClick={() => onDownloadRequisition(sub.id)} className="km-btn km-btn-outline" style={{ fontSize: 11, padding: '5px 12px' }}>
                   Download requisition
                 </button>
               )}
-              {(sub.booking_link || sub.booking_url) && (
-                <a href={sub.booking_link || sub.booking_url} target="_blank" rel="noreferrer" className="km-btn km-btn-outline" style={{ fontSize: 11, padding: '5px 12px' }}>
-                  📅 Book appointment
-                </a>
+              {hasBooking && (
+                <button type="button" onClick={() => onBookAppointment(sub)} className="km-btn km-btn-outline" style={{ fontSize: 11, padding: '5px 12px' }}>
+                  Book appointment
+                </button>
               )}
             </div>
           )}
@@ -492,9 +524,9 @@ function SubmissionCard({ sub, expanded, onToggle, onDownloadRequisition }: {
                               {act.label}
                             </button>
                           ) : (
-                            <a key={idx} href={act.url} target="_blank" rel="noreferrer" className="km-btn km-btn-outline" style={{ fontSize: 11, padding: '5px 12px' }}>
+                            <button key={idx} type="button" onClick={() => onBookAppointment(sub)} className="km-btn km-btn-outline" style={{ fontSize: 11, padding: '5px 12px' }}>
                               {act.label}
-                            </a>
+                            </button>
                           )
                         ))}
                       </div>
