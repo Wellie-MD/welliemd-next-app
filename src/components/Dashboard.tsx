@@ -96,7 +96,7 @@ export default function Dashboard() {
   return (
     <div>
       {/* ── Proactive announcement (top banner, Intercom-driven) ── */}
-      <IntercomInlineBanner className="mb-5" />
+      <IntercomInlineBanner className="-mt-2 mb-4" />
 
       {/* ── Greeting ── */}
       <div className="km-fade" style={{ paddingTop: 4, marginBottom: 20 }}>

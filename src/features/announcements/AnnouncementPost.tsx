@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
-import { cn } from '@/shared/lib/utils';
 
 export interface AnnouncementPostProps {
   /** Sender name shown next to the avatar (e.g. "WellieMD"). */
@@ -25,12 +24,12 @@ export interface AnnouncementPostProps {
 }
 
 /**
- * Floating announcement post — the "corner Post" format from the client portal
- * mockup. Fixed to the bottom-left of the viewport and used for richer,
- * single-topic announcements (feature releases, what's-new).
+ * Floating announcement post — the "corner Post" format. Fixed to the
+ * bottom-left of the viewport, for richer single-topic announcements (feature
+ * releases, what's-new).
  *
- * Visibility is currently always-on once mounted; conditional/targeted display
- * is wired in separately.
+ * Styled with the patient portal's "km" design tokens (inline styles) so it
+ * matches the native UI in both the light and dark themes.
  */
 export function AnnouncementPost({
   sender,
@@ -49,6 +48,8 @@ export function AnnouncementPost({
   const hasEyebrow = Boolean(eyebrow && eyebrow.trim());
   const avatar = avatarText || (sender?.trim()[0] ?? '').toUpperCase();
   const [dismissed, setDismissed] = useState(false);
+  const [ctaHover, setCtaHover] = useState(false);
+  const [dismissHover, setDismissHover] = useState(false);
 
   const dismiss = () => {
     setDismissed(true);
@@ -65,27 +66,59 @@ export function AnnouncementPost({
   return (
     <div
       role="status"
-      className={cn(
-        'fixed bottom-6 left-6 z-[8900] w-[322px] max-w-[calc(100vw-48px)] rounded-2xl border border-border bg-card pb-[18px] pl-[18px] pr-[18px] pt-[17px] shadow-[0_14px_44px_rgba(15,23,42,0.22)]',
-        'max-[560px]:bottom-[14px] max-[560px]:left-[14px] max-[560px]:right-[14px] max-[560px]:w-auto',
-        className,
-      )}
+      className={className}
+      style={{
+        position: 'fixed',
+        bottom: 24,
+        left: 24,
+        zIndex: 8900,
+        width: 322,
+        maxWidth: 'calc(100vw - 48px)',
+        background: 'var(--km-s1)',
+        border: '1px solid var(--km-b)',
+        borderRadius: 'var(--km-r)',
+        boxShadow: '0 14px 44px rgba(0, 0, 0, 0.28)',
+        padding: '17px 18px 18px',
+        fontFamily: "'Outfit', sans-serif",
+      }}
     >
       {(hasSender || hasEyebrow || showDismiss) && (
-        <div className="mb-[11px] flex items-center justify-between">
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 11,
+          }}
+        >
           {hasSender || hasEyebrow ? (
-            <div className="flex items-center gap-2">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {hasSender && (
-                <span className="grid h-7 w-7 place-items-center rounded-full bg-primary text-[12px] font-bold text-primary-foreground">
+                <span
+                  style={{
+                    width: 28,
+                    height: 28,
+                    flexShrink: 0,
+                    display: 'grid',
+                    placeItems: 'center',
+                    borderRadius: '50%',
+                    background: 'var(--km-ac)',
+                    color: '#fff',
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
                   {avatar}
                 </span>
               )}
               <div>
                 {hasSender && (
-                  <div className="text-[12.5px] font-semibold text-foreground">{sender}</div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--km-t)' }}>
+                    {sender}
+                  </div>
                 )}
                 {hasEyebrow && (
-                  <div className="text-[10.5px] text-muted-foreground">{eyebrow}</div>
+                  <div style={{ fontSize: 10.5, color: 'var(--km-tm)' }}>{eyebrow}</div>
                 )}
               </div>
             </div>
@@ -96,25 +129,71 @@ export function AnnouncementPost({
             <button
               type="button"
               onClick={dismiss}
+              onMouseEnter={() => setDismissHover(true)}
+              onMouseLeave={() => setDismissHover(false)}
               aria-label="Dismiss"
-              className="flex-shrink-0 p-1 text-muted-foreground transition-colors hover:text-foreground"
+              style={{
+                flexShrink: 0,
+                display: 'grid',
+                placeItems: 'center',
+                background: 'none',
+                border: 'none',
+                padding: 4,
+                color: dismissHover ? 'var(--km-t)' : 'var(--km-tm)',
+                cursor: 'pointer',
+                transition: 'color 0.2s',
+              }}
             >
-              <X className="h-4 w-4" strokeWidth={2} />
+              <X width={16} height={16} strokeWidth={2} />
             </button>
           )}
         </div>
       )}
 
       {title && (
-        <h4 className="mb-[5px] text-[15px] font-bold text-foreground">{title}</h4>
+        <h4
+          style={{
+            margin: '0 0 5px',
+            fontSize: 15,
+            fontWeight: 700,
+            color: 'var(--km-t)',
+          }}
+        >
+          {title}
+        </h4>
       )}
-      <p className="mb-[14px] text-[13px] leading-[1.5] text-muted-foreground">{body}</p>
+      <p
+        style={{
+          margin: '0 0 14px',
+          fontSize: 13,
+          lineHeight: 1.5,
+          color: 'var(--km-tm)',
+        }}
+      >
+        {body}
+      </p>
 
       {ctaLabel && (
         <button
           type="button"
           onClick={handleCta}
-          className="w-full rounded-lg bg-primary px-3 py-[9px] text-center text-[12.5px] font-semibold text-primary-foreground transition hover:brightness-105"
+          onMouseEnter={() => setCtaHover(true)}
+          onMouseLeave={() => setCtaHover(false)}
+          style={{
+            width: '100%',
+            background: 'var(--km-ac)',
+            border: 'none',
+            borderRadius: 'var(--km-rs)',
+            padding: '9px 12px',
+            textAlign: 'center',
+            fontFamily: "'Outfit', sans-serif",
+            fontSize: 12.5,
+            fontWeight: 600,
+            color: '#fff',
+            cursor: 'pointer',
+            filter: ctaHover ? 'brightness(1.08)' : 'none',
+            transition: 'filter 0.2s',
+          }}
         >
           {ctaLabel}
         </button>

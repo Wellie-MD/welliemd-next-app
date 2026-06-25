@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
-import { cn } from '@/shared/lib/utils';
 
 export interface AnnouncementBannerProps {
   /** Uppercase sender label shown before the message (e.g. "WellieMD"). */
@@ -19,12 +18,13 @@ export interface AnnouncementBannerProps {
 }
 
 /**
- * Inline announcement banner — the "top Banner" format from the client portal
- * mockup. Sits at the top of a page's content (before the page title) and is
- * used for proactive, low-urgency updates (shipping delays, service notices).
+ * Inline announcement banner — the "top Banner" format. Sits at the top of a
+ * page's content (before the page title) for proactive, low-urgency updates
+ * (shipping delays, service notices).
  *
- * Visibility is currently always-on once mounted; conditional/targeted display
- * (by attribute, company, etc.) is wired in separately.
+ * Styled with the patient portal's "km" design tokens (inline styles, like the
+ * rest of the patient UI) so it sits natively in both the light and dark themes
+ * instead of clashing as a shadcn-white card.
  */
 export function AnnouncementBanner({
   sender = 'WellieMD',
@@ -36,6 +36,8 @@ export function AnnouncementBanner({
   className,
 }: AnnouncementBannerProps) {
   const [dismissed, setDismissed] = useState(false);
+  const [ctaHover, setCtaHover] = useState(false);
+  const [dismissHover, setDismissHover] = useState(false);
 
   const dismiss = () => {
     setDismissed(true);
@@ -52,21 +54,54 @@ export function AnnouncementBanner({
   return (
     <div
       role="status"
-      className={cn(
-        'flex items-center gap-[13px] rounded-xl border border-border border-l-4 border-l-amber-500 bg-card px-4 py-[13px]',
-        className,
-      )}
+      className={className}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 13,
+        background: 'var(--km-s1)',
+        border: '1px solid var(--km-b)',
+        borderLeft: '3px solid var(--km-am)',
+        borderRadius: 'var(--km-r)',
+        padding: '13px 14px',
+        fontFamily: "'Outfit', sans-serif",
+      }}
     >
-      <span className="grid h-[30px] w-[30px] flex-shrink-0 place-items-center rounded-lg bg-amber-500/15">
-        <AlertTriangle
-          className="h-[17px] w-[17px] text-amber-700 dark:text-amber-500"
-          strokeWidth={2}
-        />
+      <span
+        style={{
+          width: 30,
+          height: 30,
+          flexShrink: 0,
+          display: 'grid',
+          placeItems: 'center',
+          borderRadius: 8,
+          background: 'var(--km-amp)',
+          color: 'var(--km-am)',
+        }}
+      >
+        <AlertTriangle width={17} height={17} strokeWidth={2} />
       </span>
 
-      <p className="flex-1 text-[13.5px] leading-[1.45] text-foreground">
+      <p
+        style={{
+          flex: 1,
+          margin: 0,
+          fontSize: 13.5,
+          lineHeight: 1.45,
+          color: 'var(--km-t)',
+        }}
+      >
         {sender && (
-          <span className="mr-[7px] text-[11px] font-bold uppercase tracking-[0.04em] text-muted-foreground">
+          <span
+            style={{
+              marginRight: 7,
+              fontSize: 11,
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              color: 'var(--km-tm)',
+            }}
+          >
             {sender}
           </span>
         )}
@@ -77,7 +112,21 @@ export function AnnouncementBanner({
         <button
           type="button"
           onClick={handleCta}
-          className="whitespace-nowrap rounded-lg border border-border bg-card px-[13px] py-[7px] text-[12.5px] font-semibold text-foreground transition-colors hover:bg-muted"
+          onMouseEnter={() => setCtaHover(true)}
+          onMouseLeave={() => setCtaHover(false)}
+          style={{
+            whiteSpace: 'nowrap',
+            background: ctaHover ? 'var(--km-s3)' : 'var(--km-s2)',
+            border: `1px solid ${ctaHover ? 'var(--km-bh)' : 'var(--km-b)'}`,
+            borderRadius: 'var(--km-rs)',
+            padding: '7px 13px',
+            fontFamily: "'Outfit', sans-serif",
+            fontSize: 12.5,
+            fontWeight: 600,
+            color: 'var(--km-t)',
+            cursor: 'pointer',
+            transition: 'background 0.2s, border-color 0.2s',
+          }}
         >
           {ctaLabel}
         </button>
@@ -87,10 +136,22 @@ export function AnnouncementBanner({
         <button
           type="button"
           onClick={dismiss}
+          onMouseEnter={() => setDismissHover(true)}
+          onMouseLeave={() => setDismissHover(false)}
           aria-label="Dismiss"
-          className="flex-shrink-0 p-1 text-muted-foreground transition-colors hover:text-foreground"
+          style={{
+            flexShrink: 0,
+            display: 'grid',
+            placeItems: 'center',
+            background: 'none',
+            border: 'none',
+            padding: 4,
+            color: dismissHover ? 'var(--km-t)' : 'var(--km-tm)',
+            cursor: 'pointer',
+            transition: 'color 0.2s',
+          }}
         >
-          <X className="h-4 w-4" strokeWidth={2} />
+          <X width={16} height={16} strokeWidth={2} />
         </button>
       )}
     </div>
