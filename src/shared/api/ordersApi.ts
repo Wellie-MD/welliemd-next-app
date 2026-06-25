@@ -24,6 +24,7 @@ export type OrderStatus =
     | 'prescribed'
     | 'billing_pending'
     | 'rx_sent'
+    | 'in_transit'
     | 'in_fulfillment'
     | 'shipped'
     | 'delivered'
