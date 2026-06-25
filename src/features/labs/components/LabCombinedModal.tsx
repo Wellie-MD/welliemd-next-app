@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { labsApi, type LabPanel } from "@/api/labs";
+import { formatAoeCount } from "@/features/labs/utils/aoeUtils";
 import {
   type CombinedMethodRow,
   INITIAL_COMBINED_METHODS,
@@ -195,39 +196,55 @@ export default function LabCombinedModal({ open, onOpenChange, labs, onCreated }
 
             {methods.map(row => {
               const available = panelsForMethod[row.method] ?? [];
+              const selectedPanel = row.selectedPanelId
+                ? available.find(p => p.id === row.selectedPanelId)
+                : undefined;
               return (
-                <div key={row.method} className="flex items-center gap-3 py-1.5">
-                  <Checkbox
-                    id={`comb-${row.method}`}
-                    checked={row.checked}
-                    onCheckedChange={(v) => toggleMethod(row.method, !!v)}
-                  />
-                  <label
-                    htmlFor={`comb-${row.method}`}
-                    className="text-xs font-medium text-foreground w-[156px] shrink-0 cursor-pointer"
-                  >
-                    {row.label}
-                  </label>
-                  <Select
-                    value={row.selectedPanelId}
-                    onValueChange={val => setPanel(row.method, val)}
-                    disabled={available.length === 0}
-                  >
-                    <SelectTrigger className="h-8 text-xs flex-1">
-                      <SelectValue
-                        placeholder={
-                          available.length === 0 ? "No active panels for this method" : "Select a test…"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {available.map(p => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div key={row.method} className="space-y-1 py-1.5">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id={`comb-${row.method}`}
+                      checked={row.checked}
+                      onCheckedChange={(v) => toggleMethod(row.method, !!v)}
+                    />
+                    <label
+                      htmlFor={`comb-${row.method}`}
+                      className="text-xs font-medium text-foreground w-[156px] shrink-0 cursor-pointer"
+                    >
+                      {row.label}
+                    </label>
+                    <Select
+                      value={row.selectedPanelId}
+                      onValueChange={val => setPanel(row.method, val)}
+                      disabled={available.length === 0}
+                    >
+                      <SelectTrigger className="h-8 text-xs flex-1">
+                        <SelectValue
+                          placeholder={
+                            available.length === 0 ? "No active panels for this method" : "Select a test…"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {available.map(p => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {selectedPanel && (
+                    <p className="text-[10.5px] text-muted-foreground pl-7">
+                      {row.label} · {formatAoeCount({
+                        required: selectedPanel.aoe_required_count ?? 0,
+                        optional: selectedPanel.aoe_optional_count ?? 0,
+                      })}
+                      {(selectedPanel.aoe_required_count ?? 0) + (selectedPanel.aoe_optional_count ?? 0) > 0
+                        ? " questions"
+                        : ""}
+                    </p>
+                  )}
                 </div>
               );
             })}

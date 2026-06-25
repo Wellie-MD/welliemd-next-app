@@ -27,13 +27,25 @@ export interface Biomarker {
   worst_case_tat: string;
   labs?: string[];
   aoe_questions?: Array<{
+    marker_id?: string;
+    provider_id?: string;
+    biomarker_id?: string;
+    biomarker_name?: string;
     question_id: string;
-    code: string;
     label: string;
+    raw_label?: string;
+    code: string;
     type: string;
     required: boolean;
+    sequence?: number;
+    constraint?: string | null;
+    default?: string | null;
+    answers?: Array<{ id: string; code: string; value: string }>;
     options: Array<{ code: string; value: string }>;
+    is_fasting_duplicate?: boolean;
   }>;
+  aoe_required_count?: number;
+  aoe_optional_count?: number;
   loinc_map?: Array<{
     name: string;
     test_code: string;
@@ -85,6 +97,8 @@ export interface LabPanel {
   turnaround_days?: string;
   vital_slug?: string;
   required?: "required" | "optional";
+  aoe_required_count?: number;
+  aoe_optional_count?: number;
 }
 
 export interface ClientAssignment {
@@ -166,6 +180,8 @@ const normalizeBiomarker = (raw: any): Biomarker => ({
   worst_case_tat: raw.worst_case_tat || raw.worst_case_turnaround_time || (raw.worst_case_tat_days != null ? String(raw.worst_case_tat_days) : "") || "Varies",
   labs: raw.labs || (raw.lab_id ? [String(raw.lab_id)] : []),
   aoe_questions: Array.isArray(raw.aoe_questions) ? raw.aoe_questions : [],
+  aoe_required_count: typeof raw.aoe_required_count === "number" ? raw.aoe_required_count : undefined,
+  aoe_optional_count: typeof raw.aoe_optional_count === "number" ? raw.aoe_optional_count : undefined,
   loinc_map: Array.isArray(raw.loinc_map) ? raw.loinc_map : [],
 });
 
@@ -191,6 +207,8 @@ const normalizePanel = (raw: any): LabPanel => ({
   turnaround_days: raw.common_turnaround_time || raw.worst_case_turnaround_time || "",
   vital_slug: raw.junction_lab_test_id || "",
   required: "required",
+  aoe_required_count: typeof raw.aoe_required_count === "number" ? raw.aoe_required_count : 0,
+  aoe_optional_count: typeof raw.aoe_optional_count === "number" ? raw.aoe_optional_count : 0,
 });
 
 const normalizeClientAssignment = (raw: any): ClientAssignment => ({
@@ -319,6 +337,13 @@ export const labsApi = {
   submitAssignmentToJunction: async (assignmentId: string) => {
     const { data } = await axiosInstance.post(
       `admin/labs/assignments/${assignmentId}/submit-to-junction/`
+    );
+    return data;
+  },
+
+  syncAssignmentToTenant: async (assignmentId: string) => {
+    const { data } = await axiosInstance.post(
+      `admin/labs/assignments/${assignmentId}/sync-to-tenant/`
     );
     return data;
   },

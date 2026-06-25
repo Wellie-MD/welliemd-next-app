@@ -11,7 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { toast } from "@/components/ui/use-toast"
 
-export default function JunctionLabs() {
+interface JunctionLabsProps {
+  embedded?: boolean
+}
+
+export default function JunctionLabs({ embedded = false }: JunctionLabsProps) {
   const [enabled, setEnabled] = useState(true)
   const [environment, setEnvironment] = useState("sandbox-us")
   const [apiKey, setApiKey] = useState("")
@@ -125,12 +129,14 @@ export default function JunctionLabs() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Junction Labs</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Configure the control-plane Junction key used only for lab catalog sync and admin panel curation.
-        </p>
-      </div>
+      {!embedded && (
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">Junction Labs</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Configure the control-plane Junction key used only for lab catalog sync and admin panel curation.
+          </p>
+        </div>
+      )}
 
       <Alert className="border-blue-200 bg-blue-50 text-blue-950">
         <ShieldCheck className="h-4 w-4 text-blue-700" />

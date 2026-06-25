@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { type Biomarker } from "@/api/labs";
+import { normalizeAoeQuestion } from "@/features/labs/utils/aoeUtils";
 
 interface Props {
   open: boolean;
@@ -29,7 +30,7 @@ interface Props {
 export default function LabMarkerDetailModal({ open, onOpenChange, marker }: Props) {
   if (!marker) return null;
 
-  const aoe = marker.aoe_questions ?? [];
+  const aoe = (marker.aoe_questions ?? []).map(normalizeAoeQuestion);
   const loincMap = marker.loinc_map ?? [];
   const typeLabel =
     marker.marker_type && marker.marker_type.trim() ? marker.marker_type : "biomarker";
@@ -188,19 +189,13 @@ export default function LabMarkerDetailModal({ open, onOpenChange, marker }: Pro
               <div className="space-y-2">
                 {aoe.map((q, i) => (
                   <div key={i} className="border border-border/70 rounded-lg p-3 space-y-2">
-                    {/*
-                     * On xs: question text on its own line, badges below it.
-                     * On ≥480px: question + badges side-by-side (existing layout).
-                     * flex-col on xs, flex-row on min-[480px].
-                     */}
                     <div className="flex flex-col min-[480px]:flex-row min-[480px]:items-start min-[480px]:justify-between gap-2">
                       <p className="font-medium text-foreground leading-snug">
-                        {q.label || q.code || q.question_id || "—"}
+                        {q.label || q.code || q.questionId || "—"}
                       </p>
-                      {/* Badges always wrap on a new line on xs; inline on wider screens */}
                       <div className="flex flex-wrap gap-1.5 min-[480px]:shrink-0">
                         <span className="inline-block px-2 py-0.5 rounded text-[9.5px] font-semibold bg-muted text-muted-foreground border border-border/60 whitespace-nowrap">
-                          {q.type || "text"}
+                          {q.typeLabel}
                         </span>
                         <span
                           className={`inline-block px-2 py-0.5 rounded text-[9.5px] font-semibold border whitespace-nowrap ${
@@ -211,18 +206,31 @@ export default function LabMarkerDetailModal({ open, onOpenChange, marker }: Pro
                         >
                           {q.required ? "Required" : "Optional"}
                         </span>
+                        {q.isFastingDuplicate && (
+                          <span className="inline-block px-2 py-0.5 rounded text-[9.5px] font-semibold border border-blue-200 bg-blue-50 text-blue-700 whitespace-nowrap">
+                            Fasting (auto)
+                          </span>
+                        )}
                       </div>
                     </div>
 
-                    {/* Question code */}
-                    {q.code && (
-                      <p className="font-mono text-[10px] text-muted-foreground">
-                        code: {q.code}
-                      </p>
+                    {/* Helper text for friendly questions (e.g. Specimen source) */}
+                    {q.helperText && (
+                      <p className="text-[11px] text-muted-foreground leading-snug">{q.helperText}</p>
                     )}
 
-                    {/* Answer options — always wrapping */}
-                    {q.options.length > 0 && (
+                    {/* Metadata row: code · sequence · constraint · default */}
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground font-mono">
+                      {q.code && <span>code: {q.code}</span>}
+                      {q.sequence ? <span>seq: {q.sequence}</span> : null}
+                      {q.constraint && <span>constraint: {String(q.constraint)}</span>}
+                      {q.defaultValue != null && q.defaultValue !== "" && (
+                        <span>default: {String(q.defaultValue)}</span>
+                      )}
+                    </div>
+
+                    {/* Options only for choice / multi_choice; never empty text rows */}
+                    {(q.isChoice || q.isMultiChoice) && q.options.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 pt-1">
                         {q.options.map((opt, j) => (
                           <span

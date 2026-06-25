@@ -30,6 +30,7 @@ interface Props {
   onClientSearchChange: (v: string) => void;
   assignmentActionId: string | null;
   onSubmit: () => Promise<void>;
+  onSyncToTenant: (client: AssignClient) => Promise<void>;
   onSubmitToJunction: (client: AssignClient) => Promise<void>;
   onCheckStatus: (client: AssignClient) => Promise<void>;
   onReplaceSubmission: (client: AssignClient) => Promise<void>;
@@ -48,6 +49,7 @@ export default function LabAssignModal({
   onClientSearchChange,
   assignmentActionId,
   onSubmit,
+  onSyncToTenant,
   onSubmitToJunction,
   onCheckStatus,
   onReplaceSubmission,
@@ -181,6 +183,10 @@ export default function LabAssignModal({
                   !!c.assignment_id &&
                   c.checked &&
                   !c.junction_lab_test_id;
+                const canSync =
+                  !!c.assignment_id &&
+                  c.checked &&
+                  !!c.junction_lab_test_id;
                 const canCheck =
                   !!c.assignment_id &&
                   c.checked &&
@@ -241,6 +247,18 @@ export default function LabAssignModal({
                       </span>
                       {c.checked && c.assignment_id && (
                         <div className="flex items-center gap-1">
+                          {canSync && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => onSyncToTenant(c)}
+                              disabled={busy}
+                              className="h-6 px-2 text-[10px]"
+                              title="Sync latest admin panel changes to this client tenant without submitting a new Junction lab test"
+                            >
+                              Sync
+                            </Button>
+                          )}
                           {canSubmit && (
                             <Button
                               type="button"

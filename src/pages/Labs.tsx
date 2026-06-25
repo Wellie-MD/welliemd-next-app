@@ -399,6 +399,20 @@ export default function Labs() {
     }
   };
 
+  const handleSyncToTenant = async (client: AssignClient) => {
+    if (!client.assignment_id) return;
+    setAssignmentActionId(client.assignment_id);
+    try {
+      const res = await labsApi.syncAssignmentToTenant(client.assignment_id);
+      await refreshAssignClients();
+      toast({ title: "Client synced", description: res.message ?? `${client.name}'s panel copy was updated.` });
+    } catch (e: any) {
+      toast({ title: "Sync failed", description: e?.response?.data?.message ?? e?.response?.data?.detail ?? "Failed.", variant: "destructive" });
+    } finally {
+      setAssignmentActionId(null);
+    }
+  };
+
   const handleCheckStatus = async (client: AssignClient) => {
     if (!client.assignment_id) return;
     setAssignmentActionId(client.assignment_id);
@@ -455,11 +469,12 @@ export default function Labs() {
         <div className="flex items-center gap-2.5">
           <Button
             variant="outline"
-            onClick={() => navigate("/dashboard/settings/junction-labs")}
-            className="border border-input bg-background hover:bg-muted font-semibold text-xs h-9 inline-flex items-center gap-1.5"
+            onClick={() => navigate("/dashboard/products/labs/settings")}
+            className="h-9 min-w-[140px] px-3 sm:px-4 border border-input bg-background hover:bg-muted font-semibold text-xs sm:text-sm inline-flex items-center justify-center gap-1.5"
           >
             <Settings className="h-4 w-4" />
-            Junction Settings
+            <span className="hidden sm:inline">Manage Junction</span>
+            <span className="sm:hidden">Junction</span>
           </Button>
 
           <Button
@@ -573,6 +588,7 @@ export default function Labs() {
         onClientSearchChange={setAssignClientSearch}
         assignmentActionId={assignmentActionId}
         onSubmit={handleAssignSubmit}
+        onSyncToTenant={handleSyncToTenant}
         onSubmitToJunction={handleSubmitToJunction}
         onCheckStatus={handleCheckStatus}
         onReplaceSubmission={handleReplaceSubmission}

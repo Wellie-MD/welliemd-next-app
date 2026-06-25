@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { type Biomarker, type CatalogLab } from "@/api/labs";
+import { countAoeQuestions } from "@/features/labs/utils/aoeUtils";
 import { type CreateFormState } from "@/features/labs/types";
 
 interface Props {
@@ -142,11 +143,11 @@ export default function LabCreateModal({
                         type="button"
                         onClick={() => {
                           onOpenChange(false);
-                          navigate("/dashboard/settings/junction-labs");
+                          navigate("/dashboard/products/labs/settings");
                         }}
                         className="text-blue-600 hover:underline font-semibold"
                       >
-                        Go to Junction Settings → Sync marker catalog
+                        Go to Junction settings → Sync marker catalog
                       </button>
                     </div>
                   ) : (
@@ -162,11 +163,11 @@ export default function LabCreateModal({
                         type="button"
                         onClick={() => {
                           onOpenChange(false);
-                          navigate("/dashboard/settings/junction-labs");
+                          navigate("/dashboard/products/labs/settings");
                         }}
                         className="text-blue-600 hover:underline font-semibold"
                       >
-                        Go to Junction Settings → Sync marker catalog
+                        Go to Junction settings → Sync marker catalog
                       </button>
                     </>
                   ) : (
@@ -196,6 +197,18 @@ export default function LabCreateModal({
                           <span className="font-medium text-foreground min-w-0 flex-1 truncate">
                             {bm.name}
                           </span>
+                          {(() => {
+                            const counts = countAoeQuestions(bm.aoe_questions);
+                            if (counts.required + counts.optional === 0) return null;
+                            return (
+                              <span
+                                className="px-1.5 py-0.5 rounded text-[9px] font-semibold border border-amber-200 bg-amber-50 text-amber-700 whitespace-nowrap shrink-0"
+                                title="Requires order questions (AOE)"
+                              >
+                                Requires order questions
+                              </span>
+                            );
+                          })()}
                           {/* Provider ID — right side, as Junction prefers this for stability */}
                           <span
                             className="ml-auto font-mono text-[10px] text-muted-foreground/70 pr-1 shrink-0"
@@ -214,6 +227,19 @@ export default function LabCreateModal({
               {form.biomarkers.length === 0
                 ? "No biomarkers selected yet."
                 : `${form.biomarkers.length} biomarker${form.biomarkers.length === 1 ? "" : "s"} selected.`}
+              {(() => {
+                if (form.biomarkers.length === 0) return null;
+                const selectedSet = new Set(form.biomarkers);
+                const totalRequired = biomarkers
+                  .filter(b => selectedSet.has(b.id))
+                  .reduce((sum, b) => sum + countAoeQuestions(b.aoe_questions).required, 0);
+                if (totalRequired === 0) return null;
+                return (
+                  <span className="text-amber-700 font-medium">
+                    {" "}{totalRequired} required lab question{totalRequired === 1 ? "" : "s"} at checkout.
+                  </span>
+                );
+              })()}
             </p>
           </div>
 

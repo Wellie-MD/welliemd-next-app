@@ -25,6 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { type Biomarker, type LabPanel } from "@/api/labs";
+import { countAoeQuestions, formatAoeCount } from "@/features/labs/utils/aoeUtils";
 import { STATES_LIST } from "@/features/labs/types";
 import { getCollectionMethodLabel, renderJunctionStatusBadge } from "@/features/labs/utils";
 
@@ -117,9 +118,17 @@ export default function LabEditModal({
 
           {/* Biomarkers table */}
           <div className="space-y-1.5 pt-2">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-              Biomarkers ({selectedLab.biomarkers.length})
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                Biomarkers ({selectedLab.biomarkers.length})
+              </p>
+              <span className="inline-block px-2 py-0.5 rounded-full text-[9.5px] font-semibold border border-border/60 bg-muted text-muted-foreground whitespace-nowrap">
+                Lab questions: {formatAoeCount({
+                  required: selectedLab.aoe_required_count ?? 0,
+                  optional: selectedLab.aoe_optional_count ?? 0,
+                })}
+              </span>
+            </div>
             <div className="border border-border/80 rounded-lg overflow-hidden bg-card">
               <Table className="text-xs">
                 <TableHeader className="bg-muted/30">
@@ -141,7 +150,21 @@ export default function LabEditModal({
                     selectedLab.biomarkers.map((bm: Biomarker) => (
                       <TableRow key={bm.id} className="h-8">
                         <TableCell className="font-medium text-foreground py-1.5">
-                          {bm.name}
+                          <div className="flex items-center gap-1.5">
+                            <span>{bm.name}</span>
+                            {(() => {
+                              const counts = countAoeQuestions(bm.aoe_questions);
+                              if (counts.required + counts.optional === 0) return null;
+                              return (
+                                <span
+                                  className="inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold border border-amber-200 bg-amber-50 text-amber-700 whitespace-nowrap"
+                                  title="Requires order questions (AOE)"
+                                >
+                                  {formatAoeCount(counts)}
+                                </span>
+                              );
+                            })()}
+                          </div>
                         </TableCell>
                         <TableCell className="font-mono text-muted-foreground py-1.5">
                           {bm.provider_id || bm.code || "—"}
