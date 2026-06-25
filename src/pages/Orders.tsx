@@ -416,12 +416,19 @@ export default function Orders() {
               render: (_: any, row: any) => {
                 const remaining = parseMoney(row.remaining_supplemental_amount)
                 const hasRemaining = remaining != null && remaining > 0
+                const refundAmount = parseMoney(row.rx_revision_refund_required_amount)
+                const needsRefund = refundAmount != null && refundAmount > 0
                 return (
                   <div className="space-y-1">
                     <div>{formatMoneyLabel(row.orderTotal)}</div>
                     {hasRemaining ? (
                       <div className="text-[11px] text-amber-700">Remaining ${remaining.toFixed(2)}</div>
                     ) : null}
+                    {needsRefund && (
+                      <div className="text-[10px] font-semibold text-red-600 dark:text-red-400">
+                        Refund Required: ${refundAmount.toFixed(2)}
+                      </div>
+                    )}
                   </div>
                 )
               },

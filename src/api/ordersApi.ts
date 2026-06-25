@@ -60,6 +60,7 @@ export interface PrescriptionMedication {
   quantity?: string
   medId?: string
   rxId?: string
+  shipping_fee?: string | number | null
 }
 
 export interface OrderPricingSupplyLineItem {
@@ -131,9 +132,12 @@ export interface Order {
   supplemental_captured_amount?: string | null
   payment_settlement_transactions?: OrderSettlementTransaction[]
   totalRefunded?: string | null
+  netCollected?: string | null
   refundableAmount?: string | null
   baseRefundableAmount?: string | null
   supplementalRefundableAmount?: string | null
+  rx_revision_tag?: string | null
+  rx_revision_refund_required_amount?: string | null
   created_at?: string
   updated_at?: string
   name?: string
@@ -158,6 +162,7 @@ export interface Order {
   discount_amount?: string | null
   shipping_fee?: string | null
   tracking_number?: string | null
+  shipping_carrier?: string | null
   patient_responses?: PatientResponses | null
   checkout_url?: string | null
   provider_network?: string | null

@@ -100,6 +100,7 @@ export interface Product {
   generic_group?: string;
   service_states?: string[];
   admin_service_states?: string[];
+  category?: string;
   category_name?: string;
 
   // Questionnaires
@@ -262,6 +263,8 @@ export interface ProductListParams {
   rx_or_otc?: "rx" | "otc";
   purchase_type?: "one_time" | "subscription";
   requires_video_visit?: boolean;
+  category?: string;
+  pharmacy?: string;
   search?: string;
   ordering?: string;
   page?: number;

@@ -1,58 +1,14 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useForm } from "react-hook-form"
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react"
+import { UseFormRegisterReturn, useForm } from "react-hook-form"
+import * as DialogPrimitive from "@radix-ui/react-dialog"
+import { Box, DollarSign, ImageIcon, Lock, MapPin, Power, X } from "lucide-react"
+
 import { Product, productApi } from "@/api/products"
-import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog"
-import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
-import { Switch } from "@/components/ui/switch"
-
-const toMoney = (value?: string | number | null) => {
-  const num = typeof value === "number" ? value : Number(value ?? 0)
-  if (!Number.isFinite(num)) return "$0.00"
-  return `$${num.toFixed(2)}`
-}
-
-type ProductFormValues = {
-  // Client-editable fields
-  description?: string
-  application_directions?: string
-  learn_more?: string
-  product_image?: File | null
-  safety_information?: string
-  side_effects?: string
-  quantity?: string
-  is_active?: boolean
-  
-  // Client-editable pricing fields
-  base_price?: string
-  shipping_fee_patient?: string
-  discounted_price?: string
-  service_states?: string[]
-  
-  // Read-only fields (displayed but not editable)
-  name: string
-  manufacturer_name?: string
-  purchase_type: string
-  treatment: string
-  rx_or_otc: string
-  dose?: string
-  refills: number
-  rx_quantity: string
-  rx_drug_form?: string
-  ndc_number?: string
-  product_type: string
-  cost_to_welliemd?: string
-  shipping_cost_to_welliemd?: string
-}
+import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
 const US_STATES = [
   "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
@@ -62,6 +18,21 @@ const US_STATES = [
   "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC", "PR",
 ]
 
+type ProductFormValues = {
+  description?: string
+  application_directions?: string
+  learn_more?: string
+  product_image?: File | null
+  safety_information?: string
+  side_effects?: string
+  quantity?: string
+  is_active?: boolean
+  base_price?: string
+  shipping_fee_patient?: string
+  discounted_price?: string
+  service_states?: string[]
+}
+
 const normalizeStates = (states?: string[] | null) =>
   Array.from(
     new Set(
@@ -70,6 +41,24 @@ const normalizeStates = (states?: string[] | null) =>
         .filter(Boolean)
     )
   )
+
+const asNumber = (value?: string | number | null) => {
+  const parsed = typeof value === "number" ? value : Number(value || 0)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+const money = (value?: string | number | null) => `$${asNumber(value).toFixed(2)}`
+
+const titleCase = (value?: string) => {
+  if (!value) return "-"
+  return value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+const purchaseTypeLabel = (value?: string) => {
+  if (value === "one_time") return "One Time"
+  if (value === "subscription") return "Subscription"
+  return titleCase(value)
+}
 
 export default function AddProductForm({
   open,
@@ -84,54 +73,92 @@ export default function AddProductForm({
 }) {
   const { register, handleSubmit, reset, setValue, watch } = useForm<ProductFormValues>()
   const [loading, setLoading] = useState(false)
+  const [selectedImageUrl, setSelectedImageUrl] = useState("")
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
-  const isSupplyProduct = product?.product_type === "supply"
-  const supplyUsage = product?.supply_usage_summary
-  const isIncludedOnlySupply =
-    Boolean(isSupplyProduct) &&
-    Boolean(supplyUsage?.total_links && supplyUsage.total_links > 0) &&
-    Number(supplyUsage?.billable_links || 0) === 0
+
   const adminAllowedStates = normalizeStates(
     product?.admin_service_states?.length ? product.admin_service_states : product?.service_states
   )
   const selectedServiceStates = normalizeStates(watch("service_states") || [])
-  const orderedAdminAllowedStates = US_STATES.filter((state) => adminAllowedStates.includes(state))
+  const availableServiceStates = adminAllowedStates.length
+    ? US_STATES.filter((state) => adminAllowedStates.includes(state))
+    : []
+  const isActive = watch("is_active", product?.is_active ?? true)
+  const selectedImage = watch("product_image")
 
-  // Load product data for editing
-  useEffect(() => {
-    if (product) {
-      reset({
-        // Client-editable fields
-        description: product.description ?? "",
-        application_directions: product.application_directions ?? "",
-        learn_more: product.learn_more ?? "",
-        safety_information: product.safety_information ?? "",
-        side_effects: product.side_effects ?? "",
-        quantity: product.quantity ?? "1",
-        
-        // Client-editable pricing fields
-        base_price: product.base_price ?? "0.00",
-        shipping_fee_patient: product.shipping_fee_patient ?? "0.00",
-        discounted_price: product.discounted_price ?? "",
-        service_states: normalizeStates(product.service_states),
-        is_active: product.is_active ?? true,
-        
-        // Read-only fields (for display)
-        name: product.name,
-        manufacturer_name: product.manufacturer_name ?? "",
-        purchase_type: product.purchase_type,
-        treatment: product.treatment,
-        rx_or_otc: product.rx_or_otc,
-        dose: product.dose ?? "",
-        refills: product.refills,
-        rx_quantity: product.rx_quantity,
-        rx_drug_form: product.rx_drug_form ?? "",
-        ndc_number: product.ndc_number ?? "",
-        product_type: product.product_type,
-        cost_to_welliemd: product.cost_to_welliemd ?? "",
-        shipping_cost_to_welliemd: product.shipping_cost_to_welliemd ?? "0.00",
-      })
+  const basePrice = watch("base_price", product?.base_price ?? "0.00")
+  const discountedPrice = watch("discounted_price", product?.discounted_price ?? "")
+  const shippingFee = watch("shipping_fee_patient", product?.shipping_fee_patient ?? "0.00")
+  const effectivePatientPrice = asNumber(discountedPrice) > 0 ? asNumber(discountedPrice) : asNumber(basePrice)
+  const costToClient = asNumber(product?.cost_to_client)
+  const shippingCost = asNumber(product?.shipping_cost_to_client)
+  const totalCost = costToClient + shippingCost
+  const patientPays = effectivePatientPrice + asNumber(shippingFee)
+  const profit = patientPays - totalCost
+  const margin = patientPays > 0 ? (profit / patientPays) * 100 : 0
+
+  const activeStateCount = selectedServiceStates.filter((state) =>
+    availableServiceStates.includes(state)
+  ).length
+
+  const imageName = useMemo(() => {
+    if (selectedImage instanceof File) return selectedImage.name
+    if (!product?.product_image) return ""
+    try {
+      return decodeURIComponent(product.product_image.split("/").pop() || product.product_image)
+    } catch {
+      return product.product_image
     }
+  }, [product?.product_image, selectedImage])
+
+  useEffect(() => {
+    if (!(selectedImage instanceof File)) {
+      setSelectedImageUrl("")
+      return
+    }
+
+    const objectUrl = URL.createObjectURL(selectedImage)
+    setSelectedImageUrl(objectUrl)
+
+    return () => URL.revokeObjectURL(objectUrl)
+  }, [selectedImage])
+
+  useEffect(() => {
+    if (!open) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [open])
+
+  const handleImageFileChange = (file: File | null) => {
+    setValue("product_image", file, { shouldDirty: true })
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
+  useEffect(() => {
+    if (!product) return
+
+    reset({
+      description: product.description ?? "",
+      application_directions: product.application_directions ?? "",
+      learn_more: product.learn_more ?? "",
+      safety_information: product.safety_information ?? "",
+      side_effects: product.side_effects ?? "",
+      quantity: product.quantity ?? "1",
+      base_price: product.base_price ?? "0.00",
+      shipping_fee_patient: product.shipping_fee_patient ?? "0.00",
+      discounted_price: product.discounted_price ?? "",
+      service_states: normalizeStates(product.service_states),
+      is_active: product.is_active ?? true,
+      product_image: null,
+    })
   }, [product, reset])
 
   const onSubmit = async (data: ProductFormValues) => {
@@ -139,11 +166,8 @@ export default function AddProductForm({
 
     try {
       setLoading(true)
-      
-      // Build FormData with only client-editable fields
+
       const fd = new FormData()
-      
-      // Only include client-editable fields
       if (data.description !== undefined) fd.append("description", data.description)
       if (data.application_directions !== undefined) fd.append("application_directions", data.application_directions)
       if (data.learn_more !== undefined) fd.append("learn_more", data.learn_more)
@@ -151,32 +175,24 @@ export default function AddProductForm({
       if (data.side_effects !== undefined) fd.append("side_effects", data.side_effects)
       if (data.quantity !== undefined) fd.append("quantity", data.quantity)
       if (data.is_active !== undefined) fd.append("is_active", String(data.is_active))
-      
-      // Client-editable pricing fields (lock when this supply is only used as Included)
-      if (!isIncludedOnlySupply) {
-        if (data.base_price !== undefined) fd.append("base_price", data.base_price)
-        if (data.shipping_fee_patient !== undefined) fd.append("shipping_fee_patient", data.shipping_fee_patient)
-        if (data.discounted_price !== undefined) fd.append("discounted_price", data.discounted_price)
-      }
+      if (data.base_price !== undefined) fd.append("base_price", data.base_price)
+      if (data.shipping_fee_patient !== undefined) fd.append("shipping_fee_patient", data.shipping_fee_patient)
+      if (data.discounted_price !== undefined && data.discounted_price !== '') fd.append("discounted_price", data.discounted_price)
       if (data.service_states !== undefined) {
-        const selectedStates = normalizeStates(data.service_states).filter((state) =>
-          adminAllowedStates.includes(state)
-        )
+        const selectedStates = normalizeStates(data.service_states).filter((state) => adminAllowedStates.includes(state))
         fd.append("service_states", JSON.stringify(selectedStates))
       }
-      
-      // Handle image upload
       if (data.product_image instanceof File) {
         fd.append("product_image", data.product_image)
       }
 
       await productApi.updateProduct(product.id, fd)
-      
+
       toast({
         title: "Success",
         description: "Product updated successfully",
       })
-      
+
       onSuccess?.()
       onOpenChange(false)
     } catch (err) {
@@ -192,480 +208,538 @@ export default function AddProductForm({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger className="hidden" />
-      <DialogContent className="max-w-4xl w-full">
-        <DialogHeader>
-          <DialogTitle>Edit Product: {product?.name ?? ""}</DialogTitle>
-          <DialogDescription>
-            Fields marked as read-only are managed by the admin and cannot be edited.
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* Scrollable body - hide scrollbar */}
-        <form onSubmit={handleSubmit(onSubmit)} className="max-h-[70vh] overflow-y-auto pr-2 space-y-6 scrollbar-hide">
-          {/* Read-only Product Information */}
-          <div className="border rounded-lg p-4 bg-muted/30">
-            <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Product Information (Read-only)</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Product Name</label>
-                <input 
-                  {...register("name")} 
-                  disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
-                />
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={false}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-slate-950/55" />
+        <DialogPrimitive.Content
+          className="fixed z-50 flex w-[calc(100vw-24px)] max-w-[990px] flex-col overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border dark:border-slate-800 shadow-2xl outline-none"
+          style={{
+            top: "24px",
+            bottom: "24px",
+            left: "50%",
+            height: "auto",
+            maxHeight: "none",
+            transform: "translateX(-50%)",
+          }}
+        >
+          <div className="shrink-0 border-b border-slate-200 dark:border-slate-800 px-8 py-6 text-left">
+          <div className="flex items-start gap-4">
+            <SectionIcon>
+              <Box className="h-5 w-5" />
+            </SectionIcon>
+            <div className="min-w-0">
+              <div className="flex items-center gap-3">
+                <DialogPrimitive.Title className="text-xl font-bold text-slate-900 dark:text-slate-50">
+                  Edit Product
+                </DialogPrimitive.Title>
+                <StatusBadge active={Boolean(isActive)} />
               </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Product Type</label>
-                <input 
-                  {...register("product_type")} 
-                  disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
-                />
+              <div className="mt-1 truncate text-[15px] font-medium text-slate-900 dark:text-slate-100">
+                {product?.name}
               </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Treatment</label>
-                <input 
-                  {...register("treatment")} 
-                  disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Purchase Type</label>
-                <input 
-                  {...register("purchase_type")} 
-                  disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">RX/OTC</label>
-                <input 
-                  {...register("rx_or_otc")} 
-                  disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Manufacturer</label>
-                <input 
-                  {...register("manufacturer_name")} 
-                  disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">NDC Number</label>
-                <input 
-                  {...register("ndc_number")} 
-                  disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Dose</label>
-                <input 
-                  {...register("dose")} 
-                  disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Drug Form</label>
-                <input 
-                  {...register("rx_drug_form")} 
-                  disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Refills</label>
-                <input 
-                  {...register("refills")} 
-                  disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">RX Quantity</label>
-                <input 
-                  {...register("rx_quantity")} 
-                  disabled 
-                  className="border px-3 py-2 rounded w-full bg-muted text-muted-foreground cursor-not-allowed mt-1 dark:border-slate-700 dark:bg-slate-900/60" 
-                />
-              </div>
-            </div>
-
-            {Array.isArray(product?.service_states) && (
-              <div className="mt-4 border-t pt-4 dark:border-slate-700">
-                <div className="flex items-center justify-between gap-3 mb-2">
-                  <div>
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      Service States
-                    </h4>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Select the states where this assigned product should remain available. You can only choose states configured by admin.
-                    </p>
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {selectedServiceStates.length} of {adminAllowedStates.length} state(s) active
-                  </span>
-                </div>
-                {adminAllowedStates.length ? (
-                  <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setValue("service_states", orderedAdminAllowedStates, { shouldDirty: true })}
-                      >
-                        Select all states
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setValue("service_states", [], { shouldDirty: true })}
-                      >
-                        Clear
-                      </Button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {orderedAdminAllowedStates.map((state) => {
-                        const checked = selectedServiceStates.includes(state)
-                        return (
-                          <button
-                            key={state}
-                            type="button"
-                            onClick={() => {
-                              const nextStates = checked
-                                ? selectedServiceStates.filter((item) => item !== state)
-                                : [...selectedServiceStates, state]
-                              setValue("service_states", nextStates, { shouldDirty: true })
-                            }}
-                            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${
-                              checked
-                                ? "bg-primary text-primary-foreground border-primary"
-                                : "bg-background text-foreground dark:border-slate-700 dark:bg-slate-900/60"
-                            }`}
-                          >
-                            {state}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                ) : (
-                    <span className="text-xs text-muted-foreground">
-                      No explicit product-level states were configured by admin. This product inherits pharmacy coverage.
-                    </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Admin Costs (Read-only) - What WellieMD charges the Client */}
-          <div className="border rounded-lg p-4 bg-muted/30">
-            <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Admin Costs (Read-only)</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Cost to Client (Admin)</label>
-                <div className="flex items-center mt-1">
-                  <span className="border px-3 py-2 rounded-l bg-muted text-muted-foreground dark:border-slate-700 dark:bg-slate-900/60">$</span>
-                  <input 
-                    value={product?.cost_to_client ?? ""}
-                    disabled 
-                    className="border border-l-0 px-3 py-2 rounded-r w-full bg-muted text-muted-foreground cursor-not-allowed dark:border-slate-700 dark:bg-slate-900/60" 
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Admin-set cost used for reimbursement</p>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Shipping Cost to Client (Admin)</label>
-                <div className="flex items-center mt-1">
-                  <span className="border px-3 py-2 rounded-l bg-muted text-muted-foreground dark:border-slate-700 dark:bg-slate-900/60">$</span>
-                  <input 
-                    value={product?.shipping_cost_to_client ?? ""}
-                    disabled 
-                    className="border border-l-0 px-3 py-2 rounded-r w-full bg-muted text-muted-foreground cursor-not-allowed dark:border-slate-700 dark:bg-slate-900/60" 
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Admin-set shipping cost used for reimbursement</p>
-              </div>
+              <DialogPrimitive.Description className="text-sm text-slate-500 dark:text-slate-400">
+                Fields marked read-only are managed by the admin and cannot be edited.
+              </DialogPrimitive.Description>
             </div>
           </div>
+          <DialogPrimitive.Close className="absolute right-6 top-6 rounded-md p-1 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100">
+            <X className="h-5 w-5" />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+        </div>
 
-          {/* Linked Supplies (Read-only) */}
-          {!!product?.linked_supplies?.length && (
-            <div className="border rounded-lg p-4 bg-muted/30">
-              <h3 className="text-sm font-semibold mb-3 text-muted-foreground">
-                Linked Required Supplies (Read-only)
-              </h3>
-              <div className="space-y-2">
-                {product.linked_supplies.map((supply) => (
-                  // Patient charge must use patient-facing pricing fields (not admin reimbursement costs).
-                  // billed supply patient charge = (discounted/base + shipping_fee_patient) * qty
-                  // included supply patient charge = 0
-                  <div
-                    key={supply.id}
-                    className="grid grid-cols-1 md:grid-cols-5 gap-2 text-sm border rounded px-3 py-2 bg-background dark:bg-slate-900/60"
-                  >
-                    <div className="md:col-span-2 font-medium">{supply.supply_product_name}</div>
-                    <div>Qty: {supply.quantity}</div>
-                    <div>{supply.is_included ? "Included (no extra charge)" : "Billed separately"}</div>
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        >
+          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain bg-slate-50 dark:bg-slate-950/30 px-8 py-6 [scrollbar-gutter:stable]">
+            <Panel
+              icon={<Box className="h-5 w-5" />}
+              title="Product Information"
+              badge="Admin-managed"
+              badgeIcon={<Lock className="h-3.5 w-3.5" />}
+            >
+              <div
+                className="grid gap-y-5"
+                style={{
+                  gridTemplateColumns: "260px minmax(0, 1fr)",
+                  columnGap: "32px",
+                }}
+              >
+                <ReadOnlyField
+                  label="Product Name"
+                  value={product?.name}
+                  strong
+                />
+                <ReadOnlyField
+                  label="Product Description"
+                  value={
+                    product?.description ||
+                    `${product?.name || "Product"} - prescription ${product?.rx_drug_form || "medication"} dispensed by ${product?.pharmacy_name || "the pharmacy"}.`
+                  }
+                  description
+                />
+              </div>
+              <div className="my-4 border-t border-slate-200 dark:border-slate-800" />
+              <div
+                className="grid"
+                style={{
+                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                  columnGap: "32px",
+                }}
+              >
+                <div className="space-y-4">
+                  <ReadOnlyField label="Product Type" value={titleCase(product?.product_type)} />
+                  <ReadOnlyField label="Pharmacy" value={product?.pharmacy_name || "-"} />
+                </div>
+                <div className="space-y-4">
+                  <ReadOnlyField label="Purchase Type" value={purchaseTypeLabel(product?.purchase_type)} />
+                  <ReadOnlyField label="Drug Form" value={titleCase(product?.rx_drug_form)} />
+                </div>
+                <div className="space-y-4">
+                  <ReadOnlyField label="RX / OTC" value={(product?.rx_or_otc || "-").toUpperCase()} />
+                  <ReadOnlyField label="RX Quantity" value={product?.rx_quantity || "-"} />
+                </div>
+              </div>
+            </Panel>
+
+            <Panel
+              icon={<DollarSign className="h-5 w-5" />}
+              title="Pricing & Profit"
+              badge="Editable"
+              badgeTone="green"
+            >
+              <div className="grid gap-4 md:grid-cols-3">
+                <MoneyInput
+                  label="Base Price (Patient)"
+                  helper="Retail price shown to patients"
+                  registration={register("base_price")}
+                />
+                <MoneyInput
+                  label="Discounted Price (Patient)"
+                  helper="Optional promotional price"
+                  registration={register("discounted_price")}
+                />
+                <MoneyInput
+                  label="Shipping Fee (Patient)"
+                  helper="Per-patient fee"
+                  registration={register("shipping_fee_patient")}
+                />
+              </div>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/20 p-5">
+                  <div className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100">
+                    Your cost
+                    <SmallBadge>
+                      <Lock className="h-3.5 w-3.5" />
+                      Admin-managed
+                    </SmallBadge>
+                  </div>
+                  <CostRow label="Cost to Client" value={money(costToClient)} />
+                  <CostRow label="Shipping cost" value={money(shippingCost)} />
+                  <div className="my-4 border-t border-slate-200 dark:border-slate-800" />
+                  <CostRow label="Total cost" value={money(totalCost)} strong />
+                </div>
+
+                <div className={cn("rounded-xl border p-5", profit < 0 ? "border-red-200/50 dark:border-red-950/30 bg-red-50/70 dark:bg-red-950/10" : "border-emerald-200/50 dark:border-emerald-950/30 bg-emerald-50/70 dark:bg-emerald-950/10")}>
+                  <div className="mb-4 text-sm font-bold text-slate-900 dark:text-slate-100">Profit breakdown</div>
+                  <CostRow label="Patient pays" value={money(effectivePatientPrice)} />
+                  <CostRow label="Shipping fee" value={`+ ${money(shippingFee)}`} />
+                  <CostRow label="Your cost" value={`- ${money(totalCost)}`} />
+                  <div className={cn("my-4 border-t", profit < 0 ? "border-red-200/30 dark:border-red-900/30" : "border-emerald-200/30 dark:border-emerald-900/30")} />
+                  <div className="flex items-center justify-between gap-3">
                     <div>
-                      {(() => {
-                        if (supply.is_included) return "Patient charge: Included";
-                        const qty = Number(supply.quantity || 1);
-                        const unitBase = Number(supply.base_price ?? 0);
-                        const unitDiscounted =
-                          supply.discounted_price !== undefined && supply.discounted_price !== null
-                            ? Number(supply.discounted_price)
-                            : null;
-                        const unitPatientPrice =
-                          unitDiscounted !== null && Number.isFinite(unitDiscounted) && unitDiscounted > 0
-                            ? unitDiscounted
-                            : unitBase;
-                        const unitShipping = Number(supply.shipping_fee_patient ?? 0);
-                        const total = (unitPatientPrice + unitShipping) * qty;
-                        return `Patient charge: ${toMoney(total)}`;
-                      })()}
+                      <div className="font-bold text-slate-900 dark:text-slate-100">Profit per order</div>
+                      <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">Excludes visit cost</div>
+                    </div>
+                    <div className="text-right">
+                      <div className={cn("text-2xl font-bold", profit < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400")}>{money(profit)}</div>
+                      <span className={cn("mt-1 inline-flex rounded-full px-2 py-0.5 text-xs font-bold", profit < 0 ? "bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400" : "bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400")}>
+                        {margin.toFixed(1)}%
+                      </span>
                     </div>
                   </div>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Supplies are configured by admin and automatically attached to this medication.
-                Included supplies do not add item or shipping charges to patient totals.
-              </p>
-            </div>
-          )}
-
-          {/* Editable Pricing Fields - Client sets patient pricing */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold">Your Pricing (Editable)</h3>
-            {isSupplyProduct && (
-              <p className="text-xs text-muted-foreground">
-                {isIncludedOnlySupply
-                  ? "This supply is currently linked only as Included. Pricing is locked because it does not create patient charges in this mode."
-                  : "For supplies, these prices apply only when a parent product marks this supply as Billed separately. If marked Included, patient is charged $0 for that supply."}
-              </p>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="text-sm font-medium">Base Price (Patient)</label>
-                <div className="flex items-center mt-1">
-                  <span className="border px-3 py-2 rounded-l bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">$</span>
-                  <input 
-                    type="number"
-                    step="0.01"
-                    {...register("base_price")} 
-                    disabled={isIncludedOnlySupply}
-                    className={`border border-l-0 px-3 py-2 rounded-r w-full dark:border-slate-700 ${
-                      isIncludedOnlySupply
-                        ? "bg-muted text-muted-foreground cursor-not-allowed dark:bg-slate-900/60"
-                        : "bg-background text-foreground dark:bg-slate-900"
-                    }`}
-                    placeholder="0.00"
-                  />
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Retail price shown to patients</p>
               </div>
-              
-              <div>
-                <label className="text-sm font-medium">Discounted Price (Patient)</label>
-                <div className="flex items-center mt-1">
-                  <span className="border px-3 py-2 rounded-l bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">$</span>
-                  <input 
-                    type="number"
-                    step="0.01"
-                    {...register("discounted_price")} 
-                    disabled={isIncludedOnlySupply}
-                    className={`border border-l-0 px-3 py-2 rounded-r w-full dark:border-slate-700 ${
-                      isIncludedOnlySupply
-                        ? "bg-muted text-muted-foreground cursor-not-allowed dark:bg-slate-900/60"
-                        : "bg-background text-foreground dark:bg-slate-900"
-                    }`}
-                    placeholder="0.00"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Optional promotional price</p>
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium">Shipping Fee (Patient)</label>
-                <div className="flex items-center mt-1">
-                  <span className="border px-3 py-2 rounded-l bg-gray-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">$</span>
-                  <input 
-                    type="number"
-                    step="0.01"
-                    {...register("shipping_fee_patient")} 
-                    disabled={isIncludedOnlySupply}
-                    className={`border border-l-0 px-3 py-2 rounded-r w-full dark:border-slate-700 ${
-                      isIncludedOnlySupply
-                        ? "bg-muted text-muted-foreground cursor-not-allowed dark:bg-slate-900/60"
-                        : "bg-background text-foreground dark:bg-slate-900"
-                    }`}
-                    placeholder="0.00"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Per-patient fee</p>
-              </div>
+            </Panel>
 
-              <div>
-                <label className="text-sm font-medium">Quantity</label>
-                <input 
-                  type="text" 
-                  {...register("quantity")} 
-                  className="border px-3 py-2 rounded w-full mt-1 bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
-                  placeholder="Available quantity"
-                />
-                <p className="text-xs text-muted-foreground mt-1">Available inventory</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Product Availability */}
-          <div className="border rounded-lg p-4 bg-muted/30">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h3 className="text-sm font-semibold">Availability</h3>
-                <p className="text-xs text-muted-foreground mt-1">
+            <Panel icon={<Power className="h-5 w-5" />} title="Availability">
+              <div className="flex items-center justify-between gap-6">
+                <p className="text-[15px] text-slate-500 dark:text-slate-400">
                   Inactive products are hidden from product selection in intake.
                 </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <div className="text-sm font-medium">
-                    {watch("is_active", true) ? "Active" : "Inactive"}
+                <div className="flex shrink-0 items-center gap-3">
+                  <div className="text-right">
+                    <div className="font-bold text-slate-900 dark:text-slate-100">{isActive ? "Active" : "Inactive"}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      {isActive ? "Shown in product selection" : "Hidden from product selection"}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {watch("is_active", true)
-                      ? "Visible in product selection"
-                      : "Hidden from product selection"}
-                  </div>
-                </div>
-                <Switch
-                  checked={watch("is_active", true)}
-                  onCheckedChange={(checked) => setValue("is_active", checked, { shouldDirty: true })}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Editable Content Fields */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold">Product Content (Editable)</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium">Description</label>
-                <textarea 
-                  rows={4} 
-                  {...register("description")} 
-                  className="border px-3 py-2 rounded w-full mt-1 bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
-                  placeholder="Enter product description"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Application Directions</label>
-                <textarea 
-                  rows={4} 
-                  {...register("application_directions")} 
-                  className="border px-3 py-2 rounded w-full mt-1 bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
-                  placeholder="How to use/apply the product"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Learn More</label>
-                <textarea 
-                  rows={4} 
-                  {...register("learn_more")} 
-                  className="border px-3 py-2 rounded w-full mt-1 bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
-                  placeholder="Additional information"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Safety Information</label>
-                <textarea 
-                  rows={4} 
-                  {...register("safety_information")} 
-                  className="border px-3 py-2 rounded w-full mt-1 bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
-                  placeholder="Safety information for patients"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Side Effects</label>
-                <textarea 
-                  rows={4} 
-                  {...register("side_effects")} 
-                  className="border px-3 py-2 rounded w-full mt-1 bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
-                  placeholder="Potential side effects"
-                />
-              </div>
-            </div>
-
-            <div className="col-span-2">
-              <label className="text-sm font-medium block mb-2">Product Image</label>
-              
-              {/* Show current image if exists */}
-              {product?.product_image && (
-                <div className="mb-3">
-                  <p className="text-xs text-muted-foreground mb-2">Current image:</p>
-                  <div className="relative inline-block">
-                    <img 
-                      src={product.product_image} 
-                      alt={product.name}
-                      className="max-w-xs max-h-48 rounded-lg border border-gray-200 dark:border-slate-700 object-contain"
-                      onError={(e) => {
-                        // Fallback if image fails to load
-                        e.currentTarget.style.display = 'none';
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={Boolean(isActive)}
+                    onClick={() => setValue("is_active", !isActive, { shouldDirty: true })}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border-0 p-0 transition-colors",
+                      isActive ? "bg-sky-400" : "bg-slate-300 dark:bg-slate-700"
+                    )}
+                  >
+                    <span
+                      className="inline-block h-5 w-5 rounded-full bg-white shadow transition-transform"
+                      style={{
+                        transform: isActive ? "translateX(22px)" : "translateX(2px)",
                       }}
                     />
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1 break-all">
-                    {product.product_image}
-                  </p>
+                  </button>
                 </div>
-              )}
-              
-              {/* File input */}
-              <input 
-                type="file" 
-                accept="image/*" 
-                onChange={(e) => setValue("product_image", e.target.files?.[0] ?? null)} 
-                className="border px-3 py-2 rounded w-full bg-background text-foreground dark:bg-slate-900 dark:border-slate-700" 
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Upload a new image to replace the current one
+              </div>
+            </Panel>
+
+            <Panel
+              icon={<MapPin className="h-5 w-5" />}
+              title="Service States"
+              rightBadge={`${activeStateCount} of ${availableServiceStates.length} active`}
+            >
+              <p className="text-[15px] text-slate-500 dark:text-slate-400">
+                Select the states where this assigned product should remain available. You can only choose states configured by admin.
               </p>
-            </div>
+              {adminAllowedStates.length ? (
+                <>
+                  <div className="mt-4 flex items-center gap-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 text-sm font-semibold text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800"
+                      onClick={() => setValue("service_states", availableServiceStates, { shouldDirty: true })}
+                    >
+                      Select all states
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-9 px-0 text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-transparent hover:text-slate-700 dark:hover:text-slate-350"
+                      onClick={() => setValue("service_states", [], { shouldDirty: true })}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {availableServiceStates.map((state) => {
+                      const checked = selectedServiceStates.includes(state)
+                      return (
+                        <button
+                          key={state}
+                          type="button"
+                          onClick={() => {
+                            const nextStates = checked
+                              ? selectedServiceStates.filter((item) => item !== state)
+                              : [...selectedServiceStates, state]
+                            setValue("service_states", nextStates, { shouldDirty: true })
+                          }}
+                          className={cn(
+                            "rounded-full border px-3 py-1 text-xs font-medium transition-colors min-w-[44px]",
+                            checked
+                              ? "border-sky-400 bg-sky-400 text-white"
+                              : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
+                          )}
+                        >
+                          {state}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              ) : (
+                <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+                  No explicit product-level states were configured by admin. This product inherits pharmacy coverage.
+                </p>
+              )}
+            </Panel>
+
+            <Panel
+              icon={<ImageIcon className="h-5 w-5" />}
+              title="Product Image"
+              badge="Editable"
+              badgeTone="green"
+            >
+              <div
+                className="grid items-start"
+                style={{
+                  gridTemplateColumns: "145px minmax(0, 1fr)",
+                  columnGap: "24px",
+                }}
+              >
+                <div className="min-w-0">
+                  <div className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-450">
+                    {selectedImageUrl ? "Selected" : "Current"}
+                  </div>
+                  <div
+                    className="flex items-center justify-center overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 w-[132px] h-[150px]"
+                  >
+                    {selectedImageUrl || product?.product_image ? (
+                      <img
+                        key={selectedImageUrl || product?.product_image}
+                        src={selectedImageUrl || product?.product_image}
+                        alt={product?.name || "Product"}
+                        className="h-full w-full object-contain"
+                        onError={(event) => {
+                          event.currentTarget.style.display = "none"
+                        }}
+                      />
+                    ) : (
+                      <ImageIcon className="h-8 w-8 text-slate-300" />
+                    )}
+                  </div>
+                  {imageName && (
+                    <div
+                      className="mt-2 truncate text-xs font-medium text-slate-900 dark:text-slate-200"
+                      style={{ maxWidth: "132px" }}
+                      title={imageName}
+                    >
+                      {imageName}
+                    </div>
+                  )}
+                  {!selectedImageUrl && product?.product_image && (
+                    <a
+                      href={product.product_image}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1 inline-block text-xs font-medium text-sky-500 hover:underline"
+                    >
+                      View original
+                    </a>
+                  )}
+                </div>
+
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-8 text-center transition-colors hover:border-sky-400"
+                  style={{
+                    minHeight: "242px",
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault()
+                      fileInputRef.current?.click()
+                    }
+                  }}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault()
+                    const file = event.dataTransfer.files?.[0]
+                    if (file && file.type.startsWith("image/")) {
+                      handleImageFileChange(file)
+                    }
+                  }}
+                >
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400">
+                    <ImageIcon className="h-5 w-5" />
+                  </span>
+                  <span className="mt-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {selectedImage instanceof File ? selectedImage.name : "Click to upload"}
+                  </span>
+                  <span className="text-sm text-slate-500 dark:text-slate-400">or drag and drop an image here</span>
+                  <span className="mt-2 rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    PNG or JPG - up to 5MB
+                  </span>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg"
+                  className="hidden"
+                  tabIndex={-1}
+                  aria-hidden
+                  onChange={(event) => handleImageFileChange(event.target.files?.[0] ?? null)}
+                />
+              </div>
+            </Panel>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t dark:border-slate-700 sticky bottom-0 bg-white dark:bg-slate-900">
+          <div className="flex shrink-0 justify-end gap-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-7 py-4 shadow-[0_-1px_3px_rgba(16,32,48,0.04)]">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              className="h-11 min-w-[93px] shrink-0 rounded-lg border-slate-200 dark:border-slate-800 px-5 text-sm font-medium text-slate-900 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 bg-transparent"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={loading}
+              className="h-11 min-w-[144px] shrink-0 whitespace-nowrap rounded-lg bg-sky-500 hover:bg-sky-600 px-5 text-sm font-semibold text-white"
             >
-              {loading ? "Saving…" : "Save"}
+              {loading ? "Saving..." : "Save Changes"}
             </Button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  )
+}
+
+function SectionIcon({ children }: { children: ReactNode }) {
+  return (
+    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400">
+      {children}
+    </span>
+  )
+}
+
+function Panel({
+  icon,
+  title,
+  badge,
+  badgeIcon,
+  badgeTone,
+  rightBadge,
+  children,
+}: {
+  icon: ReactNode
+  title: string
+  badge?: string
+  badgeIcon?: ReactNode
+  badgeTone?: "green"
+  rightBadge?: string
+  children: ReactNode
+}) {
+  return (
+    <section className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 px-5 py-4">
+        <div className="flex items-center gap-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-955 text-sky-600 dark:text-sky-400">
+            {icon}
+          </span>
+          <h3 className="font-bold text-slate-900 dark:text-slate-100">{title}</h3>
+          {badge && (
+            <SmallBadge tone={badgeTone}>
+              {badgeIcon}
+              {badge}
+            </SmallBadge>
+          )}
+        </div>
+        {rightBadge && (
+          <span className="rounded-full bg-sky-100 dark:bg-sky-950 px-4 py-1.5 text-sm font-bold text-sky-700 dark:text-sky-400">
+            {rightBadge}
+          </span>
+        )}
+      </div>
+      <div className="p-5">{children}</div>
+    </section>
+  )
+}
+
+function SmallBadge({
+  children,
+  tone,
+}: {
+  children: ReactNode
+  tone?: "green"
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold",
+        tone === "green"
+          ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400"
+          : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+      )}
+    >
+      {children}
+    </span>
+  )
+}
+
+function StatusBadge({ active }: { active: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex rounded-md px-3 py-1 text-sm font-semibold",
+        active ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400" : "bg-red-100 text-red-600 dark:bg-red-950/30 dark:text-red-400"
+      )}
+    >
+      {active ? "Active" : "Inactive"}
+    </span>
+  )
+}
+
+function ReadOnlyField({
+  label,
+  value,
+  strong,
+  className,
+  description,
+}: {
+  label: string
+  value?: ReactNode
+  strong?: boolean
+  className?: string
+  description?: boolean
+}) {
+  return (
+    <div className={className}>
+      <div className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        {label}
+      </div>
+      <div
+        className={cn(
+          "mt-1 text-[15px] font-medium leading-5 text-slate-955 dark:text-slate-200",
+          strong && "text-base font-semibold leading-6 text-slate-900 dark:text-slate-100",
+          description && "text-sm font-normal leading-6 text-slate-900 dark:text-slate-300"
+        )}
+      >
+        {value || "-"}
+      </div>
+    </div>
+  )
+}
+
+function MoneyInput({
+  label,
+  helper,
+  registration,
+}: {
+  label: string
+  helper: string
+  registration: UseFormRegisterReturn
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-semibold text-slate-500 dark:text-slate-400">{label}</label>
+      <div className="relative">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400">$</span>
+        <input
+          type="number"
+          step="0.01"
+          {...registration}
+          className="h-11 w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 pl-8 pr-3 text-[15px] text-slate-900 dark:text-slate-100 outline-none focus:border-sky-300 focus:ring-1 focus:ring-sky-300"
+          placeholder="0.00"
+        />
+      </div>
+      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{helper}</p>
+    </div>
+  )
+}
+
+function CostRow({
+  label,
+  value,
+  strong,
+}: {
+  label: string
+  value: string
+  strong?: boolean
+}) {
+  return (
+    <div className="mb-3 flex items-center justify-between gap-3 text-[15px]">
+      <span className="text-slate-500 dark:text-slate-400">{label}</span>
+      <span className={cn("text-slate-900 dark:text-slate-100", strong ? "font-bold" : "font-semibold")}>{value}</span>
+    </div>
   )
 }

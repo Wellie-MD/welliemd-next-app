@@ -22,7 +22,11 @@ import {
   CreditCard,
   Truck,
   Building2,
-  ClipboardList
+  ClipboardList,
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
+  RotateCw,
 } from "lucide-react"
 import { format } from "date-fns"
 import {
@@ -77,7 +81,9 @@ const statusColors: Record<string, string> = {
   prescribed: "bg-green-100 text-green-800",
   billing_pending: "bg-orange-100 text-orange-800",
   rx_sent: "bg-indigo-100 text-indigo-800",
+  in_fulfillment: "bg-blue-100 text-blue-800",
   shipped: "bg-emerald-100 text-emerald-800",
+  delivered: "bg-teal-100 text-teal-800",
   canceled: "bg-red-100 text-red-800",
 }
 
@@ -96,8 +102,21 @@ const statusLabels: Record<string, string> = {
   prescribed: "Prescribed",
   billing_pending: "Billing Pending",
   rx_sent: "Rx Sent",
+  in_fulfillment: "In Fulfillment",
   shipped: "Shipped",
+  delivered: "Delivered",
   canceled: "Canceled",
+}
+
+const getStatusIcon = (status: string) => {
+  const s = (status || "").toLowerCase()
+  if (s.includes("shipped") || s.includes("delivered") || s.includes("fulfillment")) return <Truck className="h-3.5 w-3.5" />
+  if (s.includes("prescribed") || s.includes("rx_sent") || s.includes("referred")) return <ClipboardList className="h-3.5 w-3.5" />
+  if (s.includes("scheduled") || s.includes("rescheduled")) return <Calendar className="h-3.5 w-3.5" />
+  if (s.includes("failed") || s.includes("cancel") || s.includes("no_show")) return <XCircle className="h-3.5 w-3.5" />
+  if (s.includes("pending") || s.includes("billing")) return <AlertCircle className="h-3.5 w-3.5" />
+  if (s.includes("captured") || s.includes("completed") || s.includes("refunded")) return <CheckCircle2 className="h-3.5 w-3.5" />
+  return <RotateCw className="h-3.5 w-3.5" />
 }
 
 export function OrderDetailsSheet({
@@ -305,7 +324,8 @@ export function OrderDetailsSheet({
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Badge className={statusColors[status] || "bg-gray-100 text-gray-800"}>
+                <Badge className={`inline-flex items-center gap-1.5 ${statusColors[status] || "bg-gray-100 text-gray-800"}`}>
+                  {getStatusIcon(status)}
                   {statusLabels[status] || status}
                 </Badge>
               </div>

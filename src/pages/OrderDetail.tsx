@@ -22,6 +22,9 @@ import {
   ClipboardList,
   Undo2,
   RotateCw,
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
 } from "lucide-react"
 import { format } from "date-fns"
 import { Loader2 } from "lucide-react"
@@ -72,8 +75,10 @@ const statusColors: Record<string, string> = {
   prescribed: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800",
   billing_pending: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800",
   rx_sent: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800",
+  in_fulfillment: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800",
   shipped: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
   in_transit: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
+  delivered: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800",
   canceled: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800",
 }
 
@@ -91,9 +96,22 @@ const statusLabels: Record<string, string> = {
   prescribed: "Prescribed",
   billing_pending: "Billing Pending",
   rx_sent: "Rx Sent",
+  in_fulfillment: "In Fulfillment",
   shipped: "Shipped",
   in_transit: "In Transit",
+  delivered: "Delivered",
   canceled: "Canceled",
+}
+
+const getStatusIcon = (status: string) => {
+  const s = (status || "").toLowerCase()
+  if (s.includes("shipped") || s.includes("delivered") || s.includes("fulfillment")) return <Truck className="h-3.5 w-3.5" />
+  if (s.includes("prescribed") || s.includes("rx_sent") || s.includes("referred")) return <Stethoscope className="h-3.5 w-3.5" />
+  if (s.includes("scheduled") || s.includes("rescheduled")) return <Calendar className="h-3.5 w-3.5" />
+  if (s.includes("failed") || s.includes("cancel") || s.includes("no_show")) return <XCircle className="h-3.5 w-3.5" />
+  if (s.includes("pending") || s.includes("billing")) return <AlertCircle className="h-3.5 w-3.5" />
+  if (s.includes("captured") || s.includes("completed") || s.includes("refunded")) return <CheckCircle2 className="h-3.5 w-3.5" />
+  return <RotateCw className="h-3.5 w-3.5" />
 }
 
 const recoveryStatusColors: Record<string, string> = {
@@ -110,6 +128,7 @@ type TimelineItem = {
   description?: string
   icon: "schedule" | "payments" | "prescriptions" | "medical_services" | "local_shipping"
   iconBg: string
+  actions?: Array<{ label: string; url: string }>
 }
 
 const normalizeGateway = (value?: string | null): PatientPaymentGateway | null => {
@@ -137,7 +156,6 @@ export default function OrderDetail() {
   const [showPatientResponses, setShowPatientResponses] = useState(false)
   const [showRefundDialog, setShowRefundDialog] = useState(false)
   const [refundAmount, setRefundAmount] = useState("")
-  const [refundTarget, setRefundTarget] = useState<"auto" | "base" | "supplemental">("auto")
   const [refundReason, setRefundReason] = useState("customer_request")
   const [refundReasonDescription, setRefundReasonDescription] = useState("")
   const [refundNotes, setRefundNotes] = useState("")
@@ -249,18 +267,6 @@ export default function OrderDetail() {
     const amount = order?.refundableAmount ? parseFloat(order.refundableAmount) : 0
     return Number.isNaN(amount) ? 0 : amount
   }, [order?.refundableAmount])
-
-  const baseRemainingRefundable = useMemo(() => {
-    const amount = order?.baseRefundableAmount ? parseFloat(order.baseRefundableAmount) : 0
-    return Number.isNaN(amount) ? 0 : amount
-  }, [order?.baseRefundableAmount])
-
-  const supplementalRemainingRefundable = useMemo(() => {
-    const amount = order?.supplementalRefundableAmount
-      ? parseFloat(order.supplementalRefundableAmount)
-      : 0
-    return Number.isNaN(amount) ? 0 : amount
-  }, [order?.supplementalRefundableAmount])
 
   const appliedCouponCodes = useMemo(() => {
     if (!order) return ""
@@ -443,7 +449,10 @@ export default function OrderDetail() {
   const paymentStatus = (order.paymentStatus || "").toLowerCase()
   const settlementState = (order.payment_settlement_state || "").toLowerCase()
   const isAuthorized = paymentStatus === "authorized"
-  const isRefundable = remainingRefundable > 0
+  const isRefundable =
+    paymentStatus === "captured" ||
+    paymentStatus === "approved" ||
+    paymentStatus === "succeeded"
   const isLocked = isAuthorized || isRefundable
   const isPending = paymentStatus === "pending" || !paymentStatus
   const paymentCaptured = isRefundable || settlementState === "captured"
@@ -579,27 +588,17 @@ export default function OrderDetail() {
         toast({ title: "Refund amount exceeds remaining refundable amount", variant: "destructive" })
         return
       }
-      if (refundTarget === "base" && amountNum > baseRemainingRefundable) {
-        toast({ title: "Refund amount exceeds base refundable amount", variant: "destructive" })
-        return
-      }
-      if (refundTarget === "supplemental" && amountNum > supplementalRemainingRefundable) {
-        toast({ title: "Refund amount exceeds supplemental refundable amount", variant: "destructive" })
-        return
-      }
     }
     try {
       setRefundLoading(true)
       await ordersApi.refundOrder(order.id, {
         amount: isRefundable ? refundAmount : undefined,
-        refund_target: refundTarget,
         reason: refundReason,
         reason_description: refundReasonDescription,
         notes: refundNotes,
       })
       setShowRefundDialog(false)
       setRefundAmount("")
-      setRefundTarget("auto")
       setRefundReasonDescription("")
       setRefundNotes("")
       toast({ title: isAuthorized ? "Authorization voided" : "Refund processed" })
@@ -778,26 +777,207 @@ export default function OrderDetail() {
 
   const eventTimelineItems: TimelineItem[] = Array.isArray(order.activity_events)
     ? order.activity_events.map((evt) => {
+      const payload = (evt.payload && typeof evt.payload === "object") ? evt.payload as Record<string, unknown> : {}
       const status = (evt.status || "").toLowerCase()
+      const eventType = (evt.event_type || "").toLowerCase()
       let icon: TimelineItem["icon"] = "schedule"
       let iconBg = "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800"
-      if (status.includes("payment") || evt.event_type.includes("payment")) {
+      if (status.includes("payment") || eventType.includes("payment")) {
         icon = "payments"
         iconBg = "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800"
-      } else if (status === "prescribed" || status === "rx_sent") {
-        icon = "prescriptions"
-      } else if (status === "visit_pending" || status === "visit_failed") {
+      } else if (eventType.startsWith("lab.") || eventType.includes("lab_")) {
         icon = "medical_services"
       } else if (status === "shipped" || status === "in_transit") {
+        iconBg = "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 border-4 border-white dark:border-slate-800"
+      } else if (status === "prescribed" || status === "rx_sent" || status === "referred") {
+        icon = "prescriptions"
+        iconBg = "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-4 border-white dark:border-slate-800"
+      } else if (
+        status === "visit_pending" ||
+        status === "visit_failed" ||
+        status === "consult_scheduled" ||
+        status === "consult_rescheduled"
+      ) {
+        icon = "medical_services"
+        iconBg = "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border-4 border-white dark:border-slate-800"
+      } else if (status === "in_fulfillment" || eventType.includes("in_fulfillment")) {
+        icon = "local_shipping"
+        iconBg = "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-4 border-white dark:border-slate-800"
+      } else if (status === "shipped") {
         icon = "local_shipping"
         iconBg = "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-4 border-white dark:border-slate-800"
+      } else if (status === "delivered" || eventType.includes("delivered")) {
+        icon = "local_shipping"
+        iconBg = "bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 border-4 border-white dark:border-slate-800"
+      } else if (status.includes("cancel") || status.includes("no_show")) {
+        icon = "schedule"
+        iconBg = "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-4 border-white dark:border-slate-800"
+      } else if (status.includes("processing") || status.includes("created")) {
+        icon = "schedule"
+        iconBg = "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-4 border-white dark:border-slate-800"
       }
+
+      const toUrl = (raw: unknown): string | null => {
+        if (typeof raw !== "string") return null
+        const trimmed = raw.trim()
+        if (!trimmed) return null
+        if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:application/pdf;base64,")) return trimmed
+        return null
+      }
+      const info = payload.info && typeof payload.info === "object" ? payload.info as Record<string, unknown> : {}
+      const pick = (obj: Record<string, unknown>, ...keys: string[]): string | null => {
+        for (const key of keys) {
+          const value = obj[key]
+          if (typeof value === "string" && value.trim()) return value.trim()
+        }
+        return null
+      }
+
+      const rawLabReqPdf = pick(payload, "labReqPdf")
+      const requisitionFromPdf = rawLabReqPdf && !rawLabReqPdf.startsWith("http") && !rawLabReqPdf.startsWith("data:")
+        ? `data:application/pdf;base64,${rawLabReqPdf}`
+        : toUrl(rawLabReqPdf)
+
+      const requisitionUrl =
+        toUrl(payload.requisition_pdf_url) ||
+        toUrl(payload.requisition_url) ||
+        toUrl(payload.requisition_link) ||
+        requisitionFromPdf
+
+      const bookingUrl =
+        toUrl(payload.booking_link) ||
+        toUrl(payload.booking_url) ||
+        toUrl(payload.result_booking_link) ||
+        toUrl(payload.result_booking_url) ||
+        toUrl(payload.bookingLink)
+
+      const trackingUrl =
+        toUrl(payload.tracking_url) ||
+        toUrl(payload.tracking_link) ||
+        toUrl(payload.tracking_link_url) ||
+        toUrl(payload.trackingUrl) ||
+        (
+          payload.info && typeof payload.info === "object"
+            ? toUrl((payload.info as Record<string, unknown>).trackingUrl) ||
+            toUrl((payload.info as Record<string, unknown>).tracking_url)
+            : null
+        )
+      const trackingNumber =
+        pick(payload, "trackingNumber", "tracking") ||
+        pick(info, "tracking")
+      const carrier =
+        pick(payload, "carrier") ||
+        pick(info, "carrier")
+
+      const actions: Array<{ label: string; url: string }> = []
+      if (requisitionUrl) actions.push({ label: "Requisition", url: requisitionUrl })
+      if (bookingUrl) actions.push({ label: "Book", url: bookingUrl })
+      if (trackingUrl) actions.push({ label: "Track", url: trackingUrl })
+      else if (trackingNumber) {
+        const carrierLower = (carrier || "").toLowerCase()
+        const fallbackTrackingUrl = carrierLower.includes("fedex")
+          ? `https://www.fedex.com/en-us/tracking.html?tracknumbers=${encodeURIComponent(trackingNumber)}`
+          : carrierLower.includes("ups")
+            ? `https://www.ups.com/track?tracknum=${encodeURIComponent(trackingNumber)}`
+            : `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(trackingNumber)}`
+        actions.push({ label: carrier ? `Track ${carrier}` : "Track", url: fallbackTrackingUrl })
+      }
+      const resultPdfUrl = toUrl(payload.resultPdfUrl) || toUrl(payload.result_pdf_url)
+      if (resultPdfUrl) actions.push({ label: "Report", url: resultPdfUrl })
+
+      const labDescription = (() => {
+        if (!(eventType.startsWith("lab.") || eventType.includes("lab_"))) return undefined
+        if (eventType.includes("results")) {
+          return pick(payload, "resultSummary", "testResult") || evt.description || "Lab results are available."
+        }
+        if (eventType.includes("shipped_to_patient") || eventType.includes("shipped-to-patient") || eventType.includes("shipped_to_lab") || eventType.includes("shipped-to-lab")) {
+          const tracking = trackingNumber
+          if (carrier && tracking) return `Carrier: ${carrier} • Tracking: ${tracking}`
+          if (carrier) return `Carrier: ${carrier}`
+          if (tracking) return `Tracking: ${tracking}`
+          return "Shipment update received from lab."
+        }
+        if (eventType.includes("delivered_to_patient") || eventType.includes("delivered-to-patient")) {
+          const proof = pick(payload, "deliveryProof")
+          return proof ? `Delivery proof: ${proof.replace(/_/g, " ")}` : "Lab kit delivered to patient."
+        }
+        if (eventType.includes("received_by_lab") || eventType.includes("received-by-lab")) {
+          const specimen = payload.specimen && typeof payload.specimen === "object" ? payload.specimen as Record<string, unknown> : null
+          const accession = specimen?.accessionNumber
+          if (typeof accession === "string" && accession.trim()) return `Accession: ${accession.trim()}`
+          return "Lab has received the specimen and started processing."
+        }
+        if (eventType.includes("requisition_created") || eventType.includes("requisition-created")) {
+          return rawLabReqPdf ? "Requisition generated and ready to download." : "Requisition event received."
+        }
+        if (eventType.includes("order_created") || eventType.includes("order-created")) {
+          const method = pick(payload, "labMethod")
+          const panel = pick(payload, "panel")
+          if (method && panel) return `Method: ${method} • Panel: ${panel}`
+          if (method) return `Method: ${method}`
+          if (panel) return `Panel: ${panel}`
+          return "Lab order created."
+        }
+        return evt.description || "Lab update received."
+      })()
+
+      const cleanDescription = (evt: any, baseDesc?: string) => {
+        const desc = baseDesc || evt.description || ""
+        if (evt.event_type === "rx_revision" && desc.includes("Newly prescribed: ")) {
+          const match = desc.match(/Newly prescribed:\s*([\s\S]*?)(?=(?:\.\s*|\n)(?:Supplemental|Refund)|$)/)
+          if (match) {
+            let newDesc = `Prescribed: ${match[1].trim()}`
+            if (!newDesc.endsWith(".")) newDesc += "."
+            if (desc.includes("Supplemental capture triggered")) {
+              const suppMatch = desc.match(/(Supplemental capture triggered for \$[\d,.]+)/)
+              if (suppMatch) newDesc += `\n${suppMatch[1]}.`
+            }
+            if (desc.includes("Refund required")) {
+              const refundMatch = desc.match(/(Refund required for \$[\d,.]+)/)
+              if (refundMatch) newDesc += `\n${refundMatch[1]}.`
+            }
+            return newDesc
+          }
+        }
+
+        // Inject prescribed product into initial Prescribed event if missing
+        if (evt.event_type === "status.prescribed" && !desc.includes("Prescribed: ")) {
+          let pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
+
+          // If there are revisions, the CURRENT product name might not be the INITIAL one.
+          // We can find the initial product from the FIRST rx_revision event.
+          const firstRxRevision = Array.isArray(order.activity_events)
+            ? order.activity_events.find((e: any) => e.event_type === "rx_revision")
+            : null;
+
+          if (firstRxRevision && firstRxRevision.description) {
+            const rxDesc = firstRxRevision.description;
+            const prevMatch = rxDesc.match(/Previously prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
+            if (prevMatch && prevMatch[1]) {
+              pName = prevMatch[1].trim();
+            } else if (rxDesc.includes("Prescribed: ")) {
+              const newMatch = rxDesc.match(/Prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
+              if (newMatch && newMatch[1]) {
+                pName = newMatch[1].trim();
+              }
+            }
+          }
+
+          if (pName && pName.toLowerCase() !== "same med" && pName.toLowerCase() !== "same medicine" && pName !== "Unknown Product") {
+            return `${desc}\nPrescribed: ${pName}.`
+          }
+        }
+
+        return desc || undefined
+      }
+
       return {
         title: evt.title || evt.event_type.replace(/\./g, " "),
         date: formatDateTime(evt.occurred_at),
-        description: evt.description || undefined,
+        description: cleanDescription(evt, labDescription),
         icon,
         iconBg,
+        actions,
       }
     })
     : []
@@ -814,13 +994,6 @@ export default function OrderDetail() {
     if (value === null || value === undefined || Number.isNaN(value)) return "0.00"
     return value.toFixed(2)
   }
-  const settlementTransactions = Array.isArray(order.payment_settlement_transactions)
-    ? order.payment_settlement_transactions
-    : []
-  const standaloneCapturedAmount = settlementTransactions.reduce((total, tx) => {
-    if ((tx.settlement_role || "").toLowerCase() !== "standalone") return total
-    return total + (parseMoney(tx.amount) ?? 0)
-  }, 0)
 
   const rawRemainingSupplementalAmount = parseMoney(order.remaining_supplemental_amount)
   const prescribedFinalAmount = parseMoney(order.prescribed_final_amount)
@@ -846,6 +1019,7 @@ export default function OrderDetail() {
   const settlementAmount = parseMoney((order as Order & { payment_settlement_amount?: string | number | null }).payment_settlement_amount)
   const chargeableAmount = parseMoney((order as Order & { chargeable_amount?: string | number | null }).chargeable_amount)
   const refundedAmount = parseMoney(order.totalRefunded) ?? 0
+  const netCollectedAmount = parseMoney(order.netCollected)
   const netTotalAmount =
     totalAmount != null
       ? Math.max(0, totalAmount - refundedAmount)
@@ -895,9 +1069,19 @@ export default function OrderDetail() {
       ? medicationSubtotalAfterDiscount + discountAmount
       : null
 
+  const chargeableAmountSource = order.chargeable_amount_source || "requested_medicine"
+  const prescribedDisplayTotal = settlementState === "captured"
+    ? settlementAmount
+    : (prescribedFinalAmount ?? chargeableAmount)
+
+  const shouldPreferPrescribedDisplay =
+    pendingProductChange == null &&
+    chargeableAmountSource === "prescribed_medicine" &&
+    prescribedDisplayTotal != null
+
   const previewOriginalPrice = pendingProductChange != null
     ? pendingProductChange.subtotal
-    : originalPrice
+    : (shouldPreferPrescribedDisplay ? (parseMoney(order.original_price) ?? originalPrice) : originalPrice)
 
   const previewDiscountAmount = pendingProductChange != null
     ? pendingProductChange.discountAmount
@@ -911,16 +1095,6 @@ export default function OrderDetail() {
     ? pendingProductChange.shippingFee
     : shippingFee
 
-  const chargeableAmountSource = order.chargeable_amount_source || "requested_medicine"
-  const prescribedDisplayTotal = settlementState === "captured"
-    ? settlementAmount
-    : (prescribedFinalAmount ?? chargeableAmount)
-
-  const shouldPreferPrescribedDisplay =
-    pendingProductChange == null &&
-    chargeableAmountSource === "prescribed_medicine" &&
-    prescribedDisplayTotal != null
-
   const calculatedTotal = hasBreakdown
     ? ((productSubtotalAfterDiscount ?? 0) + (shippingFee ?? 0))
     : totalAmount
@@ -930,50 +1104,27 @@ export default function OrderDetail() {
     : (shouldPreferPrescribedDisplay ? prescribedDisplayTotal : calculatedTotal)
 
   const previewNetTotal = previewTotal != null
-    ? Math.max(0, previewTotal - refundedAmount)
+    ? (shouldPreferPrescribedDisplay ? previewTotal : Math.max(0, previewTotal - refundedAmount))
     : netTotalAmount
 
-  // In split-capture rows, prefer explicit base/supplemental contract fields and
-  // fall back to the displayed prescribed total only if the component amounts are
-  // unavailable on older records.
+  // In split-capture rows, always reconcile remaining amount against the
+  // currently displayed prescribed total to avoid stale-context mismatch.
   const effectivePrescribedTotalForSplit =
     hasSplitSettlement
       ? (shouldPreferPrescribedDisplay ? prescribedDisplayTotal : previewTotal)
       : null
-  const splitComponentCapturedTotal =
+  const splitCapturedSoFar =
     (baseCapturedAmount ?? 0) + (supplementalCapturedAmount ?? 0)
-  const hasStandaloneFullCapture =
-    hasSplitSettlement &&
-    settlementState === "captured" &&
-    standaloneCapturedAmount > 0 &&
-    effectivePrescribedTotalForSplit != null &&
-    standaloneCapturedAmount >= Math.max(0, effectivePrescribedTotalForSplit - 0.01)
-  const splitCapturedSoFar = hasStandaloneFullCapture
-    ? standaloneCapturedAmount
-    : splitComponentCapturedTotal
   const derivedRemainingSupplemental =
     hasSplitSettlement && effectivePrescribedTotalForSplit != null
       ? Math.max(0, effectivePrescribedTotalForSplit - splitCapturedSoFar)
       : null
-  const splitRemainingBaseAmount = hasSplitSettlement
-    ? hasStandaloneFullCapture
-      ? 0
-      : Math.max(0, (baseCaptureAmount ?? 0) - (baseCapturedAmount ?? 0))
-    : null
-  const splitRemainingSupplementalAmount = hasSplitSettlement
-    ? hasStandaloneFullCapture
-      ? 0
-      : Math.max(0, (supplementalDeltaAmount ?? 0) - (supplementalCapturedAmount ?? 0))
-    : null
-  const remainingToCaptureAmount = hasSplitSettlement
-    ? (
-      splitRemainingBaseAmount != null && splitRemainingSupplementalAmount != null
-        ? splitRemainingBaseAmount + splitRemainingSupplementalAmount
-        : (derivedRemainingSupplemental != null ? derivedRemainingSupplemental : rawRemainingSupplementalAmount)
-    )
-    : (derivedRemainingSupplemental != null ? derivedRemainingSupplemental : rawRemainingSupplementalAmount)
-  const hasRemainingToCapture =
-    isPrescribedStatus && remainingToCaptureAmount != null && remainingToCaptureAmount > 0
+  const remainingSupplementalAmount =
+    derivedRemainingSupplemental != null
+      ? derivedRemainingSupplemental
+      : rawRemainingSupplementalAmount
+  const hasRemainingSupplemental =
+    isPrescribedStatus && remainingSupplementalAmount != null && remainingSupplementalAmount > 0
 
   const baseCapturedDisplay = hasSplitSettlement
     ? formatMoney(baseCapturedAmount ?? 0)
@@ -984,28 +1135,15 @@ export default function OrderDetail() {
   const prescribedFinalDisplay = hasSplitSettlement
     ? formatMoney(effectivePrescribedTotalForSplit ?? prescribedFinalAmount ?? 0)
     : null
-  const splitRemainingBaseDisplay = hasSplitSettlement
-    ? formatMoney(splitRemainingBaseAmount ?? 0)
-    : null
-  const splitRemainingSupplementalDisplay = hasSplitSettlement
-    ? formatMoney(splitRemainingSupplementalAmount ?? 0)
-    : null
-  const splitRemainingTotalDisplay = hasSplitSettlement
-    ? formatMoney(remainingToCaptureAmount ?? 0)
-    : null
 
-  const retryAmount = hasRemainingToCapture
-    ? remainingToCaptureAmount
+  const retryAmount = hasRemainingSupplemental
+    ? remainingSupplementalAmount
     : (totalAmount ?? previewTotal ?? netTotalAmount)
-  const canRetryPayment = hasRemainingToCapture || baseRetryEligibility
-  const paymentInfoAmount = hasSplitSettlement
-    ? formatMoney(splitCapturedSoFar)
-    : hasRemainingToCapture
-      ? formatMoney(remainingToCaptureAmount)
-      : formatMoney(previewNetTotal)
-  const paymentInfoAmountLabel = hasSplitSettlement
-    ? "Captured total"
-    : (hasRemainingToCapture ? "Remaining to Capture" : "Amount")
+  const canRetryPayment = hasRemainingSupplemental || baseRetryEligibility
+  const paymentInfoAmount = hasRemainingSupplemental
+    ? formatMoney(remainingSupplementalAmount)
+    : formatMoney(isRefundable || refundedAmount > 0 ? remainingRefundable : previewNetTotal)
+  const paymentInfoAmountLabel = hasRemainingSupplemental ? "Remaining to Capture" : "Amount"
 
   const displayQuantity = String(qty)
   const requestedMedicineName =
@@ -1093,6 +1231,9 @@ export default function OrderDetail() {
     parseMoney(order.requested_medicines?.[0]?.price) ??
     parseMoney(order.pricing?.subtotal_before_discount ?? order.original_price) ??
     0
+  const requestedProductShippingAmount =
+    parseMoney(order.requested_medicines?.[0]?.shipping_fee) ??
+    0
 
   const itemPrice = formatMoney(displayItemUnitPrice)
   const lineTotalPrice = formatMoney(displayLineTotal)
@@ -1103,6 +1244,7 @@ export default function OrderDetail() {
   )
   const totalPrice = formatMoney(previewTotal)
   const netTotalPrice = formatMoney(previewNetTotal)
+  const netCollectedPrice = formatMoney(netCollectedAmount ?? previewNetTotal)
 
   const TimelineIcon = ({ name, iconBg }: { name: TimelineItem["icon"]; iconBg: string }) => {
     const iconMap = {
@@ -1123,17 +1265,9 @@ export default function OrderDetail() {
   const retryGatewayLabel = gatewayLabel(retryGateway)
   const orderProcessorGateway = normalizeGateway(order?.paymentProcessor)
   const orderProcessorGatewayLabel = gatewayLabel(orderProcessorGateway)
-  const retryAmountLabel = hasSplitSettlement
-    ? "Total remaining to capture"
-    : (hasRemainingToCapture ? "Remaining to capture" : "Amount to retry")
-  const retryModalDescription = hasSplitSettlement
-    ? (
-      (splitRemainingBaseAmount ?? 0) > 0 && (splitRemainingSupplementalAmount ?? 0) > 0
-        ? `This retry charges the remaining base and supplemental split amounts via ${retryGatewayLabel}.`
-        : (splitRemainingBaseAmount ?? 0) > 0
-          ? `This retry charges the remaining base amount via ${retryGatewayLabel}.`
-          : `This retry charges the remaining supplemental amount via ${retryGatewayLabel}.`
-    )
+  const retryAmountLabel = hasRemainingSupplemental ? "Remaining supplemental amount" : "Amount to retry"
+  const retryModalDescription = hasRemainingSupplemental
+    ? `This retry charges only the remaining supplemental amount via ${retryGatewayLabel}.`
     : `Select a saved card to retry the patient charge via ${retryGatewayLabel}.`
   const retryGatewayMismatch =
     Boolean(retryGateway && orderProcessorGateway) && retryGateway !== orderProcessorGateway
@@ -1145,6 +1279,10 @@ export default function OrderDetail() {
         : orderProcessorGateway === "authorize_net"
           ? "Authorize.Net Trans ID"
           : "Processor Ref"
+  const settlementTransactions = Array.isArray(order.payment_settlement_transactions)
+    ? order.payment_settlement_transactions
+    : []
+
   return (
     <div className="p-6 lg:p-8">
       {/* Breadcrumbs & Title */}
@@ -1403,7 +1541,7 @@ export default function OrderDetail() {
 
                       <tr>
                         <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                          Requested Product Amount:
+                          Request Product Amount:
                         </td>
                         <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
                           ${formatMoney(requestedProductAmount)}
@@ -1421,7 +1559,7 @@ export default function OrderDetail() {
                       )}
                       <tr>
                         <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                          Requested Product Subtotal:
+                          Request Product Subtotal:
                         </td>
                         <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
                           ${formatMoney(Math.max(0, requestedProductAmount - previewDiscountAmount))}
@@ -1429,10 +1567,10 @@ export default function OrderDetail() {
                       </tr>
                       <tr>
                         <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                          Requested Product Shipping:
+                          Request Product Shipping:
                         </td>
                         <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                          ${formatMoney(previewShippingFee)}
+                          ${formatMoney(requestedProductShippingAmount)}
                         </td>
                       </tr>
 
@@ -1459,40 +1597,13 @@ export default function OrderDetail() {
                         </>
                       )}
 
-                      {hasSplitSettlement ? (
-                        <>
-                          <tr>
-                            <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400" colSpan={3}>
-                              Remaining Base to Capture:
-                            </td>
-                            <td className="px-6 py-3 text-right font-medium text-amber-600 dark:text-amber-400">
-                              ${splitRemainingBaseDisplay}
-                            </td>
-                          </tr>
-                          <tr>
-                            <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400" colSpan={3}>
-                              Remaining Supplemental to Capture:
-                            </td>
-                            <td className="px-6 py-3 text-right font-medium text-amber-600 dark:text-amber-400">
-                              ${splitRemainingSupplementalDisplay}
-                            </td>
-                          </tr>
-                          <tr>
-                            <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400" colSpan={3}>
-                              Total Remaining to Capture:
-                            </td>
-                            <td className="px-6 py-3 text-right font-medium text-amber-600 dark:text-amber-400">
-                              ${splitRemainingTotalDisplay}
-                            </td>
-                          </tr>
-                        </>
-                      ) : hasRemainingToCapture && (
+                      {hasRemainingSupplemental && (
                         <tr>
                           <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400" colSpan={3}>
-                            Remaining to Capture:
+                            Remaining Supplemental Amount:
                           </td>
                           <td className="px-6 py-3 text-right font-medium text-amber-600 dark:text-amber-400">
-                            ${formatMoney(remainingToCaptureAmount)}
+                            ${formatMoney(remainingSupplementalAmount)}
                           </td>
                         </tr>
                       )}
@@ -1622,10 +1733,11 @@ export default function OrderDetail() {
                 <h3 className="font-semibold text-slate-900 dark:text-white">Order Status</h3>
                 <span
                   className={cn(
-                    "px-2.5 py-0.5 rounded-full text-xs font-medium border",
+                    "px-2.5 py-0.5 rounded-full text-xs font-medium border inline-flex items-center gap-1.5",
                     statusColors[status] || "bg-slate-100 text-slate-700 border-slate-200"
                   )}
                 >
+                  {getStatusIcon(status)}
                   {statusDisplay.toUpperCase().replace(/_/g, " ")}
                 </span>
                 {paymentRecoveryLabel ? (
@@ -1663,7 +1775,22 @@ export default function OrderDetail() {
                           <span className="text-xs text-slate-400 whitespace-nowrap">{item.date}</span>
                         </div>
                         {item.description && (
-                          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{item.description}</p>
+                          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 whitespace-pre-line">{item.description}</p>
+                        )}
+                        {item.actions && item.actions.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {item.actions.map((action) => (
+                              <a
+                                key={`${item.title}-${action.label}-${action.url}`}
+                                href={action.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center rounded-md border px-2 py-1 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800"
+                              >
+                                {action.label}
+                              </a>
+                            ))}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1831,8 +1958,13 @@ export default function OrderDetail() {
                       <p className="font-mono text-slate-700 dark:text-slate-300 text-xs break-all">{order.tracking_number || "—"}</p>
                     </div>
                     <div>
+                      <p className="text-xs text-slate-500 mb-0.5">Carrier</p>
+                      <p className="text-slate-700 dark:text-slate-300">{order.shipping_carrier || "—"}</p>
+                    </div>
+                    <div>
                       <p className="text-xs text-slate-500 mb-0.5">Status</p>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+                        {getStatusIcon(status)}
                         {statusDisplay}
                       </span>
                     </div>
@@ -2009,22 +2141,6 @@ export default function OrderDetail() {
                   )}
                 </div>
               </div>
-              {hasSplitSettlement && (
-                <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-3 space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 dark:text-slate-400">Remaining base to capture</span>
-                    <span className="font-medium text-slate-900 dark:text-white">${splitRemainingBaseDisplay}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 dark:text-slate-400">Remaining supplemental to capture</span>
-                    <span className="font-medium text-slate-900 dark:text-white">${splitRemainingSupplementalDisplay}</span>
-                  </div>
-                  <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-2">
-                    <span className="font-semibold text-slate-900 dark:text-white">Total remaining to capture</span>
-                    <span className="font-semibold text-slate-900 dark:text-white">${splitRemainingTotalDisplay}</span>
-                  </div>
-                </div>
-              )}
               {refundedAmount > 0 && (
                 <div className="flex justify-between">
                   <span className="text-slate-500 dark:text-slate-400">Refunded</span>
@@ -2034,13 +2150,15 @@ export default function OrderDetail() {
               {refundedAmount > 0 && (
                 <div className="flex justify-between">
                   <span className="text-slate-500 dark:text-slate-400">Net Collected</span>
-                  <span className="text-slate-900 dark:text-white font-medium">${netTotalPrice}</span>
+                  <span className="text-slate-900 dark:text-white font-medium">${netCollectedPrice}</span>
                 </div>
               )}
-              <div className="pt-3 border-t border-border flex justify-between items-center mt-2">
+              <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-border pt-3">
                 <span className="text-slate-900 dark:text-white font-bold">{paymentInfoAmountLabel}</span>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-slate-900 dark:text-white font-bold">${paymentInfoAmount}</span>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <span className="min-w-14 text-right text-xs font-bold tabular-nums text-slate-900 dark:text-white">
+                    ${paymentInfoAmount}
+                  </span>
                   {canRetryPayment && (
                     <PermissionGate permission={Permissions.ORDER_UPDATE}>
                       <Button
@@ -2055,14 +2173,24 @@ export default function OrderDetail() {
                   )}
                   {canRefundOrVoid && (
                     <PermissionGate permission={Permissions.REFUND_CREATE}>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-[10px] h-6 border-red-200 text-red-500 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400"
-                        onClick={() => setShowRefundDialog(true)}
-                      >
-                        <Undo2 className="h-3 w-3 mr-1" /> Refund
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {order.rx_revision_tag === "refund_required" && (
+                          <span className="whitespace-nowrap rounded border border-red-200 bg-red-100 px-2 py-1 text-xs font-bold tabular-nums text-red-600 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
+                            Refund Required
+                          </span>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-[10px] h-6 border-red-200 text-red-500 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400"
+                          onClick={() => {
+                            setRefundAmount("");
+                            setShowRefundDialog(true);
+                          }}
+                        >
+                          <Undo2 className="h-3 w-3 mr-1" /> Refund
+                        </Button>
+                      </div>
                     </PermissionGate>
                   )}
                 </div>
@@ -2097,29 +2225,10 @@ export default function OrderDetail() {
               ) : null}
             </div>
 
-            {hasSplitSettlement && (
-              <div className="rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-3 text-sm space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Remaining base to capture</span>
-                  <span className="font-medium text-slate-900 dark:text-white">${splitRemainingBaseDisplay}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Remaining supplemental to capture</span>
-                  <span className="font-medium text-slate-900 dark:text-white">${splitRemainingSupplementalDisplay}</span>
-                </div>
-                <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-2">
-                  <span className="font-semibold text-slate-900 dark:text-white">Total remaining to capture</span>
-                  <span className="font-semibold text-slate-900 dark:text-white">${splitRemainingTotalDisplay}</span>
-                </div>
-              </div>
-            )}
-
-            {!hasSplitSettlement && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-500 dark:text-slate-400">{retryAmountLabel}</span>
-                <span className="text-slate-900 dark:text-white font-medium">${formatMoney(retryAmount)}</span>
-              </div>
-            )}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-500 dark:text-slate-400">{retryAmountLabel}</span>
+              <span className="text-slate-900 dark:text-white font-medium">${formatMoney(retryAmount)}</span>
+            </div>
 
             {paymentMethodsLoading && (
               <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
@@ -2223,29 +2332,6 @@ export default function OrderDetail() {
                 <p className="text-xs text-muted-foreground">
                   Remaining refundable: ${remainingRefundable.toFixed(2)}
                 </p>
-              </div>
-            )}
-            {isRefundable && supplementalRemainingRefundable > 0 && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Refund Target</label>
-                <Select
-                  value={refundTarget}
-                  onValueChange={(value: "auto" | "base" | "supplemental") => setRefundTarget(value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select target" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">Auto</SelectItem>
-                    <SelectItem value="base">Refund Base</SelectItem>
-                    <SelectItem value="supplemental">Refund Supplemental</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="text-xs text-muted-foreground space-y-1">
-                  <p>Base refundable: ${baseRemainingRefundable.toFixed(2)}</p>
-                  <p>Supplemental refundable: ${supplementalRemainingRefundable.toFixed(2)}</p>
-                  <p>Total remaining refundable: ${remainingRefundable.toFixed(2)}</p>
-                </div>
               </div>
             )}
             <div className="space-y-2">
