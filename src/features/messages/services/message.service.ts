@@ -3,6 +3,15 @@ import { apiClient } from "@/shared/api/client";
 
 export type ChatRecipient = "doctor" | "support"; // patient UI only
 
+function uploadErrorMessage(error: unknown): string {
+  if (typeof error === "object" && error !== null && "response" in error) {
+    const response = (error as { response?: { data?: { detail?: string; error?: string } } }).response;
+    const detail = response?.data?.detail || response?.data?.error;
+    if (detail) return detail;
+  }
+  return error instanceof Error ? error.message : "File upload failed.";
+}
+
 export interface RawMessage {
   id: number | string;
   content: string;
@@ -99,20 +108,24 @@ export const MessageService = {
   async uploadAttachment(file: File): Promise<{ url: string; fileName: string; mimeType: string; path: string }> {
     const form = new FormData();
     form.append("file", file);
-    const res = await apiClient.post<{
-      url: string;
-      fileName: string;
-      mimeType: string;
-      path: string;
-      originalFileName?: string;
-      original_file_name?: string;
-    }>(`/storage/upload/`, form, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    const data = res.data;
-    return {
-      ...data,
-      fileName: data.originalFileName || data.original_file_name || file.name,
-    };
+    try {
+      const res = await apiClient.post<{
+        url: string;
+        fileName: string;
+        mimeType: string;
+        path: string;
+        originalFileName?: string;
+        original_file_name?: string;
+      }>(`/storage/upload/`, form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const data = res.data;
+      return {
+        ...data,
+        fileName: data.originalFileName || data.original_file_name || file.name,
+      };
+    } catch (error: unknown) {
+      throw new Error(uploadErrorMessage(error));
+    }
   },
 };
