@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom"
+import { Routes, Route } from "react-router-dom"
 import { SettingsSidebar } from "./SettingsSidebar"
 import StoreDetails from "@/pages/settings/StoreDetails"
 import Integrations from "@/pages/settings/Integrations"
@@ -17,22 +17,8 @@ import SmtpSettings from "@/pages/settings/SmtpSettings"
 import SmtpDomainSettings from "@/pages/settings/SmtpDomainSettings"
 import NotificationTemplates from "@/pages/settings/NotificationTemplates"
 import BelugaSettings from "@/pages/settings/BelugaSettings"
-import JunctionSettings from "@/pages/settings/JunctionSettings"
 import PatientResources from "@/pages/settings/PatientResources"
 import { useState } from "react"
-import { usePermissions } from "@/hooks/usePermissions"
-
-function JunctionSettingsRoute() {
-  const { hasRole } = usePermissions()
-  const canManageIntegrationCredentials =
-    hasRole("Super Admin") || hasRole("Primary Owner") || hasRole("Admin")
-
-  if (!canManageIntegrationCredentials) {
-    return <Navigate to="/forbidden" replace />
-  }
-
-  return <JunctionSettings />
-}
 
 export function SettingsLayout() {
   const [collapsed, setCollapsed] = useState(false)
@@ -75,7 +61,6 @@ export function SettingsLayout() {
             <Route path="smtp-settings" element={<SmtpSettings />} />
             <Route path="email-domain" element={<SmtpDomainSettings />} />
             <Route path="beluga-settings" element={<BelugaSettings />} />
-            <Route path="junction-settings" element={<JunctionSettingsRoute />} />
             <Route path="patient-resources" element={<PatientResources />} />
             <Route path="" element={<StoreDetails />} />
           </Routes>

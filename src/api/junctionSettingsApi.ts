@@ -1,74 +1,35 @@
 /**
- * Junction Labs Settings API Service
- * 
- * API client for managing per-tenant Junction Labs integration configuration.
+ * Junction Labs Read-Only Status API
+ *
+ * Junction credentials are managed by WellieMD (control plane). The client
+ * portal is read-only: it can only view connection status, never edit keys,
+ * team id, environment, or lab-account linkage.
  */
 
 import axiosInstance from './axiosInstance';
 
-export interface JunctionTenantConfig {
-    id: string;
+export interface JunctionTenantStatus {
     enabled: boolean;
     environment: 'sandbox' | 'production';
-    region: 'us' | 'eu';
-    base_url: string;
     team_id: string;
-    api_key_display: string;
-    webhook_secret_display: string;
-    has_api_key: boolean;
-    has_webhook_secret: boolean;
-    webhook_url: string;
-    last_validated_at: string | null;
+    status: 'connected' | 'disconnected';
     validation_status: 'not_validated' | 'valid' | 'invalid';
-    validation_error: string;
-    created_at: string;
-    updated_at: string;
+    last_synced_at: string | null;
+    last_sync_status: string;
+    last_event_at: string | null;
+    lab_accounts: { linked_count: number };
+    wearables: { enabled: boolean; status: string };
 }
-
-export interface JunctionTenantConfigUpdatePayload {
-    enabled?: boolean;
-    environment?: 'sandbox' | 'production';
-    region?: 'us' | 'eu';
-    base_url?: string;
-    team_id?: string;
-    api_key?: string;
-    webhook_secret?: string;
-}
-
-export interface ValidationResponse {
-    valid: boolean;
-    message: string;
-    catalog_count?: number;
-    error?: string;
-}
-
-const BASE_URL = '/integrations/junction/config';
 
 export const junctionSettingsApi = {
     /**
-     * Get current Junction tenant configuration
-     * GET /api/v1/integrations/junction/config/
+     * Get read-only Junction integration status for this tenant.
+     * GET /api/v1/integrations/junction/status/
      */
-    getConfig: async (): Promise<JunctionTenantConfig> => {
-        const response = await axiosInstance.get<JunctionTenantConfig>(`${BASE_URL}/`);
-        return response.data;
-    },
-
-    /**
-     * Update current Junction tenant configuration
-     * PATCH /api/v1/integrations/junction/config/
-     */
-    updateConfig: async (data: JunctionTenantConfigUpdatePayload): Promise<JunctionTenantConfig> => {
-        const response = await axiosInstance.patch<JunctionTenantConfig>(`${BASE_URL}/`, data);
-        return response.data;
-    },
-
-    /**
-     * Validate current Junction connection credentials
-     * POST /api/v1/integrations/junction/config/validate/
-     */
-    validateConnection: async (): Promise<ValidationResponse> => {
-        const response = await axiosInstance.post<ValidationResponse>(`${BASE_URL}/validate/`);
+    getStatus: async (): Promise<JunctionTenantStatus> => {
+        const response = await axiosInstance.get<JunctionTenantStatus>(
+            '/integrations/junction/status/'
+        );
         return response.data;
     },
 };

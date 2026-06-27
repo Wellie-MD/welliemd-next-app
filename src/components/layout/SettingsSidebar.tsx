@@ -53,13 +53,8 @@ const settingsMenuItems = [
   { title: "Webhooks", url: "/dashboard/settings/webhooks-apis", icon: Webhook },
   { title: "Analytics and SEO", url: "/dashboard/settings/analytics-seo", icon: TrendingUp },
   { title: "Email and Sending Domain", url: "/dashboard/settings/email-domain", icon: Globe },
+  { title: "Integrations", url: "/dashboard/settings/integrations", icon: Plug2 },
   { title: "Beluga Settings", url: "/dashboard/settings/beluga-settings", icon: Cloud },
-  {
-    title: "Junction Settings",
-    url: "/dashboard/settings/junction-settings",
-    icon: Plug2,
-    requiresCredentialManager: true,
-  },
   { title: "Patient Resources", url: "/dashboard/settings/patient-resources", icon: BookOpen },
 ]
 
