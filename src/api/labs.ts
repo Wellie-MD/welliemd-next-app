@@ -114,6 +114,17 @@ export interface ClientAssignment {
   junction_external_status?: string;
   operational_status?: string;
   is_orderable?: boolean;
+  lab_account_id?: string;
+  lab_account_state?: string;
+  lab_account_options?: Array<{
+    lab_account_id: string;
+    lab: string;
+    account_name?: string;
+    status?: string;
+    delegated_flow?: string;
+    provider_account_id?: string;
+    is_orderable?: boolean;
+  }>;
   linkedLabAccountIds?: string[];
 }
 
@@ -224,6 +235,9 @@ const normalizeClientAssignment = (raw: any): ClientAssignment => ({
   junction_external_status: raw.junction_external_status || "",
   operational_status: raw.operational_status || "",
   is_orderable: !!raw.is_orderable,
+  lab_account_id: raw.lab_account_id || "",
+  lab_account_state: raw.lab_account_state || "",
+  lab_account_options: Array.isArray(raw.lab_account_options) ? raw.lab_account_options : [],
   linkedLabAccountIds: raw.lab_account_id ? [raw.lab_account_id] : raw.linkedLabAccountIds || [],
 });
 
@@ -326,10 +340,12 @@ export const labsApi = {
 
   assignLabPanelToClients: async (
     labId: string,
-    clientIds: string[]
+    clientIds: string[],
+    labAccountSelections?: Record<string, string>
   ): Promise<{ success: boolean; assigned_count?: number }> => {
     const { data } = await axiosInstance.post(`admin/labs/panels/${labId}/clients/`, {
       client_ids: clientIds,
+      lab_account_selections: labAccountSelections || {},
     });
     return data;
   },

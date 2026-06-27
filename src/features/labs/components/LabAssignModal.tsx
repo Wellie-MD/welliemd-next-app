@@ -92,6 +92,16 @@ export default function LabAssignModal({
     onAssignClientsChange(assignClients.map(c => ({ ...c, checked })));
   };
 
+  const updateClientLabAccount = (clientId: string, labAccountId: string) => {
+    onAssignClientsChange(
+      assignClients.map(c => (
+        c.id === clientId
+          ? { ...c, lab_account_id: labAccountId, linkedLabAccountIds: labAccountId ? [labAccountId] : [] }
+          : c
+      ))
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[760px] w-[94%] p-0 gap-0">
@@ -179,10 +189,15 @@ export default function LabAssignModal({
                 const statusNorm = (c.junction_status ?? "").toLowerCase();
                 const operationalNorm = (c.operational_status ?? "").toLowerCase();
                 const busy = !!c.assignment_id && assignmentActionId === c.assignment_id;
+                const accountOptions = c.lab_account_options ?? [];
+                const hasAmbiguousAccounts =
+                  c.lab_account_state === "ambiguous" || accountOptions.length > 1;
+                const needsAccountSelection = hasAmbiguousAccounts && !c.lab_account_id;
                 const canSubmit =
                   !!c.assignment_id &&
                   c.checked &&
-                  !c.junction_lab_test_id;
+                  !c.junction_lab_test_id &&
+                  !needsAccountSelection;
                 const canSync =
                   !!c.assignment_id &&
                   c.checked &&
@@ -239,11 +254,32 @@ export default function LabAssignModal({
                           )}
                         </div>
                       )}
+                      {c.checked && accountOptions.length > 1 && (
+                        <div className="mt-2">
+                          <select
+                            value={c.lab_account_id || ""}
+                            onChange={e => updateClientLabAccount(c.id, e.target.value)}
+                            className="h-7 w-full rounded-md border border-input bg-background px-2 text-[11px] text-foreground"
+                          >
+                            <option value="">Select Junction lab account</option>
+                            {accountOptions.map(option => (
+                              <option key={option.lab_account_id} value={option.lab_account_id}>
+                                {(option.account_name || option.lab || option.lab_account_id)} · {option.status || "unknown"}
+                              </option>
+                            ))}
+                          </select>
+                          {needsAccountSelection && (
+                            <div className="mt-1 text-[10px] text-amber-700">
+                              Multiple active accounts match this provider. Select one before submitting.
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
                       <span className="text-[10px] text-muted-foreground pr-1">
-                        {(c.linkedLabAccountIds ?? []).length} acct
-                        {(c.linkedLabAccountIds ?? []).length === 1 ? "" : "s"}
+                        {accountOptions.length || (c.linkedLabAccountIds ?? []).length} acct
+                        {(accountOptions.length || (c.linkedLabAccountIds ?? []).length) === 1 ? "" : "s"}
                       </span>
                       {c.checked && c.assignment_id && (
                         <div className="flex items-center gap-1">

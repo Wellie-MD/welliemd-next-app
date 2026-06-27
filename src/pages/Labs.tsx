@@ -38,6 +38,9 @@ const toAssignClient = (c: ClientAssignment): AssignClient => ({
   junction_external_status: c.junction_external_status,
   operational_status: c.operational_status,
   is_orderable: c.is_orderable,
+  lab_account_id: c.lab_account_id,
+  lab_account_state: c.lab_account_state,
+  lab_account_options: c.lab_account_options,
   linkedLabAccountIds: c.linkedLabAccountIds,
 });
 
@@ -359,13 +362,31 @@ export default function Labs() {
       toast({ title: "Validation Error", description: "Select at least one lab panel on the left.", variant: "destructive" });
       return;
     }
-    const clientIds = assignClients.filter(c => c.checked).map(c => c.id);
+    const selectedClients = assignClients.filter(c => c.checked);
+    const unresolved = selectedClients.filter(c =>
+      ((c.lab_account_options?.length ?? 0) > 1 || c.lab_account_state === "ambiguous") &&
+      !c.lab_account_id
+    );
+    if (unresolved.length > 0 && assignMode === "single") {
+      toast({
+        title: "Lab account selection required",
+        description: `Select a Junction lab account for ${unresolved[0].name} before assigning.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    const clientIds = selectedClients.map(c => c.id);
+    const labAccountSelections = Object.fromEntries(
+      selectedClients
+        .filter(c => c.lab_account_id)
+        .map(c => [c.id, c.lab_account_id as string])
+    );
     try {
       for (const item of checkedItems) {
         if (assignMode === "combined") {
           await labsApi.assignCombinedPanelToClients(item.id, clientIds);
         } else {
-          await labsApi.assignLabPanelToClients(item.id, clientIds);
+          await labsApi.assignLabPanelToClients(item.id, clientIds, labAccountSelections);
         }
       }
       setSelectedRowIds([]);

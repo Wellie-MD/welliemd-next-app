@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import JunctionIntegrationPanel from "@/components/clients/junction/JunctionIntegrationPanel";
 import type { AxiosError } from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -528,10 +529,11 @@ export default function ClientForm() {
           onValueChange={setActiveTab}
           className="space-y-6"
         >
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="basic">Basic Info</TabsTrigger>
             <TabsTrigger value="domains">Domains</TabsTrigger>
             <TabsTrigger value="billing">Billing</TabsTrigger>
+            <TabsTrigger value="integrations">Integrations</TabsTrigger>
           </TabsList>
 
           {/* Tab 1: Basic Information */}
@@ -1147,6 +1149,17 @@ export default function ClientForm() {
                 {/* Section 5: B2B Invoices - Invoice history */}
                 <B2BInvoiceList clientId={id} />
               </>
+            )}
+          </TabsContent>
+
+          {/* Tab 4: Integrations */}
+          <TabsContent value="integrations" className="space-y-6">
+            {isEditMode && id ? (
+              <JunctionIntegrationPanel clientId={id} />
+            ) : (
+              <div className="rounded-md border bg-muted/30 p-6 text-sm text-muted-foreground">
+                Save the client first, then provision and manage its Junction integration here.
+              </div>
             )}
           </TabsContent>
 

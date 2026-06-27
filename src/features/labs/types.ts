@@ -39,6 +39,17 @@ export interface AssignClient {
   junction_external_status?: string;
   operational_status?: string;
   is_orderable?: boolean;
+  lab_account_id?: string;
+  lab_account_state?: string;
+  lab_account_options?: Array<{
+    lab_account_id: string;
+    lab: string;
+    account_name?: string;
+    status?: string;
+    delegated_flow?: string;
+    provider_account_id?: string;
+    is_orderable?: boolean;
+  }>;
   linkedLabAccountIds?: string[];
 }
 
