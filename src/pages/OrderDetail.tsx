@@ -1,4 +1,36 @@
 import { ChangeProductModal, PendingProductChange } from "@/components/orders/ChangeProductModal"
+
+import React, { Component, ErrorInfo, ReactNode } from "react";
+
+class GlobalErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean, error: Error | null}> {
+  constructor(props: {children: ReactNode}) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Uncaught error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 20, color: 'red', background: 'white', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999 }}>
+          <h1>React Crashed</h1>
+          <pre>{this.state.error?.toString()}</pre>
+          <pre>{this.state.error?.stack}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
@@ -22,6 +54,9 @@ import {
   ClipboardList,
   Undo2,
   RotateCw,
+  Copy,
+  Edit,
+  ExternalLink,
 } from "lucide-react"
 import { format } from "date-fns"
 import { Loader2 } from "lucide-react"
@@ -126,7 +161,7 @@ const gatewayLabel = (gateway: PatientPaymentGateway | null) => {
   return "payment gateway"
 }
 
-export default function OrderDetail() {
+function OrderDetailInner() {
   const { orderId } = useParams<{ orderId: string }>()
   const navigate = useNavigate()
   const [order, setOrder] = useState<Order | null>(null)
@@ -979,7 +1014,26 @@ export default function OrderDetail() {
       }
     })
     : []
-  const renderedTimelineItems = eventTimelineItems.length > 0 ? eventTimelineItems : timelineItems
+
+  const deduplicatedTimelineItems = eventTimelineItems.reduce((acc, current) => {
+    if (acc.length === 0) return [current]
+    const prev = acc[acc.length - 1]
+    
+    // Deduplicate consecutive events with the same title
+    if (prev.title === current.title) {
+      if (prev.description && !current.description) return acc
+      if (!prev.description && current.description) {
+        acc[acc.length - 1] = current
+        return acc
+      }
+      if (prev.description === current.description) return acc
+    }
+    
+    acc.push(current)
+    return acc
+  }, [] as typeof eventTimelineItems)
+
+  const renderedTimelineItems = deduplicatedTimelineItems.length > 0 ? deduplicatedTimelineItems : timelineItems
 
   const selectedMedicines = (order as Order & { selected_medicines?: Array<{ quantity?: unknown }> }).selected_medicines
   const qty = selectedMedicines?.[0]?.quantity ?? order.prescription_medications?.[0]?.quantity ?? "1"
@@ -1215,9 +1269,16 @@ export default function OrderDetail() {
   const prescribedMedicineDisplayName =
     prescribedMedicineName ||
     (isLikelyLegacyPrescribed ? legacyPrescribedFallbackName : "Awaiting provider decision")
+
+  const showFullSplitLayout =
+    pendingProductChange == null &&
+    (chargeableAmountSource === "prescribed_medicine" || isLikelyLegacyPrescribed || (order.prescribed_medicines && order.prescribed_medicines.length > 0))
+
   const isPrescribed = chargeableAmountSource === "prescribed_medicine"
   const displayProductName = pendingProductChange?.productName
-    || (isPrescribed ? prescribedMedicineDisplayName : (order.product_name || "—"))
+    || prescribedMedicineName
+    || order.product_name
+    || "—"
   const requestedPillClass =
     "inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300"
   const prescribedPillClass =
@@ -1260,7 +1321,7 @@ export default function OrderDetail() {
     ? pendingProductChange.unitPrice
     : (medicationOriginalSubtotal != null ? medicationOriginalSubtotal / quantity : null)
 
-  const prescribedProductOriginalAmount = shouldPreferPrescribedDisplay
+  const prescribedProductOriginalAmount = showFullSplitLayout
     ? Math.max(0, (previewTotal ?? 0) - (previewShippingFee ?? 0)) + previewDiscountAmount
     : null
   const displayLineTotal = prescribedProductOriginalAmount != null
@@ -1332,33 +1393,113 @@ export default function OrderDetail() {
           : "Processor Ref"
   return (
     <div className="p-6 lg:p-8">
-      {/* Breadcrumbs & Title */}
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <Breadcrumb className="mb-1">
-            <BreadcrumbList className="text-sm text-slate-500 dark:text-slate-400">
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link to="/dashboard/orders" className="hover:text-slate-700 dark:hover:text-slate-300">
-                    Orders
-                  </Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="text-slate-400">/</BreadcrumbSeparator>
-              <BreadcrumbItem>
-                <BreadcrumbPage className="text-slate-900 dark:text-white font-medium">
-                  Order Details
-                </BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Order {orderTitle}</h1>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left column */}
-        <div className="lg:col-span-8 space-y-6">
+        <div className="lg:col-span-8 space-y-6 min-w-0">
+          {/* Breadcrumbs & Title */}
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+            <div>
+              <Breadcrumb className="mb-1">
+                <BreadcrumbList className="text-sm text-slate-500 dark:text-slate-400">
+                  <BreadcrumbItem>
+                    <BreadcrumbLink asChild>
+                      <Link to="/dashboard/orders" className="hover:text-slate-700 dark:hover:text-slate-300">
+                        Orders
+                      </Link>
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator className="text-slate-400">/</BreadcrumbSeparator>
+                  <BreadcrumbItem>
+                    <BreadcrumbPage className="text-slate-900 dark:text-white font-medium">
+                      Order Details
+                    </BreadcrumbPage>
+                  </BreadcrumbItem>
+                </BreadcrumbList>
+              </Breadcrumb>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Order {orderTitle}</h1>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {order?.checkout_url && (
+                <>
+                  <Button size="sm" variant="outline" className="bg-white text-xs h-8" onClick={handleSendCheckoutLink} disabled={sendCheckoutLinkLoading}>
+                    <Mail className="h-3.5 w-3.5 mr-1.5" />
+                    {sendCheckoutLinkLoading ? "Sending..." : "Email Checkout Link"}
+                  </Button>
+                  <Button size="sm" variant="outline" className="bg-white text-xs h-8" onClick={() => {
+                    navigator.clipboard.writeText(order.checkout_url || "")
+                    toast({ title: "Copied!" })
+                  }}>
+                    <Copy className="h-3.5 w-3.5 mr-1.5" />
+                    Copy Checkout Link
+                  </Button>
+                </>
+              )}
+              <Button size="sm" variant="outline" className="bg-white text-xs h-8" onClick={handleTrackThread}>
+                <Truck className="h-3.5 w-3.5 mr-1.5" />
+                Track
+              </Button>
+              <PermissionGate permission={Permissions.ORDER_UPDATE}>
+                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8" onClick={() => setShowStatusDialog(true)}>
+                  <Edit className="h-3.5 w-3.5 mr-1.5" />
+                  Update Status
+                </Button>
+              </PermissionGate>
+            </div>
+          </div>
+
+          {/* Summary Bar */}
+          <div className="rounded-xl border bg-card p-0 overflow-x-auto shadow-sm">
+            <div className="flex items-center min-w-max divide-x divide-border">
+              <div className="px-5 py-4 flex-1">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Status</span>
+                <span className="inline-flex items-center gap-1.5 text-blue-700 bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800 rounded-full px-2 py-0.5 text-[11px] font-bold border">
+                  <span className="h-1 w-1 rounded-full bg-current"></span>
+                  {statusDisplay}
+                </span>
+              </div>
+              <div className="px-5 py-4 flex-1">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                  {paymentInfoAmountLabel}
+                </span>
+                <span className="block text-base font-bold text-teal-600">
+                  ${paymentInfoAmount}
+                </span>
+                {hasSplitSettlement && refundedAmount > 0 && (
+                  <span className="block text-[9px] text-slate-500 mt-0.5">
+                    net of ${refundedAmount.toFixed(2)} refund
+                  </span>
+                )}
+                {hasSplitSettlement && refundedAmount === 0 && (
+                  <span className="block text-[9px] text-slate-500 mt-0.5">
+                    {settlementTransactions.length} txns
+                  </span>
+                )}
+                {!hasSplitSettlement && !hasRemainingToCapture && (
+                  <span className="block text-[9px] text-slate-500 mt-0.5">
+                    not yet captured
+                  </span>
+                )}
+              </div>
+              <div className="px-5 py-4 flex-1">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Patient</span>
+                <span className="block text-[13px] font-semibold text-slate-900 dark:text-white">
+                  {order?.name || "—"}
+                </span>
+              </div>
+              <div className="px-5 py-4 flex-1">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Order Date</span>
+                <span className="block text-[13px] font-semibold text-slate-900 dark:text-white">
+                  {formatDate(order?.created_at) || "—"}
+                </span>
+              </div>
+              <div className="px-5 py-4 flex-1">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Pharmacy</span>
+                <span className="block text-[13px] font-semibold text-slate-900 dark:text-white">
+                  {pharmacyDisplayName || "—"}
+                </span>
+              </div>
+            </div>
+          </div>
           {/* Product Details */}
           <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
             <div className="px-6 py-4 border-b bg-muted/50 flex justify-between items-center">
@@ -1366,6 +1507,8 @@ export default function OrderDetail() {
               {canChangeProduct ? (
                 <Button
                   size="sm"
+                  variant="outline"
+                  className="bg-white text-xs font-semibold uppercase tracking-wider h-8"
                   onClick={handleUpdateOrder}
                   disabled={!pendingProductChange || updateOrderLoading}
                 >
@@ -1375,7 +1518,7 @@ export default function OrderDetail() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="inline-flex cursor-not-allowed">
-                      <Button size="sm" disabled className="pointer-events-none">
+                      <Button size="sm" variant="outline" disabled className="bg-white text-xs font-semibold uppercase tracking-wider h-8 pointer-events-none">
                         Update Order
                       </Button>
                     </span>
@@ -1386,415 +1529,146 @@ export default function OrderDetail() {
                 </Tooltip>
               )}
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-muted/50 text-slate-500 dark:text-slate-400 font-medium border-b">
-                  <tr>
-                    <th className="px-6 py-3">Product</th>
-                    <th className="px-6 py-3 text-right">
-                      <div className="flex flex-col items-end leading-tight">
-                        <span>Item Price</span>
-                        <span className="text-[11px] font-normal text-slate-400">After discount</span>
-                      </div>
-                    </th>
-                    <th className="px-6 py-3 text-right">
-                      <div className="flex flex-col items-end leading-tight">
-                        <span>Quantity</span>
-                        <span className="text-[11px] font-normal text-slate-400">Items</span>
-                      </div>
-                    </th>
-                    <th className="px-6 py-3 text-right">
-                      <div className="flex flex-col items-end leading-tight">
-                        <span>Total</span>
-                        <span className="text-[11px] font-normal text-slate-400">Excl. shipping</span>
-                      </div>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  <tr>
-                    <td className="px-6 py-4">
-                      <div className="flex items-start gap-4">
-                        <div className="h-12 w-12 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                          {order.product_image ? (
-                            <img
-                              src={order.product_image}
-                              alt={displayProductName || "Product"}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <Package className="h-6 w-6 text-slate-500 dark:text-slate-400" />
-                          )}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium text-slate-900 dark:text-white">
-                              {displayProductName}
-                            </p>
-                            {canChangeProduct ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-6 text-xs px-2 py-0"
-                                onClick={() => setShowChangeProductModal(true)}
-                              >
-                                Change
-                              </Button>
-                            ) : (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="inline-flex cursor-not-allowed">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-6 text-xs px-2 py-0 pointer-events-none"
-                                      disabled
-                                    >
-                                      Change
-                                    </Button>
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs text-xs">
-                                  {changeProductTooltip}
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            {order.prescription_medications?.[0]?.strength
-                              ? `${order.prescription_medications[0].strength}`
-                              : order.treatment_type || ""}
-                          </p>
-                          <p className="text-xs text-slate-500 mt-1">
-                            Requested (Original):{" "}
-                            <span className={requestedPillClass}>{requestedMedicineName}</span>
-                          </p>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            Prescribed (Doctor Final):{" "}
-                            <span className={prescribedPillClass}>
-                              {prescribedMedicineDisplayName}
-                            </span>
-                          </p>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            Doctor: <span className="text-slate-700 dark:text-slate-300">{order.doctor_name || "—"}</span>
-                          </p>
-                          {order.provider_network && (
-                            <span className="inline-flex items-center mt-2 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                              {order.provider_network}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right align-top text-slate-600 dark:text-slate-300">
-                      <div className="flex flex-col items-end">
-                        {previewDiscountAmount > 0 && previewOriginalUnitPrice != null && !hasNonIncludedSupplies && (
-                          <span className="text-xs text-slate-400 line-through">
-                            ${formatMoney(previewOriginalUnitPrice)}
-                          </span>
-                        )}
-                        <span>${itemPrice}</span>
-                        {previewDiscountAmount > 0 && !hasNonIncludedSupplies && (
-                          <span className="text-[11px] text-green-600 dark:text-green-400 font-medium">
-                            Save ${formatMoney(displayDiscountPerUnit)} / unit
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right align-top text-slate-600 dark:text-slate-300">
-                      {displayQuantity}
-                    </td>
-                    <td className="px-6 py-4 text-right align-top font-medium text-slate-900 dark:text-white">
-                      <div className="flex flex-col items-end">
-                        <span>${lineTotalPrice}</span>
-                        <span className="text-[11px] font-normal text-slate-400">Excl. shipping</span>
-                      </div>
-                    </td>
-                  </tr>
-                  {supplyLineItems.map((supply, idx) => {
-                    const qty = Number.parseFloat(String(supply.quantity ?? 1))
-                    const safeQty = Number.isFinite(qty) && qty > 0 ? qty : 1
-                    const unitPrice = parseMoney(supply.unit_price) ?? 0
-                    const lineTotal = (supply.is_included ? 0 : unitPrice * safeQty)
-                    return (
-                      <tr key={`supply-${idx}`} className="bg-slate-50/40 dark:bg-slate-800/40">
-                        <td className="px-6 py-3 text-sm text-slate-700 dark:text-slate-300">
-                          <div className="flex items-center gap-2">
-                            <Package className="h-4 w-4 text-slate-400" />
-                            <span>{supply.name || "Supply item"}</span>
-                            {supply.is_included && (
-                              <span className="rounded bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 text-[10px]">Included</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-3 text-right text-sm text-slate-700 dark:text-slate-300">
-                          {supply.is_included ? "$0.00" : `$${formatMoney(unitPrice)}`}
-                        </td>
-                        <td className="px-6 py-3 text-right text-sm text-slate-700 dark:text-slate-300">
-                          {safeQty}
-                        </td>
-                        <td className="px-6 py-3 text-right text-sm font-medium text-slate-900 dark:text-white">
-                          ${formatMoney(lineTotal)}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-                <tfoot className="bg-muted/30">
-                  {shouldPreferPrescribedDisplay ? (
-                    <>
-                      <tr>
-                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                          Product Amount:
-                        </td>
-                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                          ${formatMoney(prescribedProductOriginalAmount)}
-                        </td>
-                      </tr>
-                      {previewDiscountAmount > 0 && (
-                        <tr>
-                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                            Discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}:
-                          </td>
-                          <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
-                            −${previewDiscountAmount.toFixed(2)}
-                          </td>
-                        </tr>
-                      )}
-                      <tr>
-                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                          Prescribed Subtotal:
-                        </td>
-                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                          ${productSubtotalPrice}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                          Shipping:
-                        </td>
-                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                          ${formatMoney(previewShippingFee)}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                          Prescribed Total:
-                        </td>
-                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                          ${prescribedFinalDisplay ?? totalPrice}
-                        </td>
-                      </tr>
-
-                      <tr>
-                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                          Requested Product Amount:
-                        </td>
-                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                          ${formatMoney(requestedProductAmount)}
-                        </td>
-                      </tr>
-                      {previewDiscountAmount > 0 && (
-                        <tr>
-                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                            Discount:
-                          </td>
-                          <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
-                            −${previewDiscountAmount.toFixed(2)}
-                          </td>
-                        </tr>
-                      )}
-                      <tr>
-                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                          Requested Product Subtotal:
-                        </td>
-                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                          ${formatMoney(Math.max(0, requestedProductAmount - previewDiscountAmount))}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                          Requested Product Shipping:
-                        </td>
-                        <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                          ${formatMoney(requestedProductShippingAmount)}
-                        </td>
-                      </tr>
-                      {hasSplitSettlement && (
-                        <>
-                          <tr>
-                            <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                              Captured Base:
-                            </td>
-                            <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                              ${baseCapturedDisplay}
-                            </td>
-                          </tr>
-                          {supplementalCapturedAmount != null && (
-                            <tr>
-                              <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                                Captured Supplemental:
-                              </td>
-                              <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                                ${supplementalCapturedDisplay}
-                              </td>
-                            </tr>
-                          )}
-                        </>
-                      )}
-                      {hasSplitSettlement ? (
-                        <>
-                          <tr>
-                            <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400" colSpan={3}>
-                              Remaining Base to Capture:
-                            </td>
-                            <td className="px-6 py-3 text-right font-medium text-amber-600 dark:text-amber-400">
-                              ${splitRemainingBaseDisplay}
-                            </td>
-                          </tr>
-                          <tr>
-                            <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400" colSpan={3}>
-                              Remaining Supplemental to Capture:
-                            </td>
-                            <td className="px-6 py-3 text-right font-medium text-amber-600 dark:text-amber-400">
-                              ${splitRemainingSupplementalDisplay}
-                            </td>
-                          </tr>
-                          <tr>
-                            <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400" colSpan={3}>
-                              Total Remaining to Capture:
-                            </td>
-                            <td className="px-6 py-3 text-right font-medium text-amber-600 dark:text-amber-400">
-                              ${splitRemainingTotalDisplay}
-                            </td>
-                          </tr>
-                        </>
-                      ) : hasRemainingToCapture && (
-                        <tr>
-                          <td className="px-6 py-3 text-right text-amber-600 dark:text-amber-400" colSpan={3}>
-                            Remaining to Capture:
-                          </td>
-                          <td className="px-6 py-3 text-right font-medium text-amber-600 dark:text-amber-400">
-                            ${formatMoney(remainingToCaptureAmount)}
-                          </td>
-                        </tr>
-                      )}
-
-                      <tr>
-                        <td
-                          className="px-6 py-3 text-right font-bold text-slate-900 dark:text-white border-t border-border"
-                          colSpan={3}
-                        >
-                          {refundedAmount > 0 ? "Net Total (USD):" : "Total (USD):"}
-                        </td>
-                        <td className="px-6 py-3 text-right font-bold text-primary border-t border-border">
-                          <div className="flex flex-col items-end">
-                            <span>${netTotalPrice}</span>
-                            <span className="mt-1 text-[11px] font-normal text-slate-500 dark:text-slate-400">
-                              Amount Source:
-                            </span>
-                            <span className={`mt-1 text-[11px] ${amountSourcePillClass}`}>
-                              {amountSourceLabel} + shipping
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                      {refundedAmount > 0 && (
-                        <tr>
-                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                            Refunded:
-                          </td>
-                          <td className="px-6 py-3 text-right font-medium text-red-600 dark:text-red-400">
-                            −${refundedAmount.toFixed(2)}
-                          </td>
-                        </tr>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      {hasBreakdown && previewOriginalPrice != null && (
-                        <tr>
-                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                            Product list price:
-                          </td>
-                          <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                            ${previewOriginalPrice.toFixed(2)}
-                          </td>
-                        </tr>
-                      )}
-                      {previewDiscountAmount > 0 && (
-                        <tr>
-                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                            Product discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}:
-                          </td>
-                          <td className="px-6 py-3 text-right font-medium text-green-600 dark:text-green-400">
-                            −${previewDiscountAmount.toFixed(2)}
-                          </td>
-                        </tr>
-                      )}
-                      {productSubtotalAfterDiscount != null && (
-                        <tr>
-                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                            Product subtotal:
-                          </td>
-                          <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                            ${productSubtotalPrice}
-                          </td>
-                        </tr>
-                      )}
-                      {(hasBreakdown || previewShippingFee != null) && (
-                        <tr>
-                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                            Shipping:
-                          </td>
-                          <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                            ${formatMoney(previewShippingFee)}
-                          </td>
-                        </tr>
-                      )}
-                      {!hasBreakdown && (
-                        <tr>
-                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                            Product subtotal:
-                          </td>
-                          <td className="px-6 py-3 text-right font-medium text-slate-900 dark:text-white">
-                            ${totalPrice}
-                          </td>
-                        </tr>
-                      )}
-                      <tr>
-                        <td
-                          className="px-6 py-3 text-right font-bold text-slate-900 dark:text-white border-t border-border"
-                          colSpan={3}
-                        >
-                          {refundedAmount > 0 ? "Net Total (USD):" : "Total (USD):"}
-                        </td>
-                        <td className="px-6 py-3 text-right font-bold text-primary border-t border-border">
-                          <div className="flex flex-col items-end">
-                            <span>${netTotalPrice}</span>
-                            <span className="mt-1 text-[11px] font-normal text-slate-500 dark:text-slate-400">
-                              Amount Source:
-                            </span>
-                            <span className={`mt-1 text-[11px] ${amountSourcePillClass}`}>
-                              {amountSourceLabel} + shipping
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                      {refundedAmount > 0 && (
-                        <tr>
-                          <td className="px-6 py-3 text-right text-slate-500 dark:text-slate-400" colSpan={3}>
-                            Refunded:
-                          </td>
-                          <td className="px-6 py-3 text-right font-medium text-red-600 dark:text-red-400">
-                            −${refundedAmount.toFixed(2)}
-                          </td>
-                        </tr>
-                      )}
-                    </>
+            <div className="flex flex-col">
+              {/* Top Product Name */}
+              <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+                <div className="font-semibold text-slate-900 dark:text-white text-base flex items-center flex-wrap gap-2">
+                  {prescribedMedicineDisplayName}
+                  {order.status === "visit_pending" && (
+                    <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border normal-case tracking-normal bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
+                      Awaiting Review
+                    </span>
                   )}
-                </tfoot>
-              </table>
+                </div>
+              </div>
+
+              {/* Requested Block */}
+              <div className="px-6 py-1">
+                <div className="text-[11px] font-bold tracking-wide uppercase text-slate-500 border-t-0 pt-2 pb-1.5 flex items-center gap-2 flex-wrap">
+                  Requested (Original) 
+                  <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border normal-case tracking-normal bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
+                    {requestedMedicineName}
+                  </span>
+                  <div className="ml-auto">
+                    {canChangeProduct ? (
+                      <button
+                        className="text-[11px] font-semibold text-slate-500 border border-slate-200 rounded-md px-2 py-0.5 cursor-pointer hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 transition-colors"
+                        onClick={() => setShowChangeProductModal(true)}
+                      >
+                        Change
+                      </button>
+                    ) : (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex cursor-not-allowed">
+                            <button
+                              className="text-[11px] font-semibold text-slate-400 border border-slate-200 rounded-md px-2 py-0.5 pointer-events-none opacity-50"
+                              disabled
+                            >
+                              Change
+                            </button>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs text-xs">
+                          {changeProductTooltip}
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                  <span className="text-slate-500 dark:text-slate-400">Product amount</span>
+                  <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(requestedProductAmount)}</span>
+                </div>
+                {previewDiscountAmount > 0 && (
+                  <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                    <span className="text-slate-500 dark:text-slate-400">Discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}</span>
+                    <span className="font-semibold tabular-nums text-green-600 dark:text-green-400">−${previewDiscountAmount.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                  <span className="text-slate-500 dark:text-slate-400">Subtotal</span>
+                  <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(Math.max(0, requestedProductAmount - previewDiscountAmount))}</span>
+                </div>
+                <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                  <span className="text-slate-500 dark:text-slate-400">Shipping</span>
+                  <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(requestedProductShippingAmount)}</span>
+                </div>
+                <div className="flex justify-between items-center py-1.5 text-[13.5px] border-t border-slate-100 dark:border-slate-800 mt-0.5">
+                  <span className="text-slate-900 dark:text-white font-bold">Requested total</span>
+                  <span className="text-slate-900 dark:text-white font-bold tabular-nums">${formatMoney(Math.max(0, requestedProductAmount - previewDiscountAmount) + requestedProductShippingAmount)}</span>
+                </div>
+              </div>
+
+              {/* Prescribed Block */}
+              <div className="px-6 py-1 mt-1">
+                {!showFullSplitLayout ? (
+                  <div className="text-[11px] font-bold tracking-wide uppercase text-slate-500 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 flex-wrap">
+                    Prescribed (Latest)
+                    <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border normal-case tracking-normal bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
+                      Awaiting provider decision
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-[11px] font-bold tracking-wide uppercase text-slate-500 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 flex-wrap">
+                      Prescribed (Latest)
+                      <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border normal-case tracking-normal bg-green-50 text-green-600 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
+                        {prescribedMedicineDisplayName}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                      <span className="text-slate-500 dark:text-slate-400">Product amount</span>
+                      <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(prescribedProductOriginalAmount)}</span>
+                    </div>
+                    {previewDiscountAmount > 0 && (
+                      <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                        <span className="text-slate-500 dark:text-slate-400">Discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}</span>
+                        <span className="font-semibold tabular-nums text-green-600 dark:text-green-400">−${previewDiscountAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                      <span className="text-slate-500 dark:text-slate-400">Subtotal</span>
+                      <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${productSubtotalPrice}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                      <span className="text-slate-500 dark:text-slate-400">Shipping</span>
+                      <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(previewShippingFee)}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 text-[13.5px] border-t border-slate-100 dark:border-slate-800 mt-0.5">
+                      <span className="text-slate-900 dark:text-white font-bold">Prescribed total</span>
+                      <span className="text-slate-900 dark:text-white font-bold tabular-nums">${prescribedFinalDisplay ?? totalPrice}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Total Row */}
+              <div className="flex justify-between items-start px-6 py-4 mt-2 border-t border-slate-200 dark:border-slate-800">
+                <div className="font-extrabold text-base text-slate-900 dark:text-white">
+                  {isAuthorized ? "Authorized total" : (refundedAmount > 0 ? "Net total" : "Charged total")}
+                </div>
+                <div className="text-right flex flex-col items-end">
+                  <div className="text-[22px] font-extrabold text-teal-600 dark:text-teal-400 tabular-nums">
+                    ${netTotalPrice}
+                  </div>
+                  {refundedAmount > 0 && (
+                    <div className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-1">
+                      net of ${refundedAmount.toFixed(2)} refund
+                    </div>
+                  )}
+                  {hasSplitSettlement && (
+                    <div className="text-[11.5px] text-slate-500 dark:text-slate-400 mt-1">
+                      {remainingToCaptureAmount > 0 ? (
+                        <span className="text-amber-600 dark:text-amber-400 font-medium">Remaining to capture: ${formatMoney(remainingToCaptureAmount)}</span>
+                      ) : (
+                        <span>Fully captured</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1859,410 +1733,341 @@ export default function OrderDetail() {
 
         {/* Right column */}
         <div className="lg:col-span-4 space-y-6">
-          {/* Medical + Pharmacy Tabs */}
-          <div className="bg-card rounded-xl shadow-sm border p-4 sm:p-6">
-            <Tabs defaultValue="medical" className="w-full">
-              <div className="px-4 pt-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
-                <TabsList className="h-10 grid grid-cols-3 w-full sm:w-auto p-1">
-                  <TabsTrigger value="product" className="h-8 text-xs sm:text-sm leading-none">Product</TabsTrigger>
-                  <TabsTrigger value="medical" className="h-8 text-xs sm:text-sm leading-none">Medical</TabsTrigger>
-                  <TabsTrigger value="pharmacy" className="h-8 text-xs sm:text-sm leading-none">Pharmacy</TabsTrigger>
-                </TabsList>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 text-xs h-8 px-3"
-                  onClick={handleTrackThread}
-                  disabled={!orderThreadMasterId}
-                >
-                  Track
-                </Button>
+          {/* Prescription & Fulfillment */}
+          <div className="bg-card rounded-xl shadow-sm border p-6">
+            <h3 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+              <FileText className="h-4 w-4 text-slate-400" />
+              Prescription & Fulfillment
+            </h3>
+            {status === 'processing' || status === 'created' || status === 'payment_pending' ? (
+              <div className="bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 text-xs font-semibold py-1.5 px-3 rounded-lg mb-4 text-center">
+                Consult scheduled — not yet fulfilled
               </div>
-
-              <TabsContent value="product" className="space-y-4 mt-0">
-                <div className="p-3 bg-muted/40 rounded-lg border">
-                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Product</p>
-                  <p className="text-sm font-medium text-slate-900 dark:text-white">{displayProductName}</p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Requested (Original):{" "}
-                    <span className={requestedPillClass}>{requestedMedicineName}</span>
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Prescribed (Doctor Final):{" "}
-                    <span className={prescribedPillClass}>
-                      {prescribedMedicineDisplayName}
-                    </span>
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Doctor: <span className="text-slate-700 dark:text-slate-300">{order.doctor_name || "—"}</span>
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Amount Source:{" "}
-                    <span className={amountSourcePillClass}>
-                      {amountSourceLabel}
-                    </span>
-                  </p>
+            ) : order.tracking_number ? (
+              <div className="flex items-center justify-between bg-muted/40 p-3 rounded-lg border mb-4">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tracking</span>
+                  <span className="font-mono text-sm font-semibold text-slate-900 dark:text-white">{order.tracking_number}</span>
                 </div>
-                <div className="p-3 bg-muted/40 rounded-lg border">
-                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Pricing</p>
-                  <p className="text-xs text-slate-600 dark:text-slate-300">
-                    Subtotal: <span className="text-slate-700 dark:text-slate-200 font-medium">${productSubtotalPrice}</span>
-                  </p>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
-                    Shipping: <span className="text-slate-700 dark:text-slate-200 font-medium">${formatMoney(previewShippingFee)}</span>
-                  </p>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
-                    Total: <span className="text-slate-700 dark:text-slate-200 font-semibold">${netTotalPrice}</span>
-                  </p>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="medical" className="space-y-4 mt-0">
-                <div className="flex items-start gap-4">
-                  <div className="h-14 w-14 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-500 flex items-center justify-center shrink-0">
-                    <Stethoscope className="h-7 w-7" />
-                  </div>
-                  <div className="min-w-0">
-                    <h4 className="font-semibold text-slate-900 dark:text-white text-base">
-                      {order.provider_network || "Medical Network"}
-                    </h4>
-                    <p className="text-sm text-slate-500 mt-0.5">
-                      Provider: <span className="text-slate-700 dark:text-slate-300 font-medium">{order.doctor_name || order.provider_network || "—"}</span>
-                    </p>
-                    {order.prescription_source_received_at && (
-                      <p className="text-sm text-slate-500 mt-1">
-                        RX Received: <span className="text-slate-700 dark:text-slate-300">{formatDateTime(order.prescription_source_received_at)}</span>
-                      </p>
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-400">
+                  Shipped
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between bg-muted/40 p-3 rounded-lg border mb-4">
+                <span className="text-sm font-semibold text-slate-600">No tracking info</span>
+              </div>
+            )}
+            
+            <div className="space-y-2 text-[13.5px]">
+              <div className="flex justify-between items-start gap-4">
+                <span className="text-slate-500 min-w-20">Product</span>
+                <span className="text-slate-900 dark:text-white font-medium text-right leading-tight">
+                  {displayProductName}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Pharmacy</span>
+                <span className="text-slate-900 dark:text-white font-medium">{pharmacyDisplayName || "—"}</span>
+              </div>
+              
+              {/* Only show if we have prescription meds */}
+              {order.prescription_medications && order.prescription_medications.length > 0 ? (
+                order.prescription_medications.map((med, idx) => (
+                  <React.Fragment key={idx}>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Strength</span>
+                      <span className="text-slate-900 dark:text-white font-medium">{med.strength || "None"}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Qty</span>
+                      <span className="text-slate-900 dark:text-white font-medium">{med.quantity || "0"}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Refills</span>
+                      <span className="text-slate-900 dark:text-white font-medium">{med.refills || "0"}</span>
+                    </div>
+                    {med.rxId && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">RX ID</span>
+                        <span className="text-slate-900 dark:text-white font-mono text-xs">{med.rxId}</span>
+                      </div>
                     )}
-                    {order.prescription_source_event_id && (
-                      <p className="text-xs text-slate-500 mt-2 break-all">
-                        RX Event ID: <span className="font-mono text-slate-600 dark:text-slate-400">{order.prescription_source_event_id}</span>
-                      </p>
+                    {med.medId && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">Med ID</span>
+                        <span className="text-slate-900 dark:text-white font-mono text-xs break-all text-right ml-4">{med.medId}</span>
+                      </div>
                     )}
-                  </div>
+                  </React.Fragment>
+                ))
+              ) : (
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Prescription</span>
+                  <span className="text-slate-900 dark:text-white font-medium">Awaiting provider decision</span>
                 </div>
-                {(order.mrn || order.visitStatus) && (
-                  <div className="p-4 bg-muted/50 rounded-lg border border-border/50">
-                    <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-1">Master ID</p>
-                    <p className="text-sm font-mono text-slate-700 dark:text-slate-300 break-all leading-relaxed">
-                      {order.mrn || order.visitStatus || "—"}
-                    </p>
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="pharmacy" className="space-y-4 mt-0">
-                <div className="p-4 bg-muted/40 rounded-lg border border-border/50">
-                  <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-2">Pharmacy</p>
-                  <p className="text-base font-semibold text-slate-900 dark:text-white">{pharmacyDisplayName}</p>
-                  {order.booking_location && (
-                    <p className="text-sm text-slate-500 mt-1 flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      {order.booking_location}
-                    </p>
-                  )}
+              )}
+              
+              {order.prescription_source_received_at && (
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">RX received</span>
+                  <span className="text-slate-900 dark:text-white text-xs">{formatDateTime(order.prescription_source_received_at)}</span>
                 </div>
-                <div className="space-y-3">
-                  <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">Prescription Details</p>
-                  {(order.prescription_medications || []).length > 0 ? (
-                    <div className="space-y-3">
-                      {(order.prescription_medications || []).map((med, idx) => (
-                        <div key={`pharm-med-${idx}`} className="rounded-lg border p-4 bg-background/60 shadow-sm">
-                          <p className="font-medium text-slate-900 dark:text-white">{med.name || "Medication"}</p>
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-sm text-slate-500">
-                            <span className="flex items-center gap-1">
-                              <span className="text-slate-400">Strength:</span>
-                              <span className="text-slate-700 dark:text-slate-300 font-medium">{med.strength || "—"}</span>
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <span className="text-slate-400">Qty:</span>
-                              <span className="text-slate-700 dark:text-slate-300 font-medium">{med.quantity || "—"}</span>
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <span className="text-slate-400">Refills:</span>
-                              <span className="text-slate-700 dark:text-slate-300 font-medium">{med.refills || "0"}</span>
-                            </span>
-                          </div>
-                          {(med.rxId || med.medId) && (
-                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-slate-500">
-                              {med.rxId && (
-                                <span className="flex items-center gap-1">
-                                  <span>RX ID:</span>
-                                  <span className="font-mono text-slate-600 dark:text-slate-400">{med.rxId}</span>
-                                </span>
-                              )}
-                              {med.medId && (
-                                <span className="flex items-center gap-1">
-                                  <span>Med ID:</span>
-                                  <span className="font-mono text-slate-600 dark:text-slate-400">{med.medId}</span>
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-slate-500 italic bg-muted/30 p-3 rounded-lg">No pharmacy prescription details available yet.</p>
-                  )}
+              )}
+              {order.prescription_source_event_id && (
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">RX Event ID</span>
+                  <span className="text-slate-900 dark:text-white font-mono text-xs break-all text-right ml-4">{order.prescription_source_event_id}</span>
                 </div>
-                <div className="p-4 bg-muted/40 rounded-lg border border-border/50">
-                  <p className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-3">Fulfillment</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-xs text-slate-500 mb-0.5">Tracking Number</p>
-                      <p className="font-mono text-slate-700 dark:text-slate-300 text-xs break-all">{order.tracking_number || "—"}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500 mb-0.5">Status</p>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
-                        {statusDisplay}
-                      </span>
-                    </div>
-                  </div>
+              )}
+              {(order.mrn || order.visitStatus) && (
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Master ID</span>
+                  <span className="text-slate-900 dark:text-white font-mono text-xs break-all text-right ml-4">{order.mrn || order.visitStatus}</span>
                 </div>
-              </TabsContent>
-            </Tabs>
+              )}
+            </div>
           </div>
 
-          {/* Booking Info */}
-          {(order.doctor_name || order.booking_scheduled_at || order.booking_location) && (
-            <div className="bg-card rounded-xl shadow-sm border p-6">
-              <h3 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-slate-400" />
-                Booking Information
-              </h3>
-              <ul className="space-y-3 text-sm">
-                {order.doctor_name && (
-                  <li className="flex items-start gap-3 text-slate-600 dark:text-slate-300">
-                    <Stethoscope className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
-                    <span>Doctor: <span className="font-medium text-slate-900 dark:text-white">{order.doctor_name}</span></span>
-                  </li>
-                )}
-                {order.booking_scheduled_at && (
-                  <li className="flex items-start gap-3 text-slate-600 dark:text-slate-300">
-                    <Calendar className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
-                    <span>Scheduled: <span className="font-medium text-slate-900 dark:text-white">{formatBookingSchedule(order.booking_scheduled_at)}</span></span>
-                  </li>
-                )}
-                {order.booking_location && (
-                  <li className="flex items-start gap-3 text-slate-600 dark:text-slate-300">
-                    <MapPin className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
-                    <span>Location: <span className="font-medium text-slate-900 dark:text-white">{order.booking_location}</span></span>
-                  </li>
-                )}
-              </ul>
+          {/* Assigned Provider */}
+          <div className="bg-card rounded-xl shadow-sm border p-6">
+            <h3 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+              <Stethoscope className="h-4 w-4 text-slate-400" />
+              Assigned Provider
+            </h3>
+            <div className="space-y-3 text-[13.5px]">
+              <div className="flex items-start gap-3">
+                <span className="text-slate-400 mt-0.5"><Stethoscope className="h-4 w-4"/></span>
+                <span className="text-slate-600 dark:text-slate-400">Doctor: <span className="font-semibold text-slate-900 dark:text-white">{order.doctor_name || order.provider_network || "—"}</span></span>
+              </div>
+              {order.booking_scheduled_at && (
+                <div className="flex items-start gap-3">
+                  <span className="text-slate-400 mt-0.5"><Calendar className="h-4 w-4"/></span>
+                  <span className="text-slate-600 dark:text-slate-400">Scheduled: <span className="font-medium text-slate-900 dark:text-white">{formatBookingSchedule(order.booking_scheduled_at)}</span></span>
+                </div>
+              )}
+              {order.booking_location && (
+                <div className="flex items-start gap-3">
+                  <span className="text-slate-400 mt-0.5"><ExternalLink className="h-4 w-4"/></span>
+                  <a href={order.booking_location} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">{order.booking_location}</a>
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
-          {/* Patient Details */}
+          {/* Patient & Shipping */}
           <div className="bg-card rounded-xl shadow-sm border p-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-slate-900 dark:text-white">Patient Details</h3>
-              <Button variant="link" size="sm" className="text-xs h-auto p-0" onClick={() => setShowPatientResponses(true)}>
+              <h3 className="font-semibold text-slate-900 dark:text-white">Patient & Shipping</h3>
+              <Button variant="link" size="sm" className="text-xs font-semibold text-blue-600 h-auto p-0" onClick={() => setShowPatientResponses(true)}>
                 View Patient Responses
               </Button>
             </div>
-            <div className="flex items-center gap-3 mb-4">
-              <Avatar className="h-10 w-10 rounded-full bg-slate-200 dark:bg-slate-700">
-                <AvatarFallback className="text-slate-600 dark:text-slate-300 font-bold text-sm">
+            
+            <div className="flex items-center gap-3 mb-5">
+              <Avatar className="h-10 w-10 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 border border-blue-100 flex items-center justify-center">
+                <AvatarFallback className="font-bold text-sm">
                   {(order.name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <div>
-                <p className="font-medium text-slate-900 dark:text-white">{order.name || "—"}</p>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="mt-1 h-6 px-2 text-[10px] bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300"
-                  onClick={handleSendCheckoutLink}
-                  disabled={sendCheckoutLinkLoading}
-                >
-                  {sendCheckoutLinkLoading ? (
-                    <>
-                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    "Email Checkout Link"
-                  )}
-                </Button>
+              <div className="font-bold text-[15px] text-slate-900 dark:text-white">
+                {order.name || "—"}
               </div>
             </div>
-            <ul className="space-y-3 text-sm">
-              <li className="flex items-start gap-3 text-slate-600 dark:text-slate-300">
-                <Mail className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
-                <span className="truncate">{order.email || "—"}</span>
-              </li>
-              <li className="flex items-start gap-3 text-slate-600 dark:text-slate-300">
-                <Phone className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
+            
+            <div className="space-y-2 mb-6">
+              <div className="flex items-center gap-2 text-[13px] text-slate-500">
+                <Mail className="h-3.5 w-3.5 text-slate-400" />
+                <span>{order.email || "—"}</span>
+              </div>
+              <div className="flex items-center gap-2 text-[13px] text-slate-500">
+                <Phone className="h-3.5 w-3.5 text-slate-400" />
                 <span>{order.phone || "—"}</span>
-              </li>
-              <li className="flex items-start gap-3 text-slate-600 dark:text-slate-300">
-                <MapPin className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
-                <span>{order.address || "—"}</span>
-              </li>
-            </ul>
+              </div>
+            </div>
+            
+            <div>
+              <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                <MapPin className="h-3 w-3" /> SHIPPING ADDRESS
+              </div>
+              <p className="text-[13px] text-slate-600 dark:text-slate-300 leading-relaxed whitespace-nowrap overflow-hidden text-ellipsis">
+                {order.shipping_address || order.address || "—"}
+              </p>
+            </div>
           </div>
 
           {/* Support Notes */}
           <div className="bg-card rounded-xl shadow-sm border p-6">
-            <div className="flex justify-between items-center mb-2">
+            <div className="flex justify-between items-center mb-4">
               <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                 <ClipboardList className="h-4 w-4 text-slate-400" />
                 Support Notes
               </h3>
-              <Button size="sm" variant="secondary" className="bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 text-[10px] h-7">
+              <Button size="sm" variant="secondary" className="bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 text-xs font-semibold h-7 border border-blue-100">
                 Add New
               </Button>
             </div>
-            <p className="text-sm text-slate-500 dark:text-slate-400 italic">
+            <p className="text-[13px] text-slate-500 dark:text-slate-400 italic">
               {order.notes || "No notes found."}
             </p>
           </div>
 
-          {/* Shipping Address */}
-          <div className="bg-card rounded-xl shadow-sm border p-6">
-            <h3 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-              <Receipt className="h-4 w-4 text-slate-400" />
-              Shipping Address
-            </h3>
-            <div className="text-sm text-slate-600 dark:text-slate-300 space-y-1">
-              <p className="font-medium text-slate-900 dark:text-white">{order.name || "—"}</p>
-              <p>{order.phone || "—"}</p>
-              <p>{order.shipping_address || order.address || "—"}</p>
-            </div>
-          </div>
-
           {/* Payment Info */}
           <div className="bg-card rounded-xl shadow-sm border p-6">
-            <h3 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+            <h3 className="font-semibold text-slate-900 dark:text-white mb-5 flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-slate-400" />
               Payment Info
             </h3>
-            <div className="space-y-3 text-sm">
+            
+            <div className="space-y-2 text-[13px] mb-6">
               <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Date</span>
+                <span className="text-slate-500">Date</span>
                 <span className="text-slate-900 dark:text-white font-medium">{formatDate(order.paymentDate) || "—"}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Provider</span>
+                <span className="text-slate-500">Provider</span>
                 <span className="text-slate-900 dark:text-white font-medium">{order.paymentProcessor || "—"}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Trans ID</span>
+                <span className="text-slate-500">Trans ID</span>
                 <span className="text-slate-900 dark:text-white font-mono text-xs">{order.paymentTransactionId || "—"}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">{processorReferenceLabel}</span>
+                <span className="text-slate-500">{processorReferenceLabel}</span>
                 <span className="text-slate-900 dark:text-white font-mono text-xs">
                   {order.paymentProcessorTransactionId || "—"}
                 </span>
               </div>
-              {hasSplitSettlement && settlementTransactions.length > 0 && (
-                <div className="space-y-2 rounded border border-slate-200 dark:border-slate-700 p-2">
-                  <div className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                    Split Capture Transactions
-                  </div>
+            </div>
+
+            {hasSplitSettlement && settlementTransactions.length > 0 && (
+              <div className="mb-6">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">
+                  CAPTURE & REFUND TRANSACTIONS
+                </div>
+                <div className="space-y-2">
                   {settlementTransactions.map((tx) => {
                     const role = tx.settlement_role || "base"
                     const ref = tx.processor_transaction_id || "—"
+                    const amt = parseMoney(tx.amount) ?? 0
                     return (
-                      <div key={tx.id} className="grid grid-cols-3 gap-2 text-[11px]">
-                        <span className="text-slate-500 dark:text-slate-400">{role}</span>
-                        <span className="font-mono text-slate-900 dark:text-white truncate">{ref}</span>
-                        <span className="text-right text-slate-600 dark:text-slate-300">
-                          ${formatMoney(parseMoney(tx.amount))}
+                      <div key={tx.id} className="flex justify-between items-center text-[12px]">
+                        <span className="text-slate-500 w-32">{role}</span>
+                        <span className="font-mono text-slate-600 flex-1 text-right mr-3 truncate">{ref}</span>
+                        <span className={`font-semibold w-20 text-right ${amt < 0 ? "text-red-600" : "text-slate-900 dark:text-white"}`}>
+                          {amt < 0 ? `−$${Math.abs(amt).toFixed(2)}` : `$${amt.toFixed(2)}`}
                         </span>
                       </div>
                     )
                   })}
                 </div>
-              )}
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-slate-400">Status</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-green-600 dark:text-green-400 font-medium text-xs bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded">
-                    {order.paymentStatus || "—"}
-                  </span>
-                  {refundStatusLabel && (
-                    <span className="text-red-600 dark:text-red-300 font-medium text-xs bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded">
-                      {refundStatusLabel}
-                    </span>
-                  )}
-                </div>
               </div>
-              {hasSplitSettlement && (
-                <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-3 space-y-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 dark:text-slate-400">Remaining base to capture</span>
-                    <span className="font-medium text-slate-900 dark:text-white">${splitRemainingBaseDisplay}</span>
+            )}
+
+            {/* Reconciliation Block (Recon) */}
+            <div className="bg-muted/30 border rounded-lg p-4 mb-4">
+              {hasSplitSettlement ? (
+                <div className="space-y-2 text-[13.5px]">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Captured</span>
+                    <span>${formatMoney((parseMoney(order.netCollected) ?? 0) + refundedAmount)}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 dark:text-slate-400">Remaining supplemental to capture</span>
-                    <span className="font-medium text-slate-900 dark:text-white">${splitRemainingSupplementalDisplay}</span>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Refunded</span>
+                    <span className={refundedAmount > 0 ? "font-semibold text-red-600" : ""}>
+                      {refundedAmount > 0 ? `−$${refundedAmount.toFixed(2)}` : "$0.00"}
+                    </span>
                   </div>
-                  <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-2">
-                    <span className="font-semibold text-slate-900 dark:text-white">Total remaining to capture</span>
-                    <span className="font-semibold text-slate-900 dark:text-white">${splitRemainingTotalDisplay}</span>
+                  <div className="flex justify-between pt-2 border-t font-bold">
+                    <span className="text-slate-900">Net captured</span>
+                    <span className="text-slate-900">${netCollectedPrice}</span>
+                  </div>
+                </div>
+              ) : refundedAmount > 0 ? (
+                <div className="space-y-2 text-[13.5px]">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Authorized</span>
+                    <span className="font-semibold">${formatMoney(previewOriginalPrice)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Hold released</span>
+                    <span className="font-semibold text-red-600">−${refundedAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t font-bold">
+                    <span className="text-slate-900">Captured</span>
+                    <span className="text-slate-900">${netCollectedPrice}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2 text-[13.5px]">
+                  <div className="flex justify-between font-bold">
+                    <span className="text-slate-900">Captured</span>
+                    <span className="text-slate-900">${netCollectedPrice}</span>
                   </div>
                 </div>
               )}
-              {refundedAmount > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Refunded</span>
-                  <span className="text-red-600 dark:text-red-400 font-medium">-${refundedAmount.toFixed(2)}</span>
-                </div>
-              )}
-              {refundedAmount > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Net Collected</span>
-                  <span className="text-slate-900 dark:text-white font-medium">${netCollectedPrice}</span>
-                </div>
-              )}
-              <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-border pt-3">
-                <span className="text-slate-900 dark:text-white font-bold">{paymentInfoAmountLabel}</span>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <span className="min-w-14 text-right text-xs font-bold tabular-nums text-slate-900 dark:text-white">
-                    ${paymentInfoAmount}
-                  </span>
-                  {canRetryPayment && (
-                    <PermissionGate permission={Permissions.ORDER_UPDATE}>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-[10px] h-6 border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-300"
-                        onClick={() => setShowRetryPaymentDialog(true)}
-                      >
-                        <RotateCw className="h-3 w-3 mr-1" /> Retry Payment
-                      </Button>
-                    </PermissionGate>
-                  )}
-                  {canRefundOrVoid && (
-                    <PermissionGate permission={Permissions.REFUND_CREATE}>
-                      <div className="flex items-center gap-2">
-                        {order.rx_revision_tag === "refund_required" && (
-                          <span className="whitespace-nowrap rounded border border-red-200 bg-red-100 px-2 py-1 text-xs font-bold tabular-nums text-red-600 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
-                            Refund Required
-                          </span>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-[10px] h-6 border-red-200 text-red-500 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400"
-                          onClick={() => {
-                            setRefundAmount("");
-                            setShowRefundDialog(true);
-                          }}
-                        >
-                          <Undo2 className="h-3 w-3 mr-1" /> Refund
-                        </Button>
-                      </div>
-                    </PermissionGate>
-                  )}
-                </div>
+            </div>
+
+            <div className="flex justify-between items-center mb-6">
+              <span className="text-[13px] text-slate-500">Status</span>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                  {refundStatusLabel || order.paymentStatus || "—"}
+                </span>
               </div>
             </div>
+
+            {hasSplitSettlement && (
+              <div className="space-y-2 text-[12px] mb-6 border-b pb-4">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Remaining base to capture</span>
+                  <span className="text-slate-400">${splitRemainingBaseDisplay}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Remaining supplemental to capture</span>
+                  <span className="text-slate-400">${splitRemainingSupplementalDisplay}</span>
+                </div>
+                <div className="flex justify-between font-bold pt-1">
+                  <span className="text-slate-900">Total remaining to capture</span>
+                  <span className="text-slate-900">${splitRemainingTotalDisplay}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-between items-center pt-2">
+              <span className="font-bold text-[14px] text-slate-900 dark:text-white">Net captured</span>
+              <div className="flex items-center gap-3">
+                <span className="font-bold text-lg text-slate-900 dark:text-white">${netCollectedPrice}</span>
+                
+                {canRefundOrVoid && (
+                  <PermissionGate permission={Permissions.REFUND_CREATE}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-[11px] font-bold h-7 border-red-200 text-red-600 hover:bg-red-50 px-2"
+                      onClick={() => setShowRefundDialog(true)}
+                    >
+                      <Undo2 className="h-3 w-3 mr-1" /> Refund
+                    </Button>
+                  </PermissionGate>
+                )}
+              </div>
+            </div>
+
+            {canRetryPayment && (
+              <PermissionGate permission={Permissions.ORDER_UPDATE}>
+                <div className="mt-4 pt-4 border-t flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-[11px] h-7 border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-300"
+                    onClick={() => setShowRetryPaymentDialog(true)}
+                  >
+                    <RotateCw className="h-3 w-3 mr-1" /> Retry Payment
+                  </Button>
+                </div>
+              </PermissionGate>
+            )}
           </div>
         </div>
       </div>
@@ -2570,3 +2375,6 @@ export default function OrderDetail() {
     </div>
   )
 }
+
+
+export default function OrderDetail() { return <GlobalErrorBoundary><OrderDetailInner /></GlobalErrorBoundary>; }
