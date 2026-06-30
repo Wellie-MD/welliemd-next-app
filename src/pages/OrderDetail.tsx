@@ -1024,12 +1024,18 @@ function OrderDetailInner() {
           // Inject capture details if missing
           if (!desc.includes("Captured $")) {
             const parseAmt = (val: any) => val != null && val !== "" && Number.isFinite(parseFloat(String(val))) ? parseFloat(String(val)) : null
-            const authAmount = parseAmt((order as any).base_authorization_amount) ?? parseAmt(order.original_price)
+            let authAmount = parseAmt((order as any).base_authorization_amount)
+            if (authAmount == null) {
+              authAmount = parseAmt(order.pricing?.grand_total)
+            }
             const capAmount = parseAmt((order as any).base_captured_amount) ?? parseAmt(order.pricing?.grand_total)
 
             if (capAmount != null && authAmount != null && authAmount > capAmount) {
               const holdReleased = authAmount - capAmount
               desc += `\nCaptured $${capAmount.toFixed(2)} of $${authAmount.toFixed(2)} authorized.\nRemaining $${holdReleased.toFixed(2)} hold released.`
+            } else if (capAmount != null && authAmount != null && capAmount > authAmount) {
+              const supplemental = capAmount - authAmount
+              desc += `\nCaptured $${authAmount.toFixed(2)}.\nSupplemental capture of $${supplemental.toFixed(2)}.`
             } else if (capAmount != null) {
               desc += `\nCaptured $${capAmount.toFixed(2)}.`
             }
@@ -1088,6 +1094,9 @@ function OrderDetailInner() {
   }, [] as typeof eventTimelineItems)
 
   let renderedTimelineItems = deduplicatedTimelineItems.length > 0 ? deduplicatedTimelineItems : timelineItems
+  if (status === "visit_pending") {
+    renderedTimelineItems = renderedTimelineItems.filter(i => i.title !== "Visit Failed")
+  }
 
   if (deduplicatedTimelineItems.length > 0) {
     // Inject missing manual events that backend doesn't provide
@@ -1773,14 +1782,6 @@ function OrderDetailInner() {
             <div className="px-6 py-4 border-b bg-muted/50 flex justify-between items-center">
               <div className="flex items-center gap-3">
                 <h3 className="font-semibold text-slate-900 dark:text-white">Order Timeline</h3>
-                <span
-                  className={cn(
-                    "px-2.5 py-0.5 rounded-full text-xs font-medium border",
-                    statusColors[status] || "bg-slate-100 text-slate-700 border-slate-200"
-                  )}
-                >
-                  {statusDisplay.toUpperCase().replace(/_/g, " ")}
-                </span>
                 {paymentRecoveryLabel ? (
                   <span
                     className={cn(
@@ -2036,14 +2037,14 @@ function OrderDetailInner() {
               </div>
             </div>
 
-            {hasSplitSettlement && settlementTransactions.length > 0 && (
-              <div className="mb-6">
+            {settlementTransactions.length > 0 && (
+              <div className="bg-muted/30 border rounded-lg p-4 mb-4">
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">
-                  CAPTURE & REFUND TRANSACTIONS
+                  {hasSplitSettlement ? "SPLIT CAPTURE TRANSACTIONS" : "CAPTURE"}
                 </div>
                 <div className="space-y-2">
                   {settlementTransactions.map((tx) => {
-                    const role = tx.settlement_role || "base"
+                    const role = tx.settlement_role || "base_capture"
                     const ref = tx.processor_transaction_id || "—"
                     const amt = parseMoney(tx.amount) ?? 0
                     return (
@@ -2057,64 +2058,40 @@ function OrderDetailInner() {
                     )
                   })}
                 </div>
+                {hasSplitSettlement && (
+                  <div className="flex justify-between font-bold pt-3 border-t mt-3 text-[13px]">
+                    <span className="text-slate-900">Total captured</span>
+                    <span className="text-slate-900">${formatMoney((parseMoney(order.netCollected) ?? 0) + refundedAmount)}</span>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Reconciliation Block (Recon) */}
-            <div className="bg-muted/30 border rounded-lg p-4 mb-4">
-              {hasSplitSettlement ? (
-                <div className="space-y-2 text-[13.5px]">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Captured</span>
-                    <span>${formatMoney((parseMoney(order.netCollected) ?? 0) + refundedAmount)}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>Refunded</span>
-                    <span className={refundedAmount > 0 ? "font-semibold text-red-600" : ""}>
-                      {refundedAmount > 0 ? `−$${refundedAmount.toFixed(2)}` : "$0.00"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t font-bold">
-                    <span className="text-slate-900">Net captured</span>
-                    <span className="text-slate-900">${netCollectedPrice}</span>
-                  </div>
-                </div>
-              ) : refundedAmount > 0 ? (
-                <div className="space-y-2 text-[13.5px]">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Authorized</span>
-                    <span className="font-semibold">${formatMoney(previewOriginalPrice)}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>Hold released</span>
-                    <span className="font-semibold text-red-600">−${refundedAmount.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t font-bold">
-                    <span className="text-slate-900">Captured</span>
-                    <span className="text-slate-900">${netCollectedPrice}</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2 text-[13.5px]">
-                  <div className="flex justify-between font-bold">
-                    <span className="text-slate-900">Captured</span>
-                    <span className="text-slate-900">${netCollectedPrice}</span>
-                  </div>
-                </div>
-              )}
-            </div>
+            {settlementTransactions.length === 0 && !isPending && !isAuthorized && !isPaymentFailure && (
+              <div className="flex justify-between font-bold text-[13.5px] mb-4">
+                <span className="text-slate-900">Captured</span>
+                <span className="text-slate-900">${netCollectedPrice}</span>
+              </div>
+            )}
+
+            {settlementTransactions.length === 0 && isAuthorized && (
+              <div className="flex justify-between font-bold text-[13.5px] mb-4">
+                <span className="text-slate-900">Authorized</span>
+                <span className="text-slate-900">${formatMoney(previewOriginalPrice)}</span>
+              </div>
+            )}
 
             <div className="flex justify-between items-center mb-6">
               <span className="text-[13px] text-slate-500">Status</span>
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
-                  {refundStatusLabel || order.paymentStatus || "—"}
+                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                  {((refundStatusLabel || order.paymentStatus || "—") as string).replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
                 </span>
               </div>
             </div>
 
-            {hasSplitSettlement && (
-              <div className="space-y-2 text-[12px] mb-6 border-b pb-4">
+            {(hasSplitSettlement || settlementTransactions.length > 0) && (
+              <div className="bg-muted/30 border rounded-lg p-4 mb-6 space-y-2 text-[12px]">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Remaining base to capture</span>
                   <span className="text-slate-400">${splitRemainingBaseDisplay}</span>
@@ -2123,18 +2100,21 @@ function OrderDetailInner() {
                   <span className="text-slate-500">Remaining supplemental to capture</span>
                   <span className="text-slate-400">${splitRemainingSupplementalDisplay}</span>
                 </div>
-                <div className="flex justify-between font-bold pt-1">
+                <div className="flex justify-between font-bold pt-2 border-t mt-1">
                   <span className="text-slate-900">Total remaining to capture</span>
                   <span className="text-slate-900">${splitRemainingTotalDisplay}</span>
                 </div>
               </div>
             )}
 
-            <div className="flex justify-between items-center pt-2">
-              <span className="font-bold text-[14px] text-slate-900 dark:text-white">Net captured</span>
+            <div className="flex justify-between items-center pt-2 border-t">
+              <span className="font-bold text-[14px] text-slate-900 dark:text-white">
+                {refundedAmount > 0 ? "Net captured" : (settlementTransactions.length > 0 ? "Captured total" : "Net captured")}
+              </span>
               <div className="flex items-center gap-3">
-                <span className="font-bold text-lg text-slate-900 dark:text-white">${netCollectedPrice}</span>
-
+                <span className="font-bold text-lg text-slate-900 dark:text-white">
+                  ${isPending ? "0.00" : netCollectedPrice}
+                </span>
                 {canRefundOrVoid && (
                   <PermissionGate permission={Permissions.REFUND_CREATE}>
                     <Button
@@ -2143,7 +2123,7 @@ function OrderDetailInner() {
                       className="text-[11px] font-bold h-7 border-red-200 text-red-600 hover:bg-red-50 px-2"
                       onClick={() => setShowRefundDialog(true)}
                     >
-                      <Undo2 className="h-3 w-3 mr-1" /> Refund
+                      <Undo2 className="h-3 w-3 mr-1" /> {isAuthorized ? "Void" : "Refund"}
                     </Button>
                   </PermissionGate>
                 )}
