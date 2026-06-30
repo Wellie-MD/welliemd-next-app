@@ -141,7 +141,7 @@ type TimelineItem = {
   title: string
   date: string
   description?: string
-  icon: "schedule" | "payments" | "prescriptions" | "medical_services" | "local_shipping"
+  icon: "schedule" | "payments" | "prescriptions" | "medical_services" | "local_shipping" | "event" | "credit_card" | "description"
   iconBg: string
 }
 
@@ -801,11 +801,26 @@ function OrderDetailInner() {
       iconBg: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800",
     })
   }
+  if (order.status !== "created" && order.status !== "abandoned" && order.status !== "") {
+    timelineItems.push({
+      title: "Processing",
+      date: formatDateTime(order.orderDate),
+      icon: "event",
+      iconBg: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-4 border-white dark:border-slate-800",
+    })
+    timelineItems.push({
+      title: "Payment Pending",
+      date: formatDateTime(order.orderDate),
+      icon: "credit_card",
+      iconBg: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-4 border-white dark:border-slate-800",
+    })
+  }
+
   timelineItems.push({
-    title: "Order placed via questionnaire",
+    title: "Created",
     date: formatDateTime(order.orderDate),
-    icon: "local_shipping",
-    iconBg: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800",
+    icon: "description",
+    iconBg: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-4 border-white dark:border-slate-800",
   })
   timelineItems.reverse()
 
@@ -1076,19 +1091,41 @@ function OrderDetailInner() {
 
   if (deduplicatedTimelineItems.length > 0) {
     // Inject missing manual events that backend doesn't provide
-    const hasPayment = renderedTimelineItems.some(i => i.title.toLowerCase().includes("payment") || i.title.includes("amount authorized") || i.title.includes("Voided") || i.title.includes("Refunded"))
-    if (!hasPayment && timelineItems.some(i => i.title.toLowerCase().includes("payment") || i.title.includes("amount authorized") || i.title.includes("Voided") || i.title.includes("Refunded"))) {
-      const paymentItem = timelineItems.find(i => i.title.toLowerCase().includes("payment") || i.title.includes("amount authorized") || i.title.includes("Voided") || i.title.includes("Refunded"))
+    const missingEventsToInject = ["Created", "Payment Pending", "Processing", "Consult Scheduled"];
+    missingEventsToInject.forEach(evtTitle => {
+      const hasEvt = renderedTimelineItems.some(i => i.title === evtTitle);
+      if (!hasEvt && timelineItems.some(i => i.title === evtTitle)) {
+        const item = timelineItems.find(i => i.title === evtTitle);
+        if (item) renderedTimelineItems.push(item);
+      }
+    });
+
+    const hasPayment = renderedTimelineItems.some(i => (i.title.toLowerCase().includes("payment") && !i.title.includes("Pending")) || i.title.includes("amount authorized") || i.title.includes("Voided") || i.title.includes("Refunded"))
+    if (!hasPayment && timelineItems.some(i => (i.title.toLowerCase().includes("payment") && !i.title.includes("Pending")) || i.title.includes("amount authorized") || i.title.includes("Voided") || i.title.includes("Refunded"))) {
+      const paymentItem = timelineItems.find(i => (i.title.toLowerCase().includes("payment") && !i.title.includes("Pending")) || i.title.includes("amount authorized") || i.title.includes("Voided") || i.title.includes("Refunded"))
       if (paymentItem) renderedTimelineItems.push(paymentItem)
     }
 
-    const hasConsult = renderedTimelineItems.some(i => i.title.includes("Consult"))
-    if (!hasConsult && timelineItems.some(i => i.title.includes("Consult"))) {
-      const consultItem = timelineItems.find(i => i.title.includes("Consult"))
-      if (consultItem) renderedTimelineItems.push(consultItem)
+    const orderScore = (title: string) => {
+      const t = title.toLowerCase();
+      if (t === "created") return 0;
+      if (t === "payment pending") return 1;
+      if (t === "processing") return 2;
+      if (t.includes("authorized") || t.includes("captured") || t.includes("payment updated") || t.includes("payment failed")) return 3;
+      if (t.includes("visit pending") || t.includes("visit failed")) return 4;
+      if (t.includes("consult")) return 5;
+      if (t === "prescribed") return 6;
+      if (t.includes("rx sent")) return 7;
+      if (t === "shipped") return 8;
+      return 10;
     }
 
-    renderedTimelineItems.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    renderedTimelineItems.sort((a, b) => {
+      const parseDate = (d: string) => new Date(d.replace(" • ", " ")).getTime();
+      const timeDiff = parseDate(a.date) - parseDate(b.date);
+      if (timeDiff !== 0 && !Number.isNaN(timeDiff)) return timeDiff;
+      return orderScore(a.title) - orderScore(b.title);
+    })
   }
 
   const selectedMedicines = (order as Order & { selected_medicines?: Array<{ quantity?: unknown }> }).selected_medicines
@@ -1413,6 +1450,9 @@ function OrderDetailInner() {
       prescriptions: FileText,
       medical_services: Stethoscope,
       local_shipping: Truck,
+      event: Calendar,
+      credit_card: CreditCard,
+      description: FileText,
     }
     const Icon = iconMap[name] || FileText
     return (
