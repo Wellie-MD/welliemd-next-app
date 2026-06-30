@@ -2,8 +2,8 @@ import { ChangeProductModal, PendingProductChange } from "@/components/orders/Ch
 
 import React, { Component, ErrorInfo, ReactNode } from "react";
 
-class GlobalErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean, error: Error | null}> {
-  constructor(props: {children: ReactNode}) {
+class GlobalErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean, error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
     super(props);
     this.state = { hasError: false, error: null };
   }
@@ -738,7 +738,7 @@ function OrderDetailInner() {
   const timelineItems: TimelineItem[] = []
   if (order.datePrintedShipped) {
     timelineItems.push({
-      title: "Order status updated to Rx Sent",
+      title: "Rx Sent",
       date: formatDateTime(order.datePrintedShipped),
       description: order.product_name
         ? `Prescription Sent to ${order.pharmacy_display || "Pharmacy"} (${order.product_name}).${order.prescription_medications?.[0]?.rxId ? ` Rx ID: ${order.prescription_medications[0].rxId}.` : ""}`
@@ -750,11 +750,11 @@ function OrderDetailInner() {
   if (order.paymentDate) {
     const normalizedPaymentStatus = (order.paymentStatus || "").toLowerCase()
     let paymentTitle = "Payment Updated"
-    if (normalizedPaymentStatus === "authorized") paymentTitle = "Patient Payment Authorized"
-    else if (["captured", "approved", "succeeded"].includes(normalizedPaymentStatus)) paymentTitle = "Patient Payment Captured"
-    else if (["failed", "declined", "error"].includes(normalizedPaymentStatus)) paymentTitle = "Patient Payment Failed"
-    else if (normalizedPaymentStatus === "voided") paymentTitle = "Patient Authorization Voided"
-    else if (normalizedPaymentStatus === "refunded") paymentTitle = "Patient Payment Refunded"
+    if (normalizedPaymentStatus === "authorized") paymentTitle = "Order amount authorized"
+    else if (["captured", "approved", "succeeded"].includes(normalizedPaymentStatus)) paymentTitle = "Payment Captured"
+    else if (["failed", "declined", "error"].includes(normalizedPaymentStatus)) paymentTitle = "Payment Failed"
+    else if (normalizedPaymentStatus === "voided") paymentTitle = "Payment Voided"
+    else if (normalizedPaymentStatus === "refunded") paymentTitle = "Payment Refunded"
 
     timelineItems.push({
       title: paymentTitle,
@@ -785,7 +785,7 @@ function OrderDetailInner() {
   }
   if (order.datePrescribed) {
     timelineItems.push({
-      title: "Product Prescribed",
+      title: "Prescribed",
       date: formatDateTime(order.datePrescribed),
       description: order.product_name || undefined,
       icon: "prescriptions",
@@ -794,7 +794,7 @@ function OrderDetailInner() {
   }
   if (order.visitStatus || order.mrn) {
     timelineItems.push({
-      title: "Visit Created",
+      title: "Visit Pending",
       date: formatDateTime(order.orderDate),
       description: order.provider_network ? `Provider: ${order.provider_network}` : undefined,
       icon: "medical_services",
@@ -955,7 +955,11 @@ function OrderDetailInner() {
       })()
 
       const cleanDescription = (evt: any, baseDesc?: string) => {
-        const desc = baseDesc || evt.description || ""
+        let desc = baseDesc || evt.description || ""
+        if (evt.event_type === "rx_revision" && desc.includes("Unknown Product")) {
+          const pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
+          if (pName) desc = desc.replace("Unknown Product", pName);
+        }
         if (evt.event_type === "rx_revision" && desc.includes("Newly prescribed: ")) {
           const match = desc.match(/Newly prescribed:\s*([\s\S]*?)(?=(?:\.\s*|\n)(?:Supplemental|Refund)|$)/)
           if (match) {
@@ -1004,8 +1008,19 @@ function OrderDetailInner() {
         return desc || undefined
       }
 
+      let rawTitle = evt.title || evt.event_type.replace(/\./g, " ")
+      if (rawTitle === "Order Created") rawTitle = "Created"
+      if (rawTitle === "Patient Payment Authorized") rawTitle = "Order amount authorized"
+      if (rawTitle === "Patient Payment Captured") rawTitle = "Payment Captured"
+      if (rawTitle === "Patient Payment Failed") rawTitle = "Payment Failed"
+      if (rawTitle === "Patient Authorization Voided") rawTitle = "Payment Voided"
+      if (rawTitle === "Patient Payment Refunded") rawTitle = "Payment Refunded"
+      if (rawTitle === "Order status updated to Rx Sent") rawTitle = "Rx Sent"
+      if (rawTitle === "Product Prescribed") rawTitle = "Prescribed"
+      if (rawTitle === "Visit Created") rawTitle = "Visit Pending"
+
       return {
-        title: evt.title || evt.event_type.replace(/\./g, " "),
+        title: rawTitle,
         date: formatDateTime(evt.occurred_at),
         description: cleanDescription(evt, labDescription),
         icon,
@@ -1018,7 +1033,7 @@ function OrderDetailInner() {
   const deduplicatedTimelineItems = eventTimelineItems.reduce((acc, current) => {
     if (acc.length === 0) return [current]
     const prev = acc[acc.length - 1]
-    
+
     // Deduplicate consecutive events with the same title
     if (prev.title === current.title) {
       if (prev.description && !current.description) return acc
@@ -1027,8 +1042,16 @@ function OrderDetailInner() {
         return acc
       }
       if (prev.description === current.description) return acc
+      if (prev.description && current.description) {
+        if (current.description.includes(prev.description) || prev.description.includes(current.description)) {
+          if (current.description.length > prev.description.length) {
+            acc[acc.length - 1] = current
+          }
+          return acc
+        }
+      }
     }
-    
+
     acc.push(current)
     return acc
   }, [] as typeof eventTimelineItems)
@@ -1330,10 +1353,10 @@ function OrderDetailInner() {
       ? displayItemOriginalUnitPrice * quantity
       : (previewOriginalPrice ?? 0))
   const requestedProductAmount =
-    (parseMoney(order.requested_medicines?.[0]?.price) != null
-      ? parseMoney(order.requested_medicines?.[0]?.price)! * quantity
+    parseMoney(order.requested_medicines?.[0]?.price) ??
+    (parseMoney(order.pricing?.subtotal_before_discount ?? order.original_price) != null
+      ? parseMoney(order.pricing?.subtotal_before_discount ?? order.original_price)! / Math.max(quantity, 1)
       : null) ??
-    parseMoney(order.pricing?.subtotal_before_discount ?? order.original_price) ??
     0
   const requestedProductShippingAmount =
     parseMoney(order.requested_medicines?.[0]?.shipping_fee) ??
@@ -1474,7 +1497,7 @@ function OrderDetailInner() {
                     {settlementTransactions.length} txns
                   </span>
                 )}
-                {!hasSplitSettlement && !hasRemainingToCapture && (
+                {!hasSplitSettlement && !paymentCaptured && (
                   <span className="block text-[9px] text-slate-500 mt-0.5">
                     not yet captured
                   </span>
@@ -1545,7 +1568,7 @@ function OrderDetailInner() {
               {/* Requested Block */}
               <div className="px-6 py-1">
                 <div className="text-[11px] font-bold tracking-wide uppercase text-slate-500 border-t-0 pt-2 pb-1.5 flex items-center gap-2 flex-wrap">
-                  Requested (Original) 
+                  Requested (Original)
                   <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border normal-case tracking-normal bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
                     {requestedMedicineName}
                   </span>
@@ -1576,7 +1599,7 @@ function OrderDetailInner() {
                     )}
                   </div>
                 </div>
-                
+
                 <div className="flex justify-between items-center py-1.5 text-[13.5px]">
                   <span className="text-slate-500 dark:text-slate-400">Product amount</span>
                   <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(requestedProductAmount)}</span>
@@ -1676,7 +1699,7 @@ function OrderDetailInner() {
           <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
             <div className="px-6 py-4 border-b bg-muted/50 flex justify-between items-center">
               <div className="flex items-center gap-3">
-                <h3 className="font-semibold text-slate-900 dark:text-white">Order Status</h3>
+                <h3 className="font-semibold text-slate-900 dark:text-white">Order Timeline</h3>
                 <span
                   className={cn(
                     "px-2.5 py-0.5 rounded-full text-xs font-medium border",
@@ -1758,7 +1781,7 @@ function OrderDetailInner() {
                 <span className="text-sm font-semibold text-slate-600">No tracking info</span>
               </div>
             )}
-            
+
             <div className="space-y-2 text-[13.5px]">
               <div className="flex justify-between items-start gap-4">
                 <span className="text-slate-500 min-w-20">Product</span>
@@ -1770,7 +1793,7 @@ function OrderDetailInner() {
                 <span className="text-slate-500">Pharmacy</span>
                 <span className="text-slate-900 dark:text-white font-medium">{pharmacyDisplayName || "—"}</span>
               </div>
-              
+
               {/* Only show if we have prescription meds */}
               {order.prescription_medications && order.prescription_medications.length > 0 ? (
                 order.prescription_medications.map((med, idx) => (
@@ -1807,7 +1830,7 @@ function OrderDetailInner() {
                   <span className="text-slate-900 dark:text-white font-medium">Awaiting provider decision</span>
                 </div>
               )}
-              
+
               {order.prescription_source_received_at && (
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500">RX received</span>
@@ -1837,18 +1860,18 @@ function OrderDetailInner() {
             </h3>
             <div className="space-y-3 text-[13.5px]">
               <div className="flex items-start gap-3">
-                <span className="text-slate-400 mt-0.5"><Stethoscope className="h-4 w-4"/></span>
+                <span className="text-slate-400 mt-0.5"><Stethoscope className="h-4 w-4" /></span>
                 <span className="text-slate-600 dark:text-slate-400">Doctor: <span className="font-semibold text-slate-900 dark:text-white">{order.doctor_name || order.provider_network || "—"}</span></span>
               </div>
               {order.booking_scheduled_at && (
                 <div className="flex items-start gap-3">
-                  <span className="text-slate-400 mt-0.5"><Calendar className="h-4 w-4"/></span>
+                  <span className="text-slate-400 mt-0.5"><Calendar className="h-4 w-4" /></span>
                   <span className="text-slate-600 dark:text-slate-400">Scheduled: <span className="font-medium text-slate-900 dark:text-white">{formatBookingSchedule(order.booking_scheduled_at)}</span></span>
                 </div>
               )}
               {order.booking_location && (
                 <div className="flex items-start gap-3">
-                  <span className="text-slate-400 mt-0.5"><ExternalLink className="h-4 w-4"/></span>
+                  <span className="text-slate-400 mt-0.5"><ExternalLink className="h-4 w-4" /></span>
                   <a href={order.booking_location} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">{order.booking_location}</a>
                 </div>
               )}
@@ -1863,7 +1886,7 @@ function OrderDetailInner() {
                 View Patient Responses
               </Button>
             </div>
-            
+
             <div className="flex items-center gap-3 mb-5">
               <Avatar className="h-10 w-10 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 border border-blue-100 flex items-center justify-center">
                 <AvatarFallback className="font-bold text-sm">
@@ -1874,7 +1897,7 @@ function OrderDetailInner() {
                 {order.name || "—"}
               </div>
             </div>
-            
+
             <div className="space-y-2 mb-6">
               <div className="flex items-center gap-2 text-[13px] text-slate-500">
                 <Mail className="h-3.5 w-3.5 text-slate-400" />
@@ -1885,7 +1908,7 @@ function OrderDetailInner() {
                 <span>{order.phone || "—"}</span>
               </div>
             </div>
-            
+
             <div>
               <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                 <MapPin className="h-3 w-3" /> SHIPPING ADDRESS
@@ -1918,7 +1941,7 @@ function OrderDetailInner() {
               <CreditCard className="h-4 w-4 text-slate-400" />
               Payment Info
             </h3>
-            
+
             <div className="space-y-2 text-[13px] mb-6">
               <div className="flex justify-between">
                 <span className="text-slate-500">Date</span>
@@ -2038,7 +2061,7 @@ function OrderDetailInner() {
               <span className="font-bold text-[14px] text-slate-900 dark:text-white">Net captured</span>
               <div className="flex items-center gap-3">
                 <span className="font-bold text-lg text-slate-900 dark:text-white">${netCollectedPrice}</span>
-                
+
                 {canRefundOrVoid && (
                   <PermissionGate permission={Permissions.REFUND_CREATE}>
                     <Button
