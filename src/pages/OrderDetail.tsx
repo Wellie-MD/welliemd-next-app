@@ -1652,17 +1652,7 @@ function OrderDetailInner() {
               )}
             </div>
             <div className="flex flex-col">
-              {/* Top Product Name */}
-              <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800">
-                <div className="font-semibold text-slate-900 dark:text-white text-base flex items-center flex-wrap gap-2">
-                  {prescribedMedicineDisplayName}
-                  {order.status === "visit_pending" && (
-                    <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border normal-case tracking-normal bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
-                      Awaiting Review
-                    </span>
-                  )}
-                </div>
-              </div>
+
 
               {/* Requested Block */}
               <div className="px-6 py-1">
