@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { FollowUpList } from "@/features/followups";
 import { ActiveTreatmentsList } from "@/components/ActiveTreatmentsList";
-import { useAuth } from "@/features/auth";
+import { useViewerIdentity } from "@/features/auth/hooks/use-viewer-identity";
 import { VisitService } from "@/features/visits/services/visit.service";
 import { getOrders } from "@/shared/api/ordersApi";
 import { useNotifications } from "@/contexts/NotificationsContext";
@@ -24,10 +24,8 @@ function getGreeting(): string {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const firstName = user?.first_name || "";
-  const lastName = user?.last_name || "";
-  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  const viewerIdentity = useViewerIdentity();
+  const fullName = viewerIdentity.fullName;
   
   // Sanitize display name - avoid showing system IDs, UUIDs, or email addresses
   const isValidName = fullName.length > 1 && 

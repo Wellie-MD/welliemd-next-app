@@ -4,6 +4,7 @@ import { profileService, useProfile } from '@/features/profile';
 import { MEDICAL, SUCCESS_MESSAGES, ERROR_MESSAGES, LOADING_MESSAGES } from '@/config/constants';
 import { Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuthStore } from '@/features/auth/store/auth.store';
 
 export default function Profile() {
   const {
@@ -15,6 +16,9 @@ export default function Profile() {
     updatePatientProfile,
     clearError,
   } = useProfile();
+  const isSuperAdminPatientView = useAuthStore(
+    state => Boolean(state.superAdminApiBaseUrl)
+  );
 
   const [basicInfo, setBasicInfo] = useState({
     first_name: '',
@@ -52,6 +56,15 @@ export default function Profile() {
   });
 
   useEffect(() => {
+    if (isSuperAdminPatientView && patientProfile) {
+      setBasicInfo({
+        first_name: patientProfile.first_name || '',
+        last_name: patientProfile.last_name || '',
+        phone: patientProfile.phone || '',
+      });
+      return;
+    }
+
     if (userProfile) {
       setBasicInfo({
         first_name: userProfile.first_name || '',
@@ -59,7 +72,7 @@ export default function Profile() {
         phone: userProfile.phone || '',
       });
     }
-  }, [userProfile]);
+  }, [isSuperAdminPatientView, patientProfile, userProfile]);
 
   useEffect(() => {
     if (patientProfile) {
@@ -101,6 +114,11 @@ export default function Profile() {
   };
 
   const handleSaveBasicInfo = async () => {
+    if (isSuperAdminPatientView) {
+      toast.info('Super Admin patient access is read-only.');
+      return;
+    }
+
     setSavingBasic(true);
     try {
       await updateUserProfile(basicInfo);
@@ -113,6 +131,11 @@ export default function Profile() {
   };
 
   const handleSavePassword = async () => {
+    if (isSuperAdminPatientView) {
+      toast.info('Super Admin patient access is read-only.');
+      return;
+    }
+
     if (passwordData.new_password !== passwordData.confirm_password) {
       toast.error('Passwords do not match');
       return;
@@ -140,6 +163,11 @@ export default function Profile() {
   };
 
   const handleSaveProfileInfo = async () => {
+    if (isSuperAdminPatientView) {
+      toast.info('Super Admin patient access is read-only.');
+      return;
+    }
+
     if (!profileInfo.phone || !profileInfo.date_of_birth || !profileInfo.address || !profileInfo.city || !profileInfo.state || !profileInfo.zip_code || !profileInfo.sex) {
       toast.error('Please complete all required profile fields.');
       return;
@@ -167,7 +195,16 @@ export default function Profile() {
     }
   };
 
-  const initials = `${(userProfile?.first_name || 'U')[0]}${(userProfile?.last_name || '')[0] || ''}`.toUpperCase();
+  const displayFirstName = isSuperAdminPatientView
+    ? patientProfile?.first_name || userProfile?.first_name || ''
+    : userProfile?.first_name || '';
+  const displayLastName = isSuperAdminPatientView
+    ? patientProfile?.last_name || userProfile?.last_name || ''
+    : userProfile?.last_name || '';
+  const displayEmail = isSuperAdminPatientView
+    ? patientProfile?.email || userProfile?.email || ''
+    : userProfile?.email || '';
+  const initials = `${(displayFirstName || 'U')[0]}${(displayLastName || '')[0] || ''}`.toUpperCase();
 
   if (isLoading) {
     return (
@@ -193,7 +230,11 @@ export default function Profile() {
       {/* Header */}
       <div className="km-fade" style={{ marginBottom: 18 }}>
         <div className="km-page-title">Profile</div>
-        <div className="km-page-sub">Manage your account information and preferences</div>
+        <div className="km-page-sub">
+          {isSuperAdminPatientView
+            ? 'Viewing patient profile in read-only Super Admin access'
+            : 'Manage your account information and preferences'}
+        </div>
       </div>
 
       {/* Avatar + Name */}
@@ -209,10 +250,10 @@ export default function Profile() {
           </div>
           <div>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--km-t)' }}>
-              {userProfile?.first_name} {userProfile?.last_name}
+              {displayFirstName} {displayLastName}
             </div>
             <div style={{ fontSize: 13, color: 'var(--km-ac)', textDecoration: 'underline' }}>
-              {userProfile?.email}
+              {displayEmail}
             </div>
           </div>
         </div>
@@ -221,7 +262,11 @@ export default function Profile() {
       {/* Basic Information */}
       <div className="km-profile-card km-fade">
         <h3>Basic Information</h3>
-        <div className="km-card-desc">Update your account's profile information and email address.</div>
+        <div className="km-card-desc">
+          {isSuperAdminPatientView
+            ? 'Patient account information is shown in read-only mode.'
+            : "Update your account's profile information and email address."}
+        </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
@@ -230,6 +275,7 @@ export default function Profile() {
               className="km-field-input"
               value={basicInfo.first_name}
               onChange={e => handleBasicInfoChange('first_name', e.target.value)}
+              disabled={isSuperAdminPatientView}
             />
           </div>
           <div>
@@ -238,25 +284,29 @@ export default function Profile() {
               className="km-field-input"
               value={basicInfo.last_name}
               onChange={e => handleBasicInfoChange('last_name', e.target.value)}
+              disabled={isSuperAdminPatientView}
             />
           </div>
           <div>
             <label className="km-field-label">Email</label>
             <input
               className="km-field-input"
-              value={userProfile?.email || ''}
+              value={displayEmail}
               disabled
             />
           </div>
-          <div>
-            <button className="km-save-btn" onClick={handleSaveBasicInfo} disabled={savingBasic}>
-              {savingBasic ? LOADING_MESSAGES.SAVING_CHANGES : 'Save'}
-            </button>
-          </div>
+          {!isSuperAdminPatientView && (
+            <div>
+              <button className="km-save-btn" onClick={handleSaveBasicInfo} disabled={savingBasic}>
+                {savingBasic ? LOADING_MESSAGES.SAVING_CHANGES : 'Save'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Update Password */}
+      {!isSuperAdminPatientView && (
       <div className="km-profile-card km-fade">
         <h3>Update Password</h3>
         <div className="km-card-desc">Ensure your account is using a long, random password to stay secure.</div>
@@ -311,6 +361,7 @@ export default function Profile() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Profile Information */}
       <div className="km-profile-card km-fade">
@@ -324,6 +375,7 @@ export default function Profile() {
               className="km-field-input"
               value={profileInfo.phone}
               onChange={e => handleProfileInfoChange('phone', e.target.value)}
+              disabled={isSuperAdminPatientView}
             />
           </div>
           <div>
@@ -332,6 +384,7 @@ export default function Profile() {
               className="km-field-input"
               value={profileInfo.address}
               onChange={e => handleProfileInfoChange('address', e.target.value)}
+              disabled={isSuperAdminPatientView}
             />
           </div>
           <div>
@@ -341,6 +394,7 @@ export default function Profile() {
               placeholder="Apartment, suite, unit, etc."
               value={profileInfo.address_line_2}
               onChange={e => handleProfileInfoChange('address_line_2', e.target.value)}
+              disabled={isSuperAdminPatientView}
             />
           </div>
           <div className="km-grid-2">
@@ -350,6 +404,7 @@ export default function Profile() {
                 className="km-field-input"
                 value={profileInfo.city}
                 onChange={e => handleProfileInfoChange('city', e.target.value)}
+                disabled={isSuperAdminPatientView}
               />
             </div>
             <div>
@@ -357,6 +412,7 @@ export default function Profile() {
               <Select
                 value={profileInfo.state}
                 onValueChange={value => handleProfileInfoChange('state', value)}
+                disabled={isSuperAdminPatientView}
               >
                 <SelectTrigger className="km-field-input">
                   <SelectValue placeholder="Select a state" />
@@ -378,6 +434,7 @@ export default function Profile() {
                 className="km-field-input"
                 value={profileInfo.zip_code}
                 onChange={e => handleProfileInfoChange('zip_code', e.target.value)}
+                disabled={isSuperAdminPatientView}
               />
             </div>
             <div>
@@ -385,6 +442,7 @@ export default function Profile() {
               <Select
                 value={profileInfo.sex}
                 onValueChange={value => handleProfileInfoChange('sex', value)}
+                disabled={isSuperAdminPatientView}
               >
                 <SelectTrigger className="km-field-input">
                   <SelectValue placeholder="Select" />
@@ -403,6 +461,7 @@ export default function Profile() {
                 type="date"
                 value={profileInfo.date_of_birth}
                 onChange={e => handleProfileInfoChange('date_of_birth', e.target.value)}
+                disabled={isSuperAdminPatientView}
               />
             </div>
           </div>
@@ -414,6 +473,7 @@ export default function Profile() {
               style={{ resize: 'none' }}
               value={profileInfo.medical_conditions}
               onChange={e => handleProfileInfoChange('medical_conditions', e.target.value)}
+              disabled={isSuperAdminPatientView}
             />
           </div>
           <div>
@@ -424,6 +484,7 @@ export default function Profile() {
               style={{ resize: 'none' }}
               value={profileInfo.self_reported_meds}
               onChange={e => handleProfileInfoChange('self_reported_meds', e.target.value)}
+              disabled={isSuperAdminPatientView}
             />
           </div>
           <div>
@@ -434,13 +495,16 @@ export default function Profile() {
               style={{ resize: 'none' }}
               value={profileInfo.allergies}
               onChange={e => handleProfileInfoChange('allergies', e.target.value)}
+              disabled={isSuperAdminPatientView}
             />
           </div>
-          <div>
-            <button className="km-save-btn" onClick={handleSaveProfileInfo} disabled={savingProfile}>
-              {savingProfile ? LOADING_MESSAGES.SAVING_CHANGES : 'Save'}
-            </button>
-          </div>
+          {!isSuperAdminPatientView && (
+            <div>
+              <button className="km-save-btn" onClick={handleSaveProfileInfo} disabled={savingProfile}>
+                {savingProfile ? LOADING_MESSAGES.SAVING_CHANGES : 'Save'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

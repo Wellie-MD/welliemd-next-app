@@ -38,8 +38,8 @@ export default defineConfig(({ mode }) => {
       // Proxy only works in development
       proxy: mode === 'development' ? {
         '/api': {
-          // target: 'http://127.0.0.1:8100',
-          target: 'https://welliemdapi.welliemd.com',
+          target: 'http://127.0.0.1:8101',
+          // target: 'https://welliemdapi.welliemd.com',
           changeOrigin: true,
           secure: false,
         },
