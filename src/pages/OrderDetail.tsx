@@ -794,7 +794,16 @@ function OrderDetailInner() {
       iconBg: "bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 border-4 border-white dark:border-slate-800",
     })
   }
-  if (order.datePrescribed) {
+  if (order.status === "shipped" || order.tracking_number) {
+    timelineItems.push({
+      title: "Shipped",
+      date: formatDateTime(order.updated_at || (order as any).updatedAt || order.orderDate),
+      description: order.tracking_number ? `Tracking ${order.tracking_number} - ${(order as any).pharmacy_name || (order as any).pharmacy_display || (order as any).pharmacy || "Pharmacy"}` : undefined,
+      icon: "local_shipping",
+      iconBg: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-4 border-white dark:border-slate-800",
+    })
+  }
+  if (order.datePrescribed || isPrescribedStatus) {
     timelineItems.push({
       title: "Prescribed",
       date: formatDateTime(order.datePrescribed),
@@ -1103,7 +1112,7 @@ function OrderDetailInner() {
 
   if (deduplicatedTimelineItems.length > 0) {
     // Inject missing manual events that backend doesn't provide
-    const missingEventsToInject = ["Created", "Payment Pending", "Processing", "Consult Scheduled"];
+    const missingEventsToInject = ["Created", "Payment Pending", "Processing", "Consult Scheduled", "Rx Sent", "Shipped"];
     missingEventsToInject.forEach(evtTitle => {
       const hasEvt = renderedTimelineItems.some(i => i.title === evtTitle);
       if (!hasEvt && timelineItems.some(i => i.title === evtTitle)) {
@@ -2109,7 +2118,7 @@ function OrderDetailInner() {
               <span className="text-[13px] text-slate-500">Status</span>
               <div className="flex items-center gap-2">
                 <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
-                  {((refundStatusLabel || order.paymentStatus || "—") as string).replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+                  {((refundStatusLabel || (trueHoldReleasedAmt > 0 ? "partially_captured" : order.paymentStatus) || "—") as string).replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
                 </span>
               </div>
             </div>
