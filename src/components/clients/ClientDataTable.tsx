@@ -9,6 +9,7 @@ import { Client } from '@/api/clientApi';
 import { Building2, CheckCircle, XCircle, Pencil, AlertTriangle, Ban, ExternalLink, Activity } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import axiosInstance from '@/api/axiosInstance';
+import { startSuperAdminAccess, type SuperAdminPortalType } from '@/api/superAdminAccessApi';
 
 interface ClientDataTableProps {
   clients: Client[];
@@ -40,6 +41,20 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients, onSea
       toast({
         title: "Impersonation failed",
         description: axiosError.response?.data?.error || "Could not log in as client",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBrokerLaunch = async (client: Client, portalType: SuperAdminPortalType) => {
+    try {
+      const data = await startSuperAdminAccess(client.id, portalType);
+      window.open(data.launch_url, '_blank', 'noopener,noreferrer');
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError<{ error?: string }>;
+      toast({
+        title: "Super Admin access failed",
+        description: axiosError.response?.data?.error || `Could not open ${portalType} portal`,
         variant: "destructive",
       });
     }
@@ -181,6 +196,16 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({ clients, onSea
           >
             <Pencil className="w-4 h-4" />
             Edit
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleBrokerLaunch(row, 'client')}
+            disabled={!row.admin_panel_domain}
+            className="flex items-center gap-1 text-gray-600 hover:text-primary hover:bg-gray-100 dark:text-gray-400 dark:hover:text-primary dark:hover:bg-gray-800"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Open Client
           </Button>
           {/* Login as Client — hidden for now
           <Button
