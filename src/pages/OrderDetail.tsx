@@ -761,8 +761,7 @@ function OrderDetailInner() {
   if (order.paymentDate) {
     const normalizedPaymentStatus = (order.paymentStatus || "").toLowerCase()
     let paymentTitle = "Payment Updated"
-    if (normalizedPaymentStatus === "authorized") paymentTitle = "Order amount authorized"
-    else if (["captured", "approved", "succeeded"].includes(normalizedPaymentStatus)) paymentTitle = "Payment Captured"
+    if (normalizedPaymentStatus === "authorized" || ["captured", "approved", "succeeded"].includes(normalizedPaymentStatus)) paymentTitle = "Order amount authorized"
     else if (["failed", "declined", "error"].includes(normalizedPaymentStatus)) paymentTitle = "Payment Failed"
     else if (normalizedPaymentStatus === "voided") paymentTitle = "Payment Voided"
     else if (normalizedPaymentStatus === "refunded") paymentTitle = "Payment Refunded"
@@ -771,7 +770,7 @@ function OrderDetailInner() {
       title: paymentTitle,
       date: formatDateTime(order.paymentDate),
       description: (order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount)
-        ? `${normalizedPaymentStatus === "authorized" ? "Authorized" : normalizedPaymentStatus === "refunded" ? "Refunded" : "Captured"} $${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount}.`
+        ? `${normalizedPaymentStatus === "refunded" ? "Refunded" : "Authorized"} $${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount}.`
         : undefined,
       icon: "payments",
       iconBg: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800",
@@ -991,6 +990,12 @@ function OrderDetailInner() {
 
       const cleanDescription = (evt: any, baseDesc?: string) => {
         let desc = baseDesc || evt.description || ""
+        if (desc.includes(" -> ")) {
+          const parts = desc.split(" -> ");
+          if (parts.length === 2 && parts[0].trim().length > 0 && parts[1].trim().length > 0 && desc.length < 50) {
+            desc = "";
+          }
+        }
         if (evt.event_type === "rx_revision" && desc.includes("Unknown Product")) {
           const pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
           if (pName) desc = desc.replace("Unknown Product", pName);
@@ -1818,7 +1823,7 @@ function OrderDetailInner() {
             </div>
             <div className="p-6">
               <div className="relative pl-4">
-                <div className="absolute left-[19px] top-2 bottom-4 w-px bg-slate-200 dark:bg-slate-700" />
+                <div className="absolute left-[35px] top-2 bottom-4 w-px bg-slate-200 dark:bg-slate-700" />
                 <div className="space-y-8">
                   {renderedTimelineItems.map((item, idx) => (
                     <div key={idx} className="relative flex gap-4">
