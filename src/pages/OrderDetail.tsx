@@ -760,7 +760,7 @@ function OrderDetailInner() {
       title: paymentTitle,
       date: formatDateTime(order.paymentDate),
       description: (order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount)
-        ? `$${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount}`
+        ? `${normalizedPaymentStatus === "authorized" ? "Authorized" : normalizedPaymentStatus === "refunded" ? "Refunded" : "Captured"} $${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount}.`
         : undefined,
       icon: "payments",
       iconBg: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800",
@@ -966,42 +966,58 @@ function OrderDetailInner() {
             let newDesc = `Prescribed: ${match[1].trim()}`
             if (!newDesc.endsWith(".")) newDesc += "."
             if (desc.includes("Supplemental capture triggered")) {
-              const suppMatch = desc.match(/(Supplemental capture triggered for \$[\d,.]+)/)
-              if (suppMatch) newDesc += `\n${suppMatch[1]}.`
+              const suppMatch = desc.match(/Supplemental capture triggered for (\$[\d,.]+)/)
+              if (suppMatch) newDesc += `\nSupplemental capture of ${suppMatch[1]}.`
             }
             if (desc.includes("Refund required")) {
-              const refundMatch = desc.match(/(Refund required for \$[\d,.]+)/)
-              if (refundMatch) newDesc += `\n${refundMatch[1]}.`
+              const refundMatch = desc.match(/Refund required for (\$[\d,.]+)/)
+              if (refundMatch) newDesc += `\nRefund of ${refundMatch[1]}.`
             }
             return newDesc
           }
         }
 
         // Inject prescribed product into initial Prescribed event if missing
-        if (evt.event_type === "status.prescribed" && !desc.includes("Prescribed: ")) {
-          let pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
+        if (evt.event_type === "status.prescribed") {
+          if (!desc.includes("Prescribed: ")) {
+            let pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
 
-          // If there are revisions, the CURRENT product name might not be the INITIAL one.
-          // We can find the initial product from the FIRST rx_revision event.
-          const firstRxRevision = Array.isArray(order.activity_events)
-            ? order.activity_events.find((e: any) => e.event_type === "rx_revision")
-            : null;
+            // If there are revisions, the CURRENT product name might not be the INITIAL one.
+            // We can find the initial product from the FIRST rx_revision event.
+            const firstRxRevision = Array.isArray(order.activity_events)
+              ? order.activity_events.find((e: any) => e.event_type === "rx_revision")
+              : null;
 
-          if (firstRxRevision && firstRxRevision.description) {
-            const rxDesc = firstRxRevision.description;
-            const prevMatch = rxDesc.match(/Previously prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
-            if (prevMatch && prevMatch[1]) {
-              pName = prevMatch[1].trim();
-            } else if (rxDesc.includes("Prescribed: ")) {
-              const newMatch = rxDesc.match(/Prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
-              if (newMatch && newMatch[1]) {
-                pName = newMatch[1].trim();
+            if (firstRxRevision && firstRxRevision.description) {
+              const rxDesc = firstRxRevision.description;
+              const prevMatch = rxDesc.match(/Previously prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
+              if (prevMatch && prevMatch[1]) {
+                pName = prevMatch[1].trim();
+              } else if (rxDesc.includes("Prescribed: ")) {
+                const newMatch = rxDesc.match(/Prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
+                if (newMatch && newMatch[1]) {
+                  pName = newMatch[1].trim();
+                }
               }
+            }
+
+            if (pName && pName.toLowerCase() !== "same med" && pName.toLowerCase() !== "same medicine" && pName !== "Unknown Product") {
+              desc = `${desc}\nPrescribed: ${pName}.`.trim()
             }
           }
 
-          if (pName && pName.toLowerCase() !== "same med" && pName.toLowerCase() !== "same medicine" && pName !== "Unknown Product") {
-            return `${desc}\nPrescribed: ${pName}.`
+          // Inject capture details if missing
+          if (!desc.includes("Captured $")) {
+            const parseAmt = (val: any) => val != null && val !== "" && Number.isFinite(parseFloat(String(val))) ? parseFloat(String(val)) : null
+            const authAmount = parseAmt((order as any).base_authorization_amount) ?? parseAmt(order.original_price)
+            const capAmount = parseAmt((order as any).base_captured_amount) ?? parseAmt(order.pricing?.grand_total)
+
+            if (capAmount != null && authAmount != null && authAmount > capAmount) {
+              const holdReleased = authAmount - capAmount
+              desc += `\nCaptured $${capAmount.toFixed(2)} of $${authAmount.toFixed(2)} authorized.\nRemaining $${holdReleased.toFixed(2)} hold released.`
+            } else if (capAmount != null) {
+              desc += `\nCaptured $${capAmount.toFixed(2)}.`
+            }
           }
         }
 
@@ -1056,7 +1072,24 @@ function OrderDetailInner() {
     return acc
   }, [] as typeof eventTimelineItems)
 
-  const renderedTimelineItems = deduplicatedTimelineItems.length > 0 ? deduplicatedTimelineItems : timelineItems
+  let renderedTimelineItems = deduplicatedTimelineItems.length > 0 ? deduplicatedTimelineItems : timelineItems
+
+  if (deduplicatedTimelineItems.length > 0) {
+    // Inject missing manual events that backend doesn't provide
+    const hasPayment = renderedTimelineItems.some(i => i.title.toLowerCase().includes("payment") || i.title.includes("amount authorized") || i.title.includes("Voided") || i.title.includes("Refunded"))
+    if (!hasPayment && timelineItems.some(i => i.title.toLowerCase().includes("payment") || i.title.includes("amount authorized") || i.title.includes("Voided") || i.title.includes("Refunded"))) {
+      const paymentItem = timelineItems.find(i => i.title.toLowerCase().includes("payment") || i.title.includes("amount authorized") || i.title.includes("Voided") || i.title.includes("Refunded"))
+      if (paymentItem) renderedTimelineItems.push(paymentItem)
+    }
+
+    const hasConsult = renderedTimelineItems.some(i => i.title.includes("Consult"))
+    if (!hasConsult && timelineItems.some(i => i.title.includes("Consult"))) {
+      const consultItem = timelineItems.find(i => i.title.includes("Consult"))
+      if (consultItem) renderedTimelineItems.push(consultItem)
+    }
+
+    renderedTimelineItems.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  }
 
   const selectedMedicines = (order as Order & { selected_medicines?: Array<{ quantity?: unknown }> }).selected_medicines
   const qty = selectedMedicines?.[0]?.quantity ?? order.prescription_medications?.[0]?.quantity ?? "1"
