@@ -18,11 +18,16 @@ export type VisibilityConditionOperator =
   | "in"
   | "not_in"
   | "contains"
-  | "not_contains";
+  | "not_contains"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte";
 
 export interface VisibilityCondition {
   type: "condition";
   question_id: string;
+  question_type?: string;
   operator: VisibilityConditionOperator;
   value: string | string[];
   field?: string;
@@ -47,12 +52,18 @@ interface VisibilityRuleBuilderProps {
   questions: QuestionOption[];
 }
 
+export const NUMERIC_OPERATORS = new Set(["gt", "gte", "lt", "lte"]);
+
 const CONDITION_OPERATORS: Array<{
   value: VisibilityConditionOperator;
   label: string;
 }> = [
   { value: "equals", label: "Equals" },
   { value: "not_equals", label: "Does not equal" },
+  { value: "gte", label: "Greater than or equal (>=)" },
+  { value: "gt", label: "Greater than (>)" },
+  { value: "lte", label: "Less than or equal (<=)" },
+  { value: "lt", label: "Less than (<)" },
   { value: "in", label: "Is one of" },
   { value: "not_in", label: "Is not one of" },
   { value: "contains", label: "Contains" },

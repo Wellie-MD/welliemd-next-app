@@ -47,6 +47,8 @@ import {
 import { SubQuestion } from "@/api/questionnaires";
 import { normalizeChoiceDisplay } from "@/utils/choiceValue";
 
+const DERIVED_BMI_ID = "__derived_bmi__";
+
 interface QuestionFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -248,11 +250,24 @@ function isVisibilityGroup(value: unknown): value is VisibilityGroup {
   );
 }
 
+function injectBmiSentinel(node: VisibilityGroup): VisibilityGroup {
+  return {
+    ...node,
+    children: node.children.map((child) =>
+      child.type === "group"
+        ? injectBmiSentinel(child)
+        : child.question_type === "bmi" && !child.question_id
+          ? { ...child, question_id: DERIVED_BMI_ID }
+          : child
+    ),
+  };
+}
+
 function normalizeShowIfToTree(showIf: unknown, logicOperator: "AND" | "OR" = "OR"): VisibilityGroup | null {
   if (!showIf) return null;
 
   if (isVisibilityGroup(showIf)) {
-    return showIf;
+    return injectBmiSentinel(showIf);
   }
 
   if (Array.isArray(showIf)) {
@@ -261,46 +276,123 @@ function normalizeShowIfToTree(showIf: unknown, logicOperator: "AND" | "OR" = "O
       operator: logicOperator,
       children: showIf
         .filter((item): item is LegacyConditionNode => !!item && typeof item === "object")
-        .map((item) => ({
-          type: "condition" as const,
-          question_id: item.question_id || "",
-          operator: (item.operator as
-            | "equals"
-            | "not_equals"
-            | "in"
-            | "not_in"
-            | "contains"
-            | "not_contains") || "equals",
-          value: Array.isArray(item.value) ? item.value.map(String) : String(item.value ?? ""),
-          field: item.field,
-        })),
+        .map((item) => {
+          // Handle derived source (e.g. BMI)
+          if ((item as Record<string, unknown>).question_type === "bmi") {
+            return {
+              type: "condition" as const,
+              question_id: DERIVED_BMI_ID,
+              question_type: "bmi",
+              operator: ((item as Record<string, unknown>).operator as
+                | "equals"
+                | "not_equals"
+                | "in"
+                | "not_in"
+                | "contains"
+                | "not_contains"
+                | "gt"
+                | "gte"
+                | "lt"
+                | "lte") || "equals",
+              value: String((item as Record<string, unknown>).value ?? ""),
+            };
+          }
+          return {
+            type: "condition" as const,
+            question_id: item.question_id || "",
+            operator: (item.operator as
+              | "equals"
+              | "not_equals"
+              | "in"
+              | "not_in"
+              | "contains"
+              | "not_contains"
+              | "gt"
+              | "gte"
+              | "lt"
+              | "lte") || "equals",
+            value: Array.isArray(item.value) ? item.value.map(String) : String(item.value ?? ""),
+            field: item.field,
+          };
+        }),
     };
   }
 
-  if (typeof showIf === "object" && showIf && (showIf as LegacyConditionNode).question_id) {
-    const item = showIf as LegacyConditionNode;
+  if (typeof showIf === "object" && showIf && ((showIf as LegacyConditionNode).question_id || (showIf as Record<string, unknown>).question_type === "bmi")) {
+    const item = showIf as Record<string, unknown>;
+    if (item.question_type === "bmi") {
+      return {
+        type: "group",
+        operator: "AND",
+        children: [
+          {
+            type: "condition",
+            question_id: DERIVED_BMI_ID,
+            question_type: "bmi",
+            operator: (item.operator as
+              | "equals" | "not_equals" | "in" | "not_in" | "contains" | "not_contains"
+              | "gt" | "gte" | "lt" | "lte") || "equals",
+            value: String(item.value ?? ""),
+          },
+        ],
+      };
+    }
+    const legacyItem = item as LegacyConditionNode;
     return {
       type: "group",
       operator: "AND",
       children: [
         {
           type: "condition",
-          question_id: item.question_id || "",
-          operator: (item.operator as
+          question_id: legacyItem.question_id || "",
+          operator: (legacyItem.operator as
             | "equals"
             | "not_equals"
             | "in"
             | "not_in"
             | "contains"
-            | "not_contains") || "equals",
-          value: Array.isArray(item.value) ? item.value.map(String) : String(item.value ?? ""),
-          field: item.field,
+            | "not_contains"
+            | "gt"
+            | "gte"
+            | "lt"
+            | "lte") || "equals",
+          value: Array.isArray(legacyItem.value) ? legacyItem.value.map(String) : String(legacyItem.value ?? ""),
+          field: legacyItem.field,
         },
       ],
     };
   }
 
   return null;
+}
+
+/** Recursively transform conditions referencing derived values (e.g. BMI) to use source/key format. */
+function serializeVisibilityRules(rules: VisibilityGroup): unknown {
+  function walk(node: VisibilityCondition | VisibilityGroup): unknown {
+    if (node.type === "group") {
+      return {
+        type: "group",
+        operator: node.operator,
+        children: node.children.map(walk),
+      };
+    }
+    if (node.question_id === DERIVED_BMI_ID) {
+      return {
+        type: "condition",
+        question_type: "bmi",
+        operator: node.operator,
+        value: isNaN(Number(node.value)) ? node.value : Number(node.value),
+      };
+    }
+    return {
+      type: "condition",
+      question_id: node.question_id,
+      operator: node.operator,
+      value: node.value,
+      ...(node.field ? { field: node.field } : {}),
+    };
+  }
+  return walk(rules);
 }
 
 function FieldHelp({ text }: { text: string }) {
@@ -1016,7 +1108,7 @@ export function QuestionForm({
 
       if (formData.is_follow_up && followUpMode === "advanced") {
         conditionalLogic = {
-          show_if: visibilityRules,
+          show_if: serializeVisibilityRules(visibilityRules),
         };
       } else if (formData.is_follow_up && parentQuestions.length > 0) {
         if (parentQuestions.length === 1) {
@@ -2550,12 +2642,18 @@ export function QuestionForm({
                   <VisibilityRuleBuilder
                     value={visibilityRules}
                     onChange={setVisibilityRules}
-                    questions={parentQuestionOptions.map((question) => ({
-                      id: question.id,
-                      question_text: question.question_text,
-                      order_index: question.order_index,
-                      answer_choices: question.answer_choices,
-                    }))}
+                    questions={(() => {
+                      const bmiQ = parentQuestionOptions.find(
+                        (q) => (q as Record<string, unknown>).question_type === "bmi"
+                      );
+                      return [...parentQuestionOptions]
+                        .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+                        .map((q) =>
+                          q.id === bmiQ?.id
+                            ? { id: DERIVED_BMI_ID, question_text: q.question_text, order_index: q.order_index, answer_choices: [] as string[] }
+                            : { id: q.id, question_text: q.question_text, order_index: q.order_index, answer_choices: q.answer_choices }
+                        );
+                    })()}
                   />
                 ) : (
                 <div className="space-y-3">
