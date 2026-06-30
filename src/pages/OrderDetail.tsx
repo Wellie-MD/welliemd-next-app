@@ -1026,7 +1026,10 @@ function OrderDetailInner() {
             const parseAmt = (val: any) => val != null && val !== "" && Number.isFinite(parseFloat(String(val))) ? parseFloat(String(val)) : null
             let authAmount = parseAmt((order as any).base_authorization_amount)
             if (authAmount == null) {
-              authAmount = parseAmt(order.pricing?.grand_total)
+              const reqPrice = parseAmt(order.requested_medicines?.[0]?.price) ?? parseAmt(order.pricing?.subtotal_before_discount ?? order.original_price) ?? 0
+              const reqShipping = parseAmt(order.requested_medicines?.[0]?.shipping_fee) ?? 0
+              const reqDiscount = parseAmt((order.pricing as any)?.discount_amount) ?? 0
+              authAmount = Math.max(0, reqPrice - reqDiscount) + reqShipping
             }
             const capAmount = parseAmt((order as any).base_captured_amount) ?? parseAmt(order.pricing?.grand_total)
 
@@ -1321,13 +1324,13 @@ function OrderDetailInner() {
     : null
   const splitRemainingBaseDisplay = hasSplitSettlement
     ? formatMoney(splitRemainingBaseAmount ?? 0)
-    : null
+    : "0.00"
   const splitRemainingSupplementalDisplay = hasSplitSettlement
     ? formatMoney(splitRemainingSupplementalAmount ?? 0)
-    : null
+    : "0.00"
   const splitRemainingTotalDisplay = hasSplitSettlement
     ? formatMoney(remainingToCaptureAmount ?? 0)
-    : null
+    : "0.00"
 
   const retryAmount = hasRemainingToCapture
     ? remainingToCaptureAmount
@@ -2068,10 +2071,31 @@ function OrderDetailInner() {
             )}
 
             {settlementTransactions.length === 0 && !isPending && !isAuthorized && !isPaymentFailure && (
-              <div className="flex justify-between font-bold text-[13.5px] mb-4">
-                <span className="text-slate-900">Captured</span>
-                <span className="text-slate-900">${netCollectedPrice}</span>
-              </div>
+              (refundedAmount > 0 || order.paymentStatus === "partially_captured") ? (() => {
+                const holdReleasedAmt = refundedAmount > 0 ? refundedAmount : Math.max(0, previewOriginalPrice - (parseMoney(order.netCollected) ?? 0));
+                const authDisplayAmt = Math.max((parseMoney(order.netCollected) ?? 0) + holdReleasedAmt, previewOriginalPrice);
+                return (
+                  <div className="bg-card border rounded-lg p-4 mb-4 space-y-2 text-[13.5px]">
+                    <div className="flex justify-between text-slate-600">
+                      <span>Authorized</span>
+                      <span className="font-semibold">${formatMoney(authDisplayAmt)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Hold released</span>
+                      <span className="font-semibold text-red-600">−${holdReleasedAmt.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t font-bold">
+                      <span className="text-slate-900">Captured</span>
+                      <span className="text-slate-900">${netCollectedPrice}</span>
+                    </div>
+                  </div>
+                );
+              })() : (
+                <div className="bg-card border rounded-lg p-4 mb-4 flex justify-between font-bold text-[13.5px]">
+                  <span className="text-slate-900">Captured</span>
+                  <span className="text-slate-900">${netCollectedPrice}</span>
+                </div>
+              )
             )}
 
             {settlementTransactions.length === 0 && isAuthorized && (
