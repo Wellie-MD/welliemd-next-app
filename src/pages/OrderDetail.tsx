@@ -2070,7 +2070,7 @@ function OrderDetailInner() {
               </div>
             )}
 
-            {settlementTransactions.length === 0 && !isPending && !isAuthorized && !isPaymentFailure && (
+            {!isPending && !isAuthorized && !isPaymentFailure && (
               (refundedAmount > 0 || order.paymentStatus === "partially_captured" || trueHoldReleasedAmt > 0) ? (() => {
                 const holdReleasedAmt = refundedAmount > 0 ? refundedAmount : trueHoldReleasedAmt;
                 const authDisplayAmt = Math.max((parseMoney(order.netCollected) ?? 0) + holdReleasedAmt, trueAuthAmount);
@@ -2090,12 +2090,12 @@ function OrderDetailInner() {
                     </div>
                   </div>
                 );
-              })() : (
+              })() : settlementTransactions.length === 0 ? (
                 <div className="bg-card border rounded-lg p-4 mb-4 flex justify-between font-bold text-[13.5px]">
                   <span className="text-slate-900">Captured</span>
                   <span className="text-slate-900">${netCollectedPrice}</span>
                 </div>
-              )
+              ) : null
             )}
 
             {settlementTransactions.length === 0 && isAuthorized && (
