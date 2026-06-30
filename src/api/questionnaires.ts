@@ -59,6 +59,7 @@ export interface Question {
   | "file_upload"
   | "checkout"
   | "product_selection"
+  | "multi_product_select"
   | "medication_dose_selector"
   | "state_routing"
   | "sex"

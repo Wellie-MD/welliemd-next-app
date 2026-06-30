@@ -21,6 +21,7 @@ import ResetPassword from "./pages/auth/ResetPassword";
 import AcceptInvitation from "./pages/AcceptInvitation";
 import RegisterInvitation from "./pages/auth/RegisterInvitation";
 import Forbidden from "./pages/Forbidden";
+import SuperAdminAccessLaunch from "./pages/SuperAdminAccessLaunch";
 
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -60,6 +61,7 @@ const App = () => {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/register" element={<RegisterInvitation />} />
         <Route path="/accept-invitation" element={<AcceptInvitation />} />
+        <Route path="/superadmin-access/launch" element={<SuperAdminAccessLaunch />} />
 
         {/* Error pages */}
         <Route path="/forbidden" element={<Forbidden />} />
