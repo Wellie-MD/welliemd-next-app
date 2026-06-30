@@ -1065,22 +1065,22 @@ function OrderDetailInner() {
     if (acc.length === 0) return [current]
     const prev = acc[acc.length - 1]
 
-    // Deduplicate consecutive events with the same title
-    if (prev.title === current.title) {
-      if (prev.description && !current.description) return acc
+    // Deduplicate consecutive events with the same title and date
+    if (prev.title === current.title && prev.date === current.date) {
       if (!prev.description && current.description) {
         acc[acc.length - 1] = current
         return acc
       }
-      if (prev.description === current.description) return acc
-      if (prev.description && current.description) {
-        if (current.description.includes(prev.description) || prev.description.includes(current.description)) {
-          if (current.description.length > prev.description.length) {
-            acc[acc.length - 1] = current
-          }
-          return acc
-        }
+      if (prev.description && !current.description) {
+        return acc
       }
+      if (prev.description && current.description) {
+        if (current.description.length > prev.description.length) {
+          acc[acc.length - 1] = current
+        }
+        return acc
+      }
+      return acc
     }
 
     acc.push(current)
