@@ -498,6 +498,17 @@ function OrderDetailInner() {
   const isAllowedStatus = status === "created" || status === "payment_pending"
   const canChangeProduct = isAllowedStatus && !isLocked
   const canRefundOrVoid = isAuthorized || isRefundable
+
+  const parseAmt = (val: any) => val != null && val !== "" && Number.isFinite(parseFloat(String(val))) ? parseFloat(String(val)) : null;
+  const initialReqPrice = parseAmt(order?.requested_medicines?.[0]?.price) ?? parseAmt(order?.pricing?.subtotal_before_discount ?? order?.original_price) ?? 0;
+  const initialReqShipping = parseAmt(order?.requested_medicines?.[0]?.shipping_fee) ?? 0;
+  const initialReqDiscount = parseAmt(order?.pricing?.discount_total ?? (order?.pricing as any)?.discount_amount ?? order?.discount_amount) ?? 0;
+  let trueAuthAmount = parseAmt((order as any)?.base_authorization_amount);
+  if (trueAuthAmount == null) {
+    trueAuthAmount = Math.max(0, initialReqPrice - initialReqDiscount) + initialReqShipping;
+  }
+  const trueCapAmount = parseAmt((order as any)?.base_captured_amount) ?? parseAmt(order?.pricing?.grand_total) ?? 0;
+  const trueHoldReleasedAmt = Math.max(0, trueAuthAmount - trueCapAmount);
   const changeProductTooltip =
     "Product change is available only while order status is Created or Payment Pending and payment status is Pending."
 
@@ -1023,24 +1034,13 @@ function OrderDetailInner() {
 
           // Inject capture details if missing
           if (!desc.includes("Captured $")) {
-            const parseAmt = (val: any) => val != null && val !== "" && Number.isFinite(parseFloat(String(val))) ? parseFloat(String(val)) : null
-            let authAmount = parseAmt((order as any).base_authorization_amount)
-            if (authAmount == null) {
-              const reqPrice = parseAmt(order.requested_medicines?.[0]?.price) ?? parseAmt(order.pricing?.subtotal_before_discount ?? order.original_price) ?? 0
-              const reqShipping = parseAmt(order.requested_medicines?.[0]?.shipping_fee) ?? 0
-              const reqDiscount = parseAmt((order.pricing as any)?.discount_amount) ?? 0
-              authAmount = Math.max(0, reqPrice - reqDiscount) + reqShipping
-            }
-            const capAmount = parseAmt((order as any).base_captured_amount) ?? parseAmt(order.pricing?.grand_total)
-
-            if (capAmount != null && authAmount != null && authAmount > capAmount) {
-              const holdReleased = authAmount - capAmount
-              desc += `\nCaptured $${capAmount.toFixed(2)} of $${authAmount.toFixed(2)} authorized.\nRemaining $${holdReleased.toFixed(2)} hold released.`
-            } else if (capAmount != null && authAmount != null && capAmount > authAmount) {
-              const supplemental = capAmount - authAmount
-              desc += `\nCaptured $${authAmount.toFixed(2)}.\nSupplemental capture of $${supplemental.toFixed(2)}.`
-            } else if (capAmount != null) {
-              desc += `\nCaptured $${capAmount.toFixed(2)}.`
+            if (trueCapAmount != null && trueAuthAmount != null && trueAuthAmount > trueCapAmount) {
+              desc += `\nCaptured $${trueCapAmount.toFixed(2)} of $${trueAuthAmount.toFixed(2)} authorized.\nRemaining $${trueHoldReleasedAmt.toFixed(2)} hold released.`
+            } else if (trueCapAmount != null && trueAuthAmount != null && trueCapAmount > trueAuthAmount) {
+              const supplemental = trueCapAmount - trueAuthAmount
+              desc += `\nCaptured $${trueAuthAmount.toFixed(2)}.\nSupplemental capture of $${supplemental.toFixed(2)}.`
+            } else if (trueCapAmount != null) {
+              desc += `\nCaptured $${trueCapAmount.toFixed(2)}.`
             }
           }
         }
@@ -2071,9 +2071,9 @@ function OrderDetailInner() {
             )}
 
             {settlementTransactions.length === 0 && !isPending && !isAuthorized && !isPaymentFailure && (
-              (refundedAmount > 0 || order.paymentStatus === "partially_captured") ? (() => {
-                const holdReleasedAmt = refundedAmount > 0 ? refundedAmount : Math.max(0, previewOriginalPrice - (parseMoney(order.netCollected) ?? 0));
-                const authDisplayAmt = Math.max((parseMoney(order.netCollected) ?? 0) + holdReleasedAmt, previewOriginalPrice);
+              (refundedAmount > 0 || order.paymentStatus === "partially_captured" || trueHoldReleasedAmt > 0) ? (() => {
+                const holdReleasedAmt = refundedAmount > 0 ? refundedAmount : trueHoldReleasedAmt;
+                const authDisplayAmt = Math.max((parseMoney(order.netCollected) ?? 0) + holdReleasedAmt, trueAuthAmount);
                 return (
                   <div className="bg-card border rounded-lg p-4 mb-4 space-y-2 text-[13.5px]">
                     <div className="flex justify-between text-slate-600">
