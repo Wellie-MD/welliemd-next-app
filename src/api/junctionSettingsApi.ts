@@ -17,6 +17,7 @@ export interface JunctionTenantStatus {
     last_synced_at: string | null;
     last_sync_status: string;
     last_event_at: string | null;
+    webhook: { configured: boolean; url: string };
     lab_accounts: { linked_count: number };
     wearables: { enabled: boolean; status: string };
 }

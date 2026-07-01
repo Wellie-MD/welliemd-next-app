@@ -134,14 +134,18 @@ export function JunctionIntegrationCard() {
                 <span className="font-mono text-muted-foreground">{status?.team_id || "—"}</span>
               </StatusCol>
               <StatusCol label="Environment">{envLabel(env)}</StatusCol>
+              <StatusCol label="Webhook">
+                {status?.webhook?.configured ? "Configured" : "Not configured"}
+              </StatusCol>
               <StatusCol label="Linked lab accounts">
                 {status?.lab_accounts?.linked_count ?? 0}
               </StatusCol>
               <StatusCol label="Last sync">{relativeTime(status?.last_synced_at ?? null)}</StatusCol>
             </div>
             <p className="mt-3 text-[11.5px] text-muted-foreground">
-              API keys for this integration are held securely by WellieMD and are never shown here.
-              The team ID is a non-secret reference you can quote to support.
+              API keys and webhook signing secrets for this integration are held securely by
+              WellieMD and are never shown here. The team ID is a non-secret reference you can
+              quote to support.
             </p>
           </div>
         </div>

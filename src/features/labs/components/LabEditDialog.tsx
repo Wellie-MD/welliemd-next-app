@@ -197,7 +197,7 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
                       <span className="font-mono text-[10px] text-gray-400 truncate max-w-[200px]" title={editingLab.junction_lab_test_id}>ID: {editingLab.junction_lab_test_id}</span>
                     )}
                   </div>
-                  {editingLab.junction_rejection_reason && (
+                  {!editingLab.is_orderable && editingLab.junction_rejection_reason && (
                     <p className="mt-1.5 text-[11px] text-rose-600">{editingLab.junction_rejection_reason}</p>
                   )}
                 </div>
