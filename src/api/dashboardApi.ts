@@ -143,6 +143,7 @@ export interface AdminOrder {
   id: string;
   display_id: string;
   order_id?: string | null;
+  master_id?: string | null;
   patient_name: string;
   patient_email: string;
   patient_phone: string;

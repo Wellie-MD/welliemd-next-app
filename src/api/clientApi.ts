@@ -5,6 +5,7 @@ export type LifecycleState =
   | 'draft'
   | 'provisioning'
   | 'ready'
+  | 'ready_with_warnings'
   | 'repairing'
   | 'teardown_pending'
   | 'tearing_down'
@@ -17,7 +18,8 @@ export type ProvisioningStatus =
   | 'running'
   | 'partial_failed'
   | 'failed'
-  | 'ready';
+  | 'ready'
+  | 'ready_with_warnings';
 
 export type TeardownStatus =
   | 'idle'
@@ -341,6 +343,7 @@ export interface ClientLifecycleResponse {
     total: number;
     returned: number;
     errored: number;
+    warnings?: number;
     by_operation: Record<string, number>;
     by_status: Record<string, number>;
   };

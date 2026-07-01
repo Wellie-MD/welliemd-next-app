@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select"
 import { AdminOrder, updateAdminOrder, OrderUpdatePayload } from "@/api/dashboardApi"
 import { useToast } from "@/hooks/use-toast"
-import { Package, User, Mail, Phone, Building2, Pill, MapPin, CreditCard, Truck, Calendar } from "lucide-react"
+import { Package, User, Mail, Phone, Building2, Pill, MapPin, CreditCard, Truck, Calendar, Hash } from "lucide-react"
 
 interface OrderDetailDrawerProps {
   order: AdminOrder | null
@@ -235,6 +235,11 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                 <Building2 className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Client:</span>
                 <span>{order.client_name}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Hash className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Master ID:</span>
+                <span className="font-mono text-xs">{order.master_id || "—"}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Pill className="h-4 w-4 text-muted-foreground" />
