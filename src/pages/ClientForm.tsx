@@ -2,7 +2,17 @@ import { useState, useEffect } from "react";
 import type { AxiosError } from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Save, Loader2, Info, AlertCircle, Eye, EyeOff, CreditCard, RefreshCcw } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  Loader2,
+  Info,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  CreditCard,
+  RefreshCcw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,11 +46,13 @@ import {
   ClientCreatePayload,
   ClientUpdatePayload,
 } from "@/api/clientApi";
+import productBillingApi from "@/api/productBillingApi";
 import { PasswordDisplayModal } from "@/components/clients/PasswordDisplayModal";
 import { B2BBillingDisplay } from "@/components/billing/B2BBillingDisplay";
 import { B2BInvoiceList } from "@/components/billing/B2BInvoiceList";
 import { BillingLockStatusCard } from "@/components/billing/BillingLockStatusCard";
 import { BillingConfigEditor } from "@/components/billing/BillingConfigEditor";
+import { Layers, ChevronRight } from "lucide-react";
 
 // Helper component for field info tooltips
 const FieldInfo = ({ content }: { content: string }) => (
@@ -57,14 +69,20 @@ const FieldInfo = ({ content }: { content: string }) => (
 );
 
 const generateSecurePassword = (length = 20) => {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
+  const alphabet =
+    "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
   const cryptoObj = globalThis.crypto;
   if (!cryptoObj?.getRandomValues) {
-    return Array.from({ length }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
+    return Array.from(
+      { length },
+      () => alphabet[Math.floor(Math.random() * alphabet.length)],
+    ).join("");
   }
   const bytes = new Uint32Array(length);
   cryptoObj.getRandomValues(bytes);
-  return Array.from(bytes, (value) => alphabet[value % alphabet.length]).join("");
+  return Array.from(bytes, (value) => alphabet[value % alphabet.length]).join(
+    "",
+  );
 };
 
 type ClientCreationDetails = {
@@ -89,8 +107,11 @@ export default function ClientForm() {
   const [generatedPassword, setGeneratedPassword] = useState("");
   const [clientName, setClientName] = useState("");
   const [createdClientId, setCreatedClientId] = useState<string | null>(null);
-  const [createdClientDetails, setCreatedClientDetails] = useState<ClientCreationDetails | null>(null);
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [createdClientDetails, setCreatedClientDetails] =
+    useState<ClientCreationDetails | null>(null);
+  const [validationErrors, setValidationErrors] = useState<
+    Record<string, string>
+  >({});
   const [hasPaymentMethod, setHasPaymentMethod] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -140,7 +161,8 @@ export default function ClientForm() {
   const [lastNameTouched, setLastNameTouched] = useState(false);
   const [adminDomainTouched, setAdminDomainTouched] = useState(false);
   const [subdomainTouched, setSubdomainTouched] = useState(false);
-  const [patientPortalDomainTouched, setPatientPortalDomainTouched] = useState(false);
+  const [patientPortalDomainTouched, setPatientPortalDomainTouched] =
+    useState(false);
 
   // Derive a safe master id prefix from a client name: lowercase + remove non-alphanumerics
   const derivePrefix = (name: string) => {
@@ -184,10 +206,19 @@ export default function ClientForm() {
     enabled: isEditMode && !!id,
   });
 
+  const { data: productBillingSummary } = useQuery({
+    queryKey: ["productBillingSummary", id],
+    queryFn: () => productBillingApi.getSummary(id!),
+    enabled: isEditMode && !!id,
+  });
+
   // Update hasPaymentMethod state when payment method data changes
   useEffect(() => {
     if (paymentMethodData) {
-      setHasPaymentMethod(!!paymentMethodData.payment_method && paymentMethodData.status !== "none");
+      setHasPaymentMethod(
+        !!paymentMethodData.payment_method &&
+          paymentMethodData.status !== "none",
+      );
     }
   }, [paymentMethodData]);
 
@@ -225,7 +256,8 @@ export default function ClientForm() {
         include_cost_to_client_in_reimbursement:
           existingClient.include_cost_to_client_in_reimbursement ?? true,
         include_shipping_cost_to_client_in_reimbursement:
-          existingClient.include_shipping_cost_to_client_in_reimbursement ?? true,
+          existingClient.include_shipping_cost_to_client_in_reimbursement ??
+          true,
         payment_gateway: existingClient.payment_gateway || "nmi",
         is_active: existingClient.is_active,
       });
@@ -247,7 +279,9 @@ export default function ClientForm() {
     mutationFn: (data: ClientCreatePayload) => clientApi.create(data),
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
-      queryClient.invalidateQueries({ queryKey: ["client-lifecycle", response.client.id] });
+      queryClient.invalidateQueries({
+        queryKey: ["client-lifecycle", response.client.id],
+      });
       setGeneratedPassword(response.deployment_password);
       setClientName(response.client.name);
       setCreatedClientId(response.client.id);
@@ -268,14 +302,17 @@ export default function ClientForm() {
       });
     },
     onError: (error: unknown) => {
-      const resp = (error as AxiosError<Record<string, unknown>>)?.response?.data || {};
+      const resp =
+        (error as AxiosError<Record<string, unknown>>)?.response?.data || {};
       let message = "Failed to create client";
 
       // Check for field-specific validation errors (e.g., email already exists)
       if (resp.email) {
         // If email is an array, join the messages; otherwise convert to string
-        const emailError = Array.isArray(resp.email) ? resp.email.join(' ') : String(resp.email);
-        
+        const emailError = Array.isArray(resp.email)
+          ? resp.email.join(" ")
+          : String(resp.email);
+
         // Transform backend email error to user-friendly message
         if (emailError.toLowerCase().includes("already exists")) {
           message = "A client with this email already exists.";
@@ -307,12 +344,13 @@ export default function ClientForm() {
       });
     },
     onError: (error: unknown) => {
+      const resp =
+        (error as AxiosError<Record<string, unknown>>)?.response?.data || {};
       toast({
         title: "Error",
-        description:
-          error.response?.data?.error ||
-          error.response?.data?.message ||
-          "Failed to update email",
+        description: String(
+          resp.error || resp.message || "Failed to update email",
+        ),
         variant: "destructive",
       });
     },
@@ -330,12 +368,13 @@ export default function ClientForm() {
       });
     },
     onError: (error: unknown) => {
+      const resp =
+        (error as AxiosError<Record<string, unknown>>)?.response?.data || {};
       toast({
         title: "Error",
-        description:
-          error.response?.data?.detail ||
-          error.response?.data?.message ||
-          "Failed to update client",
+        description: String(
+          resp.detail || resp.message || "Failed to update client",
+        ),
         variant: "destructive",
       });
     },
@@ -403,7 +442,8 @@ export default function ClientForm() {
         try {
           new URL(value);
         } catch {
-          errors[field] = "Invalid URL format (must include http:// or https://)";
+          errors[field] =
+            "Invalid URL format (must include http:// or https://)";
         }
       }
     });
@@ -458,7 +498,11 @@ export default function ClientForm() {
 
   const handlePasswordModalClose = () => {
     setShowPasswordModal(false);
-    navigate(createdClientId ? `/dashboard/clients/${createdClientId}/lifecycle` : "/dashboard/clients");
+    navigate(
+      createdClientId
+        ? `/dashboard/clients/${createdClientId}/lifecycle`
+        : "/dashboard/clients",
+    );
   };
 
   if (isEditMode && isLoadingClient) {
@@ -469,7 +513,10 @@ export default function ClientForm() {
     );
   }
 
-  const isLoading = createMutation.isPending || updateMutation.isPending || emailUpdateMutation.isPending;
+  const isLoading =
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    emailUpdateMutation.isPending;
 
   return (
     <div className="p-6 space-y-6">
@@ -560,7 +607,9 @@ export default function ClientForm() {
                         const derivedQuestionnaireUrl = p
                           ? `https://${p}questionnaire.welliemd.com`
                           : "";
-                        const derivedIframeDomain = getIframeDomainFromUrl(derivedQuestionnaireUrl);
+                        const derivedIframeDomain = getIframeDomainFromUrl(
+                          derivedQuestionnaireUrl,
+                        );
                         setFormData((prev) => ({
                           ...prev,
                           name: newName,
@@ -590,9 +639,7 @@ export default function ClientForm() {
                             : derivedIframeDomain
                               ? [derivedIframeDomain]
                               : prev.allowed_iframe_domains,
-                          domain: p
-                            ? `${p}.api.welliemd.com`
-                            : prev.domain,
+                          domain: p ? `${p}.api.welliemd.com` : prev.domain,
                           api_endpoint: p
                             ? `https://${p}.api.welliemd.com`
                             : prev.api_endpoint,
@@ -621,7 +668,9 @@ export default function ClientForm() {
                       className={validationErrors.name ? "border-red-500" : ""}
                     />
                     {validationErrors.name && (
-                      <p className="text-xs text-red-500">{validationErrors.name}</p>
+                      <p className="text-xs text-red-500">
+                        {validationErrors.name}
+                      </p>
                     )}
                   </div>
                   <div className="space-y-2">
@@ -654,7 +703,10 @@ export default function ClientForm() {
                     id="beluga_company"
                     value={formData.beluga_company}
                     onChange={(e) =>
-                      setFormData({ ...formData, beluga_company: e.target.value })
+                      setFormData({
+                        ...formData,
+                        beluga_company: e.target.value,
+                      })
                     }
                     placeholder="e.g., wellieMDKinMeds"
                   />
@@ -715,7 +767,9 @@ export default function ClientForm() {
                       className={validationErrors.email ? "border-red-500" : ""}
                     />
                     {validationErrors.email && (
-                      <p className="text-xs text-red-500">{validationErrors.email}</p>
+                      <p className="text-xs text-red-500">
+                        {validationErrors.email}
+                      </p>
                     )}
                   </div>
                   <div className="space-y-2">
@@ -743,7 +797,10 @@ export default function ClientForm() {
                       value={formData.first_name}
                       onChange={(e) => {
                         setFirstNameTouched(true);
-                        setFormData({ ...formData, first_name: e.target.value });
+                        setFormData({
+                          ...formData,
+                          first_name: e.target.value,
+                        });
                         if (validationErrors.first_name) {
                           setValidationErrors((prev) => {
                             const newErrors = { ...prev };
@@ -755,10 +812,14 @@ export default function ClientForm() {
                       placeholder="John"
                       required
                       disabled={isEditMode}
-                      className={validationErrors.first_name ? "border-red-500" : ""}
+                      className={
+                        validationErrors.first_name ? "border-red-500" : ""
+                      }
                     />
                     {validationErrors.first_name && (
-                      <p className="text-xs text-red-500">{validationErrors.first_name}</p>
+                      <p className="text-xs text-red-500">
+                        {validationErrors.first_name}
+                      </p>
                     )}
                   </div>
                   <div className="space-y-2">
@@ -782,30 +843,43 @@ export default function ClientForm() {
                       placeholder="Doe"
                       required
                       disabled={isEditMode}
-                      className={validationErrors.last_name ? "border-red-500" : ""}
+                      className={
+                        validationErrors.last_name ? "border-red-500" : ""
+                      }
                     />
                     {validationErrors.last_name && (
-                      <p className="text-xs text-red-500">{validationErrors.last_name}</p>
+                      <p className="text-xs text-red-500">
+                        {validationErrors.last_name}
+                      </p>
                     )}
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">
-                    Password
-                  </Label>
+                  <Label htmlFor="password">Password</Label>
                   <div className="relative">
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
                       value={formData.password || ""}
                       onChange={(e) =>
-                        setFormData({ ...formData, password: e.target.value.replace(/\s+/g, '') })
+                        setFormData({
+                          ...formData,
+                          password: e.target.value.replace(/\s+/g, ""),
+                        })
                       }
-                      placeholder={isEditMode ? "Leave blank to keep current password" : "Password"}
+                      placeholder={
+                        isEditMode
+                          ? "Leave blank to keep current password"
+                          : "Password"
+                      }
                       required={false}
                       disabled={isEditMode}
-                      className={validationErrors.password ? "border-red-500 pr-24" : "pr-24"}
+                      className={
+                        validationErrors.password
+                          ? "border-red-500 pr-24"
+                          : "pr-24"
+                      }
                     />
                     <div className="absolute right-0 top-0 flex h-full items-center">
                       {!isEditMode ? (
@@ -815,7 +889,10 @@ export default function ClientForm() {
                           size="sm"
                           className="h-full px-2 hover:bg-transparent"
                           onClick={() =>
-                            setFormData((prev) => ({ ...prev, password: generateSecurePassword() }))
+                            setFormData((prev) => ({
+                              ...prev,
+                              password: generateSecurePassword(),
+                            }))
                           }
                         >
                           <RefreshCcw className="h-4 w-4 text-muted-foreground" />
@@ -837,7 +914,9 @@ export default function ClientForm() {
                     </div>
                   </div>
                   {validationErrors.password && (
-                    <p className="text-xs text-red-500">{validationErrors.password}</p>
+                    <p className="text-xs text-red-500">
+                      {validationErrors.password}
+                    </p>
                   )}
                 </div>
               </CardContent>
@@ -880,10 +959,16 @@ export default function ClientForm() {
                     onFocus={() => setAdminDomainTouched(true)}
                     placeholder="https://admin.acme.com"
                     required
-                    className={validationErrors.admin_panel_domain ? "border-red-500" : ""}
+                    className={
+                      validationErrors.admin_panel_domain
+                        ? "border-red-500"
+                        : ""
+                    }
                   />
                   {validationErrors.admin_panel_domain && (
-                    <p className="text-xs text-red-500">{validationErrors.admin_panel_domain}</p>
+                    <p className="text-xs text-red-500">
+                      {validationErrors.admin_panel_domain}
+                    </p>
                   )}
                   <p className="text-xs text-muted-foreground">
                     Primary URL where client admins will access the system
@@ -891,14 +976,19 @@ export default function ClientForm() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="patient_portal_domain">Patient Portal Preview URL</Label>
+                  <Label htmlFor="patient_portal_domain">
+                    Patient Portal Preview URL
+                  </Label>
                   <Input
                     id="patient_portal_domain"
                     type="url"
                     value={formData.patient_portal_domain}
                     onChange={(e) => {
                       setPatientPortalDomainTouched(true);
-                      setFormData({ ...formData, patient_portal_domain: e.target.value });
+                      setFormData({
+                        ...formData,
+                        patient_portal_domain: e.target.value,
+                      });
                       if (validationErrors.patient_portal_domain) {
                         setValidationErrors((prev) => {
                           const newErrors = { ...prev };
@@ -909,10 +999,16 @@ export default function ClientForm() {
                     }}
                     onFocus={() => setPatientPortalDomainTouched(true)}
                     placeholder="https://patient.acme.com"
-                    className={validationErrors.patient_portal_domain ? "border-red-500" : ""}
+                    className={
+                      validationErrors.patient_portal_domain
+                        ? "border-red-500"
+                        : ""
+                    }
                   />
                   {validationErrors.patient_portal_domain && (
-                    <p className="text-xs text-red-500">{validationErrors.patient_portal_domain}</p>
+                    <p className="text-xs text-red-500">
+                      {validationErrors.patient_portal_domain}
+                    </p>
                   )}
                   <p className="text-xs text-muted-foreground">
                     Patient portal domain (editable)
@@ -927,12 +1023,15 @@ export default function ClientForm() {
                     onChange={(e) => {
                       setSubdomainTouched(true);
                       const questionnaireDomain = e.target.value;
-                      const iframeDomain = getIframeDomainFromUrl(questionnaireDomain);
+                      const iframeDomain =
+                        getIframeDomainFromUrl(questionnaireDomain);
                       setFormData({
                         ...formData,
                         subdomain: questionnaireDomain,
                         questionnaire_url: questionnaireDomain,
-                        allowed_iframe_domains: iframeDomain ? [iframeDomain] : [],
+                        allowed_iframe_domains: iframeDomain
+                          ? [iframeDomain]
+                          : [],
                       });
                     }}
                     onFocus={() => setSubdomainTouched(true)}
@@ -947,22 +1046,31 @@ export default function ClientForm() {
                   <Info className="h-4 w-4" />
                   <AlertDescription className="space-y-2">
                     <p>
-                      Custom domain management is client-owned. Operators should direct Primary Owner or Admin users to
-                      the client portal settings page to add, verify, or delete domain aliases.
+                      Custom domain management is client-owned. Operators should
+                      direct Primary Owner or Admin users to the client portal
+                      settings page to add, verify, or delete domain aliases.
                     </p>
                     {isEditMode && formData.custom_domain ? (
                       <p className="text-xs text-muted-foreground">
-                        Legacy base domain on this client: <span className="font-mono">{formData.custom_domain}</span>
+                        Legacy base domain on this client:{" "}
+                        <span className="font-mono">
+                          {formData.custom_domain}
+                        </span>
                       </p>
                     ) : null}
                     {isEditMode && existingClient?.pending_custom_domain ? (
                       <p className="text-xs text-muted-foreground">
-                        Legacy pending domain: <span className="font-mono">{existingClient.pending_custom_domain}</span>
+                        Legacy pending domain:{" "}
+                        <span className="font-mono">
+                          {existingClient.pending_custom_domain}
+                        </span>
                       </p>
                     ) : null}
                     {isEditMode && existingClient?.domain_provisioning_error ? (
                       <p className="text-xs text-destructive">
-                        Legacy provisioning error: {existingClient.domain_provisioning_error.error || "Unknown error"}
+                        Legacy provisioning error:{" "}
+                        {existingClient.domain_provisioning_error.error ||
+                          "Unknown error"}
                       </p>
                     ) : null}
                   </AlertDescription>
@@ -986,8 +1094,9 @@ export default function ClientForm() {
                 <Alert>
                   <Info className="h-4 w-4" />
                   <AlertDescription>
-                    Additional domain fields (Patient Portal, Questionnaire URL, etc.) can be configured later if needed.
-                    These three fields are sufficient for initial setup.
+                    Additional domain fields (Patient Portal, Questionnaire URL,
+                    etc.) can be configured later if needed. These three fields
+                    are sufficient for initial setup.
                   </AlertDescription>
                 </Alert>
               </CardContent>
@@ -1003,15 +1112,22 @@ export default function ClientForm() {
                   <CreditCard className="h-5 w-5 text-primary" />
                   Fee Configuration
                 </h2>
-                <p className="text-xs text-muted-foreground mt-1">Configure fees and billing settings</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Configure fees and billing settings
+                </p>
               </div>
               <div className="p-4 space-y-6">
                 {/* Async Consult Fees */}
                 <div className="bg-muted/50 rounded-xl p-4 border">
-                  <h3 className="text-sm font-semibold mb-3">Async Consult Fees</h3>
+                  <h3 className="text-sm font-semibold mb-3">
+                    Async Consult Fees
+                  </h3>
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="async_consult_fee_to_client" className="block text-xs font-medium text-muted-foreground mb-1.5">
+                      <Label
+                        htmlFor="async_consult_fee_to_client"
+                        className="block text-xs font-medium text-muted-foreground mb-1.5"
+                      >
                         Async Consult Fee ($)
                       </Label>
                       <Input
@@ -1023,13 +1139,19 @@ export default function ClientForm() {
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            async_consult_fee_to_client: e.target.value === "" ? 0 : parseFloat(e.target.value),
+                            async_consult_fee_to_client:
+                              e.target.value === ""
+                                ? 0
+                                : parseFloat(e.target.value),
                           })
                         }
                       />
                     </div>
                     <div>
-                      <Label htmlFor="async_consult_cost" className="block text-xs font-medium text-muted-foreground mb-1.5">
+                      <Label
+                        htmlFor="async_consult_cost"
+                        className="block text-xs font-medium text-muted-foreground mb-1.5"
+                      >
                         Async Consult Cost ($)
                       </Label>
                       <Input
@@ -1041,7 +1163,10 @@ export default function ClientForm() {
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            async_consult_cost: e.target.value === "" ? 0 : parseFloat(e.target.value),
+                            async_consult_cost:
+                              e.target.value === ""
+                                ? 0
+                                : parseFloat(e.target.value),
                           })
                         }
                       />
@@ -1051,10 +1176,15 @@ export default function ClientForm() {
 
                 {/* Sync Consult Fees */}
                 <div className="bg-muted/50 rounded-xl p-4 border">
-                  <h3 className="text-sm font-semibold mb-3">Sync Consult Fees</h3>
+                  <h3 className="text-sm font-semibold mb-3">
+                    Sync Consult Fees
+                  </h3>
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="sync_video_consult_fee_to_client" className="block text-xs font-medium text-muted-foreground mb-1.5">
+                      <Label
+                        htmlFor="sync_video_consult_fee_to_client"
+                        className="block text-xs font-medium text-muted-foreground mb-1.5"
+                      >
                         Sync Consult Fee ($)
                       </Label>
                       <Input
@@ -1066,13 +1196,19 @@ export default function ClientForm() {
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            sync_video_consult_fee_to_client: e.target.value === "" ? 0 : parseFloat(e.target.value),
+                            sync_video_consult_fee_to_client:
+                              e.target.value === ""
+                                ? 0
+                                : parseFloat(e.target.value),
                           })
                         }
                       />
                     </div>
                     <div>
-                      <Label htmlFor="sync_consult_cost" className="block text-xs font-medium text-muted-foreground mb-1.5">
+                      <Label
+                        htmlFor="sync_consult_cost"
+                        className="block text-xs font-medium text-muted-foreground mb-1.5"
+                      >
                         Sync Consult Cost ($)
                       </Label>
                       <Input
@@ -1084,7 +1220,10 @@ export default function ClientForm() {
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            sync_consult_cost: e.target.value === "" ? 0 : parseFloat(e.target.value),
+                            sync_consult_cost:
+                              e.target.value === ""
+                                ? 0
+                                : parseFloat(e.target.value),
                           })
                         }
                       />
@@ -1092,17 +1231,34 @@ export default function ClientForm() {
                   </div>
                 </div>
 
-                {/* Reimbursement Charge Options */}
+                {/* Reimbursement charge defaults */}
                 <div className="bg-muted/50 rounded-xl p-4 border">
-                  <h3 className="text-sm font-semibold mb-3">Reimbursement Charge Options</h3>
+                  <div className="mb-3 flex items-center gap-2">
+                    <RefreshCcw className="h-4 w-4 text-muted-foreground" />
+                    <h3 className="text-sm font-semibold">
+                      Reimbursement charge defaults
+                    </h3>
+                  </div>
+                  <p className="mb-4 text-xs text-muted-foreground">
+                    Client-level defaults applied to all products. Override per
+                    product in the product billing configuration below.
+                  </p>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="pr-4">
-                        <p className="text-sm font-medium">Include medication cost to client</p>
-                        <p className="text-xs text-muted-foreground">Charges product cost on reimbursement invoices.</p>
+                        <p className="text-sm font-medium">
+                          Include medication cost to client
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Charges product cost on reimbursement invoices —
+                          default for all products
+                        </p>
                       </div>
                       <Switch
-                        checked={formData.include_cost_to_client_in_reimbursement ?? true}
+                        checked={
+                          formData.include_cost_to_client_in_reimbursement ??
+                          true
+                        }
                         onCheckedChange={(checked) =>
                           setFormData({
                             ...formData,
@@ -1111,24 +1267,96 @@ export default function ClientForm() {
                         }
                       />
                     </div>
+
                     <div className="h-px bg-border w-full" />
+
                     <div className="flex items-center justify-between">
                       <div className="pr-4">
-                        <p className="text-sm font-medium">Include shipping cost to client</p>
-                        <p className="text-xs text-muted-foreground">Charges shipping cost on reimbursement invoices.</p>
+                        <p className="text-sm font-medium">
+                          Include shipping cost to client
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Charges shipping cost on reimbursement invoices —
+                          default for all products
+                        </p>
                       </div>
                       <Switch
-                        checked={formData.include_shipping_cost_to_client_in_reimbursement ?? true}
+                        checked={
+                          formData.include_shipping_cost_to_client_in_reimbursement ??
+                          true
+                        }
                         onCheckedChange={(checked) =>
                           setFormData({
                             ...formData,
-                            include_shipping_cost_to_client_in_reimbursement: checked,
+                            include_shipping_cost_to_client_in_reimbursement:
+                              checked,
                           })
                         }
                       />
                     </div>
                   </div>
                 </div>
+
+                <Card
+                  className="cursor-pointer border shadow-sm transition-shadow hover:shadow-md"
+                  onClick={() =>
+                    navigate(
+                      `/dashboard/billing/product-billing/${id}?name=${encodeURIComponent(clientName || existingClient?.name || formData.name || "Client")}`,
+                    )
+                  }
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex min-w-0 items-center gap-4">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+                          <Layers className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-semibold">
+                            Product billing configuration
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            Set per-product costs and reimbursement overrides
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-3">
+                        <div className="flex items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2 text-xs">
+                          <div className="min-w-[56px] text-center">
+                            <div className="text-base font-semibold">
+                              {productBillingSummary?.total_products ?? "—"}
+                            </div>
+                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                              products
+                            </div>
+                          </div>
+                          <div className="h-8 w-px bg-border" />
+                          <div className="min-w-[56px] text-center">
+                            <div className="text-base font-semibold text-blue-600">
+                              {productBillingSummary?.with_overrides ?? "—"}
+                            </div>
+                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                              overrides
+                            </div>
+                          </div>
+                          <div className="h-8 w-px bg-border" />
+                          <div className="min-w-[64px] text-center">
+                            <div
+                              className={`text-base font-semibold ${(productBillingSummary?.unconfigured ?? 0) > 0 ? "text-amber-600" : ""}`}
+                            >
+                              {productBillingSummary?.unconfigured ?? "—"}
+                            </div>
+                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                              unconfigured
+                            </div>
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             </section>
 
@@ -1149,7 +1377,6 @@ export default function ClientForm() {
               </>
             )}
           </TabsContent>
-
         </Tabs>
       </form>
 
