@@ -1,8 +1,8 @@
-// src/pages/Messages.tsx (Client Portal) — attachments hidden for Support (Beluga) tab
-// UPDATED: document UI matches patient portal (icon + filename + mime + centered “Open”).
+// src/pages/Messages.tsx (Client Portal) — lazy-load paginated conversations + infinite scroll
+// UPDATED: document UI matches patient portal (icon + filename + mime + centered "Open").
 // UPDATED: Left list preview (message line + time) is now TAB-AWARE (Patient vs Support/Beluga)
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -22,17 +22,18 @@ import {
   Search,
   MessageSquare,
   ArrowDown,
+  Loader2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useClientMessages } from "@/contexts/MessagesContext";
-import { groupMessages, type Conversation } from "@/utils/groupMessages";
+import type { ConversationSummary, Message } from "@/services/messageService";
 import { useClients, type Client } from "@/hooks/useClients";
 import { useSearchParams } from "react-router-dom";
 
 import { patientService, type Patient } from "@/services/patientService";
 import { PatientDetailSheet } from "@/components/patients/PatientDetailSheet";
-import { messageService, type Message } from "@/services/messageService";
+import { messageService } from "@/services/messageService";
 
 import { isToday, isYesterday, isThisWeek, format, formatISO } from "date-fns";
 
@@ -137,7 +138,6 @@ function DocumentBubble({
           </div>
         </div>
       </div>
-      {/* Centered “Open” only, opens in new tab */}
       <div className="flex items-center justify-center border-t border-gray-200 dark:border-slate-700 px-3 py-2">
         <a
           href={url}
@@ -153,18 +153,65 @@ function DocumentBubble({
     </div>
   );
 }
+
+// ==== Infinite scroll sentinel component ====
+function Sentinel({ onVisible }: { onVisible: () => void }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) onVisible();
+      },
+      { rootMargin: "200px" }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [onVisible]);
+  return <div ref={ref} />;
+}
+
 // ====================================================================
 
 export default function Messages() {
   const MAX_COMPOSER_HEIGHT_PX = 140;
   const [searchParams, setSearchParams] = useSearchParams();
-  const { messages, loading, error } = useClientMessages();
+
+  const {
+    conversations,
+    conversationsLoading,
+    conversationsError,
+    hasMoreConversations,
+    loadMoreConversations,
+
+    activeConversationId,
+    activeMessages,
+    messagesLoading,
+    messagesError,
+    hasMoreMessages,
+    selectConversation,
+    loadMoreMessages,
+
+    searchQuery,
+    setSearchQuery,
+    conversationType,
+    setConversationType,
+
+    loading,
+    error,
+    reload,
+
+    belugaCache,
+    belugaLoading,
+    appendMessage,
+    refreshBeluga,
+  } = useClientMessages();
 
   // tabs: "patient" (normal support/doctor thread) and "support" (Beluga)
   const [tab, setTab] = useState<"patient" | "support">("patient");
 
-  const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [activeConvSummary, setActiveConvSummary] = useState<ConversationSummary | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -177,16 +224,15 @@ export default function Messages() {
   const [loadingProfile, setLoadingProfile] = useState(false);
 
   const handleViewProfile = async () => {
-    if (!activeConversation) return;
+    if (!activeConvSummary) return;
     try {
       setLoadingProfile(true);
-      // Search by email or exact name to find the patient record
-      const searchQuery = activeConversation.patientEmail || activeConversation.patientName;
-      if (!searchQuery) {
+      const searchQ = activeConvSummary.patient_email || activeConvSummary.patient_name;
+      if (!searchQ) {
         alert("No identifier found to load patient profile.");
         return;
       }
-      const res = await patientService.getPatients({ search: searchQuery, page_size: 1 });
+      const res = await patientService.getPatients({ search: searchQ, page_size: 1 });
       if (res.results && res.results.length > 0) {
         setSelectedPatient(res.results[0]);
         setIsSheetOpen(true);
@@ -207,19 +253,33 @@ export default function Messages() {
   const [sendError, setSendError] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const conversations = useMemo(() => {
-    const grouped = groupMessages(messages);
-    if (!searchQuery) return grouped;
-    const q = searchQuery.toLowerCase();
-    return grouped.filter(c =>
-      c.patientName?.toLowerCase().includes(q) ||
-      c.patientEmail?.toLowerCase().includes(q) ||
-      (c.orderNumber && c.orderNumber.toLowerCase().includes(q))
-    );
-  }, [messages, searchQuery]);
+  // Map tab changes to conversation type
+  const handleTabChange = useCallback(
+    (val: string) => {
+      const newTab = val as "patient" | "support";
+      setTab(newTab);
+      setConversationType(newTab === "support" ? "beluga" : "patient");
+      setActiveConvSummary(null);
+    },
+    [setConversationType]
+  );
 
-  // beluga support cache
-  const [belugaCache, setBelugaCache] = useState<Record<string, Message[]>>({});
+  // Sync tab → conversationType on mount
+  useEffect(() => {
+    setConversationType(tab === "support" ? "beluga" : "patient");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Show active conversation summary
+  const updateActiveConv = useCallback(() => {
+    if (activeConversationId) {
+      const found = conversations.find((c) => c.master_id === activeConversationId);
+      setActiveConvSummary(found || null);
+    }
+  }, [conversations, activeConversationId]);
+
+  useEffect(() => {
+    updateActiveConv();
+  }, [conversations, activeConversationId, updateActiveConv]);
 
   const resizeComposer = () => {
     const el = messageInputRef.current;
@@ -234,35 +294,16 @@ export default function Messages() {
     resizeComposer();
   }, [newMessage]);
 
+  // Beluga polling per active conversation
   useEffect(() => {
-    const masterId = activeConversation?.masterId;
+    const masterId = activeConvSummary?.master_id;
     if (tab !== "support" || !masterId) return;
-
-    const belugaArraysEqual = (a: Message[], b: Message[]) => {
-      if (a.length !== b.length) return false;
-      for (let i = 0; i < a.length; i++) {
-        if (
-          a[i].id !== b[i].id ||
-          a[i].content !== b[i].content ||
-          a[i].created_at !== b[i].created_at
-        ) {
-          return false;
-        }
-      }
-      return true;
-    };
 
     let cancelled = false;
 
     const fetchBeluga = async () => {
       try {
-        const msgs = await messageService.getBelugaThread(masterId);
-        if (cancelled) return;
-        setBelugaCache((prev) => {
-          const existing = prev[masterId] || [];
-          if (belugaArraysEqual(existing, msgs)) return prev;
-          return { ...prev, [masterId]: msgs };
-        });
+        await selectConversation(masterId);
       } catch { }
     };
 
@@ -272,7 +313,7 @@ export default function Messages() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [tab, activeConversation?.masterId]);
+  }, [tab, activeConvSummary?.master_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------- TAB-AWARE PREVIEW HELPERS (left list uses these) ----------
   const isBeluga = (m: Message) =>
@@ -291,26 +332,19 @@ export default function Messages() {
   }
 
   function getTabPreview(
-    c: Conversation,
+    c: ConversationSummary,
     tab: "patient" | "support",
     belugaCache: Record<string, Message[]>
   ) {
     if (tab === "support") {
-      const belugaList = belugaCache[c.masterId];
-      const list = (belugaList && belugaList.length ? belugaList : c.messages.filter(isBeluga)).slice();
-      if (list.length) {
-        const last = list[list.length - 1];
+      const belugaList = belugaCache[c.master_id];
+      if (belugaList && belugaList.length) {
+        const last = belugaList[belugaList.length - 1];
         return { text: displayFromMessage(last), time: last.created_at };
       }
       return { text: "", time: "" };
-    } else {
-      const pts = c.messages.filter(isPatientSide);
-      if (pts.length) {
-        const last = pts[pts.length - 1];
-        return { text: displayFromMessage(last), time: last.created_at };
-      }
-      return { text: c.lastMessage, time: c.lastTime };
     }
+    return { text: c.last_message || "", time: c.last_time || "" };
   }
   // ---------------------------------------------------------------------
 
@@ -352,12 +386,9 @@ export default function Messages() {
     };
     el.addEventListener("scroll", handleScroll);
     return () => el.removeEventListener("scroll", handleScroll);
-  }, [activeConversation?.id]);
+  }, [activeConvSummary?.master_id]);
 
-  const latestKey = (c: Conversation) => {
-    const lastMsg = c.messages[c.messages.length - 1];
-    return (lastMsg?.id as number | string | undefined) ?? lastMsg?.created_at ?? c.lastTime;
-  };
+  const latestKey = (c: ConversationSummary) => c.last_time || c.master_id;
 
   const playChime = async () => {
     try {
@@ -399,70 +430,71 @@ export default function Messages() {
   useEffect(() => {
     if (!initialLoadDoneRef.current && !loading) {
       const next: LastSeenMap = {};
-      conversations.forEach((c) => (next[c.id] = latestKey(c)));
+      conversations.forEach((c) => (next[c.master_id] = latestKey(c)));
       setLastSeen(next);
       writeLastSeenToStorage(next);
 
       const seed: Record<string, string | number | undefined> = {};
-      conversations.forEach((c) => (seed[c.id] = latestKey(c)));
+      conversations.forEach((c) => (seed[c.master_id] = latestKey(c)));
       lastNotifiedKeyRef.current = seed;
 
       initialLoadDoneRef.current = true;
     }
   }, [loading, conversations]);
 
+  // Mark read on active conversation change
   useEffect(() => {
-    if (!activeConversation) return;
-    const updated = conversations.find((c) => c.id === activeConversation.id);
-    if (updated) setActiveConversation(updated);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages]);
-
-  useEffect(() => {
-    if (!activeConversation) return;
-    const k = latestKey(activeConversation);
+    if (!activeConvSummary?.master_id) return;
+    const k = latestKey(activeConvSummary);
     setLastSeen((prev) => {
-      const merged = { ...prev, [activeConversation.id]: k };
+      const merged = { ...prev, [activeConvSummary.master_id]: k };
       writeLastSeenToStorage(merged);
       return merged;
     });
-    lastNotifiedKeyRef.current[activeConversation.id] = k;
+    lastNotifiedKeyRef.current[activeConvSummary.master_id] = k;
 
     (async () => {
       try {
-        if (activeConversation.masterId && messageService.markRead) {
-          await messageService.markRead(activeConversation.masterId);
+        if (activeConvSummary.master_id && messageService.markRead) {
+          await messageService.markRead(activeConvSummary.master_id);
         }
       } catch { }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeConversation?.messages, activeConversation?.id]);
+  }, [activeConvSummary, activeMessages]);
 
+  // Mark notifications read
   useEffect(() => {
-    if (!activeConversation?.masterId) return;
+    if (!activeConvSummary?.master_id) return;
     let cancelled = false;
     (async () => {
-      const updated = await messageService.markNotificationsReadForMaster(activeConversation.masterId);
+      const updated = await messageService.markNotificationsReadForMaster(activeConvSummary.master_id);
       if (cancelled) return;
       if (updated > 0) {
         window.dispatchEvent(new Event("client:notifications-refetch"));
       }
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeConversation?.id, activeConversation?.masterId, activeConversation?.messages]);
+    return () => { cancelled = true; };
+  }, [activeConvSummary?.master_id, activeMessages]);
+
+  const displayName = useCallback(
+    (c: ConversationSummary) => {
+      const name = (c.patient_name || "").trim();
+      const email = (c.patient_email || "").trim();
+      return name ? (email ? `${name} - ${email}` : name) : email || "Patient";
+    },
+    []
+  );
 
   const hasNewMap: Record<string, boolean> = useMemo(() => {
     const map: Record<string, boolean> = {};
     if (!initialLoadDoneRef.current) return map;
     conversations.forEach((c) => {
       const k = latestKey(c);
-      const seen = lastSeen[c.id];
-      map[c.id] = seen !== undefined && k !== seen && activeConversation?.id !== c.id;
+      const seen = lastSeen[c.master_id];
+      map[c.master_id] = seen !== undefined && k !== seen && activeConvSummary?.master_id !== c.master_id;
     });
     return map;
-  }, [conversations, lastSeen, activeConversation?.id]);
+  }, [conversations, lastSeen, activeConvSummary?.master_id]);
 
   const unseenCount = useMemo(
     () => Object.values(hasNewMap).filter(Boolean).length,
@@ -472,17 +504,17 @@ export default function Messages() {
   useEffect(() => {
     if (!initialLoadDoneRef.current) return;
     conversations.forEach((c) => {
-      if (activeConversation?.id === c.id) return;
+      if (activeConvSummary?.master_id === c.master_id) return;
       const k = latestKey(c);
-      const shouldNotify = hasNewMap[c.id] && lastNotifiedKeyRef.current[c.id] !== k;
+      const shouldNotify = hasNewMap[c.master_id] && lastNotifiedKeyRef.current[c.master_id] !== k;
       if (shouldNotify) {
         playChime();
-        const who = c.patientName || c.patientEmail || "Patient";
-        showBrowserNotification("New message", `${who} • ${c.lastMessage}`);
-        lastNotifiedKeyRef.current[c.id] = k;
+        const who = c.patient_name || c.patient_email || "Patient";
+        showBrowserNotification("New message", `${who} • ${c.last_message}`);
+        lastNotifiedKeyRef.current[c.master_id] = k;
       }
     });
-  }, [conversations, hasNewMap, activeConversation?.id]);
+  }, [conversations, hasNewMap, activeConvSummary?.master_id]);
 
   useEffect(() => {
     const base = originalTitleRef.current || "Telehealth";
@@ -492,55 +524,65 @@ export default function Messages() {
         : base;
   }, [unseenCount]);
 
+  // Auto-select first conversation
   useEffect(() => {
     if (didAutoSelectRef.current) return;
     if (loading) return;
-    if (!activeConversation && conversations.length > 0) {
-      setActiveConversation(conversations[0]);
+    if (!activeConvSummary && conversations.length > 0) {
+      const first = conversations[0];
+      setActiveConvSummary(first);
+      void selectConversation(first.master_id);
       didAutoSelectRef.current = true;
     }
-  }, [loading, conversations, activeConversation]);
+  }, [loading, conversations, activeConvSummary, selectConversation]);
 
+  // Handle URL param master_id
   useEffect(() => {
     const targetMasterId = searchParams.get("master_id");
     if (!targetMasterId || conversations.length === 0) return;
 
-    const match = conversations.find((c) => c.masterId === targetMasterId);
+    const match = conversations.find((c) => c.master_id === targetMasterId);
     if (!match) return;
 
-    setActiveConversation(match);
+    setActiveConvSummary(match);
+    void selectConversation(match.master_id);
     didAutoSelectRef.current = true;
 
     const next = new URLSearchParams(searchParams);
     next.delete("master_id");
     setSearchParams(next, { replace: true });
-  }, [conversations, searchParams, setSearchParams]);
+  }, [conversations, searchParams, setSearchParams, selectConversation]);
 
+  // Keep activeConversation sync
   useEffect(() => {
-    if (activeConversation && !conversations.find((c) => c.id === activeConversation.id)) {
-      if (conversations.length > 0) setActiveConversation(conversations[0]);
-      else setActiveConversation(null);
+    if (activeConvSummary && !conversations.find((c) => c.master_id === activeConvSummary.master_id)) {
+      if (conversations.length > 0) {
+        setActiveConvSummary(conversations[0]);
+        void selectConversation(conversations[0].master_id);
+      } else {
+        setActiveConvSummary(null);
+      }
     }
-  }, [conversations, activeConversation]);
+  }, [conversations, activeConvSummary, selectConversation]);
 
   useEffect(() => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
-  }, [activeConversation?.messages]);
+  }, [activeMessages]);
 
-  // when opening/switching a chat or tab, jump to bottom (ensures latest is visible)
+  // when opening/switching a chat or tab, jump to bottom
   useEffect(() => {
-    if (!activeConversation) return;
+    if (!activeConvSummary) return;
     const id = setTimeout(() => {
-      scrollToBottom(false); // jump without smooth on open/switch
+      scrollToBottom(false);
     }, 0);
     return () => clearTimeout(id);
-  }, [activeConversation?.id, tab]);
+  }, [activeConvSummary?.master_id, tab]);
 
   // ----- attachments: helpers -----
   const openFilePicker = () => {
-    if (tab === "support") return; // Beluga: not allowed (and UI is hidden)
+    if (tab === "support") return;
     fileInputRef.current?.click();
   };
 
@@ -557,7 +599,7 @@ export default function Messages() {
       return next;
     });
     if (sendError) setSendError("");
-    e.currentTarget.value = ""; // allow re-pick same file
+    e.currentTarget.value = "";
   };
 
   const removeFile = (idx: number) =>
@@ -565,44 +607,26 @@ export default function Messages() {
 
   async function handleSend() {
     if (sendInFlightRef.current || sending || uploading) return;
-    if (!activeConversation) return;
+    if (!activeConvSummary) return;
 
     const text = newMessage.trim();
     const hasFiles = attachedFiles.length > 0;
 
-    // Beluga support: attachments NOT allowed (UI hidden, but guard anyway)
     if (tab === "support") {
       if (!text) return;
       try {
         sendInFlightRef.current = true;
         setSending(true);
         await messageService.sendMessage({
-          master_id: activeConversation.masterId,
+          master_id: activeConvSummary.master_id,
           content: text,
           to: "beluga_support",
           from_client: true,
         });
 
-        const newMsg: Message = {
-          id: Date.now(),
-          master_id: activeConversation.masterId,
-          content: text,
-          created_at: new Date().toISOString(),
-          read: true,
-          sender_name: "Client",
-          senderType: "client",
-          side: "right",
-          patientName: activeConversation.patientName,
-          message_type: "client_to_beluga_support",
-        };
-
-        setBelugaCache((prev) => {
-          const list = prev[activeConversation.masterId] || [];
-          return { ...prev, [activeConversation.masterId]: [...list, newMsg] };
-        });
+        await refreshBeluga(activeConvSummary.master_id);
 
         setNewMessage("");
-        // scroll to bottom after sending
         requestAnimationFrame(() => scrollToBottom(true));
       } catch (err) {
         console.error("Failed to send beluga message", err);
@@ -613,7 +637,6 @@ export default function Messages() {
       return;
     }
 
-    // Patient tab: attachments allowed
     if (!text && !hasFiles) return;
 
     sendInFlightRef.current = true;
@@ -621,19 +644,16 @@ export default function Messages() {
     setUploading(true);
     setSendError("");
     try {
-      // 1) upload all attachments in parallel
       const uploads = await Promise.all(
         attachedFiles.map((f) => messageService.uploadAttachment(f))
-      ); // -> { url, fileName, mimeType }[]
+      );
 
-      // 2) send a text message; if any files, attach the first file to it
-      const optimistic: Message[] = [];
       const sendTextFirst = !!text;
 
       if (sendTextFirst) {
         const first = uploads[0];
         await messageService.sendMessage({
-          master_id: activeConversation.masterId,
+          master_id: activeConvSummary.master_id,
           to: "support",
           content: text,
           is_media: !!first,
@@ -643,16 +663,16 @@ export default function Messages() {
           from_client: true,
         });
 
-        optimistic.push({
+        appendMessage({
           id: Date.now(),
-          master_id: activeConversation.masterId,
+          master_id: activeConvSummary.master_id,
           content: text,
           created_at: new Date().toISOString(),
           read: true,
           sender_name: "Support",
           senderType: "support",
           side: "right",
-          patientName: activeConversation.patientName,
+          patientName: activeConvSummary.patient_name,
           message_type: "support_to_patient",
           is_media: !!first,
           media_url: first?.url,
@@ -663,10 +683,9 @@ export default function Messages() {
         if (first) uploads.shift();
       }
 
-      // 3) send any remaining files as standalone media messages
       for (const up of uploads) {
         await messageService.sendMessage({
-          master_id: activeConversation.masterId,
+          master_id: activeConvSummary.master_id,
           to: "support",
           content: up.fileName || "Attachment",
           is_media: true,
@@ -676,16 +695,16 @@ export default function Messages() {
           from_client: true,
         });
 
-        optimistic.push({
+        appendMessage({
           id: Date.now() + Math.random(),
-          master_id: activeConversation.masterId,
+          master_id: activeConvSummary.master_id,
           content: up.fileName || "Attachment",
           created_at: new Date().toISOString(),
           read: true,
           sender_name: "Support",
           senderType: "support",
           side: "right",
-          patientName: activeConversation.patientName,
+          patientName: activeConvSummary.patient_name,
           message_type: "support_to_patient",
           is_media: true,
           media_url: up.url,
@@ -694,32 +713,9 @@ export default function Messages() {
         });
       }
 
-      // 4) update visible conversation
-      const updated = {
-        ...activeConversation,
-        messages: [...activeConversation.messages, ...optimistic],
-        lastMessage: optimistic[optimistic.length - 1]?.content || activeConversation.lastMessage,
-        lastTime: optimistic[optimistic.length - 1]?.created_at || activeConversation.lastTime,
-      };
-      setActiveConversation(updated);
-
-      setLastSeen((prev) => {
-        const merged = { ...prev, [updated.id]: optimistic[optimistic.length - 1]?.id ?? updated.lastTime };
-        writeLastSeenToStorage(merged);
-        return merged;
-      });
-      lastNotifiedKeyRef.current[updated.id] =
-        optimistic[optimistic.length - 1]?.id ?? updated.lastTime;
-
       setNewMessage("");
       setAttachedFiles([]);
-      requestAnimationFrame(() => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-        }
-        // also use anchor (more reliable)
-        scrollToBottom(true);
-      });
+      requestAnimationFrame(() => scrollToBottom(true));
     } catch (err) {
       console.error("Failed to send message with attachments", err);
       setSendError(err instanceof Error ? err.message : "Unable to send message. Please try again.");
@@ -730,37 +726,32 @@ export default function Messages() {
     }
   }
 
-  function openConversation(c: Conversation) {
-    setActiveConversation(c);
+  function openConversation(c: ConversationSummary) {
+    setActiveConvSummary(c);
     const k = latestKey(c);
     setLastSeen((prev) => {
-      const merged = { ...prev, [c.id]: k };
+      const merged = { ...prev, [c.master_id]: k };
       writeLastSeenToStorage(merged);
       return merged;
     });
-    lastNotifiedKeyRef.current[c.id] = k;
-    (async () => {
-      try {
-        if (c.masterId && messageService.markRead) await messageService.markRead(c.masterId);
-      } catch { }
-    })();
-    // ensure we land on latest right after opening
+    lastNotifiedKeyRef.current[c.master_id] = k;
+    void selectConversation(c.master_id);
     requestAnimationFrame(() => scrollToBottom(false));
   }
 
   function getRightPaneMessages(): Message[] {
-    if (!activeConversation) return [];
-    if (tab === "patient") return activeConversation.messages;
-    const list = belugaCache[activeConversation.masterId];
+    if (!activeConvSummary) return [];
+    if (tab === "patient") return activeMessages;
+    const list = belugaCache[activeConvSummary.master_id];
     return list ?? [];
   }
   const rightMessages = getRightPaneMessages();
 
   // keep it pinned to bottom when visible message count changes
   useEffect(() => {
-    if (!activeConversation) return;
+    if (!activeConvSummary) return;
     requestAnimationFrame(() => scrollToBottom(true));
-  }, [rightMessages.length, activeConversation?.id]);
+  }, [rightMessages.length, activeConvSummary?.master_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="p-6">
@@ -777,7 +768,7 @@ export default function Messages() {
               <h2 className="text-lg font-semibold">
                 {tab === "patient" ? "Patient Chats" : "Support Chats"}
               </h2>
-              <Tabs value={tab} onValueChange={(val: any) => setTab(val)} className="w-[180px]">
+              <Tabs value={tab} onValueChange={handleTabChange} className="w-[180px]">
                 <TabsList className="grid w-full grid-cols-2 h-8 p-0.5">
                   <TabsTrigger value="patient" className="text-xs h-7">Patient</TabsTrigger>
                   <TabsTrigger value="support" className="text-xs h-7">Support</TabsTrigger>
@@ -796,98 +787,115 @@ export default function Messages() {
           </div>
 
           <div className="flex-1 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 16rem)' }}>
-            {loading && <div className="p-4 text-sm text-muted-foreground text-center">Loading…</div>}
+            {loading && conversations.length === 0 && (
+              <div className="p-4 text-sm text-muted-foreground text-center">Loading…</div>
+            )}
             {error && <div className="p-4 text-red-500 text-sm">{error}</div>}
 
-            {conversations.map((c) => {
-              const name = (c.patientName || "").trim();
-              const email = (c.patientEmail || "").trim();
-              const displayName = name ? (email ? `${name} - ${email}` : name) : email || "Patient";
+            {conversations.map((c, idx) => {
+              const name = (c.patient_name || "").trim();
+              const email = (c.patient_email || "").trim();
+              const dName = name ? (email ? `${name} - ${email}` : name) : email || "Patient";
               const avatarFallback = (name || email || "P").trim().charAt(0).toUpperCase();
 
-              const isActive = activeConversation?.id === c.id;
-              const showNew = !!hasNewMap[c.id];
+              const isActive = activeConvSummary?.master_id === c.master_id;
+              const showNew = !!hasNewMap[c.master_id];
 
-              // TAB-AWARE PREVIEW FOR THIS ROW
               const { text: previewText, time: previewTime } = getTabPreview(c, tab, belugaCache);
 
               return (
-                <div
-                  key={c.id}
-                  className={`relative flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-b border-border/30 ${
-                    isActive
-                      ? "bg-primary/10 dark:bg-primary/15"
-                      : "hover:bg-muted/60"
-                  }`}
-                  onClick={() => openConversation(c)}
-                >
-                  {isActive && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-8 bg-primary rounded-r-full" />
-                  )}
-                  <div className="relative shrink-0">
-                    <Avatar className="h-11 w-11">
-                      <AvatarFallback className={`text-sm font-semibold ${
-                        isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                      }`}>{avatarFallback}</AvatarFallback>
-                    </Avatar>
-                    {!isActive && showNew && (
-                      <div className="absolute -top-0.5 -right-0.5 h-4.5 w-4.5 min-w-[18px] bg-red-500 rounded-full border-2 border-card flex items-center justify-center">
-                        <span className="text-[9px] font-bold text-white leading-none">!</span>
-                      </div>
+                <div key={c.master_id}>
+                  <div
+                    className={`relative flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-b border-border/30 ${
+                      isActive
+                        ? "bg-primary/10 dark:bg-primary/15"
+                        : "hover:bg-muted/60"
+                    }`}
+                    onClick={() => openConversation(c)}
+                  >
+                    {isActive && (
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-8 bg-primary rounded-r-full" />
                     )}
+                    <div className="relative shrink-0">
+                      <Avatar className="h-11 w-11">
+                        <AvatarFallback className={`text-sm font-semibold ${
+                          isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                        }`}>{avatarFallback}</AvatarFallback>
+                      </Avatar>
+                      {!isActive && showNew && (
+                        <div className="absolute -top-0.5 -right-0.5 h-4.5 w-4.5 min-w-[18px] bg-red-500 rounded-full border-2 border-card flex items-center justify-center">
+                          <span className="text-[9px] font-bold text-white leading-none">!</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <div className={`truncate text-[14px] ${isActive ? "font-semibold text-foreground" : "font-medium"}`}>
+                          {dName}
+                        </div>
+                        <div className={`text-[11px] whitespace-nowrap ml-2 shrink-0 ${
+                          showNew && !isActive ? "text-blue-600 font-semibold" : "text-muted-foreground"
+                        }`}>
+                          {previewTime
+                            ? new Date(previewTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                            : c.last_time
+                              ? new Date(c.last_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                              : ""}
+                        </div>
+                      </div>
+                      <div className={`text-[13px] truncate ${
+                        showNew && !isActive ? "text-foreground font-medium" : "text-muted-foreground"
+                      }`}>
+                        {previewText || (tab === "support" ? "" : c.last_message) || "No messages yet"}
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <div className={`truncate text-[14px] ${isActive ? "font-semibold text-foreground" : "font-medium"}`}>
-                        {displayName}
-                      </div>
-                      <div className={`text-[11px] whitespace-nowrap ml-2 shrink-0 ${
-                        showNew && !isActive ? "text-blue-600 font-semibold" : "text-muted-foreground"
-                      }`}>
-                        {previewTime
-                          ? new Date(previewTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                          : c.lastTime
-                            ? new Date(c.lastTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                            : ""}
-                      </div>
-                    </div>
-                    <div className={`text-[13px] truncate ${
-                      showNew && !isActive ? "text-foreground font-medium" : "text-muted-foreground"
-                    }`}>
-                      {previewText || (tab === "support" ? "" : c.lastMessage) || "No messages yet"}
-                    </div>
-                  </div>
+                  {/* Infinite scroll sentinel at the last conversation */}
+                  {idx === conversations.length - 1 && hasMoreConversations && (
+                    <Sentinel onVisible={loadMoreConversations} />
+                  )}
                 </div>
               );
             })}
+
+            {conversationsLoading && conversations.length > 0 && (
+              <div className="flex justify-center p-3">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            )}
+
+            {conversationsError && (
+              <div className="p-2 text-xs text-red-500 text-center">{conversationsError}</div>
+            )}
           </div>
         </div>
 
         {/* RIGHT: chat */}
         <div className="bg-card rounded-xl border shadow-sm flex flex-col overflow-hidden relative">
-          {activeConversation ? (
+          {activeConvSummary ? (
             <>
               <div className="px-5 py-3 border-b flex items-center justify-between shrink-0 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 z-10">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10">
                     <AvatarFallback className="bg-primary/15 text-primary font-semibold text-sm">
-                      {(activeConversation.patientName || activeConversation.patientEmail || "P").charAt(0).toUpperCase()}
+                      {(activeConvSummary.patient_name || activeConvSummary.patient_email || "P").charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div>
                     <div className="font-semibold text-[15px] leading-tight">
-                      {activeConversation.patientName || activeConversation.patientEmail || "Patient"}
+                      {activeConvSummary.patient_name || activeConvSummary.patient_email || "Patient"}
                     </div>
                     <div className="text-[12px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
-                      {activeConversation.patientEmail && activeConversation.patientName && (
-                        <span>{activeConversation.patientEmail}</span>
+                      {activeConvSummary.patient_email && activeConvSummary.patient_name && (
+                        <span>{activeConvSummary.patient_email}</span>
                       )}
-                      {activeConversation.patientEmail && activeConversation.patientName && <span className="opacity-40">•</span>}
+                      {activeConvSummary.patient_email && activeConvSummary.patient_name && <span className="opacity-40">•</span>}
                       <span className="font-mono">
-                        {tab === "support" 
-                          ? `Beluga Support • Order ID: ${activeConversation.orderNumber || activeConversation.masterId}` 
-                          : `Order ID: ${activeConversation.orderNumber || activeConversation.masterId}`}
+                        {tab === "support"
+                          ? `Beluga Support • Order ID: ${activeConvSummary.order_number || activeConvSummary.master_id}`
+                          : `Order ID: ${activeConvSummary.order_number || activeConvSummary.master_id}`}
                       </span>
                     </div>
                   </div>
@@ -907,14 +915,24 @@ export default function Messages() {
               </div>
 
               {/* ---- DATE-GROUPED MESSAGES ---- */}
-              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-5 pt-10 pb-4 space-y-1 min-h-0">
+              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-5 pt-4 pb-4 space-y-1 min-h-0">
+                {/* Infinite scroll sentinel at the TOP of messages (load older) */}
+                {hasMoreMessages && !messagesLoading && (
+                  <Sentinel onVisible={loadMoreMessages} />
+                )}
+                {messagesLoading && activeMessages.length > 0 && (
+                  <div className="flex justify-center py-2">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+
                 {(() => {
                   const grouped = groupMessagesByDate(rightMessages);
                   const sortedDates = Object.keys(grouped).sort(
                     (a, b) => new Date(a).getTime() - new Date(b).getTime()
                   );
 
-                  if (sortedDates.length === 0) {
+                  if (sortedDates.length === 0 && !messagesLoading) {
                     return (
                       <div className="text-center text-sm text-muted-foreground mt-8">
                         No messages yet.
@@ -961,12 +979,10 @@ export default function Messages() {
                             else if (m.senderType === "beluga_support") displayName = "Beluga Support";
                             else displayName = m.sender_name;
 
-                            // Sent = blue gradient (matching reference). Received = light gray.
                             const bubbleColor = isSent
                               ? "bg-gradient-to-r from-[hsl(199,85%,48%)] to-[hsl(215,85%,55%)] text-white shadow-sm"
                               : "bg-[hsl(220,14%,96%)] dark:bg-slate-800 text-foreground";
 
-                            // Asymmetric border-radius
                             let radii = "rounded-2xl";
                             if (isSent) {
                               radii = isLastInGroup ? "rounded-2xl rounded-br-sm" : "rounded-2xl";
@@ -974,7 +990,6 @@ export default function Messages() {
                               radii = isLastInGroup ? "rounded-2xl rounded-bl-sm" : "rounded-2xl";
                             }
 
-                            // ---- MEDIA-AWARE RENDERING ----
                             const isMedia = !!m.is_media && (!!m.media_url || !!m.content);
                             const rawUrl = (m.media_url || (isMedia ? m.content : "")) || "";
                             const mediaUrl =
@@ -996,7 +1011,6 @@ export default function Messages() {
                                   </div>
                                 )}
                                 <div className={`relative max-w-[75%] lg:max-w-[65%] px-3.5 py-2.5 ${radii} ${bubbleColor}`}>
-                                  {/* CONTENT */}
                                   {isMedia && mediaUrl ? (
                                     <>
                                       {imageLike ? (
@@ -1018,8 +1032,6 @@ export default function Messages() {
                                           <DocumentBubble url={mediaUrl} name={fileName} mime={mime} />
                                         </div>
                                       )}
-
-                                      {/* Show real text if present (and not just the filename) */}
                                       {Boolean(m.content?.trim()) &&
                                         m.content?.trim() !== (m.media_file_name || "").trim() && (
                                           <div className="text-[14px] whitespace-pre-wrap break-words leading-relaxed">
@@ -1031,7 +1043,6 @@ export default function Messages() {
                                     <div className="text-[14px] whitespace-pre-wrap break-words leading-relaxed">{m.content}</div>
                                   )}
                                 </div>
-                                {/* TIME — outside the bubble like the reference */}
                                 <div className="text-[10px] text-muted-foreground mt-1 px-1">
                                   {new Date(m.created_at).toLocaleTimeString([], {
                                     hour: "2-digit",
@@ -1066,7 +1077,6 @@ export default function Messages() {
               {/* Composer */}
               <div className="px-4 py-3 border-t shrink-0 bg-card">
                 <div className="flex items-end gap-2 bg-muted/50 rounded-2xl px-2 py-1.5 focus-within:ring-1 focus-within:ring-ring transition-all">
-                  {/* Attachments UI — completely hidden on Support tab */}
                   {tab !== "support" && (
                     <>
                       <input
@@ -1099,14 +1109,14 @@ export default function Messages() {
                     className="flex-1 bg-transparent text-[14px] px-2 py-2.5 border-0 focus:outline-none focus:ring-0 resize-none leading-relaxed max-h-[140px]"
                     value={newMessage}
                     onChange={(e) => {
-                      setNewMessage(e.target.value)
-                      if (sendError) setSendError("")
-                      resizeComposer()
+                      setNewMessage(e.target.value);
+                      if (sendError) setSendError("");
+                      resizeComposer();
                     }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault()
-                        handleSend()
+                        e.preventDefault();
+                        handleSend();
                       }
                     }}
                   />
@@ -1126,7 +1136,6 @@ export default function Messages() {
                   </div>
                 )}
 
-                {/* Selected files preview — hidden on Support tab */}
                 {tab !== "support" && attachedFiles.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-2 px-1">
                     {attachedFiles.map((f, idx) => (
@@ -1167,8 +1176,6 @@ export default function Messages() {
           patient={selectedPatient}
           open={isSheetOpen}
           onOpenChange={setIsSheetOpen}
-          // The sheet expects onPatientUpdated and onPatientDeleted as optional props
-          // but we just pass empty functions if we don't need intense sync here
           onPatientUpdated={(updated) => setSelectedPatient(updated)}
           onPatientDeleted={() => {
             setIsSheetOpen(false);
