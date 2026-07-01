@@ -68,6 +68,11 @@ export interface Invoice {
     product_total?: string;
     consultation_amount?: string;
     consult_mode?: string;
+    prescribed_differs?: boolean;
+    original_requested_product_name?: string;
+    original_requested_medication_amount?: string;
+    original_requested_shipping_amount?: string;
+    original_requested_product_total?: string;
   } | null;
   revision_adjustments?: Array<{
     id: string;
@@ -103,6 +108,7 @@ export interface Invoice {
   created_at?: string;
   issued_at?: string;
   due_date?: string;
+  paid_at?: string | null;
 }
 
 export interface InvoiceListResponse {
