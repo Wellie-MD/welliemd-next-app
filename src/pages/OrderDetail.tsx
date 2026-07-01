@@ -990,10 +990,11 @@ function OrderDetailInner() {
 
       const cleanDescription = (evt: any, baseDesc?: string) => {
         let desc = baseDesc || evt.description || ""
-        if (desc.includes(" -> ")) {
-          const parts = desc.split(" -> ");
-          if (parts.length === 2 && parts[0].trim().length > 0 && parts[1].trim().length > 0 && desc.length < 50) {
-            desc = "";
+        const transitionMatch = desc.match(/^([^\n]+? -> [^\n]+?)(?:\n|$)/);
+        if (transitionMatch) {
+          const parts = transitionMatch[1].split(" -> ");
+          if (parts.length === 2 && parts[0].length < 30 && parts[1].length < 30) {
+            desc = desc.substring(transitionMatch[1].length).trim();
           }
         }
         if (evt.event_type === "rx_revision" && desc.includes("Unknown Product")) {
