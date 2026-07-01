@@ -10,6 +10,8 @@ interface User {
   phone?: string;
   avatar_url?: string;
   permissions?: string[];
+  roles?: string[];
+  primary_role?: string;
   is_platform_owner?: boolean;
   can_access_cross_tenant_access_users?: boolean;
   can_deactivate_cross_tenant_access_users?: boolean;

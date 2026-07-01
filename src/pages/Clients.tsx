@@ -14,6 +14,15 @@ export default function Clients() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const user = useAuthStore((state) => state.user);
+  const canLaunchSuperAdminAccess = useMemo(() => {
+    const primaryRole = (user?.primary_role || '').trim().toLowerCase();
+    if (primaryRole === 'super admin') return true;
+    if (primaryRole === 'admin') return true;
+    return (user?.roles || []).some((role) => {
+      const normalizedRole = role.trim().toLowerCase();
+      return normalizedRole === 'super admin' || normalizedRole === 'admin';
+    });
+  }, [user]);
   const canAccessUsersPage = Boolean(
     user?.is_platform_owner || user?.can_access_cross_tenant_access_users
   );
@@ -106,7 +115,7 @@ export default function Clients() {
           <h2 className="text-2xl font-bold">All Clients</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Manage client organizations and their configurations
-            {infraRemovedCount > 0 ? ` · ${infraRemovedCount} infra-removed client${infraRemovedCount === 1 ? '' : 's'} hidden from the default view` : ''}
+            {infraRemovedCount > 0 ? ` - ${infraRemovedCount} infra-removed client${infraRemovedCount === 1 ? '' : 's'} hidden from the default view` : ''}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -122,7 +131,11 @@ export default function Clients() {
           </Button>
         </div>
       </div>
-      <ClientDataTable clients={filteredClients} onSearch={setSearchTerm} />
+      <ClientDataTable
+        clients={filteredClients}
+        onSearch={setSearchTerm}
+        canLaunchSuperAdminAccess={canLaunchSuperAdminAccess}
+      />
     </div>
   );
 }

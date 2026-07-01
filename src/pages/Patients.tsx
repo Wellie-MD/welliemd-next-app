@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useAuthStore } from "@/store/useAuthStore";
 
 const statusFilters = [
   { label: "All", value: "all" },
@@ -37,6 +38,7 @@ const statusClassName = (status: string) => {
 };
 
 export default function Patients() {
+  const user = useAuthStore((state) => state.user);
   const { clients } = useClients();
   const { toast } = useToast();
   const [patients, setPatients] = useState<AdminPatient[]>([]);
@@ -93,6 +95,15 @@ export default function Patients() {
     if (totalCount === 0) return "No patients";
     return `${totalCount.toLocaleString()} patient${totalCount === 1 ? "" : "s"}`;
   }, [totalCount]);
+  const canLaunchSuperAdminAccess = useMemo(() => {
+    const primaryRole = (user?.primary_role || "").trim().toLowerCase();
+    if (primaryRole === "super admin") return true;
+    if (primaryRole === "admin") return true;
+    return (user?.roles || []).some((role) => {
+      const normalizedRole = role.trim().toLowerCase();
+      return normalizedRole === "super admin" || normalizedRole === "admin";
+    });
+  }, [user]);
 
   const resetFilters = () => {
     setSearch("");
@@ -333,7 +344,11 @@ export default function Patients() {
                 <Button variant="outline" onClick={() => setSelectedPatient(null)}>
                   Close
                 </Button>
-                <Button onClick={() => openPatientPortal(selectedPatient)} disabled={launching || !selectedPatient.patient_portal_domain}>
+                <Button
+                  onClick={() => openPatientPortal(selectedPatient)}
+                  disabled={launching || !selectedPatient.patient_portal_domain || !canLaunchSuperAdminAccess}
+                  title={canLaunchSuperAdminAccess ? undefined : "Admin or Super Admin role required"}
+                >
                   <ExternalLink className="mr-2 h-4 w-4" />
                   {launching ? "Opening..." : "View as patient"}
                 </Button>
