@@ -1,160 +1,28 @@
 import axiosInstance from "./axiosInstance";
+import type {
+  Biomarker,
+  CatalogItem,
+  CatalogItemDetail,
+  CatalogLab,
+  ClientAssignment,
+  CreateDraftLabPanelFromCatalogPayload,
+  CreateLabPanelPayload,
+  LabOrder,
+  LabPanel,
+} from "./labs-types";
+export type {
+  Biomarker,
+  CatalogItem,
+  CatalogItemDetail,
+  CatalogLab,
+  ClientAssignment,
+  CreateDraftLabPanelFromCatalogPayload,
+  CreateLabPanelPayload,
+  LabOrder,
+  LabPanel,
+} from "./labs-types";
 
 type Money = { amount: string; currency?: string } | number | string | null | undefined;
-
-export interface Biomarker {
-  id: string;
-  name: string;
-  /** Backend-derived category from source_snapshot.category/category_name. Fallback: "Biomarkers". */
-  category: string;
-  code: string;
-  slug: string;
-  provider_id?: string;
-  display_code?: string;
-  junction_marker_id?: string;
-  lab_id?: string;
-  lab_slug?: string;
-  lab_name?: string;
-  lab_account_ids?: string[];
-  /**
-   * Raw Junction type field (e.g. "panel", null). Used to filter compound
-   * tests out of the biomarker picker. Do NOT use as a clinical category.
-   */
-  marker_type?: string;
-  units?: string;
-  reference_range?: string;
-  common_tat: string;
-  worst_case_tat: string;
-  labs?: string[];
-  aoe_questions?: Array<{
-    marker_id?: string;
-    provider_id?: string;
-    biomarker_id?: string;
-    biomarker_name?: string;
-    question_id: string;
-    label: string;
-    raw_label?: string;
-    code: string;
-    type: string;
-    required: boolean;
-    sequence?: number;
-    constraint?: string | null;
-    default?: string | null;
-    answers?: Array<{ id: string; code: string; value: string }>;
-    options: Array<{ code: string; value: string }>;
-    is_fasting_duplicate?: boolean;
-  }>;
-  aoe_required_count?: number;
-  aoe_optional_count?: number;
-  loinc_map?: Array<{
-    name: string;
-    test_code: string;
-    slug: string;
-    required: boolean;
-    loinc: string;
-    loinc_name?: string;
-    unit?: string;
-  }>;
-}
-
-export interface CatalogLab {
-  id: string;
-  name: string;
-  slug: string;
-  marker_count: number;
-  lab_account_ids: string[];
-}
-
-export type JunctionStatus =
-  | "draft"
-  | "pending_submission"
-  | "pending_approval"
-  | "active"
-  | "inactive"
-  | "failed"
-  | "Pending"
-  | "Active";
-
-export interface LabPanel {
-  id: string;
-  name: string;
-  description: string;
-  lab_provider: string;
-  biomarkers: Biomarker[];
-  fasting_required: "yes" | "no";
-  collection_method: "testkit" | "walk_in_test" | "at_home_phlebotomy" | "on_site_collection";
-  cost_to_client: number;
-  cost_to_welliemd: number;
-  patient_price?: number;
-  discounted_patient_price?: number | null;
-  is_active: boolean;
-  junction_status: JunctionStatus;
-  junction_external_status?: string;
-  junction_rejection_reason?: string;
-  service_states: string[];
-  junction_price?: number;
-  sample_type?: string;
-  turnaround_days?: string;
-  vital_slug?: string;
-  required?: "required" | "optional";
-  aoe_required_count?: number;
-  aoe_optional_count?: number;
-}
-
-export interface ClientAssignment {
-  id: string;
-  name: string;
-  email: string;
-  assigned: boolean;
-  assigned_at?: string | null;
-  assignment_id?: string | null;
-  is_current?: boolean;
-  junction_lab_test_id?: string;
-  junction_status?: string;
-  junction_external_status?: string;
-  operational_status?: string;
-  is_orderable?: boolean;
-  lab_account_id?: string;
-  lab_account_state?: string;
-  lab_account_options?: Array<{
-    lab_account_id: string;
-    lab: string;
-    account_name?: string;
-    status?: string;
-    delegated_flow?: string;
-    provider_account_id?: string;
-    is_orderable?: boolean;
-  }>;
-  linkedLabAccountIds?: string[];
-}
-
-export interface LabOrder {
-  id: string;
-  patient_name: string;
-  patient_email: string;
-  patient_phone?: string;
-  client_name: string;
-  product_name: string;
-  lab_provider: string;
-  price: number;
-  status: "Completed" | "In Process" | "Requisition Created" | "Failed";
-  payment_status: "Paid" | "Unpaid";
-  visit_status: "Lab";
-  doctor_name?: string;
-  timeline: {
-    ordered?: string;
-    sample_collected?: string;
-    results?: string;
-  };
-  resultsReady: boolean;
-  biomarkers?: Array<{
-    biomarker: string;
-    result: string;
-    units: string;
-    reference_range: string;
-    flag: "Normal" | "High" | "Low";
-  }>;
-}
 
 const moneyToNumber = (value: Money): number => {
   if (value == null) return 0;
@@ -171,8 +39,6 @@ const moneyPayload = (amount: number | undefined | null) => ({
 const normalizeBiomarker = (raw: any): Biomarker => ({
   id: String(raw.id),
   name: raw.name || "",
-  // category from backend (source_snapshot.category/category_name). Fallback: "Biomarkers".
-  // Never use marker_type as category — see Phase 1 backend comments.
   category: raw.category || "Biomarkers",
   code: raw.code || raw.slug || String(raw.id),
   slug: raw.slug || raw.code || String(raw.id),
@@ -183,7 +49,6 @@ const normalizeBiomarker = (raw: any): Biomarker => ({
   lab_slug: raw.lab_slug || "",
   lab_name: raw.lab_name || "",
   lab_account_ids: raw.lab_account_ids || [],
-  // marker_type is the raw Junction type field ("panel" = compound test to filter out)
   marker_type: raw.marker_type || "",
   units: raw.units || "",
   reference_range: raw.reference_range || "",
@@ -194,6 +59,25 @@ const normalizeBiomarker = (raw: any): Biomarker => ({
   aoe_required_count: typeof raw.aoe_required_count === "number" ? raw.aoe_required_count : undefined,
   aoe_optional_count: typeof raw.aoe_optional_count === "number" ? raw.aoe_optional_count : undefined,
   loinc_map: Array.isArray(raw.loinc_map) ? raw.loinc_map : [],
+});
+
+const normalizeCatalogItem = (raw: any): CatalogItem => ({
+  id: String(raw.id),
+  provider_id: raw.provider_id || "",
+  source_item_id: String(raw.source_item_id || ""),
+  slug: raw.slug || "",
+  name: raw.name || "",
+  item_type: raw.item_type || "",
+  status: raw.status || "",
+  price: String(raw.price || ""),
+  lab_id: String(raw.lab_id || ""),
+  lab_slug: raw.lab_slug || "",
+  lab_name: raw.lab_name || "",
+  common_tat_days: raw.common_tat_days ?? null,
+  worst_case_tat_days: raw.worst_case_tat_days ?? null,
+  has_aoe_required: !!raw.has_aoe_required,
+  is_orderable: raw.is_orderable !== false,
+  marker_count: typeof raw.marker_count === "number" ? raw.marker_count : 0,
 });
 
 const normalizePanel = (raw: any): LabPanel => ({
@@ -220,6 +104,9 @@ const normalizePanel = (raw: any): LabPanel => ({
   required: "required",
   aoe_required_count: typeof raw.aoe_required_count === "number" ? raw.aoe_required_count : 0,
   aoe_optional_count: typeof raw.aoe_optional_count === "number" ? raw.aoe_optional_count : 0,
+  configuration_status: raw.configuration_status || "in_progress",
+  configuration_missing: Array.isArray(raw.configuration_missing) ? raw.configuration_missing : [],
+  is_assignable: !!raw.is_assignable,
 });
 
 const normalizeClientAssignment = (raw: any): ClientAssignment => ({
@@ -275,9 +162,40 @@ export const labsApi = {
       id: String(raw.id),
       name: raw.name || `Lab ${raw.id}`,
       slug: raw.slug || "",
-      marker_count: raw.marker_count || 0,
-      lab_account_ids: raw.lab_account_ids || [],
+      catalog_item_count: raw.catalog_item_count || 0,
+      orderable_item_count: raw.orderable_item_count || 0,
     }));
+  },
+
+  getCatalogItems: async (params: {
+    lab_id?: string;
+    q?: string;
+    page?: number;
+    page_size?: number;
+    type?: string;
+    aoe_required?: boolean;
+  }): Promise<{ count: number; page: number; page_size: number; results: CatalogItem[] }> => {
+    const { data } = await axiosInstance.get("admin/labs/catalog/items/", {
+      params: {
+        lab_id: params.lab_id === "all" ? undefined : params.lab_id,
+        q: params.q || undefined,
+        page: params.page || undefined,
+        page_size: params.page_size || undefined,
+        type: params.type || undefined,
+        aoe_required: params.aoe_required || undefined,
+      },
+    });
+    return {
+      count: data.count || 0,
+      page: data.page || 1,
+      page_size: data.page_size || 50,
+      results: (data.results || []).map(normalizeCatalogItem),
+    };
+  },
+
+  getCatalogItemDetail: async (id: string): Promise<CatalogItemDetail> => {
+    const { data } = await axiosInstance.get(`admin/labs/catalog/items/${id}/`);
+    return data as CatalogItemDetail;
   },
 
   getLabPanels: async (): Promise<LabPanel[]> => {
@@ -285,9 +203,7 @@ export const labsApi = {
     return (data.results || data || []).map(normalizePanel);
   },
 
-  createLabPanel: async (
-    payload: Omit<LabPanel, "id" | "junction_status" | "junction_price">
-  ): Promise<LabPanel> => {
+  createLabPanel: async (payload: CreateLabPanelPayload): Promise<LabPanel> => {
     const { data } = await axiosInstance.post("admin/labs/panels/", {
       name: payload.name,
       description: payload.description,
@@ -302,7 +218,21 @@ export const labsApi = {
         : null,
       is_active: payload.is_active,
       service_states: payload.service_states,
-      biomarker_ids: payload.biomarkers.map(biomarker => biomarker.id),
+      biomarker_ids: [],
+      catalog_item_ids: payload.catalog_item_ids,
+    });
+    return normalizePanel(data);
+  },
+
+  createDraftLabPanelFromCatalog: async (
+    payload: CreateDraftLabPanelFromCatalogPayload
+  ): Promise<LabPanel> => {
+    const { data } = await axiosInstance.post("admin/labs/panels/from-catalog/", {
+      name: payload.name,
+      description: payload.description,
+      fasting_required: payload.fasting_required === "yes",
+      collection_method: payload.collection_method,
+      catalog_item_ids: payload.catalog_item_ids,
     });
     return normalizePanel(data);
   },
@@ -383,10 +313,6 @@ export const labsApi = {
     const { data } = await axiosInstance.delete(`admin/labs/panels/${id}/`);
     return data;
   },
-
-  // ---------------------------------------------------------------------------
-  // Combined panel API methods
-  // ---------------------------------------------------------------------------
 
   getCombinedPanels: async () => {
     const { data } = await axiosInstance.get("admin/labs/combined-panels/");

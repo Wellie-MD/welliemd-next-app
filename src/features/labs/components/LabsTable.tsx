@@ -39,6 +39,9 @@ function renderDerivedStatusBadge(s: CombinedDerivedStatus) {
 }
 
 function renderWellieMdBadge(lab: LabPanel, liveCount: number, onToggleActive: (lab: LabPanel) => Promise<void>) {
+  if (!lab.is_assignable) {
+    return <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-[#fef3c7] text-[#92400e] border-[#fde68a]">Configuration in progress</span>;
+  }
   const normalized = (lab.junction_status || "").toLowerCase();
   if (liveCount > 0) {
     return <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-[#dcfce7] text-[#15803d] border-[#bbf7d0]">{liveCount} client{liveCount === 1 ? "" : "s"} live</span>;
@@ -127,6 +130,7 @@ export default function LabsTable({
   }, [labs, search, statusFilter, assignmentSummary]);
 
   const allVisible = filtered.length > 0 && filtered.every(l => selectedRowIds.includes(l.id));
+  const canAssignLab = (lab: LabPanel) => !!lab.is_assignable;
 
   return (
     <>
@@ -277,6 +281,11 @@ export default function LabsTable({
                   <TableCell>
                     <div className="space-y-1">
                       {renderJunctionStatusBadge(derivedStatus)}
+                      {!lab.is_assignable && (
+                        <div className="text-[10px] text-amber-700">
+                          Missing: {(lab.configuration_missing ?? []).join(", ")}
+                        </div>
+                      )}
                       {meta.live > 0 && <div className="text-[10px] text-muted-foreground">{meta.live} client synced</div>}
                     </div>
                   </TableCell>
@@ -286,11 +295,16 @@ export default function LabsTable({
                   <TableCell className="text-right pr-6">
                     <div className="flex items-center justify-end gap-1">
                       <button
-                        onClick={() => onAssignOpenSingle(lab)}
-                        className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
-                        title="Open client assignments for Junction status"
+                        onClick={() => canAssignLab(lab) && onAssignOpenSingle(lab)}
+                        disabled={!canAssignLab(lab)}
+                        className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={
+                          canAssignLab(lab)
+                            ? "Assign to clients"
+                            : `Complete configuration first: ${(lab.configuration_missing ?? []).join(", ")}`
+                        }
                       >
-                        <RefreshCw className="h-4 w-4" />
+                        <UserPlus className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => onEditOpen(lab)}

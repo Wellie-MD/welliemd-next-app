@@ -89,6 +89,7 @@ const menuSections = [
           { title: "Medicine", url: "/dashboard/products" },
           { title: "Supplies", url: "/dashboard/products/supplies" },
           { title: "Labs", url: "/dashboard/products/labs" },
+          { title: "Test Catalog", url: "/dashboard/products/labs/catalog" },
           { title: "Junction Settings", url: "/dashboard/products/labs/settings" },
           { title: "Configuration", url: "/dashboard/products/config" }
         ]

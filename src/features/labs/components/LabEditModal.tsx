@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { toast } from "@/components/ui/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -56,6 +55,8 @@ export default function LabEditModal({
   onMarkerClick,
 }: Props) {
   if (!selectedLab) return null;
+  const missing = selectedLab.configuration_missing ?? [];
+  const isComplete = selectedLab.configuration_status === "complete";
 
   const toggleState = (code: string) => {
     onEditFormChange(prev => ({
@@ -78,6 +79,18 @@ export default function LabEditModal({
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="p-6 space-y-5">
+          <div
+            className={`rounded-lg border px-4 py-3 text-xs ${
+              isComplete
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-amber-200 bg-amber-50 text-amber-800"
+            }`}
+          >
+            {isComplete
+              ? "This panel is ready to assign."
+              : `Configuration in progress. Missing: ${missing.join(", ")}.`}
+          </div>
+
           {/* Read-only info grid */}
           <div className="grid grid-cols-2 gap-y-3.5 gap-x-6 py-2 text-xs">
             <InfoRow label="Name" value={selectedLab.name} wide />

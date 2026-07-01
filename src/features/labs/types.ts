@@ -65,7 +65,7 @@ export interface CreateFormState {
   cost_to_welliemd: number;
   is_active: boolean;
   service_states: string[];
-  biomarkers: string[];
+  catalog_item_ids: string[];
 }
 
 export const INITIAL_CREATE_FORM: CreateFormState = {
@@ -79,7 +79,7 @@ export const INITIAL_CREATE_FORM: CreateFormState = {
   cost_to_welliemd: 0,
   is_active: true,
   service_states: [],
-  biomarkers: [],
+  catalog_item_ids: [],
 };
 
 // ---------------------------------------------------------------------------

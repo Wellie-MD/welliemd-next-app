@@ -3,9 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import { Settings, UserPlus } from "lucide-react";
-import { labsApi, type Biomarker, type CatalogLab, type ClientAssignment, type LabPanel } from "@/api/labs";
+import { labsApi, type ClientAssignment, type LabPanel } from "@/api/labs";
 import {
-  LabCreateModal,
   LabCombinedModal,
   LabEditModal,
   LabAssignModal,
@@ -13,8 +12,6 @@ import {
   LabsTable,
   type AssignClient,
   type AssignItem,
-  type CreateFormState,
-  INITIAL_CREATE_FORM,
 } from "@/features/labs";
 
 type StatusFilter = "All" | "Active" | "Pending approval" | "Inactive";
@@ -49,24 +46,21 @@ export default function Labs() {
 
   const [labs, setLabs] = useState<LabPanel[]>([]);
   const [combinedPanels, setCombinedPanels] = useState<import("@/features/labs/types").CombinedLabPanel[]>([]);
-  const [biomarkers, setBiomarkers] = useState<Biomarker[]>([]);
-  const [catalogLabs, setCatalogLabs] = useState<CatalogLab[]>([]);
   const [assignmentSummary, setAssignmentSummary] = useState<Record<string, AssignmentSummary>>({});
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
 
-  const [createOpen, setCreateOpen] = useState(false);
+
   const [combinedOpen, setCombinedOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [markerOpen, setMarkerOpen] = useState(false);
 
   const [selectedLab, setSelectedLab] = useState<LabPanel | null>(null);
-  const [selectedMarker, setSelectedMarker] = useState<Biomarker | null>(null);
-  const [createForm, setCreateForm] = useState<CreateFormState>(INITIAL_CREATE_FORM);
-  const [createMarkerSearch, setCreateMarkerSearch] = useState("");
+  const [selectedMarker, setSelectedMarker] = useState<import("@/api/labs").Biomarker | null>(null);
+
   const [editForm, setEditForm] = useState<EditFormState>({
     cost_to_client: 0,
     cost_to_welliemd: 0,
@@ -83,15 +77,11 @@ export default function Labs() {
 
   const loadData = useCallback(async () => {
     try {
-      const [allLabs, allMarkers, allCatalogLabs, allCombined] = await Promise.all([
+      const [allLabs, allCombined] = await Promise.all([
         labsApi.getLabPanels(),
-        labsApi.getBiomarkers(),
-        labsApi.getCatalogLabs(),
         labsApi.getCombinedPanels(),
       ]);
       setLabs(allLabs);
-      setBiomarkers(allMarkers);
-      setCatalogLabs(allCatalogLabs);
       setCombinedPanels(allCombined);
     } catch (e) {
       console.error(e);
@@ -125,51 +115,13 @@ export default function Labs() {
     return () => { cancelled = true; };
   }, [labs]);
 
-  // ── stats ─────────────────────────────────────────────────────────────────
-
   const stats = useMemo(() => ({
     total: labs.length + combinedPanels.filter(c => !c.is_archived).length,
     active: labs.filter(l => (assignmentSummary[l.id]?.live ?? 0) > 0).length,
     synced: labs.filter(l => (assignmentSummary[l.id]?.submitted ?? 0) > 0).length,
   }), [labs, combinedPanels, assignmentSummary]);
 
-  // ── grouped biomarkers for create modal ───────────────────────────────────
 
-  const createModalGroupedBiomarkers = useMemo(() => {
-    if (!createForm.lab_provider_id) return [];
-    const q = createMarkerSearch.toLowerCase().trim();
-    const filtered = biomarkers.filter(bm => {
-      // Only show markers for the selected lab
-      if (bm.lab_id !== createForm.lab_provider_id) return false;
-      // Filter out compound tests (Junction "panel" type) — those are not individual biomarkers
-      if (bm.marker_type === "panel") return false;
-      if (!q) return true;
-      return (
-        bm.name.toLowerCase().includes(q) ||
-        (bm.provider_id ?? "").toLowerCase().includes(q) ||
-        (bm.slug ?? "").toLowerCase().includes(q) ||
-        bm.code.toLowerCase().includes(q)
-      );
-    });
-
-    // Group by backend category; if no real category is present the backend returns "Biomarkers"
-    const groups: { category: string; items: Biomarker[]; isPanel: boolean }[] = [];
-    for (const bm of filtered) {
-      const cat = bm.category || "Biomarkers";
-      let g = groups.find(c => c.category === cat);
-      if (!g) { g = { category: cat, items: [], isPanel: false }; groups.push(g); }
-      g.items.push(bm);
-    }
-
-    // Sort: real categories first (alphabetically), generic "Biomarkers" last
-    return groups.sort((a, b) => {
-      if (a.category === "Biomarkers" && b.category !== "Biomarkers") return 1;
-      if (a.category !== "Biomarkers" && b.category === "Biomarkers") return -1;
-      return a.category.localeCompare(b.category);
-    });
-  }, [biomarkers, createForm.lab_provider_id, createMarkerSearch]);
-
-  // ── table row selection ───────────────────────────────────────────────────
 
   const handleRowSelect = (id: string, checked: boolean) => {
     setSelectedRowIds(prev =>
@@ -198,40 +150,7 @@ export default function Labs() {
     );
   };
 
-  // ── create handler ────────────────────────────────────────────────────────
 
-  const handleCreateSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!createForm.lab_provider_id || !createForm.lab_provider) {
-      toast({ title: "Validation Error", description: "Please choose a lab provider first.", variant: "destructive" });
-      return;
-    }
-    try {
-      const selectedBiomarkers = biomarkers.filter(bm => createForm.biomarkers.includes(bm.id));
-      await labsApi.createLabPanel({
-        name: createForm.name,
-        description: createForm.description,
-        lab_provider: createForm.lab_provider,
-        fasting_required: createForm.fasting_required,
-        collection_method: createForm.collection_method,
-        cost_to_client: createForm.cost_to_client,
-        cost_to_welliemd: createForm.cost_to_welliemd,
-        is_active: createForm.is_active,
-        service_states: createForm.service_states,
-        biomarkers: selectedBiomarkers,
-      });
-      setCreateOpen(false);
-      setCreateForm(INITIAL_CREATE_FORM);
-      setCreateMarkerSearch("");
-      loadData();
-      toast({ title: "Lab panel created", description: "Submit it to Junction from each client assignment." });
-    } catch (e) {
-      console.error(e);
-      toast({ title: "Error", description: "Failed to create lab panel.", variant: "destructive" });
-    }
-  };
-
-  // ── edit handler ──────────────────────────────────────────────────────────
 
   const handleEditOpen = (lab: LabPanel) => {
     setSelectedLab(lab);
@@ -258,8 +177,6 @@ export default function Labs() {
     }
   };
 
-  // ── toggle active ─────────────────────────────────────────────────────────
-
   const handleToggleActive = async (lab: LabPanel) => {
     try {
       await labsApi.updateLabPanel(lab.id, { is_active: !lab.is_active });
@@ -268,8 +185,6 @@ export default function Labs() {
       console.error(e);
     }
   };
-
-  // ── archive ────────────────────────────────────────────────────────────────
 
   const handleArchive = async (lab: LabPanel) => {
     if (
@@ -305,8 +220,6 @@ export default function Labs() {
     }
   };
 
-  // ── assign helpers ────────────────────────────────────────────────────────
-
   const refreshAssignClients = async () => {
     const checked = assignItemPool.filter(it => it.checked);
     if (checked.length !== 1) return;
@@ -317,8 +230,17 @@ export default function Labs() {
   };
 
   const handleAssignOpenSingle = async (lab: LabPanel) => {
+    if (!lab.is_assignable) {
+      toast({
+        title: "Configuration in progress",
+        description: `Complete this panel before assigning. Missing: ${(lab.configuration_missing || []).join(", ")}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    const assignableLabs = labs.filter(l => l.is_assignable);
     setAssignMode("single");
-    setAssignItemPool(labs.map(l => ({ id: l.id, name: l.name, sub: l.lab_provider || "Lab panel", checked: l.id === lab.id })));
+    setAssignItemPool(assignableLabs.map(l => ({ id: l.id, name: l.name, sub: l.lab_provider || "Lab panel", checked: l.id === lab.id })));
     setAssignItemSearch("");
     setAssignClientSearch("");
     try {
@@ -345,8 +267,19 @@ export default function Labs() {
       toast({ title: "Selection Required", description: "Select one or more lab panels first.", variant: "destructive" });
       return;
     }
+    const selectedLabs = labs.filter(l => selectedRowIds.includes(l.id));
+    const incompleteLabs = selectedLabs.filter(l => !l.is_assignable);
+    if (incompleteLabs.length > 0) {
+      toast({
+        title: "Configuration in progress",
+        description: `Finish configuration before assigning: ${incompleteLabs.map(l => l.name).join(", ")}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    const assignableLabs = labs.filter(l => l.is_assignable);
     setAssignMode("single");
-    setAssignItemPool(labs.map(l => ({ id: l.id, name: l.name, sub: l.lab_provider || "Lab panel", checked: selectedRowIds.includes(l.id) })));
+    setAssignItemPool(assignableLabs.map(l => ({ id: l.id, name: l.name, sub: l.lab_provider || "Lab panel", checked: selectedRowIds.includes(l.id) })));
     setAssignItemSearch("");
     setAssignClientSearch("");
     try {
@@ -463,11 +396,8 @@ export default function Labs() {
     }
   };
 
-  // ── render ────────────────────────────────────────────────────────────────
-
   return (
     <div className="p-6 space-y-6">
-      {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -516,19 +446,14 @@ export default function Labs() {
           </Button>
 
           <Button
-            onClick={() => {
-              setCreateForm(INITIAL_CREATE_FORM);
-              setCreateMarkerSearch("");
-              setCreateOpen(true);
-            }}
+            onClick={() => navigate("/dashboard/products/labs/catalog")}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs h-9 inline-flex items-center gap-1 px-4"
           >
-            + Create Lab Panel
+            Open Test Catalog
           </Button>
         </div>
       </div>
 
-      {/* Stats tiles */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
           { label: "Total Labs", value: stats.total },
@@ -542,11 +467,10 @@ export default function Labs() {
         ))}
       </div>
 
-      {/* Filter bar + table */}
-        <LabsTable
-          labs={labs}
-          combinedPanels={combinedPanels}
-          assignmentSummary={assignmentSummary}
+      <LabsTable
+        labs={labs}
+        combinedPanels={combinedPanels}
+        assignmentSummary={assignmentSummary}
         search={search}
         onSearchChange={setSearch}
         statusFilter={statusFilter}
@@ -562,19 +486,7 @@ export default function Labs() {
         onArchiveCombined={handleArchiveCombined}
       />
 
-      {/* Modals */}
-      <LabCreateModal
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        form={createForm}
-        onFormChange={setCreateForm}
-        biomarkers={biomarkers}
-        catalogLabs={catalogLabs}
-        markerSearch={createMarkerSearch}
-        onMarkerSearchChange={setCreateMarkerSearch}
-        groupedBiomarkers={createModalGroupedBiomarkers}
-        onSubmit={handleCreateSubmit}
-      />
+
 
       <LabCombinedModal
         open={combinedOpen}

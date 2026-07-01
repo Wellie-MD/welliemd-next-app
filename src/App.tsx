@@ -53,6 +53,7 @@ import CrossTenantAccessUsers from "./pages/CrossTenantAccessUsers";
 import ClientPerformance from "./pages/ClientPerformance";
 import Labs from "./pages/Labs";
 import LabSettings from "./pages/LabSettings";
+import TestCatalog from "./pages/TestCatalog";
 
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -138,6 +139,7 @@ const App = () => {
                     <Route path="/products/supplies" element={<ProtectedRoute><Supplies /></ProtectedRoute>} />
                     <Route path="/products/labs" element={<ProtectedRoute><Labs /></ProtectedRoute>} />
                     <Route path="/products/labs/settings" element={<ProtectedRoute><LabSettings /></ProtectedRoute>} />
+                    <Route path="/products/labs/catalog" element={<ProtectedRoute><TestCatalog /></ProtectedRoute>} />
                     <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
                     <Route path="/analytics/performance" element={<ProtectedRoute><ClientPerformance /></ProtectedRoute>} />
                     <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />

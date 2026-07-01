@@ -28,6 +28,16 @@ export default function JunctionLabs({ embedded = false }: JunctionLabsProps) {
   const [lastSyncStatus, setLastSyncStatus] = useState<string | null>(null)
   const [lastSyncError, setLastSyncError] = useState<string | null>(null)
 
+  // Polling state
+  const [progress, setProgress] = useState<{
+    current_page: number
+    total_pages: number | null
+    total_seen: number
+    created_count: number
+    updated_count: number
+    status: string
+  } | null>(null)
+
   const apiBase = useMemo(() => {
     if (environment === "production-us") return "https://api.us.junction.com"
     if (environment === "production-eu") return "https://api.eu.junction.com"
@@ -96,23 +106,66 @@ export default function JunctionLabs({ embedded = false }: JunctionLabsProps) {
 
   const syncCatalog = async () => {
     setSyncing(true)
+    setProgress({
+      current_page: 0,
+      total_pages: null,
+      total_seen: 0,
+      created_count: 0,
+      updated_count: 0,
+      status: "queued",
+    })
+
     try {
-      const result: SyncResult = await junctionCatalogSettingsApi.syncMarkerCatalog()
-      setLastSyncedAt(result.last_synced_at)
-      setLastSyncStatus("success")
-      setLastSyncError(null)
+      const response = await junctionCatalogSettingsApi.syncReferenceCatalog()
+      const jobId = response.job_id
 
-      const warningNote = result.warnings.length > 0
-        ? ` (${result.warnings.length} warning${result.warnings.length > 1 ? "s" : ""} — check logs)`
-        : ""
+      // Start polling
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await junctionCatalogSettingsApi.getReferenceCatalogSyncStatus(jobId)
+          setProgress({
+            current_page: statusRes.current_page,
+            total_pages: statusRes.total_pages,
+            total_seen: statusRes.total_seen,
+            created_count: statusRes.created_count,
+            updated_count: statusRes.updated_count,
+            status: statusRes.status,
+          })
 
-      toast({
-        title: "Marker catalog synced",
-        description: `Created ${result.created_count}, updated ${result.updated_count}, total ${result.total_seen} markers. Junction provider catalog entries seen: ${result.labs_seen ?? 0}; panel builder shows only providers with synced markers. Accounts ${result.lab_accounts_seen ?? 0}.${warningNote}`,
-      })
+          if (statusRes.status === "success") {
+            clearInterval(pollInterval)
+            setSyncing(false)
+            setProgress(null)
+            setLastSyncedAt(statusRes.last_successful_sync_at)
+            setLastSyncStatus("success")
+            setLastSyncError(null)
+
+            toast({
+              title: "Reference catalog synced",
+              description: `Created ${statusRes.created_count}, updated ${statusRes.updated_count}, total ${statusRes.total_seen} items.`,
+            })
+          } else if (statusRes.status === "failed") {
+            clearInterval(pollInterval)
+            setSyncing(false)
+            setProgress(null)
+            setLastSyncStatus("failed")
+            setLastSyncError(statusRes.error_message)
+
+            toast({
+              title: "Sync failed",
+              description: statusRes.error_message || "Reference catalog sync failed.",
+              variant: "destructive",
+            })
+          }
+        } catch (pollErr) {
+          console.error("Error polling sync status:", pollErr)
+        }
+      }, 3000)
     } catch (error: unknown) {
+      setSyncing(false)
+      setProgress(null)
       const err = error as { response?: { data?: { detail?: string; error?: string } } }
-      const message = err?.response?.data?.detail || err?.response?.data?.error || "Marker catalog sync failed."
+      const message = err?.response?.data?.detail || err?.response?.data?.error || "Reference catalog sync initiation failed."
       setLastSyncStatus("failed")
       setLastSyncError(message)
       toast({
@@ -120,8 +173,6 @@ export default function JunctionLabs({ embedded = false }: JunctionLabsProps) {
         description: message,
         variant: "destructive",
       })
-    } finally {
-      setSyncing(false)
     }
   }
 
@@ -133,7 +184,7 @@ export default function JunctionLabs({ embedded = false }: JunctionLabsProps) {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Junction Labs</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Configure the control-plane Junction key used only for lab catalog sync and admin panel curation.
+            Configure the control-plane Junction key used only for reference-catalog sync and admin panel curation.
           </p>
         </div>
       )}
@@ -141,9 +192,9 @@ export default function JunctionLabs({ embedded = false }: JunctionLabsProps) {
       <Alert className="border-blue-200 bg-blue-50 text-blue-950">
         <ShieldCheck className="h-4 w-4 text-blue-700" />
         <AlertDescription className="text-sm leading-6">
-          This is a dedicated WellieMD admin/catalog Team API key. It is used to fetch real Junction markers,
-          provider IDs, lab metadata, and other panel-design data for admins. It must not be used to place patient
-          orders or create client-specific lab tests.
+          This is a dedicated WellieMD admin/catalog Team API key. It is used to fetch the Junction reference
+          catalog for admin panel curation. It must not be used to place patient orders or create client-specific
+          lab tests.
         </AlertDescription>
       </Alert>
 
@@ -154,10 +205,10 @@ export default function JunctionLabs({ embedded = false }: JunctionLabsProps) {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <KeyRound className="h-5 w-5 text-[#12517A]" />
-                  Catalog API Key
+                  Reference Catalog API Key
                 </CardTitle>
                 <CardDescription>
-                  Store a dedicated Junction Team API key for catalog lookup and sync.
+                  Store a dedicated Junction Team API key for reference-catalog lookup and sync.
                 </CardDescription>
               </div>
               <Badge variant={enabled ? "default" : "secondary"}>
@@ -168,9 +219,9 @@ export default function JunctionLabs({ embedded = false }: JunctionLabsProps) {
           <CardContent className="space-y-5">
             <div className="flex items-center justify-between rounded-md border bg-muted/20 p-3">
               <div>
-                <div className="text-sm font-medium text-foreground">Use Junction catalog sync</div>
+                <div className="text-sm font-medium text-foreground">Use Junction reference catalog sync</div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  Allows admin panel creation to use Junction marker/provider data.
+                  Enables syncing the control-plane reference catalog used by admin panel creation.
                 </div>
               </div>
               <Switch checked={enabled} onCheckedChange={setEnabled} />
@@ -206,7 +257,7 @@ export default function JunctionLabs({ embedded = false }: JunctionLabsProps) {
               <Label htmlFor="junction-catalog-team">Catalog Team ID</Label>
               <Input
                 id="junction-catalog-team"
-                placeholder="Optional Junction Team ID for admin/catalog reference"
+                placeholder="Optional Junction Team ID for admin reference catalog"
                 value={teamId}
                 onChange={event => setTeamId(event.target.value)}
               />
@@ -217,12 +268,13 @@ export default function JunctionLabs({ embedded = false }: JunctionLabsProps) {
               <Input
                 id="junction-catalog-key"
                 type="password"
-                placeholder="X-Vital-API-Key for the dedicated admin/catalog Junction Team"
+                placeholder="X-Vital-API-Key for the dedicated admin reference-catalog Team"
                 value={apiKey}
                 onChange={event => setApiKey(event.target.value)}
               />
               <p className="text-xs text-muted-foreground leading-5">
-                This key should belong to a special catalog/admin Junction Team. Client Teams keep their own
+                This key should belong to a special catalog/admin Junction Team. Save these settings first, then run
+                the reference sync so the create-panel modal can query local catalog rows. Client Teams keep their own
                 separate API keys and webhook secrets for strict tenant isolation.
               </p>
               {savedKeyDisplay && (
@@ -232,22 +284,64 @@ export default function JunctionLabs({ embedded = false }: JunctionLabsProps) {
               )}
             </div>
 
-            {/* Sync status row */}
-            {(lastSyncedAt || lastSyncStatus === "failed") && (
-              <div className="rounded-md border bg-muted/10 px-3 py-2 text-xs text-muted-foreground space-y-0.5">
-                {lastSyncStatus === "success" && lastSyncedAt && (
-                  <div className="flex items-center gap-1.5 text-green-700">
-                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                    Last synced: {new Date(lastSyncedAt).toLocaleString()}
+            {/* Sync status / progress row */}
+            {progress ? (
+              <div className="rounded-lg border p-4 space-y-3 bg-slate-50/50">
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                  <span className="capitalize">Syncing state: {progress.status}</span>
+                  {progress.total_pages ? (
+                    <span>
+                      Page {progress.current_page} of {progress.total_pages}
+                    </span>
+                  ) : (
+                    <span>Fetching pages…</span>
+                  )}
+                </div>
+                {progress.total_pages && (
+                  <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-blue-600 h-full transition-all duration-300"
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          (progress.current_page / progress.total_pages) * 100
+                        )}%`,
+                      }}
+                    />
                   </div>
                 )}
-                {lastSyncStatus === "failed" && (
-                  <div className="flex items-start gap-1.5 text-destructive">
-                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                    <span>Last sync failed{lastSyncError ? `: ${lastSyncError}` : "."}</span>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="bg-white border rounded p-2">
+                    <p className="text-muted-foreground font-medium text-[10px] uppercase">Seen</p>
+                    <p className="font-semibold text-slate-900 font-mono mt-0.5">{progress.total_seen}</p>
                   </div>
-                )}
+                  <div className="bg-white border rounded p-2">
+                    <p className="text-muted-foreground font-medium text-[10px] uppercase">Created</p>
+                    <p className="font-semibold text-blue-700 font-mono mt-0.5">{progress.created_count}</p>
+                  </div>
+                  <div className="bg-white border rounded p-2">
+                    <p className="text-muted-foreground font-medium text-[10px] uppercase">Updated</p>
+                    <p className="font-semibold text-blue-700 font-mono mt-0.5">{progress.updated_count}</p>
+                  </div>
+                </div>
               </div>
+            ) : (
+              (lastSyncedAt || lastSyncStatus === "failed") && (
+                <div className="rounded-md border bg-muted/10 px-3 py-2 text-xs text-muted-foreground space-y-0.5">
+                  {lastSyncStatus === "success" && lastSyncedAt && (
+                    <div className="flex items-center gap-1.5 text-green-700">
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                      Last synced: {new Date(lastSyncedAt).toLocaleString()}
+                    </div>
+                  )}
+                  {lastSyncStatus === "failed" && (
+                    <div className="flex items-start gap-1.5 text-destructive">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      <span>Last sync failed{lastSyncError ? `: ${lastSyncError}` : "."}</span>
+                    </div>
+                  )}
+                </div>
+              )
             )}
 
             <div className="flex flex-wrap gap-2 pt-2">
@@ -256,7 +350,7 @@ export default function JunctionLabs({ embedded = false }: JunctionLabsProps) {
                 {saving ? "Saving..." : "Save settings"}
               </Button>
               <Button
-                id="junction-sync-marker-catalog-btn"
+                id="junction-sync-reference-catalog-btn"
                 variant="outline"
                 onClick={syncCatalog}
                 disabled={!canSync}
@@ -265,12 +359,12 @@ export default function JunctionLabs({ embedded = false }: JunctionLabsProps) {
                   !savedKeyDisplay
                     ? "Save a catalog API key first"
                     : !enabled
-                      ? "Enable catalog sync first"
+                      ? "Enable reference catalog sync first"
                       : undefined
                 }
               >
                 <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-                {syncing ? "Syncing..." : "Sync marker catalog"}
+                {syncing ? "Syncing..." : "Sync reference catalog"}
               </Button>
             </div>
           </CardContent>
@@ -286,16 +380,16 @@ export default function JunctionLabs({ embedded = false }: JunctionLabsProps) {
             </CardHeader>
             <CardContent className="space-y-3 text-sm text-muted-foreground">
               <div className="rounded-md border p-3">
-                <div className="font-medium text-foreground">Admin marker picker</div>
-                <div className="mt-1">Fetches real Junction biomarkers from GET /v3/lab_tests/markers.</div>
+                <div className="font-medium text-foreground">Admin reference catalog</div>
+                <div className="mt-1">Fetches Junction's broad marker/test catalog into the control-plane database for fast curation.</div>
               </div>
               <div className="rounded-md border p-3">
                 <div className="font-medium text-foreground">Provider IDs</div>
-                <div className="mt-1">Stores provider_id values for stable custom lab test creation.</div>
+                <div className="mt-1">Stores stable provider/test identifiers and expanded marker composition.</div>
               </div>
               <div className="rounded-md border p-3">
                 <div className="font-medium text-foreground">Panel curation</div>
-                <div className="mt-1">Lets admins build canonical WellieMD panels from real catalog data.</div>
+                <div className="mt-1">Lets admins build canonical WellieMD panels from synced catalog items, then expand them to marker provider IDs on save.</div>
               </div>
             </CardContent>
           </Card>

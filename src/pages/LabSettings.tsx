@@ -76,7 +76,7 @@ export default function LabSettings() {
               <div>
                 <div className="text-sm font-semibold text-foreground">{TAB_LABELS["junction-api"]}</div>
                 <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  Catalog API key, environment, sync status, and marker catalog refresh.
+                  Reference-catalog API key, environment, sync status, and reference catalog refresh.
                 </div>
               </div>
             </button>

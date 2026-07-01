@@ -21,6 +21,19 @@ export interface JunctionApiKeyBlock {
   created_at?: string | null
 }
 
+export interface JunctionWebhookBlock {
+  exists: boolean
+  webhook_id?: string
+  url?: string
+  disabled?: boolean
+  state?: string
+  filter_types?: string[]
+  secret_configured?: boolean
+  last_synced_at?: string | null
+  last_verified_at?: string | null
+  last_error?: string
+}
+
 export interface JunctionLabAccountItem {
   lab_account_id: string
   lab: string
@@ -48,6 +61,7 @@ export interface JunctionIntegrationDetail {
   last_sync_error?: string
   status: JunctionStatusAxes
   api_keys: { sandbox: JunctionApiKeyBlock; production: JunctionApiKeyBlock }
+  webhooks: { sandbox: JunctionWebhookBlock; production: JunctionWebhookBlock }
   lab_accounts: {
     linked_count: number
     total_count: number
@@ -104,6 +118,39 @@ export const junctionIntegrationApi = {
   ): Promise<JunctionIntegrationDetail> => {
     const { data } = await axiosInstance.post(
       `${base(clientId)}/api-keys/${environment}/rotate/`,
+      {}
+    )
+    return data
+  },
+
+  ensureWebhook: async (
+    clientId: string,
+    environment: JunctionEnvironment
+  ): Promise<JunctionIntegrationDetail> => {
+    const { data } = await axiosInstance.post(
+      `${base(clientId)}/webhooks/${environment}/ensure/`,
+      {}
+    )
+    return data
+  },
+
+  prepareEnvironment: async (
+    clientId: string,
+    environment: JunctionEnvironment
+  ): Promise<JunctionIntegrationDetail> => {
+    const { data } = await axiosInstance.post(
+      `${base(clientId)}/environments/${environment}/prepare/`,
+      {}
+    )
+    return data
+  },
+
+  switchEnvironment: async (
+    clientId: string,
+    environment: JunctionEnvironment
+  ): Promise<JunctionIntegrationDetail> => {
+    const { data } = await axiosInstance.post(
+      `${base(clientId)}/environments/${environment}/switch/`,
       {}
     )
     return data

@@ -34,6 +34,28 @@ export interface SyncResult {
   warnings: string[]
 }
 
+export interface SyncJobResponse {
+  job_id: string
+  status: string
+  message: string
+}
+
+export interface SyncStatusResponse {
+  job_id: string
+  status: string
+  trigger: string
+  current_page: number
+  total_pages: number | null
+  total_seen: number
+  created_count: number
+  updated_count: number
+  inactive_count: number
+  started_at: string | null
+  finished_at: string | null
+  error_message: string
+  last_successful_sync_at: string | null
+}
+
 export const junctionCatalogSettingsApi = {
   get: async (): Promise<JunctionCatalogSettings> => {
     const { data } = await axiosInstance.get("integrations/admin/junction/catalog-config/")
@@ -45,8 +67,15 @@ export const junctionCatalogSettingsApi = {
     return data
   },
 
-  syncMarkerCatalog: async (): Promise<SyncResult> => {
-    const { data } = await axiosInstance.post("admin/labs/biomarkers/sync/")
+  syncReferenceCatalog: async (): Promise<SyncJobResponse> => {
+    const { data } = await axiosInstance.post("admin/labs/catalog/sync/")
+    return data
+  },
+
+  getReferenceCatalogSyncStatus: async (jobId?: string): Promise<SyncStatusResponse> => {
+    const { data } = await axiosInstance.get("admin/labs/catalog/sync/status/", {
+      params: { job_id: jobId },
+    })
     return data
   },
 }

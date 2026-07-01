@@ -83,7 +83,8 @@ export default function LabCombinedModal({ open, onOpenChange, labs, onCreated }
       map[row.method] = labs.filter(
         l =>
           l.collection_method === row.method &&
-          (l.junction_status === "active" || l.junction_status === "Active")
+          l.is_active &&
+          !!l.is_assignable
       );
     }
     return map;
