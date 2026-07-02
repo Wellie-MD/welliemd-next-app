@@ -175,16 +175,13 @@ export default function Orders() {
       if (pharmacyId !== "all") params["pharmacy__id"] = pharmacyId
       if (paymentStatus !== "All") params.payment_status = paymentStatus.toLowerCase()
       if (dateRange?.from) {
-        const startLocal = new Date(dateRange.from)
-        startLocal.setHours(0, 0, 0, 0)
-        const utcStart = new Date(startLocal.getTime() - startLocal.getTimezoneOffset() * 60000)
-        params["created_at__gte"] = utcStart.toISOString()
+        const startDate = new Date(dateRange.from)
+        startDate.setHours(0, 0, 0, 0)
+        params["created_at__gte"] = startDate.toISOString()
 
-        const endLocal = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from)
-        endLocal.setDate(endLocal.getDate() + 1)
-        endLocal.setHours(0, 0, 0, 0)
-        const utcEnd = new Date(endLocal.getTime() - endLocal.getTimezoneOffset() * 60000)
-        params["created_at__lte"] = utcEnd.toISOString()
+        const endDate = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from)
+        endDate.setHours(23, 59, 59, 999)
+        params["created_at__lte"] = endDate.toISOString()
       }
 
       const data = await ordersApi.fetchOrders(params)
