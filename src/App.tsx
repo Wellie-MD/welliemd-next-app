@@ -30,6 +30,11 @@ const App = () => {
 
   useEffect(() => {
     const initializeAuth = async () => {
+      if (window.location.pathname.replace(/\/+$/, "") === "/superadmin-access/launch") {
+        setIsInitialized(true);
+        return;
+      }
+
       try {
         await authService.hydrateAuth();
       } catch (error) {

@@ -58,6 +58,8 @@ axiosInstance.interceptors.request.use(
     }
 
     const authState = useAuthStore.getState();
+    config.headers["X-Wellie-Portal"] = "client";
+
     if (authState.superAdminApiBaseUrl) {
       config.baseURL = authState.superAdminApiBaseUrl;
       return config;
