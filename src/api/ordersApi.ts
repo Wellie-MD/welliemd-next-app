@@ -398,6 +398,37 @@ export const updateOrderQuestionnaireImages = async (
   }
 }
 
+export interface FilterOption {
+  id: string | number
+  name: string
+}
+
+const extractResults = (data: unknown): FilterOption[] => {
+  if (Array.isArray(data)) return data
+  if (data && typeof data === 'object' && 'results' in data && Array.isArray((data as any).results)) return (data as any).results
+  return []
+}
+
+export const fetchCategories = async (): Promise<FilterOption[]> => {
+  try {
+    const { data } = await api.get('/products/categories/')
+    return extractResults(data)
+  } catch (error) {
+    console.error('Failed to fetch categories:', error)
+    return []
+  }
+}
+
+export const fetchPharmacies = async (): Promise<FilterOption[]> => {
+  try {
+    const { data } = await api.get('/products/pharmacies/')
+    return extractResults(data)
+  } catch (error) {
+    console.error('Failed to fetch pharmacies:', error)
+    return []
+  }
+}
+
 export const ordersApi = {
   fetchOrders,
   fetchOrdersByPatient,
@@ -412,4 +443,6 @@ export const ordersApi = {
   sendCheckoutLink,
   changeProduct,
   updateOrderQuestionnaireImages,
+  fetchCategories,
+  fetchPharmacies,
 }
