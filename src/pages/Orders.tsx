@@ -69,13 +69,6 @@ const formatMoney = (value: unknown) => {
   return `$${amount.toFixed(2)}`
 }
 
-const formatLocalDate = (d: Date) => {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, "0")
-  const day = String(d.getDate()).padStart(2, "0")
-  return `${y}-${m}-${day}`
-}
-
 const formatDate = (dateString?: string | null) => {
   if (!dateString) return "-"
   const d = new Date(dateString)
@@ -182,10 +175,16 @@ export default function Orders() {
       if (pharmacyId !== "all") params["pharmacy__id"] = pharmacyId
       if (paymentStatus !== "All") params.payment_status = paymentStatus.toLowerCase()
       if (dateRange?.from) {
-        params["created_at__gte"] = formatLocalDate(dateRange.from)
-        const endDate = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from)
-        endDate.setDate(endDate.getDate() + 1)
-        params["created_at__lte"] = formatLocalDate(endDate)
+        const startLocal = new Date(dateRange.from)
+        startLocal.setHours(0, 0, 0, 0)
+        const utcStart = new Date(startLocal.getTime() - startLocal.getTimezoneOffset() * 60000)
+        params["created_at__gte"] = utcStart.toISOString()
+
+        const endLocal = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from)
+        endLocal.setDate(endLocal.getDate() + 1)
+        endLocal.setHours(0, 0, 0, 0)
+        const utcEnd = new Date(endLocal.getTime() - endLocal.getTimezoneOffset() * 60000)
+        params["created_at__lte"] = utcEnd.toISOString()
       }
 
       const data = await ordersApi.fetchOrders(params)
