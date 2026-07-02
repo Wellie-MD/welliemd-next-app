@@ -1,6 +1,13 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { ordersApi, Order, FilterOption } from "@/api/ordersApi"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { exportToCSV } from "@/utils/exportUtils"
 import { ChevronLeft, ChevronRight, Eye, RotateCcw, Calendar, Download, Search, X } from "lucide-react"
 import { DateRange } from "react-day-picker"
@@ -60,6 +67,13 @@ const formatMoney = (value: unknown) => {
   const amount = parseMoney(value)
   if (amount == null) return "0.00"
   return `$${amount.toFixed(2)}`
+}
+
+const formatLocalDate = (d: Date) => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
 }
 
 const formatDate = (dateString?: string | null) => {
@@ -150,9 +164,9 @@ export default function Orders() {
           ordersApi.fetchCategories(),
           ordersApi.fetchPharmacies(),
         ])
-        setCategories(cats)
-        setPharmacies(pharms)
-        filterOptionsLoadedRef.current = true
+        if (cats.length > 0) setCategories(cats)
+        if (pharms.length > 0) setPharmacies(pharms)
+        if (cats.length > 0 || pharms.length > 0) filterOptionsLoadedRef.current = true
       }
 
       const params: Record<string, string | number> = {
@@ -167,8 +181,12 @@ export default function Orders() {
       if (categoryId !== "all") params["product__category__id"] = categoryId
       if (pharmacyId !== "all") params["pharmacy__id"] = pharmacyId
       if (paymentStatus !== "All") params.payment_status = paymentStatus.toLowerCase()
-      if (dateRange?.from) params["created_at__gte"] = dateRange.from.toISOString().slice(0, 10)
-      if (dateRange?.to) params["created_at__lte"] = dateRange.to.toISOString().slice(0, 10)
+      if (dateRange?.from) {
+        params["created_at__gte"] = formatLocalDate(dateRange.from)
+        const endDate = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from)
+        endDate.setDate(endDate.getDate() + 1)
+        params["created_at__lte"] = formatLocalDate(endDate)
+      }
 
       const data = await ordersApi.fetchOrders(params)
       setOrders(data.results)
@@ -274,70 +292,62 @@ export default function Orders() {
           <div className="flex gap-4 items-end flex-wrap">
             <div className="flex flex-col gap-1.5 min-w-[150px]">
               <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Order Status</label>
-              <div className="relative">
-                <select
-                  value={orderStatus}
-                  onChange={(e) => setOrderStatus(e.target.value)}
-                  className="w-full appearance-none border border-border rounded-lg bg-card text-sm px-3.5 py-2.5 pr-9 cursor-pointer focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
-                >
-                  <option value="All">All Statuses</option>
+              <Select value={orderStatus} onValueChange={setOrderStatus}>
+                <SelectTrigger className="h-10 bg-card border-border text-sm">
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All Statuses</SelectItem>
                   {ORDER_STATUSES.filter((s) => s !== "All").map((s) => (
-                    <option key={s} value={s}>{s}</option>
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
                   ))}
-                </select>
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none text-xs">▾</span>
-              </div>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex flex-col gap-1.5 min-w-[150px]">
               <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Product Category</label>
-              <div className="relative">
-                <select
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  className="w-full appearance-none border border-border rounded-lg bg-card text-sm px-3.5 py-2.5 pr-9 cursor-pointer focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
-                >
-                  <option value="all">All Categories</option>
+              <Select value={categoryId} onValueChange={setCategoryId}>
+                <SelectTrigger className="h-10 bg-card border-border text-sm">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
                   {categories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                   ))}
-                </select>
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none text-xs">▾</span>
-              </div>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex flex-col gap-1.5 min-w-[150px]">
               <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pharmacy</label>
-              <div className="relative">
-                <select
-                  value={pharmacyId}
-                  onChange={(e) => setPharmacyId(e.target.value)}
-                  className="w-full appearance-none border border-border rounded-lg bg-card text-sm px-3.5 py-2.5 pr-9 cursor-pointer focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
-                >
-                  <option value="all">All Pharmacies</option>
+              <Select value={pharmacyId} onValueChange={setPharmacyId}>
+                <SelectTrigger className="h-10 bg-card border-border text-sm">
+                  <SelectValue placeholder="All Pharmacies" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Pharmacies</SelectItem>
                   {pharmacies.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                    <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
                   ))}
-                </select>
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none text-xs">▾</span>
-              </div>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex flex-col gap-1.5 min-w-[150px]">
               <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Payment Status</label>
-              <div className="relative">
-                <select
-                  value={paymentStatus}
-                  onChange={(e) => setPaymentStatus(e.target.value)}
-                  className="w-full appearance-none border border-border rounded-lg bg-card text-sm px-3.5 py-2.5 pr-9 cursor-pointer focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
-                >
-                  <option value="All">All Payment Statuses</option>
+              <Select value={paymentStatus} onValueChange={setPaymentStatus}>
+                <SelectTrigger className="h-10 bg-card border-border text-sm">
+                  <SelectValue placeholder="All Payment Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All Payment Statuses</SelectItem>
                   {PAYMENT_STATUSES.filter((s) => s !== "All").map((s) => (
-                    <option key={s} value={s}>{s}</option>
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
                   ))}
-                </select>
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none text-xs">▾</span>
-              </div>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex flex-col gap-1.5 flex-1 min-w-[220px]">
@@ -473,18 +483,19 @@ export default function Orders() {
             <div className="flex items-center justify-between flex-wrap gap-3 px-4 py-3.5 border-t border-border text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <span>Rows per page:</span>
-                <div className="relative">
-                  <select
-                    value={pageSize}
-                    onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}
-                    className="appearance-none border border-border rounded-lg bg-card text-sm px-2.5 py-1.5 pr-7 cursor-pointer focus:outline-none focus:border-ring"
-                  >
-                    <option value={10}>10</option>
-                    <option value={20}>20</option>
-                    <option value={50}>50</option>
-                  </select>
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none text-xs">▾</span>
-                </div>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(v) => { setPageSize(Number(v)); setCurrentPage(1) }}
+                >
+                  <SelectTrigger className="h-8 w-[70px] bg-card border-border text-sm">
+                    <SelectValue placeholder="20" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex items-center gap-2 text-foreground font-medium">
                 <span className="text-muted-foreground font-normal">Page {currentPage} of {totalPages}</span>
