@@ -321,91 +321,155 @@ export default function ProductBillingConfig() {
     [],
   );
 
-  const handleInputCommit = useCallback(
-    (adminProductId: number, field: "clientCost" | "clientShip") => {
-      setProducts((prev) =>
-        prev.map((p) => {
-          if (p.admin_product_id !== adminProductId) return p;
-          const updated = { ...p } as LocalProduct;
-          const value = updated[field];
-          const hasValue = value !== null && value !== "";
+  const saveProductOverride = useCallback(
+    async (adminProductId: number, updated: LocalProduct) => {
+      const orig = originalsRef.current.get(adminProductId);
+      if (!orig) return;
 
-          if (field === "clientCost") {
-            if (hasValue) {
-              updated.medEx = true;
-              updated.medOn = true;
-            } else {
-              updated.medEx = false;
-              updated.medOn = false;
-              updated.clientCost = null;
-            }
-          } else {
-            if (hasValue) {
-              updated.shipEx = true;
-              updated.shipOn = true;
-            } else {
-              updated.shipEx = false;
-              updated.shipOn = false;
-              updated.clientShip = null;
-            }
-          }
+      const origMedMode = orig.medication_reimbursement_mode;
+      const origShipMode = orig.shipping_reimbursement_mode;
+      const origMedAmt = orig.medication_reimbursement_amount;
+      const origShipAmt = orig.shipping_reimbursement_amount;
 
-          // Recalculate status
-          updated.status = getLocalProductStatus(updated);
+      let newMedMode = origMedMode;
+      let newMedAmt = origMedAmt;
+      let newShipMode = origShipMode;
+      let newShipAmt = origShipAmt;
 
-          return updated;
-        }),
-      );
+      if (updated.medEx) {
+        newMedMode = updated.medOn ? "charge" : "no_charge";
+        newMedAmt = updated.medOn ? updated.clientCost : "0.00";
+      } else {
+        newMedMode = "inherit";
+        newMedAmt = null;
+      }
+
+      if (updated.shipEx) {
+        newShipMode = updated.shipOn ? "charge" : "no_charge";
+        newShipAmt = updated.shipOn ? updated.clientShip : "0.00";
+      } else {
+        newShipMode = "inherit";
+        newShipAmt = null;
+      }
+
+      const changed: SingleProductOverridePayload = {};
+      if (newMedMode !== origMedMode)
+        changed.medication_reimbursement_mode = newMedMode;
+      if (newMedAmt !== origMedAmt)
+        changed.medication_reimbursement_amount = newMedAmt;
+      if (newShipMode !== origShipMode)
+        changed.shipping_reimbursement_mode = newShipMode;
+      if (newShipAmt !== origShipAmt)
+        changed.shipping_reimbursement_amount = newShipAmt;
+
+      if (Object.keys(changed).length > 0) {
+        try {
+          const res = await productBillingApi.updateProduct(clientId!, adminProductId, changed);
+          originalsRef.current.set(adminProductId, res);
+          queryClient.invalidateQueries({
+            queryKey: ["productBillingSummary", clientId],
+          });
+        } catch (err: any) {
+          toast.error(err.message || "Failed to save product billing override");
+        }
+      }
     },
-    [],
+    [clientId, queryClient],
   );
 
-  const handleKeyDown = (
-    e: React.KeyboardEvent<HTMLInputElement>,
-    adminProductId: number,
-    field: "clientCost" | "clientShip"
-  ) => {
+  const handleInputCommit = useCallback(
+    (adminProductId: number, field: "clientCost" | "clientShip") => {
+      setProducts((prev) => {
+        const existing = prev.find((p) => p.admin_product_id === adminProductId);
+        if (!existing) return prev;
+
+        const updated = { ...existing } as LocalProduct;
+        let value = updated[field];
+        const hasValue = value !== null && value !== "";
+
+        if (hasValue) {
+          const num = parseFloat(value);
+          if (!isNaN(num)) {
+            value = num.toFixed(2);
+            updated[field] = value;
+          }
+        }
+
+        if (field === "clientCost") {
+          if (hasValue) {
+            updated.medEx = true;
+            updated.medOn = true;
+          } else {
+            updated.medEx = false;
+            updated.medOn = false;
+            updated.clientCost = null;
+          }
+        } else {
+          if (hasValue) {
+            updated.shipEx = true;
+            updated.shipOn = true;
+          } else {
+            updated.shipEx = false;
+            updated.shipOn = false;
+            updated.clientShip = null;
+          }
+        }
+
+        updated.status = getLocalProductStatus(updated);
+
+        saveProductOverride(adminProductId, updated);
+
+        return prev.map((p) => (p.admin_product_id === adminProductId ? updated : p));
+      });
+    },
+    [saveProductOverride],
+  );
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      handleInputCommit(adminProductId, field);
       e.currentTarget.blur();
     }
   };
 
   const toggleMed = useCallback((adminProductId: number) => {
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.admin_product_id !== adminProductId) return p;
-        const newOn = !p.medOn;
-        const updated = {
-          ...p,
-          medEx: true,
-          medOn: newOn,
-          clientCost: newOn && p.clientCost === "0.00" ? null : p.clientCost,
-          status: "default" as string,
-        };
-        updated.status = getLocalProductStatus(updated);
-        return updated;
-      }),
-    );
-  }, []);
+    setProducts((prev) => {
+      const existing = prev.find((p) => p.admin_product_id === adminProductId);
+      if (!existing) return prev;
+
+      const newOn = !existing.medOn;
+      const updated = {
+        ...existing,
+        medEx: true,
+        medOn: newOn,
+        clientCost: newOn && existing.clientCost === "0.00" ? null : existing.clientCost,
+      };
+      updated.status = getLocalProductStatus(updated);
+
+      saveProductOverride(adminProductId, updated);
+
+      return prev.map((p) => (p.admin_product_id === adminProductId ? updated : p));
+    });
+  }, [saveProductOverride]);
 
   const toggleShip = useCallback((adminProductId: number) => {
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.admin_product_id !== adminProductId) return p;
-        const newOn = !p.shipOn;
-        const updated = {
-          ...p,
-          shipEx: true,
-          shipOn: newOn,
-          clientShip: newOn && p.clientShip === "0.00" ? null : p.clientShip,
-          status: "default" as string,
-        };
-        updated.status = getLocalProductStatus(updated);
-        return updated;
-      }),
-    );
-  }, []);
+    setProducts((prev) => {
+      const existing = prev.find((p) => p.admin_product_id === adminProductId);
+      if (!existing) return prev;
+
+      const newOn = !existing.shipOn;
+      const updated = {
+        ...existing,
+        shipEx: true,
+        shipOn: newOn,
+        clientShip: newOn && existing.clientShip === "0.00" ? null : existing.clientShip,
+      };
+      updated.status = getLocalProductStatus(updated);
+
+      saveProductOverride(adminProductId, updated);
+
+      return prev.map((p) => (p.admin_product_id === adminProductId ? updated : p));
+    });
+  }, [saveProductOverride]);
 
   const toggleArchive = useCallback((adminProductId: number) => {
     setProducts((prev) =>
@@ -1012,9 +1076,7 @@ export default function ProductBillingConfig() {
                           onBlur={() =>
                             handleInputCommit(p.admin_product_id, "clientCost")
                           }
-                          onKeyDown={(e) =>
-                            handleKeyDown(e, p.admin_product_id, "clientCost")
-                          }
+                          onKeyDown={handleKeyDown}
                           placeholder={
                             p.medEx && p.medOn ? "catalog" : "inherit"
                           }
@@ -1050,9 +1112,7 @@ export default function ProductBillingConfig() {
                           onBlur={() =>
                             handleInputCommit(p.admin_product_id, "clientShip")
                           }
-                          onKeyDown={(e) =>
-                            handleKeyDown(e, p.admin_product_id, "clientShip")
-                          }
+                          onKeyDown={handleKeyDown}
                           placeholder={
                             p.shipEx && p.shipOn ? "catalog" : "inherit"
                           }
