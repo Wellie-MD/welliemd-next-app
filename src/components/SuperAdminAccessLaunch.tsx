@@ -65,7 +65,8 @@ const SuperAdminAccessLaunch: React.FC = () => {
         window.sessionStorage.setItem(handoffKey, 'completed');
         window.history.replaceState({}, document.title, '/superadmin-access/launch');
         navigate('/dashboard', { replace: true });
-      } catch {
+      } catch (error) {
+        console.error('Super Admin access handoff exchange failed:', error);
         window.sessionStorage.removeItem(handoffKey);
         setError('This Super Admin access link is invalid or expired.');
       }

@@ -145,13 +145,14 @@ export class AuthService {
   async getCurrentUser(): Promise<User> {
     debugLog('AuthService.getCurrentUser');
 
+    const accessToken = tokenManager.getAccessToken();
+    const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
+
     const response = await apiClient.get(
       API_ENDPOINTS.AUTH.ME,
       { 
         withCredentials: true, // Include cookies for auth
-        headers: {
-          'Authorization': `Bearer ${tokenManager.getAccessToken()}`
-        }
+        headers,
       }
     );
     return UserSchema.parse(response.data);
@@ -311,4 +312,3 @@ export class AuthService {
 
 // Export singleton instance
 export const authService = AuthService.getInstance();
-

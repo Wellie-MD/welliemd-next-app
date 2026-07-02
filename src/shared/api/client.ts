@@ -164,6 +164,8 @@ const createApiClient = (): AxiosInstance => {
       }
       // Skip auth for certain endpoints
       if (config.skipAuth) {
+        config.headers = config.headers || {};
+        config.headers['X-Wellie-Portal'] = 'patient';
         return config;
       }
 
@@ -171,6 +173,7 @@ const createApiClient = (): AxiosInstance => {
       if (superAdminSession) {
         config.baseURL = superAdminSession.apiBaseUrl;
         config.headers = config.headers || {};
+        config.headers['X-Wellie-Portal'] = 'patient';
         config.headers['X-Request-ID'] = crypto.randomUUID();
         return config;
       }
@@ -185,6 +188,7 @@ const createApiClient = (): AxiosInstance => {
 
       // Add request ID for tracing
       config.headers = config.headers || {};
+      config.headers['X-Wellie-Portal'] = 'patient';
       config.headers['X-Request-ID'] = crypto.randomUUID();
 
       debugLog('API Request:', {
