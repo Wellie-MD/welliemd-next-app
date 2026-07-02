@@ -12,6 +12,7 @@ import {
   Users,
   Monitor,
   Info,
+  X,
 } from "lucide-react";
 import productBillingApi from "@/api/productBillingApi";
 import type {
@@ -71,15 +72,74 @@ async function fetchAllBillingProducts(clientId: string) {
   return allResults;
 }
 
+function getDisplayCategory(categoryName: string): string {
+  if (!categoryName) return "";
+  const cat = categoryName.toLowerCase().trim();
+  if (
+    cat.includes("semaglutide") ||
+    cat.includes("tirzepatide") ||
+    cat.includes("weight loss") ||
+    cat.includes("glp")
+  ) {
+    return "GLP-1 / Weight loss";
+  }
+  if (
+    cat.includes("hormone") ||
+    cat.includes("testosterone") ||
+    cat.includes("progesterone")
+  ) {
+    return "Hormone therapy";
+  }
+  if (
+    cat.includes("sexual") ||
+    cat.includes("erectile") ||
+    cat.includes("sildenafil") ||
+    cat.includes("tadalafil") ||
+    cat.includes("ed")
+  ) {
+    return "Sexual health";
+  }
+  if (
+    cat.includes("vitamin") ||
+    cat.includes("supplement") ||
+    cat.includes("b12") ||
+    cat.includes("nad+")
+  ) {
+    return "Vitamins & supplements";
+  }
+  return categoryName;
+}
+
+function getLocalProductStatus(p: {
+  clientCost: string | null;
+  clientShip: string | null;
+  medEx: boolean;
+  shipEx: boolean;
+  wellieCost: string | null;
+  wellieShip: string | null;
+}): "override" | "unconfigured" | "default" {
+  const isOverride = p.medEx || p.shipEx || p.clientCost !== null || p.clientShip !== null;
+  if (isOverride) return "override";
+
+  // Check if unconfigured: if catalog costs are missing
+  const medMissing = p.wellieCost === null;
+  const shipMissing = p.wellieShip === null;
+  if (medMissing || shipMissing) {
+    return "unconfigured";
+  }
+
+  return "default";
+}
+
 function transformProduct(api: ApiProduct): LocalProduct {
   const medMode = api.medication_reimbursement_mode;
   const shipMode = api.shipping_reimbursement_mode;
-  return {
+  const localProduct = {
     admin_product_id: api.admin_product_id,
     name: api.product_name,
     sku: api.sku,
     pharmacy: api.pharmacy_name,
-    category: api.category,
+    category: getDisplayCategory(api.category),
     archived: api.is_archived,
     clientCost:
       medMode === "charge"
@@ -101,8 +161,10 @@ function transformProduct(api: ApiProduct): LocalProduct {
     shipEx: shipMode !== "inherit",
     shipOn: shipMode === "charge",
     shipEffective: api.charge_shipping_effective,
-    status: api.configuration_status,
+    status: "default",
   };
+  localProduct.status = getLocalProductStatus(localProduct);
+  return localProduct;
 }
 
 function localToBackendEdits(
@@ -168,7 +230,7 @@ export default function ProductBillingConfig() {
   const [search, setSearch] = useState("");
   const [archiveFilter, setArchiveFilter] = useState<
     "all" | "active" | "archived"
-  >("active");
+  >("all");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [pharmacyFilter, setPharmacyFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -247,29 +309,50 @@ export default function ProductBillingConfig() {
     return Object.keys(edits).length > 0;
   }, [products]);
 
-  const handleEdit = useCallback(
-    (adminProductId: number, field: string, value: unknown) => {
+  const handleInputChange = useCallback(
+    (adminProductId: number, field: "clientCost" | "clientShip", value: string | null) => {
       setProducts((prev) =>
         prev.map((p) => {
           if (p.admin_product_id !== adminProductId) return p;
-          const updated = { ...p, [field]: value } as LocalProduct;
-          if (field === "clientCost" || field === "clientShip") {
-            const val = value as string | null;
-            const hasValue = val !== null && val !== "";
-            if (field === "clientCost") {
-              if (hasValue) {
-                updated.medEx = true;
-                updated.medOn = true;
-                updated.status = "override";
-              }
+          return { ...p, [field]: value };
+        }),
+      );
+    },
+    [],
+  );
+
+  const handleInputCommit = useCallback(
+    (adminProductId: number, field: "clientCost" | "clientShip") => {
+      setProducts((prev) =>
+        prev.map((p) => {
+          if (p.admin_product_id !== adminProductId) return p;
+          const updated = { ...p } as LocalProduct;
+          const value = updated[field];
+          const hasValue = value !== null && value !== "";
+
+          if (field === "clientCost") {
+            if (hasValue) {
+              updated.medEx = true;
+              updated.medOn = true;
             } else {
-              if (hasValue) {
-                updated.shipEx = true;
-                updated.shipOn = true;
-                updated.status = "override";
-              }
+              updated.medEx = false;
+              updated.medOn = false;
+              updated.clientCost = null;
+            }
+          } else {
+            if (hasValue) {
+              updated.shipEx = true;
+              updated.shipOn = true;
+            } else {
+              updated.shipEx = false;
+              updated.shipOn = false;
+              updated.clientShip = null;
             }
           }
+
+          // Recalculate status
+          updated.status = getLocalProductStatus(updated);
+
           return updated;
         }),
       );
@@ -277,18 +360,31 @@ export default function ProductBillingConfig() {
     [],
   );
 
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    adminProductId: number,
+    field: "clientCost" | "clientShip"
+  ) => {
+    if (e.key === "Enter") {
+      handleInputCommit(adminProductId, field);
+      e.currentTarget.blur();
+    }
+  };
+
   const toggleMed = useCallback((adminProductId: number) => {
     setProducts((prev) =>
       prev.map((p) => {
         if (p.admin_product_id !== adminProductId) return p;
         const newOn = !p.medOn;
-        return {
+        const updated = {
           ...p,
           medEx: true,
           medOn: newOn,
           clientCost: newOn && p.clientCost === "0.00" ? null : p.clientCost,
-          status: "override",
+          status: "default" as string,
         };
+        updated.status = getLocalProductStatus(updated);
+        return updated;
       }),
     );
   }, []);
@@ -298,13 +394,15 @@ export default function ProductBillingConfig() {
       prev.map((p) => {
         if (p.admin_product_id !== adminProductId) return p;
         const newOn = !p.shipOn;
-        return {
+        const updated = {
           ...p,
           shipEx: true,
           shipOn: newOn,
           clientShip: newOn && p.clientShip === "0.00" ? null : p.clientShip,
-          status: "override",
+          status: "default" as string,
         };
+        updated.status = getLocalProductStatus(updated);
+        return updated;
       }),
     );
   }, []);
@@ -427,29 +525,22 @@ export default function ProductBillingConfig() {
   const isSaving = saveMutation.isPending || bulkMutation.isPending;
 
   const getStatusBadge = (p: LocalProduct) => {
-    if (p.archived) {
-      return (
-        <span className="inline-flex items-center rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-          archived
-        </span>
-      );
-    }
     if (p.status === "override") {
       return (
-        <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+        <span className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
           overridden
         </span>
       );
     }
     if (p.status === "unconfigured") {
       return (
-        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+        <span className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
           unconfigured
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center rounded-full bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+      <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-500">
         default
       </span>
     );
@@ -460,14 +551,14 @@ export default function ProductBillingConfig() {
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <button
-          onClick={() => navigate("/dashboard/billing")}
+          onClick={() => navigate("/dashboard/clients")}
           className="hover:text-foreground transition-colors"
         >
           Clients
         </button>
         <ChevronRight className="h-3.5 w-3.5" />
         <button
-          onClick={() => navigate("/dashboard/billing")}
+          onClick={() => navigate(`/dashboard/clients/edit/${clientId}?tab=billing&subtab=product`)}
           className="hover:text-foreground transition-colors"
         >
           {clientName}
@@ -487,7 +578,7 @@ export default function ProductBillingConfig() {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate("/dashboard/billing")}
+            onClick={() => navigate(`/dashboard/clients/edit/${clientId}?tab=billing&subtab=product`)}
             className="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted transition-colors"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -576,7 +667,7 @@ export default function ProductBillingConfig() {
             . Dashed fields inherit the client default. Solid border =
             explicitly overridden.{" "}
             <button
-              onClick={() => navigate("/dashboard/billing")}
+              onClick={() => navigate(`/dashboard/clients/edit/${clientId}?tab=billing`)}
               className="font-medium text-blue-600 hover:underline"
             >
               Edit client defaults &rarr;
@@ -638,9 +729,9 @@ export default function ProductBillingConfig() {
           </button>
           <button
             onClick={clearSelection}
-            className="ml-auto text-muted-foreground hover:text-foreground text-lg leading-none"
+            className="ml-auto text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted transition-colors flex items-center justify-center"
           >
-            &times;
+            <X className="h-4 w-4" />
           </button>
         </div>
       )}
@@ -668,9 +759,9 @@ export default function ProductBillingConfig() {
           }}
           className="px-3 py-2 rounded-md border bg-background text-sm"
         >
-          <option value="active">Active products</option>
-          <option value="archived">Archived products</option>
-          <option value="all">All products</option>
+          <option value="all">All</option>
+          <option value="active">Active</option>
+          <option value="archived">Inactive</option>
         </select>
         <select
           value={categoryFilter}
@@ -888,12 +979,14 @@ export default function ProductBillingConfig() {
                     />
                   </td>
                   <td className="px-3 py-2.5">
-                    <div className="font-medium">{p.name}</div>
-                    {p.archived && (
-                      <span className="inline-flex items-center rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 mt-0.5">
-                        archived
-                      </span>
-                    )}
+                    <div className="flex flex-wrap items-center gap-1.5 font-medium">
+                      <span>{p.name}</span>
+                      {p.archived && (
+                        <span className="inline-flex items-center rounded-md border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                          archived
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-2.5 text-xs text-muted-foreground">
                     {p.pharmacy}
@@ -910,11 +1003,17 @@ export default function ProductBillingConfig() {
                           type="text"
                           value={p.clientCost || ""}
                           onChange={(e) =>
-                            handleEdit(
+                            handleInputChange(
                               p.admin_product_id,
                               "clientCost",
                               e.target.value || null,
                             )
+                          }
+                          onBlur={() =>
+                            handleInputCommit(p.admin_product_id, "clientCost")
+                          }
+                          onKeyDown={(e) =>
+                            handleKeyDown(e, p.admin_product_id, "clientCost")
                           }
                           placeholder={
                             p.medEx && p.medOn ? "catalog" : "inherit"
@@ -942,11 +1041,17 @@ export default function ProductBillingConfig() {
                           type="text"
                           value={p.clientShip || ""}
                           onChange={(e) =>
-                            handleEdit(
+                            handleInputChange(
                               p.admin_product_id,
                               "clientShip",
                               e.target.value || null,
                             )
+                          }
+                          onBlur={() =>
+                            handleInputCommit(p.admin_product_id, "clientShip")
+                          }
+                          onKeyDown={(e) =>
+                            handleKeyDown(e, p.admin_product_id, "clientShip")
                           }
                           placeholder={
                             p.shipEx && p.shipOn ? "catalog" : "inherit"

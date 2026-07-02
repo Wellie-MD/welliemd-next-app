@@ -1,10 +1,9 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { clientApi } from "@/api/clientApi";
 import type { B2BInvoice } from "@/types/b2bBilling";
-import { GitBranch, Search, X, ChevronRight, Layers } from "lucide-react";
+import { GitBranch, Search, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 type DisplayInvoice = B2BInvoice & {
@@ -12,10 +11,7 @@ type DisplayInvoice = B2BInvoice & {
 };
 
 export default function Billing() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [clientSearch, setClientSearch] = useState("");
-  const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [invoiceType, setInvoiceType] = useState<
     "all" | "reimbursement" | "credit_note" | "saas_fee"
   >("all");
@@ -42,23 +38,6 @@ export default function Billing() {
     queryKey: ["b2bAllInvoices", queryParams],
     queryFn: () => clientApi.getAllB2BInvoices(queryParams),
   });
-
-  const { data: clients } = useQuery({
-    queryKey: ["clients"],
-    queryFn: () => clientApi.list(),
-  });
-
-  const filteredClients = useMemo(() => {
-    if (!clients) return [];
-    if (!clientSearch.trim()) return clients.slice(0, 10);
-    const q = clientSearch.toLowerCase();
-    return clients.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.user?.email?.toLowerCase().includes(q) ||
-        c.id?.toLowerCase().includes(q)
-    ).slice(0, 10);
-  }, [clients, clientSearch]);
 
   const invoices: B2BInvoice[] = data?.results || [];
   const selectedClientId = (selected as any)?.client?.id || (selected as any)?.client_id || (selected as any)?.client;
@@ -689,62 +668,6 @@ export default function Billing() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Product Billing Configuration Card */}
-      <Card className="shadow-sm cursor-pointer hover:shadow-md transition-shadow">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-                <Layers className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="font-semibold">Product billing configuration</div>
-                <div className="text-sm text-muted-foreground">Set per-product costs and reimbursement overrides</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search client…"
-                  value={clientSearch}
-                  onChange={(e) => {
-                    setClientSearch(e.target.value);
-                    setShowClientDropdown(true);
-                  }}
-                  onFocus={() => setShowClientDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowClientDropdown(false), 200)}
-                  className="w-64 pl-9 pr-3 py-2 rounded-md border bg-background text-sm focus:ring-1 focus:ring-primary"
-                  onClick={(e) => e.stopPropagation()}
-                />
-                {showClientDropdown && filteredClients.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 rounded-md border bg-popover shadow-lg z-10 max-h-60 overflow-y-auto">
-                    {filteredClients.map((client) => (
-                      <button
-                        key={client.id}
-                        className="w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors flex items-center justify-between"
-                        onClick={() => {
-                          navigate(`/dashboard/billing/product-billing/${client.id}?name=${encodeURIComponent(client.name)}`);
-                          setClientSearch("");
-                        }}
-                      >
-                        <span className="font-medium">{client.name}</span>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {showClientDropdown && clientSearch && filteredClients.length === 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 rounded-md border bg-popover shadow-lg z-10 p-3 text-sm text-muted-foreground">
-                    No clients found
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Invoices</h1>
