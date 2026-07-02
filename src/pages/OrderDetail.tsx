@@ -475,6 +475,11 @@ function OrderDetailInner() {
     : null
 
   const paymentStatus = (order.paymentStatus || "").toLowerCase()
+  const terminalPaymentDateStatuses = new Set(["voided", "refunded", "canceled", "cancelled"])
+  const paymentDisplayDate = terminalPaymentDateStatuses.has(paymentStatus)
+    ? (order.paymentUpdatedAt || order.paymentDate)
+    : order.paymentDate
+  const paymentAuthorizationDate = order.paymentDate || paymentDisplayDate
   const settlementState = (order.payment_settlement_state || "").toLowerCase()
   const isAuthorized = paymentStatus === "authorized"
   const isRefundable = remainingRefundable > 0
@@ -773,8 +778,8 @@ function OrderDetailInner() {
       iconBg: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-4 border-white dark:border-slate-800",
     })
   }
-  if (order.paymentDate) {
-    const normalizedPaymentStatus = (order.paymentStatus || "").toLowerCase()
+  if (order.paymentDate || order.paymentUpdatedAt) {
+    const normalizedPaymentStatus = paymentStatus
     const authorizedDescription = (trueAuthAmount != null && trueAuthAmount > 0)
       ? `Authorized $${trueAuthAmount.toFixed(2)}.`
       : (order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount)
@@ -789,7 +794,7 @@ function OrderDetailInner() {
     if (["voided", "refunded", "canceled", "cancelled"].includes(normalizedPaymentStatus)) {
       timelineItems.push({
         title: "Order amount authorized",
-        date: formatDateTime(order.paymentDate),
+        date: formatDateTime(paymentAuthorizationDate),
         description: authorizedDescription,
         icon: "payments",
         iconBg: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800",
@@ -798,7 +803,7 @@ function OrderDetailInner() {
 
     timelineItems.push({
       title: paymentTitle,
-      date: formatDateTime(order.paymentDate),
+      date: formatDateTime(paymentDisplayDate),
       description: normalizedPaymentStatus === "voided"
         ? authorizedDescription
         : (order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount)
@@ -2088,7 +2093,7 @@ function OrderDetailInner() {
             <div className="space-y-2 text-[13px] mb-6">
               <div className="flex justify-between">
                 <span className="text-slate-500">Date</span>
-                <span className="text-slate-900 dark:text-white font-medium">{formatDate(order.paymentDate) || "—"}</span>
+                <span className="text-slate-900 dark:text-white font-medium">{formatDate(paymentDisplayDate) || "—"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Provider</span>
