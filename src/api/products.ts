@@ -14,6 +14,7 @@ import axiosInstance from "./axiosInstance";
 export interface Product {
   id: number | string;
   name: string;
+  beluga_internal_product_name?: string;
   description?: string;
   application_directions?: string;
   learn_more?: string;
@@ -106,6 +107,7 @@ export interface Product {
 
 export interface CreateProductPayload {
   name: string;
+  beluga_internal_product_name?: string;
   description?: string;
   application_directions?: string;
   product_type: "single" | "bundle" | "supply";
