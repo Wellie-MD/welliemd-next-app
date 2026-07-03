@@ -118,8 +118,6 @@ const FileUploadField = ({ label, description, accept, maxSize, onFileSelect }: 
 
 export default function AnalyticsSeo() {
   const [formData, setFormData] = useState({
-    googleAnalyticsId: "G-XXRWX3TPKC",
-    googleTagManagerId: "GTM-N4JBP9WUW",
     defaultTitle: "Telehealth",
     defaultDescription: "Description",
     pageTitle: "Stretohealth mypatient health",
@@ -149,63 +147,6 @@ export default function AnalyticsSeo() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Google Analytics and Tag Manager Section */}
-        <Card>
-          <CardContent className="p-6 space-y-6">
-            <div>
-              <h2 className="text-lg font-medium mb-1">Google Analytics and Tag Manager</h2>
-              <p className="text-sm text-muted-foreground">
-                Google Analytics enables you to track visitors to your website, collecting anonymous analytics regarding how users go through your telehealth visit. It also helps to generate reports that will help you with your marketing.
-              </p>
-              <p className="text-sm text-muted-foreground mt-2">
-                <strong>Google Tag Manager</strong> is a tag management system (TMS) that enables you to customize the data that is collected and where that data is sent. The container can be configured to send data to numerous places including Facebook, TikTok and Twitter for advertising purposes.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <Label className="text-sm font-medium">Google Analytics ID</Label>
-                <Input
-                  value={formData.googleAnalyticsId}
-                  onChange={(e) => handleInputChange('googleAnalyticsId', e.target.value)}
-                  className="mt-1 focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
-                  placeholder="G-XXXXXXXXXX"
-                />
-                <div className="flex justify-end mt-1">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm" 
-                    className="text-sky-600 border-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:border-sky-700 dark:hover:bg-sky-900/30"
-                  >
-                    Save
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-sm font-medium">Google Tag Manager ID</Label>
-                <Input
-                  value={formData.googleTagManagerId}
-                  onChange={(e) => handleInputChange('googleTagManagerId', e.target.value)}
-                  className="mt-1 focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500"
-                  placeholder="GTM-XXXXXXX"
-                />
-                <div className="flex justify-end mt-1">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm" 
-                    className="text-sky-600 border-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:border-sky-700 dark:hover:bg-sky-900/30"
-                  >
-                    Save
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Title and Meta Description Section */}
         <Card>
           <CardContent className="p-6 space-y-6">
