@@ -247,6 +247,23 @@ export default function Billing() {
     const adjustments = invoice.revision_adjustments || [];
     const summary = invoice.adjustment_summary;
     const netAdjustment = Number(summary?.net_adjustment || 0);
+    const requestedProductName = requested?.product_name || "";
+    const requestedProductTotal = requested?.product_total || 0;
+    const splitCaptureAdjustmentMirrorsBase = Boolean(
+      requested?.prescribed_differs &&
+      adjustments.some((adjustment) => {
+        const revisionNumber = Number(adjustment.revision_number ?? -1);
+        const sameProduct = (adjustment.product_name || "").trim().toLowerCase() ===
+          requestedProductName.trim().toLowerCase();
+        const sameTotal = Math.abs(
+          Number(adjustment.product_total || 0) - Number(requestedProductTotal || 0)
+        ) < 0.005;
+        return adjustment.kind === "supplemental_charge" && revisionNumber === 0 && sameProduct && sameTotal;
+      })
+    );
+    const showImplicitBaseRevision = Boolean(
+      requested?.prescribed_differs && !splitCaptureAdjustmentMirrorsBase
+    );
     const pendingCredits = adjustments.filter(
       (adjustment) =>
         adjustment.kind === "credit_note" &&
@@ -356,7 +373,7 @@ export default function Billing() {
                 }
               </section>
               {/* When prescribed differs, insert the base prescribed product as Revision 1 */}
-              {requested?.prescribed_differs && (
+              {showImplicitBaseRevision && (
                 <section className="border-b p-5">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                     Revision 1 · {requested?.product_name || "Initial prescription"}
@@ -368,7 +385,7 @@ export default function Billing() {
               )}
               {adjustments.map((adjustment, index) => {
                 const isCredit = adjustment.kind === "credit_note";
-                const revOffset = requested?.prescribed_differs ? 1 : 0;
+                const revOffset = showImplicitBaseRevision ? 1 : 0;
                 const state =
                   isCredit
                     ? adjustment.status === "refunded"

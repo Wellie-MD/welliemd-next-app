@@ -92,6 +92,7 @@ export function ProductFormModal({
   const isInitialLoadRef = useRef(true);
   const [formData, setFormData] = useState({
     name: "",
+    beluga_internal_product_name: "",
     base_medication_name: "",
     description: "",
     application_directions: "",
@@ -313,6 +314,7 @@ export function ProductFormModal({
     if (product) {
       setFormData({
         name: product.name || "",
+        beluga_internal_product_name: product.beluga_internal_product_name || "",
         base_medication_name: (product as any).base_medication_name || "",
         description: product.description || "",
         application_directions: product.application_directions || "",
@@ -362,6 +364,7 @@ export function ProductFormModal({
       // Reset form for new product
       setFormData({
         name: "",
+        beluga_internal_product_name: "",
         base_medication_name: "",
         description: "",
         application_directions: "",
@@ -449,6 +452,10 @@ export function ProductFormModal({
               })),
       };
 
+      if (product && !String(payload.treatment || "").trim()) {
+        delete (payload as Partial<typeof payload>).treatment;
+      }
+
       if (product) {
         await productApi.updateProduct(product.id, payload);
         toast({
@@ -505,6 +512,18 @@ export function ProductFormModal({
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g., Semaglutide 2.5mg"
                   required
+                />
+              </div>
+
+              <div className="col-span-2">
+                <Label htmlFor="beluga_internal_product_name">
+                  Beluga Internal Product Name
+                </Label>
+                <Input
+                  id="beluga_internal_product_name"
+                  value={formData.beluga_internal_product_name}
+                  onChange={(e) => setFormData({ ...formData, beluga_internal_product_name: e.target.value })}
+                  placeholder="e.g., Tirzepatide/B12 6mg (1 Month)"
                 />
               </div>
 
