@@ -429,6 +429,35 @@ export function ProductFormModal({
       return;
     }
 
+    if (!formData.beluga_internal_product_name.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Beluga Internal Product Name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.product_type !== "supply") {
+      if (!formData.titration_category) {
+        toast({
+          title: "Validation Error",
+          description: "Titration Category / Regimen is required",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!formData.dose_mapping) {
+        toast({
+          title: "Validation Error",
+          description: "Dose Level is required",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     try {
       setLoading(true);
 
@@ -517,7 +546,7 @@ export function ProductFormModal({
 
               <div className="col-span-2">
                 <Label htmlFor="beluga_internal_product_name">
-                  Beluga Internal Product Name
+                  Beluga Internal Product Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="beluga_internal_product_name"
@@ -953,7 +982,7 @@ export function ProductFormModal({
 
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
-                <Label htmlFor="titration_category">Titration Category / Regimen</Label>
+                <Label htmlFor="titration_category">Titration Category / Regimen <span className="text-red-500">*</span></Label>
                 <TitrationCategoryManager
                   value={formData.titration_category}
                   onChange={(categoryId) => setFormData({ ...formData, titration_category: categoryId })}
@@ -965,7 +994,7 @@ export function ProductFormModal({
               </div>
 
               <div className="col-span-2">
-                <Label htmlFor="dose_mapping">Dose Level</Label>
+                <Label htmlFor="dose_mapping">Dose Level <span className="text-red-500">*</span></Label>
                 <Select
                   key={`dose-select-${doseMappings.length}-${formData.category}`}
                   value={formData.dose_mapping !== null ? formData.dose_mapping.toString() : "none"}
