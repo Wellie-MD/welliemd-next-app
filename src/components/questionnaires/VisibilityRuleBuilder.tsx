@@ -22,7 +22,8 @@ export type VisibilityConditionOperator =
   | "gt"
   | "gte"
   | "lt"
-  | "lte";
+  | "lte"
+  | "between";
 
 export interface VisibilityCondition {
   type: "condition";
@@ -52,7 +53,7 @@ interface VisibilityRuleBuilderProps {
   questions: QuestionOption[];
 }
 
-export const NUMERIC_OPERATORS = new Set(["gt", "gte", "lt", "lte"]);
+export const NUMERIC_OPERATORS = new Set(["gt", "gte", "lt", "lte", "between"]);
 
 const CONDITION_OPERATORS: Array<{
   value: VisibilityConditionOperator;
@@ -68,6 +69,7 @@ const CONDITION_OPERATORS: Array<{
   { value: "not_in", label: "Is not one of" },
   { value: "contains", label: "Contains" },
   { value: "not_contains", label: "Does not contain" },
+  { value: "between", label: "In Between" },
 ];
 
 function defaultCondition(questionId = ""): VisibilityCondition {
@@ -173,7 +175,8 @@ function ConditionEditor({
 }) {
   const selectedQuestion = questions.find((question) => question.id === node.question_id);
   const choiceOptions = getQuestionChoices(selectedQuestion);
-  const isMultiValue = ["in", "not_in"].includes(node.operator);
+  const isMultiValue = ["in", "not_in", "between"].includes(node.operator);
+  const isBetween = node.operator === "between";
   const valueText = Array.isArray(node.value) ? node.value.join(", ") : node.value;
 
   const updateValue = (raw: string) => {
@@ -181,6 +184,12 @@ function ConditionEditor({
       ? raw.split(",").map((item) => item.trim()).filter(Boolean)
       : raw;
     onChange(path, (current) => ({ ...current, value: nextValue }));
+  };
+
+  const updateBetweenValue = (index: 0 | 1, raw: string) => {
+    const arr = Array.isArray(node.value) ? [...node.value] : ["", ""];
+    arr[index] = raw;
+    onChange(path, (current) => ({ ...current, value: arr }));
   };
 
   return (
@@ -244,7 +253,11 @@ function ConditionEditor({
               onChange(path, (current) => ({
                 ...current,
                 operator,
-                value: ["in", "not_in"].includes(operator)
+                value: operator === "between"
+                  ? Array.isArray(current.value) && current.value.length === 2
+                    ? current.value
+                    : [String(current.value ?? ""), ""]
+                  : ["in", "not_in"].includes(operator)
                   ? Array.isArray(current.value)
                     ? current.value
                     : current.value
@@ -271,7 +284,22 @@ function ConditionEditor({
 
         <div className="space-y-2">
           <Label className="text-xs">Value</Label>
-          {choiceOptions.length > 0 && !isMultiValue ? (
+          {isBetween ? (
+            <div className="flex flex-col gap-2">
+              <Input
+                type="number"
+                value={Array.isArray(node.value) ? node.value[0] ?? "" : ""}
+                onChange={(event) => updateBetweenValue(0, event.target.value)}
+                placeholder="Min value"
+              />
+              <Input
+                type="number"
+                value={Array.isArray(node.value) ? node.value[1] ?? "" : ""}
+                onChange={(event) => updateBetweenValue(1, event.target.value)}
+                placeholder="Max value"
+              />
+            </div>
+          ) : choiceOptions.length > 0 && !isMultiValue ? (
             <Select value={valueText} onValueChange={updateValue}>
               <SelectTrigger>
                 <SelectValue placeholder="Select answer" />
