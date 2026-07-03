@@ -204,9 +204,7 @@ export default function Orders() {
     loadOrders()
   }, [loadOrders])
 
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [debouncedSearch, orderStatus, categoryId, pharmacyId, paymentStatus, dateRange])
+
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
   const showingStart = totalCount ? (currentPage - 1) * pageSize + 1 : 0
@@ -268,7 +266,7 @@ export default function Orders() {
                   mode="range"
                   defaultMonth={dateRange?.from}
                   selected={dateRange}
-                  onSelect={setDateRange}
+                  onSelect={(range) => { setDateRange(range); setCurrentPage(1) }}
                   numberOfMonths={2}
                 />
               </PopoverContent>
@@ -294,7 +292,7 @@ export default function Orders() {
           <div className="flex gap-4 items-end flex-wrap">
             <div className="flex flex-col gap-1.5 min-w-[150px]">
               <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Order Status</label>
-              <Select value={orderStatus} onValueChange={setOrderStatus}>
+              <Select value={orderStatus} onValueChange={(v) => { setOrderStatus(v); setCurrentPage(1) }}>
                 <SelectTrigger className="h-10 bg-card border-border text-sm">
                   <SelectValue placeholder="All Statuses" />
                 </SelectTrigger>
@@ -309,7 +307,7 @@ export default function Orders() {
 
             <div className="flex flex-col gap-1.5 min-w-[150px]">
               <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Product Category</label>
-              <Select value={categoryId} onValueChange={setCategoryId}>
+              <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setCurrentPage(1) }}>
                 <SelectTrigger className="h-10 bg-card border-border text-sm">
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
@@ -324,7 +322,7 @@ export default function Orders() {
 
             <div className="flex flex-col gap-1.5 min-w-[150px]">
               <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pharmacy</label>
-              <Select value={pharmacyId} onValueChange={setPharmacyId}>
+              <Select value={pharmacyId} onValueChange={(v) => { setPharmacyId(v); setCurrentPage(1) }}>
                 <SelectTrigger className="h-10 bg-card border-border text-sm">
                   <SelectValue placeholder="All Pharmacies" />
                 </SelectTrigger>
@@ -339,7 +337,7 @@ export default function Orders() {
 
             <div className="flex flex-col gap-1.5 min-w-[150px]">
               <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Payment Status</label>
-              <Select value={paymentStatus} onValueChange={setPaymentStatus}>
+              <Select value={paymentStatus} onValueChange={(v) => { setPaymentStatus(v); setCurrentPage(1) }}>
                 <SelectTrigger className="h-10 bg-card border-border text-sm">
                   <SelectValue placeholder="All Payment Statuses" />
                 </SelectTrigger>
@@ -360,14 +358,14 @@ export default function Orders() {
                   ref={searchRef}
                   type="text"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => { setSearch(e.target.value); setCurrentPage(1) }}
                   placeholder="Search order #, name, email, or phone"
                   className="w-full border border-border rounded-lg bg-card text-sm pl-9 pr-3.5 py-2.5 focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
                 />
                 {search && (
                   <button
                     type="button"
-                    onClick={() => { setSearch(""); setDebouncedSearch("") }}
+                    onClick={() => { setSearch(""); setDebouncedSearch(""); setCurrentPage(1) }}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
                     <X className="h-4 w-4" />
