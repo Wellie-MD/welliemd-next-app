@@ -31,6 +31,9 @@ const ORDER_STATUSES = [
   "Billing Pending",
   "Rx Sent",
   "Shipped",
+  "Out for Delivery",
+  "Delivered",
+  "Delivery Failed",
   "Canceled",
 ] as const
 
@@ -50,6 +53,9 @@ const ORDER_STATUS_TO_API: Record<string, string> = {
   "Billing Pending": "billing_pending",
   "Rx Sent": "rx_sent",
   Shipped: "shipped",
+  "Out for Delivery": "out_for_delivery",
+  Delivered: "delivered",
+  "Delivery Failed": "delivery_failed",
   Canceled: "canceled",
 }
 
