@@ -258,6 +258,23 @@ function RevisionInvoiceModal({
   const adjustments = invoice.revision_adjustments || [];
   const summary = invoice.adjustment_summary;
   const netAdjustment = Number(summary?.net_adjustment || 0);
+  const requestedProductName = requested?.product_name || "";
+  const requestedProductTotal = requested?.product_total || 0;
+  const splitCaptureAdjustmentMirrorsBase = Boolean(
+    requested?.prescribed_differs &&
+    adjustments.some((adjustment) => {
+      const revisionNumber = Number(adjustment.revision_number ?? -1);
+      const sameProduct = (adjustment.product_name || "").trim().toLowerCase() ===
+        requestedProductName.trim().toLowerCase();
+      const sameTotal = Math.abs(
+        Number(adjustment.product_total || 0) - Number(requestedProductTotal || 0)
+      ) < 0.005;
+      return adjustment.kind === "supplemental_charge" && revisionNumber === 0 && sameProduct && sameTotal;
+    })
+  );
+  const showImplicitBaseRevision = Boolean(
+    requested?.prescribed_differs && !splitCaptureAdjustmentMirrorsBase
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
@@ -367,7 +384,7 @@ function RevisionInvoiceModal({
                 }
             </section>
             {/* When prescribed differs, insert the base prescribed product as Revision 1 */}
-            {requested?.prescribed_differs && (
+            {showImplicitBaseRevision && (
               <section className="border-b border-slate-200 p-5 dark:border-slate-800">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Revision 1 · {requested?.product_name || "Initial prescription"}
@@ -379,11 +396,11 @@ function RevisionInvoiceModal({
             )}
             {adjustments.map((adjustment, index) => {
               const isCredit = adjustment.kind === "credit_note";
-              const revOffset = requested?.prescribed_differs ? 1 : 0;
+              const revOffset = showImplicitBaseRevision ? 1 : 0;
               return (
                 <section key={adjustment.id} className="border-b border-slate-200 p-5 dark:border-slate-800">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Revision {(adjustment.revision_number || index + 1) + revOffset} · {adjustment.product_name || "Revised prescription"}
+                    Revision {(Number(adjustment.revision_number) || index + 1) + revOffset} · {adjustment.product_name || "Revised prescription"}
                   </h4>
                   <div className="mt-2">
                     {renderCostTable(adjustment.medication_amount, adjustment.shipping_amount, adjustment.product_total)}

@@ -2,8 +2,8 @@ import { ChangeProductModal, PendingProductChange } from "@/components/orders/Ch
 
 import React, { Component, ErrorInfo, ReactNode } from "react";
 
-class GlobalErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean, error: Error | null}> {
-  constructor(props: {children: ReactNode}) {
+class GlobalErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean, error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
     super(props);
     this.state = { hasError: false, error: null };
   }
@@ -141,7 +141,7 @@ type TimelineItem = {
   title: string
   date: string
   description?: string
-  icon: "schedule" | "payments" | "prescriptions" | "medical_services" | "local_shipping"
+  icon: "schedule" | "payments" | "prescriptions" | "medical_services" | "local_shipping" | "event" | "credit_card" | "description"
   iconBg: string
 }
 
@@ -465,6 +465,7 @@ function OrderDetailInner() {
   }
 
   const status = order.orderStatus || order.status || "created"
+  const canonicalStatus = String(order.status || "").toLowerCase()
   const isPrescribedStatus = String(status || "").toLowerCase() === "prescribed"
   const statusDisplay = statusLabels[status] || status
   const orderTitle = order.order_id ? `#${order.order_id}` : order.display_id ? `#${order.display_id}` : order.id?.slice(0, 8) || ""
@@ -474,6 +475,11 @@ function OrderDetailInner() {
     : null
 
   const paymentStatus = (order.paymentStatus || "").toLowerCase()
+  const terminalPaymentDateStatuses = new Set(["voided", "refunded", "canceled", "cancelled"])
+  const paymentDisplayDate = terminalPaymentDateStatuses.has(paymentStatus)
+    ? (order.paymentUpdatedAt || order.paymentDate)
+    : order.paymentDate
+  const paymentAuthorizationDate = order.paymentDate || paymentDisplayDate
   const settlementState = (order.payment_settlement_state || "").toLowerCase()
   const isAuthorized = paymentStatus === "authorized"
   const isRefundable = remainingRefundable > 0
@@ -498,6 +504,31 @@ function OrderDetailInner() {
   const isAllowedStatus = status === "created" || status === "payment_pending"
   const canChangeProduct = isAllowedStatus && !isLocked
   const canRefundOrVoid = isAuthorized || isRefundable
+
+  const parseAmt = (val: any) => val != null && val !== "" && Number.isFinite(parseFloat(String(val))) ? parseFloat(String(val)) : null;
+  const initialReqPrice = parseAmt(order?.requested_medicines?.[0]?.price) ?? parseAmt(order?.pricing?.subtotal_before_discount ?? order?.original_price) ?? 0;
+  const initialReqShipping = parseAmt(order?.requested_medicines?.[0]?.shipping_fee) ?? 0;
+  const initialReqDiscount = parseAmt(order?.pricing?.discount_total ?? (order?.pricing as any)?.discount_amount ?? order?.discount_amount) ?? 0;
+  let trueAuthAmount = parseAmt((order as any)?.base_authorization_amount);
+  if (trueAuthAmount == null) {
+    trueAuthAmount = Math.max(0, initialReqPrice - initialReqDiscount) + initialReqShipping;
+  }
+  const trueCapAmount = parseAmt((order as any)?.base_captured_amount) ?? parseAmt(order?.pricing?.grand_total) ?? 0;
+  const trueHoldReleasedAmt = Math.max(0, trueAuthAmount - trueCapAmount);
+  const timelineCapturedStatuses = new Set(["captured", "approved", "succeeded"])
+  const timelineSettlementTransactions = Array.isArray(order.payment_settlement_transactions)
+    ? order.payment_settlement_transactions
+    : []
+  const timelineCapturedFromTransactions = timelineSettlementTransactions.reduce((total, tx) => {
+    const txStatus = String(tx.status || "").toLowerCase()
+    if (!timelineCapturedStatuses.has(txStatus)) return total
+    return total + (parseAmt(tx.amount) ?? 0)
+  }, 0)
+  const timelineCapturedFromFields =
+    (parseAmt((order as any)?.base_captured_amount) ?? 0) +
+    (parseAmt((order as any)?.supplemental_captured_amount) ?? 0)
+  const timelineCapturedAmount = Math.max(timelineCapturedFromTransactions, timelineCapturedFromFields)
+  const hasActualCapturedTimelineAmount = timelineCapturedAmount > 0
   const changeProductTooltip =
     "Product change is available only while order status is Created or Payment Pending and payment status is Pending."
 
@@ -738,7 +769,7 @@ function OrderDetailInner() {
   const timelineItems: TimelineItem[] = []
   if (order.datePrintedShipped) {
     timelineItems.push({
-      title: "Order status updated to Rx Sent",
+      title: "Rx Sent",
       date: formatDateTime(order.datePrintedShipped),
       description: order.product_name
         ? `Prescription Sent to ${order.pharmacy_display || "Pharmacy"} (${order.product_name}).${order.prescription_medications?.[0]?.rxId ? ` Rx ID: ${order.prescription_medications[0].rxId}.` : ""}`
@@ -747,21 +778,37 @@ function OrderDetailInner() {
       iconBg: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-4 border-white dark:border-slate-800",
     })
   }
-  if (order.paymentDate) {
-    const normalizedPaymentStatus = (order.paymentStatus || "").toLowerCase()
+  if (order.paymentDate || order.paymentUpdatedAt) {
+    const normalizedPaymentStatus = paymentStatus
+    const authorizedDescription = (trueAuthAmount != null && trueAuthAmount > 0)
+      ? `Authorized $${trueAuthAmount.toFixed(2)}.`
+      : (order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount)
+        ? `Authorized $${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount}.`
+        : undefined
     let paymentTitle = "Payment Updated"
-    if (normalizedPaymentStatus === "authorized") paymentTitle = "Patient Payment Authorized"
-    else if (["captured", "approved", "succeeded"].includes(normalizedPaymentStatus)) paymentTitle = "Patient Payment Captured"
-    else if (["failed", "declined", "error"].includes(normalizedPaymentStatus)) paymentTitle = "Patient Payment Failed"
-    else if (normalizedPaymentStatus === "voided") paymentTitle = "Patient Authorization Voided"
-    else if (normalizedPaymentStatus === "refunded") paymentTitle = "Patient Payment Refunded"
+    if (normalizedPaymentStatus === "authorized" || ["captured", "approved", "succeeded"].includes(normalizedPaymentStatus)) paymentTitle = "Order amount authorized"
+    else if (["failed", "declined", "error"].includes(normalizedPaymentStatus)) paymentTitle = "Payment Failed"
+    else if (normalizedPaymentStatus === "voided") paymentTitle = "Payment Voided"
+    else if (normalizedPaymentStatus === "refunded") paymentTitle = "Payment Refunded"
+
+    if (["voided", "refunded", "canceled", "cancelled"].includes(normalizedPaymentStatus)) {
+      timelineItems.push({
+        title: "Order amount authorized",
+        date: formatDateTime(paymentAuthorizationDate),
+        description: authorizedDescription,
+        icon: "payments",
+        iconBg: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800",
+      })
+    }
 
     timelineItems.push({
       title: paymentTitle,
-      date: formatDateTime(order.paymentDate),
-      description: (order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount)
-        ? `$${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount}`
-        : undefined,
+      date: formatDateTime(paymentDisplayDate),
+      description: normalizedPaymentStatus === "voided"
+        ? authorizedDescription
+        : (order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount)
+          ? `${normalizedPaymentStatus === "refunded" ? "Refunded" : "Authorized"} $${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount}.`
+          : undefined,
       icon: "payments",
       iconBg: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800",
     })
@@ -783,9 +830,18 @@ function OrderDetailInner() {
       iconBg: "bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 border-4 border-white dark:border-slate-800",
     })
   }
-  if (order.datePrescribed) {
+  if (order.status === "shipped" || order.tracking_number) {
     timelineItems.push({
-      title: "Product Prescribed",
+      title: "Shipped",
+      date: formatDateTime(order.updated_at || (order as any).updatedAt || order.orderDate),
+      description: order.tracking_number ? `Tracking ${order.tracking_number} - ${(order as any).pharmacy_name || (order as any).pharmacy_display || (order as any).pharmacy || "Pharmacy"}` : undefined,
+      icon: "local_shipping",
+      iconBg: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-4 border-white dark:border-slate-800",
+    })
+  }
+  if (order.datePrescribed || isPrescribedStatus) {
+    timelineItems.push({
+      title: "Prescribed",
       date: formatDateTime(order.datePrescribed),
       description: order.product_name || undefined,
       icon: "prescriptions",
@@ -794,18 +850,33 @@ function OrderDetailInner() {
   }
   if (order.visitStatus || order.mrn) {
     timelineItems.push({
-      title: "Visit Created",
+      title: "Visit Pending",
       date: formatDateTime(order.orderDate),
       description: order.provider_network ? `Provider: ${order.provider_network}` : undefined,
       icon: "medical_services",
       iconBg: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800",
     })
   }
+  if (order.status !== "created" && order.status !== "abandoned" && order.status !== "") {
+    timelineItems.push({
+      title: "Processing",
+      date: formatDateTime(order.orderDate),
+      icon: "event",
+      iconBg: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-4 border-white dark:border-slate-800",
+    })
+    timelineItems.push({
+      title: "Payment Pending",
+      date: formatDateTime(order.orderDate),
+      icon: "credit_card",
+      iconBg: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-4 border-white dark:border-slate-800",
+    })
+  }
+
   timelineItems.push({
-    title: "Order placed via questionnaire",
+    title: "Created",
     date: formatDateTime(order.orderDate),
-    icon: "local_shipping",
-    iconBg: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800",
+    icon: "description",
+    iconBg: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-4 border-white dark:border-slate-800",
   })
   timelineItems.reverse()
 
@@ -955,57 +1026,94 @@ function OrderDetailInner() {
       })()
 
       const cleanDescription = (evt: any, baseDesc?: string) => {
-        const desc = baseDesc || evt.description || ""
+        let desc = baseDesc || evt.description || ""
+        const transitionMatch = desc.match(/^([^\n]+? -> [^\n]+?)(?:\n|$)/);
+        if (transitionMatch) {
+          const parts = transitionMatch[1].split(" -> ");
+          if (parts.length === 2 && parts[0].length < 30 && parts[1].length < 30) {
+            desc = desc.substring(transitionMatch[1].length).trim();
+          }
+        }
+        if (evt.event_type === "rx_revision" && desc.includes("Unknown Product")) {
+          const pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
+          if (pName) desc = desc.replace("Unknown Product", pName);
+        }
         if (evt.event_type === "rx_revision" && desc.includes("Newly prescribed: ")) {
           const match = desc.match(/Newly prescribed:\s*([\s\S]*?)(?=(?:\.\s*|\n)(?:Supplemental|Refund)|$)/)
           if (match) {
             let newDesc = `Prescribed: ${match[1].trim()}`
             if (!newDesc.endsWith(".")) newDesc += "."
             if (desc.includes("Supplemental capture triggered")) {
-              const suppMatch = desc.match(/(Supplemental capture triggered for \$[\d,.]+)/)
-              if (suppMatch) newDesc += `\n${suppMatch[1]}.`
+              const suppMatch = desc.match(/Supplemental capture triggered for (\$[\d,.]+)/)
+              if (suppMatch) newDesc += `\nSupplemental capture of ${suppMatch[1]}.`
             }
             if (desc.includes("Refund required")) {
-              const refundMatch = desc.match(/(Refund required for \$[\d,.]+)/)
-              if (refundMatch) newDesc += `\n${refundMatch[1]}.`
+              const refundMatch = desc.match(/Refund required for (\$[\d,.]+)/)
+              if (refundMatch) newDesc += `\nRefund of ${refundMatch[1]}.`
             }
             return newDesc
           }
         }
 
         // Inject prescribed product into initial Prescribed event if missing
-        if (evt.event_type === "status.prescribed" && !desc.includes("Prescribed: ")) {
-          let pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
+        if (evt.event_type === "status.prescribed") {
+          if (!desc.includes("Prescribed: ")) {
+            let pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
 
-          // If there are revisions, the CURRENT product name might not be the INITIAL one.
-          // We can find the initial product from the FIRST rx_revision event.
-          const firstRxRevision = Array.isArray(order.activity_events)
-            ? order.activity_events.find((e: any) => e.event_type === "rx_revision")
-            : null;
+            // If there are revisions, the CURRENT product name might not be the INITIAL one.
+            // We can find the initial product from the FIRST rx_revision event.
+            const firstRxRevision = Array.isArray(order.activity_events)
+              ? order.activity_events.find((e: any) => e.event_type === "rx_revision")
+              : null;
 
-          if (firstRxRevision && firstRxRevision.description) {
-            const rxDesc = firstRxRevision.description;
-            const prevMatch = rxDesc.match(/Previously prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
-            if (prevMatch && prevMatch[1]) {
-              pName = prevMatch[1].trim();
-            } else if (rxDesc.includes("Prescribed: ")) {
-              const newMatch = rxDesc.match(/Prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
-              if (newMatch && newMatch[1]) {
-                pName = newMatch[1].trim();
+            if (firstRxRevision && firstRxRevision.description) {
+              const rxDesc = firstRxRevision.description;
+              const prevMatch = rxDesc.match(/Previously prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
+              if (prevMatch && prevMatch[1]) {
+                pName = prevMatch[1].trim();
+              } else if (rxDesc.includes("Prescribed: ")) {
+                const newMatch = rxDesc.match(/Prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
+                if (newMatch && newMatch[1]) {
+                  pName = newMatch[1].trim();
+                }
               }
+            }
+
+            if (pName && pName.toLowerCase() !== "same med" && pName.toLowerCase() !== "same medicine" && pName !== "Unknown Product") {
+              desc = `${desc}\nPrescribed: ${pName}.`.trim()
             }
           }
 
-          if (pName && pName.toLowerCase() !== "same med" && pName.toLowerCase() !== "same medicine" && pName !== "Unknown Product") {
-            return `${desc}\nPrescribed: ${pName}.`
+          // Inject capture details if missing
+          if (!desc.includes("Captured $") && hasActualCapturedTimelineAmount) {
+            if (trueAuthAmount != null && trueAuthAmount > timelineCapturedAmount) {
+              const holdReleased = Math.max(0, trueAuthAmount - timelineCapturedAmount)
+              desc += `\nCaptured $${timelineCapturedAmount.toFixed(2)} of $${trueAuthAmount.toFixed(2)} authorized.\nRemaining $${holdReleased.toFixed(2)} hold released.`
+            } else if (trueAuthAmount != null && timelineCapturedAmount > trueAuthAmount) {
+              const supplemental = timelineCapturedAmount - trueAuthAmount
+              desc += `\nCaptured $${trueAuthAmount.toFixed(2)}.\nSupplemental capture of $${supplemental.toFixed(2)}.`
+            } else {
+              desc += `\nCaptured $${timelineCapturedAmount.toFixed(2)}.`
+            }
           }
         }
 
         return desc || undefined
       }
 
+      let rawTitle = evt.title || evt.event_type.replace(/\./g, " ")
+      if (rawTitle === "Order Created") rawTitle = "Created"
+      if (rawTitle === "Patient Payment Authorized") rawTitle = "Order amount authorized"
+      if (rawTitle === "Patient Payment Captured") rawTitle = "Payment Captured"
+      if (rawTitle === "Patient Payment Failed") rawTitle = "Payment Failed"
+      if (rawTitle === "Patient Authorization Voided") rawTitle = "Payment Voided"
+      if (rawTitle === "Patient Payment Refunded") rawTitle = "Payment Refunded"
+      if (rawTitle === "Order status updated to Rx Sent") rawTitle = "Rx Sent"
+      if (rawTitle === "Product Prescribed") rawTitle = "Prescribed"
+      if (rawTitle === "Visit Created") rawTitle = "Visit Pending"
+
       return {
-        title: evt.title || evt.event_type.replace(/\./g, " "),
+        title: rawTitle,
         date: formatDateTime(evt.occurred_at),
         description: cleanDescription(evt, labDescription),
         icon,
@@ -1018,22 +1126,100 @@ function OrderDetailInner() {
   const deduplicatedTimelineItems = eventTimelineItems.reduce((acc, current) => {
     if (acc.length === 0) return [current]
     const prev = acc[acc.length - 1]
-    
-    // Deduplicate consecutive events with the same title
-    if (prev.title === current.title) {
-      if (prev.description && !current.description) return acc
+
+    // Deduplicate consecutive events with the same title and date
+    if (prev.title === current.title && prev.date === current.date) {
       if (!prev.description && current.description) {
         acc[acc.length - 1] = current
         return acc
       }
-      if (prev.description === current.description) return acc
+      if (prev.description && !current.description) {
+        return acc
+      }
+      if (prev.description && current.description) {
+        if (current.description.length > prev.description.length) {
+          acc[acc.length - 1] = current
+        }
+        return acc
+      }
+      return acc
     }
-    
+
     acc.push(current)
     return acc
   }, [] as typeof eventTimelineItems)
 
-  const renderedTimelineItems = deduplicatedTimelineItems.length > 0 ? deduplicatedTimelineItems : timelineItems
+  let renderedTimelineItems = deduplicatedTimelineItems.length > 0 ? deduplicatedTimelineItems : timelineItems
+  if (status === "visit_pending") {
+    renderedTimelineItems = renderedTimelineItems.filter(i => i.title !== "Visit Failed")
+  }
+
+  if (deduplicatedTimelineItems.length > 0) {
+    // Inject missing manual events that backend doesn't provide
+    const missingEventsToInject = ["Created", "Payment Pending", "Processing", "Consult Scheduled", "Rx Sent", "Shipped"];
+    missingEventsToInject.forEach(evtTitle => {
+      const hasEvt = renderedTimelineItems.some(i => i.title === evtTitle);
+      if (!hasEvt && timelineItems.some(i => i.title === evtTitle)) {
+        const item = timelineItems.find(i => i.title === evtTitle);
+        if (item) renderedTimelineItems.push(item);
+      }
+    });
+
+    const hasAuthorizedPayment = renderedTimelineItems.some(i => i.title.toLowerCase().includes("amount authorized"))
+    const authorizedPaymentItem = timelineItems.find(i => i.title.toLowerCase().includes("amount authorized"))
+    if (!hasAuthorizedPayment && authorizedPaymentItem) {
+      renderedTimelineItems.push(authorizedPaymentItem)
+    }
+
+    const hasTerminalPaymentUpdate = renderedTimelineItems.some(i => {
+      const title = i.title.toLowerCase()
+      return title.includes("payment") && !title.includes("pending") && !title.includes("amount authorized")
+    })
+    const terminalPaymentItem = timelineItems.find(i => {
+      const title = i.title.toLowerCase()
+      return title.includes("payment") && !title.includes("pending") && !title.includes("amount authorized")
+    })
+    if (!hasTerminalPaymentUpdate && terminalPaymentItem) {
+      renderedTimelineItems.push(terminalPaymentItem)
+    }
+  }
+
+  const normalizedOrderStatus = canonicalStatus
+  const hasCanceledEvent = renderedTimelineItems.some((i) => i.title.toLowerCase().includes("cancel"))
+  if (normalizedOrderStatus === "canceled" && !hasCanceledEvent) {
+    renderedTimelineItems.push({
+      title: "Canceled",
+      date: formatDateTime(order.updated_at || (order as any).updatedAt || order.orderDate),
+      description: "Order was canceled.",
+      icon: "schedule",
+      iconBg: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-4 border-white dark:border-slate-800",
+    })
+  }
+
+  if (deduplicatedTimelineItems.length > 0 || normalizedOrderStatus === "canceled") {
+    const orderScore = (title: string) => {
+      const t = title.toLowerCase();
+      if (t === "created") return 0;
+      if (t === "payment pending") return 1;
+      if (t === "processing") return 2;
+      if (t.includes("authorized")) return 3;
+      if (t.includes("captured") || t.includes("payment updated") || t.includes("payment failed") || t.includes("voided") || t.includes("refunded")) return 4;
+      if (t.includes("visit pending") || t.includes("visit failed")) return 4;
+      if (t.includes("consult")) return 5;
+      if (t === "prescribed") return 6;
+      if (t.includes("rx sent")) return 7;
+      if (t === "shipped") return 8;
+      if (t.includes("cancel")) return 9;
+      return 10;
+    }
+
+    renderedTimelineItems.sort((a, b) => {
+      const parseDate = (d: string) => new Date(d.replace(" • ", " ")).getTime();
+      const timeDiff = parseDate(a.date) - parseDate(b.date);
+      if (timeDiff !== 0 && !Number.isNaN(timeDiff)) return timeDiff;
+      return orderScore(a.title) - orderScore(b.title);
+    })
+  }
 
   const selectedMedicines = (order as Order & { selected_medicines?: Array<{ quantity?: unknown }> }).selected_medicines
   const qty = selectedMedicines?.[0]?.quantity ?? order.prescription_medications?.[0]?.quantity ?? "1"
@@ -1219,13 +1405,13 @@ function OrderDetailInner() {
     : null
   const splitRemainingBaseDisplay = hasSplitSettlement
     ? formatMoney(splitRemainingBaseAmount ?? 0)
-    : null
+    : "0.00"
   const splitRemainingSupplementalDisplay = hasSplitSettlement
     ? formatMoney(splitRemainingSupplementalAmount ?? 0)
-    : null
+    : "0.00"
   const splitRemainingTotalDisplay = hasSplitSettlement
     ? formatMoney(remainingToCaptureAmount ?? 0)
-    : null
+    : "0.00"
 
   const retryAmount = hasRemainingToCapture
     ? remainingToCaptureAmount
@@ -1330,10 +1516,10 @@ function OrderDetailInner() {
       ? displayItemOriginalUnitPrice * quantity
       : (previewOriginalPrice ?? 0))
   const requestedProductAmount =
-    (parseMoney(order.requested_medicines?.[0]?.price) != null
-      ? parseMoney(order.requested_medicines?.[0]?.price)! * quantity
+    parseMoney(order.requested_medicines?.[0]?.price) ??
+    (parseMoney(order.pricing?.subtotal_before_discount ?? order.original_price) != null
+      ? parseMoney(order.pricing?.subtotal_before_discount ?? order.original_price)! / Math.max(quantity, 1)
       : null) ??
-    parseMoney(order.pricing?.subtotal_before_discount ?? order.original_price) ??
     0
   const requestedProductShippingAmount =
     parseMoney(order.requested_medicines?.[0]?.shipping_fee) ??
@@ -1357,6 +1543,9 @@ function OrderDetailInner() {
       prescriptions: FileText,
       medical_services: Stethoscope,
       local_shipping: Truck,
+      event: Calendar,
+      credit_card: CreditCard,
+      description: FileText,
     }
     const Icon = iconMap[name] || FileText
     return (
@@ -1474,7 +1663,7 @@ function OrderDetailInner() {
                     {settlementTransactions.length} txns
                   </span>
                 )}
-                {!hasSplitSettlement && !hasRemainingToCapture && (
+                {!hasSplitSettlement && !paymentCaptured && (
                   <span className="block text-[9px] text-slate-500 mt-0.5">
                     not yet captured
                   </span>
@@ -1530,22 +1719,12 @@ function OrderDetailInner() {
               )}
             </div>
             <div className="flex flex-col">
-              {/* Top Product Name */}
-              <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800">
-                <div className="font-semibold text-slate-900 dark:text-white text-base flex items-center flex-wrap gap-2">
-                  {prescribedMedicineDisplayName}
-                  {order.status === "visit_pending" && (
-                    <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border normal-case tracking-normal bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
-                      Awaiting Review
-                    </span>
-                  )}
-                </div>
-              </div>
+
 
               {/* Requested Block */}
               <div className="px-6 py-1">
                 <div className="text-[11px] font-bold tracking-wide uppercase text-slate-500 border-t-0 pt-2 pb-1.5 flex items-center gap-2 flex-wrap">
-                  Requested (Original) 
+                  Requested (Original)
                   <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold border normal-case tracking-normal bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
                     {requestedMedicineName}
                   </span>
@@ -1576,7 +1755,7 @@ function OrderDetailInner() {
                     )}
                   </div>
                 </div>
-                
+
                 <div className="flex justify-between items-center py-1.5 text-[13.5px]">
                   <span className="text-slate-500 dark:text-slate-400">Product amount</span>
                   <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(requestedProductAmount)}</span>
@@ -1676,15 +1855,7 @@ function OrderDetailInner() {
           <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
             <div className="px-6 py-4 border-b bg-muted/50 flex justify-between items-center">
               <div className="flex items-center gap-3">
-                <h3 className="font-semibold text-slate-900 dark:text-white">Order Status</h3>
-                <span
-                  className={cn(
-                    "px-2.5 py-0.5 rounded-full text-xs font-medium border",
-                    statusColors[status] || "bg-slate-100 text-slate-700 border-slate-200"
-                  )}
-                >
-                  {statusDisplay.toUpperCase().replace(/_/g, " ")}
-                </span>
+                <h3 className="font-semibold text-slate-900 dark:text-white">Order Timeline</h3>
                 {paymentRecoveryLabel ? (
                   <span
                     className={cn(
@@ -1709,7 +1880,7 @@ function OrderDetailInner() {
             </div>
             <div className="p-6">
               <div className="relative pl-4">
-                <div className="absolute left-[19px] top-2 bottom-4 w-px bg-slate-200 dark:bg-slate-700" />
+                <div className="absolute left-[35px] top-2 bottom-4 w-px bg-slate-200 dark:bg-slate-700" />
                 <div className="space-y-8">
                   {renderedTimelineItems.map((item, idx) => (
                     <div key={idx} className="relative flex gap-4">
@@ -1758,7 +1929,7 @@ function OrderDetailInner() {
                 <span className="text-sm font-semibold text-slate-600">No tracking info</span>
               </div>
             )}
-            
+
             <div className="space-y-2 text-[13.5px]">
               <div className="flex justify-between items-start gap-4">
                 <span className="text-slate-500 min-w-20">Product</span>
@@ -1770,7 +1941,7 @@ function OrderDetailInner() {
                 <span className="text-slate-500">Pharmacy</span>
                 <span className="text-slate-900 dark:text-white font-medium">{pharmacyDisplayName || "—"}</span>
               </div>
-              
+
               {/* Only show if we have prescription meds */}
               {order.prescription_medications && order.prescription_medications.length > 0 ? (
                 order.prescription_medications.map((med, idx) => (
@@ -1807,7 +1978,7 @@ function OrderDetailInner() {
                   <span className="text-slate-900 dark:text-white font-medium">Awaiting provider decision</span>
                 </div>
               )}
-              
+
               {order.prescription_source_received_at && (
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500">RX received</span>
@@ -1837,18 +2008,18 @@ function OrderDetailInner() {
             </h3>
             <div className="space-y-3 text-[13.5px]">
               <div className="flex items-start gap-3">
-                <span className="text-slate-400 mt-0.5"><Stethoscope className="h-4 w-4"/></span>
+                <span className="text-slate-400 mt-0.5"><Stethoscope className="h-4 w-4" /></span>
                 <span className="text-slate-600 dark:text-slate-400">Doctor: <span className="font-semibold text-slate-900 dark:text-white">{order.doctor_name || order.provider_network || "—"}</span></span>
               </div>
               {order.booking_scheduled_at && (
                 <div className="flex items-start gap-3">
-                  <span className="text-slate-400 mt-0.5"><Calendar className="h-4 w-4"/></span>
+                  <span className="text-slate-400 mt-0.5"><Calendar className="h-4 w-4" /></span>
                   <span className="text-slate-600 dark:text-slate-400">Scheduled: <span className="font-medium text-slate-900 dark:text-white">{formatBookingSchedule(order.booking_scheduled_at)}</span></span>
                 </div>
               )}
               {order.booking_location && (
                 <div className="flex items-start gap-3">
-                  <span className="text-slate-400 mt-0.5"><ExternalLink className="h-4 w-4"/></span>
+                  <span className="text-slate-400 mt-0.5"><ExternalLink className="h-4 w-4" /></span>
                   <a href={order.booking_location} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">{order.booking_location}</a>
                 </div>
               )}
@@ -1863,7 +2034,7 @@ function OrderDetailInner() {
                 View Patient Responses
               </Button>
             </div>
-            
+
             <div className="flex items-center gap-3 mb-5">
               <Avatar className="h-10 w-10 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 border border-blue-100 flex items-center justify-center">
                 <AvatarFallback className="font-bold text-sm">
@@ -1874,7 +2045,7 @@ function OrderDetailInner() {
                 {order.name || "—"}
               </div>
             </div>
-            
+
             <div className="space-y-2 mb-6">
               <div className="flex items-center gap-2 text-[13px] text-slate-500">
                 <Mail className="h-3.5 w-3.5 text-slate-400" />
@@ -1885,7 +2056,7 @@ function OrderDetailInner() {
                 <span>{order.phone || "—"}</span>
               </div>
             </div>
-            
+
             <div>
               <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
                 <MapPin className="h-3 w-3" /> SHIPPING ADDRESS
@@ -1918,11 +2089,11 @@ function OrderDetailInner() {
               <CreditCard className="h-4 w-4 text-slate-400" />
               Payment Info
             </h3>
-            
+
             <div className="space-y-2 text-[13px] mb-6">
               <div className="flex justify-between">
                 <span className="text-slate-500">Date</span>
-                <span className="text-slate-900 dark:text-white font-medium">{formatDate(order.paymentDate) || "—"}</span>
+                <span className="text-slate-900 dark:text-white font-medium">{formatDate(paymentDisplayDate) || "—"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Provider</span>
@@ -1940,14 +2111,14 @@ function OrderDetailInner() {
               </div>
             </div>
 
-            {hasSplitSettlement && settlementTransactions.length > 0 && (
-              <div className="mb-6">
+            {settlementTransactions.length > 0 && (
+              <div className="bg-muted/30 border rounded-lg p-4 mb-4">
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">
-                  CAPTURE & REFUND TRANSACTIONS
+                  {hasSplitSettlement ? "SPLIT CAPTURE TRANSACTIONS" : "CAPTURE"}
                 </div>
                 <div className="space-y-2">
-                  {settlementTransactions.map((tx) => {
-                    const role = tx.settlement_role || "base"
+                  {settlementTransactions.map((tx: any) => {
+                    const role = tx.settlement_role || "base_capture"
                     const ref = tx.processor_transaction_id || "—"
                     const amt = parseMoney(tx.amount) ?? 0
                     return (
@@ -1961,64 +2132,61 @@ function OrderDetailInner() {
                     )
                   })}
                 </div>
+                {hasSplitSettlement && (
+                  <div className="flex justify-between font-bold pt-3 border-t mt-3 text-[13px]">
+                    <span className="text-slate-900">Total captured</span>
+                    <span className="text-slate-900">${formatMoney((parseMoney(order.netCollected) ?? 0) + refundedAmount)}</span>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Reconciliation Block (Recon) */}
-            <div className="bg-muted/30 border rounded-lg p-4 mb-4">
-              {hasSplitSettlement ? (
-                <div className="space-y-2 text-[13.5px]">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Captured</span>
-                    <span>${formatMoney((parseMoney(order.netCollected) ?? 0) + refundedAmount)}</span>
+            {!isPending && !isAuthorized && !isPaymentFailure && (
+              (refundedAmount > 0 || order.paymentStatus === "partially_captured" || trueHoldReleasedAmt > 0) ? (() => {
+                const holdReleasedAmt = refundedAmount > 0 ? refundedAmount : trueHoldReleasedAmt;
+                const authDisplayAmt = Math.max((parseMoney(order.netCollected) ?? 0) + holdReleasedAmt, trueAuthAmount);
+                return (
+                  <div className="bg-card border rounded-lg p-4 mb-4 space-y-2 text-[13.5px]">
+                    <div className="flex justify-between text-slate-600">
+                      <span>Authorized</span>
+                      <span className="font-semibold">${formatMoney(authDisplayAmt)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Hold released</span>
+                      <span className="font-semibold text-red-600">−${holdReleasedAmt.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t font-bold">
+                      <span className="text-slate-900">Captured</span>
+                      <span className="text-slate-900">${netCollectedPrice}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>Refunded</span>
-                    <span className={refundedAmount > 0 ? "font-semibold text-red-600" : ""}>
-                      {refundedAmount > 0 ? `−$${refundedAmount.toFixed(2)}` : "$0.00"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t font-bold">
-                    <span className="text-slate-900">Net captured</span>
-                    <span className="text-slate-900">${netCollectedPrice}</span>
-                  </div>
+                );
+              })() : settlementTransactions.length === 0 ? (
+                <div className="bg-card border rounded-lg p-4 mb-4 flex justify-between font-bold text-[13.5px]">
+                  <span className="text-slate-900">Captured</span>
+                  <span className="text-slate-900">${netCollectedPrice}</span>
                 </div>
-              ) : refundedAmount > 0 ? (
-                <div className="space-y-2 text-[13.5px]">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Authorized</span>
-                    <span className="font-semibold">${formatMoney(previewOriginalPrice)}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>Hold released</span>
-                    <span className="font-semibold text-red-600">−${refundedAmount.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t font-bold">
-                    <span className="text-slate-900">Captured</span>
-                    <span className="text-slate-900">${netCollectedPrice}</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2 text-[13.5px]">
-                  <div className="flex justify-between font-bold">
-                    <span className="text-slate-900">Captured</span>
-                    <span className="text-slate-900">${netCollectedPrice}</span>
-                  </div>
-                </div>
-              )}
-            </div>
+              ) : null
+            )}
+
+            {settlementTransactions.length === 0 && isAuthorized && (
+              <div className="flex justify-between font-bold text-[13.5px] mb-4">
+                <span className="text-slate-900">Authorized</span>
+                <span className="text-slate-900">${formatMoney(previewOriginalPrice)}</span>
+              </div>
+            )}
 
             <div className="flex justify-between items-center mb-6">
               <span className="text-[13px] text-slate-500">Status</span>
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
-                  {refundStatusLabel || order.paymentStatus || "—"}
+                <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+                  {((refundStatusLabel || (trueHoldReleasedAmt > 0 ? "partially_captured" : order.paymentStatus) || "—") as string).replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
                 </span>
               </div>
             </div>
 
-            {hasSplitSettlement && (
-              <div className="space-y-2 text-[12px] mb-6 border-b pb-4">
+            {(hasSplitSettlement || settlementTransactions.length > 0) && (
+              <div className="bg-muted/30 border rounded-lg p-4 mb-6 space-y-2 text-[12px]">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Remaining base to capture</span>
                   <span className="text-slate-400">${splitRemainingBaseDisplay}</span>
@@ -2027,18 +2195,21 @@ function OrderDetailInner() {
                   <span className="text-slate-500">Remaining supplemental to capture</span>
                   <span className="text-slate-400">${splitRemainingSupplementalDisplay}</span>
                 </div>
-                <div className="flex justify-between font-bold pt-1">
+                <div className="flex justify-between font-bold pt-2 border-t mt-1">
                   <span className="text-slate-900">Total remaining to capture</span>
                   <span className="text-slate-900">${splitRemainingTotalDisplay}</span>
                 </div>
               </div>
             )}
 
-            <div className="flex justify-between items-center pt-2">
-              <span className="font-bold text-[14px] text-slate-900 dark:text-white">Net captured</span>
+            <div className="flex justify-between items-center pt-2 border-t">
+              <span className="font-bold text-[14px] text-slate-900 dark:text-white">
+                {refundedAmount > 0 ? "Net captured" : (settlementTransactions.length > 0 ? "Captured total" : "Net captured")}
+              </span>
               <div className="flex items-center gap-3">
-                <span className="font-bold text-lg text-slate-900 dark:text-white">${netCollectedPrice}</span>
-                
+                <span className="font-bold text-lg text-slate-900 dark:text-white">
+                  ${isPending ? "0.00" : netCollectedPrice}
+                </span>
                 {canRefundOrVoid && (
                   <PermissionGate permission={Permissions.REFUND_CREATE}>
                     <Button
@@ -2047,7 +2218,7 @@ function OrderDetailInner() {
                       className="text-[11px] font-bold h-7 border-red-200 text-red-600 hover:bg-red-50 px-2"
                       onClick={() => setShowRefundDialog(true)}
                     >
-                      <Undo2 className="h-3 w-3 mr-1" /> Refund
+                      <Undo2 className="h-3 w-3 mr-1" /> {isAuthorized ? "Void" : "Refund"}
                     </Button>
                   </PermissionGate>
                 )}
