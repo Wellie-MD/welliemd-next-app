@@ -40,7 +40,11 @@ const ORDER_STATUSES = [
   { value: "prescribed", label: "Prescribed" },
   { value: "billing_pending", label: "Billing Pending" },
   { value: "rx_sent", label: "Rx Sent" },
+  { value: "in_transit", label: "In Transit" },
   { value: "shipped", label: "Shipped" },
+  { value: "out_for_delivery", label: "Out for Delivery" },
+  { value: "delivered", label: "Delivered" },
+  { value: "delivery_failed", label: "Delivery Failed" },
   { value: "canceled", label: "Canceled" },
 ]
 

@@ -23,7 +23,11 @@ const orderStatusFilters = [
   "Prescribed",
   "Billing Pending",
   "Rx Sent",
+  "In Transit",
   "Shipped",
+  "Out for Delivery",
+  "Delivered",
+  "Delivery Failed",
   "Canceled"
 ]
 
@@ -222,7 +226,11 @@ export default function Orders() {
           "Prescribed": "prescribed",
           "Billing Pending": "billing_pending",
           "Rx Sent": "rx_sent",
+          "In Transit": "in_transit",
           "Shipped": "shipped",
+          "Out for Delivery": "out_for_delivery",
+          "Delivered": "delivered",
+          "Delivery Failed": "delivery_failed",
           "Canceled": "canceled"
         }
         filters.status = statusMap[activeOrderStatusFilter]
