@@ -30,6 +30,9 @@ export interface BrandSettings {
     accentColor?: string;
     neutralColor?: string;
     patientPortalTheme?: 'light' | 'dark';
+    seoTitle?: string;
+    seoDescription?: string;
+    seoImage?: string;
 }
 
 export interface PublicBrandSettings {
