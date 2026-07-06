@@ -1,6 +1,6 @@
 /**
  * LabEditModal — "Lab Test Details" dialog.
- * Shows read-only panel metadata + editable pricing, availability, and service states.
+ * Shows read-only panel metadata + editable admin cost, availability, and service states.
  */
 import React from "react";
 import { Button } from "@/components/ui/button";
@@ -73,8 +73,8 @@ export default function LabEditModal({
         <DialogHeader className="p-6 border-b">
           <DialogTitle className="text-lg font-bold">Lab Test Details</DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground mt-1 leading-normal">
-            The lab and biomarkers are fixed once created. Pricing and availability are
-            editable below.
+            The lab and biomarkers are fixed once created. Admin cost and availability are
+            editable below. Patient price is configured by the client after assignment.
           </DialogDescription>
         </DialogHeader>
 
@@ -119,8 +119,8 @@ export default function LabEditModal({
               value={selectedLab.turnaround_days ? `${selectedLab.turnaround_days} days` : "—"}
             />
             <InfoRow
-              label="Junction price"
-              value={selectedLab.junction_price ? `$${selectedLab.junction_price.toFixed(2)}` : "—"}
+              label="Client price"
+              value="Configured after assignment"
             />
             <InfoRow
               label="Description"
@@ -200,10 +200,10 @@ export default function LabEditModal({
             </div>
           </div>
 
-          {/* Editable pricing */}
+          {/* Editable admin cost */}
           <div className="space-y-3.5 pt-4 border-t">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-              Pricing & availability (editable)
+              Admin cost & availability (editable)
             </p>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">

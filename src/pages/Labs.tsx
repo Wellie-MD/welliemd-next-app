@@ -39,6 +39,12 @@ const toAssignClient = (c: ClientAssignment): AssignClient => ({
   lab_account_state: c.lab_account_state,
   lab_account_options: c.lab_account_options,
   linkedLabAccountIds: c.linkedLabAccountIds,
+  client_configuration_ready: c.client_configuration_ready,
+  submission_ready: c.submission_ready,
+  blocking_reason: c.blocking_reason,
+  patient_price_configured: c.patient_price_configured,
+  service_state_options: c.service_state_options,
+  methods: (c as any).methods,
 });
 
 export default function Labs() {

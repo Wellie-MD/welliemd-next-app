@@ -12,7 +12,7 @@ const INTEGRATION_LABELS: Record<string, string> = {
 const LABS_LABELS: Record<string, string> = {
   lab_accounts_missing: "No lab accounts linked",
   ambiguous_lab_account: "Ambiguous lab account",
-  ready: "Labs ready",
+  ready: "Platform routing ready",
 }
 
 function tone(ok: boolean, warn = false): "default" | "secondary" | "destructive" | "outline" {

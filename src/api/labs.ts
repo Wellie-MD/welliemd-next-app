@@ -126,6 +126,11 @@ const normalizeClientAssignment = (raw: any): ClientAssignment => ({
   lab_account_state: raw.lab_account_state || "",
   lab_account_options: Array.isArray(raw.lab_account_options) ? raw.lab_account_options : [],
   linkedLabAccountIds: raw.lab_account_id ? [raw.lab_account_id] : raw.linkedLabAccountIds || [],
+  client_configuration_ready: !!raw.client_configuration_ready,
+  submission_ready: !!raw.submission_ready,
+  blocking_reason: raw.blocking_reason || "",
+  patient_price_configured: !!raw.patient_price_configured,
+  service_state_options: Array.isArray(raw.service_state_options) ? raw.service_state_options : [],
 });
 
 const normalizeOrder = (raw: any): LabOrder => ({
@@ -212,10 +217,6 @@ export const labsApi = {
       collection_method: payload.collection_method,
       cost_to_client: moneyPayload(payload.cost_to_client),
       cost_to_welliemd: moneyPayload(payload.cost_to_welliemd),
-      patient_price: moneyPayload(payload.patient_price ?? payload.cost_to_client),
-      discounted_patient_price: payload.discounted_patient_price
-        ? moneyPayload(payload.discounted_patient_price)
-        : null,
       is_active: payload.is_active,
       service_states: payload.service_states,
       biomarker_ids: [],
@@ -244,14 +245,6 @@ export const labsApi = {
         payload.cost_to_client === undefined ? undefined : moneyPayload(payload.cost_to_client),
       cost_to_welliemd:
         payload.cost_to_welliemd === undefined ? undefined : moneyPayload(payload.cost_to_welliemd),
-      patient_price:
-        payload.patient_price === undefined ? undefined : moneyPayload(payload.patient_price),
-      discounted_patient_price:
-        payload.discounted_patient_price === undefined
-          ? undefined
-          : payload.discounted_patient_price === null
-            ? null
-            : moneyPayload(payload.discounted_patient_price),
       is_active: payload.is_active,
       service_states: payload.service_states,
     });
@@ -325,7 +318,6 @@ export const labsApi = {
     member_panel_ids: string[];
     cost_to_client?: { amount: string; currency: string };
     cost_to_welliemd?: { amount: string; currency: string };
-    patient_price?: { amount: string; currency: string };
     service_states?: string[];
   }) => {
     const { data } = await axiosInstance.post("admin/labs/combined-panels/", payload);
@@ -339,7 +331,6 @@ export const labsApi = {
       description: string;
       is_active: boolean;
       service_states: string[];
-      patient_price: { amount: string; currency: string };
       cost_to_client: { amount: string; currency: string };
       cost_to_welliemd: { amount: string; currency: string };
     }>
@@ -366,22 +357,7 @@ export const labsApi = {
 
   getCombinedPanelClients: async (combinedId: string) => {
     const { data } = await axiosInstance.get(`admin/labs/combined-panels/${combinedId}/clients/`);
-    return (data.results || data || []) as Array<{
-      client_id: string;
-      client_name: string;
-      client_email: string | null;
-      assigned: boolean;
-      derived_status: string;
-      orderable_count: number;
-      member_count: number;
-      methods: Array<{
-        assignment_id: string;
-        collection_method: string;
-        junction_status: string;
-        junction_lab_test_id: string;
-        is_orderable: boolean;
-      }>;
-    }>;
+    return (data.results || data || []) as Array<Record<string, any>>;
   },
 
   assignCombinedPanelToClients: async (

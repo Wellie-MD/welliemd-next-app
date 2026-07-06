@@ -88,6 +88,7 @@ export function JunctionIntegrationPanel({ clientId }: Props) {
         onOpenChange={setLabsOpen}
         clientId={clientId}
         environment={env}
+        mode={detail.lab_accounts.mode ?? "platform"}
         ambiguousProviders={detail.lab_accounts.ambiguous_providers ?? []}
         onChanged={setDetail}
       />

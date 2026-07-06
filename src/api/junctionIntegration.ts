@@ -63,6 +63,7 @@ export interface JunctionIntegrationDetail {
   api_keys: { sandbox: JunctionApiKeyBlock; production: JunctionApiKeyBlock }
   webhooks: { sandbox: JunctionWebhookBlock; production: JunctionWebhookBlock }
   lab_accounts: {
+    mode?: string
     linked_count: number
     total_count: number
     ambiguous_providers?: string[]

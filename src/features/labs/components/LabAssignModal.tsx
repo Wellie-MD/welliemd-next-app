@@ -190,14 +190,17 @@ export default function LabAssignModal({
                 const operationalNorm = (c.operational_status ?? "").toLowerCase();
                 const busy = !!c.assignment_id && assignmentActionId === c.assignment_id;
                 const accountOptions = c.lab_account_options ?? [];
+                const labAccountRequired = c.lab_account_required ?? false;
+                const usesPlatformAccounts = (c.lab_account_mode ?? "platform") === "platform";
                 const hasAmbiguousAccounts =
-                  c.lab_account_state === "ambiguous" || accountOptions.length > 1;
+                  labAccountRequired && (c.lab_account_state === "ambiguous" || accountOptions.length > 1);
                 const needsAccountSelection = hasAmbiguousAccounts && !c.lab_account_id;
                 const canSubmit =
                   !!c.assignment_id &&
                   c.checked &&
                   !c.junction_lab_test_id &&
-                  !needsAccountSelection;
+                  !needsAccountSelection &&
+                  !!c.submission_ready;
                 const canSync =
                   !!c.assignment_id &&
                   c.checked &&
@@ -254,7 +257,17 @@ export default function LabAssignModal({
                           )}
                         </div>
                       )}
-                      {c.checked && accountOptions.length > 1 && (
+                      {c.checked && c.blocking_reason && !c.submission_ready && (
+                        <div className="mt-1 text-[10px] text-amber-700">
+                          {c.blocking_reason}
+                        </div>
+                      )}
+                      {c.checked && usesPlatformAccounts && (
+                        <div className="mt-2 rounded-md border border-sky-200 bg-sky-50 px-2 py-1.5 text-[10px] text-sky-800">
+                          Junction routes orders through platform lab accounts for this assignment. No tenant lab account selection is required.
+                        </div>
+                      )}
+                      {c.checked && labAccountRequired && accountOptions.length > 1 && (
                         <div className="mt-2">
                           <select
                             value={c.lab_account_id || ""}
@@ -278,8 +291,9 @@ export default function LabAssignModal({
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
                       <span className="text-[10px] text-muted-foreground pr-1">
-                        {accountOptions.length || (c.linkedLabAccountIds ?? []).length} acct
-                        {(accountOptions.length || (c.linkedLabAccountIds ?? []).length) === 1 ? "" : "s"}
+                        {usesPlatformAccounts
+                          ? "Platform routing"
+                          : `${accountOptions.length || (c.linkedLabAccountIds ?? []).length} acct${(accountOptions.length || (c.linkedLabAccountIds ?? []).length) === 1 ? "" : "s"}`}
                       </span>
                       {c.checked && c.assignment_id && (
                         <div className="flex items-center gap-1">

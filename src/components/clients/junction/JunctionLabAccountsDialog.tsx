@@ -22,6 +22,7 @@ interface Props {
   onOpenChange: (open: boolean) => void
   clientId: string
   environment: JunctionEnvironment
+  mode: string
   ambiguousProviders: string[]
   onChanged: (detail: JunctionIntegrationDetail) => void
 }
@@ -31,12 +32,14 @@ export function JunctionLabAccountsDialog({
   onOpenChange,
   clientId,
   environment,
+  mode,
   ambiguousProviders,
   onChanged,
 }: Props) {
   const [loading, setLoading] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [items, setItems] = useState<JunctionLabAccountItem[]>([])
+  const isPlatformMode = mode === "platform"
 
   useEffect(() => {
     if (!open) return
@@ -84,14 +87,22 @@ export function JunctionLabAccountsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Manage lab accounts ({environment})</DialogTitle>
+          <DialogTitle>{isPlatformMode ? "Org lab accounts" : "Manage lab accounts"} ({environment})</DialogTitle>
           <DialogDescription>
-            Only <strong>active</strong> Junction lab accounts are orderable. Linking updates the
-            team allowlist via the Management API.
+            {isPlatformMode
+              ? "Platform-account ordering is active. Junction routes orders by lab test/provider, so tenant lab-account linking is not required."
+              : <>Only <strong>active</strong> Junction lab accounts are orderable. Linking updates the
+                team allowlist via the Management API.</>}
           </DialogDescription>
         </DialogHeader>
 
-        {ambiguousProviders.length > 0 && (
+        {isPlatformMode && (
+          <div className="rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+            Lab account mode: <strong>Junction platform accounts</strong>. Team/API key/webhook/runtime sync remain required; lab-account linkage does not.
+          </div>
+        )}
+
+        {!isPlatformMode && ambiguousProviders.length > 0 && (
           <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
             Multiple active accounts are linked for: {ambiguousProviders.join(", ")}. Patient
             checkout requires an explicit lab account selection per assignment.
@@ -135,18 +146,24 @@ export function JunctionLabAccountsDialog({
                         {item.delegated_flow || "—"}
                       </td>
                       <td className="px-3 py-2 text-right">
-                        <Button
-                          size="sm"
-                          variant={item.linked ? "outline" : "default"}
-                          disabled={(!orderable && !item.linked) || busyId === item.lab_account_id}
-                          onClick={() => handleToggle(item)}
-                        >
-                          {busyId === item.lab_account_id
-                            ? "…"
-                            : item.linked
-                            ? "Unlink"
-                            : "Link"}
-                        </Button>
+                        {isPlatformMode ? (
+                          <span className="text-xs text-muted-foreground">
+                            Informational only
+                          </span>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant={item.linked ? "outline" : "default"}
+                            disabled={(!orderable && !item.linked) || busyId === item.lab_account_id}
+                            onClick={() => handleToggle(item)}
+                          >
+                            {busyId === item.lab_account_id
+                              ? "…"
+                              : item.linked
+                              ? "Unlink"
+                              : "Link"}
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   )

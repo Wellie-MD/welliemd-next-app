@@ -161,8 +161,6 @@ export interface CreateLabPanelPayload {
   collection_method: "testkit" | "walk_in_test" | "at_home_phlebotomy" | "on_site_collection";
   cost_to_client: number;
   cost_to_welliemd: number;
-  patient_price?: number;
-  discounted_patient_price?: number | null;
   is_active: boolean;
   service_states: string[];
   catalog_item_ids: string[];
@@ -201,6 +199,11 @@ export interface ClientAssignment {
     is_orderable?: boolean;
   }>;
   linkedLabAccountIds?: string[];
+  client_configuration_ready?: boolean;
+  submission_ready?: boolean;
+  blocking_reason?: string;
+  patient_price_configured?: boolean;
+  service_state_options?: string[];
 }
 
 export interface LabOrder {

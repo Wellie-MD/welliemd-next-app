@@ -40,6 +40,8 @@ export interface AssignClient {
   operational_status?: string;
   is_orderable?: boolean;
   lab_account_id?: string;
+  lab_account_mode?: string;
+  lab_account_required?: boolean;
   lab_account_state?: string;
   lab_account_options?: Array<{
     lab_account_id: string;
@@ -51,6 +53,12 @@ export interface AssignClient {
     is_orderable?: boolean;
   }>;
   linkedLabAccountIds?: string[];
+  client_configuration_ready?: boolean;
+  submission_ready?: boolean;
+  blocking_reason?: string;
+  patient_price_configured?: boolean;
+  service_state_options?: string[];
+  methods?: Array<Record<string, unknown>>;
 }
 
 /** Shape used by the Create panel form. */
@@ -96,7 +104,6 @@ export interface CombinedPanelMember {
   junction_lab_test_id: string;
   lab_provider: string;
   is_orderable: boolean;
-  patient_price: { amount: string; currency: string };
   display_order: number;
 }
 
@@ -111,11 +118,12 @@ export interface CombinedLabPanel {
   category: string;
   is_combined: true;
   derived_status: CombinedDerivedStatus;
+  configuration_status?: "configuration_in_progress" | "ready_to_assign" | "archived";
+  configuration_missing?: string[];
+  is_assignable?: boolean;
   members: CombinedPanelMember[];
   cost_to_client: { amount: string; currency: string };
   cost_to_welliemd: { amount: string; currency: string };
-  patient_price: { amount: string; currency: string };
-  discounted_patient_price: { amount: string; currency: string } | null;
   is_active: boolean;
   is_archived: boolean;
   service_states: string[];

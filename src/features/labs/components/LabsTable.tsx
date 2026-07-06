@@ -38,6 +38,16 @@ function renderDerivedStatusBadge(s: CombinedDerivedStatus) {
   );
 }
 
+function renderCombinedConfigurationBadge(combined: CombinedLabPanel) {
+  if (combined.configuration_status === "ready_to_assign") {
+    return <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-[#dcfce7] text-[#166534] border-[#bbf7d0]">Ready to assign</span>;
+  }
+  if (combined.configuration_status === "archived") {
+    return <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-[#f1f5f9] text-[#475569] border-[#e2e8f0]">Archived</span>;
+  }
+  return <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-[#fef3c7] text-[#92400e] border-[#fde68a]">Configuration in progress</span>;
+}
+
 function renderWellieMdBadge(lab: LabPanel, liveCount: number, onToggleActive: (lab: LabPanel) => Promise<void>) {
   if (!lab.is_assignable) {
     return <span className="inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold bg-[#fef3c7] text-[#92400e] border-[#fde68a]">Configuration in progress</span>;
@@ -369,11 +379,23 @@ export default function LabsTable({
                   <TableCell>
                     <div className="text-[12.5px] leading-tight">
                       <span className="font-semibold text-foreground block">
-                        ${parseFloat(combined.patient_price?.amount ?? "0").toFixed(2)}
+                        ${parseFloat(combined.cost_to_client?.amount ?? "0").toFixed(2)}
+                      </span>
+                      <span className="text-[10.5px] text-muted-foreground">
+                        client cost
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell>{renderDerivedStatusBadge(combined.derived_status)}</TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      {renderCombinedConfigurationBadge(combined)}
+                      {combined.configuration_missing && combined.configuration_missing.length > 0 && (
+                        <div className="text-[10px] text-amber-700">
+                          Missing: {combined.configuration_missing.join(", ")}
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <span className={`inline-block border px-[10px] py-[3px] rounded-[11px] text-[11px] font-semibold ${
                       combined.is_active
@@ -388,8 +410,9 @@ export default function LabsTable({
                       {onAssignOpenCombined && (
                         <button
                           onClick={() => onAssignOpenCombined(combined)}
-                          className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
-                          title="Assign combined panel to clients"
+                          disabled={!combined.is_assignable}
+                          className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                          title={combined.is_assignable ? "Assign combined panel to clients" : `Complete configuration first: ${(combined.configuration_missing ?? []).join(", ")}`}
                         >
                           <UserPlus className="h-4 w-4" />
                         </button>
