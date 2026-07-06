@@ -15,13 +15,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const US_STATES = [
-  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS",
-  "KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY",
-  "NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV",
-  "WI","WY","DC","PR",
-];
-
 function getCollectionDetailLabel(method: string) {
   switch (method) {
     case "walk_in_test": return "Walk-in lab draw";
@@ -73,6 +66,7 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
   const effectivePatientPrice = Number.parseFloat(patientPrice) || 0;
   const profit = effectivePatientPrice - (editingLab?.cost_to_client || 0);
   const compositionRows = editingLab ? getCompositionRows(editingLab) : [];
+  const serviceStateOptions = editingLab?.service_state_options ?? [];
 
   const toggleState = (state: string) => {
     setServiceStates((current) =>
@@ -331,15 +325,15 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
                 <div className="flex items-center gap-2">
                   <span className="w-[26px] h-[26px] rounded-[7px] bg-[#e3f3fb] text-[#2b7da6] flex items-center justify-center shrink-0"><MapPin className="w-[15px] h-[15px]" /></span>
                   <h3 className="text-[13.5px] font-bold text-gray-900">Service States</h3>
-                  <span className="ml-auto text-[10.5px] font-semibold bg-[#e3f3fb] text-[#2b7da6] rounded-full px-2 py-0.5">{serviceStates.length} of {US_STATES.length} active</span>
+                  <span className="ml-auto text-[10.5px] font-semibold bg-[#e3f3fb] text-[#2b7da6] rounded-full px-2 py-0.5">{serviceStates.length} of {serviceStateOptions.length} active</span>
                 </div>
                 <p className="text-xs text-gray-555">Select the states where this assigned product should remain available. You can only choose states configured by admin.</p>
                 <div className="flex items-center gap-3">
-                  <Button type="button" variant="outline" size="sm" onClick={() => setServiceStates(US_STATES)} className="h-7 text-xs border border-[#e8ebee] bg-white text-gray-900 rounded-full px-3 font-semibold hover:bg-gray-50">Select all states</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setServiceStates(serviceStateOptions)} className="h-7 text-xs border border-[#e8ebee] bg-white text-gray-900 rounded-full px-3 font-semibold hover:bg-gray-50">Select all states</Button>
                   <Button type="button" variant="ghost" size="sm" onClick={() => setServiceStates([])} className="h-7 text-xs text-gray-500 hover:bg-transparent hover:text-gray-700">Clear</Button>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {US_STATES.map((state) => {
+                  {serviceStateOptions.map((state) => {
                     const selected = serviceStates.includes(state);
                     return (
                       <button key={state} type="button" onClick={() => toggleState(state)} className={`border rounded-full px-3 py-1 text-[11.5px] font-semibold transition-colors duration-150 ${selected ? "bg-[#46b6e6] border-[#46b6e6] text-white" : "bg-white border-[#e8ebee] text-gray-800 hover:bg-gray-50"}`}>

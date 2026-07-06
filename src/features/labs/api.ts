@@ -50,6 +50,7 @@ export type JunctionStatus =
 
 export type OperationalStatus =
   | "draft"
+  | "pending_client_configuration"
   | "pending_submission"
   | "pending_approval"
   | "active"
@@ -112,8 +113,12 @@ export interface ClientLabPanel {
   }>;
 
   service_states: string[];
+  service_state_options?: string[];
   image_url?: string;
   created_at?: string;
+  client_configuration_ready?: boolean;
+  submission_ready?: boolean;
+  blocking_reason?: string;
 }
 
 export interface LabOrderResult {
@@ -249,8 +254,14 @@ const normalizePanel = (raw: Record<string, unknown>): ClientLabPanel => {
     service_states: Array.isArray(raw.service_states)
       ? (raw.service_states as string[])
       : [],
+    service_state_options: Array.isArray(raw.service_state_options)
+      ? (raw.service_state_options as string[])
+      : [],
     image_url: raw.image_url ? String(raw.image_url) : undefined,
     created_at: raw.created_at ? String(raw.created_at) : undefined,
+    client_configuration_ready: Boolean(raw.client_configuration_ready),
+    submission_ready: Boolean(raw.submission_ready),
+    blocking_reason: raw.blocking_reason ? String(raw.blocking_reason) : undefined,
   };
 };
 
