@@ -31,6 +31,10 @@ import FlowBuilder from "@/pages/FlowBuilder";
 import ManageAccount from "@/pages/ManageAccount";
 import CouponCodes from "@/pages/CouponCodes";
 import CreateCouponPage from "@/pages/CreateCouponPage";
+import ProgramsPage from "@/features/treatments/programs/pages/ProgramsPage";
+import ProgramDetailPage from "@/features/treatments/programs/pages/ProgramDetailPage";
+import CustomProgramsPage from "@/features/treatments/custom-programs/pages/CustomProgramsPage";
+import CustomProgramBuilderPage from "@/features/treatments/custom-programs/pages/CustomProgramBuilderPage";
 
 const LS_KEY = "msg_last_seen";
 
@@ -196,6 +200,10 @@ export default function DashboardFrame() {
               <Route path="/templates/:templateId" element={<ProtectedRoute><TemplateQuestions /></ProtectedRoute>} />
               <Route path="/templates/:templateId/flow-builder" element={<ProtectedRoute><FlowBuilder /></ProtectedRoute>} />
               <Route path="/manage-account" element={<ProtectedRoute><ManageAccount /></ProtectedRoute>} />
+              <Route path="/treatments/programs" element={<ProtectedRoute><ProgramsPage /></ProtectedRoute>} />
+              <Route path="/treatments/programs/:programId" element={<ProtectedRoute><ProgramDetailPage /></ProtectedRoute>} />
+              <Route path="/treatments/custom-programs" element={<ProtectedRoute><CustomProgramsPage /></ProtectedRoute>} />
+              <Route path="/treatments/custom-programs/:customProgramId/builder" element={<ProtectedRoute><CustomProgramBuilderPage /></ProtectedRoute>} />
             </Routes>
           </main>
         </div>
