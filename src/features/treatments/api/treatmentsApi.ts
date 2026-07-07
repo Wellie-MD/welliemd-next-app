@@ -8,6 +8,7 @@ import type {
   CommonSectionField,
   TreatmentType,
 } from "@/features/treatments/types";
+import axiosInstance from "@/api/axiosInstance";
 import { mockConsents } from "@/features/treatments/libraries/data/consents.mock";
 import { mockCustomPrograms } from "@/features/treatments/custom-programs/data/customPrograms.mock";
 import { mockProgramQuestions } from "@/features/treatments/programs/data/programQuestions.mock";
@@ -382,89 +383,479 @@ const setSectionFields = (sectionId: string, fields: CommonSectionField[]) => {
 
 const resolveMock = async <T>(value: T): Promise<T> => Promise.resolve(value);
 
-export const treatmentsApi = {
-  listStats: (): Promise<ContentLibraryStats> => {
-    const stats: ContentLibraryStats = {
-      consentForms: getConsents().length,
-      commonSections: getSections().length,
-      programs: getPrograms().length,
-      customPrograms: getCustomPrograms().length,
-    };
-    return resolveMock(stats);
+type TreatmentTypeApiRecord = {
+  id: string;
+  key: string;
+  name: string;
+  slug: string;
+  description: string;
+  intake_visit_type: string;
+  followup_visit_type?: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type PaginatedResponse<T> = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+};
+
+type SectionApiRecord = {
+  id: string;
+  name: string;
+  scope: CommonSection["scope"];
+  visit_type_keys: string[];
+  field_count: number;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type SectionFieldApiRecord = {
+  id: string;
+  section: string;
+  order: number;
+  label: string;
+  kind: CommonSectionField["kind"];
+  required: boolean;
+  mapped_field?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type ConsentApiRecord = {
+  id: string;
+  name: string;
+  scope: ConsentForm["scope"];
+  visit_type_keys: string[];
+  text?: string;
+  options?: ConsentForm["options"];
+  version: number;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type CustomProgramApiRecord = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  status: CustomProgram["status"];
+  audience: CustomProgram["audience"];
+  min_age: number;
+  max_age?: number | null;
+  included_program_ids: string[];
+  section_ids: string[];
+  consent_ids: string[];
+  checkout_options: CustomProgram["checkoutOptions"];
+  flow_items: CustomProgram["flowItems"];
+  visit_type?: string | null;
+  onboarding_name?: string;
+  question_count?: number;
+  icon?: string;
+  icon_bg?: string;
+  icon_color?: string;
+  tags?: string[];
+  is_multi?: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+type ProgramApiRecord = {
+  id: string;
+  source_questionnaire_template?: string | null;
+  treatment_type: string;
+  treatment_type_key: string;
+  treatment_type_name: string;
+  name: string;
+  slug: string;
+  description?: string;
+  stage?: Program["stage"];
+  phase?: "onboarding" | "follow_up";
+  visit_type: string;
+  question_count: number;
+  checkout_question_count: number;
+  status: Program["status"];
+  auth_config?: Program["authConfig"];
+  screening_questions?: ProgramQuestion[];
+  checkout_questions?: Program["checkoutQuestions"];
+  consent_ids?: string[];
+  sex_requirement?: Program["sexRequirement"];
+  min_age?: number | null;
+  max_age?: number | null;
+  min_bmi?: number | null;
+  max_bmi?: number | null;
+  publish_version?: number;
+  created_at?: string;
+  updated_at?: string;
+};
+
+const slugifyTreatmentValue = (value: string): string =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+const isPersistedUuid = (value?: string | null): boolean =>
+  Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
+
+const mapTreatmentTypeFromApi = (record: TreatmentTypeApiRecord): TreatmentType => ({
+  id: record.id,
+  key: record.key,
+  name: record.name,
+  intakeVisitType: record.intake_visit_type,
+  followupVisitType: record.followup_visit_type || undefined,
+  description: record.description || "",
+  programCount: 0,
+  productCount: 0,
+  sectionCount: 0,
+  consentCount: 0,
+  isActive: record.is_active,
+});
+
+const mapTreatmentTypeToApi = (type: TreatmentType): Omit<TreatmentTypeApiRecord, "id" | "created_at" | "updated_at"> => {
+  const normalizedKey = slugifyTreatmentValue(type.key || type.intakeVisitType || type.name);
+  return {
+    key: normalizedKey,
+    name: type.name.trim(),
+    slug: slugifyTreatmentValue(type.key || type.intakeVisitType || type.name),
+    description: type.description || "",
+    intake_visit_type: type.intakeVisitType.trim(),
+    followup_visit_type: type.followupVisitType?.trim() || "",
+    is_active: type.isActive,
+  };
+};
+
+const mapSectionFromApi = (record: SectionApiRecord): CommonSection => ({
+  id: record.id,
+  name: record.name,
+  scope: record.scope,
+  visitTypeKeys: record.visit_type_keys || [],
+  fieldCount: record.field_count || 0,
+  updatedAt: record.updated_at?.split("T")[0] || currentDateStamp(),
+});
+
+const mapSectionToApi = (section: CommonSection): Omit<SectionApiRecord, "id" | "field_count" | "created_at" | "updated_at"> => ({
+  name: section.name.trim(),
+  scope: section.scope,
+  visit_type_keys: section.visitTypeKeys || [],
+});
+
+const mapSectionFieldFromApi = (record: SectionFieldApiRecord): CommonSectionField => ({
+  id: record.id,
+  sectionId: record.section,
+  order: record.order,
+  label: record.label,
+  kind: record.kind,
+  required: record.required,
+  mappedField: record.mapped_field || undefined,
+});
+
+const mapSectionFieldToApi = (field: CommonSectionField) => ({
+  id: isPersistedUuid(field.id) ? field.id : undefined,
+  order: field.order,
+  label: field.label,
+  kind: field.kind,
+  required: field.required,
+  mapped_field: field.mappedField || "",
+});
+
+const mapConsentFromApi = (record: ConsentApiRecord): ConsentForm => ({
+  id: record.id,
+  name: record.name,
+  scope: record.scope,
+  visitTypeKeys: record.visit_type_keys || [],
+  text: record.text || "",
+  options: record.options || [],
+  updatedAt: record.updated_at?.split("T")[0] || currentDateStamp(),
+});
+
+const mapConsentToApi = (consent: ConsentForm) => ({
+  name: consent.name.trim(),
+  scope: consent.scope,
+  visit_type_keys: consent.visitTypeKeys || [],
+  text: consent.text || "",
+  options: consent.options || [],
+});
+
+const mapCustomProgramFromApi = (record: CustomProgramApiRecord): CustomProgram => ({
+  id: record.id,
+  name: record.name,
+  slug: record.slug,
+  description: record.description || "",
+  status: record.status,
+  audience: record.audience,
+  minAge: record.min_age,
+  maxAge: record.max_age ?? undefined,
+  includedProgramIds: record.included_program_ids || [],
+  sectionIds: record.section_ids || [],
+  consentIds: record.consent_ids || [],
+  checkoutOptions: record.checkout_options || [],
+  flowItems: record.flow_items || [],
+  updatedAt: record.updated_at?.split("T")[0] || currentDateStamp(),
+  visitType: record.visit_type ?? null,
+  onboardingName: record.onboarding_name || "",
+  questionCount: record.question_count || 0,
+  icon: record.icon || undefined,
+  iconBg: record.icon_bg || undefined,
+  iconColor: record.icon_color || undefined,
+  tags: record.tags || [],
+  isMulti: record.is_multi ?? false,
+});
+
+const mapCustomProgramToApi = (program: CustomProgram) => ({
+  name: program.name.trim(),
+  slug: slugifyTreatmentValue(program.slug || program.name),
+  description: program.description || "",
+  status: program.status,
+  audience: program.audience,
+  min_age: program.minAge,
+  max_age: program.maxAge ?? null,
+  included_program_ids: program.includedProgramIds || [],
+  section_ids: program.sectionIds || [],
+  consent_ids: program.consentIds || [],
+  checkout_options: program.checkoutOptions || [],
+  flow_items: program.flowItems || [],
+  visit_type: program.visitType ?? null,
+  onboarding_name: program.onboardingName || "",
+  question_count: program.questionCount || 0,
+  icon: program.icon || "",
+  icon_bg: program.iconBg || "",
+  icon_color: program.iconColor || "",
+  tags: program.tags || [],
+  is_multi: program.isMulti ?? false,
+});
+
+const mapProgramFromApi = (record: ProgramApiRecord): Program => ({
+  id: record.id,
+  name: record.name,
+  stage: record.stage || (record.phase === "follow_up" ? "follow_up" : "intake"),
+  treatmentTypeKey: record.treatment_type_key,
+  visitType: record.visit_type,
+  questionCount: record.question_count || 0,
+  checkoutQuestionCount: record.checkout_question_count || 0,
+  status: record.status,
+  updatedAt: record.updated_at?.split("T")[0] || currentDateStamp(),
+  slug: record.slug,
+  description: record.description || "",
+  authConfig: record.auth_config || {
+    email: true,
+    phone: false,
+    identity: false,
+    account: true,
   },
-  listTreatmentTypes: (): Promise<TreatmentType[]> => resolveMock(getTreatmentTypes()),
-  listPrograms: (): Promise<Program[]> => resolveMock(getPrograms()),
-  listSections: (): Promise<CommonSection[]> => resolveMock(getSections()),
-  listConsents: (): Promise<ConsentForm[]> => resolveMock(getConsents()),
-  listCustomPrograms: (): Promise<CustomProgram[]> => resolveMock(getCustomPrograms()),
+  screeningQuestions: record.screening_questions || [],
+  checkoutQuestions: record.checkout_questions || [],
+  consentIds: record.consent_ids || [],
+  sexRequirement: record.sex_requirement || "any",
+  minAge: record.min_age ?? null,
+  maxAge: record.max_age ?? null,
+  minBmi: record.min_bmi ?? null,
+  maxBmi: record.max_bmi ?? null,
+});
 
-  getCustomProgram: (id: string): Promise<CustomProgram | undefined> =>
-    resolveMock(getCustomPrograms().find((program) => program.id === id)),
+const mapProgramToApi = (
+  program: Program,
+  treatmentTypes: TreatmentType[]
+): Omit<
+  ProgramApiRecord,
+  | "id"
+  | "treatment_type_key"
+  | "treatment_type_name"
+  | "visit_type"
+  | "publish_version"
+  | "created_at"
+  | "updated_at"
+> => {
+  const treatmentType = treatmentTypes.find((item) => item.key === program.treatmentTypeKey);
+  if (!treatmentType) {
+    throw new Error(`Treatment type ${program.treatmentTypeKey} was not found`);
+  }
 
-  getProgram: (id: string): Promise<Program | undefined> =>
-    resolveMock(getPrograms().find((program) => program.id === id)),
+  return {
+    treatment_type: treatmentType.id,
+    source_questionnaire_template: null,
+    name: program.name.trim(),
+    slug: slugifyTreatmentValue(program.slug || program.name),
+    description: program.description || "",
+    stage: program.stage,
+    question_count: program.questionCount || 0,
+    checkout_question_count: program.checkoutQuestionCount || 0,
+    status: program.status,
+    auth_config: program.authConfig || {
+      email: true,
+      phone: false,
+      identity: false,
+      account: true,
+    },
+    screening_questions: program.screeningQuestions || [],
+    checkout_questions: program.checkoutQuestions || [],
+    consent_ids: program.consentIds || [],
+    sex_requirement: program.sexRequirement || "any",
+    min_age: program.minAge ?? null,
+    max_age: program.maxAge ?? null,
+    min_bmi: program.minBmi ?? null,
+    max_bmi: program.maxBmi ?? null,
+    phase: program.stage === "follow_up" ? "follow_up" : "onboarding",
+  };
+};
 
-  listProgramQuestions: (programId: string): Promise<ProgramQuestion[]> =>
-    resolveMock(getProgramQuestions(programId)),
+export const treatmentsApi = {
+  listStats: async (): Promise<ContentLibraryStats> => {
+    const [consents, sections, customPrograms, programs] = await Promise.all([
+      treatmentsApi.listConsents(),
+      treatmentsApi.listSections(),
+      treatmentsApi.listCustomPrograms(),
+      treatmentsApi.listPrograms(),
+    ]);
 
-  saveProgramQuestions: (programId: string, questions: ProgramQuestion[]): Promise<ProgramQuestion[]> => {
-    setProgramQuestions(programId, questions);
-    return resolveMock(questions);
+    return {
+      consentForms: consents.length,
+      commonSections: sections.length,
+      programs: programs.length,
+      customPrograms: customPrograms.length,
+    };
+  },
+  listTreatmentTypes: async (): Promise<TreatmentType[]> => {
+    const { data } = await axiosInstance.get<
+      PaginatedResponse<TreatmentTypeApiRecord> | TreatmentTypeApiRecord[]
+    >("treatments/types/");
+    const records = Array.isArray(data) ? data : data.results || [];
+    return records.map(mapTreatmentTypeFromApi);
+  },
+  listPrograms: async (): Promise<Program[]> => {
+    const { data } = await axiosInstance.get<PaginatedResponse<ProgramApiRecord> | ProgramApiRecord[]>(
+      "treatments/programs/"
+    );
+    const records = Array.isArray(data) ? data : data.results || [];
+    return records.map(mapProgramFromApi);
+  },
+  listSections: async (): Promise<CommonSection[]> => {
+    const { data } = await axiosInstance.get<PaginatedResponse<SectionApiRecord> | SectionApiRecord[]>(
+      "treatments/sections/"
+    );
+    const records = Array.isArray(data) ? data : data.results || [];
+    return records.map(mapSectionFromApi);
+  },
+  listConsents: async (): Promise<ConsentForm[]> => {
+    const { data } = await axiosInstance.get<PaginatedResponse<ConsentApiRecord> | ConsentApiRecord[]>(
+      "treatments/consents/"
+    );
+    const records = Array.isArray(data) ? data : data.results || [];
+    return records.map(mapConsentFromApi);
+  },
+  listCustomPrograms: async (): Promise<CustomProgram[]> => {
+    const { data } = await axiosInstance.get<
+      PaginatedResponse<CustomProgramApiRecord> | CustomProgramApiRecord[]
+    >("treatments/custom-programs/");
+    const records = Array.isArray(data) ? data : data.results || [];
+    return records.map(mapCustomProgramFromApi);
+  },
+
+  getCustomProgram: async (id: string): Promise<CustomProgram | undefined> => {
+    if (!isPersistedUuid(id)) {
+      return getCustomPrograms().find((program) => program.id === id);
+    }
+    const { data } = await axiosInstance.get<CustomProgramApiRecord>(`treatments/custom-programs/${id}/`);
+    return mapCustomProgramFromApi(data);
+  },
+
+  getProgram: async (id: string): Promise<Program | undefined> => {
+    if (!isPersistedUuid(id)) {
+      return getPrograms().find((program) => program.id === id || program.slug === id);
+    }
+    const { data } = await axiosInstance.get<ProgramApiRecord>(`treatments/programs/${id}/`);
+    return mapProgramFromApi(data);
+  },
+
+  listProgramQuestions: async (programId: string): Promise<ProgramQuestion[]> => {
+    if (!isPersistedUuid(programId)) {
+      return getProgramQuestions(programId);
+    }
+    const { data } = await axiosInstance.get<ProgramQuestion[]>(`treatments/programs/${programId}/questions/`);
+    return data || [];
+  },
+
+  saveProgramQuestions: async (programId: string, questions: ProgramQuestion[]): Promise<ProgramQuestion[]> => {
+    if (!isPersistedUuid(programId)) {
+      setProgramQuestions(programId, questions);
+      return questions;
+    }
+    const { data } = await axiosInstance.put<ProgramQuestion[]>(
+      `treatments/programs/${programId}/questions/`,
+      { questions }
+    );
+    return data;
   },
 
   // Mutations
-  saveCustomProgram: (program: CustomProgram): Promise<CustomProgram> => {
-    const list = getCustomPrograms();
-    const index = list.findIndex((p) => p.id === program.id);
-    if (index >= 0) {
-      list[index] = { ...program, updatedAt: currentDateStamp() };
-    } else {
-      list.push({ ...program, id: createMockId("custom"), updatedAt: currentDateStamp() });
+  saveCustomProgram: async (program: CustomProgram): Promise<CustomProgram> => {
+    const payload = mapCustomProgramToApi(program);
+    if (isPersistedUuid(program.id)) {
+      const { data } = await axiosInstance.patch<CustomProgramApiRecord>(
+        `treatments/custom-programs/${program.id}/`,
+        payload
+      );
+      return mapCustomProgramFromApi(data);
     }
-    setStored(KEYS.CUSTOM_PROGRAMS, list);
-    return resolveMock(program);
+    const { data } = await axiosInstance.post<CustomProgramApiRecord>("treatments/custom-programs/", payload);
+    return mapCustomProgramFromApi(data);
   },
 
-  deleteCustomProgram: (id: string): Promise<void> => {
-    const list = getCustomPrograms().filter((p) => p.id !== id);
-    setStored(KEYS.CUSTOM_PROGRAMS, list);
-    return resolveMock(undefined);
-  },
-
-  saveProgram: (program: Program): Promise<Program> => {
-    const list = getPrograms();
-    const index = list.findIndex((p) => p.id === program.id);
-    if (index >= 0) {
-      list[index] = { ...program, updatedAt: new Date().toISOString().split("T")[0] };
-    } else {
-      list.push(program);
+  deleteCustomProgram: async (id: string): Promise<void> => {
+    if (!isPersistedUuid(id)) {
+      const list = getCustomPrograms().filter((p) => p.id !== id);
+      setStored(KEYS.CUSTOM_PROGRAMS, list);
+      return;
     }
-    setStored(KEYS.PROGRAMS, list);
-    return resolveMock(program);
+    await axiosInstance.delete(`treatments/custom-programs/${id}/`);
   },
 
-  saveProgramQuestion: (programId: string, question: ProgramQuestion): Promise<ProgramQuestion> => {
-    const list = getProgramQuestions(programId);
+  saveProgram: async (program: Program): Promise<Program> => {
+    const treatmentTypes = await treatmentsApi.listTreatmentTypes();
+    const payload = mapProgramToApi(program, treatmentTypes);
+
+    if (isPersistedUuid(program.id)) {
+      const { data } = await axiosInstance.patch<ProgramApiRecord>(
+        `treatments/programs/${program.id}/`,
+        payload
+      );
+      return mapProgramFromApi(data);
+    }
+
+    const { data } = await axiosInstance.post<ProgramApiRecord>("treatments/programs/", payload);
+    return mapProgramFromApi(data);
+  },
+
+  saveProgramQuestion: async (programId: string, question: ProgramQuestion): Promise<ProgramQuestion> => {
+    const list = await treatmentsApi.listProgramQuestions(programId);
     const index = list.findIndex((q) => q.id === question.id);
+    const nextQuestion = {
+      ...question,
+      order: question.order || (index >= 0 ? list[index].order : list.length + 1),
+    };
+    const updated = [...list];
     if (index >= 0) {
-      list[index] = question;
+      updated[index] = nextQuestion;
     } else {
-      list.push(question);
+      updated.push(nextQuestion);
     }
-    setProgramQuestions(programId, list);
-    return resolveMock(question);
+    const saved = await treatmentsApi.saveProgramQuestions(programId, updated);
+    return saved.find((item) => item.id === nextQuestion.id) || nextQuestion;
   },
 
-  deleteProgramQuestion: (programId: string, questionId: string): Promise<void> => {
-    const list = getProgramQuestions(programId).filter((q) => q.id !== questionId);
+  deleteProgramQuestion: async (programId: string, questionId: string): Promise<void> => {
+    const list = (await treatmentsApi.listProgramQuestions(programId)).filter((q) => q.id !== questionId);
     // Recalculate order
     const updated = list.map((q, idx) => ({ ...q, order: idx + 1 }));
-    setProgramQuestions(programId, updated);
-    return resolveMock(undefined);
+    await treatmentsApi.saveProgramQuestions(programId, updated);
   },
 
-  reorderProgramQuestions: (programId: string, questionIds: string[]): Promise<void> => {
-    const list = getProgramQuestions(programId);
+  reorderProgramQuestions: async (programId: string, questionIds: string[]): Promise<void> => {
+    const list = await treatmentsApi.listProgramQuestions(programId);
     const reordered = questionIds.map((id, index) => {
       const found = list.find((q) => q.id === id);
       if (!found) {
@@ -472,107 +863,120 @@ export const treatmentsApi = {
       }
       return { ...found, order: index + 1 };
     });
-    setProgramQuestions(programId, reordered);
-    return resolveMock(undefined);
+    await treatmentsApi.saveProgramQuestions(programId, reordered);
   },
 
-  listSectionFields: (sectionId: string): Promise<CommonSectionField[]> =>
-    resolveMock(getSectionFields(sectionId)),
+  listSectionFields: async (sectionId: string): Promise<CommonSectionField[]> => {
+    if (!isPersistedUuid(sectionId)) {
+      return getSectionFields(sectionId);
+    }
+    const { data } = await axiosInstance.get<SectionFieldApiRecord[]>(`treatments/sections/${sectionId}/fields/`);
+    return data.map(mapSectionFieldFromApi);
+  },
 
-  saveSectionFields: (
+  saveSectionFields: async (
     sectionId: string,
     fields: CommonSectionField[]
   ): Promise<CommonSectionField[]> => {
-    setSectionFields(sectionId, fields);
-    return resolveMock(fields);
+    if (!isPersistedUuid(sectionId)) {
+      setSectionFields(sectionId, fields);
+      return fields;
+    }
+    const payload = {
+      fields: fields.map(mapSectionFieldToApi),
+    };
+    const { data } = await axiosInstance.put<SectionFieldApiRecord[]>(
+      `treatments/sections/${sectionId}/fields/`,
+      payload
+    );
+    return data.map(mapSectionFieldFromApi);
   },
 
-  saveSectionField: (
+  saveSectionField: async (
     sectionId: string,
     field: CommonSectionField
   ): Promise<CommonSectionField> => {
-    const list = getSectionFields(sectionId);
+    const list = await treatmentsApi.listSectionFields(sectionId);
     const index = list.findIndex((f) => f.id === field.id);
+    const updated = [...list];
     if (index >= 0) {
-      list[index] = field;
+      updated[index] = field;
     } else {
-      list.push(field);
+      updated.push(field);
     }
-    setSectionFields(sectionId, list);
-    return resolveMock(field);
+    const saved = await treatmentsApi.saveSectionFields(sectionId, updated);
+    return saved.find((item) => item.order === field.order && item.label === field.label) || field;
   },
 
-  deleteSectionField: (sectionId: string, fieldId: string): Promise<void> => {
-    const list = getSectionFields(sectionId).filter((f) => f.id !== fieldId);
-    const updated = list.map((f, idx) => ({ ...f, order: idx + 1 }));
-    setSectionFields(sectionId, updated);
-    return resolveMock(undefined);
+  deleteSectionField: async (sectionId: string, fieldId: string): Promise<void> => {
+    const list = await treatmentsApi.listSectionFields(sectionId);
+    const updated = list.filter((f) => f.id !== fieldId).map((f, idx) => ({ ...f, order: idx + 1 }));
+    await treatmentsApi.saveSectionFields(sectionId, updated);
   },
 
-  reorderSectionFields: (sectionId: string, fieldIds: string[]): Promise<void> => {
-    const list = getSectionFields(sectionId);
-    const reordered = fieldIds.map((id, index) => {
-      const found = list.find((f) => f.id === id);
-      if (!found) {
-        throw new Error(`Section field ${id} was not found`);
-      }
-      return { ...found, order: index + 1 };
+  reorderSectionFields: async (sectionId: string, fieldIds: string[]): Promise<void> => {
+    if (!isPersistedUuid(sectionId)) {
+      const list = getSectionFields(sectionId);
+      const reordered = fieldIds.map((id, index) => {
+        const found = list.find((f) => f.id === id);
+        if (!found) {
+          throw new Error(`Section field ${id} was not found`);
+        }
+        return { ...found, order: index + 1 };
+      });
+      setSectionFields(sectionId, reordered);
+      return;
+    }
+    await axiosInstance.post(`treatments/sections/${sectionId}/fields/reorder/`, {
+      field_ids: fieldIds,
     });
-    setSectionFields(sectionId, reordered);
-    return resolveMock(undefined);
   },
 
-  saveSection: (section: CommonSection): Promise<CommonSection> => {
-    const list = getSections();
-    const index = list.findIndex((s) => s.id === section.id);
-    if (index >= 0) {
-      list[index] = { ...section, updatedAt: currentDateStamp() };
-    } else {
-      list.push({ ...section, id: createMockId("section"), updatedAt: currentDateStamp() });
+  saveSection: async (section: CommonSection): Promise<CommonSection> => {
+    const payload = mapSectionToApi(section);
+    if (isPersistedUuid(section.id)) {
+      const { data } = await axiosInstance.patch<SectionApiRecord>(`treatments/sections/${section.id}/`, payload);
+      return mapSectionFromApi(data);
     }
-    setStored(KEYS.SECTIONS, list);
-    return resolveMock(section);
+    const { data } = await axiosInstance.post<SectionApiRecord>("treatments/sections/", payload);
+    return mapSectionFromApi(data);
   },
 
-  deleteSection: (id: string): Promise<void> => {
-    const list = getSections().filter((s) => s.id !== id);
-    setStored(KEYS.SECTIONS, list);
-    return resolveMock(undefined);
+  deleteSection: async (id: string): Promise<void> => {
+    await axiosInstance.delete(`treatments/sections/${id}/`);
   },
 
-  saveConsent: (consent: ConsentForm): Promise<ConsentForm> => {
-    const list = getConsents();
-    const index = list.findIndex((c) => c.id === consent.id);
-    if (index >= 0) {
-      list[index] = { ...consent, updatedAt: currentDateStamp() };
-    } else {
-      list.push({ ...consent, id: createMockId("consent"), updatedAt: currentDateStamp() });
+  saveConsent: async (consent: ConsentForm): Promise<ConsentForm> => {
+    const payload = mapConsentToApi(consent);
+    if (isPersistedUuid(consent.id)) {
+      const { data } = await axiosInstance.patch<ConsentApiRecord>(`treatments/consents/${consent.id}/`, payload);
+      return mapConsentFromApi(data);
     }
-    setStored(KEYS.CONSENTS, list);
-    return resolveMock(consent);
+    const { data } = await axiosInstance.post<ConsentApiRecord>("treatments/consents/", payload);
+    return mapConsentFromApi(data);
   },
 
-  deleteConsent: (id: string): Promise<void> => {
-    const list = getConsents().filter((c) => c.id !== id);
-    setStored(KEYS.CONSENTS, list);
-    return resolveMock(undefined);
+  deleteConsent: async (id: string): Promise<void> => {
+    await axiosInstance.delete(`treatments/consents/${id}/`);
   },
 
-  saveTreatmentType: (type: TreatmentType): Promise<TreatmentType> => {
-    const list = getTreatmentTypes();
-    const index = list.findIndex((t) => t.id === type.id || t.key === type.key);
-    if (index >= 0) {
-      list[index] = type;
-    } else {
-      list.push({ ...type, id: createMockId("tt") });
+  saveTreatmentType: async (type: TreatmentType): Promise<TreatmentType> => {
+    const payload = mapTreatmentTypeToApi(type);
+    const hasPersistedId = Boolean(type.id && !String(type.id).startsWith("tt-"));
+
+    if (hasPersistedId) {
+      const { data } = await axiosInstance.patch<TreatmentTypeApiRecord>(
+        `treatments/types/${type.id}/`,
+        payload
+      );
+      return mapTreatmentTypeFromApi(data);
     }
-    setStored(KEYS.TREATMENT_TYPES, list);
-    return resolveMock(type);
+
+    const { data } = await axiosInstance.post<TreatmentTypeApiRecord>("treatments/types/", payload);
+    return mapTreatmentTypeFromApi(data);
   },
 
-  deleteTreatmentType: (id: string): Promise<void> => {
-    const list = getTreatmentTypes().filter((t) => t.id !== id);
-    setStored(KEYS.TREATMENT_TYPES, list);
-    return resolveMock(undefined);
+  deleteTreatmentType: async (id: string): Promise<void> => {
+    await axiosInstance.delete(`treatments/types/${id}/`);
   },
 };

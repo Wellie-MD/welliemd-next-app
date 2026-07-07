@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Grid3X3, List as ListIcon, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { CommonSection } from "@/features/treatments/types";
-import { useProgramQuestions } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import type { CommonSection, ProgramQuestion } from "@/features/treatments/types";
+import { useSectionFields } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { SharedQuestionsList } from "@/features/treatments/common/components/SharedQuestionsList";
 import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
 
@@ -13,11 +13,20 @@ interface SectionFieldsViewProps {
 }
 
 export function SectionFieldsView({ section, onBack }: SectionFieldsViewProps) {
-  const { data: initialQuestions = [] } = useProgramQuestions(section.id);
+  const { data: sectionFields = [] } = useSectionFields(section.id);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const viewMode = searchParams.get("view") === "flow" ? "flow" : "list";
   const [isSimulateOpen, setIsSimulateOpen] = useState(false);
+
+  const initialQuestions: ProgramQuestion[] = sectionFields.map((field) => ({
+    id: field.id,
+    order: field.order,
+    text: field.label,
+    kind: field.kind,
+    section: section.name,
+    required: field.required,
+  }));
 
   const setViewMode = (mode: "list" | "flow") => {
     setSearchParams({ sectionId: section.id, view: mode }, { replace: true });
@@ -83,4 +92,3 @@ export function SectionFieldsView({ section, onBack }: SectionFieldsViewProps) {
     </>
   );
 }
-

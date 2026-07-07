@@ -1,6 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { treatmentsApi } from "@/features/treatments/api/treatmentsApi";
-import type { CustomProgram, Program, ProgramQuestion, CommonSection, ConsentForm, TreatmentType } from "@/features/treatments/types";
+import type {
+  CommonSection,
+  CommonSectionField,
+  ConsentForm,
+  CustomProgram,
+  Program,
+  ProgramQuestion,
+  TreatmentType,
+} from "@/features/treatments/types";
 
 export const treatmentQueryKeys = {
   all: ["treatments"] as const,
@@ -12,6 +20,7 @@ export const treatmentQueryKeys = {
   customPrograms: () => [...treatmentQueryKeys.all, "custom-programs"] as const,
   customProgram: (id: string) => [...treatmentQueryKeys.customPrograms(), id] as const,
   sections: () => [...treatmentQueryKeys.all, "sections"] as const,
+  sectionFields: (sectionId: string) => [...treatmentQueryKeys.sections(), sectionId, "fields"] as const,
   consents: () => [...treatmentQueryKeys.all, "consents"] as const,
 };
 
@@ -55,6 +64,12 @@ export const useSections = () =>
   useQuery({
     queryKey: treatmentQueryKeys.sections(),
     queryFn: treatmentsApi.listSections,
+  });
+
+export const useSectionFields = (sectionId: string) =>
+  useQuery({
+    queryKey: treatmentQueryKeys.sectionFields(sectionId),
+    queryFn: () => treatmentsApi.listSectionFields(sectionId),
   });
 
 export const useConsents = () =>
@@ -156,6 +171,39 @@ export const useDeleteSection = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.sections() });
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
+    },
+  });
+};
+
+export const useSaveSectionField = (sectionId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (field: CommonSectionField) => treatmentsApi.saveSectionField(sectionId, field),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.sectionFields(sectionId) });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.sections() });
+    },
+  });
+};
+
+export const useDeleteSectionField = (sectionId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (fieldId: string) => treatmentsApi.deleteSectionField(sectionId, fieldId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.sectionFields(sectionId) });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.sections() });
+    },
+  });
+};
+
+export const useReorderSectionFields = (sectionId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (fieldIds: string[]) => treatmentsApi.reorderSectionFields(sectionId, fieldIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.sectionFields(sectionId) });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.sections() });
     },
   });
 };

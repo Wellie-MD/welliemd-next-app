@@ -40,6 +40,12 @@ export default function ProgramsPage() {
     setIsCreateOpen(true);
   };
 
+  const handleAddIntake = (treatmentKey: string) => {
+    setPrefillTreatmentTypeKey(treatmentKey);
+    setPrefillStage("intake");
+    setIsCreateOpen(true);
+  };
+
   const handleSaveProgram = (programData: Omit<Program, "id" | "questionCount" | "checkoutQuestionCount" | "status" | "updatedAt">) => {
     const newProg: Program = {
       id: createMockId("program"),
@@ -245,6 +251,7 @@ export default function ProgramsPage() {
                 treatment={t}
                 intakeProgram={intake}
                 followUpProgram={followUp}
+                onAddIntake={handleAddIntake}
                 onAddFollowUp={handleAddFollowUp}
               />
             );

@@ -17,7 +17,7 @@ interface TreatmentTypeTableProps {
   allTreatmentTypes: TreatmentType[];
   programs: Program[];
   onEdit?: (key: string) => void;
-  onDelete?: (key: string) => void;
+  onDelete?: (id: string) => void;
 }
 
 export function TreatmentTypeTable({
@@ -126,7 +126,7 @@ export function TreatmentTypeTable({
                         size="icon"
                         className="h-8 w-8 text-slate-400 hover:text-red-600"
                         title="Delete"
-                        onClick={() => onDelete(type.key)}
+                        onClick={() => onDelete(type.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

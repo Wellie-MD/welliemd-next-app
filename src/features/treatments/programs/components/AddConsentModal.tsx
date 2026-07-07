@@ -1,7 +1,7 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
-import { mockConsents } from "@/features/treatments/libraries/data/consents.mock";
+import { useConsents } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 
 interface AddConsentModalProps {
   open: boolean;
@@ -34,8 +34,9 @@ const CONSENT_DESCRIPTIONS: Record<string, { tag: string; desc: string }> = {
 };
 
 export function AddConsentModal({ open, onOpenChange, onAddConsent, attachedConsentIds }: AddConsentModalProps) {
+  const { data: allConsents = [] } = useConsents();
   // We only show treatment-specific consents in this library modal (global ones are automatically applied)
-  const treatmentSpecificConsents = mockConsents.filter(c => c.scope === "treatment");
+  const treatmentSpecificConsents = allConsents.filter((c) => c.scope === "treatment");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

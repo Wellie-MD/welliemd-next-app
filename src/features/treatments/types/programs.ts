@@ -1,4 +1,5 @@
 import type { ProgramCheckoutQuestion } from "./checkout";
+import type { ProgramQuestion } from "./questions";
 
 export type ProgramStage = "intake" | "follow_up";
 
@@ -14,6 +15,7 @@ export interface ProgramAuthConfig {
 export interface Program {
   id: string;
   name: string;
+  description?: string;
   stage: ProgramStage;
   treatmentTypeKey: string;
   visitType: string;
@@ -23,6 +25,7 @@ export interface Program {
   updatedAt: string;
   slug: string;
   authConfig?: ProgramAuthConfig;
+  screeningQuestions?: ProgramQuestion[];
   checkoutQuestions?: ProgramCheckoutQuestion[];
   consentIds?: string[];
   sexRequirement?: "any" | "male" | "female";

@@ -32,8 +32,11 @@ import { createMockId } from "@/features/treatments/common/data/factories";
 import { useQueryClient } from "@tanstack/react-query";
 import { treatmentsApi } from "@/features/treatments/api/treatmentsApi";
 import {
+  useDeleteSectionField,
   useSaveProgramQuestion,
+  useSaveSectionField,
   useDeleteProgramQuestion,
+  useReorderSectionFields,
   useReorderProgramQuestions,
   treatmentQueryKeys,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
@@ -107,6 +110,9 @@ export function SharedQuestionsList({
   const saveQuestionMutation = useSaveProgramQuestion(entityId);
   const deleteQuestionMutation = useDeleteProgramQuestion(entityId);
   const reorderQuestionsMutation = useReorderProgramQuestions(entityId);
+  const saveSectionFieldMutation = useSaveSectionField(entityId);
+  const deleteSectionFieldMutation = useDeleteSectionField(entityId);
+  const reorderSectionFieldsMutation = useReorderSectionFields(entityId);
 
   // Flow-builder adapter derived from the live questions, so the Flow view and
   // the List view share one source of truth and one persistence store. Adding
@@ -154,9 +160,25 @@ export function SharedQuestionsList({
           section: existing?.section ?? (entityType === "section" ? entityName : "Default"),
         };
       });
-      await treatmentsApi.saveProgramQuestions(entityId, updated);
+      if (entityType === "section") {
+        await treatmentsApi.saveSectionFields(
+          entityId,
+          updated.map((question) => ({
+            id: question.id,
+            sectionId: entityId,
+            order: question.order,
+            label: question.text,
+            kind: question.kind,
+            required: question.required,
+          }))
+        );
+        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.sectionFields(entityId) });
+        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.sections() });
+      } else {
+        await treatmentsApi.saveProgramQuestions(entityId, updated);
+        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(entityId) });
+      }
       setQuestions(updated);
-      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(entityId) });
       toast({ title: "Flow Saved", description: "Question sequence saved successfully." });
     },
   }), [questions, entityType, entityId, entityName, headerTitle, flowSubtitle, queryClient]);
@@ -180,7 +202,11 @@ export function SharedQuestionsList({
       }));
 
       setQuestions(updated);
-      reorderQuestionsMutation.mutate(
+      const reorderMutation = entityType === "section"
+        ? reorderSectionFieldsMutation
+        : reorderQuestionsMutation;
+
+      reorderMutation.mutate(
         updated.map((q) => q.id),
         {
           onSuccess: () => {
@@ -268,7 +294,8 @@ export function SharedQuestionsList({
 
   const confirmDelete = () => {
     if (questionToDeleteId) {
-      deleteQuestionMutation.mutate(questionToDeleteId, {
+      const deleteMutation = entityType === "section" ? deleteSectionFieldMutation : deleteQuestionMutation;
+      deleteMutation.mutate(questionToDeleteId, {
         onSuccess: () => {
           setQuestions((prev) => prev.filter((q) => q.id !== questionToDeleteId));
           toast({ title: "Element Removed", description: "The element has been removed successfully." });
@@ -282,7 +309,21 @@ export function SharedQuestionsList({
   const handleAddQuestionSave = (updatedQuestion: ProgramQuestion) => {
     const isEditing = questions.some((q) => q.id === updatedQuestion.id);
 
-    saveQuestionMutation.mutate(updatedQuestion, {
+    const mutation = entityType === "section"
+      ? saveSectionFieldMutation
+      : saveQuestionMutation;
+    const payload = entityType === "section"
+      ? {
+          id: updatedQuestion.id,
+          sectionId: entityId,
+          order: updatedQuestion.order,
+          label: updatedQuestion.text,
+          kind: updatedQuestion.kind,
+          required: updatedQuestion.required,
+        }
+      : updatedQuestion;
+
+    mutation.mutate(payload as never, {
       onSuccess: () => {
         setQuestions((prev) => {
           if (isEditing) {

@@ -7,6 +7,7 @@ interface TreatmentProgramCardProps {
   treatment: TreatmentType;
   intakeProgram?: Program;
   followUpProgram?: Program;
+  onAddIntake: (treatmentKey: string) => void;
   onAddFollowUp: (treatmentKey: string) => void;
 }
 
@@ -43,7 +44,13 @@ const formatTimeAgo = (isoDateString: string) => {
   return `Updated ${diffDays} days ago`;
 };
 
-export function TreatmentProgramCard({ treatment, intakeProgram, followUpProgram, onAddFollowUp }: TreatmentProgramCardProps) {
+export function TreatmentProgramCard({
+  treatment,
+  intakeProgram,
+  followUpProgram,
+  onAddIntake,
+  onAddFollowUp,
+}: TreatmentProgramCardProps) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col hover:border-slate-300 transition-colors">
       
@@ -114,7 +121,12 @@ export function TreatmentProgramCard({ treatment, intakeProgram, followUpProgram
               <span className="text-[11px] italic text-slate-400 mb-3 text-center">
                 No intake module yet.
               </span>
-              <Button variant="outline" size="sm" className="h-7 text-[10px] font-bold text-slate-500 border-dashed border-slate-300 w-full rounded">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onAddIntake(treatment.key)}
+                className="h-7 text-[10px] font-bold text-slate-500 border-dashed border-slate-300 w-full rounded hover:bg-slate-50 hover:text-slate-700 hover:border-slate-400"
+              >
                 <Plus className="h-3 w-3 mr-1" />
                 Add intake
               </Button>
