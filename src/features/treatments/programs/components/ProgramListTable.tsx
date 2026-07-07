@@ -54,7 +54,9 @@ export function ProgramListTable({ programs }: ProgramListTableProps) {
                   {program.visitType}
                 </code>
               </TableCell>
-              <TableCell className="text-slate-600">{program.questionCount}</TableCell>
+              <TableCell className="text-slate-600">
+                {(program.questionCount || 0) + (program.checkoutQuestionCount || 0)}
+              </TableCell>
               <TableCell className="text-slate-600">{program.checkoutQuestionCount}</TableCell>
               <TableCell>
                 <StatusPill tone={program.status === "published" ? "green" : "yellow"}>

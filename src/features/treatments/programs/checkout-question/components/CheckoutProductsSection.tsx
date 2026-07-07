@@ -1,4 +1,8 @@
+import { useEffect, useMemo, useState } from "react";
 import { Info, Plus } from "lucide-react";
+import { productCategoryApi, type ProductCategory } from "@/api/productCategories";
+import { titrationCategoryApi, type TitrationCategory } from "@/api/titrationCategories";
+import { listDoseMappings, type ProductDoseMapping } from "@/api/productDoseMappings";
 import type { ProgramCheckoutProduct, ProgramQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
 import { CheckoutProductRow } from "./CheckoutProductRow";
 
@@ -8,7 +12,11 @@ interface CheckoutProductsSectionProps {
   eligibleQuestions: ProgramQuestion[];
   onAddProduct: () => void;
   onRemoveProduct: (index: number) => void;
-  onProductFieldChange: (index: number, field: keyof ProgramCheckoutProduct, value: string) => void;
+  onProductFieldChange: (
+    index: number,
+    field: keyof ProgramCheckoutProduct,
+    value: ProgramCheckoutProduct[keyof ProgramCheckoutProduct]
+  ) => void;
   onProductPriceChange: (index: number, value: string) => void;
   onProductVisibilityChange: (index: number, group: VisibilityRuleGroup | undefined) => void;
 }
@@ -22,6 +30,46 @@ export function CheckoutProductsSection({
   onProductPriceChange,
   onProductVisibilityChange,
 }: CheckoutProductsSectionProps) {
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [titrationCategories, setTitrationCategories] = useState<TitrationCategory[]>([]);
+  const [doseMappings, setDoseMappings] = useState<ProductDoseMapping[]>([]);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchCatalogMetadata = async () => {
+      try {
+        const [nextCategories, nextTitrationCategories, nextDoseMappings] = await Promise.all([
+          productCategoryApi.listCategories(),
+          titrationCategoryApi.listCategories({ is_active: true, page_size: 100 }),
+          listDoseMappings({ page_size: 1000 }),
+        ]);
+
+        if (cancelled) return;
+        setCategories(nextCategories || []);
+        setTitrationCategories(nextTitrationCategories || []);
+        setDoseMappings(nextDoseMappings?.results || []);
+        setCatalogError(null);
+      } catch (error) {
+        if (cancelled) return;
+        console.error("Failed to fetch checkout product catalog metadata:", error);
+        setCatalogError("Unable to load product catalog metadata from Django.");
+      }
+    };
+
+    fetchCatalogMetadata();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const hasCatalogData = useMemo(
+    () => categories.length > 0 || titrationCategories.length > 0 || doseMappings.length > 0,
+    [categories.length, titrationCategories.length, doseMappings.length]
+  );
+
   return (
     <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5">
       <div className="flex items-center justify-between">
@@ -34,8 +82,18 @@ export function CheckoutProductsSection({
         </span>
       </div>
       <div className="text-[11.5px] leading-normal text-slate-400">
-        Add one or more products the patient can choose from. Each product is a structured Category / Regimen / Dose combination — matching uses the structured fields, not the official product name. Use per-product visibility rules to show different products based on the patient&apos;s earlier answers.
+        Add one or more products the patient can choose from. Each product is a structured Category / Regimen / Dose combination sourced from the Django product catalog. Use per-product visibility rules to show different products based on the patient&apos;s earlier answers.
       </div>
+      {catalogError && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11.5px] font-semibold text-amber-700">
+          {catalogError}
+        </div>
+      )}
+      {!catalogError && !hasCatalogData && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11.5px] font-medium text-slate-500">
+          Loading product catalog metadata…
+        </div>
+      )}
 
       <div className="space-y-4">
         {products.map((product, index) => (
@@ -45,6 +103,9 @@ export function CheckoutProductsSection({
             index={index}
             productCount={products.length}
             eligibleQuestions={eligibleQuestions}
+            categories={categories}
+            titrationCategories={titrationCategories}
+            doseMappings={doseMappings}
             onRemoveProduct={onRemoveProduct}
             onProductFieldChange={onProductFieldChange}
             onProductPriceChange={onProductPriceChange}

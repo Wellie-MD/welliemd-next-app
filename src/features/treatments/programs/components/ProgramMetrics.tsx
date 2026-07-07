@@ -26,7 +26,7 @@ export function ProgramMetrics({
         <div className="text-[11px] font-semibold text-slate-400">Plans using this module</div>
       </div>
       <div className="flex-1 min-w-[200px] bg-white px-6 py-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-center">
-        <div className="text-3xl font-extrabold text-slate-900 mb-1">{visitType ? "-" : "-"}</div>
+        <div className="text-3xl font-extrabold text-slate-900 mb-1">{visitType || "-"}</div>
         <div className="text-[11px] font-semibold text-slate-400">Visit type</div>
       </div>
     </div>

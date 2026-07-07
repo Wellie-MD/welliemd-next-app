@@ -247,7 +247,7 @@ export default function ProgramDetailPage() {
         screeningCount={allQuestions.length}
         checkoutCount={(foundProgram.checkoutQuestions || []).length}
         planCount={1}
-        visitType={foundProgram.visitType || "weightloss"}
+        visitType={foundProgram.visitType || ""}
       />
 
       {viewMode === "list" ? (
@@ -334,10 +334,6 @@ export default function ProgramDetailPage() {
             saveProgramQuestionsMutation.mutate(updatedQuestions);
           } else {
             saveProgramQuestionsMutation.mutate([...allQuestions, updatedQuestion]);
-            saveProgramMutation.mutate({
-              ...foundProgram,
-              questionCount: allQuestions.length + 1,
-            });
           }
         }}
       />

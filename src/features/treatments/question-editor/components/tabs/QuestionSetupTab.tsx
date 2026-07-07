@@ -1,6 +1,62 @@
 import { Settings2 } from "lucide-react";
 import type { QuestionKind } from "@/features/treatments/types";
 
+const QUESTION_TYPE_GROUPS: Array<{
+  label: string;
+  options: Array<{ value: QuestionKind; label: string }>;
+}> = [
+  {
+    label: "Basic Inputs",
+    options: [
+      { value: "text", label: "Text (Short Answer)" },
+      { value: "textarea", label: "Text Area (Long Answer)" },
+      { value: "number", label: "Number" },
+      { value: "date", label: "Date" },
+    ],
+  },
+  {
+    label: "Contact & Location",
+    options: [
+      { value: "email", label: "Email Address" },
+      { value: "phone", label: "Phone Number" },
+      { value: "zip", label: "ZIP Code" },
+      { value: "state_routing", label: "State Routing (Service Area Check)" },
+    ],
+  },
+  {
+    label: "Choices",
+    options: [
+      { value: "single_choice", label: "Single Choice (Radio)" },
+      { value: "multiple_choice", label: "Multiple Choice (Checkbox)" },
+    ],
+  },
+  {
+    label: "Specialized",
+    options: [
+      { value: "height_weight", label: "BMI (Height, Weight & Auto-Calculate)" },
+      { value: "file_upload", label: "File Upload" },
+      { value: "medication_dose", label: "Medication & Dose Selector" },
+    ],
+  },
+  {
+    label: "Grouped Fields",
+    options: [
+      { value: "personal_details", label: "Personal Details (Grouped)" },
+      { value: "shipping_address", label: "Shipping Address (Grouped)" },
+    ],
+  },
+  {
+    label: "Beluga Mapped",
+    options: [
+      { value: "sex", label: "Sex (Beluga Mapped)" },
+      { value: "self_reported_meds", label: "Self Reported Medications (Beluga Mapped)" },
+      { value: "allergies", label: "Allergies (Beluga Mapped)" },
+      { value: "medical_conditions", label: "Medical Conditions (Beluga Mapped)" },
+      { value: "labs_preference", label: "Labs Preference (Beluga Mapped)" },
+    ],
+  },
+];
+
 interface QuestionSetupTabProps {
   text: string;
   setText: (val: string) => void;
@@ -47,19 +103,15 @@ export function QuestionSetupTab({
             value={kind}
             onChange={(e) => setKind(e.target.value as QuestionKind)}
           >
-            <optgroup label="Basic Inputs">
-              <option value="text">Short Text</option>
-              <option value="textarea">Long Text</option>
-              <option value="single_choice">Single Choice</option>
-              <option value="multiple_choice">Multiple Choice</option>
-              <option value="number">Number</option>
-              <option value="yes_no">Yes / No</option>
-            </optgroup>
-            <optgroup label="Specialized">
-              <option value="checkout">Checkout (Product Display)</option>
-              <option value="consent">Consent Document</option>
-              <option value="auth">Patient Authentication</option>
-            </optgroup>
+            {QUESTION_TYPE_GROUPS.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
           </select>
         </div>
       </div>

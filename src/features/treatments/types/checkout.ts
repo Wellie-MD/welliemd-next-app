@@ -2,8 +2,14 @@ import type { VisibilityRuleGroup } from "./questions";
 
 export interface ProgramCheckoutProduct {
   id: string;
+  /** Backend product category identifier; label is retained for display/backward compatibility. */
+  categoryId?: number;
   category: string;
+  /** Backend titration/regimen category identifier; label is retained for display/backward compatibility. */
+  regimenId?: number;
   regimen: string;
+  /** Backend dose mapping identifier; label is retained for display/backward compatibility. */
+  doseMappingId?: number;
   doseLabel: string;
   productId?: string;
   /** Monthly price in USD. When omitted, falls back to the structured price map. */

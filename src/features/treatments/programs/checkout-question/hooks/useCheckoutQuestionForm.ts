@@ -24,8 +24,11 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
       setProducts(
         (initialQuestion.products || []).map((product) => ({
           id: product.id,
+          categoryId: product.categoryId,
           category: product.category,
+          regimenId: product.regimenId,
           regimen: product.regimen,
+          doseMappingId: product.doseMappingId,
           doseLabel: product.doseLabel,
           productId: product.productId,
           price: product.price,
@@ -67,11 +70,21 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     });
   };
 
-  const handleProductFieldChange = (index: number, field: keyof ProductForm, value: string) => {
+  const handleProductFieldChange = (
+    index: number,
+    field: keyof ProductForm,
+    value: ProductForm[keyof ProductForm]
+  ) => {
     setProducts((current) =>
       current.map((product, itemIndex) => {
         if (itemIndex !== index) return product;
-        return { ...product, [field]: value, ...(field === "category" ? { doseLabel: "" } : {}) };
+        return {
+          ...product,
+          [field]: value,
+          ...(field === "category"
+            ? { doseLabel: "", doseMappingId: undefined }
+            : {}),
+        };
       })
     );
   };

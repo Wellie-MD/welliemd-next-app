@@ -41,8 +41,11 @@ export const checkoutProductFactory = (
   overrides: Omit<ProgramCheckoutProduct, "id"> & Partial<Pick<ProgramCheckoutProduct, "id">>
 ): ProgramCheckoutProduct => ({
   id: overrides.id ?? createMockId("pcp"),
+  categoryId: overrides.categoryId,
   category: overrides.category,
+  regimenId: overrides.regimenId,
   regimen: overrides.regimen,
+  doseMappingId: overrides.doseMappingId,
   doseLabel: overrides.doseLabel,
   productId: overrides.productId,
   price: overrides.price,

@@ -149,6 +149,8 @@ export const useSaveProgramQuestions = (programId: string) => {
     mutationFn: (questions: ProgramQuestion[]) => treatmentsApi.saveProgramQuestions(programId, questions),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(programId) });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
     },
   });
 };

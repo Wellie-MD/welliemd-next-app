@@ -1,6 +1,9 @@
 import { ChevronDown, Eye, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VisibilityRuleBuilder } from "@/components/questionnaires/VisibilityRuleBuilder";
+import type { ProductCategory } from "@/api/productCategories";
+import type { ProductDoseMapping } from "@/api/productDoseMappings";
+import type { TitrationCategory } from "@/api/titrationCategories";
 import {
   fromBuilderGroup,
   toBuilderGroup,
@@ -11,15 +14,21 @@ import type {
   ProgramQuestion,
   VisibilityRuleGroup,
 } from "@/features/treatments/types";
-import { DOSE_MAPPINGS, PRODUCT_CATEGORIES, TITRATION_CATEGORIES } from "../utils/checkoutQuestionConstants";
 
 interface CheckoutProductRowProps {
   product: ProgramCheckoutProduct;
   index: number;
   productCount: number;
   eligibleQuestions: ProgramQuestion[];
+  categories: ProductCategory[];
+  titrationCategories: TitrationCategory[];
+  doseMappings: ProductDoseMapping[];
   onRemoveProduct: (index: number) => void;
-  onProductFieldChange: (index: number, field: keyof ProgramCheckoutProduct, value: string) => void;
+  onProductFieldChange: (
+    index: number,
+    field: keyof ProgramCheckoutProduct,
+    value: ProgramCheckoutProduct[keyof ProgramCheckoutProduct]
+  ) => void;
   onProductPriceChange: (index: number, value: string) => void;
   onProductVisibilityChange: (index: number, group: VisibilityRuleGroup | undefined) => void;
 }
@@ -35,13 +44,55 @@ export function CheckoutProductRow({
   index,
   productCount,
   eligibleQuestions,
+  categories,
+  titrationCategories,
+  doseMappings,
   onRemoveProduct,
   onProductFieldChange,
   onProductPriceChange,
   onProductVisibilityChange,
 }: CheckoutProductRowProps) {
-  const categoryDoses = DOSE_MAPPINGS.filter((dose) => dose.category === product.category);
+  const selectedCategoryId =
+    product.categoryId ||
+    categories.find((category) => category.name === product.category)?.id;
+  const selectedRegimenId =
+    product.regimenId ||
+    titrationCategories.find((category) => category.name === product.regimen)?.id;
+  const selectedDoseMappingId =
+    product.doseMappingId ||
+    doseMappings.find(
+      (mapping) =>
+        mapping.patient_label === product.doseLabel &&
+        (!selectedCategoryId || mapping.category === selectedCategoryId)
+    )?.id;
+  const categoryDoses = selectedCategoryId
+    ? doseMappings.filter((dose) => dose.category === selectedCategoryId)
+    : [];
   const hasRules = hasActiveVisibilityRules(product.visibilityRules);
+
+  const handleCategoryChange = (value: string) => {
+    const category = categories.find((item) => String(item.id) === value);
+    onProductFieldChange(index, "categoryId", category?.id);
+    onProductFieldChange(index, "category", category?.name || "");
+    onProductFieldChange(index, "doseMappingId", undefined);
+    onProductFieldChange(index, "doseLabel", "");
+  };
+
+  const handleRegimenChange = (value: string) => {
+    const regimen = titrationCategories.find((item) => String(item.id) === value);
+    onProductFieldChange(index, "regimenId", regimen?.id);
+    onProductFieldChange(index, "regimen", regimen?.name || "");
+  };
+
+  const handleDoseChange = (value: string) => {
+    const doseMapping = doseMappings.find((item) => String(item.id) === value);
+    onProductFieldChange(index, "doseMappingId", doseMapping?.id);
+    onProductFieldChange(index, "doseLabel", doseMapping?.patient_label || doseMapping?.name || "");
+    if (doseMapping && !product.categoryId) {
+      onProductFieldChange(index, "categoryId", doseMapping.category);
+      onProductFieldChange(index, "category", doseMapping.category_name);
+    }
+  };
 
   return (
     <div className="relative space-y-3.5 rounded-lg border border-slate-200 bg-white p-4">
@@ -63,27 +114,30 @@ export function CheckoutProductRow({
       <div className="space-y-3">
         <SelectField
           label="Category"
-          value={product.category}
-          onChange={(value) => onProductFieldChange(index, "category", value)}
-          options={PRODUCT_CATEGORIES}
+          value={selectedCategoryId ? String(selectedCategoryId) : ""}
+          onChange={handleCategoryChange}
+          options={categories.map((category) => ({ value: String(category.id), label: category.name }))}
           placeholder="— Select category —"
           testId={`checkout-product-category-${index}`}
         />
         <SelectField
           label="Titration / Regimen"
-          value={product.regimen}
-          onChange={(value) => onProductFieldChange(index, "regimen", value)}
-          options={TITRATION_CATEGORIES}
+          value={selectedRegimenId ? String(selectedRegimenId) : ""}
+          onChange={handleRegimenChange}
+          options={titrationCategories.map((category) => ({ value: String(category.id), label: category.name }))}
           placeholder="— Select regimen —"
           testId={`checkout-product-regimen-${index}`}
         />
         <SelectField
           label="Dose Level"
-          value={product.doseLabel}
-          onChange={(value) => onProductFieldChange(index, "doseLabel", value)}
-          options={categoryDoses.map((dose) => dose.label)}
+          value={selectedDoseMappingId ? String(selectedDoseMappingId) : ""}
+          onChange={handleDoseChange}
+          options={categoryDoses.map((dose) => ({
+            value: String(dose.id),
+            label: dose.patient_label || dose.name,
+          }))}
           placeholder={product.category ? "— Select dose level —" : "— Select category first —"}
-          disabled={!product.category}
+          disabled={!selectedCategoryId}
           testId={`checkout-product-dose-${index}`}
         />
 
@@ -175,7 +229,7 @@ function SelectField({
 }: {
   label: string;
   value: string;
-  options: string[];
+  options: Array<{ value: string; label: string }>;
   placeholder: string;
   disabled?: boolean;
   testId: string;
@@ -196,8 +250,8 @@ function SelectField({
         >
           <option value="">{placeholder}</option>
           {options.map((option) => (
-            <option key={option} value={option}>
-              {option}
+            <option key={option.value} value={option.value}>
+              {option.label}
             </option>
           ))}
         </select>

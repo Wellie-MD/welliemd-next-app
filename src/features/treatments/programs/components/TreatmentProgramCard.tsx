@@ -44,6 +44,11 @@ const formatTimeAgo = (isoDateString: string) => {
   return `Updated ${diffDays} days ago`;
 };
 
+const getTotalQuestionCount = (program: Program) =>
+  (program.questionCount || 0) + (program.checkoutQuestionCount || 0);
+
+const getVisitTypeLabel = (program: Program) => program.visitType || "-";
+
 export function TreatmentProgramCard({
   treatment,
   intakeProgram,
@@ -96,10 +101,10 @@ export function TreatmentProgramCard({
           {intakeProgram ? (
             <div className="flex-1 flex flex-col">
               <div className="inline-flex items-center justify-center border border-slate-200 rounded px-2 py-0.5 text-[10px] font-semibold text-slate-500 bg-white mb-3 self-start">
-                {intakeProgram.visitType}
+                {getVisitTypeLabel(intakeProgram)}
               </div>
               <div className="text-[13px] font-bold text-slate-900 leading-none">
-                {intakeProgram.questionCount} questions
+                {getTotalQuestionCount(intakeProgram)} questions
               </div>
               <div className="text-[11px] text-slate-400 mt-1">
                 {formatTimeAgo(intakeProgram.updatedAt)}
@@ -155,10 +160,10 @@ export function TreatmentProgramCard({
           {followUpProgram ? (
             <div className="flex-1 flex flex-col">
               <div className="inline-flex items-center justify-center border border-slate-200 rounded px-2 py-0.5 text-[10px] font-semibold text-slate-500 bg-white mb-3 self-start">
-                {followUpProgram.visitType}
+                {getVisitTypeLabel(followUpProgram)}
               </div>
               <div className="text-[13px] font-bold text-slate-900 leading-none">
-                {followUpProgram.questionCount} questions
+                {getTotalQuestionCount(followUpProgram)} questions
               </div>
               <div className="text-[11px] text-slate-400 mt-1">
                 {formatTimeAgo(followUpProgram.updatedAt)}
