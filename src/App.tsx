@@ -27,6 +27,7 @@ import TemplateAssignmentHistory from "./pages/TemplateAssignmentHistory";
 import Pharmacies from "./pages/Pharmacies";
 import TreatmentConfigurations from "./pages/TreatmentConfigurations";
 import Orders from "./pages/Orders";
+import LabOrders from "./pages/LabOrders";
 import Prescriptions from "./pages/Prescriptions";
 import NotFound from "./pages/NotFound";
 import Payments from "./pages/Payments";
@@ -52,6 +53,8 @@ import MasterKeyAccess from "./pages/MasterKeyAccess";
 import CrossTenantAccessUsers from "./pages/CrossTenantAccessUsers";
 import ClientPerformance from "./pages/ClientPerformance";
 import Labs from "./pages/Labs";
+import LabSettings from "./pages/LabSettings";
+import TestCatalog from "./pages/TestCatalog";
 
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -127,6 +130,7 @@ const App = () => {
                     <Route path="/treatments" element={<ProtectedRoute><Treatments /></ProtectedRoute>} />
                     <Route path="/treatments/configurations" element={<ProtectedRoute><TreatmentConfigurations /></ProtectedRoute>} />
                     <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+                    <Route path="/orders/labs" element={<ProtectedRoute><LabOrders /></ProtectedRoute>} />
                     <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
                     {/* <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} /> // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-2 */}
                     {/* <Route path="/prescriptions" element={<ProtectedRoute><Prescriptions /></ProtectedRoute>} />  */} // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-3
@@ -136,6 +140,8 @@ const App = () => {
                     <Route path="/products/config" element={<ProtectedRoute><ProductConfig /></ProtectedRoute>} />
                     <Route path="/products/supplies" element={<ProtectedRoute><Supplies /></ProtectedRoute>} />
                     <Route path="/products/labs" element={<ProtectedRoute><Labs /></ProtectedRoute>} />
+                    <Route path="/products/labs/settings" element={<ProtectedRoute><LabSettings /></ProtectedRoute>} />
+                    <Route path="/products/labs/catalog" element={<ProtectedRoute><TestCatalog /></ProtectedRoute>} />
                     <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
                     <Route path="/analytics/performance" element={<ProtectedRoute><ClientPerformance /></ProtectedRoute>} />
                     <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />

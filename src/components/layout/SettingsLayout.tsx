@@ -14,6 +14,7 @@ import WebhooksApis from "@/pages/settings/WebhooksApis"
 import PrescribingDoctors from "@/pages/settings/PrescribingDoctors"
 import Brand from "@/pages/settings/Brand"
 import AnalyticsSeo from "@/pages/settings/AnalyticsSeo"
+import JunctionLabs from "@/pages/settings/JunctionLabs"
 
 export function SettingsLayout() {
   return (
@@ -37,6 +38,7 @@ export function SettingsLayout() {
               <Route path="payments" element={<Payments />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="webhooks-apis" element={<WebhooksApis />} />
+              <Route path="junction-labs" element={<JunctionLabs />} />
               <Route path="files" element={<Files />} />
               <Route path="policies" element={<Policies />} />
               <Route path="metafields" element={<Metafields />} />

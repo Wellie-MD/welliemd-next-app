@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Download } from "lucide-react";
@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/select";
 import { exportToCSV } from "@/utils/exportUtils";
 import { OrderDetailDrawer } from "@/components/orders/OrderDetailDrawer";
-import { labsApi } from "@/api/labs";
 
 // Tone utility matching the CSS colors in the prototype
 function getOrderTone(s: string): [string, string, string] {
@@ -61,7 +60,6 @@ interface NormalizedOrder {
 
 export default function Orders() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [orderType, setOrderType] = useState<"all" | "rx" | "lab">("lab"); // Default select Lab orders as in screenshot
   const [statusFilter, setStatusFilter] = useState("all");
   const [payFilter, setPayFilter] = useState("all");
   const [visitFilter, setVisitFilter] = useState("all");
@@ -69,43 +67,18 @@ export default function Orders() {
 
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [labOrders, setLabOrders] = useState<any[]>([]);
-
   const { orders, refetch } = useAdminOrders({ page_size: 100 });
 
-  const fetchLabOrders = useCallback(async () => {
-    try {
-      const data = await labsApi.getAdminLabOrders();
-      setLabOrders(data);
-    } catch (e) {
-      console.error(e);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchLabOrders();
-  }, [fetchLabOrders]);
-
   const handleOrderClick = (row: NormalizedOrder) => {
-    if (row.type === "lab") {
-      // Pass the lab order raw structure
-      setSelectedOrder({
-        ...row._raw,
-        is_lab: true
-      });
-    } else {
-      // Pass the rx order raw structure
-      setSelectedOrder({
-        ...row._raw,
-        is_lab: false
-      });
-    }
+    setSelectedOrder({
+      ...row._raw,
+      is_lab: false
+    });
     setDrawerOpen(true);
   };
 
   const handleOrderUpdated = () => {
     refetch();
-    fetchLabOrders();
   };
 
   // Map and Normalize all orders
@@ -165,51 +138,12 @@ export default function Orders() {
       };
     });
 
-    const labList: NormalizedOrder[] = labOrders.map(o => {
-      // Fulfillment Mapping
-      let mappedFulfill = "Not Started";
-      if (o.timeline.results) mappedFulfill = "Results Ready";
-      else if (o.timeline.sample_collected) mappedFulfill = "Sample Collected";
-      else if (o.timeline.ordered) mappedFulfill = "Requisition Created";
-
-      if (o.status === "Canceled") {
-        mappedFulfill = "Not Started";
-      }
-
-      // If results ready but still in process
-      if (o.resultsReady) {
-        mappedFulfill = "Results Ready";
-      } else if (o.timeline.sample_collected && o.status === "In Process" && o.lab_provider === "LabCorp") {
-        mappedFulfill = "At Lab";
-      }
-
-      return {
-        type: "lab",
-        id: o.id || "",
-        patient: o.patient_name || "",
-        email: o.patient_email || "",
-        phone: o.patient_phone || "",
-        client: o.client_name || "",
-        product: o.product_name || "",
-        fulfiller: o.lab_provider || "Quest Diagnostics",
-        orderStatus: o.status || "In Process",
-        payment: o.payment_status || "Paid",
-        visit: o.visit_status || "Prescribed",
-        fulfillment: mappedFulfill,
-        amount: o.price || 0,
-        remaining: null,
-        date: o.timeline.ordered || "",
-        _raw: o
-      };
-    });
-
-    return [...rxList, ...labList];
-  }, [orders, labOrders]);
+    return rxList;
+  }, [orders]);
 
   // Apply filters
   const filteredOrders = useMemo(() => {
     return allNormalizedOrders.filter(o => {
-      if (orderType !== "all" && o.type !== orderType) return false;
       if (statusFilter !== "all" && o.orderStatus !== statusFilter) return false;
       if (payFilter !== "all" && o.payment !== payFilter) return false;
       if (visitFilter !== "all" && o.visit !== visitFilter) return false;
@@ -226,10 +160,9 @@ export default function Orders() {
       }
       return true;
     });
-  }, [allNormalizedOrders, orderType, statusFilter, payFilter, visitFilter, fulfillFilter, searchTerm]);
+  }, [allNormalizedOrders, statusFilter, payFilter, visitFilter, fulfillFilter, searchTerm]);
 
   const handleResetFilters = () => {
-    setOrderType("all");
     setStatusFilter("all");
     setPayFilter("all");
     setVisitFilter("all");
@@ -253,7 +186,7 @@ export default function Orders() {
       { key: "amount", label: "Amount" },
       { key: "date", label: "Date" }
     ];
-    exportToCSV(filteredOrders, columns, `orders_export_${orderType}`);
+    exportToCSV(filteredOrders, columns, "rx_orders_export");
   };
 
   return (
@@ -261,9 +194,9 @@ export default function Orders() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Orders</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Rx Orders</h1>
           <p className="text-xs text-muted-foreground mt-1 max-w-3xl leading-relaxed">
-            All medication and lab orders across clients
+            Medication orders across clients
           </p>
         </div>
         <div className="flex justify-start sm:justify-end">
@@ -281,26 +214,7 @@ export default function Orders() {
       {/* Filters Bar */}
       <div className="flex flex-col gap-4 bg-muted/10 p-3 sm:p-4 rounded-lg border border-border/40">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          {/* Order Type Tabs */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex gap-1 bg-muted/40 p-1 border rounded-lg shrink-0">
-              {(["all", "rx", "lab"] as const).map(type => (
-                <button
-                  key={type}
-                  onClick={() => setOrderType(type)}
-                  className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${
-                    orderType === type
-                      ? "bg-white text-foreground shadow-sm border border-border/60"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {type === "all" ? "All" : type === "rx" ? "Rx orders" : "Lab orders"}
-                </button>
-              ))}
-            </div>
-
-            <span className="w-[1px] h-[18px] bg-border/80 mx-1 hidden sm:inline-block"></span>
-
             {/* Select Dropdowns in a wrap container */}
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               {/* Select Status */}
@@ -359,14 +273,6 @@ export default function Orders() {
                     <SelectItem value="Rx Sent" className="text-xs">Rx Sent</SelectItem>
                     <SelectItem value="Shipped" className="text-xs">Shipped</SelectItem>
                     <SelectItem value="Delivered" className="text-xs">Delivered</SelectItem>
-                  </SelectGroup>
-                  <SelectGroup>
-                    <SelectLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground py-1 px-2.5">Lab</SelectLabel>
-                    <SelectItem value="Requisition Created" className="text-xs">Requisition Created</SelectItem>
-                    <SelectItem value="Sample Collected" className="text-xs">Sample Collected</SelectItem>
-                    <SelectItem value="At Lab" className="text-xs">At Lab</SelectItem>
-                    <SelectItem value="Partial Results" className="text-xs">Partial Results</SelectItem>
-                    <SelectItem value="Results Ready" className="text-xs">Results Ready</SelectItem>
                   </SelectGroup>
                 </SelectContent>
               </Select>

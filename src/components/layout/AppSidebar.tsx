@@ -59,8 +59,11 @@ const menuSections = [
       // },
       {
         title: "Orders",
-        url: "/dashboard/orders",
         icon: ShoppingBag,
+        children: [
+          { title: "Rx Orders", url: "/dashboard/orders" },
+          { title: "Lab Orders", url: "/dashboard/orders/labs" },
+        ],
       },
       { title: "Payments", url: "/dashboard/payments", icon: CreditCard },
       { title: "Messenger", url: "/dashboard/messages", icon: MessageSquare },
@@ -89,6 +92,8 @@ const menuSections = [
           { title: "Medicine", url: "/dashboard/products" },
           { title: "Supplies", url: "/dashboard/products/supplies" },
           { title: "Labs", url: "/dashboard/products/labs" },
+          { title: "Test Catalog", url: "/dashboard/products/labs/catalog" },
+          { title: "Junction Settings", url: "/dashboard/products/labs/settings" },
           { title: "Configuration", url: "/dashboard/products/config" }
         ]
       },

@@ -4,7 +4,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
   SheetFooter,
 } from "@/components/ui/sheet";
 import {
@@ -26,10 +25,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AdminOrder, updateAdminOrder, OrderUpdatePayload } from "@/api/dashboardApi";
+import { updateAdminOrder, OrderUpdatePayload } from "@/api/dashboardApi";
 import { toast } from "@/components/ui/use-toast";
 import { Hexagon, User, Mail, Phone, FileText, Download } from "lucide-react";
 import { labsApi } from "@/api/labs";
+import { labOrderToneStyles } from "@/features/labs/constants/tones";
+import { getLabEventTime } from "@/features/labs/utils/lifecycle";
+import { extractLabResultRows } from "@/features/labs/utils/resultRows";
 
 interface OrderDetailDrawerProps {
   order: any | null;
@@ -38,20 +40,9 @@ interface OrderDetailDrawerProps {
   onOrderUpdated: (updatedOrder: any) => void;
 }
 
-// Tone utility matching the CSS colors in the prototype
-function getOrderTone(s: string): [string, string, string] {
-  const t = (s || "").toLowerCase();
-  if (/cancel|fail|declin/.test(t))                          return ["#fee2e2", "#991b1b", "#fecaca"];
-  if (/partially/.test(t))                                   return ["#ffedd5", "#9a3412", "#fed7aa"];
-  if (/not started|draft/.test(t))                           return ["#f1f5f9", "#64748b", "#e2e8f0"];
-  if (/paid|shipped|delivered|completed|results ready|prescribed/.test(t)) return ["#dcfce7", "#166534", "#bbf7d0"];
-  if (/authorized|beluga|rx sent|at lab|in process/.test(t)) return ["#dbeafe", "#1e40af", "#bfdbfe"];
-  return ["#fef3c7", "#92400e", "#fde68a"];
-}
-
 function OrderPill({ status }: { status: string }) {
   if (!status || status === "—") return <span className="text-muted-foreground">—</span>;
-  const [bg, fg, bd] = getOrderTone(status);
+  const [bg, fg, bd] = labOrderToneStyles(status);
   return (
     <span
       className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap"
@@ -91,7 +82,6 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
 
   const handleOpen = (isOpen: boolean) => {
     if (isOpen && order) {
-      // Map raw status or display status
       setNewStatus(order.status_display || order.status || "");
       setTrackingNumber(order.tracking_number || "");
     }
@@ -101,26 +91,21 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
   const handleSave = async () => {
     if (!order) return;
 
-    // Normalizing status value
     const normalizedStatus = newStatus === "Completed" ? "Completed" : newStatus;
 
     if (order.is_lab) {
       setSaving(true);
       try {
-        const ordersList = JSON.parse(localStorage.getItem("welliemd_mock_orders_v2") || "[]");
-        const idx = ordersList.findIndex((x: any) => x.id === order.id);
-        if (idx !== -1) {
-          ordersList[idx].status = normalizedStatus;
-          ordersList[idx].timeline.sample_collected = order.timeline?.sample_collected || "06/12/2026";
-          ordersList[idx].tracking_number = trackingNumber;
-          localStorage.setItem("welliemd_mock_orders_v2", JSON.stringify(ordersList));
-          toast({
-            title: "Success",
-            description: "Lab order status updated."
-          });
-          onOrderUpdated(order);
-          onOpenChange(false);
-        }
+        const updatedOrder = await labsApi.updateAdminLabOrder(order.id, {
+          status: normalizedStatus,
+          tracking_number: trackingNumber,
+        });
+        toast({
+          title: "Success",
+          description: "Lab order status updated."
+        });
+        onOrderUpdated(updatedOrder);
+        onOpenChange(false);
       } catch (e) {
         console.error(e);
         toast({
@@ -134,7 +119,6 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
       return;
     }
 
-    // Backend update for Rx orders
     const hasStatusChange = newStatus && newStatus !== (order.status_display || order.status);
     const hasTrackingChange = trackingNumber !== (order.tracking_number || "");
 
@@ -145,7 +129,6 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
 
     setSaving(true);
     try {
-      // Map client-friendly display names to backend keys
       let backendStatus = newStatus.toLowerCase().replace(/ /g, "_");
       if (backendStatus === "completed") backendStatus = "shipped"; // completed/shipped
 
@@ -214,7 +197,6 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
               </div>
             </SheetHeader>
 
-            {/* Patient Section */}
             <div className="space-y-2.5">
               <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Patient</div>
               <div className="space-y-2 text-xs">
@@ -233,7 +215,6 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
               </div>
             </div>
 
-            {/* Order Info Section */}
             <div className="space-y-2.5 pt-4 border-t">
               <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Order Info</div>
               <div className="grid grid-cols-2 gap-y-2 text-xs">
@@ -243,7 +224,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                 <div className="text-muted-foreground">Product</div>
                 <div className="font-semibold text-foreground text-right truncate pl-2">{orderProduct}</div>
 
-                <div className="text-muted-foreground">Ordered (final)</div>
+                <div className="text-muted-foreground">{order.is_lab ? "Ordered panel" : "Ordered (final)"}</div>
                 <div className="text-right pl-2">
                   <span
                     className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border truncate max-w-full"
@@ -253,7 +234,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                   </span>
                 </div>
 
-                <div className="text-muted-foreground">Doctor</div>
+                <div className="text-muted-foreground">{order.is_lab ? "Ordering provider" : "Doctor"}</div>
                 <div className="font-semibold text-foreground text-right truncate pl-2">{order.doctor_name || "Mitchell Stotland MD"}</div>
 
                 <div className="text-muted-foreground">Lab</div>
@@ -264,46 +245,72 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                   ${orderAmount.toFixed(2)}
                 </div>
 
-                <div className="text-muted-foreground">Amount source</div>
-                <div className="text-right pl-2">
-                  <span
-                    className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap"
-                    style={{ backgroundColor: "#f1f5f9", color: "#475569", borderColor: "#e2e8f0" }}
-                  >
-                    {order.visit === "Declined" || order.visit_status === "Declined" 
-                      ? "Declined" 
-                      : (order.visit === "Prescribed" || order.visit_status === "Prescribed" || order.status === "Completed")
-                        ? "Prescribed (final)"
-                        : "Requested"}
-                  </span>
-                </div>
+                {!order.is_lab && (
+                  <>
+                    <div className="text-muted-foreground">Amount source</div>
+                    <div className="text-right pl-2">
+                      <span
+                        className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap"
+                        style={{ backgroundColor: "#f1f5f9", color: "#475569", borderColor: "#e2e8f0" }}
+                      >
+                        {order.visit === "Declined" || order.visit_status === "Declined" 
+                          ? "Declined" 
+                          : (order.visit === "Prescribed" || order.visit_status === "Prescribed" || order.status === "Completed")
+                            ? "Prescribed (final)"
+                            : "Requested"}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
-            {/* Timeline Section */}
             <div className="space-y-2.5 pt-4 border-t">
               <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Timeline</div>
               <div className="grid grid-cols-2 gap-y-2 text-xs">
-                <div className="text-muted-foreground">Ordered</div>
-                <div className="font-semibold text-foreground text-right">
-                  {order.timeline?.ordered || order.date || "—"}
-                </div>
+                {order.is_lab ? (
+                  <>
+                    <div className="text-muted-foreground">Ordered</div>
+                    <div className="font-semibold text-foreground text-right">{order.timeline?.ordered || order.date || "—"}</div>
+                    
+                    <div className="text-muted-foreground">Requisition created</div>
+                    <div className="font-semibold text-foreground text-right">{getLabEventTime(order.lifecycle_events || labResults?.lifecycle_events, ["requisition"]) || order.timeline?.requisition_created || "—"}</div>
+                    
+                    <div className="text-muted-foreground">Appointment link sent</div>
+                    <div className="font-semibold text-foreground text-right">{getLabEventTime(order.lifecycle_events || labResults?.lifecycle_events, ["appointment link", "link sent"]) || order.timeline?.appointment_link_sent || "—"}</div>
+                    
+                    <div className="text-muted-foreground">Appointment booked</div>
+                    <div className="font-semibold text-foreground text-right">{getLabEventTime(order.lifecycle_events || labResults?.lifecycle_events, ["scheduled", "booked"]) || order.timeline?.appointment_booked || "—"}</div>
+                    
+                    <div className="text-muted-foreground">Sample collected</div>
+                    <div className="font-semibold text-foreground text-right">{getLabEventTime(order.lifecycle_events || labResults?.lifecycle_events, ["sample", "collected"]) || order.timeline?.sample_collected || "—"}</div>
+                    
+                    <div className="text-muted-foreground">At lab</div>
+                    <div className="font-semibold text-foreground text-right">{getLabEventTime(order.lifecycle_events || labResults?.lifecycle_events, ["at lab"]) || order.timeline?.at_lab || "—"}</div>
+                    
+                    <div className="text-muted-foreground">Partial results</div>
+                    <div className="font-semibold text-foreground text-right">{getLabEventTime(order.lifecycle_events || labResults?.lifecycle_events, ["partial"]) || order.timeline?.partial_results || "—"}</div>
+                    
+                    <div className="text-muted-foreground">Results</div>
+                    <div className="font-semibold text-foreground text-right">{getLabEventTime(order.lifecycle_events || labResults?.lifecycle_events, ["result"]) || order.timeline?.results || "—"}</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-muted-foreground">Ordered</div>
+                    <div className="font-semibold text-foreground text-right">{order.timeline?.ordered || order.date || "—"}</div>
 
-                <div className="text-muted-foreground">Sample collected</div>
-                <div className="font-semibold text-foreground text-right">
-                  {order.timeline?.sample_collected || "—"}
-                </div>
+                    <div className="text-muted-foreground">Sample collected</div>
+                    <div className="font-semibold text-foreground text-right">{order.timeline?.sample_collected || "—"}</div>
 
-                <div className="text-muted-foreground">Results</div>
-                <div className="font-semibold text-foreground text-right">
-                  {order.timeline?.results || "—"}
-                </div>
+                    <div className="text-muted-foreground">Results</div>
+                    <div className="font-semibold text-foreground text-right">{order.timeline?.results || "—"}</div>
+                  </>
+                )}
               </div>
             </div>
 
-            {/* View Lab Results Button */}
             {order.is_lab && (
-              <div className="pt-2">
+              <div className="pt-2 flex flex-col gap-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -313,10 +320,44 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                   <FileText className="h-4 w-4" />
                   View lab results
                 </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-center text-xs h-9 font-semibold border border-input bg-background hover:bg-muted text-foreground flex items-center gap-1.5"
+                  onClick={async () => {
+                    try {
+                      const base64 = await labsApi.getJunctionLabOrderResultsPdf(order.id);
+                      const linkSource = `data:application/pdf;base64,${base64}`;
+                      const downloadLink = document.createElement("a");
+                      downloadLink.href = linkSource;
+                      downloadLink.download = `results_${order.id}.pdf`;
+                      downloadLink.click();
+                    } catch (e) {
+                      console.error(e);
+                    }
+                  }}
+                >
+                  <Download className="h-4 w-4" />
+                  Download report (PDF)
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-center text-xs h-9 font-semibold border border-input bg-background hover:bg-muted text-foreground flex items-center gap-1.5"
+                  onClick={async () => {
+                    try {
+                      await labsApi.downloadAdminLabRequisitionPdf(order.id);
+                    } catch (e) {
+                      console.error(e);
+                    }
+                  }}
+                >
+                  <Download className="h-4 w-4" />
+                  Download requisition form
+                </Button>
               </div>
             )}
 
-            {/* Update Order Section */}
             <div className="space-y-3 pt-4 border-t">
               <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Update Order</div>
               <div className="space-y-1.5">
@@ -370,7 +411,6 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
         </SheetContent>
       </Sheet>
 
-      {/* Lab Results Modal */}
       <Dialog open={resultsOpen} onOpenChange={setResultsOpen}>
         <DialogContent className="w-[95vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader className="border-b pb-4">
@@ -409,7 +449,6 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
             </div>
           ) : labResults ? (
             <div className="space-y-6 pt-4">
-              {/* Metadata Header Block */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 bg-muted/40 p-4 rounded-lg text-xs sm:text-sm border">
                 <div>
                   <span className="text-[10px] sm:text-xs text-muted-foreground block">Patient Name</span>
@@ -437,15 +476,13 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                 </div>
               </div>
 
-              {/* Status Banner */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-md">
                 <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-none font-semibold w-fit">
                   Results Ready
                 </Badge>
-                <span className="text-xs font-medium">All {labResults.biomarkers?.length || 0} biomarkers successfully reported by lab.</span>
+                <span className="text-xs font-medium">All {extractLabResultRows(labResults).length} biomarkers successfully reported by lab.</span>
               </div>
 
-              {/* Biomarker Table */}
               <div className="border rounded-md overflow-hidden bg-card">
                 <div className="overflow-x-auto w-full">
                   <Table className="min-w-[500px]">
@@ -459,27 +496,32 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {labResults.biomarkers?.map((bm: any) => (
-                        <TableRow key={bm.id}>
-                          <TableCell className="font-medium text-foreground">{bm.name}</TableCell>
-                          <TableCell className="font-semibold">{bm.result}</TableCell>
-                          <TableCell className="text-muted-foreground text-xs">{bm.units}</TableCell>
-                          <TableCell className="text-muted-foreground text-xs">{bm.reference_range}</TableCell>
-                          <TableCell className="text-right">
-                            <Badge
-                              className={`border-none font-semibold ${
-                                bm.flag === "High"
-                                  ? "bg-rose-100 text-rose-800 hover:bg-rose-100"
-                                  : bm.flag === "Low"
-                                    ? "bg-sky-100 text-sky-800 hover:bg-sky-100"
-                                    : "bg-slate-100 text-slate-700 hover:bg-slate-100"
-                              }`}
-                            >
-                              {bm.flag}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {extractLabResultRows(labResults).map((bm: any) => {
+                        const flagLower = (bm.flag || "").toLowerCase();
+                        const isHigh = flagLower.includes("high");
+                        const isLow = flagLower.includes("low");
+                        const isCritical = flagLower.includes("critical");
+                        const isAbnormal = flagLower.includes("abnormal");
+                        
+                        let badgeColor = "bg-slate-100 text-slate-700 hover:bg-slate-100";
+                        if (isCritical) badgeColor = "bg-red-100 text-red-800 hover:bg-red-100 border border-red-300 font-bold";
+                        else if (isHigh || isAbnormal) badgeColor = "bg-rose-100 text-rose-800 hover:bg-rose-100";
+                        else if (isLow) badgeColor = "bg-sky-100 text-sky-800 hover:bg-sky-100";
+
+                        return (
+                          <TableRow key={bm.id}>
+                            <TableCell className="font-medium text-foreground">{bm.name}</TableCell>
+                            <TableCell className="font-semibold">{bm.result}</TableCell>
+                            <TableCell className="text-muted-foreground text-xs">{bm.units}</TableCell>
+                            <TableCell className="text-muted-foreground text-xs">{bm.reference_range}</TableCell>
+                            <TableCell className="text-right">
+                              <Badge className={`border-none font-semibold ${badgeColor}`}>
+                                {bm.flag}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
