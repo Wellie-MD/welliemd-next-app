@@ -6,6 +6,8 @@
  */
 
 import axiosInstance from "@/api/axiosInstance";
+import { clientLabEndpoints } from "@/features/labs/api/endpoints";
+import { junctionMockEnabled, mockLabOrderDetail, mockLabOrders } from "@/features/labs/junctionMockData";
 
 // ---------------------------------------------------------------------------
 // Shared types
@@ -135,9 +137,19 @@ export interface LabOrder {
   display_id: string;
   patient_name: string;
   patient_email: string;
+  patient_phone?: string;
   lab_panel_name: string;
   lab_provider: string;
   collection_method?: string;
+  lab_event?: string;
+  lab_event_label?: string;
+  lab_event_tone?: string;
+  ui_order_status?: string;
+  ui_payment_status?: string;
+  ui_fulfillment_status?: string;
+  ui_lab_event?: string;
+  ui_lab_event_label?: string;
+  ui_lab_event_tone?: string;
   payment_status: string;
   order_status: string;
   results_status: string;
@@ -270,11 +282,21 @@ const normalizeOrder = (raw: Record<string, unknown>): LabOrder => ({
   display_id: String(raw.display_id ?? raw.id ?? ""),
   patient_name: String(raw.patient_name ?? ""),
   patient_email: String(raw.patient_email ?? ""),
+  patient_phone: raw.patient_phone ? String(raw.patient_phone) : undefined,
   lab_panel_name: String(raw.lab_panel_name ?? ""),
   lab_provider: String(raw.lab_provider ?? ""),
   collection_method: raw.collection_method ? String(raw.collection_method) : undefined,
-  payment_status: String(raw.payment_status ?? ""),
-  order_status: String(raw.order_status ?? ""),
+  lab_event: raw.ui_lab_event ? String(raw.ui_lab_event) : String(raw.lab_event ?? ""),
+  lab_event_label: raw.ui_lab_event_label ? String(raw.ui_lab_event_label) : String(raw.lab_event_label ?? ""),
+  lab_event_tone: raw.ui_lab_event_tone ? String(raw.ui_lab_event_tone) : undefined,
+  ui_order_status: raw.ui_order_status ? String(raw.ui_order_status) : undefined,
+  ui_payment_status: raw.ui_payment_status ? String(raw.ui_payment_status) : undefined,
+  ui_fulfillment_status: raw.ui_fulfillment_status ? String(raw.ui_fulfillment_status) : undefined,
+  ui_lab_event: raw.ui_lab_event ? String(raw.ui_lab_event) : undefined,
+  ui_lab_event_label: raw.ui_lab_event_label ? String(raw.ui_lab_event_label) : undefined,
+  ui_lab_event_tone: raw.ui_lab_event_tone ? String(raw.ui_lab_event_tone) : undefined,
+  payment_status: String(raw.ui_payment_status ?? raw.payment_status ?? ""),
+  order_status: String(raw.ui_order_status ?? raw.order_status ?? ""),
   results_status: String(raw.results_status ?? ""),
   total_paid: moneyToNumber(raw.total_paid),
   created_at: String(raw.created_at ?? ""),
@@ -291,7 +313,7 @@ export const clientLabsApi = {
    * Backend: GET /api/v1/client/labs/tests/
    */
   getLabPanels: async (): Promise<ClientLabPanel[]> => {
-    const { data } = await axiosInstance.get("client/labs/tests/");
+    const { data } = await axiosInstance.get(clientLabEndpoints.tests);
     return ((data.results ?? data ?? []) as Record<string, unknown>[]).map(normalizePanel);
   },
 
@@ -315,7 +337,7 @@ export const clientLabsApi = {
     if (updates.is_active !== undefined) body.is_active = updates.is_active;
     if (updates.service_states !== undefined) body.service_states = updates.service_states;
     if (updates.image_url !== undefined) body.image_url = updates.image_url;
-    const { data } = await axiosInstance.patch(`client/labs/tests/${assignmentId}/`, body);
+    const { data } = await axiosInstance.patch(clientLabEndpoints.testDetail(assignmentId), body);
     return normalizePanel(data as Record<string, unknown>);
   },
 
@@ -324,7 +346,8 @@ export const clientLabsApi = {
    * Backend: GET /api/v1/client/labs/orders/
    */
   getLabOrders: async (params?: { search?: string; status?: string; lab_panel_id?: string }): Promise<LabOrder[]> => {
-    const { data } = await axiosInstance.get("client/labs/orders/", { params });
+    if (junctionMockEnabled) return mockLabOrders;
+    const { data } = await axiosInstance.get(clientLabEndpoints.orders, { params });
     return ((data.results ?? data ?? []) as Record<string, unknown>[]).map(normalizeOrder);
   },
 
@@ -333,7 +356,11 @@ export const clientLabsApi = {
    * Backend: GET /api/v1/client/labs/orders/{id}/
    */
   getLabOrderDetail: async (orderId: string): Promise<LabOrderDetail> => {
-    const { data } = await axiosInstance.get(`client/labs/orders/${orderId}/`);
+    if (junctionMockEnabled) {
+      const detail = mockLabOrderDetail(orderId);
+      if (detail) return detail;
+    }
+    const { data } = await axiosInstance.get(clientLabEndpoints.orderDetail(orderId));
     return {
       order: normalizeOrder(data.order as Record<string, unknown>),
       lifecycle_events: Array.isArray(data.lifecycle_events) ? data.lifecycle_events : [],
@@ -353,12 +380,26 @@ export const clientLabsApi = {
   toggleResultAccess: async (orderId: string, allow: boolean): Promise<void> => {
     // The result_access_allowed flag is stored on the assignment, not the order.
     // We need to load the order detail first to get the assignment_id, then PATCH the assignment.
-    const detail = await axiosInstance.patch(`client/labs/orders/${orderId}/result-access/`, { result_access_allowed: allow });
+    const detail = await axiosInstance.patch(clientLabEndpoints.orderResultAccess(orderId), { result_access_allowed: allow });
     return detail.data;
   },
 
   getLabOrderResultPdf: async (orderId: string): Promise<Blob> => {
-    const { data } = await axiosInstance.get(`client/labs/orders/${orderId}/result-pdf/`, {
+    const { data } = await axiosInstance.get(clientLabEndpoints.orderResultPdf(orderId), {
+      responseType: "blob",
+    });
+    return data as Blob;
+  },
+
+  getLabOrderRequisitionPdf: async (orderId: string): Promise<Blob> => {
+    const { data } = await axiosInstance.get(clientLabEndpoints.orderRequisitionPdf(orderId), {
+      responseType: "blob",
+    });
+    return data as Blob;
+  },
+
+  getLabOrderCollectionInstructionsPdf: async (orderId: string): Promise<Blob> => {
+    const { data } = await axiosInstance.get(clientLabEndpoints.orderCollectionInstructionsPdf(orderId), {
       responseType: "blob",
     });
     return data as Blob;
@@ -369,7 +410,7 @@ export const clientLabsApi = {
    * Backend: GET /api/v1/client/labs/orders/{id}/result-pdf/
    */
   getLabOrderResultPdfUrl: async (orderId: string): Promise<string> => {
-    const { data } = await axiosInstance.get(`client/labs/orders/${orderId}/result-pdf/`);
+    const { data } = await axiosInstance.get(clientLabEndpoints.orderResultPdf(orderId));
     return String(data.url ?? "");
   },
 };

@@ -15,6 +15,9 @@ import {
 } from "@/components/ui/breadcrumb"
 import { useToast } from "@/hooks/use-toast"
 import { clientLabsApi } from "@/features/labs/api"
+import { formatLabCollectionMethod, formatLabOrderDate, formatLabTimelineDate } from "@/features/labs/utils/formatting"
+import { eventTime } from "@/features/labs/utils/lifecycle"
+import { extractLabResultRows } from "@/features/labs/utils/resultRows"
 
 const getInitials = (name?: string) => {
   if (!name) return "U"
@@ -28,57 +31,6 @@ const getInitials = (name?: string) => {
 const isUuid = (s: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)
 
-const extractResultRows = (result: Record<string, unknown> | null | undefined) => {
-  if (!result) return []
-  const maybeRows =
-    (Array.isArray(result.biomarkers) && result.biomarkers) ||
-    (Array.isArray(result.results) && result.results) ||
-    (Array.isArray(result.items) && result.items) ||
-    []
-  return maybeRows.map((row: any) => ({
-    biomarker: row.biomarker || row.test_name || row.name || "",
-    result: row.result || row.value || "",
-    units: row.units || "",
-    reference_range: row.reference_range || row.range || "",
-    flag: row.flag || row.interpretation || "",
-  }))
-}
-
-const eventTime = (events: Array<Record<string, unknown>>, matcher: (event: Record<string, unknown>) => boolean) => {
-  const event = events.find(matcher)
-  return String(event?.created_at || event?.timestamp || event?.occurred_at || "")
-}
-
-const formatTimelineDate = (value?: string) => {
-  if (!value) return "—"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "—"
-  return date.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).replace(",", " •")
-}
-
-const formatOrderDate = (value?: string) => {
-  if (!value) return "—"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "—"
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  })
-}
-
-const formatCollectionMethod = (method?: string) => {
-  if (!method) return "Collection method unavailable"
-  return method.replace(/_/g, " ")
-}
-
 export default function LabOrderDetail() {
   const { orderId } = useParams<{ orderId: string }>()
   const navigate = useNavigate()
@@ -88,6 +40,8 @@ export default function LabOrderDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [downloadingPdf, setDownloadingPdf] = useState(false)
+  const [downloadingRequisition, setDownloadingRequisition] = useState(false)
+  const [downloadingCollection, setDownloadingCollection] = useState(false)
   const [togglingRelease, setTogglingRelease] = useState(false)
 
   useEffect(() => {
@@ -106,7 +60,7 @@ export default function LabOrderDetail() {
         }
         const detail = await clientLabsApi.getLabOrderDetail(orderId)
         const events = detail.lifecycle_events || []
-        const resultRows = extractResultRows(detail.result)
+        const resultRows = extractLabResultRows(detail.result)
         if (!cancelled) {
           setOrder({
             ...detail.order,
@@ -120,9 +74,13 @@ export default function LabOrderDetail() {
             biomarkers: resultRows,
             timeline: {
               ordered: detail.order.created_at,
+              requisition: eventTime(events, (e) => String(e.status || e.event_type || "").toLowerCase().includes("requisition")),
+              appointment_pending: eventTime(events, (e) => String(e.status || e.event_type || "").toLowerCase().includes("appointment pending")),
+              appointment_scheduled: eventTime(events, (e) => String(e.status || e.event_type || "").toLowerCase().includes("appointment scheduled") || String(e.status || e.event_type || "").toLowerCase().includes("booked")),
               sample_collected: eventTime(events, (event) =>
                 String(event.status || event.event_type || "").toLowerCase().includes("sample")
               ),
+              at_lab: eventTime(events, (e) => String(e.status || e.event_type || "").toLowerCase().includes("at lab")),
               results: eventTime(events, (event) =>
                 String(event.status || event.event_type || "").toLowerCase().includes("result")
               ),
@@ -194,6 +152,54 @@ export default function LabOrderDetail() {
     }
   }
 
+  const handleDownloadRequisition = async () => {
+    if (!orderId) return
+    setDownloadingRequisition(true)
+    try {
+      const blob = await clientLabsApi.getLabOrderRequisitionPdf(orderId)
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `lab-requisition-${order?.display_id ?? orderId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err: any) {
+      toast({
+        title: "Download failed",
+        description: err?.response?.data?.detail ?? "Could not download the requisition PDF.",
+        variant: "destructive",
+      })
+    } finally {
+      setDownloadingRequisition(false)
+    }
+  }
+
+  const handleDownloadCollection = async () => {
+    if (!orderId) return
+    setDownloadingCollection(true)
+    try {
+      const blob = await clientLabsApi.getLabOrderCollectionInstructionsPdf(orderId)
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `lab-collection-instructions-${order?.display_id ?? orderId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err: any) {
+      toast({
+        title: "Download failed",
+        description: err?.response?.data?.detail ?? "Could not download the collection instructions PDF.",
+        variant: "destructive",
+      })
+    } finally {
+      setDownloadingCollection(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
@@ -207,8 +213,8 @@ export default function LabOrderDetail() {
       <div className="p-6 text-center">
         <h2 className="text-lg font-semibold text-red-600">Error</h2>
         <p className="text-slate-500 mt-2">{error || "Order not found"}</p>
-        <Button onClick={() => navigate("/dashboard/orders")} className="mt-4">
-          Back to Orders
+        <Button onClick={() => navigate("/dashboard/orders/labs")} className="mt-4">
+          Back to Lab Orders
         </Button>
       </div>
     )
@@ -216,33 +222,51 @@ export default function LabOrderDetail() {
 
   const orderTitle = order.display_id || order.id
   const orderDateStr = order.orderDate || order.created_at
-  const formattedOrderDate = formatOrderDate(orderDateStr)
-  const collectionMethodLabel = formatCollectionMethod(order.collection_method)
+  const formattedOrderDate = formatLabOrderDate(orderDateStr)
+  const collectionMethodLabel = formatLabCollectionMethod(order.collection_method)
   const statusLabel = order.results_status || order.order_status || "In Progress"
 
   const timelineMilestones = [
     {
       title: "Processing",
       description: "Payment Pending → Processing",
-      date: formatTimelineDate(order.timeline?.ordered),
+      date: formatLabTimelineDate(order.timeline?.ordered),
       active: !!order.timeline?.ordered,
     },
     {
       title: "Ordered",
       description: `Lab order created${order.pharmacy_display || order.lab_provider ? ` with ${order.pharmacy_display || order.lab_provider}` : ""}`,
-      date: formatTimelineDate(order.timeline?.ordered),
+      date: formatLabTimelineDate(order.timeline?.ordered),
       active: !!order.timeline?.ordered,
+    },
+    {
+      title: "Requisition Created",
+      description: "Requisition form generated",
+      date: formatLabTimelineDate(order.timeline?.requisition),
+      active: !!order.timeline?.requisition || !!order.timeline?.sample_collected || order.resultsReady,
+    },
+    {
+      title: "Appointment",
+      description: "Patient appointment booking",
+      date: formatLabTimelineDate(order.timeline?.appointment_scheduled || order.timeline?.appointment_pending),
+      active: !!order.timeline?.appointment_scheduled || !!order.timeline?.appointment_pending || !!order.timeline?.sample_collected || order.resultsReady,
     },
     {
       title: "Sample Collected",
       description: `${collectionMethodLabel} completed`,
-      date: formatTimelineDate(order.timeline?.sample_collected),
+      date: formatLabTimelineDate(order.timeline?.sample_collected),
       active: !!order.timeline?.sample_collected || order.resultsReady,
+    },
+    {
+      title: "At Lab",
+      description: "Sample arrived at the lab",
+      date: formatLabTimelineDate(order.timeline?.at_lab),
+      active: !!order.timeline?.at_lab || order.resultsReady,
     },
     {
       title: "Results Ready",
       description: "Results returned by lab",
-      date: formatTimelineDate(order.timeline?.results),
+      date: formatLabTimelineDate(order.timeline?.results),
       active: !!order.timeline?.results || order.resultsReady,
     },
   ];
@@ -256,15 +280,15 @@ export default function LabOrderDetail() {
             <BreadcrumbList className="text-sm text-gray-500 dark:text-gray-400">
               <BreadcrumbItem>
                 <BreadcrumbLink asChild>
-                  <Link to="/dashboard/orders" className="hover:text-gray-750 dark:hover:text-gray-300">
-                    Orders
+                  <Link to="/dashboard/orders/labs" className="hover:text-gray-750 dark:hover:text-gray-300">
+                    Lab Orders
                   </Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="text-gray-400">/</BreadcrumbSeparator>
               <BreadcrumbItem>
                 <BreadcrumbPage className="text-gray-900 dark:text-white font-medium">
-                  Order Details
+                  Lab Order Details
                 </BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
@@ -370,6 +394,10 @@ export default function LabOrderDetail() {
           togglingRelease={togglingRelease}
           onToggleRelease={handleToggleReleaseResults}
           getInitials={getInitials}
+          downloadingRequisition={downloadingRequisition}
+          onDownloadRequisition={handleDownloadRequisition}
+          downloadingCollection={downloadingCollection}
+          onDownloadCollection={handleDownloadCollection}
         />
       </div>
     </div>

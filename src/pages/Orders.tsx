@@ -3,13 +3,11 @@ import { useNavigate } from "react-router-dom"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { TrendingUp, Grid3X3, Eye, RefreshCw, Calendar as CalendarIcon, Download, Search, ChevronLeft, ChevronRight } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { TrendingUp, Grid3X3, Eye } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { ordersApi, Order } from "@/api/ordersApi"
 import { exportToCSV } from "@/utils/exportUtils"
-import { clientLabsApi, type LabOrder } from "@/features/labs/api"
-import { cn } from "@/lib/utils"
 
 /** Match admin portal order status filter pills → API `status` param */
 const ORDER_STATUS_FILTER_LABELS = [
@@ -133,28 +131,6 @@ const titleCaseStatus = (value?: string) => {
     .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
-const labOrderResultsReady = (order: LabOrder) => {
-  const status = `${order.results_status} ${order.order_status}`.toLowerCase()
-  return status.includes("result") || status.includes("complete") || status.includes("final")
-}
-
-const toLabOrderRow = (order: LabOrder) => ({
-  id: order.display_id || order.id,
-  raw_id: order.id,
-  patient_name: order.patient_name,
-  patient_email: order.patient_email,
-  patient_phone: "-",
-  product_name: order.lab_panel_name,
-  lab_provider: order.lab_provider,
-  status: titleCaseStatus(order.order_status),
-  payment_status: titleCaseStatus(order.payment_status),
-  price: order.total_paid,
-  timeline: {
-    ordered: order.created_at || new Date().toISOString(),
-  },
-  resultsReady: labOrderResultsReady(order),
-  resultsReleased: Boolean(order.result_access_allowed),
-})
 
 export default function Orders() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -164,7 +140,6 @@ export default function Orders() {
   const [date, setDate] = useState<DateRange | undefined>()
   /** Remount DataTable so toolbar search input clears when filters reset */
   const [dataTableKey, setDataTableKey] = useState(0)
-  const [activeTab, setActiveTab] = useState<"all" | "rx" | "lab">("all")
   const [orders, setOrders] = useState<Order[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
@@ -172,68 +147,12 @@ export default function Orders() {
   const [isLoadingOrders, setIsLoadingOrders] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
   const [editedStatuses, setEditedStatuses] = useState<Record<string, string>>({})
   const [editedTrackingNumbers, setEditedTrackingNumbers] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
 
-  const [labOrderStatusFilter, setLabOrderStatusFilter] = useState("All")
-  const [labPaymentStatusFilter, setLabPaymentStatusFilter] = useState("All")
-  const [labVisitStateFilter, setLabVisitStateFilter] = useState("All")
-  const [labFulfillmentFilter, setLabFulfillmentFilter] = useState("All")
-  const [labSearchTerm, setLabSearchTerm] = useState("")
-  const [labOrders, setLabOrders] = useState<LabOrder[]>([])
 
-  const handleResetLabFilters = () => {
-    setLabOrderStatusFilter("All")
-    setLabPaymentStatusFilter("All")
-    setLabVisitStateFilter("All")
-    setLabFulfillmentFilter("All")
-    setLabSearchTerm("")
-  }
 
-  const filteredLabOrders = useMemo(() => {
-    return labOrders.map(toLabOrderRow).filter((mo) => {
-      // Search term
-      if (labSearchTerm) {
-        const s = labSearchTerm.toLowerCase()
-        const matchesName = mo.patient_name.toLowerCase().includes(s)
-        const matchesEmail = mo.patient_email.toLowerCase().includes(s)
-        const matchesId = mo.id.toLowerCase().includes(s)
-        const matchesProd = mo.product_name.toLowerCase().includes(s)
-        const matchesPhone = mo.patient_phone.toLowerCase().includes(s)
-        if (!matchesName && !matchesEmail && !matchesId && !matchesProd && !matchesPhone) {
-          return false
-        }
-      }
-      // Order status
-      if (labOrderStatusFilter !== "All") {
-        if (mo.status.toLowerCase() !== labOrderStatusFilter.toLowerCase()) {
-          return false
-        }
-      }
-      // Payment status
-      if (labPaymentStatusFilter !== "All") {
-        if (mo.payment_status.toLowerCase() !== labPaymentStatusFilter.toLowerCase()) {
-          return false
-        }
-      }
-      // Visit state
-      if (labVisitStateFilter !== "All") {
-        if (labVisitStateFilter === "Prescribed" && mo.status !== "Completed" && mo.status !== "In Process") {
-          return false
-        }
-      }
-      // Fulfillment status
-      if (labFulfillmentFilter !== "All") {
-        const actualFulfillment = mo.resultsReady ? "Results Ready" : "At Lab"
-        if (actualFulfillment.toLowerCase() !== labFulfillmentFilter.toLowerCase()) {
-          return false
-        }
-      }
-      return true
-    })
-  }, [labOrders, labSearchTerm, labOrderStatusFilter, labPaymentStatusFilter, labVisitStateFilter, labFulfillmentFilter])
 
   // Order Details Sheet state
   const navigate = useNavigate()
@@ -245,20 +164,7 @@ export default function Orders() {
     return () => clearTimeout(timeout)
   }, [searchTerm])
 
-  const filteredOrders = useMemo(() => {
-    return orders.filter((order) => {
-      if (activeTab === "rx") {
-        if (order.visitStatus === "Lab" || (order as any).is_lab) {
-          return false
-        }
-      } else if (activeTab === "lab") {
-        if (order.visitStatus !== "Lab" && !(order as any).is_lab) {
-          return false
-        }
-      }
-      return true
-    })
-  }, [orders, activeTab])
+  const filteredOrders = useMemo(() => orders, [orders])
 
   // Same pill layout as admin portal: Order Status group, then Payment Status group
   const filters = useMemo(
@@ -316,78 +222,9 @@ export default function Orders() {
       if (date?.to) params["created_at__lte"] = date.to.toISOString().slice(0, 10)
 
       const data = await ordersApi.fetchOrders(params)
-      const mockLabOrders = await clientLabsApi.getLabOrders()
-      setLabOrders(mockLabOrders)
-
-      // Filter mock orders based on the search/status/payment/date params
-      const filteredMockLabOrders = mockLabOrders.map(toLabOrderRow).filter((mo) => {
-        if (debouncedSearchTerm) {
-          const s = debouncedSearchTerm.toLowerCase()
-          const matchesName = mo.patient_name.toLowerCase().includes(s)
-          const matchesEmail = mo.patient_email.toLowerCase().includes(s)
-          const matchesId = mo.id.toLowerCase().includes(s)
-          const matchesProd = mo.product_name.toLowerCase().includes(s)
-          if (!matchesName && !matchesEmail && !matchesId && !matchesProd) {
-            return false
-          }
-        }
-        if (activeOrderStatusFilter !== "All") {
-          const apiStatus = ORDER_STATUS_TO_API[activeOrderStatusFilter]
-          const mappedStatus = mo.status.toLowerCase().replace(/ /g, "_")
-          if (mappedStatus !== apiStatus) {
-            return false
-          }
-        }
-        const paymentStatus = normalizePaymentStatus(activePaymentStatusFilter)
-        if (paymentStatus) {
-          if (mo.payment_status.toLowerCase() !== paymentStatus) {
-            return false
-          }
-        }
-        if (date?.from || date?.to) {
-          const orderedDateStr = mo.timeline.ordered
-          if (orderedDateStr) {
-            const orderedDate = new Date(orderedDateStr)
-            if (date.from && orderedDate < date.from) return false
-            if (date.to && orderedDate > date.to) return false
-          }
-        }
-        return true
-      })
-
       const apiOrders = data.results || []
       const mergedOrders = [...apiOrders]
 
-      filteredMockLabOrders.forEach((mockOrd) => {
-        if (!mergedOrders.some((o) => o.id === mockOrd.id)) {
-          mergedOrders.push({
-            id: mockOrd.raw_id,
-            display_id: mockOrd.id,
-            order_id: mockOrd.id,
-            name: mockOrd.patient_name,
-            patient: {
-              id: `p-${mockOrd.raw_id}`,
-              full_name: mockOrd.patient_name,
-            },
-            email: mockOrd.patient_email,
-            phone: mockOrd.patient_phone,
-            product_name: mockOrd.product_name,
-            pharmacy_display: mockOrd.lab_provider,
-            orderDate: mockOrd.timeline.ordered,
-            paymentStatus: mockOrd.payment_status.toLowerCase(),
-            visitStatus: "Lab",
-            orderStatus: mockOrd.status.toLowerCase().replace(/ /g, "_"),
-            orderTotal: mockOrd.price.toString(),
-            is_lab: true,
-            timeline: mockOrd.timeline,
-            resultsReady: mockOrd.resultsReady,
-            resultsReleased: mockOrd.resultsReleased || false,
-            releasedAt: mockOrd.releasedAt || null,
-            releasedBy: mockOrd.releasedBy || null,
-            biomarkers: [],
-          } as any)
-        }
-      })
 
       setOrders(mergedOrders)
       setTotalCount(data.count ?? mergedOrders.length)
@@ -412,7 +249,7 @@ export default function Orders() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedSearchTerm, activePaymentStatusFilter, activeOrderStatusFilter, date, activeTab])
+  }, [debouncedSearchTerm, activePaymentStatusFilter, activeOrderStatusFilter, date])
 
   const handleRefresh = useCallback(() => {
     loadOrders()
@@ -447,14 +284,12 @@ export default function Orders() {
 
     setSavingId(id)
     setError(null)
-    setSuccess(null)
     try {
       const payload: Partial<Order> = {}
       if (newStatus != null) payload.status = newStatus
       if (newTrackingNumber != null) payload.tracking_number = newTrackingNumber
 
       await ordersApi.updateOrder(id, payload)
-      setSuccess('Order updated')
       // clear local edited values for this row
       setEditedStatuses(prev => {
         const copy = { ...prev }
@@ -476,26 +311,6 @@ export default function Orders() {
   }
 
 
-  const handleCreateOrder = async () => {
-    const name = window.prompt('Patient name')
-    if (!name) return
-    const email = window.prompt('Email') || ''
-    const amount = window.prompt('Amount (e.g. 49.00)') || '0.00'
-    setIsSaving(true)
-    setError(null)
-    setSuccess(null)
-    try {
-      await ordersApi.createOrder({ name, email, amount })
-      setSuccess('Order created')
-      await loadOrders()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create order')
-      console.error('Create order error:', err)
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
   const handleExport = useCallback(() => {
     exportToCSV(filteredOrders, orderColumns, 'orders_export')
   }, [filteredOrders])
@@ -514,11 +329,11 @@ export default function Orders() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Orders</h1>
+          <h1 className="text-2xl font-bold">Rx Orders</h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
             <span>Orders</span>
             <span>›</span>
-            <span>All Orders</span>
+            <span>Rx Orders</span>
           </div>
         </div>
         {/* Right side buttons that were originally in the top row */}
@@ -537,297 +352,8 @@ export default function Orders() {
         <div className="text-sm text-red-600">{error}</div>
       )}
 
-      {/* Horizontal Tabs for All, Rx, and Lab Orders */}
-      <div className="border-b border-border mb-6 pb-4">
-        <div className="flex gap-3 text-sm font-medium">
-          <button
-            type="button"
-            onClick={() => setActiveTab("all")}
-            className={cn(
-              "px-4 py-1.5 rounded-lg border text-xs sm:text-sm font-medium transition-all shadow-sm",
-              activeTab === "all"
-                ? "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900/50"
-                : "bg-white text-slate-650 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800 dark:hover:bg-slate-850"
-            )}
-          >
-            All orders
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("rx")}
-            className={cn(
-              "px-4 py-1.5 rounded-lg border text-xs sm:text-sm font-medium transition-all shadow-sm",
-              activeTab === "rx"
-                ? "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900/50"
-                : "bg-white text-slate-650 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800 dark:hover:bg-slate-850"
-            )}
-          >
-            Rx orders
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("lab")}
-            className={cn(
-              "px-4 py-1.5 rounded-lg border text-xs sm:text-sm font-medium transition-all shadow-sm",
-              activeTab === "lab"
-                ? "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900/50"
-                : "bg-white text-slate-650 border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800 dark:hover:bg-slate-850"
-            )}
-          >
-            Lab orders
-          </button>
-        </div>
-      </div>
 
-      {activeTab === "lab" && (
-        <div className="space-y-6">
-          {/* Custom Search & Filters Panel */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm space-y-4">
-            {/* Row 1: Select Dropdowns & Reset Button */}
-            <div className="flex flex-wrap gap-3 items-center">
-              <Select
-                value={labOrderStatusFilter}
-                onValueChange={setLabOrderStatusFilter}
-              >
-                <SelectTrigger className="w-[180px] bg-white dark:bg-gray-950 border-gray-200 text-gray-700 dark:text-gray-200">
-                  <SelectValue placeholder="All order statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All">All order statuses</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                  <SelectItem value="In Process">In Process</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={labPaymentStatusFilter}
-                onValueChange={setLabPaymentStatusFilter}
-              >
-                <SelectTrigger className="w-[180px] bg-white dark:bg-gray-950 border-gray-200 text-gray-700 dark:text-gray-200">
-                  <SelectValue placeholder="All payments" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All">All payments</SelectItem>
-                  <SelectItem value="Paid">Paid</SelectItem>
-                  <SelectItem value="Unpaid">Unpaid</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={labVisitStateFilter}
-                onValueChange={setLabVisitStateFilter}
-              >
-                <SelectTrigger className="w-[180px] bg-white dark:bg-gray-950 border-gray-200 text-gray-700 dark:text-gray-200">
-                  <SelectValue placeholder="All visit states" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All">All visit states</SelectItem>
-                  <SelectItem value="Prescribed">Prescribed</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={labFulfillmentFilter}
-                onValueChange={setLabFulfillmentFilter}
-              >
-                <SelectTrigger className="w-[180px] bg-white dark:bg-gray-950 border-gray-200 text-gray-700 dark:text-gray-200">
-                  <SelectValue placeholder="All fulfillment" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All">All fulfillment</SelectItem>
-                  <SelectItem value="Results Ready">Results Ready</SelectItem>
-                  <SelectItem value="At Lab">At Lab</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleResetLabFilters}
-                className="gap-1 text-xs text-gray-650 hover:text-gray-800 border-gray-200 h-9"
-              >
-                <RefreshCw className="h-3.5 w-3.5" /> Reset
-              </Button>
-            </div>
-
-            {/* Row 2: Search Input & Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search by order number, patient name, email, or phone"
-                  value={labSearchTerm}
-                  onChange={(e) => setLabSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm bg-white dark:bg-gray-950 border-gray-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="gap-2 text-xs h-9">
-                  <CalendarIcon className="h-4 w-4 text-slate-400" />
-                  Pick a date range
-                </Button>
-                <Button variant="outline" size="sm" className="gap-2 text-xs h-9">
-                  <Download className="h-4 w-4 text-slate-400" />
-                  Export
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Custom Lab Orders Table */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
-              <table className="w-full text-left text-sm border-collapse min-w-max table-auto">
-                <thead className="bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-800 dark:to-gray-800/50 border-b border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-medium text-[11px] uppercase tracking-wider">
-                  <tr>
-                    <th className="px-3 py-3">Order #</th>
-                    <th className="px-3 py-3">Patient</th>
-                    <th className="px-3 py-3">Email</th>
-                    <th className="px-3 py-3">Phone</th>
-                    <th className="px-3 py-3">Product</th>
-                    <th className="px-3 py-3">Pharmacy / Lab</th>
-                    <th className="px-3 py-3">Order Status</th>
-                    <th className="px-3 py-3">Payment</th>
-                    <th className="px-3 py-3">Visit</th>
-                    <th className="px-3 py-3">Fulfillment</th>
-                    <th className="px-3 py-3">Amount</th>
-                    <th className="px-3 py-3">Date</th>
-                    <th className="px-3 py-3 text-right"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-850">
-                  {filteredLabOrders.length > 0 ? (
-                    filteredLabOrders.map((row) => {
-                      const isCompleted = row.status === "Completed"
-                      const actualFulfillment = row.resultsReady ? "Results Ready" : "At Lab"
-                      const formattedDate = new Date(row.timeline.ordered).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "2-digit",
-                        year: "numeric",
-                      })
-                      
-                      return (
-                        <tr key={row.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gradient-to-r hover:from-gray-50 hover:to-transparent dark:hover:from-gray-800/50 dark:hover:to-transparent transition-all duration-200 group">
-                          <td className="px-3 py-4">
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/dashboard/orders/details/${row.id}`)}
-                              className="text-blue-600 dark:text-blue-400 hover:underline font-semibold text-left text-xs sm:text-sm whitespace-nowrap"
-                            >
-                              {row.id}
-                            </button>
-                          </td>
-                          <td className="px-3 py-4 font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap text-xs sm:text-sm">
-                            {row.patient_name}
-                          </td>
-                          <td className="px-3 py-4 text-gray-550 dark:text-gray-400 text-xs sm:text-sm">
-                            {row.patient_email}
-                          </td>
-                          <td className="px-3 py-4 text-gray-550 dark:text-gray-400 text-xs sm:text-sm whitespace-nowrap">
-                            {row.patient_phone}
-                          </td>
-                          <td className="px-3 py-4">
-                            <div className="flex flex-col min-w-[180px]">
-                              <span className="font-semibold text-gray-900 dark:text-gray-100 text-xs sm:text-sm">{row.product_name}</span>
-                              <div>
-                                <span className="bg-teal-50 text-teal-600 border border-teal-100 px-2 py-0.5 rounded text-[10px] font-semibold mt-1 inline-block dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-900/40">
-                                  Lab
-                                </span>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-3 py-4 text-gray-700 dark:text-gray-300 font-medium text-xs sm:text-sm whitespace-nowrap">
-                            {row.lab_provider}
-                          </td>
-                          <td className="px-3 py-4">
-                            <span className={cn(
-                              "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap",
-                              isCompleted
-                                ? "bg-green-50 text-green-700 border-green-100 dark:bg-green-950/40 dark:text-green-400 dark:border-green-900/40"
-                                : "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/40"
-                            )}>
-                              {row.status}
-                            </span>
-                          </td>
-                          <td className="px-3 py-4">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-100 dark:bg-green-950/40 dark:text-green-400 dark:border-green-900/40 whitespace-nowrap">
-                              Paid
-                            </span>
-                          </td>
-                          <td className="px-3 py-4">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-100 dark:bg-green-950/40 dark:text-green-400 dark:border-green-900/40 whitespace-nowrap">
-                              Prescribed
-                            </span>
-                          </td>
-                          <td className="px-3 py-4">
-                            <span className={cn(
-                              "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap",
-                              row.resultsReady
-                                ? "bg-green-50 text-green-700 border-green-100 dark:bg-green-950/40 dark:text-green-400 dark:border-green-900/40"
-                                : "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/40"
-                            )}>
-                              {actualFulfillment}
-                            </span>
-                          </td>
-                          <td className="px-3 py-4 font-bold text-gray-900 dark:text-gray-100 text-xs sm:text-sm whitespace-nowrap">
-                            ${row.price.toFixed(2)}
-                          </td>
-                          <td className="px-3 py-4 text-gray-550 dark:text-gray-400 text-xs sm:text-sm whitespace-nowrap">
-                            {formattedDate}
-                          </td>
-                          <td className="px-3 py-4 text-right">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => navigate(`/dashboard/orders/details/${row.id}`)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </td>
-                        </tr>
-                      )
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={13} className="px-3 py-8 text-center text-slate-500">
-                        No lab orders found matching filters
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination / Table Footer */}
-            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-              <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                Showing {filteredLabOrders.length} of {filteredLabOrders.length} orders
-              </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled
-                  className="h-8 w-8 p-0"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled
-                  className="h-8 w-8 p-0"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            </div>
-          </div>
-      )}
-
-      {activeTab !== "lab" && (
+      {(
         <DataTable
           key={dataTableKey}
           data={filteredOrders.map(o => {

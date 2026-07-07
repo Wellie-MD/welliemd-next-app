@@ -63,8 +63,8 @@ const menuSections = [
         icon: ShoppingBag,
         permission: Permissions.ORDER_LIST, // All roles
         children: [
-          { title: "Orders", url: "/dashboard/orders" },
-          { title: "Payments", url: "/dashboard/orders/payments" },
+          { title: "Rx Orders", url: "/dashboard/orders" },
+          { title: "Lab Orders", url: "/dashboard/orders/labs" },
         ],
       },
       {

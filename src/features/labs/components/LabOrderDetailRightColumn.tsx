@@ -10,6 +10,10 @@ interface Props {
   togglingRelease: boolean;
   onToggleRelease: () => void;
   getInitials: (name?: string) => string;
+  downloadingRequisition?: boolean;
+  onDownloadRequisition?: () => void;
+  downloadingCollection?: boolean;
+  onDownloadCollection?: () => void;
 }
 
 function SideLabel({ children }: { children: React.ReactNode }) {
@@ -19,7 +23,17 @@ function SideValue({ children }: { children: React.ReactNode }) {
   return <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{children}</p>;
 }
 
-export default function LabOrderDetailRightColumn({ order, formattedOrderDate, togglingRelease, onToggleRelease, getInitials }: Props) {
+export default function LabOrderDetailRightColumn({ 
+  order, 
+  formattedOrderDate, 
+  togglingRelease, 
+  onToggleRelease, 
+  getInitials,
+  downloadingRequisition,
+  onDownloadRequisition,
+  downloadingCollection,
+  onDownloadCollection
+}: Props) {
   return (
     <div className="lg:col-span-4 space-y-6">
 
@@ -130,6 +144,37 @@ export default function LabOrderDetailRightColumn({ order, formattedOrderDate, t
           </div>
         </div>
       </div>
+
+      {/* Documents Card */}
+      {(onDownloadRequisition || onDownloadCollection) && (
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 space-y-4">
+          <h3 className="text-xs font-bold uppercase text-gray-400 dark:text-gray-550 tracking-wider">Documents</h3>
+          <div className="space-y-2">
+            {onDownloadRequisition && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onDownloadRequisition}
+                disabled={downloadingRequisition}
+                className="w-full justify-start text-xs font-semibold h-9 text-gray-700 dark:text-gray-300"
+              >
+                {downloadingRequisition ? "Downloading..." : "Download requisition form"}
+              </Button>
+            )}
+            {onDownloadCollection && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onDownloadCollection}
+                disabled={downloadingCollection}
+                className="w-full justify-start text-xs font-semibold h-9 text-gray-700 dark:text-gray-300"
+              >
+                {downloadingCollection ? "Downloading..." : "Download collection instructions"}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   );
