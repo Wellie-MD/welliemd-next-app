@@ -39,8 +39,20 @@ export default function LabResultModal({ selectedPanel, onClose, downloadingPdf,
                     {selectedPanel.lab} · {selectedPanel.biomarkers.length} biomarkers
                   </div>
                 </div>
-                <span className="km-badge km-badge-green" style={{ fontSize: 11 }}>Results Ready</span>
+                {selectedPanel.status === 'Partial Results' ? (
+                  <span className="km-badge km-badge-amber" style={{ fontSize: 11 }}>Partial Results</span>
+                ) : selectedPanel.status === 'Critical' ? (
+                  <span className="km-badge km-badge-red" style={{ fontSize: 11 }}>Critical</span>
+                ) : (
+                  <span className="km-badge km-badge-green" style={{ fontSize: 11 }}>Results Ready</span>
+                )}
               </div>
+
+              {selectedPanel.status === 'Partial Results' && (
+                <div style={{ marginBottom: 14, padding: '10px 14px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 8, fontSize: 12, color: 'var(--km-am)', fontWeight: 600 }}>
+                  Remaining markers still processing.
+                </div>
+              )}
 
               <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
                 {[
@@ -65,20 +77,23 @@ export default function LabResultModal({ selectedPanel, onClose, downloadingPdf,
                 </div>
                 <div style={{ maxHeight: 240, overflowY: 'auto' }}>
                   {selectedPanel.biomarkers.map((bm) => {
-                    const isHigh = bm.status_indicator === 'H' || bm.result_interpretation?.toLowerCase().includes('high');
+                    const indicator = String(bm.status_indicator || '').toLowerCase();
+                    const interpretation = bm.result_interpretation?.toLowerCase() || '';
+                    const isCritical = (indicator === 'h' && interpretation.includes('critical')) || indicator === 'critical' || interpretation.includes('critical');
+                    const isHigh = !isCritical && (bm.status_indicator === 'H' || bm.result_interpretation?.toLowerCase().includes('high'));
                     const isLow = bm.status_indicator === 'L' || bm.result_interpretation?.toLowerCase().includes('low');
-                    const col = isHigh ? 'var(--km-re)' : isLow ? 'var(--km-am)' : 'var(--km-t)';
-                    const badgeCls = isHigh ? 'km-badge-red' : isLow ? 'km-badge-amber' : 'km-badge-green';
+                    const col = isCritical ? '#991b1b' : isHigh ? 'var(--km-re)' : isLow ? 'var(--km-am)' : 'var(--km-t)';
+                    const badgeCls = isCritical ? 'km-badge-red' : isHigh ? 'km-badge-red' : isLow ? 'km-badge-amber' : 'km-badge-green';
                     return (
                       <div key={bm.id} style={{ display: 'grid', gridTemplateColumns: '1.4fr .8fr 1fr .8fr', gap: 8, alignItems: 'center', padding: '11px 14px', borderBottom: '1px solid var(--km-b)' }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 500 }}>{bm.test_name}</div>
+                        <div style={{ fontSize: 12.5, fontWeight: isCritical ? 700 : 500, color: isCritical ? '#991b1b' : 'inherit' }}>{bm.test_name}</div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: col }}>
-                          {bm.test_result} <span style={{ fontSize: 9, color: 'var(--km-tm)', fontWeight: 500 }}>{bm.test_result_units}</span>
+                          {bm.test_result} <span style={{ fontSize: 9, color: isCritical ? '#ef4444' : 'var(--km-tm)', fontWeight: 500 }}>{bm.test_result_units}</span>
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--km-tm)' }}>{bm.reference_range || 'N/A'}</div>
                         <div style={{ textAlign: 'right' }}>
-                          <span className={`km-badge ${badgeCls}`} style={{ fontSize: 9, padding: '2px 6px' }}>
-                            {isHigh ? 'High' : isLow ? 'Low' : 'Normal'}
+                          <span className={`km-badge ${badgeCls}`} style={{ fontSize: 9, padding: '2px 6px', fontWeight: isCritical ? 800 : undefined, border: isCritical ? '1px solid #fca5a5' : 'none' }}>
+                            {isCritical ? 'Critical' : isHigh ? 'High' : isLow ? 'Low' : 'Normal'}
                           </span>
                         </div>
                       </div>

@@ -24,54 +24,11 @@ import {
 } from './api/index';
 import {
   formatDate,
-  normalizeTimeline,
   type GroupedLabPanel,
 } from './utils/index';
 import LabResultModal from './components/LabResultModal';
 import LabBookingModal from './components/LabBookingModal';
-
-// ── helpers ──────────────────────────────────────────────────────────────────
-
-const COLLECTION_LABELS: Record<string, string> = {
-  at_home_phlebotomy: 'At-home phlebotomy',
-  walk_in_test: 'Walk-in lab draw',
-  testkit: 'At-home test kit',
-  on_site_collection: 'On-site collection',
-};
-
-function collectionLabel(method?: string) {
-  return method ? (COLLECTION_LABELS[method] ?? method.replace(/_/g, ' ')) : '—';
-}
-
-const STAGE_LABELS: Record<string, string> = {
-  ordered: 'Ordered',
-  requisition_created: 'Requisition created',
-  appointment_pending: 'Appointment pending',
-  appointment_scheduled: 'Appointment booked',
-  sample_collected: 'Sample collected',
-  at_lab: 'At the lab',
-  partial_results: 'Partial results',
-  results_ready: 'Results ready',
-  critical: 'Results ready',
-  kit_shipped: 'Kit shipped',
-  kit_delivered: 'Kit delivered',
-  junction_submitted: 'Ordered',
-  failed: 'Failed',
-};
-
-function stageLabel(stage?: string) {
-  const key = (stage ?? '').toLowerCase().replace(/ /g, '_');
-  return STAGE_LABELS[key] ?? key.replace(/_/g, ' ');
-}
-
-// Badge class based on submission_status
-function statusBadgeCls(status?: string) {
-  if (status === 'completed') return 'km-badge-green';
-  if (status === 'submitted') return 'km-badge-blue';
-  if (status === 'pending') return 'km-badge-amber';
-  if (status === 'failed') return 'km-badge-red';
-  return 'km-badge-amber';
-}
+import SubmissionCard from './components/SubmissionCard';
 
 // ── sub-components ────────────────────────────────────────────────────────────
 
@@ -159,7 +116,7 @@ export default function LabsPage() {
       lab: r.lab_provider || '—',
       collectedDate: r.collected_at || '',
       reportedDate: r.reported_at || '',
-      status: r.status === 'critical' ? 'Critical' : 'Results Ready',
+      status: r.status === 'critical' ? 'Critical' : String(r.status || '').toLowerCase().includes('partial') ? 'Partial Results' : 'Results Ready',
       biomarkers: (r.biomarkers || []).map((bm, idx) => ({
         id: `${r.order_id}-${idx}`,
         patient: '', patient_name: '', visit: null,
@@ -388,7 +345,13 @@ export default function LabsPage() {
                     <div className="km-oileft">
                       <div className="km-oiid">
                         {panel.orderId}{' '}
-                        <span className="km-badge km-badge-green" style={{ fontSize: 10, marginLeft: 6 }}>Results Ready</span>
+                        {panel.status === 'Partial Results' ? (
+                          <span className="km-badge km-badge-amber" style={{ fontSize: 10, marginLeft: 6 }}>Partial Results</span>
+                        ) : panel.status === 'Critical' ? (
+                          <span className="km-badge km-badge-red" style={{ fontSize: 10, marginLeft: 6 }}>Critical</span>
+                        ) : (
+                          <span className="km-badge km-badge-green" style={{ fontSize: 10, marginLeft: 6 }}>Results Ready</span>
+                        )}
                       </div>
                       <div className="km-oinm">{panel.name}</div>
                       {/* Use backend lab + biomarker count — never hardcode */}
@@ -424,120 +387,3 @@ export default function LabsPage() {
 }
 
 export { LabsPage };
-
-// ── SubmissionCard sub-component ──────────────────────────────────────────────
-
-function SubmissionCard({ sub, expanded, onToggle, onDownloadRequisition, onBookAppointment }: {
-  sub: LabSubmission & any;
-  expanded: boolean;
-  onToggle: () => void;
-  onDownloadRequisition: (orderId: string) => void;
-  onBookAppointment: (submission: LabSubmission & any) => void;
-}) {
-  const timelineItems = normalizeTimeline(sub);
-  const panelName = sub._lab_panel_name || (sub.lab_results?.[0]?.test_name) || 'Lab Panel';
-  const provider = sub._lab_provider || '—';
-  const collection = sub._collection_method_display || collectionLabel(sub._collection_method);
-  const stage = sub._stage_display || stageLabel(sub._stage || sub.submission_status);
-  const hasBooking = Boolean(sub.booking_link || sub.booking_url);
-  const hasRequisition = Boolean(sub.requisition_pdf_url || sub.requisition_available);
-
-  return (
-    <div style={{ borderBottom: '1px solid var(--km-b)' }}>
-      <div className="km-oitem" onClick={onToggle}>
-        <div className="km-oimg" style={{ background: 'rgba(245,158,11,0.1)' }}>🧪</div>
-        <div className="km-oileft">
-          <div className="km-oiid">
-            {sub.id.substring(0, 16).toUpperCase()}{' '}
-            <span className={`km-badge ${statusBadgeCls(sub.submission_status)}`} style={{ fontSize: 10, marginLeft: 6 }}>
-              {stage}
-            </span>
-          </div>
-          <div className="km-oinm">{panelName}</div>
-          {/* Use backend lab_provider + collection_method_display — never hardcode */}
-          <div className="km-oiph">{provider}{collection ? ` · ${collection}` : ''}</div>
-        </div>
-        <div className="km-oiright">
-          {hasBooking ? (
-            <button
-              type="button"
-              className="km-btn km-btn-primary"
-              style={{ fontSize: 11, padding: '5px 12px', marginBottom: 6 }}
-              onClick={event => { event.stopPropagation(); onBookAppointment(sub); }}
-            >
-              Book appointment
-            </button>
-          ) : hasRequisition ? (
-            <button
-              type="button"
-              className="km-btn km-btn-outline"
-              style={{ fontSize: 11, padding: '5px 12px', marginBottom: 6 }}
-              onClick={event => { event.stopPropagation(); onDownloadRequisition(sub.id); }}
-            >
-              Download requisition
-            </button>
-          ) : null}
-          <div className="km-oidt">{formatDate(sub.created_at)}</div>
-        </div>
-      </div>
-
-      {expanded && (
-        <div style={{ padding: '16px 20px', background: 'var(--km-s2)' }}>
-          {/* Requisition / booking links */}
-          {(hasRequisition || hasBooking) && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-              {hasRequisition && (
-                <button type="button" onClick={() => onDownloadRequisition(sub.id)} className="km-btn km-btn-outline" style={{ fontSize: 11, padding: '5px 12px' }}>
-                  Download requisition
-                </button>
-              )}
-              {hasBooking && (
-                <button type="button" onClick={() => onBookAppointment(sub)} className="km-btn km-btn-outline" style={{ fontSize: 11, padding: '5px 12px' }}>
-                  Book appointment
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Timeline */}
-          {timelineItems.length > 0 && (
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--km-tm)', letterSpacing: '.5px', marginBottom: 12 }}>Timeline</div>
-              {timelineItems.map((item, index) => {
-                const isLast = index === timelineItems.length - 1;
-                return (
-                  <div key={item.id} style={{ position: 'relative', paddingLeft: 24, paddingBottom: isLast ? 0 : 20 }}>
-                    {!isLast && <div style={{ position: 'absolute', left: 4, top: 16, bottom: -4, width: '1.5px', background: 'var(--km-b)' }} />}
-                    <div style={{ position: 'absolute', left: 1, top: 6, width: 8, height: 8, borderRadius: '50%', background: 'var(--km-ac)' }} />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--km-t)', lineHeight: 1.2 }}>{item.title}</div>
-                        <div style={{ fontSize: 12, color: 'var(--km-tm)', marginTop: 4, lineHeight: 1.4 }}>{item.description}</div>
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--km-tm)', fontWeight: 500, whiteSpace: 'nowrap' }}>{formatDate(item.occurredAt)}</div>
-                    </div>
-                    {item.actions.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                        {item.actions.map((act, idx) => (
-                          act.label === 'Download Requisition' ? (
-                            <button key={idx} type="button" onClick={() => onDownloadRequisition(sub.id)} className="km-btn km-btn-outline" style={{ fontSize: 11, padding: '5px 12px' }}>
-                              {act.label}
-                            </button>
-                          ) : (
-                            <button key={idx} type="button" onClick={() => onBookAppointment(sub)} className="km-btn km-btn-outline" style={{ fontSize: 11, padding: '5px 12px' }}>
-                              {act.label}
-                            </button>
-                          )
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}

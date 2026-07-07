@@ -24,7 +24,7 @@ function getEventTitle(event: Record<string, any>): string {
   const eventType = getEventType(event);
   if (eventType === 'LAB_ORDER_REQUISITION_CREATED') return 'In-Person Lab Requisition Ready';
   if (eventType.length > 0)
-    return eventType.toLowerCase().replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    return eventType.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
   return 'Lab Update';
 }
 
@@ -110,12 +110,14 @@ export function normalizeTimeline(submission: LabSubmission): TimelineItem[] {
     if (seen.has(identity)) return;
     seen.add(identity);
 
-    const timestamp = occurredAt ? Date.parse(occurredAt) : Date.parse(submission.created_at);
+    const eventId = typeof event.id === 'string' ? event.id : '';
+    const fallbackOccurredAt = typeof submission.created_at === 'string' ? submission.created_at : '';
+    const timestamp = occurredAt ? Date.parse(occurredAt) : Date.parse(fallbackOccurredAt);
     timeline.push({
-      id: event.id || `${submission.id}-event-${index}`,
+      id: eventId || `${submission.id}-event-${index}`,
       title: getEventTitle(event),
       description: getEventDescription(event),
-      occurredAt,
+      occurredAt: occurredAt || fallbackOccurredAt,
       sortTimestamp: Number.isFinite(timestamp) ? timestamp : 0,
       sortOrder: 5,
       actions: eventActions(event),

@@ -10,13 +10,15 @@ import type {
     StandaloneLabResult,
     StandaloneLabSubmission,
 } from './types';
+import { patientStandaloneLabEndpoints, visitLabEndpoints } from './endpointRegistry';
+import { junctionMockEnabled, mockStandaloneSubmissions, mockStandaloneResults } from './junctionMockData';
 
 // ---------- Beluga/visit-based lab results ----------
 
 export async function getLabResults(): Promise<LabResult[]> {
     try {
         const response = await apiClient.get<PaginatedResponse<LabResult> | LabResult[]>(
-            '/medical/lab-results/'
+            visitLabEndpoints.results
         );
         const results = Array.isArray(response.data)
             ? response.data
@@ -32,7 +34,7 @@ export async function getLabResults(): Promise<LabResult[]> {
 export async function getLabSubmissions(): Promise<LabSubmission[]> {
     try {
         const response = await apiClient.get<PaginatedResponse<LabSubmission> | LabSubmission[]>(
-            '/medical/lab-submissions/'
+            visitLabEndpoints.submissions
         );
         const submissions = Array.isArray(response.data)
             ? response.data
@@ -48,7 +50,7 @@ export async function getLabSubmissions(): Promise<LabSubmission[]> {
 export async function getPatientLabResults(patientId: string): Promise<LabResult[]> {
     try {
         const response = await apiClient.get<PaginatedResponse<LabResult> | LabResult[]>(
-            `/medical/lab-results/?patient_id=${patientId}`
+            visitLabEndpoints.resultsByPatient(patientId)
         );
         if (Array.isArray(response.data)) return response.data;
         return response.data?.results ?? [];
@@ -61,10 +63,11 @@ export async function getPatientLabResults(patientId: string): Promise<LabResult
 // ---------- Standalone Junction lab orders (post-checkout history) ----------
 
 export async function getStandaloneLabSubmissions(): Promise<StandaloneLabSubmission[]> {
+    if (junctionMockEnabled) return mockStandaloneSubmissions as any;
     try {
         const response = await apiClient.get<
             PaginatedResponse<StandaloneLabSubmission> | StandaloneLabSubmission[]
-        >('/patient/labs/submissions/');
+        >(patientStandaloneLabEndpoints.submissions);
         if (Array.isArray(response.data)) return response.data;
         return response.data?.results ?? [];
     } catch {
@@ -74,10 +77,11 @@ export async function getStandaloneLabSubmissions(): Promise<StandaloneLabSubmis
 }
 
 export async function getStandaloneLabResults(): Promise<StandaloneLabResult[]> {
+    if (junctionMockEnabled) return mockStandaloneResults as any;
     try {
         const response = await apiClient.get<
             PaginatedResponse<StandaloneLabResult> | StandaloneLabResult[]
-        >('/patient/labs/results/');
+        >(patientStandaloneLabEndpoints.results);
         if (Array.isArray(response.data)) return response.data;
         return response.data?.results ?? [];
     } catch {
@@ -92,7 +96,7 @@ export async function getStandaloneLabResults(): Promise<StandaloneLabResult[]> 
  * GET /patient/labs/results/{orderId}/pdf/
  */
 export async function downloadStandaloneLabResultPdf(orderId: string): Promise<Blob> {
-    const response = await apiClient.get(`/patient/labs/results/${orderId}/pdf/`, {
+    const response = await apiClient.get(patientStandaloneLabEndpoints.resultPdf(orderId), {
         responseType: 'blob',
     });
     return response.data as Blob;
@@ -103,7 +107,7 @@ export async function downloadStandaloneLabResultPdf(orderId: string): Promise<B
  * GET /patient/labs/results/{orderId}/requisition/
  */
 export async function downloadStandaloneLabRequisitionPdf(orderId: string): Promise<Blob> {
-    const response = await apiClient.get(`/patient/labs/results/${orderId}/requisition/`, {
+    const response = await apiClient.get(patientStandaloneLabEndpoints.requisitionPdf(orderId), {
         responseType: 'blob',
     });
     return response.data as Blob;
