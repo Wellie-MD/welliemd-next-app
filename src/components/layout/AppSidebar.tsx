@@ -63,8 +63,8 @@ const menuSections = [
         icon: ShoppingBag,
         permission: Permissions.ORDER_LIST, // All roles
         children: [
-          { title: "Orders", url: "/dashboard/orders" },
-          { title: "Payments", url: "/dashboard/orders/payments" },
+          { title: "Rx Orders", url: "/dashboard/orders" },
+          { title: "Lab Orders", url: "/dashboard/orders/labs" },
         ],
       },
       {
@@ -99,7 +99,9 @@ const menuSections = [
         icon: Package,
         permission: Permissions.PRODUCT_MANAGE, // All roles (view only for CS)
         children: [
-          { title: "Products", url: "/dashboard/products" },
+          { title: "Medications", url: "/dashboard/products" },
+          { title: "Lab Tests", url: "/dashboard/products/labs" },
+          { title: "Supplies", url: "/dashboard/products/supplies" },
           { title: "Routing", url: "/dashboard/products/routing" },
         ],
       },
