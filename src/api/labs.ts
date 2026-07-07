@@ -1,4 +1,6 @@
 import axiosInstance from "./axiosInstance";
+import { adminLabEndpoints } from "@/features/labs/api/endpoints";
+import { junctionMockEnabled, mockLabOrderResults, mockLabOrders, updateMockLabOrder } from "./junctionMockData";
 import type {
   Biomarker,
   CatalogItem,
@@ -133,36 +135,47 @@ const normalizeClientAssignment = (raw: any): ClientAssignment => ({
   service_state_options: Array.isArray(raw.service_state_options) ? raw.service_state_options : [],
 });
 
+const fallbackOrderStatus = (raw: any): string => {
+  if (raw.order_status === "completed" || raw.results_status === "final") return "Completed";
+  if (raw.order_status === "failed") return "Failed";
+  if (raw.order_status === "requisition_created") return "Requisition Created";
+  return "In Process";
+};
+
 const normalizeOrder = (raw: any): LabOrder => ({
   id: String(raw.id),
   patient_name: raw.patient_name || "",
   patient_email: raw.patient_email || "",
+  patient_phone: raw.patient_phone || "",
   client_name: raw.client_name || "",
   product_name: raw.lab_panel_name || raw.product_name || "",
   lab_provider: raw.lab_provider || "",
   price: moneyToNumber(raw.total_paid || raw.price),
-  status:
-    raw.order_status === "completed" || raw.results_status === "final"
-      ? "Completed"
-      : raw.order_status === "failed"
-        ? "Failed"
-        : raw.order_status === "requisition_created"
-          ? "Requisition Created"
-          : "In Process",
-  payment_status: raw.payment_status === "paid" || raw.payment_status === "succeeded" ? "Paid" : "Unpaid",
-  visit_status: "Lab",
+  status: raw.ui_order_status || fallbackOrderStatus(raw),
+  payment_status: raw.ui_payment_status || (raw.payment_status === "paid" || raw.payment_status === "succeeded" ? "Paid" : "Unpaid"),
+  visit_status: raw.ui_lab_event_label || raw.lab_event || "Lab",
+  fulfillment_status: raw.ui_fulfillment_status || raw.fulfillment_status || "",
+  lab_event: raw.ui_lab_event || raw.lab_event || "",
+  lab_event_label: raw.ui_lab_event_label || raw.lab_event_label || "",
+  ui_order_status: raw.ui_order_status || "",
+  ui_payment_status: raw.ui_payment_status || "",
+  ui_fulfillment_status: raw.ui_fulfillment_status || "",
+  ui_lab_event: raw.ui_lab_event || "",
+  ui_lab_event_label: raw.ui_lab_event_label || "",
+  ui_lab_event_tone: raw.ui_lab_event_tone || "",
   timeline: { ordered: raw.created_at },
   resultsReady: raw.results_status === "final" || raw.results_status === "partial",
+  tracking_number: raw.tracking_number || "",
 });
 
 export const labsApi = {
   getBiomarkers: async (): Promise<Biomarker[]> => {
-    const { data } = await axiosInstance.get("admin/labs/biomarkers/");
+    const { data } = await axiosInstance.get(adminLabEndpoints.biomarkers);
     return (data.results || data || []).map(normalizeBiomarker);
   },
 
   getCatalogLabs: async (): Promise<CatalogLab[]> => {
-    const { data } = await axiosInstance.get("admin/labs/catalog/labs/");
+    const { data } = await axiosInstance.get(adminLabEndpoints.catalogLabs);
     return (data.results || data || []).map((raw: any) => ({
       id: String(raw.id),
       name: raw.name || `Lab ${raw.id}`,
@@ -180,7 +193,7 @@ export const labsApi = {
     type?: string;
     aoe_required?: boolean;
   }): Promise<{ count: number; page: number; page_size: number; results: CatalogItem[] }> => {
-    const { data } = await axiosInstance.get("admin/labs/catalog/items/", {
+    const { data } = await axiosInstance.get(adminLabEndpoints.catalogItems, {
       params: {
         lab_id: params.lab_id === "all" ? undefined : params.lab_id,
         q: params.q || undefined,
@@ -199,17 +212,17 @@ export const labsApi = {
   },
 
   getCatalogItemDetail: async (id: string): Promise<CatalogItemDetail> => {
-    const { data } = await axiosInstance.get(`admin/labs/catalog/items/${id}/`);
+    const { data } = await axiosInstance.get(adminLabEndpoints.catalogItemDetail(id));
     return data as CatalogItemDetail;
   },
 
   getLabPanels: async (): Promise<LabPanel[]> => {
-    const { data } = await axiosInstance.get("admin/labs/panels/");
+    const { data } = await axiosInstance.get(adminLabEndpoints.panels);
     return (data.results || data || []).map(normalizePanel);
   },
 
   createLabPanel: async (payload: CreateLabPanelPayload): Promise<LabPanel> => {
-    const { data } = await axiosInstance.post("admin/labs/panels/", {
+    const { data } = await axiosInstance.post(adminLabEndpoints.panels, {
       name: payload.name,
       description: payload.description,
       lab_provider: payload.lab_provider,
@@ -228,7 +241,7 @@ export const labsApi = {
   createDraftLabPanelFromCatalog: async (
     payload: CreateDraftLabPanelFromCatalogPayload
   ): Promise<LabPanel> => {
-    const { data } = await axiosInstance.post("admin/labs/panels/from-catalog/", {
+    const { data } = await axiosInstance.post(adminLabEndpoints.panelFromCatalog, {
       name: payload.name,
       description: payload.description,
       fasting_required: payload.fasting_required === "yes",
@@ -239,7 +252,7 @@ export const labsApi = {
   },
 
   updateLabPanel: async (id: string, payload: Partial<LabPanel>): Promise<LabPanel> => {
-    const { data } = await axiosInstance.patch(`admin/labs/panels/${id}/`, {
+    const { data } = await axiosInstance.patch(adminLabEndpoints.panelDetail(id), {
       description: payload.description,
       cost_to_client:
         payload.cost_to_client === undefined ? undefined : moneyPayload(payload.cost_to_client),
@@ -252,12 +265,12 @@ export const labsApi = {
   },
 
   checkLabPanelJunctionStatus: async (id: string): Promise<LabPanel> => {
-    const { data } = await axiosInstance.post(`admin/labs/panels/${id}/check-junction-status/`);
+    const { data } = await axiosInstance.post(adminLabEndpoints.panelStatus(id));
     return normalizePanel(data.panel || data);
   },
 
   getClientsForLabAssignment: async (labId: string): Promise<ClientAssignment[]> => {
-    const { data } = await axiosInstance.get(`admin/labs/panels/${labId}/clients/`);
+    const { data } = await axiosInstance.get(adminLabEndpoints.panelClients(labId));
     return (data.results || data || []).map(normalizeClientAssignment);
   },
 
@@ -266,7 +279,7 @@ export const labsApi = {
     clientIds: string[],
     labAccountSelections?: Record<string, string>
   ): Promise<{ success: boolean; assigned_count?: number }> => {
-    const { data } = await axiosInstance.post(`admin/labs/panels/${labId}/clients/`, {
+    const { data } = await axiosInstance.post(adminLabEndpoints.panelClients(labId), {
       client_ids: clientIds,
       lab_account_selections: labAccountSelections || {},
     });
@@ -275,40 +288,40 @@ export const labsApi = {
 
   submitAssignmentToJunction: async (assignmentId: string) => {
     const { data } = await axiosInstance.post(
-      `admin/labs/assignments/${assignmentId}/submit-to-junction/`
+      adminLabEndpoints.assignmentSubmit(assignmentId)
     );
     return data;
   },
 
   syncAssignmentToTenant: async (assignmentId: string) => {
     const { data } = await axiosInstance.post(
-      `admin/labs/assignments/${assignmentId}/sync-to-tenant/`
+      adminLabEndpoints.assignmentSync(assignmentId)
     );
     return data;
   },
 
   checkAssignmentJunctionStatus: async (assignmentId: string) => {
     const { data } = await axiosInstance.post(
-      `admin/labs/assignments/${assignmentId}/check-junction-status/`
+      adminLabEndpoints.assignmentStatus(assignmentId)
     );
     return data;
   },
 
   replaceAssignmentSubmission: async (assignmentId: string, supportNotes = "") => {
     const { data } = await axiosInstance.post(
-      `admin/labs/assignments/${assignmentId}/replace-submission/`,
+      adminLabEndpoints.assignmentReplace(assignmentId),
       { support_notes: supportNotes }
     );
     return data;
   },
 
   archiveLabPanel: async (id: string): Promise<{ success: boolean; archived: boolean }> => {
-    const { data } = await axiosInstance.delete(`admin/labs/panels/${id}/`);
+    const { data } = await axiosInstance.delete(adminLabEndpoints.panelDetail(id));
     return data;
   },
 
   getCombinedPanels: async () => {
-    const { data } = await axiosInstance.get("admin/labs/combined-panels/");
+    const { data } = await axiosInstance.get(adminLabEndpoints.combinedPanels);
     return (data.results || data || []) as import("@/features/labs/types").CombinedLabPanel[];
   },
 
@@ -320,7 +333,7 @@ export const labsApi = {
     cost_to_welliemd?: { amount: string; currency: string };
     service_states?: string[];
   }) => {
-    const { data } = await axiosInstance.post("admin/labs/combined-panels/", payload);
+    const { data } = await axiosInstance.post(adminLabEndpoints.combinedPanels, payload);
     return data as import("@/features/labs/types").CombinedLabPanel;
   },
 
@@ -335,12 +348,12 @@ export const labsApi = {
       cost_to_welliemd: { amount: string; currency: string };
     }>
   ) => {
-    const { data } = await axiosInstance.patch(`admin/labs/combined-panels/${id}/`, payload);
+    const { data } = await axiosInstance.patch(adminLabEndpoints.combinedPanelDetail(id), payload);
     return data as import("@/features/labs/types").CombinedLabPanel;
   },
 
   archiveCombinedPanel: async (id: string): Promise<{ success: boolean; archived: boolean }> => {
-    const { data } = await axiosInstance.delete(`admin/labs/combined-panels/${id}/`);
+    const { data } = await axiosInstance.delete(adminLabEndpoints.combinedPanelDetail(id));
     return data;
   },
 
@@ -349,14 +362,14 @@ export const labsApi = {
     errors: string[];
     warnings: string[];
   }> => {
-    const { data } = await axiosInstance.post("admin/labs/combined-panels/validate/", {
+    const { data } = await axiosInstance.post(adminLabEndpoints.combinedValidate, {
       member_panel_ids: panelIds,
     });
     return data;
   },
 
   getCombinedPanelClients: async (combinedId: string) => {
-    const { data } = await axiosInstance.get(`admin/labs/combined-panels/${combinedId}/clients/`);
+    const { data } = await axiosInstance.get(adminLabEndpoints.combinedClients(combinedId));
     return (data.results || data || []) as Array<Record<string, any>>;
   },
 
@@ -364,24 +377,49 @@ export const labsApi = {
     combinedId: string,
     clientIds: string[]
   ): Promise<{ success: boolean; assigned_client_count: number }> => {
-    const { data } = await axiosInstance.post(`admin/labs/combined-panels/${combinedId}/clients/`, {
+    const { data } = await axiosInstance.post(adminLabEndpoints.combinedClients(combinedId), {
       client_ids: clientIds,
     });
     return data;
   },
 
   getAdminLabOrders: async (): Promise<LabOrder[]> => {
-    const { data } = await axiosInstance.get("admin/labs/orders/");
+    if (junctionMockEnabled) return mockLabOrders;
+    const { data } = await axiosInstance.get(adminLabEndpoints.orders);
     return (data.results || data || []).map(normalizeOrder);
   },
 
   getAdminLabOrderResults: async (orderId: string) => {
-    const { data } = await axiosInstance.get(`admin/labs/orders/${orderId}/results/`);
+    if (junctionMockEnabled) return mockLabOrderResults(orderId);
+    const { data } = await axiosInstance.get(adminLabEndpoints.orderResults(orderId));
     return data;
   },
 
+  updateAdminLabOrder: async (
+    orderId: string,
+    payload: { status?: string; tracking_number?: string }
+  ): Promise<LabOrder> => {
+    if (junctionMockEnabled) return updateMockLabOrder(orderId, payload);
+    const { data } = await axiosInstance.patch(adminLabEndpoints.orderManualUpdate(orderId), payload);
+    return normalizeOrder(data.order || data);
+  },
+
   downloadAdminLabResultPdf: async (orderId: string): Promise<Blob> => {
-    const { data } = await axiosInstance.get(`admin/labs/orders/${orderId}/result-pdf/`, {
+    const { data } = await axiosInstance.get(adminLabEndpoints.orderResultPdf(orderId), {
+      responseType: "blob",
+    });
+    return data;
+  },
+
+  downloadAdminLabRequisitionPdf: async (orderId: string): Promise<Blob> => {
+    const { data } = await axiosInstance.get(adminLabEndpoints.orderRequisitionPdf(orderId), {
+      responseType: "blob",
+    });
+    return data;
+  },
+
+  downloadAdminLabCollectionInstructionsPdf: async (orderId: string): Promise<Blob> => {
+    const { data } = await axiosInstance.get(adminLabEndpoints.orderCollectionInstructionsPdf(orderId), {
       responseType: "blob",
     });
     return data;

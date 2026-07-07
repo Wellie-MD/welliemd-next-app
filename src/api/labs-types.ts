@@ -215,10 +215,20 @@ export interface LabOrder {
   product_name: string;
   lab_provider: string;
   price: number;
-  status: "Completed" | "In Process" | "Requisition Created" | "Failed";
-  payment_status: "Paid" | "Unpaid";
-  visit_status: "Lab";
+  status: string;
+  payment_status: string;
+  visit_status: string;
+  fulfillment_status?: string;
+  lab_event?: string;
+  lab_event_label?: string;
+  ui_order_status?: string;
+  ui_payment_status?: string;
+  ui_fulfillment_status?: string;
+  ui_lab_event?: string;
+  ui_lab_event_label?: string;
+  ui_lab_event_tone?: string;
   doctor_name?: string;
+  tracking_number?: string;
   timeline: {
     ordered?: string;
     sample_collected?: string;

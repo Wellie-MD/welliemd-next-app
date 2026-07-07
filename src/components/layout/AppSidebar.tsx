@@ -59,8 +59,11 @@ const menuSections = [
       // },
       {
         title: "Orders",
-        url: "/dashboard/orders",
         icon: ShoppingBag,
+        children: [
+          { title: "Rx Orders", url: "/dashboard/orders" },
+          { title: "Lab Orders", url: "/dashboard/orders/labs" },
+        ],
       },
       { title: "Payments", url: "/dashboard/payments", icon: CreditCard },
       { title: "Messenger", url: "/dashboard/messages", icon: MessageSquare },
