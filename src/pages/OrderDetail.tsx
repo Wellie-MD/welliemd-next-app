@@ -465,6 +465,7 @@ function OrderDetailInner() {
   }
 
   const status = order.orderStatus || order.status || "created"
+  const canonicalStatus = String(order.status || "").toLowerCase()
   const isPrescribedStatus = String(status || "").toLowerCase() === "prescribed"
   const statusDisplay = statusLabels[status] || status
   const orderTitle = order.order_id ? `#${order.order_id}` : order.display_id ? `#${order.display_id}` : order.id?.slice(0, 8) || ""
@@ -474,6 +475,11 @@ function OrderDetailInner() {
     : null
 
   const paymentStatus = (order.paymentStatus || "").toLowerCase()
+  const terminalPaymentDateStatuses = new Set(["voided", "refunded", "canceled", "cancelled"])
+  const paymentDisplayDate = terminalPaymentDateStatuses.has(paymentStatus)
+    ? (order.paymentUpdatedAt || order.paymentDate)
+    : order.paymentDate
+  const paymentAuthorizationDate = order.paymentDate || paymentDisplayDate
   const settlementState = (order.payment_settlement_state || "").toLowerCase()
   const isAuthorized = paymentStatus === "authorized"
   const isRefundable = remainingRefundable > 0
@@ -509,6 +515,20 @@ function OrderDetailInner() {
   }
   const trueCapAmount = parseAmt((order as any)?.base_captured_amount) ?? parseAmt(order?.pricing?.grand_total) ?? 0;
   const trueHoldReleasedAmt = Math.max(0, trueAuthAmount - trueCapAmount);
+  const timelineCapturedStatuses = new Set(["captured", "approved", "succeeded"])
+  const timelineSettlementTransactions = Array.isArray(order.payment_settlement_transactions)
+    ? order.payment_settlement_transactions
+    : []
+  const timelineCapturedFromTransactions = timelineSettlementTransactions.reduce((total, tx) => {
+    const txStatus = String(tx.status || "").toLowerCase()
+    if (!timelineCapturedStatuses.has(txStatus)) return total
+    return total + (parseAmt(tx.amount) ?? 0)
+  }, 0)
+  const timelineCapturedFromFields =
+    (parseAmt((order as any)?.base_captured_amount) ?? 0) +
+    (parseAmt((order as any)?.supplemental_captured_amount) ?? 0)
+  const timelineCapturedAmount = Math.max(timelineCapturedFromTransactions, timelineCapturedFromFields)
+  const hasActualCapturedTimelineAmount = timelineCapturedAmount > 0
   const changeProductTooltip =
     "Product change is available only while order status is Created or Payment Pending and payment status is Pending."
 
@@ -758,20 +778,37 @@ function OrderDetailInner() {
       iconBg: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-4 border-white dark:border-slate-800",
     })
   }
-  if (order.paymentDate) {
-    const normalizedPaymentStatus = (order.paymentStatus || "").toLowerCase()
+  if (order.paymentDate || order.paymentUpdatedAt) {
+    const normalizedPaymentStatus = paymentStatus
+    const authorizedDescription = (trueAuthAmount != null && trueAuthAmount > 0)
+      ? `Authorized $${trueAuthAmount.toFixed(2)}.`
+      : (order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount)
+        ? `Authorized $${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount}.`
+        : undefined
     let paymentTitle = "Payment Updated"
     if (normalizedPaymentStatus === "authorized" || ["captured", "approved", "succeeded"].includes(normalizedPaymentStatus)) paymentTitle = "Order amount authorized"
     else if (["failed", "declined", "error"].includes(normalizedPaymentStatus)) paymentTitle = "Payment Failed"
     else if (normalizedPaymentStatus === "voided") paymentTitle = "Payment Voided"
     else if (normalizedPaymentStatus === "refunded") paymentTitle = "Payment Refunded"
 
+    if (["voided", "refunded", "canceled", "cancelled"].includes(normalizedPaymentStatus)) {
+      timelineItems.push({
+        title: "Order amount authorized",
+        date: formatDateTime(paymentAuthorizationDate),
+        description: authorizedDescription,
+        icon: "payments",
+        iconBg: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800",
+      })
+    }
+
     timelineItems.push({
       title: paymentTitle,
-      date: formatDateTime(order.paymentDate),
-      description: (order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount)
-        ? `${normalizedPaymentStatus === "refunded" ? "Refunded" : "Authorized"} $${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount}.`
-        : undefined,
+      date: formatDateTime(paymentDisplayDate),
+      description: normalizedPaymentStatus === "voided"
+        ? authorizedDescription
+        : (order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount)
+          ? `${normalizedPaymentStatus === "refunded" ? "Refunded" : "Authorized"} $${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount}.`
+          : undefined,
       icon: "payments",
       iconBg: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800",
     })
@@ -1048,14 +1085,15 @@ function OrderDetailInner() {
           }
 
           // Inject capture details if missing
-          if (!desc.includes("Captured $")) {
-            if (trueCapAmount != null && trueAuthAmount != null && trueAuthAmount > trueCapAmount) {
-              desc += `\nCaptured $${trueCapAmount.toFixed(2)} of $${trueAuthAmount.toFixed(2)} authorized.\nRemaining $${trueHoldReleasedAmt.toFixed(2)} hold released.`
-            } else if (trueCapAmount != null && trueAuthAmount != null && trueCapAmount > trueAuthAmount) {
-              const supplemental = trueCapAmount - trueAuthAmount
+          if (!desc.includes("Captured $") && hasActualCapturedTimelineAmount) {
+            if (trueAuthAmount != null && trueAuthAmount > timelineCapturedAmount) {
+              const holdReleased = Math.max(0, trueAuthAmount - timelineCapturedAmount)
+              desc += `\nCaptured $${timelineCapturedAmount.toFixed(2)} of $${trueAuthAmount.toFixed(2)} authorized.\nRemaining $${holdReleased.toFixed(2)} hold released.`
+            } else if (trueAuthAmount != null && timelineCapturedAmount > trueAuthAmount) {
+              const supplemental = timelineCapturedAmount - trueAuthAmount
               desc += `\nCaptured $${trueAuthAmount.toFixed(2)}.\nSupplemental capture of $${supplemental.toFixed(2)}.`
-            } else if (trueCapAmount != null) {
-              desc += `\nCaptured $${trueCapAmount.toFixed(2)}.`
+            } else {
+              desc += `\nCaptured $${timelineCapturedAmount.toFixed(2)}.`
             }
           }
         }
@@ -1127,23 +1165,51 @@ function OrderDetailInner() {
       }
     });
 
-    const hasPayment = renderedTimelineItems.some(i => (i.title.toLowerCase().includes("payment") && !i.title.includes("Pending")) || i.title.includes("amount authorized") || i.title.includes("Voided") || i.title.includes("Refunded"))
-    if (!hasPayment && timelineItems.some(i => (i.title.toLowerCase().includes("payment") && !i.title.includes("Pending")) || i.title.includes("amount authorized") || i.title.includes("Voided") || i.title.includes("Refunded"))) {
-      const paymentItem = timelineItems.find(i => (i.title.toLowerCase().includes("payment") && !i.title.includes("Pending")) || i.title.includes("amount authorized") || i.title.includes("Voided") || i.title.includes("Refunded"))
-      if (paymentItem) renderedTimelineItems.push(paymentItem)
+    const hasAuthorizedPayment = renderedTimelineItems.some(i => i.title.toLowerCase().includes("amount authorized"))
+    const authorizedPaymentItem = timelineItems.find(i => i.title.toLowerCase().includes("amount authorized"))
+    if (!hasAuthorizedPayment && authorizedPaymentItem) {
+      renderedTimelineItems.push(authorizedPaymentItem)
     }
 
+    const hasTerminalPaymentUpdate = renderedTimelineItems.some(i => {
+      const title = i.title.toLowerCase()
+      return title.includes("payment") && !title.includes("pending") && !title.includes("amount authorized")
+    })
+    const terminalPaymentItem = timelineItems.find(i => {
+      const title = i.title.toLowerCase()
+      return title.includes("payment") && !title.includes("pending") && !title.includes("amount authorized")
+    })
+    if (!hasTerminalPaymentUpdate && terminalPaymentItem) {
+      renderedTimelineItems.push(terminalPaymentItem)
+    }
+  }
+
+  const normalizedOrderStatus = canonicalStatus
+  const hasCanceledEvent = renderedTimelineItems.some((i) => i.title.toLowerCase().includes("cancel"))
+  if (normalizedOrderStatus === "canceled" && !hasCanceledEvent) {
+    renderedTimelineItems.push({
+      title: "Canceled",
+      date: formatDateTime(order.updated_at || (order as any).updatedAt || order.orderDate),
+      description: "Order was canceled.",
+      icon: "schedule",
+      iconBg: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-4 border-white dark:border-slate-800",
+    })
+  }
+
+  if (deduplicatedTimelineItems.length > 0 || normalizedOrderStatus === "canceled") {
     const orderScore = (title: string) => {
       const t = title.toLowerCase();
       if (t === "created") return 0;
       if (t === "payment pending") return 1;
       if (t === "processing") return 2;
-      if (t.includes("authorized") || t.includes("captured") || t.includes("payment updated") || t.includes("payment failed")) return 3;
+      if (t.includes("authorized")) return 3;
+      if (t.includes("captured") || t.includes("payment updated") || t.includes("payment failed") || t.includes("voided") || t.includes("refunded")) return 4;
       if (t.includes("visit pending") || t.includes("visit failed")) return 4;
       if (t.includes("consult")) return 5;
       if (t === "prescribed") return 6;
       if (t.includes("rx sent")) return 7;
       if (t === "shipped") return 8;
+      if (t.includes("cancel")) return 9;
       return 10;
     }
 
@@ -2027,7 +2093,7 @@ function OrderDetailInner() {
             <div className="space-y-2 text-[13px] mb-6">
               <div className="flex justify-between">
                 <span className="text-slate-500">Date</span>
-                <span className="text-slate-900 dark:text-white font-medium">{formatDate(order.paymentDate) || "—"}</span>
+                <span className="text-slate-900 dark:text-white font-medium">{formatDate(paymentDisplayDate) || "—"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Provider</span>
@@ -2051,7 +2117,7 @@ function OrderDetailInner() {
                   {hasSplitSettlement ? "SPLIT CAPTURE TRANSACTIONS" : "CAPTURE"}
                 </div>
                 <div className="space-y-2">
-                  {settlementTransactions.map((tx) => {
+                  {settlementTransactions.map((tx: any) => {
                     const role = tx.settlement_role || "base_capture"
                     const ref = tx.processor_transaction_id || "—"
                     const amt = parseMoney(tx.amount) ?? 0
