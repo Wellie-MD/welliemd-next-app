@@ -149,6 +149,7 @@ export interface Order {
   datePrescribed?: string | null
   datePrintedShipped?: string | null
   paymentDate?: string | null
+  paymentUpdatedAt?: string | null
   mrn?: string | null
   paymentStatus?: string | null
   visitStatus?: string | null

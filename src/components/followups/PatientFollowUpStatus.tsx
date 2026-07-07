@@ -349,7 +349,7 @@ function FollowUpRow({
             {followUp.questionnaire__name || 'Follow-Up Questionnaire'}
           </p>
           <p className="text-xs text-muted-foreground">
-            Sent {formatDate(followUp.created_at)}
+            Created {formatDate(followUp.created_at)}
             {followUp.completed_at && ` • Completed ${formatDate(followUp.completed_at)}`}
           </p>
           {followUp.due_date && (
