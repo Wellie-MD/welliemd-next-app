@@ -28,7 +28,12 @@ function countClassName(active: boolean) {
   return cn("rounded-full px-1.5 py-0.5 font-mono text-[10px]", active ? "bg-white text-blue-700" : "bg-slate-100 text-slate-600");
 }
 
-export function CustomProgramsHeaderActions({ viewMode, onViewModeChange, onCreate }: Pick<CustomProgramsToolbarProps, "viewMode" | "onViewModeChange" | "onCreate">) {
+interface CustomProgramsHeaderActionsProps extends Pick<CustomProgramsToolbarProps, "viewMode" | "onViewModeChange" | "onCreate"> {
+  onAssign: () => void;
+  assignDisabled?: boolean;
+}
+
+export function CustomProgramsHeaderActions({ viewMode, onViewModeChange, onCreate, onAssign, assignDisabled }: CustomProgramsHeaderActionsProps) {
   return (
     <div className="flex items-center gap-3">
       <div className="flex items-center rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
@@ -49,7 +54,12 @@ export function CustomProgramsHeaderActions({ viewMode, onViewModeChange, onCrea
           List
         </button>
       </div>
-      <Button variant="outline" data-testid="assign-custom-program-client">
+      <Button
+        variant="outline"
+        onClick={onAssign}
+        disabled={assignDisabled}
+        data-testid="assign-custom-program-client"
+      >
         <Users className="mr-2 h-4 w-4" />
         Assign to Client
       </Button>

@@ -5,6 +5,8 @@ import type { CustomProgram } from "@/features/treatments/types";
 import type { PreviewContext } from "@/features/treatments/types";
 import { useCustomPrograms, useDeleteCustomProgram, useSaveCustomProgram } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import type { CustomProgramFormData } from "@/features/treatments/custom-programs/components/CustomProgramModal";
+import { programAssignmentApi } from "@/api/programAssignmentApi";
+import { useClients } from "@/hooks/useClients";
 
 export type CustomProgramsViewMode = "card" | "list";
 export type CustomProgramsFilter = "all" | "multi" | "single";
@@ -60,6 +62,7 @@ export function useCustomProgramsPage() {
   const { data: customPrograms = [] } = useCustomPrograms();
   const { mutate: saveCustomProgram } = useSaveCustomProgram();
   const { mutate: deleteCustomProgram } = useDeleteCustomProgram();
+  const { clients } = useClients("");
 
   const [viewMode, setViewMode] = useState<CustomProgramsViewMode>("card");
   const [filter, setFilter] = useState<CustomProgramsFilter>("all");
@@ -72,6 +75,7 @@ export function useCustomProgramsPage() {
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const [catalogProgram, setCatalogProgram] = useState<CustomProgram | null>(null);
   const [catalogTab, setCatalogTab] = useState<CatalogTab>("medicine");
+  const [isAssignOpen, setIsAssignOpen] = useState(false);
 
   const multiCount = useMemo(() => customPrograms.filter(isCustomProgramMulti).length, [customPrograms]);
   const singleCount = useMemo(() => customPrograms.filter((program) => !isCustomProgramMulti(program)).length, [customPrograms]);
@@ -152,6 +156,40 @@ export function useCustomProgramsPage() {
     setSearchQuery("");
   };
 
+  const assignItems = useMemo(() => {
+    return customPrograms.map((p) => ({
+      id: p.id,
+      name: p.name,
+      subtitle: p.description || undefined,
+    }));
+  }, [customPrograms]);
+
+  const handleAssignCustomPrograms = async (selectedProgramIds: string[], clientIds: string[]) => {
+    const res = await programAssignmentApi.bulkAssignCustomPrograms({
+      program_ids: selectedProgramIds,
+      client_ids: clientIds,
+    });
+
+    // Surface each already-assigned pair as its own toast without blocking
+    // or hiding the rest of the batch's results.
+    const alreadyAssignedPairs = res.results.filter((r) => r.success && r.already_assigned);
+    for (const pair of alreadyAssignedPairs) {
+      const programName = customPrograms.find((p) => p.id === pair.program_id)?.name || "This custom program";
+      const clientName = clients.find((c) => c.id === pair.client_id)?.name || "this client";
+      toast({
+        title: "Already Assigned",
+        description: `${programName} is already assigned to ${clientName}.`,
+      });
+    }
+
+    toast({
+      title: res.failure_count === 0 ? "Assignment Complete" : "Assignment Partially Complete",
+      description: res.message,
+      variant: res.failure_count > 0 ? "destructive" : "default",
+    });
+    return res;
+  };
+
   return {
     customPrograms,
     filteredPrograms,
@@ -185,5 +223,9 @@ export function useCustomProgramsPage() {
     handleDelete: setDeleteCustomProgramId,
     confirmDeleteCustomProgram,
     handleClearFilters,
+    isAssignOpen,
+    setIsAssignOpen,
+    assignItems,
+    handleAssignCustomPrograms,
   };
 }
