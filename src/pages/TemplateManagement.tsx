@@ -7,7 +7,6 @@ import { useNavigate } from "react-router-dom";
 import {
   templateApi,
   QuestionnaireTemplate,
-  PaginatedQuestionnaireTemplatesResponse,
 } from "@/api/questionnaires";
 import { useClients } from "@/hooks/useClients";
 import { useToast } from "@/hooks/use-toast";
@@ -198,9 +197,6 @@ export default function TemplateManagement() {
   const [editingSlugTemplate, setEditingSlugTemplate] = useState<QuestionnaireTemplate | null>(null);
   const [slugInputValue, setSlugInputValue] = useState("");
   const [slugSaving, setSlugSaving] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [totalCount, setTotalCount] = useState(0);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { currentClient } = useClients();
@@ -215,27 +211,11 @@ export default function TemplateManagement() {
     [currentClient]
   );
 
-  const fetchTemplates = useCallback(async (page: number, size: number) => {
+  const fetchTemplates = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await templateApi.listTemplates({
-        page,
-        page_size: size,
-      });
-
-      // Handle both array response and paginated response
-      if (Array.isArray(data)) {
-        setTemplates(data);
-        setTotalCount(data.length);
-      } else if (data && typeof data === "object" && "results" in data) {
-        // Paginated response
-        const paginatedData = data as PaginatedQuestionnaireTemplatesResponse;
-        setTemplates(paginatedData.results || []);
-        setTotalCount(paginatedData.count || 0);
-      } else {
-        setTemplates([]);
-        setTotalCount(0);
-      }
+      const data = await templateApi.listTemplates();
+      setTemplates(data);
     } catch (error: unknown) {
       console.error("Failed to fetch templates:", error);
       toast({
@@ -246,16 +226,15 @@ export default function TemplateManagement() {
           "Failed to fetch templates",
         variant: "destructive",
       });
-      setTemplates([]); // Set empty array on error
-      setTotalCount(0);
+      setTemplates([]);
     } finally {
       setLoading(false);
     }
   }, [toast]);
 
   useEffect(() => {
-    fetchTemplates(currentPage, pageSize);
-  }, [fetchTemplates, currentPage, pageSize]);
+    fetchTemplates();
+  }, [fetchTemplates]);
 
   const handleManageQuestions = (template: QuestionnaireTemplate) => {
     navigate(`/dashboard/templates/${template.id}/flow-builder`);
@@ -296,7 +275,7 @@ export default function TemplateManagement() {
       });
       setEditingSlugTemplate(null);
       setSlugInputValue("");
-      fetchTemplates(currentPage, pageSize);
+      fetchTemplates();
     } catch (error: unknown) {
       toast({
         title: "Error",
@@ -309,7 +288,7 @@ export default function TemplateManagement() {
     } finally {
       setSlugSaving(false);
     }
-  }, [currentPage, editingSlugTemplate, fetchTemplates, pageSize, slugInputValue, toast]);
+  }, [editingSlugTemplate, fetchTemplates, slugInputValue, toast]);
 
   const handleCopyQuestionnaireLink = async (
     template: QuestionnaireTemplate
@@ -403,8 +382,7 @@ export default function TemplateManagement() {
           description: `Template "${template.name}" has been published`,
         });
       }
-      // Refresh templates to get updated status
-      fetchTemplates(currentPage, pageSize);
+      fetchTemplates();
     } catch (error: unknown) {
       toast({
         title: "Error",
@@ -491,7 +469,6 @@ export default function TemplateManagement() {
       value: activeStatusFilter === status ? status : undefined,
       onClick: () => {
         setActiveStatusFilter(status);
-        setCurrentPage(1);
       },
     })),
     // Type filters
@@ -502,7 +479,6 @@ export default function TemplateManagement() {
       value: activeTypeFilter === type ? type : undefined,
       onClick: () => {
         setActiveTypeFilter(type);
-        setCurrentPage(1);
       },
     })),
   ];
@@ -512,19 +488,11 @@ export default function TemplateManagement() {
     setActiveTypeFilter("All Types");
     setDate(undefined);
     setSearchTerm("");
-    setCurrentPage(1);
   }, []);
 
   const handleRefresh = useCallback(() => {
-    fetchTemplates(currentPage, pageSize);
-  }, [currentPage, fetchTemplates, pageSize]);
-
-  const handlePageSizeChange = useCallback((nextPageSize: number) => {
-    setPageSize(nextPageSize);
-    setCurrentPage(1);
-  }, []);
-
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+    fetchTemplates();
+  }, [fetchTemplates]);
 
   const handleExport = useCallback(() => {
     const exportData = filteredTemplates.map((template) => {
@@ -689,24 +657,14 @@ export default function TemplateManagement() {
           dateRange={date}
           onDateRangeChange={(nextDate) => {
             setDate(nextDate);
-            setCurrentPage(1);
           }}
           onSearch={(nextSearchTerm) => {
             setSearchTerm(nextSearchTerm);
-            setCurrentPage(1);
           }}
           onResetFilters={handleResetFilters}
           onExport={handleExport}
           onRefresh={handleRefresh}
           loading={loading}
-          pagination={{
-            currentPage,
-            totalPages,
-            pageSize,
-            totalCount,
-            onPageChange: setCurrentPage,
-            onPageSizeChange: handlePageSizeChange,
-          }}
         />
       )}
 
