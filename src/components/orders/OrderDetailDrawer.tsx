@@ -41,6 +41,7 @@ const ORDER_STATUSES = [
   { value: "billing_pending", label: "Billing Pending" },
   { value: "rx_sent", label: "Rx Sent" },
   { value: "shipped", label: "Shipped" },
+  { value: "in_transit", label: "In Transit" },
   { value: "out_for_delivery", label: "Out for Delivery" },
   { value: "delivered", label: "Delivered" },
   { value: "delivery_failed", label: "Delivery Failed" },
