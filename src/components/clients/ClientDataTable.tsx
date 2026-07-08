@@ -121,18 +121,33 @@ export const ClientDataTable: React.FC<ClientDataTableProps> = ({
       label: 'Lifecycle',
       headerClassName: 'w-1/6 text-center',
       className: 'text-center',
-      render: (_: unknown, row: Client) => (
-        <div className="flex flex-col items-center gap-1">
-          <Badge variant={row.lifecycle_state === 'ready' ? 'default' : row.lifecycle_state === 'error' ? 'destructive' : 'secondary'}>
-            {row.lifecycle_state || 'draft'}
-          </Badge>
-          <span className="text-xs text-muted-foreground">
-            {row.latest_lifecycle_job_operation_type
-              ? `${row.latest_lifecycle_job_operation_type}:${row.latest_lifecycle_job_status || 'pending'}`
-              : row.provisioning_status || 'idle'}
-          </span>
-        </div>
-      ),
+      render: (_: unknown, row: Client) => {
+        const hasWarnings =
+          row.lifecycle_state === 'ready_with_warnings' ||
+          row.provisioning_status === 'ready_with_warnings' ||
+          row.latest_lifecycle_job_status === 'completed_with_warnings';
+        const variant =
+          row.lifecycle_state === 'ready' && !hasWarnings
+            ? 'default'
+            : row.lifecycle_state === 'error'
+              ? 'destructive'
+              : 'secondary';
+        return (
+          <div className="flex flex-col items-center gap-1">
+            <Badge
+              variant={variant}
+              className={hasWarnings ? 'border-amber-300 bg-amber-100 text-amber-950 hover:bg-amber-100' : undefined}
+            >
+              {row.lifecycle_state || 'draft'}
+            </Badge>
+            <span className={hasWarnings ? 'text-xs text-amber-700' : 'text-xs text-muted-foreground'}>
+              {row.latest_lifecycle_job_operation_type
+                ? `${row.latest_lifecycle_job_operation_type}:${row.latest_lifecycle_job_status || 'pending'}`
+                : row.provisioning_status || 'idle'}
+            </span>
+          </div>
+        );
+      },
     },
     {
       key: 'b2b_subscription_status',

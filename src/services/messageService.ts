@@ -158,7 +158,59 @@ export async function uploadToAdminS3(files: File[]): Promise<NewAttachment[]> {
 }
 
 
+/** Lightweight conversation summary from conversations endpoint */
+export interface ConversationSummary {
+  master_id: string;
+  patient_name: string;
+  patient_email: string;
+  order_number: string;
+  last_message: string;
+  last_time: string;
+  unread_count: number;
+}
+
+/** Paginated response shape */
+export interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
 export const messageService = {
+  /** Fetch paginated conversation summaries for a client */
+  async getConversations(
+    clientId: string,
+    params?: { page?: number; perPage?: number; search?: string }
+  ): Promise<PaginatedResponse<ConversationSummary>> {
+    const query: Record<string, string | number> = {};
+    if (params?.page) query.page = params.page;
+    if (params?.perPage) query.per_page = params.perPage;
+    if (params?.search) query.search = params.search;
+    const { data } = await api.get<PaginatedResponse<ConversationSummary>>(
+      `/admin/dashboard/clients/${clientId}/conversations/`,
+      { params: query }
+    );
+    return data;
+  },
+
+  /** Fetch paginated messages for a specific conversation (master_id) */
+  async getMessagesForConversation(
+    clientId: string,
+    masterId: string,
+    params?: { limit?: number; offset?: number }
+  ): Promise<Message[]> {
+    const query: Record<string, string | number> = { master_id: masterId };
+    if (params?.limit != null) query.limit = params.limit;
+    if (params?.offset != null) query.offset = params.offset;
+    const { data } = await api.get<Message[]>(
+      `/admin/dashboard/clients/${clientId}/messages/`,
+      { params: query }
+    );
+    return data || [];
+  },
+
+  /** Legacy: fetch all messages at once (kept for backward compatibility) */
   async getAllMessages(apiEndpoint?: string, clientId?: string): Promise<Message[]> {
     if (clientId) {
       const { data } = await api.get<Message[]>(`/admin/dashboard/clients/${clientId}/messages/`);
