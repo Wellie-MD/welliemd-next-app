@@ -171,6 +171,20 @@ const getProvisioningRetryStepName = (job?: LifecycleJob | null) => {
   return stepName || null;
 };
 
+const getRetryableProvisioningJob = (
+  latestJob: LifecycleJob | null | undefined,
+  lifecycleJobs: LifecycleJob[]
+) => {
+  const candidates = latestJob ? [latestJob, ...lifecycleJobs] : lifecycleJobs;
+  const seen = new Set<string>();
+
+  return candidates.find((job) => {
+    if (seen.has(job.id)) return false;
+    seen.add(job.id);
+    return Boolean(getProvisioningRetryStepName(job));
+  }) || null;
+};
+
 const getRetryProvisioningDisabledReason = (
   latestJob: LifecycleJob | null | undefined,
   hasActiveLifecycleJob: boolean,
@@ -546,7 +560,14 @@ export default function ClientLifecycle() {
     () => Boolean(lifecycleJobs.some((job) => ACTIVE_LIFECYCLE_STATUSES.has(job.status))),
     [lifecycleJobs]
   );
-  const retryProvisioningStepName = useMemo(() => getProvisioningRetryStepName(latestJob), [latestJob]);
+  const retryableProvisioningJob = useMemo(
+    () => getRetryableProvisioningJob(latestJob, lifecycleJobs),
+    [latestJob, lifecycleJobs]
+  );
+  const retryProvisioningStepName = useMemo(
+    () => getProvisioningRetryStepName(retryableProvisioningJob),
+    [retryableProvisioningJob]
+  );
   const retryProvisioningDisabledReason = getRetryProvisioningDisabledReason(
     latestJob,
     hasActiveLifecycleJob,
@@ -554,6 +575,11 @@ export default function ClientLifecycle() {
   );
   const canRetryProvisioning = Boolean(
     retryProvisioningStepName && !hasActiveLifecycleJob && !lifecycleMutation.isPending
+  );
+  const showBlockingProvisioningError = Boolean(
+    retryableProvisioningJob &&
+    retryableProvisioningJob.id !== latestJob?.id &&
+    shouldShowLifecycleError(retryableProvisioningJob.error_payload, retryableProvisioningJob.status)
   );
 
   useEffect(() => {
@@ -736,6 +762,27 @@ export default function ClientLifecycle() {
             </Alert>
           ) : null}
 
+          {showBlockingProvisioningError && retryableProvisioningJob ? (
+            <Alert variant="destructive">
+              <ShieldAlert className="h-4 w-4" />
+              <AlertTitle>Blocking Provisioning Error</AlertTitle>
+              <AlertDescription>
+                <div className="space-y-2">
+                  <p>
+                    {(retryableProvisioningJob.error_payload.message as string) ||
+                      "A previous provisioning job failed before this client became ready."}
+                  </p>
+                  <p className="text-xs">
+                    Failed step: {retryProvisioningStepName || retryableProvisioningJob.current_step_name || "unknown"} ·
+                    Source job: {getLifecycleActionLabel(retryableProvisioningJob)} ·
+                    Recorded {formatDate(retryableProvisioningJob.updated_at)}
+                  </p>
+                  <LifecycleErrorDetails payload={retryableProvisioningJob.error_payload} />
+                </div>
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
           {latestJob && shouldShowLifecycleError(latestJob.error_payload, latestJob.status) ? (
             <Alert variant="destructive">
               <ShieldAlert className="h-4 w-4" />
@@ -792,7 +839,7 @@ export default function ClientLifecycle() {
           </div>
           {hasActiveLifecycleJob ? (
             <p className="text-xs text-muted-foreground">
-              Cancel active teardown jobs before retrying provisioning or running verification.
+              Wait for the active lifecycle job to finish before retrying provisioning or running verification.
             </p>
           ) : null}
         </CardContent>
@@ -906,7 +953,7 @@ export default function ClientLifecycle() {
               steps={selectedLifecycleJob?.steps || []}
               isRetrying={lifecycleMutation.isPending}
               onRetryStep={
-                selectedLifecycleJob && selectedLifecycleJob.operation_type !== "teardown"
+                selectedLifecycleJob && ["provision", "repair"].includes(selectedLifecycleJob.operation_type)
                   ? (stepName) =>
                       runAction(
                         () => clientApi.retryProvisioningStep(client.id, stepName),
