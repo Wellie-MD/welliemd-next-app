@@ -82,7 +82,13 @@ export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuest
       <PatientFlowTestModal
         open={isSimulateOpen}
         onOpenChange={setIsSimulateOpen}
-        previewContext={{ type: "program", id: program.id, slug: program.slug }}
+        previewContext={{
+          type: "program",
+          id: program.id,
+          slug: program.slug,
+          visitType: program.visitType,
+          templateId: program.sourceQuestionnaireTemplateId,
+        }}
       />
     </>
   );

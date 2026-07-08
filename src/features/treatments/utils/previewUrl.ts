@@ -1,6 +1,6 @@
 import type { PreviewContext } from "@/features/treatments/types";
 
-const DEFAULT_LOCAL_QUESTIONNAIRE_URL = "http://localhost:3000";
+const DEFAULT_LOCAL_QUESTIONNAIRE_URL = "http://localhost:3001";
 
 const normalizeBaseUrl = (baseUrl: string) => baseUrl.replace(/\/+$/, "");
 
@@ -38,9 +38,12 @@ export const buildQuestionnairePreviewTarget = (
 
   if (context.slug) params.set("slug", context.slug);
 
-  if (context.type === "program" && context.slug) {
+  if (context.type === "program") {
+    if (context.visitType) params.set("visit_type", context.visitType);
+    if (context.templateId) params.set("template_id", context.templateId);
+
     return {
-      url: `${baseUrl}/visit/${context.slug}?${params.toString()}`,
+      url: `${baseUrl}/preview?${params.toString()}`,
       supported: true,
     };
   }

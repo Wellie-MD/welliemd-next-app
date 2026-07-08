@@ -108,7 +108,8 @@ const menuSections = [
         icon: Archive,
         children: [
           { title: "Archive Products", url: "/dashboard/products/archive" },
-          { title: "Archive Templates", url: "/dashboard/questionnaires/archive" }
+          { title: "Archive Templates", url: "/dashboard/questionnaires/archive" },
+          { title: "Archive Programs", url: "/dashboard/treatments/archive/programs" }
         ]
       },
     ]

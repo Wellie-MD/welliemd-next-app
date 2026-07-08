@@ -54,6 +54,7 @@ import ConsentsPage from "./features/treatments/libraries/pages/ConsentsPage";
 import ContentLibrariesPage from "./features/treatments/libraries/pages/ContentLibrariesPage";
 import CustomProgramBuilderPage from "./features/treatments/flow-builder/pages/CustomProgramBuilderPage";
 import CustomProgramsPage from "./features/treatments/custom-programs/pages/CustomProgramsPage";
+import ArchiveProgramsPage from "./features/treatments/programs/pages/ArchiveProgramsPage";
 import ProgramDetailPage from "./features/treatments/programs/pages/ProgramDetailPage";
 import ProgramQuestionsListPage from "./features/treatments/programs/pages/ProgramQuestionsListPage";
 import ProgramsPage from "./features/treatments/programs/pages/ProgramsPage";
@@ -166,6 +167,7 @@ const App = () => {
                     <Route path="/treatments/custom-programs" element={<ProtectedRoute><CustomProgramsPage /></ProtectedRoute>} />
                     <Route path="/treatments/custom-programs/:customProgramId/builder" element={<ProtectedRoute><CustomProgramBuilderPage /></ProtectedRoute>} />
                     <Route path="/treatments/programs" element={<ProtectedRoute><ProgramsPage /></ProtectedRoute>} />
+                    <Route path="/treatments/archive/programs" element={<ProtectedRoute><ArchiveProgramsPage /></ProtectedRoute>} />
                     <Route path="/treatments/programs/:programId" element={<ProtectedRoute><ProgramDetailPage /></ProtectedRoute>} />
                     <Route path="/treatments/programs/:programId/questions" element={<ProtectedRoute><ProgramQuestionsListPage /></ProtectedRoute>} />
                     <Route path="/treatments/sections" element={<ProtectedRoute><SectionsPage /></ProtectedRoute>} />

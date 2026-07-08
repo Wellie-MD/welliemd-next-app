@@ -6,10 +6,18 @@ import { toast } from "@/components/ui/use-toast";
 import { TreatmentPageHeader } from "@/features/treatments/common/components";
 import { TreatmentProgramCard } from "@/features/treatments/programs/components/TreatmentProgramCard";
 import { ProgramListTable } from "@/features/treatments/programs/components/ProgramListTable";
-import { usePrograms, useTreatmentTypes, useSaveProgram } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import {
+  useArchiveProgram,
+  useDuplicateProgram,
+  usePrograms,
+  useSaveProgram,
+  useTreatmentTypes,
+} from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
 import type { Program, ProgramStage } from "@/features/treatments/types";
 import { CreateProgramModal } from "@/features/treatments/programs/components/CreateProgramModal";
+import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
+import type { PreviewContext } from "@/features/treatments/types";
 
 type ProgramsViewMode = "cards" | "list";
 
@@ -17,6 +25,8 @@ export default function ProgramsPage() {
   const { data: programs = [] } = usePrograms();
   const { data: treatmentTypes = [] } = useTreatmentTypes();
   const saveProgramMutation = useSaveProgram();
+  const duplicateProgramMutation = useDuplicateProgram();
+  const archiveProgramMutation = useArchiveProgram();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"alpha" | "recent">("recent");
@@ -26,12 +36,21 @@ export default function ProgramsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [prefillTreatmentTypeKey, setPrefillTreatmentTypeKey] = useState<string | undefined>(undefined);
   const [prefillStage, setPrefillStage] = useState<ProgramStage | undefined>(undefined);
+  const [editingProgram, setEditingProgram] = useState<Program | null>(null);
+  const [previewContext, setPreviewContext] = useState<PreviewContext | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [duplicatingProgramId, setDuplicatingProgramId] = useState<string | null>(null);
+  const [archivingProgramId, setArchivingProgramId] = useState<string | null>(null);
+  const activePrograms = useMemo(
+    () => programs.filter((program) => program.status !== "archived"),
+    [programs]
+  );
 
   // Metrics calculation
   const totalTreatments = treatmentTypes.length;
   const missingFollowUp = useMemo(() => {
-    return treatmentTypes.filter(t => !programs.some(p => p.treatmentTypeKey === t.key && p.stage === "follow_up")).length;
-  }, [treatmentTypes, programs]);
+    return treatmentTypes.filter(t => !activePrograms.some(p => p.treatmentTypeKey === t.key && p.stage === "follow_up")).length;
+  }, [treatmentTypes, activePrograms]);
 
   // Handlers for mocked functional rules
   const handleAddFollowUp = (treatmentKey: string) => {
@@ -47,6 +66,36 @@ export default function ProgramsPage() {
   };
 
   const handleSaveProgram = (programData: Omit<Program, "id" | "questionCount" | "checkoutQuestionCount" | "status" | "updatedAt">) => {
+    if (editingProgram) {
+      const updatedProgram: Program = {
+        ...editingProgram,
+        ...programData,
+        updatedAt: currentDateStamp(),
+      };
+
+      saveProgramMutation.mutate(updatedProgram, {
+        onSuccess: () => {
+          toast({
+            title: "Program Updated",
+            description: `Saved changes to ${programData.name}`,
+          });
+          setEditingProgram(null);
+          setIsCreateOpen(false);
+        },
+        onError: (error: unknown) => {
+          toast({
+            title: "Error",
+            description:
+              (error as any)?.response?.data?.error ||
+              (error as any)?.message ||
+              "Failed to update program",
+            variant: "destructive",
+          });
+        },
+      });
+      return;
+    }
+
     const newProg: Program = {
       id: createMockId("program"),
       questionCount: 0,
@@ -64,11 +113,104 @@ export default function ProgramsPage() {
       ...programData,
     };
 
-    saveProgramMutation.mutate(newProg);
+    saveProgramMutation.mutate(newProg, {
+      onSuccess: () => {
+        toast({
+          title: "Program Created",
+          description: `Successfully created program: ${programData.name}`,
+        });
+      },
+      onError: (error: unknown) => {
+        toast({
+          title: "Error",
+          description:
+            (error as any)?.response?.data?.error ||
+            (error as any)?.message ||
+            "Failed to create program",
+          variant: "destructive",
+        });
+      },
+    });
+  };
 
-    toast({
-      title: "Program Created",
-      description: `Successfully created program: ${programData.name}`,
+  const openCreateProgram = () => {
+    setEditingProgram(null);
+    setPrefillTreatmentTypeKey(undefined);
+    setPrefillStage(undefined);
+    setIsCreateOpen(true);
+  };
+
+  const handleEditProgram = (program: Program) => {
+    setEditingProgram(program);
+    setPrefillTreatmentTypeKey(undefined);
+    setPrefillStage(undefined);
+    setIsCreateOpen(true);
+  };
+
+  const handlePreviewProgram = (program: Program) => {
+    setPreviewContext({
+      type: "program",
+      id: program.id,
+      slug: program.slug,
+      visitType: program.visitType,
+      templateId: program.sourceQuestionnaireTemplateId,
+    });
+    setIsPreviewOpen(true);
+  };
+
+  const handleDuplicateProgram = (program: Program) => {
+    setDuplicatingProgramId(program.id);
+    duplicateProgramMutation.mutate(program.id, {
+      onSuccess: (duplicated) => {
+        toast({
+          title: "Program Duplicated",
+          description: `Created ${duplicated.name}`,
+        });
+      },
+      onError: (error: unknown) => {
+        toast({
+          title: "Error",
+          description:
+            (error as any)?.response?.data?.error ||
+            (error as any)?.message ||
+            "Failed to duplicate program",
+          variant: "destructive",
+        });
+      },
+      onSettled: () => setDuplicatingProgramId(null),
+    });
+  };
+
+  const handleArchiveProgram = (program: Program) => {
+    if (program.status === "archived") return;
+    const confirmed = window.confirm(`Archive "${program.name}"?`);
+    if (!confirmed) return;
+
+    setArchivingProgramId(program.id);
+    archiveProgramMutation.mutate(program.id, {
+      onSuccess: () => {
+        toast({
+          title: "Program Archived",
+          description: `${program.name} has been archived.`,
+        });
+      },
+      onError: (error: unknown) => {
+        const responseData = (error as any)?.response?.data;
+        const blockerMessage = Array.isArray(responseData?.blockers)
+          ? responseData.blockers.map((blocker: { message?: string }) => blocker.message).filter(Boolean).join(" ")
+          : "";
+        toast({
+          title: "Error",
+          description:
+            blockerMessage ||
+            responseData?.detail ||
+            responseData?.error ||
+            (error as any)?.message ||
+            "Failed to archive program",
+          variant: "destructive",
+        });
+      },
+      onSettled: () => setArchivingProgramId(null),
     });
   };
 
@@ -90,8 +232,8 @@ export default function ProgramsPage() {
       result.sort((a, b) => a.name.localeCompare(b.name));
     } else {
       result.sort((a, b) => {
-        const aProgs = programs.filter(p => p.treatmentTypeKey === a.key);
-        const bProgs = programs.filter(p => p.treatmentTypeKey === b.key);
+        const aProgs = activePrograms.filter(p => p.treatmentTypeKey === a.key);
+        const bProgs = activePrograms.filter(p => p.treatmentTypeKey === b.key);
         const aMax = aProgs.reduce((max, p) => p.updatedAt > max ? p.updatedAt : max, "");
         const bMax = bProgs.reduce((max, p) => p.updatedAt > max ? p.updatedAt : max, "");
         return bMax.localeCompare(aMax);
@@ -99,11 +241,11 @@ export default function ProgramsPage() {
     }
 
     return result;
-  }, [treatmentTypes, programs, searchQuery, sortBy]);
+  }, [treatmentTypes, activePrograms, searchQuery, sortBy]);
 
   // Flat program list for the list view (search-filtered, sorted).
   const filteredPrograms = useMemo(() => {
-    let result = [...programs];
+    let result = [...activePrograms];
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -119,7 +261,7 @@ export default function ProgramsPage() {
       result.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     }
     return result;
-  }, [programs, searchQuery, sortBy]);
+  }, [activePrograms, searchQuery, sortBy]);
 
   return (
     <div className="p-6 max-w-[1600px] mx-auto min-h-screen">
@@ -128,11 +270,7 @@ export default function ProgramsPage() {
         subtitle="Clinical questionnaires linked to specific treatments. Each treatment has an intake module and (optionally) a follow-up module."
         actions={
           <Button
-            onClick={() => {
-              setPrefillTreatmentTypeKey(undefined);
-              setPrefillStage(undefined);
-              setIsCreateOpen(true);
-            }}
+            onClick={openCreateProgram}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 px-4 text-xs rounded-lg shadow-sm"
           >
             <Plus className="mr-1.5 h-4 w-4 stroke-[2.5]" />
@@ -232,7 +370,15 @@ export default function ProgramsPage() {
             <p className="text-sm text-slate-500">No programs found matching your criteria.</p>
           </div>
         ) : (
-          <ProgramListTable programs={filteredPrograms} />
+          <ProgramListTable
+            programs={filteredPrograms}
+            onEdit={handleEditProgram}
+            onPreview={handlePreviewProgram}
+            onDuplicate={handleDuplicateProgram}
+            onArchive={handleArchiveProgram}
+            duplicatingProgramId={duplicatingProgramId}
+            archivingProgramId={archivingProgramId}
+          />
         )
       ) : processedTreatments.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-xl border border-slate-200">
@@ -241,7 +387,7 @@ export default function ProgramsPage() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
           {processedTreatments.map((t) => {
-            const tPrograms = programs.filter(p => p.treatmentTypeKey === t.key);
+            const tPrograms = activePrograms.filter(p => p.treatmentTypeKey === t.key);
             const intake = tPrograms.find(p => p.stage === "intake");
             const followUp = tPrograms.find(p => p.stage === "follow_up");
 
@@ -253,6 +399,7 @@ export default function ProgramsPage() {
                 followUpProgram={followUp}
                 onAddIntake={handleAddIntake}
                 onAddFollowUp={handleAddFollowUp}
+                onPreview={handlePreviewProgram}
               />
             );
           })}
@@ -262,12 +409,27 @@ export default function ProgramsPage() {
       {/* CREATE PROGRAM DIALOG */}
       <CreateProgramModal
         open={isCreateOpen}
-        onOpenChange={setIsCreateOpen}
+        onOpenChange={(open) => {
+          setIsCreateOpen(open);
+          if (!open) {
+            setEditingProgram(null);
+          }
+        }}
         treatmentTypes={treatmentTypes}
         onSave={handleSaveProgram}
         prefillTreatmentTypeKey={prefillTreatmentTypeKey}
         prefillStage={prefillStage}
+        initialProgram={editingProgram}
+        mode={editingProgram ? "edit" : "create"}
       />
+
+      {previewContext && (
+        <PatientFlowTestModal
+          open={isPreviewOpen}
+          onOpenChange={setIsPreviewOpen}
+          previewContext={previewContext}
+        />
+      )}
     </div>
   );
 }

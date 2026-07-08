@@ -9,6 +9,7 @@ interface TreatmentProgramCardProps {
   followUpProgram?: Program;
   onAddIntake: (treatmentKey: string) => void;
   onAddFollowUp: (treatmentKey: string) => void;
+  onPreview: (program: Program) => void;
 }
 
 const getIconForTreatment = (key: string) => {
@@ -55,6 +56,7 @@ export function TreatmentProgramCard({
   followUpProgram,
   onAddIntake,
   onAddFollowUp,
+  onPreview,
 }: TreatmentProgramCardProps) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col hover:border-slate-300 transition-colors">
@@ -116,7 +118,11 @@ export function TreatmentProgramCard({
                     Open
                   </Link>
                 </Button>
-                <Button variant="outline" className="h-7 px-4 text-[11px] font-bold text-slate-600 border-slate-200 hover:bg-slate-50 rounded">
+                <Button
+                  variant="outline"
+                  className="h-7 px-4 text-[11px] font-bold text-slate-600 border-slate-200 hover:bg-slate-50 rounded"
+                  onClick={() => onPreview(intakeProgram)}
+                >
                   Preview
                 </Button>
               </div>
@@ -175,7 +181,11 @@ export function TreatmentProgramCard({
                     Open
                   </Link>
                 </Button>
-                <Button variant="outline" className="h-7 px-4 text-[11px] font-bold text-slate-600 border-slate-200 hover:bg-slate-50 rounded">
+                <Button
+                  variant="outline"
+                  className="h-7 px-4 text-[11px] font-bold text-slate-600 border-slate-200 hover:bg-slate-50 rounded"
+                  onClick={() => onPreview(followUpProgram)}
+                >
                   Preview
                 </Button>
               </div>

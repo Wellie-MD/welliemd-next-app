@@ -348,7 +348,13 @@ export default function ProgramDetailPage() {
       <PatientFlowTestModal
         open={isSimulateOpen}
         onOpenChange={setIsSimulateOpen}
-        previewContext={{ type: "program", id: foundProgram.id, slug: foundProgram.slug }}
+        previewContext={{
+          type: "program",
+          id: foundProgram.id,
+          slug: foundProgram.slug,
+          visitType: foundProgram.visitType,
+          templateId: foundProgram.sourceQuestionnaireTemplateId,
+        }}
       />
 
       <DeleteConfirmDialog

@@ -12,6 +12,8 @@ interface CreateProgramModalProps {
   onSave: (programData: Omit<Program, "id" | "questionCount" | "checkoutQuestionCount" | "status" | "updatedAt">) => void;
   prefillTreatmentTypeKey?: string;
   prefillStage?: ProgramStage;
+  initialProgram?: Program | null;
+  mode?: "create" | "edit";
 }
 
 export function CreateProgramModal({
@@ -21,6 +23,8 @@ export function CreateProgramModal({
   onSave,
   prefillTreatmentTypeKey,
   prefillStage,
+  initialProgram,
+  mode = "create",
 }: CreateProgramModalProps) {
   const [name, setName] = useState("");
   const [stage, setStage] = useState<ProgramStage>("intake");
@@ -35,7 +39,17 @@ export function CreateProgramModal({
   // Determine pre-filled values
   useEffect(() => {
     if (open) {
-      if (prefillTreatmentTypeKey) {
+      if (mode === "edit" && initialProgram) {
+        setName(initialProgram.name || "");
+        setStage(initialProgram.stage || "intake");
+        setTreatmentTypeKey(initialProgram.treatmentTypeKey || "");
+        setSlug(initialProgram.slug || "");
+        setSexRequirement(initialProgram.sexRequirement || "any");
+        setMinAge(initialProgram.minAge != null ? String(initialProgram.minAge) : "18");
+        setMaxAge(initialProgram.maxAge != null ? String(initialProgram.maxAge) : "");
+        setMinBmi(initialProgram.minBmi != null ? String(initialProgram.minBmi) : "");
+        setMaxBmi(initialProgram.maxBmi != null ? String(initialProgram.maxBmi) : "");
+      } else if (prefillTreatmentTypeKey) {
         setTreatmentTypeKey(prefillTreatmentTypeKey);
         const treatment = treatmentTypes.find((t) => t.key === prefillTreatmentTypeKey);
         const derivedStage = prefillStage || "follow_up";
@@ -58,7 +72,7 @@ export function CreateProgramModal({
         setMaxBmi("");
       }
     }
-  }, [open, prefillTreatmentTypeKey, prefillStage, treatmentTypes]);
+  }, [open, prefillTreatmentTypeKey, prefillStage, treatmentTypes, initialProgram, mode]);
 
   // Derived visit type
   const selectedTreatment = treatmentTypes.find((t) => t.key === treatmentTypeKey);
@@ -105,10 +119,12 @@ export function CreateProgramModal({
         <DialogHeader className="px-6 py-4 border-b border-slate-100 flex flex-row items-center justify-between">
           <div>
             <DialogTitle className="text-base font-bold text-slate-900">
-              {prefillTreatmentTypeKey ? "Create Program" : "Create Program"}
+              {mode === "edit" ? "Edit Program" : "Create Program"}
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500 mt-1">
-              {prefillTreatmentTypeKey
+              {mode === "edit"
+                ? "Update the program details, routing identifiers, and eligibility requirements."
+                : prefillTreatmentTypeKey
                 ? `Adding follow-up for ${selectedTreatment?.name || ""}.`
                 : "Create a clinical questionnaire linked to a specific treatment."}
             </DialogDescription>
@@ -360,7 +376,7 @@ export function CreateProgramModal({
               type="submit"
               className="h-9 px-4 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm"
             >
-              Create Program
+              {mode === "edit" ? "Save Changes" : "Create Program"}
             </Button>
           </div>
         </form>

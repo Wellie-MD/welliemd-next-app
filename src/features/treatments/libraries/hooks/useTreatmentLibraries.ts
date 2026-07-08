@@ -113,6 +113,42 @@ export const useSaveProgram = () => {
   });
 };
 
+export const useArchiveProgram = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => treatmentsApi.archiveProgram(id),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(data.id) });
+    },
+  });
+};
+
+export const useRestoreProgram = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => treatmentsApi.restoreProgram(id),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(data.id) });
+    },
+  });
+};
+
+export const useDuplicateProgram = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => treatmentsApi.duplicateProgram(id),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(data.id) });
+    },
+  });
+};
+
 export const useSaveProgramQuestion = (programId: string) => {
   const queryClient = useQueryClient();
   return useMutation({

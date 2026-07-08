@@ -363,6 +363,8 @@ const setProgramQuestions = (programId: string, questions: ProgramQuestion[]) =>
   setStored(KEYS.PROGRAM_QUESTIONS, allQuestions);
 };
 
+const cloneJson = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null));
+
 const getSectionFields = (sectionId: string) => {
   const allFields = getStored<Record<string, CommonSectionField[]>>(
     KEYS.SECTION_FIELDS,
@@ -640,6 +642,7 @@ const mapProgramFromApi = (record: ProgramApiRecord): Program => ({
   status: record.status,
   updatedAt: record.updated_at?.split("T")[0] || currentDateStamp(),
   slug: record.slug,
+  sourceQuestionnaireTemplateId: record.source_questionnaire_template || null,
   description: record.description || "",
   authConfig: record.auth_config || {
     email: true,
@@ -827,6 +830,112 @@ export const treatmentsApi = {
     }
 
     const { data } = await axiosInstance.post<ProgramApiRecord>("treatments/programs/", payload);
+    return mapProgramFromApi(data);
+  },
+
+  archiveProgram: async (id: string): Promise<Program> => {
+    if (!isPersistedUuid(id)) {
+      const list = getPrograms();
+      const index = list.findIndex((program) => program.id === id);
+      if (index < 0) {
+        throw new Error(`Program ${id} was not found`);
+      }
+      const source = list[index];
+      if (source.status === "published") {
+        const activeCustomPrograms = getCustomPrograms().filter(
+          (program) =>
+            program.status !== "archived" &&
+            (program.includedProgramIds || []).map(String).includes(String(id))
+        );
+        if (activeCustomPrograms.length > 0) {
+          throw new Error(
+            `Cannot archive published program while it is included in ${activeCustomPrograms.length} active custom program${activeCustomPrograms.length === 1 ? "" : "s"}.`
+          );
+        }
+      }
+      const archived = {
+        ...source,
+        status: "archived" as const,
+        updatedAt: currentDateStamp(),
+      };
+      const updated = [...list];
+      updated[index] = archived;
+      setStored(KEYS.PROGRAMS, updated);
+      return archived;
+    }
+
+    const { data } = await axiosInstance.post<ProgramApiRecord>(`treatments/programs/${id}/archive/`);
+    return mapProgramFromApi(data);
+  },
+
+  restoreProgram: async (id: string): Promise<Program> => {
+    if (!isPersistedUuid(id)) {
+      const list = getPrograms();
+      const index = list.findIndex((program) => program.id === id);
+      if (index < 0) {
+        throw new Error(`Program ${id} was not found`);
+      }
+      const restored = {
+        ...list[index],
+        status: "draft" as const,
+        updatedAt: currentDateStamp(),
+      };
+      const updated = [...list];
+      updated[index] = restored;
+      setStored(KEYS.PROGRAMS, updated);
+      return restored;
+    }
+
+    const { data } = await axiosInstance.post<ProgramApiRecord>(`treatments/programs/${id}/restore/`);
+    return mapProgramFromApi(data);
+  },
+
+  duplicateProgram: async (id: string): Promise<Program> => {
+    if (!isPersistedUuid(id)) {
+      const list = getPrograms();
+      const source = list.find((program) => program.id === id);
+      if (!source) {
+        throw new Error(`Program ${id} was not found`);
+      }
+
+      const baseName = `Copy of ${source.name}`;
+      let name = baseName;
+      let nameCounter = 2;
+      while (list.some((program) => program.name === name)) {
+        name = `${baseName} ${nameCounter}`;
+        nameCounter += 1;
+      }
+
+      const baseSlug = slugifyTreatmentValue(`copy-of-${source.slug || source.name}`);
+      let slug = baseSlug;
+      let slugCounter = 2;
+      while (list.some((program) => program.slug === slug)) {
+        slug = `${baseSlug}-${slugCounter}`;
+        slugCounter += 1;
+      }
+
+      const duplicate: Program = {
+        ...cloneJson(source),
+        id: createMockId("program"),
+        name,
+        slug,
+        status: "draft",
+        updatedAt: currentDateStamp(),
+        screeningQuestions: cloneJson(source.screeningQuestions || []),
+        checkoutQuestions: cloneJson(source.checkoutQuestions || []),
+        consentIds: cloneJson(source.consentIds || []),
+        authConfig: cloneJson(source.authConfig),
+      };
+
+      setStored(KEYS.PROGRAMS, [...list, duplicate]);
+      const sourceQuestions = getProgramQuestions(source.id);
+      if (sourceQuestions.length > 0) {
+        setProgramQuestions(duplicate.id, cloneJson(sourceQuestions));
+      }
+      return duplicate;
+    }
+
+    const { data } = await axiosInstance.post<ProgramApiRecord>(`treatments/programs/${id}/duplicate/`);
     return mapProgramFromApi(data);
   },
 
