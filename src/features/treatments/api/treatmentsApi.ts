@@ -146,6 +146,7 @@ const mapProgramFromApi = (record: ProgramApiRecord): Program => ({
   status: record.status,
   updatedAt: record.updated_at?.split("T")[0] || currentDateStamp(),
   slug: record.slug,
+  sourceQuestionnaireTemplateId: record.source_questionnaire_template || null,
   authConfig: record.auth_config || {
     email: true,
     phone: false,

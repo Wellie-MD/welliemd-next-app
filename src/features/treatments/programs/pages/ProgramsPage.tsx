@@ -76,6 +76,8 @@ const statusSegmentClassName = (active: boolean) =>
       : "bg-transparent text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-[#1b2030]"
   );
 
+const clientApiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://knysysapi.welliemd.com/api/v1";
+
 export default function ProgramsPage() {
   const { data: programs = [] } = usePrograms();
   const updateProgramSlug = useUpdateProgramSlug();
@@ -377,6 +379,9 @@ export default function ProgramsPage() {
             type: "program",
             id: previewProgram.id,
             slug: previewProgram.slug,
+            visitType: previewProgram.visitType,
+            templateId: previewProgram.sourceQuestionnaireTemplateId,
+            apiBaseUrl: clientApiBaseUrl,
           })}
           subtitle={`${previewProgram.name} · how patients see this ${previewProgram.stage === "follow_up" ? "follow-up" : "intake"}`}
           iframeTitle={`${previewProgram.name} questionnaire preview`}

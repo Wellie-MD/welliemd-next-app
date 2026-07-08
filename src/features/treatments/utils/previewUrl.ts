@@ -34,9 +34,13 @@ export const buildQuestionnairePreviewTarget = (
 
   if (context.slug) params.set("slug", context.slug);
 
-  if (context.type === "program" && context.slug) {
+  if (context.type === "program") {
+    if (context.visitType) params.set("visit_type", context.visitType);
+    if (context.templateId) params.set("template_id", context.templateId);
+    if (context.apiBaseUrl) params.set("api_base_url", context.apiBaseUrl);
+
     return {
-      url: `${baseUrl}/visit/${context.slug}?${params.toString()}`,
+      url: `${baseUrl}/preview?${params.toString()}`,
       supported: true,
     };
   }
