@@ -1,7 +1,3 @@
-// src/pages/Messages.tsx
-// Admin Portal with date separators + smart autoscroll
-// UPDATED: hide all attachment names (no filenames/titles anywhere)
-
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -25,7 +21,6 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useMessages } from "@/hooks/useMessages";
-import { groupMessages, type Conversation } from "@/utils/groupMessages";
 import { useClients, type Client } from "@/hooks/useClients";
 
 import { isToday, isYesterday, isThisWeek, format, formatISO } from "date-fns";
@@ -105,7 +100,6 @@ function DocumentBubble({
   name?: string | null;
   mime?: string | null;
 }) {
-  // derive extension from given name or URL; DO NOT display the name
   const derivedName = name ?? fileNameFromUrl(url);
   const ext = getExt(derivedName);
 
@@ -114,7 +108,6 @@ function DocumentBubble({
       <div className="p-3 flex items-start gap-3">
         <DocIcon ext={ext} mime={mime} />
         <div className="min-w-0">
-          {/* filename/title intentionally omitted */}
           <div className="mt-1 flex items-center gap-2">
             {ext && (
               <span className="inline-flex items-center rounded-full bg-gray-50 text-gray-700 dark:bg-slate-800 dark:text-slate-300 px-2 py-0.5 text-[10px] uppercase tracking-wider">
@@ -141,6 +134,24 @@ function DocumentBubble({
   );
 }
 
+/* ==================== Sentinel Component ==================== */
+function Sentinel({ onVisible }: { onVisible: () => void }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) onVisible();
+      },
+      { rootMargin: "200px" }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [onVisible]);
+  return <div ref={ref} />;
+}
+
 /* ==================== Component ==================== */
 export default function Messages() {
   const MAX_COMPOSER_HEIGHT_PX = 140;
@@ -149,10 +160,35 @@ export default function Messages() {
   const { clients, loading: loadingClients, error: clientsError } = useClients();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
-  // 2) Load messages (admin hits selected client's API)
-  const { messages, loading, error } = useMessages(undefined, 20000, selectedClient?.id);
+  // 2) Load paginated conversations & messages
+  const {
+    conversations,
+    conversationsLoading,
+    hasMoreConversations,
+    loadMoreConversations,
 
-  const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
+    activeConversationId,
+    activeMessages,
+    messagesLoading,
+    messagesError,
+    hasMoreMessages,
+    selectConversation,
+    loadMoreMessages,
+
+    loading,
+    error,
+    reload,
+
+    appendMessage,
+  } = useMessages(selectedClient?.id);
+
+  const [activeConversation, setActiveConversation] = useState<{
+    masterId: string;
+    patientName: string;
+    patientEmail: string;
+    lastMessage: string;
+    lastTime: string;
+  } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [newMessage, setNewMessage] = useState("");
@@ -185,14 +221,12 @@ export default function Messages() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const conversations = groupMessages(messages);
-
   const filteredConversations = searchQuery
     ? conversations.filter(c => {
         const q = searchQuery.toLowerCase();
-        return c.patientName?.toLowerCase().includes(q) ||
-          c.patientEmail?.toLowerCase().includes(q) ||
-          (c.orderNumber && c.orderNumber.toLowerCase().includes(q));
+        return c.patient_name?.toLowerCase().includes(q) ||
+          c.patient_email?.toLowerCase().includes(q) ||
+          (c.order_number && c.order_number.toLowerCase().includes(q));
       })
     : conversations;
 
@@ -218,7 +252,6 @@ export default function Messages() {
         setSelectedClient(match);
         return;
       }
-      // Guard stale client ids to avoid repeated 404 poll loops.
       const next = new URLSearchParams(searchParams);
       next.delete("client_id");
       next.delete("master_id");
@@ -229,13 +262,23 @@ export default function Messages() {
     }
   }, [loadingClients, clients, selectedClient, searchParams, setSearchParams]);
 
-  // Keep activeConversation in sync
+  // Sync activeConversation state from hook's activeConversationId + conversations
   useEffect(() => {
-    if (activeConversation) {
-      const updated = conversations.find((c) => c.id === activeConversation.id);
-      if (updated) setActiveConversation(updated);
+    if (activeConversationId) {
+      const match = conversations.find((c) => c.master_id === activeConversationId);
+      if (match) {
+        setActiveConversation({
+          masterId: match.master_id,
+          patientName: match.patient_name,
+          patientEmail: match.patient_email,
+          lastMessage: match.last_message,
+          lastTime: match.last_time,
+        });
+      }
+    } else {
+      setActiveConversation(null);
     }
-  }, [messages]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeConversationId, conversations]);
 
   // Reset conversation when client changes
   useEffect(() => {
@@ -244,22 +287,23 @@ export default function Messages() {
 
   // Auto-open first conversation
   useEffect(() => {
-    if (!loading && !activeConversation && conversations.length > 0) {
-      setActiveConversation(conversations[0]);
+    if (!loading && !activeConversationId && conversations.length > 0) {
+      const masterId = conversations[0].master_id;
+      selectConversation(masterId);
     }
-  }, [loading, conversations, activeConversation]);
+  }, [loading, conversations, activeConversationId, selectConversation]);
 
   useEffect(() => {
     const targetMasterId = searchParams.get("master_id");
     if (!targetMasterId || conversations.length === 0) return;
-    const match = conversations.find((c) => c.masterId === targetMasterId);
+    const match = conversations.find((c) => c.master_id === targetMasterId);
     if (!match) return;
-    setActiveConversation(match);
+    selectConversation(match.master_id);
     const next = new URLSearchParams(searchParams);
     next.delete("master_id");
     next.delete("client_id");
     setSearchParams(next, { replace: true });
-  }, [conversations, searchParams, setSearchParams]);
+  }, [conversations, searchParams, setSearchParams, selectConversation]);
 
   useEffect(() => {
     if (!selectedClient?.id || !activeConversation?.masterId) return;
@@ -291,7 +335,7 @@ export default function Messages() {
     return () => {
       cancelled = true;
     };
-  }, [selectedClient?.id, activeConversation?.id, activeConversation?.masterId, activeConversation?.messages]);
+  }, [selectedClient?.id, activeConversation?.masterId, activeMessages]);
 
   // ===== Smart autoscroll =====
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
@@ -308,9 +352,8 @@ export default function Messages() {
     };
 
     el.addEventListener("scroll", onScroll, { passive: true });
-    onScroll;
     return () => el.removeEventListener("scroll", onScroll);
-  }, [activeConversation?.id, selectedClient?.id]);
+  }, [activeConversationId, selectedClient?.id]);
 
   // scroll-to-bottom FAB visibility
   useEffect(() => {
@@ -322,7 +365,7 @@ export default function Messages() {
     };
     el.addEventListener("scroll", handleScroll);
     return () => el.removeEventListener("scroll", handleScroll);
-  }, [activeConversation?.id]);
+  }, [activeConversationId]);
 
   function stickToBottomSoon() {
     shouldStickRef.current = true;
@@ -337,10 +380,10 @@ export default function Messages() {
     const el = messagesContainerRef.current;
     if (!el || !activeConversation) return;
     if (shouldStickRef.current) el.scrollTop = el.scrollHeight;
-  }, [activeConversation?.messages]);
+  }, [activeMessages]);
 
   useEffect(() => { shouldStickRef.current = true; }, [selectedClient?.id]);
-  useEffect(() => { shouldStickRef.current = true; stickToBottomSoon(); }, [activeConversation?.id]);
+  useEffect(() => { shouldStickRef.current = true; stickToBottomSoon(); }, [activeConversationId]);
 
 
 
@@ -353,7 +396,7 @@ async function handleSend() {
     setSending(true);
     shouldStickRef.current = true;
 
-    // 1) Upload to Admin (works already)
+    // 1) Upload to Admin S3
     let uploaded: NewAttachment[] = [];
     if (files.length > 0) {
       uploaded = await uploadToAdminS3(files);
@@ -372,14 +415,10 @@ async function handleSend() {
         clientId: selectedClient?.id,
         content: text || (first ? "Attachment" : undefined),
 
-        // <<< populate these (the key part you asked for)
         is_media: !!first,
         media_url: first?.url,
         media_mime_type: first?.mime_type,
         media_file_name: first?.file_name,
-
-        // keep attachments too if your BE also consumes them (optional)
-        // attachments: uploaded.length ? uploaded : undefined,
       });
 
       const newMsg = {
@@ -392,9 +431,8 @@ async function handleSend() {
         senderType: "super_support" as const,
         side: "right" as const,
         patientName: activeConversation.patientName,
-        message_type: "support_to_patient" as const,
+        message_type: "super_support_to_patient" as const,
 
-        // Optimistic echo of media fields
         is_media: !!first,
         media_url: first?.url,
         media_mime_type: first?.mime_type,
@@ -402,16 +440,7 @@ async function handleSend() {
         delivery_status: resp?.status || (resp?.queued ? "sending" : "sent"),
       };
 
-      setActiveConversation((prev) =>
-        prev
-          ? {
-              ...prev,
-              messages: [...prev.messages, newMsg],
-              lastMessage: newMsg.content || (first ? "Attachment" : ""),
-              lastTime: newMsg.created_at,
-            }
-          : prev
-      );
+      appendMessage(newMsg);
     }
 
     // 2b) Any remaining files -> send as standalone media messages
@@ -439,7 +468,7 @@ async function handleSend() {
         senderType: "super_support" as const,
         side: "right" as const,
         patientName: activeConversation.patientName,
-        message_type: "support_to_patient" as const,
+        message_type: "super_support_to_patient" as const,
 
         is_media: true,
         media_url: up.url,
@@ -448,16 +477,7 @@ async function handleSend() {
         delivery_status: resp?.status || (resp?.queued ? "sending" : "sent"),
       };
 
-      setActiveConversation((prev) =>
-        prev
-          ? {
-              ...prev,
-              messages: [...prev.messages, mediaMsg],
-              lastMessage: mediaMsg.content,
-              lastTime: mediaMsg.created_at,
-            }
-          : prev
-      );
+      appendMessage(mediaMsg);
     }
 
     // Cleanup
@@ -523,21 +543,21 @@ async function handleSend() {
             )}
             {error && <div className="p-4 text-destructive text-sm">{error}</div>}
             {filteredConversations.map((c) => {
-              const displayName = c.patientName
-                ? `${c.patientName}${c.patientEmail ? ` (${c.patientEmail})` : ""}`
-                : c.patientEmail || "Patient";
+              const displayName = c.patient_name
+                ? `${c.patient_name}${c.patient_email ? ` (${c.patient_email})` : ""}`
+                : c.patient_email || "Patient";
               const avatarFallback = (displayName || "?").charAt(0).toUpperCase();
-              const isActive = activeConversation?.id === c.id;
+              const isActive = activeConversationId === c.master_id;
 
               return (
                 <div
-                  key={c.id}
+                  key={c.master_id}
                   className={`relative flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-b border-border/30 ${
                     isActive
                       ? "bg-primary/10 dark:bg-primary/15"
                       : "hover:bg-muted/60"
                   }`}
-                  onClick={() => setActiveConversation(c)}
+                  onClick={() => selectConversation(c.master_id)}
                 >
                   {isActive && (
                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-8 bg-primary rounded-r-full" />
@@ -551,14 +571,20 @@ async function handleSend() {
                     <div className="flex items-center justify-between mb-0.5">
                       <div className={`truncate text-[14px] ${isActive ? "font-semibold text-foreground" : "font-medium"}`}>{displayName}</div>
                       <div className="text-[11px] text-muted-foreground whitespace-nowrap ml-2 shrink-0">
-                        {c.lastTime ? new Date(c.lastTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
+                        {c.last_time ? new Date(c.last_time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
                       </div>
                     </div>
-                    <div className="text-[13px] text-muted-foreground truncate">{c.lastMessage || "No messages yet"}</div>
+                    <div className="text-[13px] text-muted-foreground truncate">{c.last_message || "No messages yet"}</div>
                   </div>
                 </div>
               );
             })}
+            {hasMoreConversations && (
+              <Sentinel onVisible={loadMoreConversations} />
+            )}
+            {conversationsLoading && (
+              <div className="p-3 text-xs text-muted-foreground text-center">Loading more…</div>
+            )}
           </div>
         </div>
 
@@ -599,8 +625,21 @@ async function handleSend() {
 
               {/* ---- DATE-GROUPED MESSAGES ---- */}
               <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-5 pt-10 pb-4 space-y-1 min-h-0">
+                {/* Sentinel for loading older messages (scroll up) */}
+                {hasMoreMessages && (
+                  <div className="mb-2">
+                    <Sentinel onVisible={loadMoreMessages} />
+                  </div>
+                )}
+                {messagesLoading && (
+                  <div className="text-xs text-muted-foreground text-center py-2">Loading older messages…</div>
+                )}
+                {messagesError && (
+                  <div className="text-xs text-destructive text-center py-2">{messagesError}</div>
+                )}
+
                 {(() => {
-                  const grouped = groupMessagesByDate(activeConversation.messages);
+                  const grouped = groupMessagesByDate(activeMessages);
                   const sortedDates = Object.keys(grouped).sort(
                     (a, b) => new Date(a).getTime() - new Date(b).getTime()
                   );

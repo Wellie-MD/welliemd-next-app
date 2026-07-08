@@ -237,6 +237,7 @@ export default function Supplies() {
         onSearch={setSearch}
         onResetFilters={handleResetFilters}
         loading={loading}
+        loadingMessage="Loading supplies"
         pagination={{
           currentPage,
           totalPages,

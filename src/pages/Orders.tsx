@@ -71,6 +71,7 @@ export default function Orders() {
       id: row.id,
       display_id: row._raw_display_id ?? row.display_id,
       order_id: row.order_id ?? null,
+      master_id: row.master_id ?? null,
       patient_name: row.patient_name,
       patient_email: row.patient_email,
       patient_phone: row.patient_phone,
@@ -372,6 +373,7 @@ export default function Orders() {
         onExport={handleExport}
         onRefresh={handleRefresh}
         loading={loading}
+        loadingMessage="Loading orders"
         pagination={{
           currentPage: pagination.page,
           totalPages: pagination.total_pages,
