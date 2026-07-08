@@ -48,6 +48,7 @@ const menuSections = [
     items: [
       { title: "Home", url: "/dashboard", icon: BarChart3 },
       { title: "Clients", url: "/dashboard/clients", icon: Users },
+      { title: "Patients", url: "/dashboard/patients", icon: Users },
       { title: "Users & Permissions", url: "/dashboard/users-permissions", icon: ShieldCheck },
       // {
       //   title: "Treatments",
@@ -138,6 +139,18 @@ const menuSections = [
   //   }
 ]
 
+type SidebarChildItem = {
+  title: string;
+  url: string;
+};
+
+type SidebarItem = {
+  title: string;
+  url?: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  children?: SidebarChildItem[];
+};
+
 export function AppSidebar() {
   const { state } = useSidebar()
   const location = useLocation()
@@ -170,9 +183,9 @@ export function AppSidebar() {
     )
   }
 
-  const isItemActive = (item: any) => {
+  const isItemActive = (item: SidebarItem) => {
     if (item.children) {
-      return item.children.some((child: any) => currentPath.startsWith(child.url))
+      return item.children.some((child) => currentPath.startsWith(child.url))
     }
     return currentPath === item.url
   }
