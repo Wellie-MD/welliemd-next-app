@@ -80,6 +80,7 @@ const STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {
   billing_pending: { label: 'Billing Pending', badgeClass: 'km-badge km-badge-amber' },
   rx_sent: { label: 'Rx Sent', badgeClass: 'km-badge km-badge-green' },
   shipped: { label: 'Shipped', badgeClass: 'km-badge km-badge-green' },
+  in_transit: { label: 'In Transit', badgeClass: 'km-badge km-badge-blue' },
   out_for_delivery: { label: 'Out for Delivery', badgeClass: 'km-badge km-badge-amber' },
   delivered: { label: 'Delivered', badgeClass: 'km-badge km-badge-green' },
   delivery_failed: { label: 'Delivery Failed', badgeClass: 'km-badge km-badge-red' },
