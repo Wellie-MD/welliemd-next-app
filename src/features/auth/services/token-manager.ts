@@ -56,6 +56,7 @@ class TokenManager {
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
+            'X-Wellie-Portal': 'patient',
           },
           body: JSON.stringify({}),
         });

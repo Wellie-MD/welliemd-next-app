@@ -2,6 +2,7 @@ import { ChevronDown, User, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth';
 import { useDropdown } from '@/contexts/DropdownContext';
+import { useViewerIdentity } from '@/features/auth/hooks/use-viewer-identity';
 
 interface UserProfileDropdownProps {
   className?: string;
@@ -11,6 +12,7 @@ interface UserProfileDropdownProps {
 
 export const UserProfileDropdown = ({ className, style, compact = false }: UserProfileDropdownProps) => {
   const { user, logout, isImpersonated } = useAuth();
+  const viewerIdentity = useViewerIdentity();
   const navigate = useNavigate();
   const { isOpen, toggleDropdown } = useDropdown();
 
@@ -23,6 +25,9 @@ export const UserProfileDropdown = ({ className, style, compact = false }: UserP
   };
 
   const getDisplayName = () => {
+    if (viewerIdentity.fullName) {
+      return viewerIdentity.fullName;
+    }
     if (user?.first_name && user?.last_name) {
       return `${user.first_name} ${user.last_name}`;
     }
@@ -30,6 +35,9 @@ export const UserProfileDropdown = ({ className, style, compact = false }: UserP
   };
 
   const getInitials = () => {
+    if (viewerIdentity.initials) {
+      return viewerIdentity.initials;
+    }
     if (user?.first_name && user?.last_name) {
       return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
     }

@@ -218,14 +218,13 @@ export class AuthService {
     debugLog('AuthService.getCurrentUser');
 
     const accessToken = this.getActiveAccessToken();
+    const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined;
 
     const response = await apiClient.get(
       API_ENDPOINTS.AUTH.ME,
       { 
         withCredentials: true, // Include cookies for auth
-        headers: {
-          'Authorization': accessToken ? `Bearer ${accessToken}` : ''
-        }
+        headers,
       }
     );
     return UserSchema.parse(response.data);

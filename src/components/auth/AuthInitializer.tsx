@@ -16,6 +16,11 @@ export const AuthInitializer = ({ children }: { children: React.ReactNode }) => 
     initRef.current = true;
     
     const init = async () => {
+      if (window.location.pathname.replace(/\/+$/, '') === '/superadmin-access/launch') {
+        setIsInitializing(false);
+        return;
+      }
+
       try {
         console.log('AuthInitializer: Starting auth initialization');
         const params = new URLSearchParams(window.location.search);

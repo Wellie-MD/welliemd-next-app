@@ -17,7 +17,7 @@ import {
   LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/features/auth";
-import { useAuthStore } from "@/features/auth/store/auth.store";
+import { useViewerIdentity } from "@/features/auth/hooks/use-viewer-identity";
 
 interface NavigationItem {
   icon: LucideIcon;
@@ -49,20 +49,11 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
   const location = useLocation();
   const { user, logout, isImpersonated } = useAuth();
   const bannerH = isImpersonated ? 44 : 0;
+  const viewerIdentity = useViewerIdentity();
 
   useEffect(() => {
     onMobileClose();
   }, [location.pathname, onMobileClose]);
-
-  const initials = user
-    ? `${(user.first_name || "P")[0]}${(user.last_name || "")[0]}`.toUpperCase()
-    : "PK";
-
-  const fullName = user
-    ? `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Patient"
-    : "Patient";
-
-  const patientId = user?.id ? `ID: ${user.id.substring(0, 8)}` : "Patient";
 
   const NavItem = ({ item }: { item: NavigationItem }) => {
     const Icon = item.icon;
@@ -164,11 +155,11 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
                 flexShrink: 0,
               }}
             >
-              {initials}
+              {viewerIdentity.initials}
             </div>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--km-t)" }}>{fullName}</div>
-              <div style={{ fontSize: 11, color: "var(--km-tm)" }}>{patientId}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--km-t)" }}>{viewerIdentity.fullName}</div>
+              <div style={{ fontSize: 11, color: "var(--km-tm)" }}>{viewerIdentity.label}</div>
             </div>
           </div>
 
@@ -295,11 +286,11 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
               flexShrink: 0,
             }}
           >
-            {initials}
+            {viewerIdentity.initials}
           </div>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--km-t)" }}>{fullName}</div>
-            <div style={{ fontSize: 11, color: "var(--km-tm)", marginTop: 1 }}>{patientId}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--km-t)" }}>{viewerIdentity.fullName}</div>
+            <div style={{ fontSize: 11, color: "var(--km-tm)", marginTop: 1 }}>{viewerIdentity.label}</div>
           </div>
         </div>
 
