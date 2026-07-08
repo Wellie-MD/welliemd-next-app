@@ -28,18 +28,6 @@ export interface QuestionnaireTemplate {
   questions?: Question[];
 }
 
-export interface PaginatedQuestionnaireTemplatesResponse {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: QuestionnaireTemplate[];
-}
-
-export interface ListTemplatesParams {
-  page?: number;
-  page_size?: number;
-}
-
 export interface ConsentForm {
   id?: string;
   consent_type: string;
@@ -119,16 +107,34 @@ export interface CreateQuestionPayload {
 // ==================== TEMPLATE API ====================
 
 export const templateApi = {
-  listTemplates: async (
-    params?: ListTemplatesParams
-  ): Promise<QuestionnaireTemplate[] | PaginatedQuestionnaireTemplatesResponse> => {
-    const { data } = await axiosInstance.get<
-      QuestionnaireTemplate[] | PaginatedQuestionnaireTemplatesResponse
-    >(
-      "questionnaires/frontend/templates/",
-      { params }
-    );
-    return data;
+  listTemplates: async (): Promise<QuestionnaireTemplate[]> => {
+    const aggregated: QuestionnaireTemplate[] = [];
+    let nextUrl: string | null = "questionnaires/frontend/templates/?page_size=100";
+
+    while (nextUrl) {
+      const { data } = await axiosInstance.get<
+        | QuestionnaireTemplate[]
+        | {
+            results?: QuestionnaireTemplate[];
+            next?: string | null;
+          }
+      >(nextUrl);
+
+      if (Array.isArray(data)) {
+        aggregated.push(...data);
+        break;
+      }
+
+      if (data && Array.isArray(data.results)) {
+        aggregated.push(...data.results);
+        nextUrl = data.next || null;
+        continue;
+      }
+
+      break;
+    }
+
+    return aggregated;
   },
 
   getTemplate: async (
