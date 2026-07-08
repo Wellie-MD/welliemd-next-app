@@ -43,9 +43,11 @@ export const buildQuestionnairePreviewTarget = (
 
   return {
     url: `${baseUrl}/preview?${params.toString()}`,
-    supported: false,
+    supported: context.type === "custom_program",
     reason:
-      "Custom program preview is not wired to questionnaire runtime yet because the questionnaire app does not consume custom_program preview routes.",
+      context.type === "custom_program"
+        ? undefined
+        : "This preview type is not wired to questionnaire runtime yet.",
   };
 };
 
