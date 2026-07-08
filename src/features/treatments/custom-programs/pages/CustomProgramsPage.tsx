@@ -5,6 +5,7 @@ import { CustomProgramsContent } from "@/features/treatments/custom-programs/com
 import { CustomProgramModal } from "@/features/treatments/custom-programs/components/CustomProgramModal";
 import { CustomProgramsHeaderActions, CustomProgramsToolbar } from "@/features/treatments/custom-programs/components/CustomProgramsToolbar";
 import { useCustomProgramsPage } from "@/features/treatments/custom-programs/hooks/useCustomProgramsPage";
+import { AssignToClientsModal } from "@/components/shared/AssignToClientsModal";
 
 export default function CustomProgramsPage() {
   const page = useCustomProgramsPage();
@@ -14,7 +15,15 @@ export default function CustomProgramsPage() {
       <TreatmentPageHeader
         title="Custom Programs"
         subtitle={<>Customized intake programs for clients — compose programs, sections, consents, and checkout into a tailored patient experience.</>}
-        actions={<CustomProgramsHeaderActions viewMode={page.viewMode} onViewModeChange={page.setViewMode} onCreate={page.handleCreate} />}
+        actions={
+          <CustomProgramsHeaderActions
+            viewMode={page.viewMode}
+            onViewModeChange={page.setViewMode}
+            onCreate={page.handleCreate}
+            onAssign={() => page.setIsAssignOpen(true)}
+            assignDisabled={page.filteredPrograms.length === 0}
+          />
+        }
       />
 
       <CustomProgramsToolbar
@@ -47,6 +56,15 @@ export default function CustomProgramsPage() {
       {page.previewContext && <PatientFlowTestModal open={page.isPreviewOpen} onOpenChange={page.setIsPreviewOpen} previewContext={page.previewContext} />}
 
       <CatalogConnectionsDialog open={page.isCatalogOpen} onOpenChange={page.setIsCatalogOpen} program={page.catalogProgram} activeTab={page.catalogTab} onTabChange={page.setCatalogTab} />
+
+      <AssignToClientsModal
+        open={page.isAssignOpen}
+        onOpenChange={page.setIsAssignOpen}
+        items={page.assignItems}
+        itemLabel="custom program"
+        subtitle="Pick custom programs and the client brands that can offer them to their patients."
+        onAssign={page.handleAssignCustomPrograms}
+      />
 
       <DeleteConfirmDialog
         open={Boolean(page.deleteCustomProgramId)}

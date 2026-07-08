@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, ArrowDownAZ, Clock, List as ListIcon, LayoutGrid } from "lucide-react";
+import { Plus, Search, ArrowDownAZ, Clock, List as ListIcon, LayoutGrid, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
@@ -18,12 +18,16 @@ import type { Program, ProgramStage } from "@/features/treatments/types";
 import { CreateProgramModal } from "@/features/treatments/programs/components/CreateProgramModal";
 import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
 import type { PreviewContext } from "@/features/treatments/types";
+import { AssignToClientsModal } from "@/components/shared/AssignToClientsModal";
+import { programAssignmentApi } from "@/api/programAssignmentApi";
+import { useClients } from "@/hooks/useClients";
 
 type ProgramsViewMode = "cards" | "list";
 
 export default function ProgramsPage() {
   const { data: programs = [] } = usePrograms();
   const { data: treatmentTypes = [] } = useTreatmentTypes();
+  const { clients } = useClients("");
   const saveProgramMutation = useSaveProgram();
   const duplicateProgramMutation = useDuplicateProgram();
   const archiveProgramMutation = useArchiveProgram();
@@ -45,6 +49,9 @@ export default function ProgramsPage() {
     () => programs.filter((program) => program.status !== "archived"),
     [programs]
   );
+
+  // Assign to Clients state
+  const [isAssignOpen, setIsAssignOpen] = useState(false);
 
   // Metrics calculation
   const totalTreatments = treatmentTypes.length;
@@ -263,19 +270,70 @@ export default function ProgramsPage() {
     return result;
   }, [activePrograms, searchQuery, sortBy]);
 
+  const assignItems = useMemo(() => {
+    return programs.map((p) => ({
+      id: p.id,
+      name: p.name,
+      subtitle: p.treatmentTypeKey || undefined,
+    }));
+  }, [programs]);
+
+  const handleAssignPrograms = async (selectedProgramIds: string[], clientIds: string[]) => {
+    const res = await programAssignmentApi.bulkAssignPrograms({
+      program_ids: selectedProgramIds,
+      client_ids: clientIds,
+    });
+
+    // Surface each already-assigned pair as its own toast — it succeeded (the
+    // tenant copy is up to date), it's just not a *new* assignment. This must
+    // never block or hide the other pairs in the same batch.
+    const alreadyAssignedPairs = res.results.filter((r) => r.success && r.already_assigned);
+    for (const pair of alreadyAssignedPairs) {
+      const programName = programs.find((p) => p.id === pair.program_id)?.name || "This program";
+      const clientName = clients.find((c) => c.id === pair.client_id)?.name || "this client";
+      toast({
+        title: "Already Assigned",
+        description: `${programName} is already assigned to ${clientName}.`,
+      });
+    }
+
+    toast({
+      title: res.failure_count === 0 ? "Assignment Complete" : "Assignment Partially Complete",
+      description: res.message,
+      variant: res.failure_count > 0 ? "destructive" : "default",
+    });
+    return res;
+  };
+
   return (
     <div className="p-6 max-w-[1600px] mx-auto min-h-screen">
       <TreatmentPageHeader
         title="Programs"
         subtitle="Clinical questionnaires linked to specific treatments. Each treatment has an intake module and (optionally) a follow-up module."
         actions={
-          <Button
-            onClick={openCreateProgram}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 px-4 text-xs rounded-lg shadow-sm"
-          >
-            <Plus className="mr-1.5 h-4 w-4 stroke-[2.5]" />
-            Create Program
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setIsAssignOpen(true)}
+              disabled={filteredPrograms.length === 0}
+              className="h-9 px-4 text-xs font-semibold rounded-lg shadow-sm"
+              data-testid="assign-programs-client"
+            >
+              <Users className="mr-1.5 h-4 w-4" />
+              Assign to Clients
+            </Button>
+            <Button
+              onClick={() => {
+                setPrefillTreatmentTypeKey(undefined);
+                setPrefillStage(undefined);
+                setIsCreateOpen(true);
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9 px-4 text-xs rounded-lg shadow-sm"
+            >
+              <Plus className="mr-1.5 h-4 w-4 stroke-[2.5]" />
+              Create Program
+            </Button>
+          </div>
         }
       />
 
@@ -430,6 +488,15 @@ export default function ProgramsPage() {
           previewContext={previewContext}
         />
       )}
+      {/* ASSIGN TO CLIENTS MODAL */}
+      <AssignToClientsModal
+        open={isAssignOpen}
+        onOpenChange={setIsAssignOpen}
+        items={assignItems}
+        itemLabel="program"
+        subtitle="Pick programs and the client brands that can offer them to their patients."
+        onAssign={handleAssignPrograms}
+      />
     </div>
   );
 }

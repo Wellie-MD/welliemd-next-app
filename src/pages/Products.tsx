@@ -752,12 +752,17 @@ export default function Products() {
           description: `${successCount} assignment pair(s) completed successfully.`,
         });
         clearAllSelections();
+        // Refresh so "needs re-assignment" badges and assignment state reflect the server.
+        await fetchProducts(1, true);
       } else {
         toast({
           title: "Bulk Assignment Completed With Failures",
           description: `${successCount} succeeded, ${failureCount} failed. Review the result dialog for retry options.`,
           variant: "destructive",
         });
+        if (successCount > 0) {
+          await fetchProducts(1, true);
+        }
       }
     } catch (error) {
       console.error("Bulk assignment stopped:", error);
