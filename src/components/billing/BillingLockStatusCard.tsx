@@ -39,6 +39,7 @@ export function BillingLockStatusCard({ clientId }: BillingLockStatusCardProps) 
         queryKey: ["billingLockStatus", clientId],
         queryFn: () => clientApi.getBillingLockStatus(clientId),
         enabled: !!clientId,
+        refetchInterval: 30000,
     });
 
     const payAllMutation = useMutation({
