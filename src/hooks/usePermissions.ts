@@ -3,16 +3,27 @@ import { ROLE_PERMISSIONS } from '@/constants/rolePermissions';
 import { Permission } from '@/constants/permissions';
 
 /**
- * Hook for checking user permissions based on their role
+ * Hook for checking user permissions based on their role or backend-provided grants.
  */
 export function usePermissions() {
     const user = useAuthStore((state) => state.user);
+
+    const isFullAccessSuperAdmin =
+        user?.is_superadmin_access === true &&
+        user?.superadmin_access?.portal_type === 'client' &&
+        user?.superadmin_access?.access_mode === 'full';
 
     /**
      * Check if user has a specific permission
      */
     const hasPermission = (permission: Permission | string): boolean => {
-        if (!user?.primary_role) return false;
+        if (!user) return false;
+
+        if (isFullAccessSuperAdmin) return true;
+
+        if (user.permissions?.includes(permission)) return true;
+
+        if (!user.primary_role) return false;
 
         const rolePermissions = ROLE_PERMISSIONS[user.primary_role] || [];
         return rolePermissions.includes(permission);
@@ -36,7 +47,7 @@ export function usePermissions() {
      * Check if user has a specific role
      */
     const hasRole = (roleName: string): boolean => {
-        return user?.primary_role === roleName;
+        return user?.primary_role === roleName || user?.roles?.includes(roleName) === true;
     };
 
     return {
@@ -45,5 +56,6 @@ export function usePermissions() {
         hasAllPermissions,
         hasRole,
         userRole: user?.primary_role || null,
+        isFullAccessSuperAdmin,
     };
 }

@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import api from '../api/axiosInstance';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -39,6 +39,21 @@ interface RefreshResponse {
 let refreshPromise: Promise<string | null> | null = null;
 
 const normalizeEmail = (email: string): string => email.trim().toLowerCase();
+
+type ErrorResponseData = {
+  current_password?: string[];
+  detail?: string;
+  email?: string[];
+  message?: string;
+  new_password?: string[];
+  non_field_errors?: string[];
+};
+
+const getAxiosError = (error: unknown): AxiosError<ErrorResponseData> | null =>
+  axios.isAxiosError<ErrorResponseData>(error) ? error : null;
+
+const getErrorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
 
 export const authService = {
   login: async (credentials: LoginCredentials): Promise<User> => {
@@ -92,11 +107,12 @@ export const authService = {
       
       useAuthStore.getState().login(data.access, data.user);
       return data.user;
-    } catch (error: any) {
-      console.error('Registration error:', error.response?.data);
+    } catch (error) {
+      const axiosError = getAxiosError(error);
+      console.error('Registration error:', axiosError?.response?.data);
 
-      if (error.response?.data) {
-        const data = error.response.data;
+      if (axiosError?.response?.data) {
+        const data = axiosError.response.data;
         if (data.email && Array.isArray(data.email) && data.email.length > 0) {
           throw new Error(data.email[0]);
         } else if (data.detail) {
@@ -168,11 +184,12 @@ export const authService = {
         }
         
         return newAccessToken;
-      } catch (error: any) {
+      } catch (error) {
         // Only log out if the refresh token is invalid (401) or expired
         // AND we don't have a valid access token already
         // Don't log out for network errors or other transient issues
-        const status = error.response?.status;
+        const axiosError = getAxiosError(error);
+        const status = axiosError?.response?.status;
         const authStore = useAuthStore.getState();
         
         if (status === 401 || status === 403) {
@@ -186,7 +203,7 @@ export const authService = {
             console.warn('Refresh token failed but user has valid access token, continuing with existing token');
           }
         } else {
-          console.error('Token refresh failed (non-auth error):', error.response?.data || error.message);
+          console.error('Token refresh failed (non-auth error):', axiosError?.response?.data || getErrorMessage(error));
         }
         throw error;
       } finally {
@@ -202,8 +219,9 @@ export const authService = {
       const { data } = await api.get<User>('/auth/me/');
       useAuthStore.getState().setUser(data);
       return data;
-    } catch (error: any) {
-      if (error.response?.status === 401) {
+    } catch (error) {
+      const axiosError = getAxiosError(error);
+      if (axiosError?.response?.status === 401) {
         useAuthStore.getState().logout();
         
         if (throwOnError) {
@@ -223,6 +241,24 @@ export const authService = {
     authStore.setLoading(true);
     
     try {
+      if (authStore.superAdminApiBaseUrl) {
+        try {
+          const { data } = await api.get<User>('/auth/me/', { skipAuthRedirect: true });
+          authStore.setUser(data);
+          return;
+        } catch (error) {
+          const axiosError = getAxiosError(error);
+          const status = axiosError?.response?.status;
+          if (status === 401 || status === 403) {
+            console.log('Super Admin access session expired or revoked');
+            authStore.logout();
+          } else {
+            console.log('Failed to verify Super Admin access session:', getErrorMessage(error));
+          }
+          return;
+        }
+      }
+
       // If user is already authenticated with a valid access token, verify it's still valid
       // instead of immediately trying to refresh (which can fail if cookie isn't ready yet)
       if (authStore.isAuthenticated && authStore.accessToken) {
@@ -243,15 +279,16 @@ export const authService = {
           setHydratingState(false);
           authStore.setLoading(false);
           return;
-        } catch (error: any) {
+        } catch (error) {
           // Token is invalid, fall through to refresh logic
-          const status = error.response?.status;
+          const axiosError = getAxiosError(error);
+          const status = axiosError?.response?.status;
           if (status === 401 || status === 403) {
             // Token expired, try to refresh
             console.log('Access token expired, attempting refresh...');
           } else {
             // Network or other error, don't try to refresh
-            console.log('Failed to verify token (non-auth error):', error.message);
+            console.log('Failed to verify token (non-auth error):', getErrorMessage(error));
             setHydratingState(false);
             authStore.setLoading(false);
             return;
@@ -280,10 +317,11 @@ export const authService = {
         authStore.login(newAccessToken, data);
         return;
       }
-    } catch (error: any) {
+    } catch (error) {
       // Only log out if we don't have a valid access token
       // If user just logged in and has a valid token, don't log them out
-      const status = error.response?.status;
+      const axiosError = getAxiosError(error);
+      const status = axiosError?.response?.status;
       if (status === 401 || status === 403) {
         // Only logout if we don't have a valid access token already
         if (!authStore.isAuthenticated || !authStore.accessToken) {
@@ -294,7 +332,7 @@ export const authService = {
           console.log('Token refresh failed but user has valid access token, continuing with existing token');
         }
       } else {
-        console.log('Session restoration failed (non-auth error, will retry on next request):', error.message);
+        console.log('Session restoration failed (non-auth error, will retry on next request):', getErrorMessage(error));
         // Don't log out for transient errors - user might still have a valid session
         // If we have a valid token, keep the user logged in
         if (authStore.isAuthenticated && authStore.accessToken) {
@@ -331,10 +369,11 @@ export const authService = {
       // On success, logout and redirect to login
       await authService.logout();
       window.location.href = '/auth/signin';
-    } catch (error: any) {
+    } catch (error) {
       // Extract error message from response
-      if (error.response?.data) {
-        const data = error.response.data;
+      const axiosError = getAxiosError(error);
+      if (axiosError?.response?.data) {
+        const data = axiosError.response.data;
         if (data.current_password && Array.isArray(data.current_password) && data.current_password.length > 0) {
           throw new Error(data.current_password[0]);
         } else if (data.new_password && Array.isArray(data.new_password) && data.new_password.length > 0) {

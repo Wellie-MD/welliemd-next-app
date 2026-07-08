@@ -21,6 +21,7 @@ import ResetPassword from "./pages/auth/ResetPassword";
 import AcceptInvitation from "./pages/AcceptInvitation";
 import RegisterInvitation from "./pages/auth/RegisterInvitation";
 import Forbidden from "./pages/Forbidden";
+import SuperAdminAccessLaunch from "./pages/SuperAdminAccessLaunch";
 
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -29,6 +30,11 @@ const App = () => {
 
   useEffect(() => {
     const initializeAuth = async () => {
+      if (window.location.pathname.replace(/\/+$/, "") === "/superadmin-access/launch") {
+        setIsInitialized(true);
+        return;
+      }
+
       try {
         await authService.hydrateAuth();
       } catch (error) {
@@ -60,6 +66,7 @@ const App = () => {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/register" element={<RegisterInvitation />} />
         <Route path="/accept-invitation" element={<AcceptInvitation />} />
+        <Route path="/superadmin-access/launch" element={<SuperAdminAccessLaunch />} />
 
         {/* Error pages */}
         <Route path="/forbidden" element={<Forbidden />} />
