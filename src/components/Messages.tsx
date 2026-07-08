@@ -28,7 +28,7 @@ import { useAuth } from "@/features/auth";
 import { useAuthStore } from "@/features/auth/store/auth.store";
 import { env } from "@/config/env";
 
-import { isToday, isYesterday, isThisWeek, format, formatISO } from "date-fns";
+import { isToday, isYesterday, format, formatISO } from "date-fns";
 
 // ---------------- Types -----------------
 interface Conversation {
@@ -104,19 +104,7 @@ function isInboundForPatient(m: RawMessage) {
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function routeLabel(m: RawMessage) {
-  if (m.senderType === "patient") {
-    if (m.chatType === "doctor") return "to Doctor";
-    if (m.chatType === "super_support") return "to Super Admin Support";
-    if (m.chatType === "support") return "to Support";
-    return "You";
-  }
-  if (m.senderType === "doctor") return "Doctor";
-  if (m.senderType === "super_support") return "Client Support";
-  if (m.senderType === "support") return "Client Support";
-  return "You";
-}
+
 
 const isImage = (mime?: string) => (mime ?? "").startsWith("image/");
 
@@ -268,13 +256,13 @@ export default function Messages() {
 
       // Handle orderRef auto-selection
       const orderRef = searchParams.get('order_ref');
-      
+
       if (orderRef && nextConversations.length > 0) {
         const match = nextConversations.find(c =>
           c.masterId === orderRef || c.masterId.startsWith(orderRef)
         );
-        setSelectedId(match?.id || nextConversations[0].id);
-        
+        setSelectedId(match?.id || nextConversations[0]?.id || null);
+
         hasInitiallyLoaded.current = true;
       } else if ((!hasInitiallyLoaded.current || pendingPrefillRef.current) && nextConversations.length > 0) {
         // Only auto-select first conversation on desktop (>= 768px), not mobile, and only after first load
@@ -282,7 +270,7 @@ export default function Messages() {
         hasInitiallyLoaded.current = true;
         const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
         if (isDesktop || pendingPrefillRef.current) {
-          setSelectedId(nextConversations[0].id);
+          setSelectedId(nextConversations[0]?.id || null);
         }
         pendingPrefillRef.current = false;
       }
@@ -368,11 +356,11 @@ export default function Messages() {
   // Handle masterId from URL params - only on mobile when navigated from notification
   // Do NOT auto-select on initial page load
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  
+
   useEffect(() => {
     // Only run after initial load has happened
     if (!hasInitiallyLoaded.current) return;
-    
+
     const masterIdFromUrl = searchParams.get('masterId');
     // Only open chat if navigated from notification with masterId on mobile
     if (isMobile && masterIdFromUrl && conversations.length > 0) {
@@ -427,7 +415,7 @@ export default function Messages() {
 
       if (body) {
         const first = uploads[0];
-        
+
         const payload: any = {
           master_id: selected.masterId,
           to: composeTo,
@@ -466,7 +454,7 @@ export default function Messages() {
         if (user?.last_name) payload.last_name = user.last_name;
 
         await MessageService.sendMessage(payload);
-        
+
         const optOpts: any = { content: up.fileName || "Attachment", is_media: true, chatTo: composeTo };
         if (up.url) optOpts.media_url = up.url;
         if (up.mimeType) optOpts.mime_type = up.mimeType;
@@ -504,8 +492,8 @@ export default function Messages() {
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 500, marginBottom: 12 }}>Messages</div>
           <div className="km-swrap" style={{ marginBottom: 0, position: "relative" }}>
             <Search style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 14, height: 14, color: "var(--km-tm)" }} />
-            <input 
-              className="km-sinp" 
+            <input
+              className="km-sinp"
               style={{ width: "100%", background: "var(--km-s2)", border: "1px solid var(--km-b)", borderRadius: "var(--km-rs)", padding: "10px 13px 10px 36px", color: "var(--km-t)", fontSize: 13, outline: "none" }}
               placeholder="Search messages..."
               value={search}
@@ -565,7 +553,7 @@ export default function Messages() {
 
       {/* CHAT PANEL */}
       <div className={`km-msg-chat-panel ${selectedId ? 'open' : ''}`}>
-        
+
         {/* Empty state (desktop) */}
         {!selectedChat && (
           <div className="km-msg-empty-state">
@@ -578,14 +566,14 @@ export default function Messages() {
         {/* Active chat */}
         {selectedChat && (
           <>
-            
+
             {/* Chat header */}
             <div className="km-msg-chat-header">
               <button className="km-msg-back-btn" onClick={() => setSelectedId(null)}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
               </button>
               <div className="km-mavt" style={{ width: 34, height: 34, fontSize: 11 }}>
-                {selectedChat.label.substring(0,2).toUpperCase()}
+                {selectedChat.label.substring(0, 2).toUpperCase()}
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 700 }}>{selectedChat.label} · {selectedChat.masterId}</div>
@@ -689,26 +677,26 @@ export default function Messages() {
               {showRouting && (
                 <div style={{ position: "absolute", bottom: 54, left: 14, background: "var(--km-s1)", border: "1px solid var(--km-b)", borderRadius: "var(--km-rs)", boxShadow: "0 4px 20px rgba(0,0,0,.3)", overflow: "hidden", minWidth: 140, zIndex: 10 }}>
                   <div style={{ padding: 6 }}>
-                    <div 
+                    <div
                       onClick={() => { setComposeTo("doctor"); setShowRouting(false); }}
                       style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 500, background: composeTo === "doctor" ? "var(--km-s2)" : "transparent" }}
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                       @ Doctor
                     </div>
-                    <div 
+                    <div
                       onClick={() => { setComposeTo("support"); setShowRouting(false); }}
                       style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 500, background: composeTo === "support" ? "var(--km-s2)" : "transparent" }}
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
                       @ Support
                     </div>
                   </div>
                 </div>
               )}
 
-              <div 
-                className="km-ctosel" 
+              <div
+                className="km-ctosel"
                 onClick={() => setShowRouting(!showRouting)}
                 style={composeTo === "doctor"
                   ? { background: "var(--km-acp)", color: "var(--km-ac)", borderColor: "var(--km-ac)" }
@@ -716,9 +704,9 @@ export default function Messages() {
                 }
               >
                 {composeTo === "doctor" ? (
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
                 ) : (
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
                 )}
                 <span>@ {composeTo === "doctor" ? "Doctor" : "Support"}</span>
                 <ChevronDown size={12} strokeWidth={2.5} />
@@ -726,8 +714,8 @@ export default function Messages() {
 
               <textarea
                 ref={composeInputRef}
-                className="km-cinp" 
-                placeholder="Type a message..." 
+                className="km-cinp"
+                placeholder="Type a message..."
                 rows={1}
                 value={composeText}
                 onChange={(e) => setComposeText(e.target.value)}
@@ -738,9 +726,9 @@ export default function Messages() {
                   }
                 }}
               />
-              
-              <div 
-                className="km-cattch" 
+
+              <div
+                className="km-cattch"
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Paperclip strokeWidth={2.5} />
@@ -758,8 +746,8 @@ export default function Messages() {
                 }}
               />
 
-              <button 
-                className="km-csend" 
+              <button
+                className="km-csend"
                 onClick={handleSend}
                 disabled={uploading}
                 style={{ opacity: uploading ? 0.6 : 1 }}
@@ -774,7 +762,6 @@ export default function Messages() {
               </button>
             </div>
             )}
-            
           </>
         )}
       </div>
