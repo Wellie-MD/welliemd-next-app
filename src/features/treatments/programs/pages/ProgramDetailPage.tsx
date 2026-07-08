@@ -22,6 +22,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { showFloatingToast } from "@/components/ui/floating-toast";
 import { PatientPreviewDialog, SharedQuestionDialog, type SharedQuestionInput } from "@/features/treatments/common/components";
+import { getTreatmentApiErrorMessage } from "@/features/treatments/common/utils/apiError";
+import { normalizeSharedQuestionDraft } from "@/features/treatments/common/utils/sharedQuestionDraft";
 import {
   useDeleteProgramQuestion,
   useProgramQuestions,
@@ -516,26 +518,27 @@ export default function ProgramDetailPage() {
   };
 
   const handleSaveQuestion = (input: SharedQuestionInput) => {
+    const normalizedInput = normalizeSharedQuestionDraft(input);
     const question: ProgramQuestion = editingQuestion
       ? {
           ...editingQuestion,
-          text: input.questionText,
-          kind: input.questionType,
-          required: input.required,
-          choices: input.answerOptions,
-          answerCount: input.answerOptions.length,
+          text: normalizedInput.questionText,
+          kind: normalizedInput.questionType,
+          required: normalizedInput.required,
+          choices: normalizedInput.answerOptions,
+          answerCount: normalizedInput.answerOptions.length,
           source: "client",
           locked: false,
         }
       : {
           id: createProgramQuestionId(),
           order: normalQuestions.length + 1,
-          text: input.questionText,
-          kind: input.questionType,
+          text: normalizedInput.questionText,
+          kind: normalizedInput.questionType,
           section: getDefaultQuestionSection(normalQuestions),
-          required: input.required,
-          choices: input.answerOptions,
-          answerCount: input.answerOptions.length,
+          required: normalizedInput.required,
+          choices: normalizedInput.answerOptions,
+          answerCount: normalizedInput.answerOptions.length,
           source: "client",
           locked: false,
         };
@@ -548,6 +551,11 @@ export default function ProgramDetailPage() {
           return [...current, question].map((item, index) => ({ ...item, order: index + 1 }));
         });
         showFloatingToast({ title: editingQuestionId ? "Question Updated" : "Question Added" });
+      },
+      onError: (error) => {
+        showFloatingToast({
+          title: getTreatmentApiErrorMessage(error, "Question could not be saved"),
+        });
       },
     });
     setEditingQuestionId(null);
@@ -570,6 +578,11 @@ export default function ProgramDetailPage() {
             .map((question, index) => ({ ...question, order: index + 1 }))
         );
         showFloatingToast({ title: "Question Removed" });
+      },
+      onError: (error) => {
+        showFloatingToast({
+          title: getTreatmentApiErrorMessage(error, "Question could not be removed"),
+        });
       },
     });
   };
@@ -603,7 +616,12 @@ export default function ProgramDetailPage() {
     setQuestions(nextQuestions);
     reorderQuestionsMutation.mutate(nextQuestions.map((question) => question.id), {
       onSuccess: () => showFloatingToast({ title: "Order Saved" }),
-      onError: () => setQuestions(storedQuestions),
+      onError: (error) => {
+        setQuestions(storedQuestions);
+        showFloatingToast({
+          title: getTreatmentApiErrorMessage(error, "Question order could not be saved"),
+        });
+      },
     });
   };
 
@@ -689,6 +707,11 @@ export default function ProgramDetailPage() {
 	            <Button
 	              type="button"
 	              variant="outline"
+	              onClick={() =>
+	                showFloatingToast({
+	                  title: "Managed By WellieMD - this part is read only in the client portal",
+	                })
+	              }
 	              className="h-9 rounded-lg border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-[#171b27] dark:text-slate-300 dark:hover:bg-slate-800"
 	            >
 	              <GitBranch className="h-4 w-4" />

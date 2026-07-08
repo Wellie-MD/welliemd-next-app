@@ -20,13 +20,13 @@ export const treatmentQueryKeys = {
 export const useSections = () =>
   useQuery({
     queryKey: [...treatmentQueryKeys.all, "sections"],
-    queryFn: () => Promise.resolve([]),
+    queryFn: treatmentsApi.listSections,
   });
 
 export const useConsents = () =>
   useQuery({
     queryKey: [...treatmentQueryKeys.all, "consents"],
-    queryFn: () => Promise.resolve([]),
+    queryFn: treatmentsApi.listConsents,
   });
 
 export const useCustomPrograms = () =>

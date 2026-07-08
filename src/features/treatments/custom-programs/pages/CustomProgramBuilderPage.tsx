@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, Copy, GitBranch, Link as LinkIcon, List, Lock, Plus, Play } from "lucide-react";
 import { showFloatingToast } from "@/components/ui/floating-toast";
 import { SharedQuestionDialog } from "@/features/treatments/common/components";
+import { getTreatmentApiErrorMessage } from "@/features/treatments/common/utils/apiError";
 import { CustomProgramPreviewDialog } from "@/features/treatments/custom-programs/components/CustomProgramPreviewDialog";
 import { CustomProgramQuestionPreviewDialog } from "@/features/treatments/custom-programs/components/CustomProgramQuestionPreviewDialog";
 import { ListContentSection } from "@/features/treatments/custom-programs/components/ListContentSection";
@@ -210,18 +211,33 @@ export default function CustomProgramBuilderPage() {
         input,
       }, {
         onSuccess: () => showFloatingToast({ title: "Question Updated" }),
+        onError: (error) => {
+          showFloatingToast({
+            title: getTreatmentApiErrorMessage(error, "Question could not be updated"),
+          });
+        },
       });
       return;
     }
 
     addQuestionMutation.mutate(input, {
       onSuccess: () => showFloatingToast({ title: "Question Added" }),
+      onError: (error) => {
+        showFloatingToast({
+          title: getTreatmentApiErrorMessage(error, "Question could not be added"),
+        });
+      },
     });
   };
 
   const handleDeleteClientQuestion = (questionId: string) => {
     deleteQuestionMutation.mutate(questionId, {
       onSuccess: () => showFloatingToast({ title: "Question Removed" }),
+      onError: (error) => {
+        showFloatingToast({
+          title: getTreatmentApiErrorMessage(error, "Question could not be removed"),
+        });
+      },
     });
   };
 

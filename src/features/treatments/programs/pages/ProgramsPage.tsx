@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { showFloatingToast } from "@/components/ui/floating-toast";
 import { EmptyStateCard, PatientPreviewDialog, SlugEditorModal } from "@/features/treatments/common/components";
+import { getTreatmentApiErrorMessage } from "@/features/treatments/common/utils/apiError";
 import {
   usePrograms,
   useUpdateProgramSlug,
@@ -170,8 +171,18 @@ export default function ProgramsPage() {
 
   const handleSaveSlug = async (slug: string) => {
     if (!editingProgram) return;
-    await updateProgramSlug.mutateAsync({ programId: editingProgram.id, slug });
-    showFloatingToast({ title: "Slug Updated" });
+    try {
+      await updateProgramSlug.mutateAsync({
+        programId: editingProgram.id,
+        slug: slug || editingProgram.slug,
+      });
+      showFloatingToast({ title: "Slug Updated" });
+    } catch (error) {
+      showFloatingToast({
+        title: getTreatmentApiErrorMessage(error, "Slug could not be updated"),
+      });
+      throw error;
+    }
   };
 
   const handleOpenPreview = (program: Program) => {

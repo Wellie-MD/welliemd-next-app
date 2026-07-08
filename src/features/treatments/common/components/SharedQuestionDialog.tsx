@@ -9,13 +9,13 @@ import {
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import type { QuestionKind } from "@/features/treatments/types";
+import {
+  normalizeSharedQuestionDraft,
+  type SharedQuestionDraft,
+  validateSharedQuestionDraft,
+} from "@/features/treatments/common/utils/sharedQuestionDraft";
 
-export interface SharedQuestionInput {
-  questionText: string;
-  questionType: QuestionKind;
-  answerOptions: string[];
-  required: boolean;
-}
+export type SharedQuestionInput = SharedQuestionDraft;
 
 interface SharedQuestionDialogProps {
   open: boolean;
@@ -68,23 +68,19 @@ export function SharedQuestionDialog({
   }, [editingQuestion, open]);
 
   const handleSubmit = () => {
-    const trimmedQuestion = questionText.trim();
-    if (!trimmedQuestion) {
-      setQuestionError("Question text is required.");
+    const draft = {
+      questionText,
+      questionType,
+      answerOptions: answerOptions.split("\n"),
+      required,
+    };
+    const validationError = validateSharedQuestionDraft(draft);
+    if (validationError) {
+      setQuestionError(validationError);
       return;
     }
 
-    const parsedAnswerOptions = answerOptions
-      .split("\n")
-      .map((option) => option.trim())
-      .filter(Boolean);
-
-    onSaveQuestion({
-      questionText: trimmedQuestion,
-      questionType,
-      answerOptions: parsedAnswerOptions,
-      required,
-    });
+    onSaveQuestion(normalizeSharedQuestionDraft(draft));
     onOpenChange(false);
   };
 
@@ -133,7 +129,10 @@ export function SharedQuestionDialog({
               <span className="text-[12px] font-bold text-slate-600 dark:text-slate-400">Type</span>
               <select
                 value={questionType}
-                onChange={(event) => setQuestionType(event.target.value as QuestionKind)}
+                onChange={(event) => {
+                  setQuestionType(event.target.value as QuestionKind);
+                  if (questionError) setQuestionError("");
+                }}
                 className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-950 outline-none transition-colors focus:border-slate-300 focus:ring-0 dark:border-slate-700 dark:bg-[#171b27] dark:text-slate-100 dark:focus:border-slate-600"
               >
                 <option value="single_choice">Single Choice</option>
@@ -162,7 +161,10 @@ export function SharedQuestionDialog({
             </span>
             <textarea
               value={answerOptions}
-              onChange={(event) => setAnswerOptions(event.target.value)}
+              onChange={(event) => {
+                setAnswerOptions(event.target.value);
+                if (questionError) setQuestionError("");
+              }}
               placeholder="One option per line"
               className="mt-2 min-h-[90px] w-full resize-y rounded-lg border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-500 focus:border-slate-300 focus:ring-0 dark:border-slate-700 dark:bg-[#171b27] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-slate-600"
             />

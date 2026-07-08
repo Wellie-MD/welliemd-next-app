@@ -1,344 +1,526 @@
+import axiosInstance from "@/api/axiosInstance";
 import type {
   CustomProgram,
   CustomProgramBuilderQuestionInput,
+  CustomProgramBuilderStageItem,
+  CustomProgramFlowItem,
   Program,
   ProgramQuestion,
   ProgramStatus,
-  QuestionKind,
+  TreatmentLibraryScope,
 } from "@/features/treatments/types";
-import { mockCustomPrograms } from "@/features/treatments/custom-programs/data/customPrograms.mock";
-import { mockProgramQuestions } from "@/features/treatments/programs/data/programQuestions.mock";
-import { mockPrograms } from "@/features/treatments/programs/data/programs.mock";
-import { createMockId } from "@/features/treatments/common/data/factories";
 import { normalizeTreatmentSlug } from "@/features/treatments/common/utils/slug";
 import { normalizeCustomProgramSlug } from "@/features/treatments/custom-programs/utils/customProgramSlug";
+import {
+  formatSharedQuestionSubtitle,
+  getSharedQuestionOptionCount,
+  normalizeSharedQuestionDraft,
+} from "@/features/treatments/common/utils/sharedQuestionDraft";
 
-const KEYS = {
-  PROGRAMS: "welliemd_client_programs",
-  CUSTOM_PROGRAMS: "welliemd_client_custom_programs",
-  PROGRAM_QUESTIONS: "welliemd_client_program_questions",
+type PaginatedResponse<T> = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
 };
 
-const SEED_VERSION_KEY = "welliemd_client_data_version_v2";
-
-const checkAndSeedMockData = () => {
-  const seeded = localStorage.getItem(SEED_VERSION_KEY);
-  if (!seeded) {
-    localStorage.removeItem(KEYS.CUSTOM_PROGRAMS);
-    localStorage.removeItem(KEYS.PROGRAMS);
-    localStorage.removeItem(KEYS.PROGRAM_QUESTIONS);
-
-    localStorage.setItem(KEYS.CUSTOM_PROGRAMS, JSON.stringify(mockCustomPrograms));
-    localStorage.setItem(KEYS.PROGRAMS, JSON.stringify(mockPrograms));
-
-    const initialQuestions: Record<string, ProgramQuestion[]> = {
-      "program-glp-intake": mockProgramQuestions,
-      "program-compounded-glp-intake": mockProgramQuestions,
-      "program-branded-glp-intake": mockProgramQuestions,
-      "program-glp-microdose": mockProgramQuestions,
-      "program-trt-intake": mockProgramQuestions.slice(0, 3),
-    };
-    localStorage.setItem(KEYS.PROGRAM_QUESTIONS, JSON.stringify(initialQuestions));
-
-    localStorage.setItem(SEED_VERSION_KEY, "true");
-  }
+type ProgramApiRecord = {
+  id: string;
+  source_questionnaire_template?: string | null;
+  treatment_type?: string;
+  treatment_type_key: string;
+  treatment_type_name?: string;
+  name: string;
+  slug: string;
+  description?: string;
+  stage?: Program["stage"];
+  phase?: "onboarding" | "follow_up";
+  visit_type: string;
+  question_count: number;
+  checkout_question_count: number;
+  status: Program["status"];
+  auth_config?: Program["authConfig"];
+  screening_questions?: ProgramQuestion[];
+  checkout_questions?: Program["checkoutQuestions"];
+  consent_ids?: string[];
+  sex_requirement?: Program["sexRequirement"];
+  min_age?: number | null;
+  max_age?: number | null;
+  min_bmi?: number | null;
+  max_bmi?: number | null;
+  publish_version?: number;
+  created_at?: string;
+  updated_at?: string;
 };
 
-if (typeof window !== "undefined") {
-  checkAndSeedMockData();
-}
-
-const getStored = <T>(key: string, defaults: T): T => {
-  const data = localStorage.getItem(key);
-  if (!data) {
-    localStorage.setItem(key, JSON.stringify(defaults));
-    return defaults;
-  }
-  return JSON.parse(data);
+type CustomProgramApiRecord = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  status: CustomProgram["status"];
+  audience: CustomProgram["audience"];
+  min_age: number;
+  max_age?: number | null;
+  included_program_ids: string[];
+  section_ids: string[];
+  consent_ids: string[];
+  checkout_options: CustomProgram["checkoutOptions"];
+  flow_items: Array<CustomProgramFlowItem & Partial<CustomProgramBuilderStageItem>>;
+  visit_type?: string | null;
+  onboarding_name?: string;
+  question_count?: number;
+  icon?: string;
+  icon_bg?: string;
+  icon_color?: string;
+  tags?: string[];
+  is_multi?: boolean;
+  created_at?: string;
+  updated_at?: string;
 };
 
-const setStored = <T>(key: string, value: T): void => {
-  localStorage.setItem(key, JSON.stringify(value));
+type SectionApiRecord = {
+  id: string;
+  name: string;
+  scope: TreatmentLibraryScope;
+  visit_type_keys: string[];
+  field_count: number;
+  created_at?: string;
+  updated_at?: string;
 };
 
-const getPrograms = () => getStored(KEYS.PROGRAMS, mockPrograms);
-
-const getTodayIsoDate = () => new Date().toISOString().split("T")[0];
-
-const questionTypeLabels: Partial<Record<QuestionKind, string>> = {
-  single_choice: "Single Choice",
-  multiple_choice: "Multiple Choice",
-  yes_no: "Yes / No",
-  text: "Text",
-  textarea: "Textarea",
-  number: "Number",
-  date: "Date",
+type ConsentApiRecord = {
+  id: string;
+  name: string;
+  scope: TreatmentLibraryScope;
+  visit_type_keys: string[];
+  text?: string;
+  options?: Array<{
+    id: string;
+    text: string;
+    disqualifies: boolean;
+  }>;
+  version: number;
+  created_at?: string;
+  updated_at?: string;
 };
 
-const getQuestionTypeLabel = (kind: QuestionKind) => questionTypeLabels[kind] ?? kind;
-
-const getBuilderQuestionOptionCount = (input: CustomProgramBuilderQuestionInput) => {
-  if (input.answerOptions.length > 0) return input.answerOptions.length;
-  if (input.questionType === "yes_no") return 2;
-  return undefined;
+export type ClientTreatmentSection = {
+  id: string;
+  name: string;
+  scope: TreatmentLibraryScope;
+  visitTypeKeys: string[];
+  fieldCount: number;
+  updatedAt: string;
 };
 
-const formatBuilderQuestionSubtitle = (input: CustomProgramBuilderQuestionInput) => {
-  const label = getQuestionTypeLabel(input.questionType);
-  const optionCount = getBuilderQuestionOptionCount(input);
-  if (!optionCount) return label;
-  return `${label} - ${optionCount} ${optionCount === 1 ? "option" : "options"}`;
+export type ClientTreatmentConsent = {
+  id: string;
+  name: string;
+  scope: TreatmentLibraryScope;
+  visitTypeKeys: string[];
+  text?: string;
+  options?: Array<{
+    id: string;
+    text: string;
+    disqualifies: boolean;
+  }>;
+  updatedAt: string;
 };
 
-const mergeCustomProgramDefaults = (storedProgram: CustomProgram, defaultProgram: CustomProgram): CustomProgram => ({
-  ...storedProgram,
-  builderQuestions: storedProgram.builderQuestions ?? defaultProgram.builderQuestions ?? [],
-  builderTreatmentOptions: storedProgram.builderTreatmentOptions ?? defaultProgram.builderTreatmentOptions ?? [],
-  builderConsents: storedProgram.builderConsents ?? defaultProgram.builderConsents ?? [],
+const currentDateStamp = () => new Date().toISOString().split("T")[0];
+
+const unwrapRecords = <T>(data: PaginatedResponse<T> | T[]): T[] =>
+  Array.isArray(data) ? data : data.results || [];
+
+const createClientQuestionId = () => `custom-q-${Date.now()}`;
+
+const mapProgramFromApi = (record: ProgramApiRecord): Program => ({
+  id: record.id,
+  name: record.name,
+  stage: record.stage || (record.phase === "follow_up" ? "follow_up" : "intake"),
+  treatmentTypeKey: record.treatment_type_key,
+  visitType: record.visit_type,
+  questionCount: record.question_count || 0,
+  checkoutQuestionCount: record.checkout_question_count || 0,
+  status: record.status,
+  updatedAt: record.updated_at?.split("T")[0] || currentDateStamp(),
+  slug: record.slug,
+  authConfig: record.auth_config || {
+    email: true,
+    phone: false,
+    identity: false,
+    account: true,
+  },
+  checkoutQuestions: record.checkout_questions || [],
+  consentIds: record.consent_ids || [],
+  sexRequirement: record.sex_requirement || "any",
+  minAge: record.min_age ?? null,
+  maxAge: record.max_age ?? null,
+  minBmi: record.min_bmi ?? null,
+  maxBmi: record.max_bmi ?? null,
 });
 
-const getCustomPrograms = () => {
-  const stored = getStored<CustomProgram[]>(KEYS.CUSTOM_PROGRAMS, mockCustomPrograms);
-  let changed = false;
+const mapProgramToPatchPayload = (program: Partial<Program>) => ({
+  ...(program.name !== undefined ? { name: program.name } : {}),
+  ...(program.slug !== undefined ? { slug: normalizeTreatmentSlug(program.slug) } : {}),
+  ...(program.status !== undefined ? { status: program.status } : {}),
+  ...(program.authConfig !== undefined ? { auth_config: program.authConfig } : {}),
+  ...(program.checkoutQuestions !== undefined ? { checkout_questions: program.checkoutQuestions } : {}),
+  ...(program.consentIds !== undefined ? { consent_ids: program.consentIds } : {}),
+  ...(program.sexRequirement !== undefined ? { sex_requirement: program.sexRequirement } : {}),
+  ...(program.minAge !== undefined ? { min_age: program.minAge } : {}),
+  ...(program.maxAge !== undefined ? { max_age: program.maxAge } : {}),
+  ...(program.minBmi !== undefined ? { min_bmi: program.minBmi } : {}),
+  ...(program.maxBmi !== undefined ? { max_bmi: program.maxBmi } : {}),
+});
 
-  const merged = stored.map((program) => {
-    const defaultProgram = mockCustomPrograms.find((item) => item.id === program.id);
-    if (!defaultProgram) return program;
+const isBuilderQuestionFlowItem = (item: CustomProgramApiRecord["flow_items"][number]) =>
+  item.kind === "routing_question" || item.kind === "question";
 
-    const nextProgram = mergeCustomProgramDefaults(program, defaultProgram);
-    if (
-      nextProgram.builderQuestions !== program.builderQuestions ||
-      nextProgram.builderTreatmentOptions !== program.builderTreatmentOptions ||
-      nextProgram.builderConsents !== program.builderConsents
-    ) {
-      changed = true;
-    }
-    return nextProgram;
-  });
+const mapBuilderQuestionFromFlowItem = (
+  item: CustomProgramApiRecord["flow_items"][number]
+): CustomProgramBuilderStageItem => ({
+  id: item.id,
+  kind: "question",
+  title: item.title,
+  subtitle: item.subtitle,
+  source: item.source || "client",
+  locked: item.locked ?? false,
+  required: item.required ?? true,
+  questionKind: item.questionKind || "single_choice",
+  choiceCount: item.choiceCount,
+  answerOptions: item.answerOptions || [],
+  treatmentTypeKey: item.treatmentTypeKey,
+  sourceId: item.sourceId,
+});
 
-  mockCustomPrograms.forEach((defaultProgram) => {
-    if (!merged.some((program) => program.id === defaultProgram.id)) {
-      merged.push(defaultProgram);
-      changed = true;
-    }
-  });
+const mapCustomProgramFromApi = (record: CustomProgramApiRecord): CustomProgram => {
+  const flowItems = record.flow_items || [];
 
-  if (changed) {
-    setStored(KEYS.CUSTOM_PROGRAMS, merged);
-  }
-
-  return merged;
+  return {
+    id: record.id,
+    name: record.name,
+    slug: record.slug,
+    description: record.description || "",
+    status: record.status,
+    audience: record.audience,
+    minAge: record.min_age,
+    maxAge: record.max_age ?? undefined,
+    includedProgramIds: record.included_program_ids || [],
+    sectionIds: record.section_ids || [],
+    consentIds: record.consent_ids || [],
+    checkoutOptions: record.checkout_options || [],
+    flowItems: flowItems.filter((item) => !isBuilderQuestionFlowItem(item)) as CustomProgramFlowItem[],
+    updatedAt: record.updated_at?.split("T")[0] || currentDateStamp(),
+    slugOverride: null,
+    visitType: record.visit_type ?? null,
+    onboardingName: record.onboarding_name || "",
+    questionCount: record.question_count || 0,
+    icon: record.icon || undefined,
+    iconBg: record.icon_bg || undefined,
+    iconColor: record.icon_color || undefined,
+    tags: record.tags || [],
+    isMulti: record.is_multi ?? false,
+    builderQuestions: flowItems.filter(isBuilderQuestionFlowItem).map(mapBuilderQuestionFromFlowItem),
+  };
 };
 
-const setCustomPrograms = (programs: CustomProgram[]) => {
-  setStored(KEYS.CUSTOM_PROGRAMS, programs);
+const mapBuilderQuestionToFlowItem = (
+  question: CustomProgramBuilderStageItem
+): CustomProgramApiRecord["flow_items"][number] => ({
+  id: question.id,
+  kind: "routing_question",
+  title: question.title,
+  subtitle: question.subtitle || "",
+  locked: question.locked,
+  source: question.source,
+  required: question.required,
+  questionKind: question.questionKind,
+  choiceCount: question.choiceCount,
+  answerOptions: question.answerOptions || [],
+  treatmentTypeKey: question.treatmentTypeKey,
+  sourceId: question.sourceId,
+});
+
+const mapCustomProgramToPatchPayload = (program: Partial<CustomProgram>) => ({
+  ...(program.name !== undefined ? { name: program.name } : {}),
+  ...(program.slug !== undefined ? { slug: normalizeCustomProgramSlug(program.slug) } : {}),
+  ...(program.description !== undefined ? { description: program.description } : {}),
+  ...(program.status !== undefined ? { status: program.status } : {}),
+  ...(program.audience !== undefined ? { audience: program.audience } : {}),
+  ...(program.minAge !== undefined ? { min_age: program.minAge } : {}),
+  ...(program.maxAge !== undefined ? { max_age: program.maxAge ?? null } : {}),
+  ...(program.includedProgramIds !== undefined ? { included_program_ids: program.includedProgramIds } : {}),
+  ...(program.sectionIds !== undefined ? { section_ids: program.sectionIds } : {}),
+  ...(program.consentIds !== undefined ? { consent_ids: program.consentIds } : {}),
+  ...(program.checkoutOptions !== undefined ? { checkout_options: program.checkoutOptions } : {}),
+  ...(program.flowItems !== undefined || program.builderQuestions !== undefined
+    ? {
+        flow_items: [
+          ...(program.flowItems || []),
+          ...(program.builderQuestions || []).map(mapBuilderQuestionToFlowItem),
+        ],
+      }
+    : {}),
+  ...(program.visitType !== undefined ? { visit_type: program.visitType ?? null } : {}),
+  ...(program.onboardingName !== undefined ? { onboarding_name: program.onboardingName } : {}),
+  ...(program.questionCount !== undefined ? { question_count: program.questionCount } : {}),
+  ...(program.icon !== undefined ? { icon: program.icon || "" } : {}),
+  ...(program.iconBg !== undefined ? { icon_bg: program.iconBg || "" } : {}),
+  ...(program.iconColor !== undefined ? { icon_color: program.iconColor || "" } : {}),
+  ...(program.tags !== undefined ? { tags: program.tags || [] } : {}),
+  ...(program.isMulti !== undefined ? { is_multi: program.isMulti } : {}),
+});
+
+const mapSectionFromApi = (record: SectionApiRecord): ClientTreatmentSection => ({
+  id: record.id,
+  name: record.name,
+  scope: record.scope,
+  visitTypeKeys: record.visit_type_keys || [],
+  fieldCount: record.field_count || 0,
+  updatedAt: record.updated_at?.split("T")[0] || currentDateStamp(),
+});
+
+const mapConsentFromApi = (record: ConsentApiRecord): ClientTreatmentConsent => ({
+  id: record.id,
+  name: record.name,
+  scope: record.scope,
+  visitTypeKeys: record.visit_type_keys || [],
+  text: record.text || "",
+  options: record.options || [],
+  updatedAt: record.updated_at?.split("T")[0] || currentDateStamp(),
+});
+
+const patchProgram = async (programId: string, payload: Partial<Program>): Promise<Program | undefined> => {
+  const { data } = await axiosInstance.patch<ProgramApiRecord>(
+    `treatments/programs/${programId}/`,
+    mapProgramToPatchPayload(payload)
+  );
+  return mapProgramFromApi(data);
 };
 
-const getProgramQuestions = (programId: string) => {
-  const allQuestions = getStored<Record<string, ProgramQuestion[]>>(KEYS.PROGRAM_QUESTIONS, {
-    "program-glp-intake": mockProgramQuestions,
-    "program-compounded-glp-intake": mockProgramQuestions,
-    "program-branded-glp-intake": mockProgramQuestions,
-    "program-glp-microdose": mockProgramQuestions,
-    "program-trt-intake": mockProgramQuestions.slice(0, 3),
-  });
-  return allQuestions[programId] || [];
+const patchCustomProgram = async (
+  customProgramId: string,
+  payload: Partial<CustomProgram>
+): Promise<CustomProgram | undefined> => {
+  const { data } = await axiosInstance.patch<CustomProgramApiRecord>(
+    `treatments/custom-programs/${customProgramId}/`,
+    mapCustomProgramToPatchPayload(payload)
+  );
+  return mapCustomProgramFromApi(data);
 };
-
-const resolveMock = async <T>(value: T): Promise<T> => Promise.resolve(value);
 
 export const treatmentsApi = {
-  listPrograms: (): Promise<Program[]> => resolveMock(getPrograms()),
+  listPrograms: async (): Promise<Program[]> => {
+    const { data } = await axiosInstance.get<PaginatedResponse<ProgramApiRecord> | ProgramApiRecord[]>(
+      "treatments/programs/"
+    );
+    return unwrapRecords(data).map(mapProgramFromApi);
+  },
 
-  getProgram: (id: string): Promise<Program | undefined> =>
-    resolveMock(getPrograms().find((program) => program.id === id)),
+  getProgram: async (id: string): Promise<Program | undefined> => {
+    const { data } = await axiosInstance.get<ProgramApiRecord>(`treatments/programs/${id}/`);
+    return mapProgramFromApi(data);
+  },
 
-  listProgramQuestions: (programId: string): Promise<ProgramQuestion[]> =>
-    resolveMock(getProgramQuestions(programId)),
+  listProgramQuestions: async (programId: string): Promise<ProgramQuestion[]> => {
+    if (!programId) return [];
+    const { data } = await axiosInstance.get<ProgramQuestion[]>(`treatments/programs/${programId}/questions/`);
+    return data || [];
+  },
 
-  listCustomPrograms: (): Promise<CustomProgram[]> => resolveMock(getCustomPrograms()),
+  listSections: async (): Promise<ClientTreatmentSection[]> => {
+    const { data } = await axiosInstance.get<PaginatedResponse<SectionApiRecord> | SectionApiRecord[]>(
+      "treatments/sections/"
+    );
+    return unwrapRecords(data).map(mapSectionFromApi);
+  },
 
-  getCustomProgram: (id: string): Promise<CustomProgram | undefined> =>
-    resolveMock(getCustomPrograms().find((program) => program.id === id)),
+  listConsents: async (): Promise<ClientTreatmentConsent[]> => {
+    const { data } = await axiosInstance.get<PaginatedResponse<ConsentApiRecord> | ConsentApiRecord[]>(
+      "treatments/consents/"
+    );
+    return unwrapRecords(data).map(mapConsentFromApi);
+  },
 
-  addCustomProgramBuilderQuestion: (
+  listCustomPrograms: async (): Promise<CustomProgram[]> => {
+    const { data } = await axiosInstance.get<PaginatedResponse<CustomProgramApiRecord> | CustomProgramApiRecord[]>(
+      "treatments/custom-programs/"
+    );
+    return unwrapRecords(data).map(mapCustomProgramFromApi);
+  },
+
+  getCustomProgram: async (id: string): Promise<CustomProgram | undefined> => {
+    const { data } = await axiosInstance.get<CustomProgramApiRecord>(`treatments/custom-programs/${id}/`);
+    return mapCustomProgramFromApi(data);
+  },
+
+  addCustomProgramBuilderQuestion: async (
     customProgramId: string,
     input: CustomProgramBuilderQuestionInput
   ): Promise<CustomProgram | undefined> => {
-    const programs = getCustomPrograms();
-    const nextPrograms = programs.map((program) => {
-      if (program.id !== customProgramId) return program;
-      const optionCount = getBuilderQuestionOptionCount(input);
-      return {
-        ...program,
-        builderQuestions: [
-          ...(program.builderQuestions ?? []),
-          {
-            id: createMockId("custom-q"),
-            kind: "question" as const,
-            title: input.questionText,
-            subtitle: formatBuilderQuestionSubtitle(input),
-            source: "client" as const,
-            locked: false,
-            required: input.required,
-            questionKind: input.questionType,
-            choiceCount: optionCount,
-            answerOptions: input.answerOptions,
-          },
-        ],
-      };
+    const program = await treatmentsApi.getCustomProgram(customProgramId);
+    if (!program) return undefined;
+
+    const normalizedInput = normalizeSharedQuestionDraft(input);
+    const optionCount = getSharedQuestionOptionCount(normalizedInput);
+    const nextBuilderQuestions: CustomProgramBuilderStageItem[] = [
+      ...(program.builderQuestions || []),
+      {
+        id: createClientQuestionId(),
+        kind: "question",
+        title: normalizedInput.questionText,
+        subtitle: formatSharedQuestionSubtitle(normalizedInput),
+        source: "client",
+        locked: false,
+        required: normalizedInput.required,
+        questionKind: normalizedInput.questionType,
+        choiceCount: optionCount,
+        answerOptions: normalizedInput.answerOptions,
+      },
+    ];
+
+    return patchCustomProgram(customProgramId, {
+      flowItems: program.flowItems,
+      builderQuestions: nextBuilderQuestions,
+      questionCount: nextBuilderQuestions.length,
     });
-    setCustomPrograms(nextPrograms);
-    return resolveMock(nextPrograms.find((program) => program.id === customProgramId));
   },
 
-  deleteCustomProgramBuilderQuestion: (
+  deleteCustomProgramBuilderQuestion: async (
     customProgramId: string,
     questionId: string
   ): Promise<CustomProgram | undefined> => {
-    const programs = getCustomPrograms();
-    const nextPrograms = programs.map((program) => {
-      if (program.id !== customProgramId) return program;
-      return {
-        ...program,
-        builderQuestions: (program.builderQuestions ?? []).filter((question) => {
-          if (question.id !== questionId) return true;
-          return question.source !== "client" || question.locked;
-        }),
-      };
+    const program = await treatmentsApi.getCustomProgram(customProgramId);
+    if (!program) return undefined;
+
+    const nextBuilderQuestions = (program.builderQuestions || []).filter((question) => {
+      if (question.id !== questionId) return true;
+      return question.source !== "client" || question.locked;
     });
-    setCustomPrograms(nextPrograms);
-    return resolveMock(nextPrograms.find((program) => program.id === customProgramId));
+
+    return patchCustomProgram(customProgramId, {
+      flowItems: program.flowItems,
+      builderQuestions: nextBuilderQuestions,
+      questionCount: nextBuilderQuestions.length,
+    });
   },
 
-  updateCustomProgramBuilderQuestion: (
+  updateCustomProgramBuilderQuestion: async (
     customProgramId: string,
     questionId: string,
     input: CustomProgramBuilderQuestionInput
   ): Promise<CustomProgram | undefined> => {
-    const programs = getCustomPrograms();
-    const nextPrograms = programs.map((program) => {
-      if (program.id !== customProgramId) return program;
-      const optionCount = getBuilderQuestionOptionCount(input);
+    const program = await treatmentsApi.getCustomProgram(customProgramId);
+    if (!program) return undefined;
+
+    const normalizedInput = normalizeSharedQuestionDraft(input);
+    const optionCount = getSharedQuestionOptionCount(normalizedInput);
+    const nextBuilderQuestions = (program.builderQuestions || []).map((question) => {
+      if (question.id !== questionId || question.source !== "client" || question.locked) return question;
       return {
-        ...program,
-        builderQuestions: (program.builderQuestions ?? []).map((question) => {
-          if (question.id !== questionId || question.source !== "client" || question.locked) return question;
-          return {
-            ...question,
-            title: input.questionText,
-            subtitle: formatBuilderQuestionSubtitle(input),
-            required: input.required,
-            questionKind: input.questionType,
-            choiceCount: optionCount,
-            answerOptions: input.answerOptions,
-          };
-        }),
+        ...question,
+        title: normalizedInput.questionText,
+        subtitle: formatSharedQuestionSubtitle(normalizedInput),
+        required: normalizedInput.required,
+        questionKind: normalizedInput.questionType,
+        choiceCount: optionCount,
+        answerOptions: normalizedInput.answerOptions,
       };
     });
-    setCustomPrograms(nextPrograms);
-    return resolveMock(nextPrograms.find((program) => program.id === customProgramId));
+
+    return patchCustomProgram(customProgramId, {
+      flowItems: program.flowItems,
+      builderQuestions: nextBuilderQuestions,
+      questionCount: nextBuilderQuestions.length,
+    });
   },
 
-  updateCustomProgramSlugOverride: (
+  updateCustomProgramSlugOverride: async (
     customProgramId: string,
     slugOverride: string
   ): Promise<CustomProgram | undefined> => {
     const normalizedSlug = normalizeCustomProgramSlug(slugOverride);
-    const programs = getCustomPrograms();
-    const nextPrograms = programs.map((program) => {
-      if (program.id !== customProgramId) return program;
-      return {
-        ...program,
-        slugOverride: normalizedSlug || null,
-      };
-    });
-    setCustomPrograms(nextPrograms);
-    return resolveMock(nextPrograms.find((program) => program.id === customProgramId));
+    const { data } = await axiosInstance.patch<CustomProgramApiRecord>(
+      `treatments/custom-programs/${customProgramId}/slug/`,
+      { slug: normalizedSlug }
+    );
+    return mapCustomProgramFromApi(data);
   },
 
-  updateProgramSlug: (programId: string, slug: string): Promise<Program | undefined> => {
-    const normalizedSlug = normalizeTreatmentSlug(slug);
-    const programs = getPrograms();
-    const nextPrograms = programs.map((program) => {
-      if (program.id !== programId) return program;
-      return {
-        ...program,
-        slug: normalizedSlug || program.slug,
-        updatedAt: new Date().toISOString().split("T")[0],
-      };
-    });
-    setStored(KEYS.PROGRAMS, nextPrograms);
-    return resolveMock(nextPrograms.find((program) => program.id === programId));
+  updateProgramSlug: async (programId: string, slug: string): Promise<Program | undefined> => {
+    const { data } = await axiosInstance.patch<ProgramApiRecord>(
+      `treatments/programs/${programId}/slug/`,
+      { slug: normalizeTreatmentSlug(slug) }
+    );
+    return mapProgramFromApi(data);
   },
 
-  updateProgramStatus: (programId: string, status: ProgramStatus): Promise<Program | undefined> => {
-    const programs = getPrograms();
-    const nextPrograms = programs.map((program) => {
-      if (program.id !== programId) return program;
-      return {
-        ...program,
-        status,
-        updatedAt: getTodayIsoDate(),
-      };
-    });
-    setStored(KEYS.PROGRAMS, nextPrograms);
-    return resolveMock(nextPrograms.find((program) => program.id === programId));
+  updateProgramStatus: async (programId: string, status: ProgramStatus): Promise<Program | undefined> =>
+    patchProgram(programId, {
+      status,
+    }),
+
+  updateProgramGroupStatus: async (treatmentTypeKey: string, status: ProgramStatus): Promise<Program[]> => {
+    const programs = await treatmentsApi.listPrograms();
+    const matchingPrograms = programs.filter((program) => program.treatmentTypeKey === treatmentTypeKey);
+    const updatedPrograms = await Promise.all(
+      matchingPrograms.map((program) => treatmentsApi.updateProgramStatus(program.id, status))
+    );
+
+    return updatedPrograms.filter(Boolean) as Program[];
   },
 
-  updateProgramGroupStatus: (treatmentTypeKey: string, status: ProgramStatus): Promise<Program[]> => {
-    const programs = getPrograms();
-    const nextPrograms = programs.map((program) => {
-      if (program.treatmentTypeKey !== treatmentTypeKey) return program;
-      return {
-        ...program,
-        status,
-        updatedAt: getTodayIsoDate(),
-      };
-    });
-    setStored(KEYS.PROGRAMS, nextPrograms);
-    return resolveMock(nextPrograms.filter((program) => program.treatmentTypeKey === treatmentTypeKey));
+  saveProgramQuestions: async (programId: string, questions: ProgramQuestion[]): Promise<ProgramQuestion[]> => {
+    const { data } = await axiosInstance.put<ProgramQuestion[]>(
+      `treatments/programs/${programId}/questions/`,
+      {
+        questions: questions.map((question, index) => ({
+          ...question,
+          order: index + 1,
+        })),
+      }
+    );
+    return data || [];
   },
 
-  saveProgramQuestions: (programId: string, questions: ProgramQuestion[]): Promise<ProgramQuestion[]> => {
-    const all = getStored<Record<string, ProgramQuestion[]>>(KEYS.PROGRAM_QUESTIONS, {});
-    all[programId] = questions.map((q, idx) => ({ ...q, order: idx + 1 }));
-    setStored(KEYS.PROGRAM_QUESTIONS, all);
-    return resolveMock(questions);
-  },
+  saveProgramQuestion: async (programId: string, question: ProgramQuestion): Promise<ProgramQuestion> => {
+    const list = await treatmentsApi.listProgramQuestions(programId);
+    const index = list.findIndex((item) => item.id === question.id);
+    const nextQuestion = {
+      ...question,
+      order: question.order || (index >= 0 ? list[index].order : list.length + 1),
+    };
+    const updated = [...list];
 
-  saveProgramQuestion: (programId: string, question: ProgramQuestion): Promise<ProgramQuestion> => {
-    const all = getStored<Record<string, ProgramQuestion[]>>(KEYS.PROGRAM_QUESTIONS, {});
-    const list = all[programId] || [];
-    const index = list.findIndex((q) => q.id === question.id);
     if (index >= 0) {
-      list[index] = question;
+      updated[index] = nextQuestion;
     } else {
-      list.push({ ...question, id: question.id || createMockId("q") });
+      updated.push(nextQuestion);
     }
-    all[programId] = list.map((q, idx) => ({ ...q, order: idx + 1 }));
-    setStored(KEYS.PROGRAM_QUESTIONS, all);
-    return resolveMock(question);
+
+    const saved = await treatmentsApi.saveProgramQuestions(programId, updated);
+    return saved.find((item) => item.id === nextQuestion.id) || nextQuestion;
   },
 
-  deleteProgramQuestion: (programId: string, questionId: string): Promise<void> => {
-    const all = getStored<Record<string, ProgramQuestion[]>>(KEYS.PROGRAM_QUESTIONS, {});
-    const list = (all[programId] || []).filter((q) => q.id !== questionId);
-    all[programId] = list.map((q, idx) => ({ ...q, order: idx + 1 }));
-    setStored(KEYS.PROGRAM_QUESTIONS, all);
-    return resolveMock(undefined);
+  deleteProgramQuestion: async (programId: string, questionId: string): Promise<void> => {
+    const list = await treatmentsApi.listProgramQuestions(programId);
+    const updated = list
+      .filter((question) => question.id !== questionId)
+      .map((question, index) => ({ ...question, order: index + 1 }));
+
+    await treatmentsApi.saveProgramQuestions(programId, updated);
   },
 
-  reorderProgramQuestions: (programId: string, questionIds: string[]): Promise<void> => {
-    const all = getStored<Record<string, ProgramQuestion[]>>(KEYS.PROGRAM_QUESTIONS, {});
-    const list = all[programId] || [];
+  reorderProgramQuestions: async (programId: string, questionIds: string[]): Promise<void> => {
+    const list = await treatmentsApi.listProgramQuestions(programId);
     const reordered = questionIds.map((id, index) => {
-      const found = list.find((q) => q.id === id);
+      const found = list.find((question) => question.id === id);
       if (!found) throw new Error(`Question ${id} not found`);
       return { ...found, order: index + 1 };
     });
-    all[programId] = reordered;
-    setStored(KEYS.PROGRAM_QUESTIONS, all);
-    return resolveMock(undefined);
+
+    await treatmentsApi.saveProgramQuestions(programId, reordered);
   },
 };

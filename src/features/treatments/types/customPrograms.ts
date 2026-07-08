@@ -1,5 +1,6 @@
 import type { CheckoutProductOption } from "./checkout";
 import type { QuestionKind } from "./questions";
+import type { SharedQuestionDraft } from "@/features/treatments/common/utils/sharedQuestionDraft";
 
 export type CustomProgramStatus = "draft" | "published" | "archived";
 
@@ -64,12 +65,7 @@ export interface CustomProgramBuilderLockedItem {
   kind: "authentication" | "checkout";
 }
 
-export interface CustomProgramBuilderQuestionInput {
-  questionText: string;
-  questionType: QuestionKind;
-  answerOptions: string[];
-  required: boolean;
-}
+export type CustomProgramBuilderQuestionInput = SharedQuestionDraft;
 
 export interface CustomProgram {
   id: string;

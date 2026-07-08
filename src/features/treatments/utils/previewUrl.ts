@@ -1,6 +1,6 @@
 import type { PreviewContext } from "@/features/treatments/types";
 
-const DEFAULT_LOCAL_QUESTIONNAIRE_URL = "http://localhost:3000";
+const DEFAULT_LOCAL_QUESTIONNAIRE_URL = "http://localhost:3001";
 
 const normalizeBaseUrl = (baseUrl: string) => baseUrl.replace(/\/+$/, "");
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { showFloatingToast } from "@/components/ui/floating-toast";
 import { TreatmentPageHeader } from "@/features/treatments/common/components";
+import { getTreatmentApiErrorMessage } from "@/features/treatments/common/utils/apiError";
 import { CustomProgramsContent } from "@/features/treatments/custom-programs/components/CustomProgramsContent";
 import { CustomProgramPreviewDialog } from "@/features/treatments/custom-programs/components/CustomProgramPreviewDialog";
 import { CustomProgramsToolbar } from "@/features/treatments/custom-programs/components/CustomProgramsToolbar";
@@ -39,11 +40,18 @@ export default function CustomProgramsPage() {
   };
 
   const handleSaveSlug = async (program: CustomProgram, slugOverride: string) => {
-    await updateSlugMutation.mutateAsync({
-      customProgramId: program.id,
-      slugOverride,
-    });
-    showFloatingToast({ title: "Slug Updated" });
+    try {
+      await updateSlugMutation.mutateAsync({
+        customProgramId: program.id,
+        slugOverride: slugOverride || getCustomProgramEffectiveSlug(program),
+      });
+      showFloatingToast({ title: "Slug Updated" });
+    } catch (error) {
+      showFloatingToast({
+        title: getTreatmentApiErrorMessage(error, "Slug could not be updated"),
+      });
+      throw error;
+    }
   };
 
   return (
