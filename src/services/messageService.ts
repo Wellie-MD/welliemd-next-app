@@ -1,4 +1,4 @@
-// src/services/messageService.ts — add uploadAttachment(file)
+// src/services/messageService.ts — lazy-load paginated conversations
 
 import api from "../api/axiosInstance";
 
@@ -35,6 +35,25 @@ export interface Message {
   media_file_name?: string;
 }
 
+/** Lightweight conversation summary returned by /messages/conversations/ */
+export interface ConversationSummary {
+  master_id: string;
+  patient_name: string;
+  patient_email: string;
+  order_number: string;
+  last_message: string;
+  last_time: string;
+  unread_count: number;
+}
+
+/** Paginated response shape */
+export interface PaginatedResponse<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
 /* ---- S3 public base (only used as fallback when BE gives a key not a URL) ---- */
 const S3_PUBLIC_BASE = "https://welliemd.s3.eu-north-1.amazonaws.com/";
 
@@ -53,25 +72,77 @@ function arraysEqual(a: Message[], b: Message[]) {
   return true;
 }
 
+function uploadErrorMessage(error: unknown): string {
+  if (typeof error === "object" && error !== null && "response" in error) {
+    const response = (error as { response?: { data?: { detail?: string; error?: string } } }).response;
+    const detail = response?.data?.detail || response?.data?.error;
+    if (detail) return detail;
+  }
+  return error instanceof Error ? error.message : "File upload failed.";
+}
+
 export const messageService = {
   /** Upload a single file to S3 via BE StorageUploadView */
   async uploadAttachment(file: File): Promise<{ url: string; fileName: string; mimeType: string }> {
     const fd = new FormData();
     fd.append("file", file);
-    const { data } = await api.post<{
-      url: string;
-      fileName: string;
-      mimeType: string;
-      path: string;
-      originalFileName?: string;
-      original_file_name?: string;
-    }>(
-      "/storage/upload/",
-      fd,
-      { headers: { "Content-Type": "multipart/form-data" } }
+    try {
+      const { data } = await api.post<{
+        url: string;
+        fileName: string;
+        mimeType: string;
+        path: string;
+        originalFileName?: string;
+        original_file_name?: string;
+      }>(
+        "/storage/upload/",
+        fd,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      const originalName = data.originalFileName || data.original_file_name || file.name;
+      return { url: data.url, fileName: originalName, mimeType: data.mimeType };
+    } catch (error: unknown) {
+      throw new Error(uploadErrorMessage(error));
+    }
+  },
+
+  /** Paginated conversation summaries (BE /messages/conversations/) */
+  async getConversations(params?: {
+    page?: number;
+    perPage?: number;
+    search?: string;
+    type?: "patient" | "beluga";
+  }): Promise<PaginatedResponse<ConversationSummary>> {
+    const query: Record<string, string | number> = {};
+    if (params?.page) query.page = params.page;
+    if (params?.perPage) query.per_page = params.perPage;
+    if (params?.search) query.search = params.search;
+    if (params?.type) query.type = params.type;
+    const { data } = await api.get<PaginatedResponse<ConversationSummary>>(
+      "/messages/conversations/",
+      { params: query }
     );
-    const originalName = data.originalFileName || data.original_file_name || file.name;
-    return { url: data.url, fileName: originalName, mimeType: data.mimeType };
+    return data;
+  },
+
+  /** Messages for a specific conversation with pagination (BE /messages/all/?master_id=X&limit=N&offset=M) */
+  async getMessagesForConversation(params: {
+    masterId: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<Message[]> {
+    const query: Record<string, string | number> = {
+      master_id: params.masterId,
+    };
+    if (params.limit != null) query.limit = params.limit;
+    if (params.offset != null) query.offset = params.offset;
+    const { data } = await api.get<Message[]>("/messages/all/", { params: query });
+    return (data || []).map((m) => {
+      const hasUrl = !!m.media_url && (m.media_url.startsWith("http") || m.media_url.startsWith("data:"));
+      const inferredUrl =
+        hasUrl ? m.media_url : m.is_media ? buildPublicUrlFromKey(m.media_url || m.content) : undefined;
+      return { ...m, media_url: inferredUrl || m.media_url };
+    });
   },
 
   /** All patient/support/doctor messages (BE /messages/all/). Pass afterId for incremental polls (unscoped only). */

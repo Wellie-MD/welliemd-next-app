@@ -60,6 +60,7 @@ export interface PrescriptionMedication {
   quantity?: string
   medId?: string
   rxId?: string
+  shipping_fee?: string | number | null
 }
 
 export interface OrderPricingSupplyLineItem {
@@ -131,7 +132,12 @@ export interface Order {
   supplemental_captured_amount?: string | null
   payment_settlement_transactions?: OrderSettlementTransaction[]
   totalRefunded?: string | null
+  netCollected?: string | null
   refundableAmount?: string | null
+  baseRefundableAmount?: string | null
+  supplementalRefundableAmount?: string | null
+  rx_revision_tag?: string | null
+  rx_revision_refund_required_amount?: string | null
   created_at?: string
   updated_at?: string
   name?: string
@@ -143,6 +149,7 @@ export interface Order {
   datePrescribed?: string | null
   datePrintedShipped?: string | null
   paymentDate?: string | null
+  paymentUpdatedAt?: string | null
   mrn?: string | null
   paymentStatus?: string | null
   visitStatus?: string | null
@@ -194,6 +201,7 @@ export interface PaginatedOrdersResponse {
 
 export interface OrderRefundRequest {
   amount?: string | number
+  refund_target?: "auto" | "base" | "supplemental"
   reason: string
   reason_description?: string
   notes?: string
@@ -390,6 +398,37 @@ export const updateOrderQuestionnaireImages = async (
   }
 }
 
+export interface FilterOption {
+  id: string | number
+  name: string
+}
+
+const extractResults = (data: unknown): FilterOption[] => {
+  if (Array.isArray(data)) return data
+  if (data && typeof data === 'object' && 'results' in data && Array.isArray((data as any).results)) return (data as any).results
+  return []
+}
+
+export const fetchCategories = async (): Promise<FilterOption[]> => {
+  try {
+    const { data } = await api.get('/products/categories/')
+    return extractResults(data)
+  } catch (error) {
+    console.error('Failed to fetch categories:', error)
+    return []
+  }
+}
+
+export const fetchPharmacies = async (): Promise<FilterOption[]> => {
+  try {
+    const { data } = await api.get('/products/pharmacies/')
+    return extractResults(data)
+  } catch (error) {
+    console.error('Failed to fetch pharmacies:', error)
+    return []
+  }
+}
+
 export const ordersApi = {
   fetchOrders,
   fetchOrdersByPatient,
@@ -404,4 +443,6 @@ export const ordersApi = {
   sendCheckoutLink,
   changeProduct,
   updateOrderQuestionnaireImages,
+  fetchCategories,
+  fetchPharmacies,
 }

@@ -109,10 +109,33 @@ export interface CreateQuestionPayload {
 
 export const templateApi = {
   listTemplates: async (): Promise<QuestionnaireTemplate[]> => {
-    const { data } = await axiosInstance.get<QuestionnaireTemplate[]>(
-      "questionnaires/frontend/templates/"
-    );
-    return data;
+    const aggregated: QuestionnaireTemplate[] = [];
+    let nextUrl: string | null = "questionnaires/frontend/templates/?page_size=100";
+
+    while (nextUrl) {
+      const { data } = await axiosInstance.get<
+        | QuestionnaireTemplate[]
+        | {
+            results?: QuestionnaireTemplate[];
+            next?: string | null;
+          }
+      >(nextUrl);
+
+      if (Array.isArray(data)) {
+        aggregated.push(...data);
+        break;
+      }
+
+      if (data && Array.isArray(data.results)) {
+        aggregated.push(...data.results);
+        nextUrl = data.next || null;
+        continue;
+      }
+
+      break;
+    }
+
+    return aggregated;
   },
 
   getTemplate: async (

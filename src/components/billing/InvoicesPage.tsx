@@ -29,6 +29,28 @@ function formatMoney(value: string | number | undefined) {
   return `$${Number.isFinite(parsed) ? parsed.toFixed(2) : "0.00"}`;
 }
 
+function invoiceAmount(inv: Pick<Invoice, "total_amount" | "amount">) {
+  const parsed = Number((inv.total_amount ?? inv.amount) || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function invoiceSupplementalTotal(inv: DisplayInvoice) {
+  return (inv.supplementalInvoices || []).reduce(
+    (sum, child) => sum + invoiceAmount(child),
+    0
+  );
+}
+
+function invoiceCombinedTotal(inv: DisplayInvoice) {
+  const adjusted = Number(inv.adjustment_summary?.adjusted_total);
+  if (Number.isFinite(adjusted)) return adjusted;
+  return invoiceAmount(inv) + invoiceSupplementalTotal(inv);
+}
+
+function isReimbursementInvoice(inv: Invoice | null): inv is Invoice {
+  return Boolean(inv && inv.invoice_type === "reimbursement");
+}
+
 function formatDate(value?: string) {
   if (!value) return "N/A";
   return new Date(value).toLocaleDateString("en-US", {
@@ -54,6 +76,7 @@ function formatLabel(value?: string) {
 function statusClass(status: string) {
   const s = status.toLowerCase();
   if (s === "paid") return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300";
+  if (s === "refunded") return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
   if (s === "failed" || s === "overdue") return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
   if (s === "due" || s === "pending" || s === "authorization_failed") {
     return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
@@ -96,6 +119,553 @@ function lineItemTypeLabel(li: any): string {
   return formatLabel(li?.item_type);
 }
 
+function AdjustmentPill({
+  kind,
+  status,
+}: {
+  kind: "supplemental_charge" | "credit_note";
+  status: string;
+}) {
+  const normalized = status.toLowerCase();
+  const label =
+    kind === "supplemental_charge"
+      ? normalized === "paid" ? "Charged" : formatLabel(status)
+      : normalized === "refunded"
+        ? "Refunded"
+        : ["pending", "due", "draft"].includes(normalized)
+          ? "Pending"
+          : formatLabel(status);
+  const classes =
+    label === "Charged"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : label === "Refunded"
+        ? "border-slate-200 bg-slate-100 text-slate-600"
+        : label === "Failed" || label === "Canceled"
+          ? "border-red-200 bg-red-50 text-red-700"
+        : "border-amber-200 bg-amber-50 text-amber-700";
+  return (
+    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${classes}`}>
+      {label}
+    </span>
+  );
+}
+
+function InvoiceMoneyRow({
+  label,
+  value,
+  formatted,
+  tone = "default",
+  strong = false,
+}: {
+  label: string;
+  value: string | number | undefined;
+  formatted?: string;
+  tone?: "default" | "positive" | "negative";
+  strong?: boolean;
+}) {
+  const toneClass =
+    tone === "positive"
+      ? "text-emerald-600"
+      : tone === "negative"
+        ? "text-red-600"
+        : "text-slate-900 dark:text-white";
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-slate-100 py-2.5 text-xs last:border-b-0 dark:border-slate-800">
+      <span className="text-slate-500 dark:text-slate-400">{label}</span>
+      <span className={`${toneClass} text-right ${strong ? "font-bold" : "font-semibold"}`}>
+        {formatted ?? formatMoney(value)}
+      </span>
+    </div>
+  );
+}
+
+function InvoiceInfoRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number | undefined;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-slate-100 py-2.5 text-xs last:border-b-0 dark:border-slate-800">
+      <span className="text-slate-500 dark:text-slate-400">{label}</span>
+      <span className="text-right font-semibold text-slate-900 dark:text-white">{value ?? "—"}</span>
+    </div>
+  );
+}
+
+const sharedColgroup = (
+  <colgroup>
+    <col />
+    <col className="w-12" />
+    <col className="w-24" />
+    <col className="w-24" />
+  </colgroup>
+);
+
+const sharedThead = (
+  <thead className="text-muted-foreground">
+    <tr>
+      <th className="pb-2 text-left text-[10px] font-medium uppercase tracking-wider">Type / Item</th>
+      <th className="pb-2 text-center text-[10px] font-medium uppercase tracking-wider">Qty</th>
+      <th className="pb-2 text-right text-[10px] font-medium uppercase tracking-wider">Unit</th>
+      <th className="pb-2 text-right text-[10px] font-medium uppercase tracking-wider">Total</th>
+    </tr>
+  </thead>
+);
+
+const renderCostTable = (
+  medication?: string,
+  shipping?: string,
+  total?: string,
+  showHeaders: boolean = false
+) => {
+  const rows = [
+    ["Medication", medication],
+    ["Shipping", shipping],
+  ].filter(([_, amt]) => amt && amt !== "0.00" && amt !== "0");
+
+  return (
+    <table className="mt-2 w-full table-fixed text-xs">
+      {sharedColgroup}
+      {showHeaders && sharedThead}
+      <tbody>
+        {rows.map(([label, amount]) => (
+          <tr key={label}>
+            <td className="py-1.5">{label}</td>
+            <td className="py-1.5 text-center text-slate-400">1</td>
+            <td className="py-1.5 text-right text-slate-500">{formatMoney(amount)}</td>
+            <td className="py-1.5 text-right font-semibold">{formatMoney(amount)}</td>
+          </tr>
+        ))}
+        <tr className="border-t border-slate-200 dark:border-slate-700">
+          <td className="pt-2 font-bold" colSpan={3}>Total</td>
+          <td className="pt-2 text-right font-bold">{formatMoney(total)}</td>
+        </tr>
+      </tbody>
+    </table>
+  );
+};
+
+function RevisionInvoiceModal({
+  invoice,
+  onClose,
+}: {
+  invoice: Invoice;
+  onClose: () => void;
+}) {
+  const requested = invoice.requested_breakdown;
+  const adjustments = invoice.revision_adjustments || [];
+  const summary = invoice.adjustment_summary;
+  const netAdjustment = Number(summary?.net_adjustment || 0);
+  const requestedProductName = requested?.product_name || "";
+  const requestedProductTotal = requested?.product_total || 0;
+  const splitCaptureAdjustmentMirrorsBase = Boolean(
+    requested?.prescribed_differs &&
+    adjustments.some((adjustment) => {
+      const revisionNumber = Number(adjustment.revision_number ?? -1);
+      const sameProduct = (adjustment.product_name || "").trim().toLowerCase() ===
+        requestedProductName.trim().toLowerCase();
+      const sameTotal = Math.abs(
+        Number(adjustment.product_total || 0) - Number(requestedProductTotal || 0)
+      ) < 0.005;
+      return adjustment.kind === "supplemental_charge" && revisionNumber === 0 && sameProduct && sameTotal;
+    })
+  );
+  const showImplicitBaseRevision = Boolean(
+    requested?.prescribed_differs && !splitCaptureAdjustmentMirrorsBase
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
+      <div className="w-full max-w-5xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-950">
+        <header className="border-b border-slate-200 px-5 py-5 dark:border-slate-800">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                Reimbursement invoice
+              </div>
+              <div className="mt-1 font-mono text-xs text-slate-500">{invoice.invoice_number}</div>
+              <div className="mt-3 flex items-center gap-3">
+                <span className="text-2xl font-bold text-slate-950 dark:text-white">
+                  {formatMoney(summary?.invoice_total ?? invoice.total_amount)}
+                </span>
+                <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${getStatusBadgeClassStatic(invoice.status)}`}>
+                  {formatLabel(invoice.status)}
+                </span>
+              </div>
+              <div className="mt-1 text-xs text-slate-400">
+                Order {invoice.client_order_number || invoice.source_tenant_order_display_id || "-"} · Issued {formatDate(invoice.issued_at || invoice.created_at)}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-900"
+            >
+              Close
+            </button>
+          </div>
+        </header>
+
+        <div className="grid md:grid-cols-[320px_1fr]">
+          <aside className="border-b border-slate-200 md:border-b-0 md:border-r dark:border-slate-800">
+            <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Summary</h4>
+              <InvoiceInfoRow label="Type" value="Reimbursement" />
+              <InvoiceInfoRow label="Client order #" value={invoice.client_order_number || "-"} />
+              <InvoiceInfoRow label="Issued" value={formatDate(invoice.issued_at || invoice.created_at)} />
+              <InvoiceInfoRow label="Due" value={invoice.due_date ? formatDate(invoice.due_date) : "N/A"} />
+            </section>
+            <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Amounts</h4>
+              <InvoiceMoneyRow label="Invoice total" value={summary?.invoice_total} />
+              {Number(summary?.supplemental_charges || 0) > 0 && (
+                <InvoiceMoneyRow label="Supplemental charges" value={summary?.supplemental_charges} formatted={`+${formatMoney(summary?.supplemental_charges)}`} tone="negative" />
+              )}
+              {Number(summary?.credit_notes || 0) > 0 && (
+                <InvoiceMoneyRow label="Credit notes" value={summary?.credit_notes} formatted={`−${formatMoney(summary?.credit_notes)}`} tone="positive" />
+              )}
+              <InvoiceMoneyRow label="Adjusted total" value={summary?.adjusted_total} strong />
+            </section>
+            <section className="p-5">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Payment diagnostics</h4>
+              <details className="mt-3">
+                <summary className="cursor-pointer text-xs font-medium text-sky-600">Show auth &amp; capture details</summary>
+                <div className="mt-2">
+                  <InvoiceInfoRow label="Billing period" value="N/A to N/A" />
+                  <InvoiceMoneyRow label="Intended auth amount" value={invoice.intended_authorization_amount || summary?.invoice_total} />
+                  <InvoiceInfoRow label="Auth retry count" value={invoice.authorization_retry_count ?? 0} />
+                  <InvoiceInfoRow label="Next auth retry" value={invoice.authorization_next_retry_at ? formatDate(invoice.authorization_next_retry_at) : "—"} />
+                  <InvoiceInfoRow label="Auth error code" value={invoice.authorization_last_error_code || "—"} />
+                  <InvoiceInfoRow label="Auth error message" value={invoice.authorization_last_error_message || "—"} />
+                </div>
+              </details>
+            </section>
+          </aside>
+
+          <main>
+            {Number(requested?.consultation_amount || 0) > 0 && (
+              <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Consultation</h4>
+                <table className="mt-2 w-full text-xs">
+                  {sharedColgroup}
+                  {sharedThead}
+                  <tbody>
+                    <tr>
+                      <td className="py-1.5">{requested?.consult_mode === "sync" ? "Sync Consult" : "Async Consult"}</td>
+                      <td className="py-1.5 text-center text-slate-400">1</td>
+                      <td className="py-1.5 text-right text-slate-500">{formatMoney(requested?.consultation_amount)}</td>
+                      <td className="py-1.5 text-right font-semibold">{formatMoney(requested?.consultation_amount)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </section>
+            )}
+            <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Requested · {requested?.prescribed_differs
+                  ? (requested?.original_requested_product_name || "Original request")
+                  : (requested?.product_name || "Original prescription")}
+              </h4>
+                {requested?.prescribed_differs
+                  ? renderCostTable(
+                      requested?.original_requested_medication_amount,
+                      requested?.original_requested_shipping_amount,
+                      requested?.original_requested_product_total,
+                      Number(requested?.consultation_amount || 0) === 0
+                    )
+                  : renderCostTable(
+                      requested?.medication_amount,
+                      requested?.shipping_amount,
+                      requested?.product_total,
+                      Number(requested?.consultation_amount || 0) === 0
+                    )
+                }
+            </section>
+            {/* When prescribed differs, insert the base prescribed product as Revision 1 */}
+            {showImplicitBaseRevision && (
+              <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Revision 1 · {requested?.product_name || "Initial prescription"}
+                </h4>
+                <div className="mt-2">
+                  {renderCostTable(requested?.medication_amount, requested?.shipping_amount, requested?.product_total)}
+                </div>
+              </section>
+            )}
+            {adjustments.map((adjustment, index) => {
+              const isCredit = adjustment.kind === "credit_note";
+              const revOffset = showImplicitBaseRevision ? 1 : 0;
+              return (
+                <section key={adjustment.id} className="border-b border-slate-200 p-5 dark:border-slate-800">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Revision {(Number(adjustment.revision_number) || index + 1) + revOffset} · {adjustment.product_name || "Revised prescription"}
+                  </h4>
+                  <div className="mt-2">
+                    {renderCostTable(adjustment.medication_amount, adjustment.shipping_amount, adjustment.product_total)}
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs font-semibold">
+                    <span className={`flex items-center gap-2 ${isCredit ? "text-emerald-600" : "text-red-600"}`}>
+                      {isCredit ? "Credit note" : "Supplemental charge"}
+                      <AdjustmentPill kind={adjustment.kind} status={adjustment.status} />
+                    </span>
+                    <span className={isCredit ? "text-emerald-600" : "text-red-600"}>
+                      {isCredit ? "−" : "+"}{formatMoney(adjustment.adjustment_amount)}
+                    </span>
+                  </div>
+                </section>
+              );
+            })}
+            <div className="flex items-center justify-between px-5 py-4 text-sm font-bold">
+              <span>Net adjustment</span>
+              <span className={netAdjustment < 0 ? "text-emerald-600" : "text-red-600"}>
+                {netAdjustment >= 0 ? "+" : "−"}{formatMoney(Math.abs(netAdjustment))}
+              </span>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CreditNoteModal({ invoice, onClose }: { invoice: Invoice; onClose: () => void }) {
+  const isRefunded = invoice.status === "refunded";
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
+      <div className="w-full max-w-5xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-950">
+        <header className="border-b border-slate-200 px-5 py-5 dark:border-slate-800">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                Credit note
+              </div>
+              <div className="mt-1 font-mono text-xs text-slate-500">{invoice.invoice_number}</div>
+              <div className="mt-3 flex items-center gap-3">
+                <span className="text-2xl font-bold text-slate-950 dark:text-white">
+                  {formatMoney(invoice.total_amount)}
+                </span>
+                <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${getStatusBadgeClassStatic(invoice.status)}`}>
+                  {formatLabel(invoice.status)}
+                </span>
+              </div>
+              <div className="mt-1 text-xs text-slate-400">
+                Order {invoice.client_order_number || invoice.source_tenant_order_display_id || "-"} · Issued {formatDate(invoice.issued_at || invoice.created_at)}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-900"
+            >
+              Close
+            </button>
+          </div>
+        </header>
+
+        <div className="grid md:grid-cols-[320px_1fr]">
+          <aside className="border-b border-slate-200 md:border-b-0 md:border-r dark:border-slate-800">
+            <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Details</h4>
+              <div className="mt-3 space-y-3">
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium text-slate-500">Type</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">Credit note</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium text-slate-500">Issued against</span>
+                  <span className="font-mono text-blue-600 dark:text-blue-400">{invoice.source_tenant_order_display_id || "—"}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium text-slate-500">Status</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">{formatLabel(invoice.status)}</span>
+                </div>
+                {isRefunded && (
+                  <div className="flex justify-between text-xs">
+                    <span className="font-medium text-slate-500">Refunded on</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">{formatDate(invoice.paid_at)}</span>
+                  </div>
+                )}
+              </div>
+            </section>
+          </aside>
+
+          <main>
+            <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Refund reason</h4>
+              <div className="mt-2 rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm font-medium text-orange-900 dark:border-orange-800 dark:bg-orange-900/30 dark:text-orange-200">
+                {formatLabel((invoice as any).refund_required_reason || "Rx Revision Over Reimbursed")}
+              </div>
+            </section>
+            <section className="p-5">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Refund</h4>
+              <div className="mt-2">
+                <table className="w-full text-xs">
+                  <colgroup>
+                    <col />
+                    <col className="w-12" />
+                    <col className="w-24" />
+                    <col className="w-24" />
+                  </colgroup>
+                  <tbody>
+                    <tr>
+                      <td className="py-1.5 text-slate-900 dark:text-slate-100">Refund · {invoice.source_tenant_order_display_id || ""}</td>
+                      <td className="py-1.5 text-center text-slate-500">1</td>
+                      <td className="py-1.5 text-right text-slate-500">{formatMoney(invoice.total_amount)}</td>
+                      <td className="py-1.5 text-right font-semibold text-slate-900 dark:text-slate-100">{formatMoney(invoice.total_amount)}</td>
+                    </tr>
+                    <tr className="border-t border-slate-200 dark:border-slate-800">
+                      <td className="pt-2 font-bold text-slate-900 dark:text-slate-100" colSpan={3}>Refund total</td>
+                      <td className="pt-2 text-right font-bold text-slate-900 dark:text-slate-100">{formatMoney(invoice.total_amount)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </main>
+        </div>
+
+        <footer className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50/50 px-5 py-4 dark:border-slate-800 dark:bg-slate-900/50">
+          <button className="rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" onClick={onClose}>
+            Close
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function SaasInvoiceModal({ invoice, onClose }: { invoice: Invoice; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
+      <div className="w-full max-w-5xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-950">
+        <header className="border-b border-slate-200 px-5 py-5 dark:border-slate-800">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                SAAS FEE INVOICE
+              </div>
+              <div className="mt-1 font-mono text-xs text-slate-500">{invoice.invoice_number}</div>
+              <div className="mt-3 flex items-center gap-3">
+                <span className="text-2xl font-bold text-slate-950 dark:text-white">
+                  {formatMoney(invoice.total_amount)}
+                </span>
+                <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${getStatusBadgeClassStatic(invoice.status)}`}>
+                  {formatLabel(invoice.status)}
+                </span>
+              </div>
+              <div className="mt-1 text-xs text-slate-400">
+                Issued {formatDate(invoice.issued_at || invoice.created_at)}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-900"
+            >
+              Close
+            </button>
+          </div>
+        </header>
+
+        <div className="grid md:grid-cols-[320px_1fr]">
+          <aside className="border-b border-slate-200 md:border-b-0 md:border-r dark:border-slate-800">
+            <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Summary</h4>
+              <div className="mt-3 space-y-3">
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium text-slate-500">Type</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">SaaS Fee</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium text-slate-500">Issued</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">{formatDate(invoice.issued_at || invoice.created_at)}</span>
+                </div>
+              </div>
+            </section>
+            <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Amounts</h4>
+              <div className="mt-3 space-y-3">
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium text-slate-500">Invoice total</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">{formatMoney(invoice.total_amount)}</span>
+                </div>
+              </div>
+            </section>
+            <section className="p-5">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Payment diagnostics</h4>
+              <details className="mt-3">
+                <summary className="cursor-pointer text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400">
+                  Show auth &amp; capture details
+                </summary>
+                <div className="mt-3 space-y-3 pl-2 border-l-2 border-slate-100 dark:border-slate-800">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Intended auth amount</span>
+                    <span className="font-medium text-slate-900 dark:text-slate-100">{formatMoney(invoice.intended_authorization_amount || invoice.total_amount)}</span>
+                  </div>
+                </div>
+              </details>
+            </section>
+          </aside>
+
+          <main>
+            <section className="p-5">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Line items</h4>
+              <div className="mt-2">
+                <table className="w-full text-xs">
+                  <colgroup>
+                    <col />
+                    <col className="w-12" />
+                    <col className="w-24" />
+                    <col className="w-24" />
+                  </colgroup>
+                  <thead className="text-slate-500">
+                    <tr className="border-b border-slate-200 dark:border-slate-800">
+                      <th className="pb-2 text-left font-medium uppercase tracking-wider text-[10px]">Type</th>
+                      <th className="pb-2 text-center font-medium uppercase tracking-wider text-[10px]">Qty</th>
+                      <th className="pb-2 text-right font-medium uppercase tracking-wider text-[10px]">Unit</th>
+                      <th className="pb-2 text-right font-medium uppercase tracking-wider text-[10px]">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoice.line_items?.map((item) => (
+                      <tr key={item.id} className="border-b border-slate-100 last:border-b-0 dark:border-slate-800/50">
+                        <td className="py-2.5 text-slate-900 dark:text-slate-100">{item.item_type === 'saas_fee' ? 'Monthly SaaS fee' : item.description || item.item_type}</td>
+                        <td className="py-2.5 text-center text-slate-500">{item.quantity ?? 1}</td>
+                        <td className="py-2.5 text-right text-slate-500">{formatMoney(item.unit_price)}</td>
+                        <td className="py-2.5 text-right font-semibold text-slate-900 dark:text-slate-100">{formatMoney(item.total_amount)}</td>
+                      </tr>
+                    ))}
+                    <tr className="border-t border-slate-200 dark:border-slate-800">
+                      <td className="pt-3 font-bold text-slate-900 dark:text-slate-100" colSpan={3}>Total</td>
+                      <td className="pt-3 text-right font-bold text-slate-900 dark:text-slate-100">{formatMoney(invoice.total_amount)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </main>
+        </div>
+
+        <footer className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50/50 px-5 py-4 dark:border-slate-800 dark:bg-slate-900/50">
+          <button className="rounded-md border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" onClick={onClose}>
+            Close
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function getStatusBadgeClassStatic(status?: string) {
+  const normalized = (status || "").toLowerCase();
+  if (normalized === "paid") return "bg-emerald-50 text-emerald-700";
+  if (normalized === "refunded") return "bg-blue-50 text-blue-700";
+  if (normalized === "failed" || normalized === "overdue") return "bg-red-50 text-red-700";
+  return "bg-amber-50 text-amber-700";
+}
+
 export default function InvoicesPage() {
   const [activeTab, setActiveTab] = useState<InvoiceTab>("all");
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -117,10 +687,18 @@ export default function InvoicesPage() {
     if (normalized === "paid") {
       return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
     }
+    if (normalized === "refunded") {
+      return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
+    }
     if (normalized === "failed" || normalized === "overdue" || isOverdue) {
       return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
     }
-    if (normalized === "due" || normalized === "pending" || normalized === "authorization_failed") {
+    if (
+      normalized === "due" ||
+      normalized === "pending" ||
+      normalized === "refund_pending" ||
+      normalized === "authorization_failed"
+    ) {
       return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300";
     }
     if (normalized === "canceled") {
@@ -153,6 +731,7 @@ export default function InvoicesPage() {
   const displayedInvoices = useMemo(() => {
     const displayRows: DisplayInvoice[] = [];
     const supplementalByParent = new Map<string, Invoice[]>();
+    const invoiceIds = new Set(invoices.map((inv) => inv.id));
 
     invoices.forEach((inv) => {
       if (!inv.is_supplemental_split_capture || !inv.supplemental_parent_invoice_id) return;
@@ -163,10 +742,30 @@ export default function InvoicesPage() {
 
     invoices.forEach((inv) => {
       if (inv.is_supplemental_split_capture) {
+        // Only collapse a supplemental row when its parent is present on this page.
+        // Otherwise the current page can render almost empty while the API returned rows.
+        if (inv.supplemental_parent_invoice_id && invoiceIds.has(inv.supplemental_parent_invoice_id)) {
+          return;
+        }
+        displayRows.push(inv);
         return;
       }
-      const linkedSupplementals =
-        inv.invoice_type === "reimbursement" ? supplementalByParent.get(inv.id) || [] : [];
+      const backendSupplementals = Array.isArray(inv.supplemental_invoices)
+        ? inv.supplemental_invoices.map((child) => ({
+            ...child,
+            invoice_type: "reimbursement",
+            is_supplemental_split_capture: true,
+            supplemental_parent_invoice_id: inv.id,
+            supplemental_parent_invoice_number: inv.invoice_number,
+          } as Invoice))
+        : [];
+      const pageSupplementals = inv.invoice_type === "reimbursement" ? supplementalByParent.get(inv.id) || [] : [];
+      const seenSupplementalIds = new Set<string>();
+      const linkedSupplementals = [...backendSupplementals, ...pageSupplementals].filter((child) => {
+        if (seenSupplementalIds.has(child.id)) return false;
+        seenSupplementalIds.add(child.id);
+        return true;
+      });
       displayRows.push({
         ...inv,
         supplementalInvoices: linkedSupplementals,
@@ -431,11 +1030,20 @@ export default function InvoicesPage() {
                   </tr>
                 )}
                 {displayedInvoices.map((inv: DisplayInvoice) => {
-                  const effectiveStatus = inv.is_overdue && inv.status !== "paid" ? "overdue" : (inv.status || "-");
-                  const supplementalTotal = (inv.supplementalInvoices || []).reduce(
-                    (sum, child) => sum + Number((child.total_amount ?? child.amount) || 0),
-                    0
+                  const effectiveStatus =
+                    inv.invoice_type === "credit_note" && inv.status === "pending"
+                      ? "refund_pending"
+                      : inv.is_overdue && inv.status !== "paid"
+                        ? "overdue"
+                        : (inv.status || "-");
+                  const hasPendingCredit = (inv.revision_adjustments || []).some(
+                    (adjustment) =>
+                      adjustment.kind === "credit_note" &&
+                      !["refunded", "canceled", "failed"].includes(
+                        adjustment.status.toLowerCase()
+                      )
                   );
+                  const supplementalTotal = invoiceSupplementalTotal(inv);
                   const hasNestedSupplementals = (inv.supplementalInvoices || []).length > 0;
                   return (
                     <tr
@@ -469,6 +1077,11 @@ export default function InvoicesPage() {
                         <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${getStatusBadgeClass(inv.status, inv.is_overdue)}`}>
                           {formatLabel(effectiveStatus)}
                         </span>
+                        {hasPendingCredit && (
+                          <div className="mt-1 text-[11px] font-semibold text-amber-600">
+                            Refund pending
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-text-secondary-light dark:text-text-secondary-dark">
                         <div>{formatBreakdown(inv)}</div>
@@ -479,7 +1092,7 @@ export default function InvoicesPage() {
                           </div>
                         )}
                       </td>
-                      <td className="px-6 py-4 font-medium">{formatMoney(inv.total_amount ?? inv.amount)}</td>
+                      <td className="px-6 py-4 font-medium">{formatMoney(invoiceCombinedTotal(inv))}</td>
                       <td className="px-6 py-4 text-right">
                         {(inv.status === "due" || inv.status === "overdue" || inv.status === "failed" || inv.status === "authorization_failed" || inv.is_overdue) ? (
                           <Button
@@ -544,7 +1157,17 @@ export default function InvoicesPage() {
         </button>
       </div>
 
-      {selected && (
+      {selected && isReimbursementInvoice(selected) && (
+        <RevisionInvoiceModal invoice={selected} onClose={() => setSelected(null)} />
+      )}
+      {selected && selected.invoice_type === "credit_note" && (
+        <CreditNoteModal invoice={selected} onClose={() => setSelected(null)} />
+      )}
+      {selected && selected.invoice_type === "saas_fee" && (
+        <SaasInvoiceModal invoice={selected} onClose={() => setSelected(null)} />
+      )}
+
+      {selected && !isReimbursementInvoice(selected) && selected.invoice_type !== "credit_note" && selected.invoice_type !== "saas_fee" && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-md p-4 w-full max-w-4xl max-h-[90vh] overflow-auto">
             <div className="flex justify-between items-center mb-3">
@@ -558,6 +1181,12 @@ export default function InvoicesPage() {
               <div className="rounded border p-3">
                 <strong>Status:</strong> {formatLabel(selected.status)}
               </div>
+              {selected.invoice_type === "credit_note" && (
+                <div className="rounded border p-3">
+                  <strong>Refund Status:</strong>{" "}
+                  {selected.status === "refunded" ? "Refunded" : "Refund Pending"}
+                </div>
+              )}
               <div className="rounded border p-3">
                 <strong>Type:</strong> {formatLabel(selected.invoice_type)}
               </div>
@@ -567,7 +1196,7 @@ export default function InvoicesPage() {
                 </div>
               )}
               <div className="rounded border p-3">
-                <strong>Total:</strong> {formatMoney((selected as any).total_amount ?? selected.amount)}
+                <strong>Total:</strong> {formatMoney(invoiceCombinedTotal(selected as DisplayInvoice))}
               </div>
               <div className="rounded border p-3">
                 <strong>Issued:</strong> {formatDate((selected as any).issued_at || selected.created_at)}
@@ -621,19 +1250,10 @@ export default function InvoicesPage() {
                   Supplemental reimbursements are consolidated into this invoice row for readability.
                 </div>
                 {(() => {
-                  const parentAmount = Number((selected.total_amount ?? selected.amount) || 0);
-                  const intendedAuthAmount = Number((selected as any).intended_authorization_amount || 0);
                   const supplemental = ((selected as DisplayInvoice).supplementalInvoices || []);
-                  const supplementalTotal = supplemental.reduce(
-                    (sum, child) => sum + Number((child.total_amount ?? child.amount) || 0),
-                    0
-                  );
-                  const derivedBase = parentAmount - supplementalTotal;
-                  const baseAmount =
-                    Number.isFinite(intendedAuthAmount) && intendedAuthAmount > 0
-                      ? intendedAuthAmount
-                      : Math.max(derivedBase, 0);
-                  const combined = parentAmount;
+                  const supplementalTotal = invoiceSupplementalTotal(selected as DisplayInvoice);
+                  const baseAmount = invoiceAmount(selected);
+                  const combined = baseAmount + supplementalTotal;
                   return (
                     <>
                       <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">

@@ -6,6 +6,8 @@ import { Permissions, RoleNames } from './permissions';
  */
 
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
+    [RoleNames.SUPER_ADMIN]: Object.values(Permissions),
+
     [RoleNames.PRIMARY_OWNER]: [
         // User Management
         Permissions.PORTAL_USER_LIST,
