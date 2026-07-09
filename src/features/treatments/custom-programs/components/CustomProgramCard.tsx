@@ -1,5 +1,6 @@
 import { Sparkles, Pill } from "lucide-react";
 import type { CustomProgram } from "@/features/treatments/types";
+import { isCustomProgramMulti } from "@/features/treatments/custom-programs/hooks/useCustomProgramsPage";
 import { cn } from "@/lib/utils";
 
 interface CustomProgramCardProps {
@@ -9,7 +10,7 @@ interface CustomProgramCardProps {
 }
 
 export function CustomProgramCard({ customProgram, onOpenBuilder, onPreview }: CustomProgramCardProps) {
-  const isMulti = customProgram.isMulti === true || customProgram.includedProgramIds.length > 1 || (customProgram.tags && customProgram.tags.includes("Multi-treatment"));
+  const isMulti = isCustomProgramMulti(customProgram);
 
   const renderIcon = () => {
     const iconClass = "h-[17px] w-[17px]";
