@@ -69,6 +69,7 @@ export interface StoreSettings {
   support_zip?: string;
   support_phone?: string;
   support_email?: string;
+  support_website?: string;
   
   // Timestamps
   created_at: string; // ISO datetime string
