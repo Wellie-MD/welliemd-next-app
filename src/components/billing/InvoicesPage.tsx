@@ -1014,6 +1014,7 @@ export default function InvoicesPage() {
                   ) : (
                     <th className="px-6 py-3 font-semibold tracking-wider">Invoice</th>
                   )}
+                  <th className="px-6 py-3 font-semibold tracking-wider">Order ID</th>
                   <th className="px-6 py-3 font-semibold tracking-wider">Type</th>
                   <th className="px-6 py-3 font-semibold tracking-wider">Status</th>
                   <th className="px-6 py-3 font-semibold tracking-wider">Breakdown</th>
@@ -1024,7 +1025,7 @@ export default function InvoicesPage() {
               <tbody>
                 {invoices.length === 0 && (
                   <tr className="border-b border-border-light dark:border-border-dark">
-                    <td className="px-6 py-4" colSpan={7}>
+                    <td className="px-6 py-4" colSpan={8}>
                       No invoices found
                     </td>
                   </tr>
@@ -1072,6 +1073,11 @@ export default function InvoicesPage() {
                           </div>
                         </td>
                       )}
+                      <td className="px-6 py-4">
+                        <div className="font-mono text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                          {inv.source_tenant_order_display_id || inv.source_order_id || "-"}
+                        </div>
+                      </td>
                       <td className="px-6 py-4">{formatLabel(inv.invoice_type)}</td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${getStatusBadgeClass(inv.status, inv.is_overdue)}`}>
