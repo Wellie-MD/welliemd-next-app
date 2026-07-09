@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { DeleteConfirmDialog, TreatmentPageHeader } from "@/features/treatments/common/components";
 import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
 import { CatalogConnectionsDialog } from "@/features/treatments/custom-programs/components/CatalogConnectionsDialog";
@@ -8,6 +9,7 @@ import { useCustomProgramsPage } from "@/features/treatments/custom-programs/hoo
 import { AssignToClientsModal } from "@/components/shared/AssignToClientsModal";
 
 export default function CustomProgramsPage() {
+  const navigate = useNavigate();
   const page = useCustomProgramsPage();
 
   return (
@@ -21,6 +23,7 @@ export default function CustomProgramsPage() {
             onViewModeChange={page.setViewMode}
             onCreate={page.handleCreate}
             onAssign={() => page.setIsAssignOpen(true)}
+            onViewHistory={() => navigate("/dashboard/treatments/custom-programs/assignment-history")}
             assignDisabled={page.filteredPrograms.length === 0}
           />
         }
