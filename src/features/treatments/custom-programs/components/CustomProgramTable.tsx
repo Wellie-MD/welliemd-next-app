@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Eye, Pencil, Trash2, Users, User, GitBranch } from "lucide-react";
 import type { CustomProgram } from "@/features/treatments/types";
+import { isCustomProgramMulti } from "@/features/treatments/custom-programs/hooks/useCustomProgramsPage";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -19,10 +20,6 @@ interface CustomProgramTableProps {
 }
 
 export function CustomProgramTable({ customPrograms, onEdit, onDelete, onPreview }: CustomProgramTableProps) {
-  const isProgramMulti = (p: CustomProgram) => {
-    return p.isMulti === true || p.includedProgramIds.length > 1 || (p.tags && p.tags.includes("Multi-treatment"));
-  };
-
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "—";
     try {
@@ -91,7 +88,7 @@ export function CustomProgramTable({ customPrograms, onEdit, onDelete, onPreview
         </TableHeader>
         <TableBody>
           {customPrograms.map((program) => {
-            const isMulti = isProgramMulti(program);
+            const isMulti = isCustomProgramMulti(program);
             return (
               <TableRow key={program.id} className="group transition-colors hover:bg-slate-50/50">
                 <TableCell className="font-medium">
