@@ -13,11 +13,12 @@ export interface Provider {
 }
 
 export interface Connection {
+  id?: string;
   provider: string;
   name: string;
   lastSync: string;
-  status?: 'error' | undefined;
-  errorType?: string | undefined;
+  status?: 'error' | 'pending' | 'connected' | 'disconnected';
+  errorType?: string;
 }
 
 export interface DeviceState {
@@ -78,8 +79,8 @@ export interface WeightData {
 }
 
 export interface LinkTokenResponse {
-  link_web_url?: string;
-  linkWebUrl?: string;
+  link_token: string;
+  expires_at: string;
 }
 
 export interface DeviceDataResponse {
@@ -94,10 +95,9 @@ export interface DeviceDataResponse {
 }
 
 export interface ConnectionResponse {
+  id: string;
   provider: string;
-  name: string;
-  lastSync: string;
-  status?: string;
-  error_type?: string;
-  errorType?: string;
+  status: string;
+  last_sync_at: string | null;
+  last_error?: string;
 }

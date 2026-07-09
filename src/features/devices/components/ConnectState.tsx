@@ -4,6 +4,7 @@ import { PROVIDERS, CATS } from '../constants';
 import type { Provider } from '../types';
 
 interface ConnectStateProps {
+  allowedProviders: Provider[];
   devCat: string;
   devQuery: string;
   onSetCategory: (cat: string) => void;
@@ -12,13 +13,14 @@ interface ConnectStateProps {
 }
 
 export default function ConnectState({
+  allowedProviders,
   devCat,
   devQuery,
   onSetCategory,
   onSearchChange,
   onConnect,
 }: ConnectStateProps) {
-  const filteredList = PROVIDERS.filter(
+  const filteredList = allowedProviders.filter(
     (p) =>
       (devCat === 'all' || p.cat === devCat) &&
       (!devQuery.trim() ||
@@ -76,7 +78,7 @@ export default function ConnectState({
           value={devQuery}
           onChange={(e) => onSearchChange(e.target.value)}
         />
-      </div>
+      </div>  
 
       {/* Category chips */}
       <div

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Search, Smartphone, X, Shield, RefreshCw, AlertCircle } from 'lucide-react';
 import ConnectState from './components/ConnectState';
 import ConnectedState from './components/ConnectedState';
@@ -9,24 +9,95 @@ import {
   WEIGHT_DEFAULT,
   DEVICE_METRICS_DEFAULT,
 } from './constants';
-import type { Connection, WeightData, DeviceMetrics, Consent } from './types';
-import { getConnections, getDeviceData, getLinkToken } from './api';
-
-/* ─── DEMO MODE ONLY ─── */
-const JUNCTION = { backend: null as string | null, userId: 'demo-user', env: 'sandbox' as const };
+import type { Connection, WeightData, DeviceMetrics, Consent, Provider } from './types';
+import { 
+  getConnections, 
+  getDeviceData, 
+  getLinkToken,
+  listWearableProviders,
+  deregisterProvider,
+  reconnectProvider,
+  formatConnection,
+  getConsent,
+  updateConsent,
+  deleteHealthData
+} from './api';
+import { useProfile } from '../profile/hooks/use-profile';
 
 export default function DevicesPage() {
+  const { patientProfile } = useProfile();
+
   /* State */
-  const [deviceConnected, setDeviceConnected] = useState(true);
-  const [connections, setConnections] = useState<Connection[]>([
-    { provider: 'withings', name: 'Withings', lastSync: '2h ago' },
-    { provider: 'fitbit', name: 'Fitbit', lastSync: '1h ago' },
-    { provider: 'oura', name: 'Oura', lastSync: '3h ago', status: 'error', errorType: 'token_expired' },
-  ]);
+  const [deviceConnected, setDeviceConnected] = useState(false);
+  const [connections, setConnections] = useState<Connection[]>([]);
   const [weight, setWeight] = useState<WeightData>({ ...WEIGHT_DEFAULT });
   const [deviceMetrics, setDeviceMetrics] = useState<DeviceMetrics>({ ...DEVICE_METRICS_DEFAULT });
   const [consent, setConsent] = useState<Consent>({ given: true, date: 'May 12, 2026' });
   const [loading, setLoading] = useState(false);
+  const [allowedProviders, setAllowedProviders] = useState<Provider[]>(PROVIDERS);
+
+  const fetchConnectionsList = useCallback(async () => {
+    setLoading(true);
+    try {
+      const conns = await getConnections();
+      const formatted = conns.map((c) => formatConnection(c));
+      setConnections(formatted);
+      setDeviceConnected(formatted.length > 0);
+    } catch (err) {
+      console.error("Failed to load connections:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (patientProfile?.id) {
+      fetchConnectionsList();
+    }
+  }, [patientProfile?.id, fetchConnectionsList]);
+
+  useEffect(() => {
+    async function loadConsent() {
+      try {
+        const response = await getConsent();
+        if (response.success && response.consent) {
+          setConsent({
+            given: response.consent.consent_granted,
+            date: response.consent.updated_at
+              ? new Date(response.consent.updated_at).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })
+              : null,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load consent:", err);
+      }
+    }
+    if (patientProfile?.id) {
+      loadConsent();
+    }
+  }, [patientProfile?.id]);
+
+  useEffect(() => {
+    async function loadAllowedProviders() {
+      try {
+        const response = await listWearableProviders();
+        if (response.success && response.sources) {
+          const allowedSlugs = response.sources.map((s: any) => s.slug);
+          const filtered = PROVIDERS.filter((p) => allowedSlugs.includes(p.id));
+          setAllowedProviders(filtered);
+        }
+      } catch (err) {
+        console.error("Failed to load allowed providers:", err);
+      }
+    }
+    if (patientProfile?.id) {
+      loadAllowedProviders();
+    }
+  }, [patientProfile?.id]);
 
   // Device picker (connect state) filters
   const [devCat, setDevCat] = useState('all');
@@ -99,28 +170,92 @@ export default function DevicesPage() {
         return;
       }
 
-      // Demo mode always runs locally
-      demoConnect(providerId);
+      if (!patientProfile?.id) {
+        setLinkErrorMsg("Patient profile not loaded yet. Please try again.");
+        setLinkErrorOpen(true);
+        return;
+      }
+
+      setLinkOpen(true);
+      setLinkProvider(p.name);
+
+      getLinkToken(providerId, patientProfile.id)
+        .then((res) => {
+          setLinkOpen(false);
+          if (res.link_token) {
+            window.location.href = res.link_token;
+          } else {
+            throw new Error("No authorization URL returned from backend.");
+          }
+        })
+        .catch((err) => {
+          setLinkOpen(false);
+          setLinkErrorMsg(err?.error?.message || err?.error || err?.message || "Failed to initiate device connection.");
+          setLinkErrorOpen(true);
+        });
     },
-    [consent.given, demoConnect]
+    [consent.given, patientProfile]
   );
 
-  /* ─── Disconnect Device (demo) ─── */
+  /* ─── Disconnect Device ─── */
   const handleDisconnect = useCallback(
     (providerId: string) => {
-      setConnections((prev) => {
-        const next = prev.filter((c) => c.provider !== providerId);
-        setDeviceConnected(next.length > 0);
-        return next;
-      });
+      const conn = connections.find((c) => c.provider === providerId);
+      if (!conn || !conn.id) {
+        setConnections((prev) => {
+          const next = prev.filter((c) => c.provider !== providerId);
+          setDeviceConnected(next.length > 0);
+          return next;
+        });
+        return;
+      }
+
+      setLoading(true);
+      deregisterProvider(conn.id)
+        .then(() => {
+          setConnections((prev) => {
+            const next = prev.filter((c) => c.provider !== providerId);
+            setDeviceConnected(next.length > 0);
+            return next;
+          });
+        })
+        .catch((err) => {
+          console.error("Failed to disconnect provider:", err);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
     },
-    []
+    [connections]
   );
 
   /* ─── Reconnect ─── */
   const handleReconnect = useCallback((providerId: string) => {
-    handleConnect(providerId);
-  }, [handleConnect]);
+    const conn = connections.find((c) => c.provider === providerId);
+    if (!conn || !conn.id) {
+      handleConnect(providerId);
+      return;
+    }
+
+    setLinkOpen(true);
+    const p = PROVIDERS.find((x) => x.id === providerId);
+    if (p) setLinkProvider(p.name);
+
+    reconnectProvider(conn.id)
+      .then((res) => {
+        setLinkOpen(false);
+        if (res.success && res.session?.oauth_url) {
+          window.location.href = res.session.oauth_url;
+        } else {
+          throw new Error("No authorization URL returned from backend.");
+        }
+      })
+      .catch((err) => {
+        setLinkOpen(false);
+        setLinkErrorMsg(err?.error?.message || err?.error || err?.message || "Failed to initiate reconnection.");
+        setLinkErrorOpen(true);
+      });
+  }, [connections, handleConnect]);
 
   /* ─── Goal Modal ─── */
   const handleOpenGoal = useCallback(() => {
@@ -160,30 +295,56 @@ export default function DevicesPage() {
 
   /* ─── Consent (from non-review / "Before you connect") ─── */
   const handleAgreeConsent = useCallback(() => {
-    setConsent({
-      given: true,
-      date: new Date().toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      }),
-    });
-    setConsentOpen(false);
-    // Connect the pending provider
-    const pendingId = (window as any).__pendingProvider;
-    if (pendingId) {
-      (window as any).__pendingProvider = null;
-      demoConnect(pendingId);
-    }
-  }, [demoConnect]);
+    if (!patientProfile?.id) return;
+    setLoading(true);
+    updateConsent(true, patientProfile.id)
+      .then((response) => {
+        if (response.success && response.consent) {
+          setConsent({
+            given: response.consent.consent_granted,
+            date: response.consent.updated_at
+              ? new Date(response.consent.updated_at).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })
+              : null,
+          });
+        }
+        setConsentOpen(false);
+        // Connect the pending provider
+        const pendingId = (window as any).__pendingProvider;
+        if (pendingId) {
+          (window as any).__pendingProvider = null;
+          handleConnect(pendingId);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to agree consent:", err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [patientProfile?.id, handleConnect]);
 
   /* ─── Delete Data ─── */
   const handleConfirmDeleteData = useCallback(() => {
-    setConnections([]);
-    setDeviceConnected(false);
-    setConsent({ given: false, date: null });
-    setDeleteDataOpen(false);
-  }, []);
+    if (!patientProfile?.id) return;
+    setLoading(true);
+    deleteHealthData(true, patientProfile.id, "User requested delete from patient portal")
+      .then(() => {
+        setConnections([]);
+        setDeviceConnected(false);
+        setConsent({ given: false, date: null });
+        setDeleteDataOpen(false);
+      })
+      .catch((err) => {
+        console.error("Failed to delete health data:", err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [patientProfile?.id]);
 
   /* ─── Overlay component ─── */
   const Overlay = ({
@@ -294,6 +455,7 @@ export default function DevicesPage() {
         />
       ) : (
         <ConnectState
+          allowedProviders={allowedProviders}
           devCat={devCat}
           devQuery={devQuery}
           onSetCategory={setDevCat}
@@ -347,7 +509,7 @@ export default function DevicesPage() {
             ))}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflow: 'auto' }}>
-            {PROVIDERS.filter(
+            {allowedProviders.filter(
               (p) =>
                 (pickerCat === 'all' || p.cat === pickerCat) &&
                 (!pickerQuery.trim() ||
