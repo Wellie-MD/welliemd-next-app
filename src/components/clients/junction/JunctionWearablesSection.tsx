@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { ArrowDown, ArrowUp, Search, Watch } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -6,11 +6,14 @@ import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
+import { junctionIntegrationApi } from "@/api/junctionIntegration"
 import {
   AUTH_LABEL,
   WEARABLE_PROVIDERS,
   WEAR_PRIORITY,
   type WearableProvider,
+  type WearAuth,
 } from "./wearableCatalog"
 
 const AUTH_CLASS: Record<string, string> = {
@@ -36,6 +39,18 @@ function getCategoryTone(category: string) {
   return CATEGORY_CLASS[category.toLowerCase()] ?? "bg-slate-100 text-slate-700 border-slate-200"
 }
 
+function getCategoryFromSlugAndResources(slug: string, resources: string[]): string {
+  const s = slug.toLowerCase()
+  if (s.includes("libre") || s.includes("dexcom") || s.includes("accu")) return "CGM"
+  if (s.includes("scale") || s.includes("renpho") || s.includes("withings")) return "Smart scale"
+  if (s.includes("sleep")) return "Sleep"
+  if (s.includes("omron") || s.includes("beurer")) return "Blood pressure"
+  if (s.includes("kardia")) return "ECG"
+  if (s.includes("apple") || s.includes("healthconnect") || s.includes("samsung")) return "On-device"
+  if (s.includes("strava") || s.includes("wahoo") || s.includes("peloton") || s.includes("zwift") || s.includes("fit")) return "App"
+  return "Wearable"
+}
+
 type FilterKey = "all" | "wearables" | "cgm" | "apps"
 
 interface Props {
@@ -51,6 +66,46 @@ export function JunctionWearablesSection({ initialEnabled = false, labAccountsCa
     WEARABLE_PROVIDERS.map((provider) => ({ ...provider }))
   )
   const [priority, setPriority] = useState<string[]>(() => [...WEAR_PRIORITY])
+  const [loadingProviders, setLoadingProviders] = useState(true)
+
+  useEffect(() => {
+    let active = true
+    async function fetchProviders() {
+      try {
+        const response = await junctionIntegrationApi.listWearableProviders()
+        if (response.success && active && response.sources?.length > 0) {
+          const mapped: WearableProvider[] = response.sources.map((src: any) => {
+            const raw = src.raw_snapshot || {}
+            return {
+              id: src.slug,
+              name: src.name,
+              cat: getCategoryFromSlugAndResources(src.slug, raw.supported_resources || []),
+              auth: (raw.auth_type || "oauth") as WearAuth,
+              pull: src.client_pull_window_days ?? 90,
+              enabled: src.client_enabled ?? true,
+              domain: `${src.slug}.com`,
+              logoFile: src.logo_url || `${src.slug}.png`,
+            }
+          })
+          setProviders(mapped)
+          
+          setPriority((current) => {
+            const fetchedIds = mapped.map(p => p.id)
+            const remaining = current.filter(id => !fetchedIds.includes(id))
+            return [...fetchedIds, ...remaining]
+          })
+        }
+      } catch (err) {
+        console.error("Failed to load wearable providers from db:", err)
+      } finally {
+        if (active) setLoadingProviders(false)
+      }
+    }
+    void fetchProviders()
+    return () => {
+      active = false
+    }
+  }, [])
 
   const providerMap = useMemo(() => {
     const map = new Map<string, WearableProvider>()
@@ -83,20 +138,58 @@ export function JunctionWearablesSection({ initialEnabled = false, labAccountsCa
     [priority, providerMap]
   )
 
+  const saveProviderConfigs = async (nextProviders: WearableProvider[]) => {
+    const configs: Record<string, { enabled: boolean; pull_window_days: number }> = {}
+    nextProviders.forEach((p) => {
+      configs[p.id] = {
+        enabled: p.enabled,
+        pull_window_days: p.pull,
+      }
+    })
+    try {
+      await junctionIntegrationApi.updateWearablesSettings({
+        provider_configs: configs,
+      })
+    } catch (err) {
+      console.error("Failed to save provider configs:", err)
+      toast.error("Failed to save wearable provider configuration.")
+    }
+  }
+
+  const handleToggleEnabled = async (checked: boolean) => {
+    setEnabled(checked)
+    try {
+      await junctionIntegrationApi.updateWearablesSettings({
+        enabled: checked,
+      })
+      toast.success(checked ? "Wearable sync enabled." : "Wearable sync disabled.")
+    } catch (err) {
+      console.error("Failed to update wearables settings:", err)
+      toast.error("Failed to update wearables setting.")
+      setEnabled(!checked)
+    }
+  }
+
   const toggleProvider = (id: string, checked: boolean) => {
-    setProviders((current) =>
-      current.map((provider) =>
+    setProviders((current) => {
+      const next = current.map((provider) =>
         provider.id === id ? { ...provider, enabled: checked } : provider
       )
-    )
+      void saveProviderConfigs(next)
+      return next
+    })
   }
 
   const changePullWindow = (id: string, value: string) => {
     const parsed = Number(value)
-    const next = Number.isFinite(parsed) ? Math.max(1, Math.min(365, parsed)) : 90
-    setProviders((current) =>
-      current.map((provider) => (provider.id === id ? { ...provider, pull: next } : provider))
-    )
+    const nextVal = Number.isFinite(parsed) ? Math.max(1, Math.min(365, parsed)) : 90
+    setProviders((current) => {
+      const next = current.map((provider) =>
+        provider.id === id ? { ...provider, pull: nextVal } : provider
+      )
+      void saveProviderConfigs(next)
+      return next
+    })
   }
 
   const movePriority = (id: string, direction: -1 | 1) => {
@@ -122,8 +215,7 @@ export function JunctionWearablesSection({ initialEnabled = false, labAccountsCa
               Patient Wearable Sync
             </CardTitle>
             <p className="text-xs text-muted-foreground">
-              Let patients link smart bands, scales, and trackers directly. This is a local
-              preview surface for now and does not sync Junction wearable settings yet.
+              Let patients link smart bands, scales, and trackers directly.
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -131,10 +223,10 @@ export function JunctionWearablesSection({ initialEnabled = false, labAccountsCa
               <div>
                 <div className="font-medium text-sm">Enable wearable sync</div>
                 <div className="text-xs text-muted-foreground">
-                  UI-only preview state for this redesign
+                  Enable patient wearable tracking for this tenant
                 </div>
               </div>
-              <Switch checked={enabled} onCheckedChange={setEnabled} />
+              <Switch checked={enabled} onCheckedChange={handleToggleEnabled} />
             </div>
 
             <div className="rounded-xl border bg-muted/20 px-4 py-3">
@@ -156,7 +248,7 @@ export function JunctionWearablesSection({ initialEnabled = false, labAccountsCa
                 <CardTitle className="text-sm font-semibold">Provider Catalog</CardTitle>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Configure telemetry nodes, check status connections, and historic sync data
-                  limits. Changes here are preview-only until wearable APIs are wired.
+                  limits. Changes here are dynamically saved to the database.
                 </p>
               </div>
               <Badge variant="outline" className="self-start">
@@ -213,73 +305,87 @@ export function JunctionWearablesSection({ initialEnabled = false, labAccountsCa
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleProviders.map((provider) => (
-                    <tr key={provider.id} className="border-t">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-md border bg-slate-50 text-[10px] font-bold text-slate-500">
-                            {provider.name.slice(0, 2).toUpperCase()}
-                          </div>
-                          <span className="font-medium text-sm">{provider.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-3 py-3">
-                        <span
-                          className={cn(
-                            "inline-block rounded-full border px-2 py-0.5 text-[10.5px] font-medium",
-                            getCategoryTone(provider.cat)
-                          )}
-                        >
-                          {provider.cat}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3">
-                        <span
-                          className={cn(
-                            "inline-block rounded-full border px-2 py-0.5 text-[10.5px] font-medium",
-                            AUTH_CLASS[provider.auth]
-                          )}
-                        >
-                          {AUTH_LABEL[provider.auth]}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3">
-                        {provider.auth === "email" ? (
-                          <span className="text-xs italic text-muted-foreground">provider-set</span>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <Input
-                              type="number"
-                              min={1}
-                              max={365}
-                              value={provider.pull}
-                              onChange={(event) =>
-                                changePullWindow(provider.id, event.target.value)
-                              }
-                              className="h-8 w-20 font-mono text-xs"
-                            />
-                            <span className="text-xs text-muted-foreground">days</span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex justify-end">
-                          <Switch
-                            checked={enabled && provider.enabled}
-                            onCheckedChange={(checked) => toggleProvider(provider.id, checked)}
-                          />
-                        </div>
+                  {loadingProviders && providers.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                        Loading wearable providers from database...
                       </td>
                     </tr>
-                  ))}
+                  ) : visibleProviders.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                        No providers found.
+                      </td>
+                    </tr>
+                  ) : (
+                    visibleProviders.map((provider) => (
+                      <tr key={provider.id} className="border-t">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-md border bg-slate-50 text-[10px] font-bold text-slate-500">
+                              {provider.name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <span className="font-medium text-sm">{provider.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3">
+                          <span
+                            className={cn(
+                              "inline-block rounded-full border px-2 py-0.5 text-[10.5px] font-medium",
+                              getCategoryTone(provider.cat)
+                            )}
+                          >
+                            {provider.cat}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3">
+                          <span
+                            className={cn(
+                              "inline-block rounded-full border px-2 py-0.5 text-[10.5px] font-medium",
+                              AUTH_CLASS[provider.auth]
+                            )}
+                          >
+                            {AUTH_LABEL[provider.auth]}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3">
+                          {provider.auth === "email" ? (
+                            <span className="text-xs italic text-muted-foreground">provider-set</span>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                min={1}
+                                max={365}
+                                value={provider.pull}
+                                onChange={(event) =>
+                                  changePullWindow(provider.id, event.target.value)
+                                }
+                                className="h-8 w-20 font-mono text-xs"
+                              />
+                              <span className="text-xs text-muted-foreground">days</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end">
+                            <Switch
+                              checked={enabled && provider.enabled}
+                              onCheckedChange={(checked) => toggleProvider(provider.id, checked)}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
 
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Showing {visibleProviders.length} of {providers.length} platforms</span>
-              <span>Preview-only wearable controls</span>
-            </div>
+             <div className="flex items-center justify-between text-xs text-muted-foreground">
+               <span>Showing {visibleProviders.length} of {providers.length} platforms</span>
+               <span>Changes auto-saved to database</span>
+             </div>
           </CardContent>
         </Card>
 

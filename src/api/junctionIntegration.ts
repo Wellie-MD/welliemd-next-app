@@ -190,4 +190,17 @@ export const junctionIntegrationApi = {
     )
     return data
   },
+
+  listWearableProviders: async (): Promise<{ success: boolean; sources: any[] }> => {
+    const { data } = await axiosInstance.get("wearables/providers/")
+    return data
+  },
+
+  updateWearablesSettings: async (settings: {
+    enabled?: boolean
+    provider_configs?: Record<string, any>
+  }): Promise<{ success: boolean; junction_settings: any }> => {
+    const { data } = await axiosInstance.patch("wearables/settings/current/", settings)
+    return data
+  },
 }
