@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, ArrowDownAZ, Clock, List as ListIcon, LayoutGrid, Users } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Search, ArrowDownAZ, Clock, List as ListIcon, LayoutGrid, Users, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
@@ -25,6 +26,7 @@ import { useClients } from "@/hooks/useClients";
 type ProgramsViewMode = "cards" | "list";
 
 export default function ProgramsPage() {
+  const navigate = useNavigate();
   const { data: programs = [] } = usePrograms();
   const { data: treatmentTypes = [] } = useTreatmentTypes();
   const { clients } = useClients("");
@@ -312,6 +314,14 @@ export default function ProgramsPage() {
         subtitle="Clinical questionnaires linked to specific treatments. Each treatment has an intake module and (optionally) a follow-up module."
         actions={
           <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={() => navigate("/dashboard/treatments/programs/assignment-history")}
+              className="h-9 px-4 text-xs font-semibold rounded-lg shadow-sm"
+            >
+              <History className="mr-1.5 h-4 w-4" />
+              Assignment History
+            </Button>
             <Button
               variant="outline"
               onClick={() => setIsAssignOpen(true)}
