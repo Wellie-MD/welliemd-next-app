@@ -4,13 +4,14 @@ import type { VisibilityRule, VisibilityRuleGroup } from "@/features/treatments/
  * Patient answers keyed by questionId.
  * single_choice / yes_no / text / number / date → string
  * multiple_choice → string[]
+ * numeric comparisons support string values that can be coerced to numbers.
  */
-export type PatientAnswers = Record<string, string | string[] | undefined>;
+export type PatientAnswers = Record<string, string | string[] | number | undefined>;
 
-const isEmptyAnswer = (answer: string | string[] | undefined): boolean => {
+const isEmptyAnswer = (answer: string | string[] | number | undefined): boolean => {
   if (answer === undefined || answer === null) return true;
   if (Array.isArray(answer)) return answer.length === 0;
-  return answer.trim() === "";
+  return String(answer).trim() === "";
 };
 
 const splitList = (value: string): string[] =>
@@ -25,36 +26,68 @@ const splitList = (value: string): string[] =>
  */
 const evaluateRule = (rule: VisibilityRule, answers: PatientAnswers): boolean => {
   const answer = answers[rule.questionId];
-  const value = rule.value;
 
   switch (rule.operator) {
     case "equals":
       return Array.isArray(answer)
-        ? answer.includes(value)
-        : String(answer ?? "") === String(value);
+        ? answer.includes(rule.value)
+        : String(answer ?? "") === String(rule.value);
     case "not_equals":
       return Array.isArray(answer)
-        ? !answer.includes(value)
-        : String(answer ?? "") !== String(value);
+        ? !answer.includes(rule.value)
+        : String(answer ?? "") !== String(rule.value);
     case "contains":
       return Array.isArray(answer)
-        ? answer.includes(value)
-        : String(answer ?? "").includes(String(value));
+        ? answer.includes(rule.value)
+        : String(answer ?? "").includes(String(rule.value));
     case "not_contains":
       return Array.isArray(answer)
-        ? !answer.includes(value)
-        : !String(answer ?? "").includes(String(value));
+        ? !answer.includes(rule.value)
+        : !String(answer ?? "").includes(String(rule.value));
     case "in": {
-      const options = splitList(value);
+      const options = splitList(rule.value);
       return Array.isArray(answer)
-        ? options.some((option) => answer.includes(option))
+        ? options.some((option) => answer.includes(String(option)))
         : options.includes(String(answer ?? ""));
     }
     case "not_in": {
-      const options = splitList(value);
+      const options = splitList(rule.value);
       return Array.isArray(answer)
-        ? !options.some((option) => answer.includes(option))
+        ? !options.some((option) => answer.includes(String(option)))
         : !options.includes(String(answer ?? ""));
+    }
+    case "gt": {
+      const a = Number(answer);
+      const b = Number(rule.value);
+      if (isNaN(a) || isNaN(b)) return false;
+      return a > b;
+    }
+    case "gte": {
+      const a = Number(answer);
+      const b = Number(rule.value);
+      if (isNaN(a) || isNaN(b)) return false;
+      return a >= b;
+    }
+    case "lt": {
+      const a = Number(answer);
+      const b = Number(rule.value);
+      if (isNaN(a) || isNaN(b)) return false;
+      return a < b;
+    }
+    case "lte": {
+      const a = Number(answer);
+      const b = Number(rule.value);
+      if (isNaN(a) || isNaN(b)) return false;
+      return a <= b;
+    }
+    case "between": {
+      const parts = rule.value.split(",").map((s) => s.trim()).filter(Boolean);
+      if (parts.length !== 2) return false;
+      const a = Number(answer);
+      const min = Number(parts[0]);
+      const max = Number(parts[1]);
+      if (isNaN(a) || isNaN(min) || isNaN(max)) return false;
+      return a >= min && a <= max;
     }
     default:
       return false;

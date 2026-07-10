@@ -24,7 +24,8 @@ export type QuestionKind =
   | "self_reported_meds"
   | "allergies"
   | "labs_preference"
-  | "checkout";
+  | "checkout"
+  | "bmi";
 
 export type VisibilityRuleOperator =
   | "equals"
@@ -32,13 +33,20 @@ export type VisibilityRuleOperator =
   | "in"
   | "not_in"
   | "contains"
-  | "not_contains";
+  | "not_contains"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+  | "between";
 
 export interface VisibilityRule {
   id?: string;
   questionId: string;
+  question_type?: string;
   operator: VisibilityRuleOperator;
-  /** For "in"/"not_in" the value is a comma-separated list of choices. */
+  /** For "in"/"not_in" the value is a comma-separated list of choices.
+      For "between" the value is "min,max". */
   value: string;
 }
 

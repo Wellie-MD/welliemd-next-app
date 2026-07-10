@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Eye } from "lucide-react";
 import {
+  DERIVED_BMI_ID,
   VisibilityRuleBuilder,
 } from "@/components/questionnaires/VisibilityRuleBuilder";
 import {
@@ -38,6 +39,32 @@ export function QuestionVisibilityTab({
   const eligibleQuestions = questions.filter((question) => (
     question.id !== currentQuestionId && question.order < currentQuestionOrder
   ));
+
+  const hasBmiQuestion = eligibleQuestions.some(
+    (q) => q.kind === "height_weight" || q.kind === "bmi"
+  );
+
+  const builderQuestions = eligibleQuestions
+    .filter((q) => q.kind !== "height_weight" && q.kind !== "bmi")
+    .map((question) => ({
+      id: question.id,
+      question_text: question.text,
+      order_index: question.order,
+      answer_choices: question.choices,
+    }));
+
+  if (hasBmiQuestion) {
+    const bmiQuestion = eligibleQuestions.find(
+      (q) => q.kind === "height_weight" || q.kind === "bmi"
+    );
+    builderQuestions.push({
+      id: DERIVED_BMI_ID,
+      question_text: "BMI (Calculated)",
+      order_index: bmiQuestion?.order ?? 0,
+    });
+  }
+
+  builderQuestions.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
 
   const hasRules = !!visibilityRuleGroup && (
     visibilityRuleGroup.rules.length > 0 || (visibilityRuleGroup.subgroups || []).length > 0
@@ -78,12 +105,7 @@ export function QuestionVisibilityTab({
           <VisibilityRuleBuilder
             value={toBuilderGroup(visibilityRuleGroup)}
             onChange={(nextGroup) => setVisibilityRuleGroup(fromBuilderGroup(nextGroup))}
-            questions={eligibleQuestions.map((question) => ({
-              id: question.id,
-              question_text: question.text,
-              order_index: question.order,
-              answer_choices: question.choices,
-            }))}
+            questions={builderQuestions}
           />
           <div className="mt-3 flex justify-end">
             <Button

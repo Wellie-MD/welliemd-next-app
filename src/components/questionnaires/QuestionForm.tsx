@@ -42,6 +42,7 @@ import { GroupedQuestionBuilder } from "./GroupedQuestionBuilder";
 import {
   VisibilityGroup,
   createDefaultVisibilityGroup,
+  DERIVED_BMI_ID,
   VisibilityRuleBuilder,
 } from "./VisibilityRuleBuilder";
 import { SubQuestion } from "@/api/questionnaires";
@@ -77,6 +78,7 @@ type AnswerChoiceOption = string | StructuredChoiceOption;
 
 interface LegacyConditionNode {
   question_id?: string;
+  question_type?: string;
   operator?: string;
   value?: unknown;
   field?: string;
@@ -264,21 +266,16 @@ function normalizeShowIfToTree(showIf: unknown, logicOperator: "AND" | "OR" = "O
         .filter((item): item is LegacyConditionNode => !!item && typeof item === "object")
         .map((item) => ({
           type: "condition" as const,
-          question_id: item.question_id || "",
-          operator: (item.operator as
-            | "equals"
-            | "not_equals"
-            | "in"
-            | "not_in"
-            | "contains"
-            | "not_contains") || "equals",
+          question_id: item.question_type === "bmi" ? DERIVED_BMI_ID : (item.question_id || ""),
+          question_type: item.question_type,
+          operator: item.operator || "equals",
           value: Array.isArray(item.value) ? item.value.map(String) : String(item.value ?? ""),
           field: item.field,
         })),
     };
   }
 
-  if (typeof showIf === "object" && showIf && (showIf as LegacyConditionNode).question_id) {
+  if (typeof showIf === "object" && showIf && ((showIf as LegacyConditionNode).question_id || (showIf as LegacyConditionNode).question_type)) {
     const item = showIf as LegacyConditionNode;
     return {
       type: "group",
@@ -286,14 +283,9 @@ function normalizeShowIfToTree(showIf: unknown, logicOperator: "AND" | "OR" = "O
       children: [
         {
           type: "condition",
-          question_id: item.question_id || "",
-          operator: (item.operator as
-            | "equals"
-            | "not_equals"
-            | "in"
-            | "not_in"
-            | "contains"
-            | "not_contains") || "equals",
+          question_id: item.question_type === "bmi" ? DERIVED_BMI_ID : (item.question_id || ""),
+          question_type: item.question_type,
+          operator: item.operator || "equals",
           value: Array.isArray(item.value) ? item.value.map(String) : String(item.value ?? ""),
           field: item.field,
         },
@@ -2651,12 +2643,32 @@ export function QuestionForm({
                   <VisibilityRuleBuilder
                     value={visibilityRules}
                     onChange={setVisibilityRules}
-                    questions={parentQuestionOptions.map((question) => ({
-                      id: question.id,
-                      question_text: question.question_text,
-                      order_index: question.order_index,
-                      answer_choices: question.answer_choices,
-                    }))}
+                    questions={(() => {
+                      const hasBmi = parentQuestionOptions.some(
+                        (q) => q.question_type === "bmi" || q.question_type === "height_weight"
+                      );
+                      const items = parentQuestionOptions
+                        .filter((q) => q.question_type !== "bmi" && q.question_type !== "height_weight")
+                        .map((question) => ({
+                          id: question.id,
+                          question_text: question.question_text,
+                          order_index: question.order_index,
+                          answer_choices: question.answer_choices,
+                        }));
+                      if (hasBmi) {
+                        const bmiQ = parentQuestionOptions.find(
+                          (q) => q.question_type === "bmi" || q.question_type === "height_weight"
+                        );
+                        items.push({
+                          id: DERIVED_BMI_ID,
+                          question_text: "BMI (Calculated)",
+                          order_index: bmiQ?.order_index ?? 0,
+                          answer_choices: undefined,
+                        });
+                      }
+                      items.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+                      return items;
+                    })()}
                   />
                 ) : (
                 <div className="space-y-3">
