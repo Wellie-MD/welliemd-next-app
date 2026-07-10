@@ -488,14 +488,15 @@ export const treatmentsApi = {
     return mapProgramFromApi(data);
   },
 
-  updateProgramGroupStatus: async (treatmentTypeKey: string, status: ProgramStatus): Promise<Program[]> => {
-    const programs = await treatmentsApi.listPrograms();
-    const matchingPrograms = programs.filter((program) => program.treatmentTypeKey === treatmentTypeKey);
-    const updatedPrograms = await Promise.all(
-      matchingPrograms.map((program) => treatmentsApi.updateProgramStatus(program.id, status))
+  updateProgramGroupStatus: async (programIds: string[], status: ProgramStatus): Promise<Program[]> => {
+    const { data } = await axiosInstance.patch<ProgramApiRecord[]>(
+      "treatments/programs/bulk-live/",
+      {
+        program_ids: programIds,
+        is_published: status === "published",
+      }
     );
-
-    return updatedPrograms.filter(Boolean) as Program[];
+    return (data || []).map(mapProgramFromApi);
   },
 
   saveProgramQuestions: async (programId: string, questions: ProgramQuestion[]): Promise<ProgramQuestion[]> => {

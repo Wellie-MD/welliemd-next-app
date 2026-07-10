@@ -1,7 +1,10 @@
 import { useMemo } from "react";
 import { PatientPreviewDialog } from "@/features/treatments/common/components";
 import { getCustomProgramEffectiveSlug } from "@/features/treatments/custom-programs/utils/customProgramSlug";
-import { buildQuestionnairePreviewUrl } from "@/features/treatments/utils/previewUrl";
+import {
+  buildQuestionnairePreviewUrl,
+  getQuestionnairePreviewApiBaseUrl,
+} from "@/features/treatments/utils/previewUrl";
 import type { CustomProgram } from "@/features/treatments/types";
 
 interface CustomProgramPreviewDialogProps {
@@ -21,6 +24,7 @@ export function CustomProgramPreviewDialog({
         type: "custom_program",
         id: customProgram.id,
         slug: getCustomProgramEffectiveSlug(customProgram),
+        apiBaseUrl: getQuestionnairePreviewApiBaseUrl(),
       }),
     [customProgram]
   );

@@ -1,7 +1,9 @@
-export const normalizeTreatmentSlug = (value: string) =>
+export const sanitizeTreatmentSlugDraft = (value: string) =>
   value
-    .trim()
     .toLowerCase()
     .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/-+/g, "-")
+    .replace(/-+/g, "-");
+
+export const normalizeTreatmentSlug = (value: string) =>
+  sanitizeTreatmentSlugDraft(value.trim())
     .replace(/^-|-$/g, "");

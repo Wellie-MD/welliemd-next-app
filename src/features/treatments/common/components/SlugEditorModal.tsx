@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { normalizeTreatmentSlug } from "@/features/treatments/common/utils/slug";
+import { normalizeTreatmentSlug, sanitizeTreatmentSlugDraft } from "@/features/treatments/common/utils/slug";
 import { cn } from "@/lib/utils";
 
 interface SlugEditorModalProps {
@@ -86,7 +86,7 @@ export function SlugEditorModal({
           <Input
             id="treatment-slug-input"
             value={slugDraft}
-            onChange={(event) => setSlugDraft(normalizeTreatmentSlug(event.target.value))}
+            onChange={(event) => setSlugDraft(sanitizeTreatmentSlugDraft(event.target.value))}
             placeholder="e.g., glutathione"
             className="h-10 rounded-lg border-2 border-blue-600 bg-white px-3 font-medium lowercase text-slate-950 shadow-none ring-offset-0 focus-visible:ring-0 dark:border-slate-100 dark:bg-[#171b27] dark:text-slate-100"
             disabled={saving}

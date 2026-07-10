@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { showFloatingToast } from "@/components/ui/floating-toast";
 import { EmptyStateCard, PatientPreviewDialog, SlugEditorModal } from "@/features/treatments/common/components";
 import { getTreatmentApiErrorMessage } from "@/features/treatments/common/utils/apiError";
+import { normalizeTreatmentSlug } from "@/features/treatments/common/utils/slug";
+import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
 import {
   usePrograms,
   useUpdateProgramSlug,
@@ -12,7 +14,12 @@ import {
   useUpdateProgramStatus,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { ProgramListTable } from "@/features/treatments/programs/components/ProgramListTable";
-import { ProgramTreatmentCard, type ProgramTreatmentGroup } from "@/features/treatments/programs/components/ProgramTreatmentCard";
+import {
+  getTreatmentGroupProgramIds,
+  isTreatmentGroupLive,
+  ProgramTreatmentCard,
+  type ProgramTreatmentGroup,
+} from "@/features/treatments/programs/components/ProgramTreatmentCard";
 import type { Program, ProgramStatus } from "@/features/treatments/types";
 import { buildQuestionnairePreviewUrl } from "@/features/treatments/utils/previewUrl";
 import { cn } from "@/lib/utils";
@@ -173,16 +180,22 @@ export default function ProgramsPage() {
 
   const handleSaveSlug = async (slug: string) => {
     if (!editingProgram) return;
+    const nextSlug = normalizeTreatmentSlug(slug || editingProgram.slug);
+
     try {
       await updateProgramSlug.mutateAsync({
         programId: editingProgram.id,
-        slug: slug || editingProgram.slug,
+        slug: nextSlug,
       });
       showFloatingToast({ title: "Slug Updated" });
     } catch (error) {
-      showFloatingToast({
-        title: getTreatmentApiErrorMessage(error, "Slug could not be updated"),
-      });
+      if (isDuplicateSlugError(error)) {
+        showDuplicateSlugToast();
+      } else {
+        showFloatingToast({
+          title: getTreatmentApiErrorMessage(error, "Slug could not be updated"),
+        });
+      }
       throw error;
     }
   };
@@ -197,15 +210,23 @@ export default function ProgramsPage() {
 
   const handleToggleLive = async (group: ProgramTreatmentGroup, live: boolean) => {
     const nextStatus = live ? "published" : "draft";
-    const currentLive = group.intake?.status === "published" || group.followUp?.status === "published";
+    const currentLive = isTreatmentGroupLive(group);
     if (currentLive === live) return;
+
+    const programIds = getTreatmentGroupProgramIds(group);
+    if (programIds.length === 0) return;
 
     const updateKey = group.intake?.id ?? group.followUp?.id ?? group.treatmentTypeKey;
     setUpdatingLiveProgramId(updateKey);
+
     try {
       await updateProgramGroupStatus.mutateAsync({
-        treatmentTypeKey: group.treatmentTypeKey,
+        programIds,
         status: nextStatus,
+      });
+    } catch {
+      showFloatingToast({
+        title: "Cannot update the Status of your program",
       });
     } finally {
       setUpdatingLiveProgramId((current) => (current === updateKey ? null : current));
