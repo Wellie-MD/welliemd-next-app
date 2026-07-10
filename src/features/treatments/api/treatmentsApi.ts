@@ -833,6 +833,32 @@ export const treatmentsApi = {
     return mapProgramFromApi(data);
   },
 
+  updateProgramSlug: async (programId: string, slug: string): Promise<Program> => {
+    const normalizedSlug = slugifyTreatmentValue(slug);
+    if (!isPersistedUuid(programId)) {
+      const list = getPrograms();
+      const index = list.findIndex((program) => program.id === programId);
+      if (index < 0) {
+        throw new Error(`Program ${programId} was not found`);
+      }
+      const updatedProgram = {
+        ...list[index],
+        slug: normalizedSlug || list[index].slug,
+        updatedAt: currentDateStamp(),
+      };
+      const updated = [...list];
+      updated[index] = updatedProgram;
+      setStored(KEYS.PROGRAMS, updated);
+      return updatedProgram;
+    }
+
+    const { data } = await axiosInstance.patch<ProgramApiRecord>(
+      `treatments/programs/${programId}/slug/`,
+      { slug: normalizedSlug }
+    );
+    return mapProgramFromApi(data);
+  },
+
   archiveProgram: async (id: string): Promise<Program> => {
     if (!isPersistedUuid(id)) {
       const list = getPrograms();

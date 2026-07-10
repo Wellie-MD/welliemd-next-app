@@ -1,5 +1,6 @@
 import type { CustomProgram, CustomProgramFlowItem } from "@/features/treatments/types";
 import { useCustomProgramFlowBuilder } from "@/features/treatments/flow-builder/hooks/useCustomProgramFlowBuilder";
+import { getQuestionnairePreviewApiBaseUrl } from "@/features/treatments/utils/previewUrl";
 import { PatientFlowTestModal } from "./modals/PatientFlowTestModal";
 import { FlowBuilderCanvas } from "./canvas/FlowBuilderCanvas";
 import { FlowBuilderHeader } from "./canvas/FlowBuilderHeader";
@@ -37,7 +38,12 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
       <PatientFlowTestModal
         open={builder.isTestModalOpen}
         onOpenChange={builder.setIsTestModalOpen}
-        previewContext={{ type: "custom_program", id: customProgram.id, slug: customProgram.slug }}
+        previewContext={{
+          type: "custom_program",
+          id: customProgram.id,
+          slug: customProgram.slug,
+          apiBaseUrl: getQuestionnairePreviewApiBaseUrl(),
+        }}
       />
 
       {builder.viewMode === "list" && (

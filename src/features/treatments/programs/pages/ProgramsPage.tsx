@@ -14,6 +14,7 @@ import {
   useTreatmentTypes,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
+import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
 import type { Program, ProgramStage } from "@/features/treatments/types";
 import { CreateProgramModal } from "@/features/treatments/programs/components/CreateProgramModal";
 import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
@@ -23,6 +24,27 @@ import { programAssignmentApi } from "@/api/programAssignmentApi";
 import { useClients } from "@/hooks/useClients";
 
 type ProgramsViewMode = "cards" | "list";
+
+type ApiErrorData = {
+  detail?: string;
+  error?: string;
+  message?: string;
+  blockers?: Array<{ message?: string }>;
+};
+
+type ApiErrorLike = {
+  response?: {
+    data?: ApiErrorData;
+  };
+  message?: string;
+};
+
+const getApiErrorData = (error: unknown) => (error as ApiErrorLike).response?.data;
+
+const getApiErrorMessage = (error: unknown, fallback: string) => {
+  const apiError = error as ApiErrorLike;
+  return apiError.response?.data?.error || apiError.response?.data?.detail || apiError.response?.data?.message || apiError.message || fallback;
+};
 
 export default function ProgramsPage() {
   const { data: programs = [] } = usePrograms();
@@ -90,12 +112,14 @@ export default function ProgramsPage() {
           setIsCreateOpen(false);
         },
         onError: (error: unknown) => {
+          if (isDuplicateSlugError(error)) {
+            showDuplicateSlugToast();
+            return;
+          }
+
           toast({
             title: "Error",
-            description:
-              (error as any)?.response?.data?.error ||
-              (error as any)?.message ||
-              "Failed to update program",
+            description: getApiErrorMessage(error, "Failed to update program"),
             variant: "destructive",
           });
         },
@@ -128,12 +152,14 @@ export default function ProgramsPage() {
         });
       },
       onError: (error: unknown) => {
+        if (isDuplicateSlugError(error)) {
+          showDuplicateSlugToast();
+          return;
+        }
+
         toast({
           title: "Error",
-          description:
-            (error as any)?.response?.data?.error ||
-            (error as any)?.message ||
-            "Failed to create program",
+          description: getApiErrorMessage(error, "Failed to create program"),
           variant: "destructive",
         });
       },
@@ -177,10 +203,7 @@ export default function ProgramsPage() {
       onError: (error: unknown) => {
         toast({
           title: "Error",
-          description:
-            (error as any)?.response?.data?.error ||
-            (error as any)?.message ||
-            "Failed to duplicate program",
+          description: getApiErrorMessage(error, "Failed to duplicate program"),
           variant: "destructive",
         });
       },
@@ -202,7 +225,7 @@ export default function ProgramsPage() {
         });
       },
       onError: (error: unknown) => {
-        const responseData = (error as any)?.response?.data;
+        const responseData = getApiErrorData(error);
         const blockerMessage = Array.isArray(responseData?.blockers)
           ? responseData.blockers.map((blocker: { message?: string }) => blocker.message).filter(Boolean).join(" ")
           : "";
@@ -212,7 +235,7 @@ export default function ProgramsPage() {
             blockerMessage ||
             responseData?.detail ||
             responseData?.error ||
-            (error as any)?.message ||
+            (error as ApiErrorLike).message ||
             "Failed to archive program",
           variant: "destructive",
         });

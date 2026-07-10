@@ -10,6 +10,7 @@ import {
   useProgramQuestions,
   useConsents,
   useSaveProgram,
+  useUpdateProgramSlug,
   useSaveProgramQuestions,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 
@@ -25,6 +26,7 @@ import { QuestionEditorDialog } from "@/features/treatments/question-editor/comp
 import { AddConsentModal } from "@/features/treatments/programs/components/AddConsentModal";
 import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
 import { createMockId } from "@/features/treatments/common/data/factories";
+import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
 import type { ProgramCheckoutQuestion, ProgramQuestion, QuestionKind } from "@/features/treatments/types";
 import { DeleteConfirmDialog } from "@/features/treatments/common/components";
 
@@ -35,6 +37,30 @@ const defaultAuthConfig = {
   phone: false,
   identity: false,
   account: true,
+};
+
+type ApiErrorData = {
+  detail?: string;
+  error?: string;
+  message?: string;
+};
+
+type ApiErrorLike = {
+  response?: {
+    data?: ApiErrorData;
+  };
+  message?: string;
+};
+
+const getApiErrorMessage = (error: unknown, fallback: string) => {
+  const apiError = error as ApiErrorLike;
+  return (
+    apiError.response?.data?.detail ||
+    apiError.response?.data?.error ||
+    apiError.response?.data?.message ||
+    apiError.message ||
+    fallback
+  );
 };
 
 const normalizeQuestionKind = (type: string): QuestionKind => {
@@ -66,6 +92,7 @@ export default function ProgramDetailPage() {
 
   // Mutations
   const saveProgramMutation = useSaveProgram();
+  const updateProgramSlugMutation = useUpdateProgramSlug();
   const saveProgramQuestionsMutation = useSaveProgramQuestions(foundProgram?.id || "");
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -231,15 +258,28 @@ export default function ProgramDetailPage() {
         onPublishToggle={handlePublish}
         onSimulate={() => setIsSimulateOpen(true)}
         onCopySlug={handleCopySlug}
-        onSaveSlug={(newSlug) => {
-          saveProgramMutation.mutate({
-            ...foundProgram,
-            slug: newSlug,
-          });
-          toast({
-            title: "Slug Updated",
-            description: `Program slug updated to: ${newSlug}`,
-          });
+        onSaveSlug={async (newSlug) => {
+          try {
+            await updateProgramSlugMutation.mutateAsync({
+              programId: foundProgram.id,
+              slug: newSlug,
+            });
+            toast({
+              title: "Slug Updated",
+              description: `Program slug updated to: ${newSlug}`,
+            });
+          } catch (error) {
+            if (isDuplicateSlugError(error)) {
+              showDuplicateSlugToast();
+              return;
+            }
+
+            toast({
+              title: "Error Updating Slug",
+              description: getApiErrorMessage(error, "Slug could not be updated"),
+              variant: "destructive",
+            });
+          }
         }}
       />
 
