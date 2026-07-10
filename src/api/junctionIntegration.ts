@@ -191,16 +191,22 @@ export const junctionIntegrationApi = {
     return data
   },
 
-  listWearableProviders: async (): Promise<{ success: boolean; sources: any[] }> => {
-    const { data } = await axiosInstance.get("wearables/providers/")
+  listWearableProviders: async (clientId?: string): Promise<{ success: boolean; sources: any[] }> => {
+    const { data } = await axiosInstance.get("wearables/providers/", {
+      params: clientId ? { client_id: clientId } : undefined,
+    })
     return data
   },
 
-  updateWearablesSettings: async (settings: {
-    enabled?: boolean
-    provider_configs?: Record<string, any>
-  }): Promise<{ success: boolean; junction_settings: any }> => {
-    const { data } = await axiosInstance.patch("wearables/settings/current/", settings)
+  updateWearablesSettings: async (
+    settings: {
+      enabled?: boolean
+      provider_configs?: Record<string, any>
+    },
+    clientId?: string
+  ): Promise<{ success: boolean; junction_settings: any }> => {
+    const payload = clientId ? { ...settings, client_id: clientId } : settings
+    const { data } = await axiosInstance.patch("wearables/settings/current/", payload)
     return data
   },
 }

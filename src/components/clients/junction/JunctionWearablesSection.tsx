@@ -10,7 +10,6 @@ import { toast } from "sonner"
 import { junctionIntegrationApi } from "@/api/junctionIntegration"
 import {
   AUTH_LABEL,
-  WEARABLE_PROVIDERS,
   WEAR_PRIORITY,
   type WearableProvider,
   type WearAuth,
@@ -54,17 +53,16 @@ function getCategoryFromSlugAndResources(slug: string, resources: string[]): str
 type FilterKey = "all" | "wearables" | "cgm" | "apps"
 
 interface Props {
+  clientId?: string
   initialEnabled?: boolean
   labAccountsCard: ReactNode
 }
 
-export function JunctionWearablesSection({ initialEnabled = false, labAccountsCard }: Props) {
+export function JunctionWearablesSection({ clientId, initialEnabled = false, labAccountsCard }: Props) {
   const [enabled, setEnabled] = useState(initialEnabled)
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<FilterKey>("all")
-  const [providers, setProviders] = useState<WearableProvider[]>(() =>
-    WEARABLE_PROVIDERS.map((provider) => ({ ...provider }))
-  )
+  const [providers, setProviders] = useState<WearableProvider[]>([])
   const [priority, setPriority] = useState<string[]>(() => [...WEAR_PRIORITY])
   const [loadingProviders, setLoadingProviders] = useState(true)
 
@@ -72,7 +70,7 @@ export function JunctionWearablesSection({ initialEnabled = false, labAccountsCa
     let active = true
     async function fetchProviders() {
       try {
-        const response = await junctionIntegrationApi.listWearableProviders()
+        const response = await junctionIntegrationApi.listWearableProviders(clientId)
         if (response.success && active && response.sources?.length > 0) {
           const mapped: WearableProvider[] = response.sources.map((src: any) => {
             const raw = src.raw_snapshot || {}
@@ -149,7 +147,7 @@ export function JunctionWearablesSection({ initialEnabled = false, labAccountsCa
     try {
       await junctionIntegrationApi.updateWearablesSettings({
         provider_configs: configs,
-      })
+      }, clientId)
     } catch (err) {
       console.error("Failed to save provider configs:", err)
       toast.error("Failed to save wearable provider configuration.")
@@ -161,7 +159,7 @@ export function JunctionWearablesSection({ initialEnabled = false, labAccountsCa
     try {
       await junctionIntegrationApi.updateWearablesSettings({
         enabled: checked,
-      })
+      }, clientId)
       toast.success(checked ? "Wearable sync enabled." : "Wearable sync disabled.")
     } catch (err) {
       console.error("Failed to update wearables settings:", err)

@@ -72,6 +72,7 @@ export function JunctionIntegrationPanel({ clientId }: Props) {
       <JunctionApiCredentials detail={detail} clientId={clientId} busy={busy} run={run} />
 
       <JunctionWearablesSection
+        clientId={clientId}
         initialEnabled={Boolean(detail.wearables?.enabled)}
         labAccountsCard={
           <JunctionLabAccountsCard
