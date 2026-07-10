@@ -268,6 +268,28 @@ export const useDeleteConsent = () => {
   });
 };
 
+export const useArchiveConsent = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => treatmentsApi.archiveConsent(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.consents() });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
+    },
+  });
+};
+
+export const useRestoreConsent = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => treatmentsApi.restoreConsent(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.consents() });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
+    },
+  });
+};
+
 export const useSaveTreatmentType = () => {
   const queryClient = useQueryClient();
   return useMutation({
