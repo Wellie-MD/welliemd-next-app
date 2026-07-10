@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.app.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": false,
+    "isolatedModules": false
+  },
+  "include": [
+    "./flow-builder-graph-tests.ts",
+    "../src/features/treatments/programs/flow-builder/utils/**/*.ts",
+    "../src/features/treatments/types/**/*.ts"
+  ]
+}
