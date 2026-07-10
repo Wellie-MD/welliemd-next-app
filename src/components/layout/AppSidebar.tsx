@@ -16,6 +16,7 @@ import {
   MessageCircle,
   MapPin,
   ChevronDown,
+  Smartphone,
 } from "lucide-react";
 
 import {
@@ -72,6 +73,11 @@ const menuSections = [
         url: "/dashboard/messages",
         icon: MessageSquare,
         permission: Permissions.MESSAGE_LIST, // All roles
+      },
+      {
+        title: "Wearables",
+        url: "/dashboard/wearables",
+        icon: Smartphone,
       },
 
       {
