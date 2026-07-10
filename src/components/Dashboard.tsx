@@ -10,6 +10,7 @@ import { FollowUpList } from "@/features/followups";
 import { ActiveTreatmentsList } from "@/components/ActiveTreatmentsList";
 import { useAuth } from "@/features/auth";
 import { VisitService } from "@/features/visits/services/visit.service";
+import { getActiveTreatmentVisits } from "@/features/visits/utils/activeTreatments";
 import { getOrders } from "@/shared/api/ordersApi";
 import { useNotifications } from "@/contexts/NotificationsContext";
 import { getPatientFollowUps } from "@/features/followups/api";
@@ -52,17 +53,7 @@ export default function Dashboard() {
           getOrders(1, 1) // Just get the count
         ]);
         
-        // Active treatments = visits with a paid order (not just non-completed visits)
-        const PAID_ORDER_STATUSES = [
-          "processing", "visit_pending",
-          "consult_scheduled", "consult_rescheduled", "no_show", "referred",
-          "prescribed", "billing_pending", "rx_sent", "shipped",
-        ];
-        const activeTreatmentsCount = visitsRes.filter(v => 
-          !['completed', 'cancelled'].includes(v.status.toLowerCase()) &&
-          v.order_status &&
-          PAID_ORDER_STATUSES.includes(v.order_status.toLowerCase())
-        ).length;
+        const activeTreatmentsCount = getActiveTreatmentVisits(visitsRes).length;
         
         setStats({
           treatments: activeTreatmentsCount,
