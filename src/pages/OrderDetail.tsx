@@ -856,7 +856,7 @@ function OrderDetailInner() {
       iconBg: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800",
     })
   }
-  if (order.visitStatus || order.mrn) {
+  if ((order.visitStatus || order.mrn) && order.status !== "created" && order.status !== "payment_pending" && order.status !== "abandoned" && order.status !== "") {
     timelineItems.push({
       title: "Visit Pending",
       date: formatDateTime(order.orderDate),
@@ -865,17 +865,19 @@ function OrderDetailInner() {
       iconBg: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800",
     })
   }
-  if (order.status !== "created" && order.status !== "abandoned" && order.status !== "") {
-    timelineItems.push({
-      title: "Processing",
-      date: formatDateTime(order.orderDate),
-      icon: "event",
-      iconBg: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-4 border-white dark:border-slate-800",
-    })
+  if (order.status === "payment_pending") {
     timelineItems.push({
       title: "Payment Pending",
       date: formatDateTime(order.orderDate),
       icon: "credit_card",
+      iconBg: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-4 border-white dark:border-slate-800",
+    })
+  }
+  if (order.status !== "created" && order.status !== "payment_pending" && order.status !== "abandoned" && order.status !== "") {
+    timelineItems.push({
+      title: "Processing",
+      date: formatDateTime(order.orderDate),
+      icon: "event",
       iconBg: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-4 border-white dark:border-slate-800",
     })
   }
