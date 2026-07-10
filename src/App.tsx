@@ -59,6 +59,8 @@ import ArchiveProgramsPage from "./features/treatments/programs/pages/ArchivePro
 import ProgramDetailPage from "./features/treatments/programs/pages/ProgramDetailPage";
 import ProgramQuestionsListPage from "./features/treatments/programs/pages/ProgramQuestionsListPage";
 import ProgramsPage from "./features/treatments/programs/pages/ProgramsPage";
+import ProgramAssignmentHistory from "./pages/ProgramAssignmentHistory";
+import CustomProgramAssignmentHistory from "./pages/CustomProgramAssignmentHistory";
 import SectionsPage from "./features/treatments/libraries/pages/SectionsPage";
 import TreatmentTypeDetailPage from "./features/treatments/libraries/pages/TreatmentTypeDetailPage";
 import TreatmentTypesPage from "./features/treatments/libraries/pages/TreatmentTypesPage";
@@ -167,10 +169,13 @@ const App = () => {
                     <Route path="/treatments" element={<ProtectedRoute><ContentLibrariesPage /></ProtectedRoute>} />
                     <Route path="/treatments/custom-programs" element={<ProtectedRoute><CustomProgramsPage /></ProtectedRoute>} />
                     <Route path="/treatments/custom-programs/:customProgramId/builder" element={<ProtectedRoute><CustomProgramBuilderPage /></ProtectedRoute>} />
+                    <Route path="/treatments/custom-programs/assignment-history" element={<ProtectedRoute><CustomProgramAssignmentHistory /></ProtectedRoute>} />
                     <Route path="/treatments/programs" element={<ProtectedRoute><ProgramsPage /></ProtectedRoute>} />
                     <Route path="/treatments/archive/programs" element={<ProtectedRoute><ArchiveProgramsPage /></ProtectedRoute>} />
+                    <Route path="/treatments/programs/:programId/flow-builder" element={<ProtectedRoute><ProgramDetailPage /></ProtectedRoute>} />
                     <Route path="/treatments/programs/:programId" element={<ProtectedRoute><ProgramDetailPage /></ProtectedRoute>} />
                     <Route path="/treatments/programs/:programId/questions" element={<ProtectedRoute><ProgramQuestionsListPage /></ProtectedRoute>} />
+                    <Route path="/treatments/programs/assignment-history" element={<ProtectedRoute><ProgramAssignmentHistory /></ProtectedRoute>} />
                     <Route path="/treatments/sections" element={<ProtectedRoute><SectionsPage /></ProtectedRoute>} />
                     <Route path="/treatments/consents" element={<ProtectedRoute><ConsentsPage /></ProtectedRoute>} />
                     <Route path="/treatments/treatment-types" element={<ProtectedRoute><TreatmentTypesPage /></ProtectedRoute>} />

@@ -8,7 +8,9 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit --pretty false",
+    "test:flow-builder": "tsc --noEmit -p scripts/tsconfig.flow-builder.json && TS_NODE_PROJECT=scripts/tsconfig.flow-builder.json TS_NODE_TRANSPILE_ONLY=true node --loader ts-node/esm --experimental-specifier-resolution=node scripts/flow-builder-graph-tests.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

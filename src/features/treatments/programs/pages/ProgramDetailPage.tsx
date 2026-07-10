@@ -1,8 +1,5 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useState } from "react";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { toast } from "@/components/ui/use-toast";
 
 import {
@@ -14,7 +11,7 @@ import {
   useSaveProgramQuestions,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 
-import { ProgramFlowCanvas } from "@/features/treatments/programs/components/ProgramFlowCanvas";
+import { ProgramFlowBuilder } from "@/features/treatments/programs/flow-builder/ProgramFlowBuilder";
 import { ProgramDetailHeader } from "@/features/treatments/programs/components/ProgramDetailHeader";
 import { ProgramMetrics } from "@/features/treatments/programs/components/ProgramMetrics";
 import { ProgramCheckoutQuestions } from "@/features/treatments/programs/components/ProgramCheckoutQuestions";
@@ -22,12 +19,14 @@ import { ProgramScreeningQuestions } from "@/features/treatments/programs/compon
 import { ProgramConsents } from "@/features/treatments/programs/components/ProgramConsents";
 import { ProgramAuthentication } from "@/features/treatments/programs/components/ProgramAuthentication";
 import { CheckoutQuestionModal } from "@/features/treatments/programs/components/CheckoutQuestionModal";
+import { AuthSetupModal } from "@/features/treatments/programs/components/AuthSetupModal";
+import { SectionSelectorModal } from "@/features/treatments/programs/components/SectionSelectorModal";
 import { QuestionEditorDialog } from "@/features/treatments/question-editor/components/shell/QuestionEditorDialog";
 import { AddConsentModal } from "@/features/treatments/programs/components/AddConsentModal";
 import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
 import { createMockId } from "@/features/treatments/common/data/factories";
 import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
-import type { ProgramCheckoutQuestion, ProgramQuestion, QuestionKind } from "@/features/treatments/types";
+import type { CommonSection, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
 import { DeleteConfirmDialog } from "@/features/treatments/common/components";
 
 
@@ -81,6 +80,7 @@ const normalizeQuestionKind = (type: string): QuestionKind => {
 export default function ProgramDetailPage() {
   const { programId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const activeProgramId = programId || "program-glp-microdose";
 
   // Queries
@@ -95,16 +95,23 @@ export default function ProgramDetailPage() {
   const updateProgramSlugMutation = useUpdateProgramSlug();
   const saveProgramQuestionsMutation = useSaveProgramQuestions(foundProgram?.id || "");
 
-  const [searchParams, setSearchParams] = useSearchParams();
-  const viewMode = searchParams.get("view") === "flow" ? "flow" : "list";
+  const isFlowBuilderRoute = location.pathname.endsWith("/flow-builder");
+  const viewMode = isFlowBuilderRoute ? "flow" : "list";
 
   const setViewMode = (mode: "list" | "flow") => {
-    setSearchParams({ view: mode }, { replace: true });
+    navigate(
+      mode === "flow"
+        ? `/dashboard/treatments/programs/${foundProgram?.id || activeProgramId}/flow-builder`
+        : `/dashboard/treatments/programs/${foundProgram?.id || activeProgramId}`,
+      { replace: true }
+    );
   };
 
   // Dialog control states
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isScreeningOpen, setIsScreeningOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isSectionOpen, setIsSectionOpen] = useState(false);
   const [isConsentOpen, setIsConsentOpen] = useState(false);
   const [isSimulateOpen, setIsSimulateOpen] = useState(false);
 
@@ -195,6 +202,47 @@ export default function ProgramDetailPage() {
     setIsScreeningOpen(true);
   };
 
+  const handleOpenAddServiceArea = () => {
+    const nextOrder = Math.max(0, ...allQuestions.map((question) => question.order || 0)) + 1;
+    const serviceAreaQuestion: ProgramQuestion = {
+      id: createMockId("q-state"),
+      order: nextOrder,
+      text: "Which state are you located in?",
+      kind: "state_routing",
+      section: "Service Area",
+      required: true,
+    };
+
+    saveProgramQuestionsMutation.mutate([...allQuestions, serviceAreaQuestion]);
+    toast({
+      title: "Service Area Check Added",
+      description: "State routing question added to this program.",
+    });
+  };
+
+  const handleSaveAuthConfig = (config: ProgramAuthConfig) => {
+    saveProgramMutation.mutate({
+      ...foundProgram,
+      authConfig: config,
+    });
+    toast({ title: "Authentication Settings Saved" });
+  };
+
+  const handleAttachSection = (section: CommonSection) => {
+    const nextOrder = Math.max(0, ...allQuestions.map((question) => question.order || 0)) + 1;
+    const sectionQuestion: ProgramQuestion = {
+      id: createMockId("q-section"),
+      order: nextOrder,
+      text: `${section.name} Section`,
+      kind: "multiple_choice",
+      section: section.name,
+      required: true,
+    };
+
+    saveProgramQuestionsMutation.mutate([...allQuestions, sectionQuestion]);
+    toast({ title: "Common Section Attached" });
+  };
+
   const handleAddConsentById = (id: string) => {
     if ((foundProgram.consentIds || []).includes(id)) return;
     const updatedConsents = [...(foundProgram.consentIds || []), id];
@@ -257,6 +305,15 @@ export default function ProgramDetailPage() {
         onViewModeChange={setViewMode}
         onPublishToggle={handlePublish}
         onSimulate={() => setIsSimulateOpen(true)}
+        onQuestions={() => setViewMode("list")}
+        onReorder={() => navigate(`/dashboard/treatments/programs/${foundProgram.id}/questions`)}
+        onAddElement={handleOpenAddScreening}
+        onAddQuestion={handleOpenAddScreening}
+        onAddAuth={() => setIsAuthOpen(true)}
+        onAddServiceArea={handleOpenAddServiceArea}
+        onAddSection={() => setIsSectionOpen(true)}
+        onAddConsent={() => setIsConsentOpen(true)}
+        onAddCheckout={handleOpenAddCheckout}
         onCopySlug={handleCopySlug}
         onSaveSlug={async (newSlug) => {
           try {
@@ -283,12 +340,14 @@ export default function ProgramDetailPage() {
         }}
       />
 
-      <ProgramMetrics
-        screeningCount={allQuestions.length}
-        checkoutCount={(foundProgram.checkoutQuestions || []).length}
-        planCount={1}
-        visitType={foundProgram.visitType || ""}
-      />
+      {viewMode === "list" && (
+        <ProgramMetrics
+          screeningCount={allQuestions.length}
+          checkoutCount={(foundProgram.checkoutQuestions || []).length}
+          planCount={1}
+          visitType={foundProgram.visitType || ""}
+        />
+      )}
 
       {viewMode === "list" ? (
         <div className="space-y-6">
@@ -319,9 +378,18 @@ export default function ProgramDetailPage() {
           />
         </div>
       ) : (
-        <ProgramFlowCanvas
-          programId={foundProgram.id}
-          screeningQuestions={screeningQuestionsForUI}
+        <ProgramFlowBuilder
+          program={foundProgram}
+          questions={allQuestions}
+          allConsents={allConsents}
+          onAddQuestion={handleOpenAddScreening}
+          onEditQuestion={(questionId) => {
+            setEditingScreeningId(questionId);
+            setIsScreeningOpen(true);
+          }}
+          onAddCheckoutQuestion={handleOpenAddCheckout}
+          onEditCheckoutQuestion={handleOpenEditCheckout}
+          onSaveProgram={(updatedProgram) => saveProgramMutation.mutate(updatedProgram)}
         />
       )}
 
@@ -383,6 +451,19 @@ export default function ProgramDetailPage() {
         onOpenChange={setIsConsentOpen}
         onAddConsent={handleAddConsentById}
         attachedConsentIds={foundProgram.consentIds || []}
+      />
+
+      <AuthSetupModal
+        open={isAuthOpen}
+        onOpenChange={setIsAuthOpen}
+        initialConfig={foundProgram.authConfig || defaultAuthConfig}
+        onSave={handleSaveAuthConfig}
+      />
+
+      <SectionSelectorModal
+        open={isSectionOpen}
+        onOpenChange={setIsSectionOpen}
+        onSelect={handleAttachSection}
       />
 
       <PatientFlowTestModal
