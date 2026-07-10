@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Copy, Edit, Link as LinkIcon, Play, List, GitBranch, Check, X } from "lucide-react";
+import { ArrowLeft, Copy, Edit, Link as LinkIcon, Play, List, GitBranch, Check, X, Eye, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AddElementDropdown } from "@/features/treatments/common/components/AddElementDropdown";
 
 interface ProgramDetailHeaderProps {
   programName: string;
@@ -13,6 +14,15 @@ interface ProgramDetailHeaderProps {
   onViewModeChange: (mode: "list" | "flow") => void;
   onPublishToggle: () => void;
   onSimulate: () => void;
+  onQuestions?: () => void;
+  onReorder?: () => void;
+  onAddElement?: () => void;
+  onAddQuestion?: () => void;
+  onAddAuth?: () => void;
+  onAddServiceArea?: () => void;
+  onAddSection?: () => void;
+  onAddConsent?: () => void;
+  onAddCheckout?: () => void;
   onCopySlug: () => void;
   onSaveSlug: (newSlug: string) => void;
 }
@@ -27,6 +37,15 @@ export function ProgramDetailHeader({
   onViewModeChange,
   onPublishToggle,
   onSimulate,
+  onQuestions,
+  onReorder,
+  onAddElement,
+  onAddQuestion,
+  onAddAuth,
+  onAddServiceArea,
+  onAddSection,
+  onAddConsent,
+  onAddCheckout,
   onCopySlug,
   onSaveSlug,
 }: ProgramDetailHeaderProps) {
@@ -50,6 +69,75 @@ export function ProgramDetailHeader({
 
   const isPublished = programStatus === "published";
   const isIntake = programStage === "intake";
+
+  if (viewMode === "flow") {
+    return (
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-6">
+        <div className="flex gap-3">
+          <Button
+            asChild
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 shrink-0 border-slate-200 bg-white rounded-lg shadow-sm hover:bg-slate-50 mt-0.5"
+          >
+            <Link to="/dashboard/treatments/programs">
+              <ArrowLeft className="h-4.5 w-4.5 text-slate-600" />
+            </Link>
+          </Button>
+
+          <div>
+            <h1 className="text-[22px] font-extrabold tracking-tight text-slate-950 leading-tight">
+              {programName}
+            </h1>
+            <div className="text-[12px] text-slate-500 mt-1 font-medium">
+              Manage questions for this template
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onSimulate}
+            className="h-9 px-3 text-[12px] font-semibold text-slate-600 hover:text-slate-950"
+          >
+            <Eye className="mr-1.5 h-3.5 w-3.5" />
+            Preview
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onQuestions || (() => onViewModeChange("list"))}
+            className="h-9 px-3 text-[12px] font-semibold text-slate-600 hover:text-slate-950"
+          >
+            <List className="mr-1.5 h-3.5 w-3.5" />
+            Questions
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onReorder}
+            className="h-9 px-3 text-[12px] font-semibold text-slate-600 hover:text-slate-950"
+          >
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+            Reorder
+          </Button>
+          <AddElementDropdown
+            onAddQuestion={onAddQuestion || onAddElement || (() => {})}
+            onAddAuth={onAddAuth || (() => {})}
+            onAddServiceArea={onAddServiceArea}
+            onAddSection={onAddSection || (() => {})}
+            onAddConsent={onAddConsent || (() => {})}
+            onAddCheckout={onAddCheckout || (() => {})}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-6">

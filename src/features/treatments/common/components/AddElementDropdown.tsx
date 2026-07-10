@@ -1,4 +1,13 @@
-import { Plus } from "lucide-react";
+import {
+  ChevronDown,
+  FileCheck,
+  LayoutTemplate,
+  LockKeyhole,
+  MapPin,
+  Plus,
+  ShoppingCart,
+  CircleHelp,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,6 +19,7 @@ import {
 interface AddElementDropdownProps {
   onAddQuestion: () => void;
   onAddAuth: () => void;
+  onAddServiceArea?: () => void;
   onAddSection: () => void;
   onAddConsent: () => void;
   onAddCheckout: () => void;
@@ -18,83 +28,103 @@ interface AddElementDropdownProps {
 export function AddElementDropdown({
   onAddQuestion,
   onAddAuth,
+  onAddServiceArea,
   onAddSection,
   onAddConsent,
   onAddCheckout,
 }: AddElementDropdownProps) {
+  const items = [
+    {
+      label: "Question",
+      description: "Ask the patient something — text, choice, file, etc.",
+      onClick: onAddQuestion,
+      icon: CircleHelp,
+      color: "text-slate-900",
+      iconClass: "bg-indigo-100 text-indigo-600 border-indigo-100",
+    },
+    {
+      label: "Patient Authentication",
+      description: "Email, SMS code, photo ID, or account creation requirements.",
+      onClick: onAddAuth,
+      icon: LockKeyhole,
+      color: "text-slate-900",
+      iconClass: "bg-amber-100 text-amber-600 border-amber-100",
+    },
+    {
+      label: "Service Area Check",
+      description: "Patient picks their state up front; blocks if this treatment isn’t offered there.",
+      onClick: onAddServiceArea || onAddQuestion,
+      icon: MapPin,
+      color: "text-slate-900",
+      iconClass: "bg-sky-100 text-sky-600 border-sky-100",
+    },
+    {
+      label: "Section",
+      description: "Insert a reusable Common Section (Demographics, Medical Baseline...).",
+      onClick: onAddSection,
+      icon: LayoutTemplate,
+      color: "text-slate-900",
+      iconClass: "bg-blue-100 text-blue-600 border-blue-100",
+    },
+    {
+      label: "Consent",
+      description: "Attach a legal consent the patient must acknowledge.",
+      onClick: onAddConsent,
+      icon: FileCheck,
+      color: "text-slate-900",
+      iconClass: "bg-violet-100 text-violet-600 border-violet-100",
+    },
+    {
+      label: "Checkout",
+      description: "Show the patient available products and let them pick a regimen.",
+      onClick: onAddCheckout,
+      icon: ShoppingCart,
+      color: "text-slate-900",
+      iconClass: "bg-emerald-100 text-emerald-600 border-emerald-100",
+    },
+  ];
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           type="button"
-          className="h-9 bg-blue-600 px-4 text-xs font-semibold text-white hover:bg-blue-700 shadow-sm"
+          className="h-9 rounded-lg bg-blue-600 px-4 text-xs font-bold text-white shadow-sm hover:bg-blue-700"
           data-testid="add-element-button"
         >
-          <Plus className="mr-2 h-4 w-4" />
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
           Add Element
+          <ChevronDown className="ml-1.5 h-3.5 w-3.5 opacity-80" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[320px] p-2 bg-white border border-slate-200 rounded-xl shadow-xl">
-        <DropdownMenuItem
-          onClick={onAddQuestion}
-          className="flex flex-col items-start gap-1 p-3 rounded-lg hover:bg-slate-50 cursor-pointer"
-        >
-          <div className="flex items-center gap-2 text-purple-700 font-bold text-xs">
-            <span className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center">?</span>
-            Question
-          </div>
-          <div className="text-[10px] text-slate-400 leading-normal">
-            Ask the patient something — text, choice, file, etc.
-          </div>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={onAddAuth}
-          className="flex flex-col items-start gap-1 p-3 rounded-lg hover:bg-slate-50 cursor-pointer border-t border-slate-100"
-        >
-          <div className="flex items-center gap-2 text-amber-700 font-bold text-xs">
-            <span className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center">🔒</span>
-            Patient Authentication
-          </div>
-          <div className="text-[10px] text-slate-400 leading-normal">
-            Email, SMS code, photo ID, or account creation requirements.
-          </div>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={onAddSection}
-          className="flex flex-col items-start gap-1 p-3 rounded-lg hover:bg-slate-50 cursor-pointer border-t border-slate-100"
-        >
-          <div className="flex items-center gap-2 text-blue-700 font-bold text-xs">
-            <span className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center">📋</span>
-            Section
-          </div>
-          <div className="text-[10px] text-slate-400 leading-normal">
-            Insert a reusable Common Section (Demographics, Medical Baseline...).
-          </div>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={onAddConsent}
-          className="flex flex-col items-start gap-1 p-3 rounded-lg hover:bg-slate-50 cursor-pointer border-t border-slate-100"
-        >
-          <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs">
-            <span className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center">✍️</span>
-            Consent
-          </div>
-          <div className="text-[10px] text-slate-400 leading-normal">
-            Attach a legal consent the patient must acknowledge.
-          </div>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={onAddCheckout}
-          className="flex flex-col items-start gap-1 p-3 rounded-lg hover:bg-slate-50 cursor-pointer border-t border-slate-100"
-        >
-          <div className="flex items-center gap-2 text-rose-700 font-bold text-xs">
-            <span className="w-5 h-5 rounded-full bg-rose-100 flex items-center justify-center">🛒</span>
-            Checkout
-          </div>
-          <div className="text-[10px] text-slate-400 leading-normal">
-            Show the patient available products and let them pick a regimen.
-          </div>
-        </DropdownMenuItem>
+      <DropdownMenuContent
+        align="end"
+        className="w-[255px] rounded-lg border border-slate-200 bg-white p-2 shadow-xl"
+      >
+        {items.map((item) => {
+          const Icon = item.icon;
+          return (
+            <DropdownMenuItem
+              key={item.label}
+              onClick={item.onClick}
+              className="group flex cursor-pointer items-start gap-3 rounded-md px-3 py-2.5 outline-none hover:bg-slate-50 focus:bg-slate-50"
+            >
+              <span
+                className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${item.iconClass}`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </span>
+              <span className="min-w-0">
+                <span className={`block text-[12px] font-extrabold leading-tight ${item.color}`}>
+                  {item.label}
+                </span>
+                <span className="mt-0.5 block text-[10.5px] font-medium leading-snug text-slate-400">
+                  {item.description}
+                </span>
+              </span>
+            </DropdownMenuItem>
+          );
+        })}
       </DropdownMenuContent>
     </DropdownMenu>
   );
