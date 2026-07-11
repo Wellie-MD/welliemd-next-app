@@ -17,6 +17,7 @@ import { ProgramCheckoutQuestions } from "@/features/treatments/programs/compone
 import { ProgramScreeningQuestions } from "@/features/treatments/programs/components/ProgramScreeningQuestions";
 import { ProgramConsents } from "@/features/treatments/programs/components/ProgramConsents";
 import { ProgramAuthentication } from "@/features/treatments/programs/components/ProgramAuthentication";
+import { ProgramEligibility } from "@/features/treatments/programs/components/ProgramEligibility";
 import { CheckoutQuestionModal } from "@/features/treatments/programs/components/CheckoutQuestionModal";
 import { AuthSetupModal } from "@/features/treatments/programs/components/AuthSetupModal";
 import { SectionSelectorModal } from "@/features/treatments/programs/components/SectionSelectorModal";
@@ -250,6 +251,26 @@ export default function ProgramDetailPage() {
     });
   };
 
+  const setSexRequirement = (val: "any" | "male" | "female") => {
+    saveProgramMutation.mutate({ ...foundProgram, sexRequirement: val });
+  };
+
+  const setMinAge = (val: number | null) => {
+    saveProgramMutation.mutate({ ...foundProgram, minAge: val });
+  };
+
+  const setMaxAge = (val: number | null) => {
+    saveProgramMutation.mutate({ ...foundProgram, maxAge: val });
+  };
+
+  const setMinBmi = (val: number | null) => {
+    saveProgramMutation.mutate({ ...foundProgram, minBmi: val });
+  };
+
+  const setMaxBmi = (val: number | null) => {
+    saveProgramMutation.mutate({ ...foundProgram, maxBmi: val });
+  };
+
   return (
     <div className="p-6 lg:p-8 w-full bg-[#f8fafc] min-h-screen">
       
@@ -320,6 +341,18 @@ export default function ProgramDetailPage() {
             setAuthPhone={setAuthPhone}
             setAuthIdentity={setAuthIdentity}
             setAuthAccount={setAuthAccount}
+          />
+          <ProgramEligibility
+            sexRequirement={foundProgram.sexRequirement || "any"}
+            minAge={foundProgram.minAge ?? null}
+            maxAge={foundProgram.maxAge ?? null}
+            minBmi={foundProgram.minBmi ?? null}
+            maxBmi={foundProgram.maxBmi ?? null}
+            setSexRequirement={setSexRequirement}
+            setMinAge={setMinAge}
+            setMaxAge={setMaxAge}
+            setMinBmi={setMinBmi}
+            setMaxBmi={setMaxBmi}
           />
         </div>
       ) : (
