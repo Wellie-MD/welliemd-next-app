@@ -2767,6 +2767,20 @@ body.light .km-btn-large-grey:hover {
   color: var(--km-tm);
 }
 
+/* Explore Treatments Page Scoped Overrides */
+#pg-explore .km-page-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.4px;
+}
+
+#pg-explore .km-page-sub {
+  font-size: 13px;
+  color: var(--km-tm);
+  margin-top: 3px;
+}
+
 /* Treatments Page Scoped Overrides */
 #pg-treatments .km-page-title {
   font-family: 'Playfair Display', serif;

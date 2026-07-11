@@ -17,6 +17,7 @@ import {
   LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/features/auth";
+import { PatientAvatarCircle } from "@/components/common/PatientAvatarCircle";
 
 interface NavigationItem {
   icon: LucideIcon;
@@ -147,23 +148,7 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
             onMouseEnter={(e) => { e.currentTarget.style.background = "var(--km-s2)"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
           >
-            <div
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: "50%",
-                background: "linear-gradient(135deg, #4f8ef7, #a78bfa)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 12,
-                fontWeight: 700,
-                color: "#fff",
-                flexShrink: 0,
-              }}
-            >
-              {initials}
-            </div>
+            <PatientAvatarCircle avatarUrl={user?.avatar_url} initials={initials} size={34} fontSize={12} />
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "var(--km-t)" }}>{fullName}</div>
               <div style={{ fontSize: 11, color: "var(--km-tm)" }}>{patientId}</div>
@@ -276,23 +261,7 @@ export default function Sidebar({ isMobile, isMobileOpen, onMobileClose }: Sideb
             borderBottom: "1px solid var(--km-b)",
           }}
         >
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: "50%",
-              background: "linear-gradient(135deg, #4f8ef7, #a78bfa)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 700,
-              fontSize: 14,
-              color: "#fff",
-              flexShrink: 0,
-            }}
-          >
-            {initials}
-          </div>
+          <PatientAvatarCircle avatarUrl={user?.avatar_url} initials={initials} size={40} fontSize={14} />
           <div>
             <div style={{ fontSize: 14, fontWeight: 600, color: "var(--km-t)" }}>{fullName}</div>
             <div style={{ fontSize: 11, color: "var(--km-tm)", marginTop: 1 }}>{patientId}</div>

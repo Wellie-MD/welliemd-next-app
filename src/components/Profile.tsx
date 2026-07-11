@@ -4,6 +4,7 @@ import { profileService, useProfile } from '@/features/profile';
 import { MEDICAL, SUCCESS_MESSAGES, ERROR_MESSAGES, LOADING_MESSAGES } from '@/config/constants';
 import { Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { PatientAvatarCircle } from '@/components/common/PatientAvatarCircle';
 
 export default function Profile() {
   const {
@@ -199,14 +200,13 @@ export default function Profile() {
       {/* Avatar + Name */}
       <div className="km-profile-card km-fade">
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{
-            width: 48, height: 48, borderRadius: '50%',
-            background: 'var(--km-ac)', color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 16, fontWeight: 700,
-          }}>
-            {initials}
-          </div>
+          <PatientAvatarCircle
+            avatarUrl={userProfile?.avatar_url}
+            initials={initials}
+            size={48}
+            fontSize={16}
+            background="var(--km-ac)"
+          />
           <div>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--km-t)' }}>
               {userProfile?.first_name} {userProfile?.last_name}
@@ -442,6 +442,143 @@ export default function Profile() {
             </button>
           </div>
         </div>
+      </div>
+
+      <VitalsCard latestVitals={patientProfile?.latest_vitals} />
+    </div>
+  );
+}
+
+function bmiCategory(bmi: number): string {
+  if (bmi < 18.5) return 'Underweight';
+  if (bmi < 25) return 'Healthy';
+  if (bmi < 30) return 'Overweight';
+  return 'Obesity';
+}
+
+interface VitalsCardProps {
+  latestVitals?: {
+    height_inches?: number | null;
+    weight_lbs?: string | null;
+  } | null;
+}
+
+// Bounds match the input's own min/max (ft 3-8, in 0-11, weight >= 50lb) - HTML
+// min/max attributes alone don't block a typed value, so they're re-checked here.
+const HEIGHT_FT_MIN = 3;
+const HEIGHT_FT_MAX = 8;
+const HEIGHT_IN_MIN = 0;
+const HEIGHT_IN_MAX = 11;
+const WEIGHT_MIN = 50;
+
+function inRange(n: number | null, min: number, max = Infinity): boolean {
+  return n == null || (Number.isFinite(n) && n >= min && n <= max);
+}
+
+function VitalsCard({ latestVitals }: VitalsCardProps) {
+  const [heightFt, setHeightFt] = useState('');
+  const [heightIn, setHeightIn] = useState('');
+  const [weight, setWeight] = useState('');
+
+  useEffect(() => {
+    const inches = latestVitals?.height_inches;
+    if (inches != null) {
+      setHeightFt(String(Math.floor(inches / 12)));
+      setHeightIn(String(Math.round(inches % 12)));
+    }
+    if (latestVitals?.weight_lbs != null) {
+      setWeight(latestVitals.weight_lbs);
+    }
+  }, [latestVitals]);
+
+  const heightFtNum = heightFt === '' ? null : parseFloat(heightFt);
+  const heightInNum = heightIn === '' ? null : parseFloat(heightIn);
+  const weightNum = weight === '' ? null : parseFloat(weight);
+
+  const heightFtValid = inRange(heightFtNum, HEIGHT_FT_MIN, HEIGHT_FT_MAX);
+  const heightInValid = inRange(heightInNum, HEIGHT_IN_MIN, HEIGHT_IN_MAX);
+  const weightValid = inRange(weightNum, WEIGHT_MIN);
+  const allValid = heightFtValid && heightInValid && weightValid;
+
+  const totalHeightIn = (heightFtNum || 0) * 12 + (heightInNum || 0);
+  const bmi =
+    // heightFtNum required (not just totalHeightIn > 0): "in" alone without "ft" would
+    // otherwise compute BMI off a few inches of height, e.g. 8721 for in=11, weight=150.
+    allValid && heightFtNum != null && weightNum != null
+      ? (703 * weightNum) / (totalHeightIn * totalHeightIn)
+      : null;
+
+  const handleSaveVitals = () => {
+    // ponytail: no PatientVitals write endpoint exists yet (latest_vitals is read-only,
+    // see apps.medical.serializers.patient_serializers.PatientSerializer.get_latest_vitals).
+    // Same honest-stub pattern as "Get Started" until that endpoint lands.
+    toast.info("Saving vitals isn't available yet. Please check back soon.");
+  };
+
+  return (
+    <div className="km-profile-card km-fade">
+      <h3>Vitals</h3>
+      <div className="km-card-desc">
+        Your height and current weight, used to track your progress and BMI. Update anytime.
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div>
+          <label className="km-field-label">Height</label>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              className="km-field-input"
+              type="number"
+              min={HEIGHT_FT_MIN}
+              max={HEIGHT_FT_MAX}
+              style={{ textAlign: 'center', borderColor: heightFtValid ? undefined : 'var(--km-re)' }}
+              value={heightFt}
+              onChange={e => setHeightFt(e.target.value)}
+            />
+            <span style={{ fontSize: 12, color: 'var(--km-tm)' }}>ft</span>
+            <input
+              className="km-field-input"
+              type="number"
+              min={HEIGHT_IN_MIN}
+              max={HEIGHT_IN_MAX}
+              style={{ textAlign: 'center', borderColor: heightInValid ? undefined : 'var(--km-re)' }}
+              value={heightIn}
+              onChange={e => setHeightIn(e.target.value)}
+            />
+            <span style={{ fontSize: 12, color: 'var(--km-tm)' }}>in</span>
+          </div>
+          {(!heightFtValid || !heightInValid) && (
+            <div style={{ fontSize: 11, color: 'var(--km-re)', marginTop: 4 }}>
+              Height must be {HEIGHT_FT_MIN}–{HEIGHT_FT_MAX} ft and {HEIGHT_IN_MIN}–{HEIGHT_IN_MAX} in.
+            </div>
+          )}
+        </div>
+        <div>
+          <label className="km-field-label">Current weight (lb)</label>
+          <input
+            className="km-field-input"
+            type="number"
+            min={WEIGHT_MIN}
+            step="0.1"
+            style={{ borderColor: weightValid ? undefined : 'var(--km-re)' }}
+            value={weight}
+            onChange={e => setWeight(e.target.value)}
+          />
+          {!weightValid && (
+            <div style={{ fontSize: 11, color: 'var(--km-re)', marginTop: 4 }}>
+              Weight must be at least {WEIGHT_MIN} lb.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 13, color: 'var(--km-tm)' }}>
+          BMI <b style={{ color: 'var(--km-t)' }}>{bmi != null ? `${bmi.toFixed(1)} · ${bmiCategory(bmi)}` : '—'}</b>
+        </div>
+        <button className="km-save-btn" onClick={handleSaveVitals} disabled={!allValid}>
+          Save vitals
+        </button>
       </div>
     </div>
   );

@@ -26,7 +26,9 @@ export const UserSchema = z.object({
   // Extended fields for client-side use
   role: z.nativeEnum(UserRole).optional(),
   status: z.nativeEnum(UserStatus).optional(),
-  avatar: z.string().url().optional(),
+  // Backend field is avatar_url (apps.users.serializers.UserSerializer) and defaults to "" when
+  // unset for every patient today - not a strict url() so parsing doesn't throw on the common case.
+  avatar_url: z.string().optional(),
   dateOfBirth: z.string().datetime().optional(),
   createdAt: z.string().datetime().optional(),
   updatedAt: z.string().datetime().optional(),

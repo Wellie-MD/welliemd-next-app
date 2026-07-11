@@ -2,6 +2,7 @@ import { ChevronDown, User, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth';
 import { useDropdown } from '@/contexts/DropdownContext';
+import { PatientAvatarCircle } from '@/components/common/PatientAvatarCircle';
 
 interface UserProfileDropdownProps {
   className?: string;
@@ -56,23 +57,7 @@ export const UserProfileDropdown = ({ className, style, compact = false }: UserP
         }}
       >
         {/* Avatar */}
-        <div
-          style={{
-            width: 24,
-            height: 24,
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, #4f8ef7, #a78bfa)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 9,
-            fontWeight: 700,
-            color: '#fff',
-            flexShrink: 0,
-          }}
-        >
-          {getInitials()}
-        </div>
+        <PatientAvatarCircle avatarUrl={user?.avatar_url} initials={getInitials()} size={24} fontSize={9} />
         {/* Name — hidden on compact/mobile */}
         {!compact && (
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--km-t)', whiteSpace: 'nowrap' }}>
