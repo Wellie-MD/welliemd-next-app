@@ -7,7 +7,7 @@ import {
   type ConsentScopeFilter,
 } from "@/features/treatments/libraries/consents/components/ConsentsToolbar";
 import { DeleteConfirmDialog, TreatmentPageHeader } from "@/features/treatments/common/components";
-import { useConsents, useDeleteConsent } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { useConsents, useDeleteConsent, useArchiveConsent } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { ConsentEditModal } from "@/features/treatments/libraries/consents/components/ConsentEditModal";
 import { ConsentDetailModal } from "@/features/treatments/libraries/consents/components/ConsentDetailModal";
 import { ConsentPatientPreviewModal } from "@/features/treatments/libraries/consents/components/ConsentPatientPreviewModal";
@@ -18,6 +18,7 @@ import { toast } from "@/components/ui/use-toast";
 export default function ConsentsPage() {
   const { data: consents = [] } = useConsents();
   const { mutate: deleteConsent } = useDeleteConsent();
+  const { mutate: archiveConsent } = useArchiveConsent();
 
   const [scopeFilter, setScopeFilter] = useState<ConsentScopeFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -33,6 +34,8 @@ export default function ConsentsPage() {
   const filteredConsents = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return consents.filter((consent) => {
+      if (consent.isArchived) return false;
+
       const matchesScope =
         scopeFilter === "all" ||
         (scopeFilter === "global" && consent.scope === "global") ||
@@ -113,6 +116,30 @@ export default function ConsentsPage() {
     });
   };
 
+  const handleArchive = (id: string) => {
+    const consent = consents.find((c) => c.id === id);
+    archiveConsent(id, {
+      onSuccess: () => {
+        toast({
+          title: "Consent Archived",
+          description: consent ? `"${consent.name}" has been archived.` : "Consent has been archived.",
+        });
+      },
+      onError: (error: unknown) => {
+        const message =
+          (error as any)?.response?.data?.detail ||
+          (error as any)?.response?.data?.error ||
+          (error as any)?.message ||
+          "Failed to archive consent";
+        toast({
+          title: "Cannot Archive",
+          description: message,
+          variant: "destructive",
+        });
+      },
+    });
+  };
+
   const activeDetailConsent = consents.find((c) => c.id === detailConsentId);
   const activePreviewConsent = consents.find((c) => c.id === previewConsentId);
 
@@ -145,6 +172,7 @@ export default function ConsentsPage() {
         onViewDetail={handleViewDetail}
         onPatientPreview={handlePatientPreview}
         onDelete={setDeleteConsentId}
+        onArchive={handleArchive}
       />
 
       <ConsentEditModal

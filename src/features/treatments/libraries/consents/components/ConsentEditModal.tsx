@@ -122,6 +122,7 @@ export function ConsentEditModal({ open, onOpenChange, consentId }: ConsentEditM
       id: consentId || createMockId("consent"),
       name: name.trim(),
       scope,
+      isArchived: existing?.isArchived ?? false,
       visitTypeKeys: scope === "treatment" ? visitTypeKeys : [],
       text,
       options: cleanedOptions,

@@ -29,7 +29,7 @@ const KEYS = {
   SECTION_FIELDS: "welliemd_mock_section_fields",
 };
 
-const SEED_VERSION_KEY = "welliemd_mock_data_version_v12";
+const SEED_VERSION_KEY = "welliemd_mock_data_version_v13";
 
 const defaultSectionFields: Record<string, CommonSectionField[]> = {
   "sec-medical-baseline": [
@@ -431,6 +431,7 @@ type ConsentApiRecord = {
   id: string;
   name: string;
   scope: ConsentForm["scope"];
+  is_archived?: boolean;
   visit_type_keys: string[];
   text?: string;
   options?: ConsentForm["options"];
@@ -655,6 +656,7 @@ const mapConsentFromApi = (record: ConsentApiRecord): ConsentForm => ({
   id: record.id,
   name: record.name,
   scope: record.scope,
+  isArchived: record.is_archived ?? false,
   visitTypeKeys: record.visit_type_keys || [],
   text: record.text || "",
   options: record.options || [],
@@ -664,6 +666,7 @@ const mapConsentFromApi = (record: ConsentApiRecord): ConsentForm => ({
 const mapConsentToApi = (consent: ConsentForm) => ({
   name: consent.name.trim(),
   scope: consent.scope,
+  is_archived: consent.isArchived,
   visit_type_keys: consent.visitTypeKeys || [],
   text: consent.text || "",
   options: consent.options || [],
@@ -1174,6 +1177,71 @@ export const treatmentsApi = {
       return mapConsentFromApi(data);
     }
     const { data } = await axiosInstance.post<ConsentApiRecord>("treatments/consents/", payload);
+    return mapConsentFromApi(data);
+  },
+
+  archiveConsent: async (id: string): Promise<ConsentForm> => {
+    if (!isPersistedUuid(id)) {
+      const list = getConsents();
+      const index = list.findIndex((c) => c.id === id);
+      if (index < 0) throw new Error(`Consent ${id} was not found`);
+
+      const consent = list[index];
+
+      const programs = getPrograms();
+      const customPrograms = getCustomPrograms();
+
+      const referencingPrograms = programs.filter(
+        (p) => p.consentIds?.includes(id)
+      );
+      const referencingCustomPrograms = customPrograms.filter(
+        (cp) =>
+          cp.consentIds?.includes(id) ||
+          cp.flowItems?.some((fi) => fi.kind === "consent" && fi.sourceId === id)
+      );
+
+      if (referencingPrograms.length > 0 || referencingCustomPrograms.length > 0) {
+        const names: string[] = [
+          ...referencingPrograms.map((p) => p.name),
+          ...referencingCustomPrograms.map((cp) => cp.name),
+        ];
+        throw new Error(
+          `Cannot archive: this consent is used by ${names.join(", ")}`
+        );
+      }
+
+      const archived = {
+        ...consent,
+        isArchived: true,
+        updatedAt: currentDateStamp(),
+      };
+      const updated = [...list];
+      updated[index] = archived;
+      setStored(KEYS.CONSENTS, updated);
+      return archived;
+    }
+
+    const { data } = await axiosInstance.post<ConsentApiRecord>(`treatments/consents/${id}/archive/`);
+    return mapConsentFromApi(data);
+  },
+
+  restoreConsent: async (id: string): Promise<ConsentForm> => {
+    if (!isPersistedUuid(id)) {
+      const list = getConsents();
+      const index = list.findIndex((c) => c.id === id);
+      if (index < 0) throw new Error(`Consent ${id} was not found`);
+      const restored = {
+        ...list[index],
+        isArchived: false,
+        updatedAt: currentDateStamp(),
+      };
+      const updated = [...list];
+      updated[index] = restored;
+      setStored(KEYS.CONSENTS, updated);
+      return restored;
+    }
+
+    const { data } = await axiosInstance.post<ConsentApiRecord>(`treatments/consents/${id}/restore/`);
     return mapConsentFromApi(data);
   },
 
