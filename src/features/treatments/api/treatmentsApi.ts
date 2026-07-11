@@ -494,6 +494,25 @@ type ProgramApiRecord = {
   updated_at?: string;
 };
 
+type ProgramQuestionApiRecord = Partial<ProgramQuestion> & {
+  question_text?: string;
+  text?: string;
+  question_type?: ProgramQuestion["kind"];
+  kind?: ProgramQuestion["kind"];
+  order_index?: number;
+  order?: number;
+  is_required?: boolean;
+  required?: boolean;
+  answer_choices?: string[];
+  choices?: string[];
+  conditional_logic?: unknown;
+  visibilityRules?: unknown;
+  visibility_rules?: unknown;
+  visibilityRuleGroup?: unknown;
+  include_in_qa_section?: boolean;
+  includeInQa?: boolean;
+};
+
 const slugifyTreatmentValue = (value: string): string =>
   value
     .trim()
@@ -503,6 +522,73 @@ const slugifyTreatmentValue = (value: string): string =>
 
 const isPersistedUuid = (value?: string | null): boolean =>
   Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
+
+const isVisibilityRuleGroup = (value: unknown): value is NonNullable<ProgramQuestion["visibilityRuleGroup"]> => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as { mode?: unknown; rules?: unknown };
+  return (candidate.mode === "simple" || candidate.mode === "nested") && Array.isArray(candidate.rules);
+};
+
+const normalizeVisibilityRuleGroup = (record: ProgramQuestionApiRecord): ProgramQuestion["visibilityRuleGroup"] | undefined => {
+  const raw =
+    record.visibilityRuleGroup ||
+    record.visibilityRules ||
+    record.visibility_rules ||
+    record.conditional_logic;
+  if (isVisibilityRuleGroup(raw)) {
+    return {
+      mode: raw.mode,
+      rules: raw.rules || [],
+      subgroups: raw.subgroups || [],
+    };
+  }
+  return undefined;
+};
+
+const mapProgramQuestionFromApi = (record: ProgramQuestionApiRecord, index = 0): ProgramQuestion => ({
+  id: String(record.id || `q-${index + 1}`),
+  order: Number(record.order ?? record.order_index ?? index + 1),
+  text: String(record.text ?? record.question_text ?? ""),
+  kind: (record.kind ?? record.question_type ?? "text") as ProgramQuestion["kind"],
+  section: record.section || "General Intake",
+  required: Boolean(record.required ?? record.is_required ?? true),
+  choices: record.choices ?? record.answer_choices ?? [],
+  dqChoices: record.dqChoices ?? [],
+  consentText: record.consentText,
+  checkoutProductIds: record.checkoutProductIds,
+  checkoutProducts: record.checkoutProducts,
+  visibilityRule: record.visibilityRule,
+  visibilityRuleGroup: normalizeVisibilityRuleGroup(record),
+  includeInQa: record.includeInQa ?? record.include_in_qa_section ?? true,
+  hiddenFromPatient: record.hiddenFromPatient ?? false,
+  prefillFromPrevious: record.prefillFromPrevious ?? false,
+});
+
+const mapProgramQuestionToApi = (question: ProgramQuestion): ProgramQuestionApiRecord => ({
+  id: question.id,
+  order: question.order,
+  order_index: question.order,
+  text: question.text,
+  question_text: question.text,
+  kind: question.kind,
+  question_type: question.kind,
+  required: question.required,
+  is_required: question.required,
+  choices: question.choices || [],
+  answer_choices: question.choices || [],
+  visibilityRuleGroup: question.visibilityRuleGroup,
+  visibilityRules: question.visibilityRuleGroup,
+  visibility_rules: question.visibilityRuleGroup,
+  includeInQa: question.includeInQa,
+  include_in_qa_section: question.includeInQa,
+  hiddenFromPatient: question.hiddenFromPatient,
+  prefillFromPrevious: question.prefillFromPrevious,
+  section: question.section,
+  dqChoices: question.dqChoices,
+  consentText: question.consentText,
+  checkoutProductIds: question.checkoutProductIds,
+  checkoutProducts: question.checkoutProducts,
+});
 
 const mapTreatmentTypeFromApi = (record: TreatmentTypeApiRecord): TreatmentType => ({
   id: record.id,
@@ -650,7 +736,7 @@ const mapProgramFromApi = (record: ProgramApiRecord): Program => ({
     identity: false,
     account: true,
   },
-  screeningQuestions: record.screening_questions || [],
+  screeningQuestions: (record.screening_questions || []).map(mapProgramQuestionFromApi),
   checkoutQuestions: record.checkout_questions || [],
   consentIds: record.consent_ids || [],
   sexRequirement: record.sex_requirement || "any",
@@ -694,7 +780,7 @@ const mapProgramToApi = (
       identity: false,
       account: true,
     },
-    screening_questions: program.screeningQuestions || [],
+    screening_questions: (program.screeningQuestions || []).map(mapProgramQuestionToApi),
     checkout_questions: program.checkoutQuestions || [],
     consent_ids: program.consentIds || [],
     sex_requirement: program.sexRequirement || "any",
@@ -778,8 +864,8 @@ export const treatmentsApi = {
     if (!isPersistedUuid(programId)) {
       return getProgramQuestions(programId);
     }
-    const { data } = await axiosInstance.get<ProgramQuestion[]>(`treatments/programs/${programId}/questions/`);
-    return data || [];
+    const { data } = await axiosInstance.get<ProgramQuestionApiRecord[]>(`treatments/programs/${programId}/questions/`);
+    return (data || []).map(mapProgramQuestionFromApi);
   },
 
   saveProgramQuestions: async (programId: string, questions: ProgramQuestion[]): Promise<ProgramQuestion[]> => {
@@ -787,11 +873,11 @@ export const treatmentsApi = {
       setProgramQuestions(programId, questions);
       return questions;
     }
-    const { data } = await axiosInstance.put<ProgramQuestion[]>(
+    const { data } = await axiosInstance.put<ProgramQuestionApiRecord[]>(
       `treatments/programs/${programId}/questions/`,
-      { questions }
+      { questions: questions.map(mapProgramQuestionToApi) }
     );
-    return data;
+    return (data || []).map(mapProgramQuestionFromApi);
   },
 
   // Mutations
