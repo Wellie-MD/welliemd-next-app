@@ -5,37 +5,33 @@
 import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-interface BiomarkerRow {
-  biomarker: string;
-  result: string;
-  units: string;
-  reference_range: string;
-  flag: string;
-}
+import type { LabResultRow } from "@/features/labs/types";
 
 interface Props {
-  biomarkers: BiomarkerRow[];
+  biomarkers: LabResultRow[];
   resultsReleased: boolean;
   downloadingPdf: boolean;
   onDownloadPdf: () => void;
+  statusLabel: string;
 }
 
-export default function LabResultsTable({ biomarkers, resultsReleased, downloadingPdf, onDownloadPdf }: Props) {
+export default function LabResultsTable({ biomarkers, resultsReleased, downloadingPdf, onDownloadPdf, statusLabel }: Props) {
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-base font-semibold text-gray-900 dark:text-white">Lab Results</h3>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onDownloadPdf}
-          disabled={downloadingPdf || !resultsReleased}
-          className="gap-2 text-xs border border-gray-200 hover:bg-gray-50 text-gray-700 dark:text-gray-300 dark:border-gray-800 dark:hover:bg-gray-850"
-        >
-          <FileText className="h-4 w-4 text-gray-400" />
-          {downloadingPdf ? "Downloading…" : "Download PDF"}
-        </Button>
+        {biomarkers.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onDownloadPdf}
+            disabled={downloadingPdf || !resultsReleased}
+            className="h-7 gap-2 border border-gray-200 px-2 text-[10px] text-gray-700 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-gray-850"
+          >
+            <FileText className="h-3.5 w-3.5 text-gray-400" />
+            {downloadingPdf ? "Downloading…" : "Download PDF"}
+          </Button>
+        )}
       </div>
 
       <div className="overflow-x-auto -mx-6">
@@ -74,7 +70,9 @@ export default function LabResultsTable({ biomarkers, resultsReleased, downloadi
               })
             ) : (
               <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">No biomarker results loaded</td>
+                <td colSpan={5} className="px-4 py-4 text-xs text-slate-400">
+                  Results will appear here once the lab completes processing. Current status: <strong className="font-semibold text-slate-600 dark:text-gray-300">{statusLabel}</strong>.
+                </td>
               </tr>
             )}
           </tbody>

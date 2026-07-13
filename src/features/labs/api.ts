@@ -121,6 +121,12 @@ export interface ClientLabPanel {
   client_configuration_ready?: boolean;
   submission_ready?: boolean;
   blocking_reason?: string;
+  junction_provider_key?: string;
+  junction_billing_type?: string;
+  physician_ordering_mode?: "junction_network" | "own_physician" | "";
+  provider_policy_revision?: number | null;
+  provider_policy_source?: string;
+  provider_supported_states?: string[];
 }
 
 export interface LabOrderResult {
@@ -151,11 +157,18 @@ export interface LabOrder {
   ui_lab_event_label?: string;
   ui_lab_event_tone?: string;
   payment_status: string;
+  payment_provider?: string;
   order_status: string;
   results_status: string;
   total_paid: number;
   created_at: string;
   result_access_allowed?: boolean;
+  junction_provider_key?: string;
+  junction_billing_type?: string;
+  junction_collection_method?: string;
+  junction_physician_ordering_mode?: string;
+  junction_patient_state?: string;
+  junction_policy_revision?: number | null;
 }
 
 export interface LabOrderDetail {
@@ -274,6 +287,18 @@ const normalizePanel = (raw: Record<string, unknown>): ClientLabPanel => {
     client_configuration_ready: Boolean(raw.client_configuration_ready),
     submission_ready: Boolean(raw.submission_ready),
     blocking_reason: raw.blocking_reason ? String(raw.blocking_reason) : undefined,
+    junction_provider_key: raw.junction_provider_key ? String(raw.junction_provider_key) : undefined,
+    junction_billing_type: raw.junction_billing_type ? String(raw.junction_billing_type) : undefined,
+    physician_ordering_mode: raw.physician_ordering_mode
+      ? raw.physician_ordering_mode as ClientLabPanel["physician_ordering_mode"]
+      : "",
+    provider_policy_revision: typeof raw.provider_policy_revision === "number"
+      ? raw.provider_policy_revision
+      : null,
+    provider_policy_source: raw.provider_policy_source ? String(raw.provider_policy_source) : undefined,
+    provider_supported_states: Array.isArray(raw.provider_supported_states)
+      ? raw.provider_supported_states as string[]
+      : [],
   };
 };
 
@@ -296,11 +321,18 @@ const normalizeOrder = (raw: Record<string, unknown>): LabOrder => ({
   ui_lab_event_label: raw.ui_lab_event_label ? String(raw.ui_lab_event_label) : undefined,
   ui_lab_event_tone: raw.ui_lab_event_tone ? String(raw.ui_lab_event_tone) : undefined,
   payment_status: String(raw.ui_payment_status ?? raw.payment_status ?? ""),
+  payment_provider: raw.payment_provider ? String(raw.payment_provider) : undefined,
   order_status: String(raw.ui_order_status ?? raw.order_status ?? ""),
   results_status: String(raw.results_status ?? ""),
   total_paid: moneyToNumber(raw.total_paid),
   created_at: String(raw.created_at ?? ""),
   result_access_allowed: Boolean(raw.result_access_allowed),
+  junction_provider_key: raw.junction_provider_key ? String(raw.junction_provider_key) : undefined,
+  junction_billing_type: raw.junction_billing_type ? String(raw.junction_billing_type) : undefined,
+  junction_collection_method: raw.junction_collection_method ? String(raw.junction_collection_method) : undefined,
+  junction_physician_ordering_mode: raw.junction_physician_ordering_mode ? String(raw.junction_physician_ordering_mode) : undefined,
+  junction_patient_state: raw.junction_patient_state ? String(raw.junction_patient_state) : undefined,
+  junction_policy_revision: typeof raw.junction_policy_revision === "number" ? raw.junction_policy_revision : null,
 });
 
 // ---------------------------------------------------------------------------

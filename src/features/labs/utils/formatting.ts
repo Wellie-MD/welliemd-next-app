@@ -25,5 +25,11 @@ export const formatLabOrderDate = (value?: string) => {
 
 export const formatLabCollectionMethod = (method?: string) => {
   if (!method) return "Collection method unavailable";
-  return method.replace(/_/g, " ");
+  const labels: Record<string, string> = {
+    testkit: "At-home test kit",
+    walk_in_test: "Walk-in lab draw",
+    at_home_phlebotomy: "At-home phlebotomy",
+    on_site_collection: "On-site collection",
+  };
+  return labels[method] || method.replace(/_/g, " ");
 };

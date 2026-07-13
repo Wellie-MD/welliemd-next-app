@@ -8,6 +8,7 @@ import { clientLabsApi, type ClientLabPanel } from "@/features/labs/api";
 import { Box, FlaskConical, DollarSign, Power, MapPin, Image as ImageIcon } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { BILLING_TYPE_LABELS, ORDERING_MODE_LABELS } from "@/features/labs/constants/orderingPolicy";
 import {
   Dialog,
   DialogContent,
@@ -172,6 +173,15 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
                     A phlebotomy kit ships to the patient. Collect the sample per the enclosed guide and return it in the prepaid mailer the same day. Fasting 8–12 hours beforehand is required.
                   </p>
                 </div>
+                <div className="border-t border-[#e8ebee] mt-3.5 pt-3.5">
+                  <div className="text-[10.5px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Production order routing</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[12px]">
+                    <div><span className="text-gray-400">Mode: </span><strong>{ORDERING_MODE_LABELS[editingLab.physician_ordering_mode as keyof typeof ORDERING_MODE_LABELS] || "Not configured"}</strong></div>
+                    <div><span className="text-gray-400">Billing route: </span><strong>{BILLING_TYPE_LABELS[editingLab.junction_billing_type || ""] || "Pending policy"}</strong></div>
+                    <div className="sm:col-span-2"><span className="text-gray-400">Supported provider states: </span><strong>{editingLab.provider_supported_states?.join(", ") || "Pending policy sync"}</strong></div>
+                  </div>
+                </div>
+
                 {/* Junction approval status */}
                 <div className="border-t border-[#e8ebee] mt-3.5 pt-3.5">
                   <div className="text-[10.5px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Junction Approval Status</div>

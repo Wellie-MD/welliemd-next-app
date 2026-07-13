@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
 import LabResultsTable from "@/features/labs/components/LabResultsTable";
 import LabOrderDetailRightColumn from "@/features/labs/components/LabOrderDetailRightColumn";
-import { cn } from "@/lib/utils"
+import LabOrderTimeline from "@/features/labs/components/LabOrderTimeline";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -15,7 +15,9 @@ import {
 } from "@/components/ui/breadcrumb"
 import { useToast } from "@/hooks/use-toast"
 import { clientLabsApi } from "@/features/labs/api"
-import { formatLabCollectionMethod, formatLabOrderDate, formatLabTimelineDate } from "@/features/labs/utils/formatting"
+import type { LabOrderView } from "@/features/labs/types"
+import { formatLabCollectionMethod, formatLabOrderDate } from "@/features/labs/utils/formatting"
+import { humanizeLabStatus } from "@/features/labs/constants/status"
 import { eventTime } from "@/features/labs/utils/lifecycle"
 import { extractLabResultRows } from "@/features/labs/utils/resultRows"
 
@@ -36,12 +38,11 @@ export default function LabOrderDetail() {
   const navigate = useNavigate()
   const { toast } = useToast()
   
-  const [order, setOrder] = useState<any>(null)
+  const [order, setOrder] = useState<LabOrderView | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [downloadingPdf, setDownloadingPdf] = useState(false)
   const [downloadingRequisition, setDownloadingRequisition] = useState(false)
-  const [downloadingCollection, setDownloadingCollection] = useState(false)
   const [togglingRelease, setTogglingRelease] = useState(false)
 
   useEffect(() => {
@@ -89,8 +90,9 @@ export default function LabOrderDetail() {
             result_access_message: detail.result_access_message,
           })
         }
-      } catch (err: any) {
-        if (!cancelled) setError(err?.response?.data?.detail || err?.message || "Failed to load lab order")
+      } catch (err: unknown) {
+        const error = err as { response?: { data?: { detail?: string } }; message?: string }
+        if (!cancelled) setError(error.response?.data?.detail || error.message || "Failed to load lab order")
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -107,7 +109,7 @@ export default function LabOrderDetail() {
     setTogglingRelease(true)
     try {
       await clientLabsApi.toggleResultAccess(orderId, newReleasedState)
-      setOrder((prev: any) => {
+      setOrder((prev) => {
         if (!prev) return prev
         return { ...prev, resultsReleased: newReleasedState }
       })
@@ -117,10 +119,11 @@ export default function LabOrderDetail() {
           ? "The patient can now view their lab results in the patient portal."
           : "Patient access to these lab results has been blocked.",
       })
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string } } }
       toast({
         title: "Failed to update result access",
-        description: err?.response?.data?.detail ?? "Please try again.",
+        description: error.response?.data?.detail ?? "Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -141,10 +144,11 @@ export default function LabOrderDetail() {
       a.click()
       a.remove()
       window.URL.revokeObjectURL(url)
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string } } }
       toast({
         title: "Download failed",
-        description: err?.response?.data?.detail ?? "Could not download the result PDF.",
+        description: error.response?.data?.detail ?? "Could not download the result PDF.",
         variant: "destructive",
       })
     } finally {
@@ -165,38 +169,15 @@ export default function LabOrderDetail() {
       a.click()
       a.remove()
       window.URL.revokeObjectURL(url)
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string } } }
       toast({
         title: "Download failed",
-        description: err?.response?.data?.detail ?? "Could not download the requisition PDF.",
+        description: error.response?.data?.detail ?? "Could not download the requisition PDF.",
         variant: "destructive",
       })
     } finally {
       setDownloadingRequisition(false)
-    }
-  }
-
-  const handleDownloadCollection = async () => {
-    if (!orderId) return
-    setDownloadingCollection(true)
-    try {
-      const blob = await clientLabsApi.getLabOrderCollectionInstructionsPdf(orderId)
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `lab-collection-instructions-${order?.display_id ?? orderId}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      window.URL.revokeObjectURL(url)
-    } catch (err: any) {
-      toast({
-        title: "Download failed",
-        description: err?.response?.data?.detail ?? "Could not download the collection instructions PDF.",
-        variant: "destructive",
-      })
-    } finally {
-      setDownloadingCollection(false)
     }
   }
 
@@ -224,109 +205,74 @@ export default function LabOrderDetail() {
   const orderDateStr = order.orderDate || order.created_at
   const formattedOrderDate = formatLabOrderDate(orderDateStr)
   const collectionMethodLabel = formatLabCollectionMethod(order.collection_method)
-  const statusLabel = order.results_status || order.order_status || "In Progress"
-
-  const timelineMilestones = [
-    {
-      title: "Processing",
-      description: "Payment Pending → Processing",
-      date: formatLabTimelineDate(order.timeline?.ordered),
-      active: !!order.timeline?.ordered,
-    },
-    {
-      title: "Ordered",
-      description: `Lab order created${order.pharmacy_display || order.lab_provider ? ` with ${order.pharmacy_display || order.lab_provider}` : ""}`,
-      date: formatLabTimelineDate(order.timeline?.ordered),
-      active: !!order.timeline?.ordered,
-    },
-    {
-      title: "Requisition Created",
-      description: "Requisition form generated",
-      date: formatLabTimelineDate(order.timeline?.requisition),
-      active: !!order.timeline?.requisition || !!order.timeline?.sample_collected || order.resultsReady,
-    },
-    {
-      title: "Appointment",
-      description: "Patient appointment booking",
-      date: formatLabTimelineDate(order.timeline?.appointment_scheduled || order.timeline?.appointment_pending),
-      active: !!order.timeline?.appointment_scheduled || !!order.timeline?.appointment_pending || !!order.timeline?.sample_collected || order.resultsReady,
-    },
-    {
-      title: "Sample Collected",
-      description: `${collectionMethodLabel} completed`,
-      date: formatLabTimelineDate(order.timeline?.sample_collected),
-      active: !!order.timeline?.sample_collected || order.resultsReady,
-    },
-    {
-      title: "At Lab",
-      description: "Sample arrived at the lab",
-      date: formatLabTimelineDate(order.timeline?.at_lab),
-      active: !!order.timeline?.at_lab || order.resultsReady,
-    },
-    {
-      title: "Results Ready",
-      description: "Results returned by lab",
-      date: formatLabTimelineDate(order.timeline?.results),
-      active: !!order.timeline?.results || order.resultsReady,
-    },
-  ];
+  const statusLabel = humanizeLabStatus(order.ui_lab_event_label || order.results_status || order.order_status || "In Process")
+  const orderStatusLabel = humanizeLabStatus(order.ui_order_status || order.order_status || "In Process")
 
   return (
-    <div className="p-6 lg:p-8">
+    <div className="p-5 lg:p-6">
       {/* Breadcrumbs & Title */}
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="mb-3 flex flex-col gap-1">
         <div>
           <Breadcrumb className="mb-1">
-            <BreadcrumbList className="text-sm text-gray-500 dark:text-gray-400">
+            <BreadcrumbList className="text-xs text-gray-400 dark:text-gray-500">
               <BreadcrumbItem>
                 <BreadcrumbLink asChild>
                   <Link to="/dashboard/orders/labs" className="hover:text-gray-750 dark:hover:text-gray-300">
-                    Lab Orders
+                    Orders
                   </Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="text-gray-400">/</BreadcrumbSeparator>
               <BreadcrumbItem>
-                <BreadcrumbPage className="text-gray-900 dark:text-white font-medium">
-                  Lab Order Details
+                  <BreadcrumbPage className="font-medium text-gray-900 dark:text-white">
+                  Order Details
                 </BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Order #{orderTitle}</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Order #{orderTitle}</h1>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.75fr)_minmax(320px,1fr)]">
         {/* Left Column (col-span-8) */}
-        <div className="lg:col-span-8 space-y-6">
+        <div className="space-y-5">
           
           {/* Lab Test Details Card */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white">Lab Test Details</h3>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-100 dark:border-blue-900/40">
-                Lab
-              </span>
+          <div className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-none dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-gray-800">
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-gray-200">Lab Test Details</h3>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadRequisition}
+                  disabled={downloadingRequisition}
+                  className="h-8 gap-1 px-3 text-xs text-slate-600"
+                >
+                  {downloadingRequisition ? "Downloading…" : "Requisition form"}
+                </Button>
+                <span className="rounded border border-blue-100 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-600 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-400">Lab</span>
+              </div>
             </div>
-            <div>
-              <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+            <div className="p-4">
+              <h4 className="mb-1 text-base font-semibold text-slate-800 dark:text-gray-200">
                 {order.product_name || "Lab Panel"}
               </h4>
-              <p className="text-xs text-gray-550 mb-6">
+              <p className="text-xs text-slate-400 dark:text-gray-500">
                 {order.pharmacy_display || order.lab_provider || "Lab provider unavailable"} • {order.biomarkers?.length || 0} biomarkers • {collectionMethodLabel}
               </p>
               
-              <div className="border-t border-gray-100 dark:border-gray-800/60 pt-4 space-y-3">
-                <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+              <div className="mt-4 space-y-3 border-t border-slate-100 pt-3 dark:border-gray-800/60">
+                <div className="flex justify-between text-sm text-slate-500 dark:text-gray-400">
                   <span>Panel price</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
+                  <span className="font-semibold text-slate-800 dark:text-gray-200">
                     ${parseFloat(order.orderTotal || order.price || "0").toFixed(2)}
                   </span>
                 </div>
-                <div className="flex justify-between text-sm font-bold pt-1">
-                  <span className="text-gray-900 dark:text-white">Total (USD)</span>
-                  <span className="text-blue-600 dark:text-blue-400 font-bold">
+                <div className="flex justify-between border-t border-slate-100 pt-3 text-sm font-bold dark:border-gray-800">
+                  <span className="text-slate-800 dark:text-gray-200">Total (USD)</span>
+                  <span className="font-bold text-blue-600 dark:text-blue-400">
                     ${parseFloat(order.orderTotal || order.price || "0").toFixed(2)}
                   </span>
                 </div>
@@ -335,46 +281,24 @@ export default function LabOrderDetail() {
           </div>
 
           {/* Order Status Card */}
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white">Order Status</h3>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/40">
-                {statusLabel.replace(/_/g, " ")}
+          <div className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-none dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3 dark:border-gray-800">
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-gray-200">Order Status</h3>
+              <span className="rounded border border-sky-100 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:border-sky-900/40 dark:bg-sky-950/40 dark:text-sky-400">
+                {orderStatusLabel}
               </span>
-              {order.resultsReady && (
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/40">
-                  Results Ready
-                </span>
-              )}
+              <span className="rounded border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                {order.ui_lab_event_label || statusLabel}
+              </span>
             </div>
-            
-            <div className="relative border-l-2 border-gray-100 dark:border-gray-800 ml-3 pl-8 space-y-6">
-              {timelineMilestones.map((m, index) => (
-                <div key={index} className="relative">
-                  {/* Milestone Dot Indicator */}
-                  <div className="absolute -left-[41px] top-1 h-5 w-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-full flex items-center justify-center">
-                    <div className={cn(
-                      "h-2 w-2 rounded-full",
-                      m.active ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-700"
-                    )} />
-                  </div>
-                  
-                  {/* Milestone Details */}
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-4">
-                    <div className="min-w-0">
-                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                        {m.title}
-                      </h4>
-                      <p className="text-xs text-gray-550 mt-0.5">
-                        {m.description}
-                      </p>
-                    </div>
-                    <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap pt-0.5">
-                      {m.date}
-                    </span>
-                  </div>
-                </div>
-              ))}
+            <div className="p-4">
+              <LabOrderTimeline
+                createdAt={order.created_at}
+                collectionMethod={order.collection_method}
+                provider={order.pharmacy_display || order.lab_provider}
+                currentLabel={order.ui_lab_event_label || statusLabel}
+                events={order.lifecycle_events || []}
+              />
             </div>
           </div>
 
@@ -384,6 +308,7 @@ export default function LabOrderDetail() {
             resultsReleased={!!order.resultsReleased}
             downloadingPdf={downloadingPdf}
             onDownloadPdf={handleDownloadPdf}
+            statusLabel={order.ui_lab_event_label || statusLabel}
           />
         </div>
 
@@ -394,10 +319,6 @@ export default function LabOrderDetail() {
           togglingRelease={togglingRelease}
           onToggleRelease={handleToggleReleaseResults}
           getInitials={getInitials}
-          downloadingRequisition={downloadingRequisition}
-          onDownloadRequisition={handleDownloadRequisition}
-          downloadingCollection={downloadingCollection}
-          onDownloadCollection={handleDownloadCollection}
         />
       </div>
     </div>
