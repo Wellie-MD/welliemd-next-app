@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { WeightData, TrendData } from '../types';
+import type { WeightData, TrendData, MetricItem, DeviceMetrics } from '../types';
 import { HEALTH_SECTIONS, HEALTH, TRENDS } from '../constants';
 
 /* ─── Simple SVG Sparkline Trend Chart ─── */
@@ -131,13 +131,15 @@ function DataSection({
   subtitle,
   sectionId,
   overrideTrend,
+  overrideMetrics,
 }: {
   title: string;
   subtitle: string;
   sectionId: string;
   overrideTrend?: TrendData;
+  overrideMetrics?: MetricItem[];
 }) {
-  const metrics = HEALTH[sectionId] || [];
+  const metrics = overrideMetrics ?? HEALTH[sectionId] ?? [];
   const trend = overrideTrend ?? TRENDS[sectionId];
 
   // Pair metrics into rows of 2
@@ -221,20 +223,51 @@ function DataSection({
           <span style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--km-tm)' }}>
             last {seriesLen} {trend.step === 'week' ? 'weeks' : 'days'}
           </span>
-        </div>
-        <TrendChart
-          series={seriesArr}
-          label={trend.label}
-          unit={trend.unit}
-          dec={trend.dec}
-          step={trend.step ?? 'day'}
-          color="var(--km-ac)"
-        />
       </div>
-    );
-  }
+      <TrendChart
+        series={seriesArr}
+        label={trend.label}
+        unit={trend.unit}
+        dec={trend.dec}
+        step={trend.step ?? 'day'}
+        color="var(--km-ac)"
+      />
+    </div>
+  );
+}
 
+if (metrics.length === 0 && !trendSection) {
   return (
+    <div
+      style={{
+        background: 'var(--km-s1)',
+        border: '1px solid var(--km-b)',
+        borderRadius: 14,
+        marginBottom: 10,
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '14px 16px 0',
+        }}
+      >
+        <span style={{ fontWeight: 700, fontSize: 14 }}>{title}</span>
+        {subtitle ? (
+          <span style={{ fontSize: 11, color: 'var(--km-tm)' }}>{subtitle}</span>
+        ) : null}
+      </div>
+      <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--km-tm)', fontSize: 13 }}>
+        No recent data available.
+      </div>
+    </div>
+  );
+}
+
+return (
     <div
       style={{
         background: 'var(--km-s1)',
@@ -276,10 +309,75 @@ function DataSection({
 
 interface HealthTabsProps {
   weightData: WeightData;
+  deviceMetrics?: DeviceMetrics;
 }
 
-export default function HealthTabs({ weightData }: HealthTabsProps) {
+export default function HealthTabs({ weightData, deviceMetrics }: HealthTabsProps) {
   const [activeTab, setActiveTab] = useState('sleep');
+
+  const dynamicMetrics: Record<string, MetricItem[]> = {
+    sleep: [],
+    activity: [],
+    heart: [],
+    workouts: [],
+    glucose: [],
+  };
+
+  if (deviceMetrics) {
+    if (deviceMetrics.sleep && deviceMetrics.sleep !== '0') {
+      dynamicMetrics.sleep.push({ l: 'Time asleep', v: deviceMetrics.sleep });
+    }
+    if (deviceMetrics.sleepScore > 0) {
+      dynamicMetrics.sleep.push({ l: 'Sleep score', v: deviceMetrics.sleepScore, u: '/100' });
+    }
+    if (deviceMetrics.sleepDetail) {
+      const { deep, rem, light, awake, efficiency, avgHr } = deviceMetrics.sleepDetail;
+      if (deep) dynamicMetrics.sleep.push({ l: 'Deep sleep', v: deep, u: 'min' });
+      if (rem) dynamicMetrics.sleep.push({ l: 'REM sleep', v: rem, u: 'min' });
+      if (light) dynamicMetrics.sleep.push({ l: 'Light sleep', v: light, u: 'min' });
+      if (awake) dynamicMetrics.sleep.push({ l: 'Awake', v: awake, u: 'min' });
+      if (efficiency) dynamicMetrics.sleep.push({ l: 'Efficiency', v: efficiency, u: '%' });
+      if (avgHr) dynamicMetrics.sleep.push({ l: 'Avg heart rate', v: avgHr, u: 'bpm' });
+    }
+
+    if (deviceMetrics.steps && deviceMetrics.steps !== '0') {
+      dynamicMetrics.activity.push({ l: 'Steps', v: deviceMetrics.steps, u: '/day' });
+    }
+    if (deviceMetrics.activeDays && deviceMetrics.activeDays !== '0') {
+      dynamicMetrics.activity.push({ l: 'Active days', v: deviceMetrics.activeDays, u: 'of 7' });
+    }
+
+    if (deviceMetrics.restingHr && deviceMetrics.restingHr !== '0') {
+      dynamicMetrics.activity.push({ l: 'Resting HR', v: deviceMetrics.restingHr, u: 'bpm' });
+      dynamicMetrics.heart.push({ l: 'Resting HR', v: deviceMetrics.restingHr, u: 'bpm' });
+    }
+
+    const workouts = deviceMetrics.recentWorkouts || [];
+    if (workouts.length > 0) {
+      dynamicMetrics.workouts.push({ l: 'Workouts', v: deviceMetrics.workoutsCount ?? workouts.length, u: 'this week' });
+      const totalMin = workouts.reduce((sum, w) => sum + (w.durationMinutes || 0), 0);
+      if (totalMin > 0) dynamicMetrics.workouts.push({ l: 'Total time', v: totalMin, u: 'min' });
+      const totalCal = workouts.reduce((sum, w) => sum + (w.calories || 0), 0);
+      if (totalCal > 0) dynamicMetrics.workouts.push({ l: 'Calories burned', v: Math.round(totalCal) });
+      const hrReadings = workouts.map((w) => w.avgHr).filter((v): v is number => v != null);
+      if (hrReadings.length > 0) {
+        dynamicMetrics.workouts.push({ l: 'Avg heart rate', v: Math.round(hrReadings.reduce((a, b) => a + b, 0) / hrReadings.length), u: 'bpm' });
+      }
+      const sportCounts = workouts.reduce<Record<string, number>>((acc, w) => {
+        acc[w.sport] = (acc[w.sport] || 0) + 1;
+        return acc;
+      }, {});
+      const topSport = Object.entries(sportCounts).sort((a, b) => b[1] - a[1])[0];
+      if (topSport) dynamicMetrics.workouts.push({ l: 'Most frequent', v: `${topSport[0]} (${topSport[1]})` });
+    }
+
+    if (deviceMetrics.avgGlucose != null) {
+      dynamicMetrics.glucose.push({ l: 'Average glucose', v: deviceMetrics.avgGlucose, u: 'mg/dL' });
+    }
+    if (deviceMetrics.latestGlucose != null) {
+      dynamicMetrics.glucose.push({ l: 'Latest reading', v: deviceMetrics.latestGlucose, u: 'mg/dL' });
+    }
+  }
 
   // Override body trend with actual weight data
   const bodyTrend = TRENDS.body
@@ -289,6 +387,42 @@ export default function HealthTabs({ weightData }: HealthTabsProps) {
         step: 'week' as const,
       }
     : undefined;
+
+  const sleepTrend: TrendData | undefined =
+    deviceMetrics?.sleepSeries && deviceMetrics.sleepSeries.length > 1
+      ? {
+          label: 'Sleep duration',
+          unit: 'hrs',
+          dec: 1,
+          lowerBetter: false,
+          series: deviceMetrics.sleepSeries,
+          step: 'day',
+        }
+      : undefined;
+
+  const activityTrend: TrendData | undefined =
+    deviceMetrics?.stepsSeries && deviceMetrics.stepsSeries.length > 1
+      ? {
+          label: 'Steps',
+          unit: '',
+          dec: 0,
+          lowerBetter: false,
+          series: deviceMetrics.stepsSeries,
+          step: 'day',
+        }
+      : undefined;
+
+  const glucoseTrend: TrendData | undefined =
+    deviceMetrics?.glucoseSeries && deviceMetrics.glucoseSeries.length > 1
+      ? {
+          label: 'Glucose',
+          unit: 'mg/dL',
+          dec: 0,
+          lowerBetter: false,
+          series: deviceMetrics.glucoseSeries,
+          step: 'day',
+        }
+      : undefined;
 
   return (
     <div>
@@ -330,7 +464,12 @@ export default function HealthTabs({ weightData }: HealthTabsProps) {
 
       {HEALTH_SECTIONS.map((sec) => {
         const isVisible = activeTab === sec.id;
-        const isBody = sec.id === 'body';
+        const overrideTrend =
+          sec.id === 'body' ? bodyTrend :
+          sec.id === 'sleep' ? sleepTrend :
+          sec.id === 'activity' ? activityTrend :
+          sec.id === 'glucose' ? glucoseTrend :
+          undefined;
 
         return (
           <div key={sec.id} style={{ display: isVisible ? 'block' : 'none' }}>
@@ -338,7 +477,8 @@ export default function HealthTabs({ weightData }: HealthTabsProps) {
               title={sec.heading ?? sec.title}
               subtitle={sec.subtitle}
               sectionId={sec.id}
-              overrideTrend={isBody && bodyTrend ? bodyTrend : undefined}
+              overrideTrend={overrideTrend}
+              overrideMetrics={dynamicMetrics[sec.id]}
             />
           </div>
         );

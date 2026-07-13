@@ -10,8 +10,6 @@ export const JUNCTION = {
   get live() { return !!this.backend; },
 };
 
-export const SDK_PROVIDERS = ['apple', 'healthconnect', 'samsung'];
-
 /**
  * All supported device/app providers
  */
@@ -70,106 +68,35 @@ export const HEALTH_SECTIONS: HealthSection[] = [
 /**
  * Health metrics data
  */
-export const HEALTH: Record<string, MetricItem[]> = {
-  sleep: [
-    { l: 'Time asleep', v: '7h 12m' },
-    { l: 'Sleep score', v: 81, u: '/100' },
-    { l: 'Efficiency', v: '89%' },
-    { l: 'Deep', v: '1h 24m' },
-    { l: 'REM', v: '1h 38m' },
-    { l: 'Light', v: '3h 50m' },
-    { l: 'Awakenings', v: 2 },
-    { l: 'HR asleep', v: '58', u: 'bpm' },
-  ],
-  activity: [
-    { l: 'Steps', v: '7,840', u: '/day' },
-    { l: 'Active time', v: '52', u: 'min' },
-    { l: 'Calories', v: '2,310', u: 'kcal' },
-    { l: 'Distance', v: '3.4', u: 'mi' },
-    { l: 'Resting HR', v: '64', u: 'bpm' },
-    { l: 'Active days', v: '5', u: 'of 7' },
-  ],
-  heart: [
-    { l: 'Resting HR', v: '64', u: 'bpm' },
-    { l: 'HRV', v: '48', u: 'ms' },
-    { l: 'Avg HR', v: '72', u: 'bpm' },
-    { l: 'Max HR', v: '148', u: 'bpm' },
-    { l: 'Cardio zone', v: '38', u: 'min' },
-    { l: 'Peak zone', v: '9', u: 'min' },
-  ],
-  body: [
-    { l: 'Weight', v: '201.5', u: 'lb' },
-    { l: 'BMI', v: '27.4' },
-    { l: 'Body fat', v: '31%' },
-    { l: 'Skin temp', v: '97.9°F' },
-  ],
-  glucose: [
-    { l: 'Avg glucose', v: '104', u: 'mg/dL' },
-    { l: 'Time in range', v: '86%' },
-    { l: 'Below range', v: '2%' },
-    { l: 'Above range', v: '12%' },
-  ],
-  nutrition: [
-    { l: 'Calories', v: '1,820', u: 'kcal' },
-    { l: 'Protein', v: '96', u: 'g' },
-    { l: 'Carbs', v: '180', u: 'g' },
-    { l: 'Fat', v: '62', u: 'g' },
-  ],
-  workouts: [
-    { l: 'Sessions', v: 4, u: 'this wk' },
-    { l: 'Active time', v: '186', u: 'min' },
-    { l: 'Calories', v: '1,240', u: 'kcal' },
-    { l: 'Distance', v: '9.2', u: 'mi' },
-  ],
-  cycle: [
-    { l: 'Phase', v: 'Luteal' },
-    { l: 'Cycle day', v: 'Day 22' },
-    { l: 'Basal temp', v: '98.1°F' },
-    { l: 'Last period', v: '22d ago' },
-  ],
-};
+export const HEALTH: Record<string, MetricItem[]> = {};
 
 /**
  * Trend data for health sections
  */
-export const TRENDS: Record<string, TrendData> = {
-  sleep: { label: 'Time asleep', unit: 'h', dec: 1, lowerBetter: false, series: [6.8, 7.1, 6.4, 7.3, 7.0, 6.6, 7.2, 7.4, 6.9, 7.1, 6.7, 7.3, 7.0, 7.2] },
-  activity: { label: 'Steps', unit: '/day', dec: 0, lowerBetter: false, series: [6800, 7200, 5400, 8100, 7600, 9000, 6200, 7100, 7900, 6500, 8300, 7000, 8800, 7840] },
-  heart: { label: 'Resting HR', unit: 'bpm', dec: 0, lowerBetter: true, series: [67, 66, 65, 66, 64, 65, 64, 63, 64, 65, 63, 64, 63, 64] },
-  body: { label: 'Weight', unit: 'lb', dec: 1, lowerBetter: true, series: null },
-  glucose: { label: 'Avg glucose', unit: 'mg/dL', dec: 0, lowerBetter: true, series: [112, 108, 110, 105, 107, 103, 106, 104, 102, 105, 103, 104, 101, 104] },
-  nutrition: { label: 'Calories', unit: 'kcal', dec: 0, lowerBetter: false, series: [1900, 1750, 2050, 1820, 1700, 1980, 1850, 1760, 1900, 1820, 1680, 1900, 1780, 1820] },
-  workouts: { label: 'Active minutes', unit: 'min', dec: 0, lowerBetter: false, series: [20, 45, 0, 60, 30, 50, 0, 40, 55, 25, 48, 0, 52, 38] },
-  cycle: { label: 'Basal temp', unit: '°F', dec: 1, lowerBetter: false, series: [97.6, 97.7, 97.7, 97.8, 97.9, 98.0, 98.0, 98.1, 98.1, 98.0, 98.1, 98.2, 98.1, 98.1] },
-};
+export const TRENDS: Record<string, TrendData> = {};
 
 /**
  * Default device metrics / readiness
  */
 export const DEVICE_METRICS_DEFAULT: DeviceMetrics = {
-  steps: '7,840',
-  sleep: '7h 12m',
-  restingHr: '64',
-  activeDays: '5',
-  readiness: 78,
-  recovery: 72,
-  sleepScore: 81,
+  steps: '0',
+  sleep: '0',
+  restingHr: '0',
+  activeDays: '0',
+  readiness: 0,
+  recovery: 0,
+  sleepScore: 0,
 };
 
 /**
  * Default weight data
  */
 export const WEIGHT_DEFAULT: WeightData = {
-  series: [214, 211.5, 209, 207.5, 206, 204.5, 203, 201.5],
-  checkins: [
-    { label: 'Intake', w: 214 },
-    { label: 'May 11', w: 206 },
-    { label: 'May 21', w: 204 },
-    { label: 'Jun 5', w: 201.5 },
-  ],
-  start: 214,
+  series: [],
+  checkins: [],
+  start: 0,
   goal: null,
-  heightIn: 67,
+  heightIn: 70,
 };
 
 /**

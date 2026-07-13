@@ -14,6 +14,7 @@ export async function listWearableProviders(): Promise<{ success: boolean; sourc
   const response = await apiClient.get<{ success: boolean; sources: any[] }>(
     '/wearables/providers/?client_view=true'
   );
+    console.log("PROVIDERS", response.data.sources)
   return response.data;
 }
 
@@ -21,13 +22,14 @@ export async function listWearableProviders(): Promise<{ success: boolean; sourc
  * Create a Link Token so the patient can authorize a device connection.
  */
 export async function getLinkToken(provider: string, patientId: string): Promise<LinkTokenResponse> {
-  const response = await apiClient.post<{ success: boolean; session: any }>(
+  const response = await apiClient.post<{ success: boolean; demo?: boolean; session: any }>(
     '/wearables/oauth-session/',
     { patient_id: patientId, provider }
   );
   return {
-    link_token: response.data.session.oauth_url,
-    expires_at: response.data.session.expires_at,
+    link_token: response.data.session.oauth_url || null,
+    expires_at: response.data.session.expires_at || null,
+    demo: !!response.data.demo,
   };
 }
 
@@ -38,15 +40,21 @@ export async function getConnections(): Promise<ConnectionResponse[]> {
   const response = await apiClient.get<{ success: boolean; connections: any[] }>(
     '/wearables/connections/'
   );
-  return Array.isArray(response.data.connections) ? response.data.connections : [];
+  const allConns = Array.isArray(response.data.connections) ? response.data.connections : [];
+  return allConns.filter(c => c.status === 'connected' || c.status === 'error');
 }
 
 /**
  * Get aggregated device data (weight, steps, sleep, etc.).
  */
 export async function getDeviceData(): Promise<DeviceDataResponse> {
-  // Return empty object by default or mock payload for UI, as this dashboard page is telemetry view
-  return {};
+  try {
+    const response = await apiClient.get<DeviceDataResponse>('/wearables/device-data/');
+    return response.data;
+  } catch (err) {
+    console.error('Failed to fetch device data:', err);
+    return {};
+  }
 }
 
 /**
@@ -62,7 +70,7 @@ export async function deregisterProvider(connectionId: string): Promise<{ ok: bo
 /**
  * Reconnect a connection.
  */
-export async function reconnectProvider(connectionId: string): Promise<{ success: boolean; session: any }> {
+export async function reconnectProvider(connectionId: string): Promise<{ success: boolean; demo?: boolean; session: any }> {
   const response = await apiClient.post<{ success: boolean; session: any }>(
     `/wearables/connections/${connectionId}/reconnect/`
   );
@@ -76,6 +84,7 @@ export async function getConsent(): Promise<{ success: boolean; consent: any }> 
   const response = await apiClient.get<{ success: boolean; consent: any }>(
     '/wearables/consent/'
   );
+  console.log("CONSENT", response)
   return response.data;
 }
 
