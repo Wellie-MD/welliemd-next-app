@@ -10,6 +10,7 @@ export interface Provider {
   gives: string;
   ic: string;
   mobile?: boolean;
+  logoUrl?: string;
 }
 
 export interface Connection {
@@ -60,6 +61,24 @@ export interface HealthSection {
   subtitle: string;
 }
 
+export interface SleepDetail {
+  deep?: number;
+  light?: number;
+  rem?: number;
+  awake?: number;
+  efficiency?: number;
+  avgHr?: number;
+}
+
+export interface WorkoutItem {
+  date: string;
+  sport: string;
+  durationMinutes: number | null;
+  calories: number | null;
+  avgHr?: number | null;
+  distanceKm?: number | null;
+}
+
 export interface DeviceMetrics {
   steps: string;
   sleep: string;
@@ -68,6 +87,14 @@ export interface DeviceMetrics {
   readiness: number;
   recovery: number;
   sleepScore: number;
+  stepsSeries?: number[];
+  sleepSeries?: number[];
+  sleepDetail?: SleepDetail;
+  workoutsCount?: number;
+  recentWorkouts?: WorkoutItem[];
+  glucoseSeries?: number[];
+  avgGlucose?: number | null;
+  latestGlucose?: number | null;
 }
 
 export interface WeightData {
@@ -79,8 +106,9 @@ export interface WeightData {
 }
 
 export interface LinkTokenResponse {
-  link_token: string;
-  expires_at: string;
+  link_token: string | null;
+  expires_at: string | null;
+  demo?: boolean;
 }
 
 export interface DeviceDataResponse {
@@ -92,6 +120,14 @@ export interface DeviceDataResponse {
   readiness?: number;
   recovery?: number;
   sleepScore?: number;
+  stepsSeries?: number[];
+  sleepSeries?: number[];
+  sleepDetail?: SleepDetail;
+  workoutsCount?: number;
+  recentWorkouts?: WorkoutItem[];
+  glucoseSeries?: number[];
+  avgGlucose?: number | null;
+  latestGlucose?: number | null;
 }
 
 export interface ConnectionResponse {

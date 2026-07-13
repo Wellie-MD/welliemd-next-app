@@ -2,6 +2,7 @@ import React from 'react';
 import { Search, Smartphone } from 'lucide-react';
 import { PROVIDERS, CATS } from '../constants';
 import type { Provider } from '../types';
+import ProviderIcon from './ProviderIcon';
 
 interface ConnectStateProps {
   allowedProviders: Provider[];
@@ -139,22 +140,7 @@ export default function ConnectState({
                 gap: 13,
               }}
             >
-              <div
-                style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: 12,
-                  background: 'var(--km-s2)',
-                  border: '1px solid var(--km-b)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 22,
-                  flexShrink: 0,
-                }}
-              >
-                {p.ic}
-              </div>
+              <ProviderIcon logoUrl={p.logoUrl} fallback={p.ic} size={42} radius={12} fontSize={22} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 14 }}>{p.name}</div>
                 <div
@@ -167,14 +153,12 @@ export default function ConnectState({
                   {p.kind} · {p.gives}
                 </div>
               </div>
-              {p.mobile ? (
-                <span
-                  className="badge bn"
-                  style={{ fontSize: 10, flexShrink: 0 }}
-                >
-                  Mobile app
-                </span>
-              ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                {p.mobile && (
+                  <span className="badge bn" style={{ fontSize: 10 }}>
+                    Mobile app
+                  </span>
+                )}
                 <button
                   className="km-btn km-btn-outline"
                   style={{ fontSize: 12.5, padding: '7px 16px', flexShrink: 0, background: 'var(--km-s2)', color: 'var(--km-t)', border: '1px solid var(--km-b)', borderRadius: 11, fontWeight: 600, cursor: 'pointer' }}
@@ -182,7 +166,7 @@ export default function ConnectState({
                 >
                   Connect
                 </button>
-              )}
+              </div>
             </div>
           ))
         )}

@@ -2,9 +2,12 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Search, Smartphone, X, Shield, RefreshCw, AlertCircle } from 'lucide-react';
 import ConnectState from './components/ConnectState';
 import ConnectedState from './components/ConnectedState';
+import ProviderIcon from './components/ProviderIcon';
+import TelemetryDashboard from './components/TelemetryDashboard';
+import DataPrivacyCard from './components/DataPrivacyCard';
+import LogWeightModal from './components/LogWeightModal';
 import {
   PROVIDERS,
-  SDK_PROVIDERS,
   CATS,
   WEIGHT_DEFAULT,
   DEVICE_METRICS_DEFAULT,
@@ -24,6 +27,36 @@ import {
 } from './api';
 import { useProfile } from '../profile/hooks/use-profile';
 
+function DevicesSkeleton() {
+  const row = (
+    <div
+      style={{
+        background: 'var(--km-s1)',
+        border: '1px solid var(--km-b)',
+        borderRadius: 14,
+        marginBottom: 10,
+        padding: '13px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+      }}
+    >
+      <div className="km-skel" style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="km-skel" style={{ width: 130, height: 13, marginBottom: 8 }} />
+        <div className="km-skel" style={{ width: 190, height: 11 }} />
+      </div>
+      <div className="km-skel" style={{ width: 82, height: 30, borderRadius: 10, flexShrink: 0 }} />
+    </div>
+  );
+  return (
+    <div>
+      {row}
+      {row}
+    </div>
+  );
+}
+
 export default function DevicesPage() {
   const { patientProfile } = useProfile();
 
@@ -34,6 +67,7 @@ export default function DevicesPage() {
   const [deviceMetrics, setDeviceMetrics] = useState<DeviceMetrics>({ ...DEVICE_METRICS_DEFAULT });
   const [consent, setConsent] = useState<Consent>({ given: true, date: 'May 12, 2026' });
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [allowedProviders, setAllowedProviders] = useState<Provider[]>(PROVIDERS);
 
   const fetchConnectionsList = useCallback(async () => {
@@ -42,7 +76,39 @@ export default function DevicesPage() {
       const conns = await getConnections();
       const formatted = conns.map((c) => formatConnection(c));
       setConnections(formatted);
-      setDeviceConnected(formatted.length > 0);
+      const isConnected = formatted.length > 0;
+      
+      const data = await getDeviceData();
+      let hasData = false;
+      if (data) {
+        hasData = !!(data.steps || data.sleep || data.restingHr || (data.weightSeries && data.weightSeries.length > 0));
+        setDeviceMetrics(prev => ({
+          ...prev,
+          ...(data.steps && { steps: data.steps }),
+          ...(data.sleep && { sleep: data.sleep }),
+          ...(data.restingHr && { restingHr: data.restingHr }),
+          ...(data.activeDays && { activeDays: data.activeDays }),
+          ...(data.readiness && { readiness: data.readiness }),
+          ...(data.recovery && { recovery: data.recovery }),
+          ...(data.sleepScore && { sleepScore: data.sleepScore }),
+          ...(data.stepsSeries && { stepsSeries: data.stepsSeries }),
+          ...(data.sleepSeries && { sleepSeries: data.sleepSeries }),
+          ...(data.sleepDetail && { sleepDetail: data.sleepDetail }),
+          ...(data.workoutsCount !== undefined && { workoutsCount: data.workoutsCount }),
+          ...(data.recentWorkouts && { recentWorkouts: data.recentWorkouts }),
+          ...(data.glucoseSeries && { glucoseSeries: data.glucoseSeries }),
+          ...(data.avgGlucose != null && { avgGlucose: data.avgGlucose }),
+          ...(data.latestGlucose != null && { latestGlucose: data.latestGlucose }),
+        }));
+        if (data.weightSeries && data.weightSeries.length > 0) {
+          setWeight(prev => ({
+            ...prev,
+            series: data.weightSeries!
+          }));
+        }
+      }
+      
+      setDeviceConnected(isConnected);
     } catch (err) {
       console.error("Failed to load connections:", err);
     } finally {
@@ -52,7 +118,7 @@ export default function DevicesPage() {
 
   useEffect(() => {
     if (patientProfile?.id) {
-      fetchConnectionsList();
+      fetchConnectionsList().finally(() => setInitialLoading(false));
     }
   }, [patientProfile?.id, fetchConnectionsList]);
 
@@ -86,9 +152,42 @@ export default function DevicesPage() {
       try {
         const response = await listWearableProviders();
         if (response.success && response.sources) {
-          const allowedSlugs = response.sources.map((s: any) => s.slug);
-          const filtered = PROVIDERS.filter((p) => allowedSlugs.includes(p.id));
-          setAllowedProviders(filtered);
+          const mappedProviders: Provider[] = response.sources.map((s: any) => {
+            // Backend tells us which slugs support a direct web OAuth redirect;
+            // everything else (Apple Health, Beurer, etc.) is still a real,
+            // connectable provider — it just requires the mobile app.
+            const notWebConnectable = s.oauth_supported === false;
+            const logoUrl: string | undefined = s.logo_url || undefined;
+
+            const existing = PROVIDERS.find(p => p.id === s.slug);
+            if (existing) return { ...existing, mobile: existing.mobile || notWebConnectable, logoUrl };
+
+            let cat: Provider['cat'] = 'wear';
+            let kind = 'Wearable';
+            let ic = '⌚';
+            let gives = 'Health Data';
+
+            const c = (s.name || s.slug || '').toLowerCase();
+            if (c.includes('libre') || c.includes('dexcom') || c.includes('accu')) { cat = 'cgm'; kind = 'CGM'; ic = '🩸'; gives = 'Continuous glucose'; }
+            else if (c.includes('scale') || c.includes('renpho') || c.includes('withings')) { cat = 'scale'; kind = 'Smart scale'; ic = '⚖️'; gives = 'Weight & body composition'; }
+            else if (c.includes('omron') || c.includes('beurer')) { cat = 'bp'; kind = 'Monitor'; ic = '🩺'; gives = 'Blood pressure'; }
+            else if (c.includes('apple') || c.includes('healthconnect') || c.includes('samsung')) { cat = 'ondevice'; kind = 'On-device'; ic = '📱'; gives = 'All health & fitness data'; }
+            else if (c.includes('strava') || c.includes('wahoo') || c.includes('peloton') || c.includes('zwift') || c.includes('fit')) { cat = 'app'; kind = 'App'; ic = '🏃'; gives = 'Activity & workouts'; }
+
+            return {
+              id: s.slug,
+              name: s.name || s.slug,
+              cat,
+              kind,
+              gives,
+              ic,
+              mobile: notWebConnectable,
+              logoUrl,
+            };
+          });
+          setAllowedProviders(mappedProviders);
+          console.log("FILTERED: ", mappedProviders);
+          
         }
       } catch (err) {
         console.error("Failed to load allowed providers:", err);
@@ -111,7 +210,6 @@ export default function DevicesPage() {
   const [goalModalOpen, setGoalModalOpen] = useState(false);
   const [goalInput, setGoalInput] = useState('');
   const [logWeightOpen, setLogWeightOpen] = useState(false);
-  const [logWeightInput, setLogWeightInput] = useState('');
   const [consentOpen, setConsentOpen] = useState(false);
   const [consentReviewOnly, setConsentReviewOnly] = useState(false);
   const [deleteDataOpen, setDeleteDataOpen] = useState(false);
@@ -120,39 +218,10 @@ export default function DevicesPage() {
   const [linkErrorOpen, setLinkErrorOpen] = useState(false);
   const [linkErrorMsg, setLinkErrorMsg] = useState('');
 
-  /* ─── Demo Connect ─── */
-  const demoConnect = useCallback(
-    (providerId: string) => {
-      setLinkOpen(true);
-      const p = PROVIDERS.find((x) => x.id === providerId);
-      if (p) setLinkProvider(p.name);
-      setTimeout(() => {
-        setLinkOpen(false);
-        setPickerOpen(false);
-        setConnections((prev) => {
-          const existing = prev.find((c) => c.provider === providerId);
-          if (existing) {
-            return prev.map((c) =>
-              c.provider === providerId
-                ? { ...c, status: undefined as any, errorType: undefined, lastSync: 'just now' }
-                : c
-            );
-          }
-          return [
-            ...prev,
-            { provider: providerId, name: p?.name || providerId, lastSync: 'just now' },
-          ];
-        });
-        setDeviceConnected(true);
-      }, 1450);
-    },
-    []
-  );
-
   /* ─── Connect Device ─── */
   const handleConnect = useCallback(
     (providerId: string) => {
-      const p = PROVIDERS.find((x) => x.id === providerId);
+      const p = allowedProviders.find((x) => x.id === providerId);
       if (!p) return;
 
       if (!consent.given) {
@@ -162,9 +231,9 @@ export default function DevicesPage() {
         return;
       }
 
-      if (SDK_PROVIDERS.includes(providerId)) {
+      if (p.mobile) {
         setLinkErrorMsg(
-          `${p.name} connects from the mobile app — there's nothing to link on the web.`
+          `${p.name} is only available on the phone — connect it from the mobile app, there's nothing to link here on the web.`
         );
         setLinkErrorOpen(true);
         return;
@@ -182,6 +251,13 @@ export default function DevicesPage() {
       getLinkToken(providerId, patientProfile.id)
         .then((res) => {
           setLinkOpen(false);
+          if (res.demo) {
+            // Sandbox tenant: backend already completed the connection synchronously
+            // (same create_oauth_session() call a production tenant makes — it just
+            // short-circuits the real provider redirect). Refresh to reflect it.
+            fetchConnectionsList();
+            return;
+          }
           if (res.link_token) {
             window.location.href = res.link_token;
           } else {
@@ -194,7 +270,7 @@ export default function DevicesPage() {
           setLinkErrorOpen(true);
         });
     },
-    [consent.given, patientProfile]
+    [consent.given, patientProfile, allowedProviders, fetchConnectionsList]
   );
 
   /* ─── Disconnect Device ─── */
@@ -238,12 +314,16 @@ export default function DevicesPage() {
     }
 
     setLinkOpen(true);
-    const p = PROVIDERS.find((x) => x.id === providerId);
+    const p = allowedProviders.find((x) => x.id === providerId);
     if (p) setLinkProvider(p.name);
 
     reconnectProvider(conn.id)
       .then((res) => {
         setLinkOpen(false);
+        if (res.demo) {
+          fetchConnectionsList();
+          return;
+        }
         if (res.success && res.session?.oauth_url) {
           window.location.href = res.session.oauth_url;
         } else {
@@ -255,7 +335,7 @@ export default function DevicesPage() {
         setLinkErrorMsg(err?.error?.message || err?.error || err?.message || "Failed to initiate reconnection.");
         setLinkErrorOpen(true);
       });
-  }, [connections, handleConnect]);
+  }, [connections, handleConnect, allowedProviders, fetchConnectionsList]);
 
   /* ─── Goal Modal ─── */
   const handleOpenGoal = useCallback(() => {
@@ -273,25 +353,20 @@ export default function DevicesPage() {
 
   /* ─── Log Weight ─── */
   const handleOpenLogWeight = useCallback(() => {
-    setLogWeightInput('');
     setLogWeightOpen(true);
   }, []);
 
-  const handleSaveLogWeight = useCallback(() => {
-    const v = parseFloat(logWeightInput);
-    if (v && v > 0) {
-      setWeight((prev) => {
-        const label = new Date().toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-        });
-        const newCheckins = [...prev.checkins, { label, w: v }];
-        const newSeries = deviceConnected ? [...prev.series, v] : prev.series;
-        return { ...prev, checkins: newCheckins, series: newSeries };
+  const handleSaveLogWeight = useCallback((v: number) => {
+    setWeight((prev) => {
+      const label = new Date().toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
       });
-    }
-    setLogWeightOpen(false);
-  }, [logWeightInput, deviceConnected]);
+      const newCheckins = [...prev.checkins, { label, w: v }];
+      const newSeries = deviceConnected ? [...prev.series, v] : prev.series;
+      return { ...prev, checkins: newCheckins, series: newSeries };
+    });
+  }, [deviceConnected]);
 
   /* ─── Consent (from non-review / "Before you connect") ─── */
   const handleAgreeConsent = useCallback(() => {
@@ -336,6 +411,8 @@ export default function DevicesPage() {
         setConnections([]);
         setDeviceConnected(false);
         setConsent({ given: false, date: null });
+        setDeviceMetrics({ ...DEVICE_METRICS_DEFAULT });
+        setWeight({ ...WEIGHT_DEFAULT });
         setDeleteDataOpen(false);
       })
       .catch((err) => {
@@ -432,36 +509,52 @@ export default function DevicesPage() {
 
 
       {/* ─── Main Content ─── */}
-      {deviceConnected && connections.length > 0 ? (
-        <ConnectedState
-          connections={connections}
-          weight={weight}
-          deviceMetrics={deviceMetrics}
-          consent={consent}
-          onDisconnect={handleDisconnect}
-          onReconnect={handleReconnect}
-          onConnectAnother={() => {
-            setPickerCat('all');
-            setPickerQuery('');
-            setPickerOpen(true);
-          }}
-          onOpenGoalModal={handleOpenGoal}
-          onOpenLogWeight={handleOpenLogWeight}
-          onOpenConsent={() => {
-            setConsentReviewOnly(true);
-            setConsentOpen(true);
-          }}
-          onOpenDeleteData={() => setDeleteDataOpen(true)}
-        />
+      {initialLoading ? (
+        <DevicesSkeleton />
       ) : (
-        <ConnectState
-          allowedProviders={allowedProviders}
-          devCat={devCat}
-          devQuery={devQuery}
-          onSetCategory={setDevCat}
-          onSearchChange={setDevQuery}
-          onConnect={handleConnect}
-        />
+        <>
+          {deviceConnected ? (
+            <ConnectedState
+              connections={connections}
+              allowedProviders={allowedProviders}
+              onDisconnect={handleDisconnect}
+              onReconnect={handleReconnect}
+              onConnectAnother={() => {
+                setPickerCat('all');
+                setPickerQuery('');
+                setPickerOpen(true);
+              }}
+            />
+          ) : (
+            <ConnectState
+              allowedProviders={allowedProviders}
+              devCat={devCat}
+              devQuery={devQuery}
+              onSetCategory={setDevCat}
+              onSearchChange={setDevQuery}
+              onConnect={handleConnect}
+            />
+          )}
+
+          {/* ─── Telemetry Dashboard ─── */}
+          <TelemetryDashboard
+            deviceMetrics={deviceMetrics}
+            weight={weight}
+            onOpenGoalModal={handleOpenGoal}
+          />
+
+          {/* ─── Data sharing & privacy (always last on the page) ─── */}
+          {deviceConnected && (
+            <DataPrivacyCard
+              consent={consent}
+              onOpenConsent={() => {
+                setConsentReviewOnly(true);
+                setConsentOpen(true);
+              }}
+              onOpenDeleteData={() => setDeleteDataOpen(true)}
+            />
+          )}
+        </>
       )}
 
       {/* ─── DEVICE PICKER MODAL ─── */}
@@ -529,44 +622,29 @@ export default function DevicesPage() {
                   borderRadius: 14,
                 }}
               >
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 11,
-                    background: 'var(--km-s2)',
-                    border: '1px solid var(--km-b)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 20,
-                    flexShrink: 0,
-                  }}
-                >
-                  {p.ic}
-                </div>
+                <ProviderIcon logoUrl={p.logoUrl} fallback={p.ic} size={40} radius={11} fontSize={20} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 13.5 }}>{p.name}</div>
                   <div style={{ fontSize: 11.5, color: 'var(--km-tm)', marginTop: 1 }}>
                     {p.kind} · {p.gives}
                   </div>
                 </div>
-                {p.mobile ? (
-                  <span
-                    style={{
-                      fontSize: 10,
-                      padding: '3px 9px',
-                      borderRadius: 20,
-                      background: 'var(--km-s2)',
-                      border: '1px solid var(--km-b)',
-                      color: 'var(--km-tm)',
-                      fontWeight: 600,
-                      flexShrink: 0,
-                    }}
-                  >
-                    Mobile app
-                  </span>
-                ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                  {p.mobile && (
+                    <span
+                      style={{
+                        fontSize: 10,
+                        padding: '3px 9px',
+                        borderRadius: 20,
+                        background: 'var(--km-s2)',
+                        border: '1px solid var(--km-b)',
+                        color: 'var(--km-tm)',
+                        fontWeight: 600,
+                      }}
+                    >
+                      Mobile app
+                    </span>
+                  )}
                   <button
                     style={{
                       fontSize: 12.5,
@@ -586,7 +664,7 @@ export default function DevicesPage() {
                   >
                     Connect
                   </button>
-                )}
+                </div>
               </div>
             ))}
           </div>
@@ -673,83 +751,11 @@ export default function DevicesPage() {
       </Overlay>
 
       {/* ─── LOG WEIGHT MODAL ─── */}
-      <Overlay show={logWeightOpen} onClose={() => setLogWeightOpen(false)} maxW={360}>
-        <div
-          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}
-        >
-          <span style={{ fontSize: 13, fontWeight: 700 }}>Log your weight</span>
-          <div
-            style={{ width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--km-tm)' }}
-            onClick={() => setLogWeightOpen(false)}
-          >
-            <X size={17} />
-          </div>
-        </div>
-        <div style={{ fontSize: 12.5, color: 'var(--km-tm)', lineHeight: 1.5, marginBottom: 16 }}>
-          Add today's weight. This updates your progress and is shared with your care team.
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <label
-            style={{ fontSize: 12, fontWeight: 600, color: 'var(--km-t2)', marginBottom: 6, display: 'block' }}
-          >
-            Weight (lb)
-          </label>
-          <input
-            className="km-inp"
-            type="number"
-            min={50}
-            step={0.1}
-            value={logWeightInput}
-            onChange={(e) => setLogWeightInput(e.target.value)}
-            placeholder="e.g. 201"
-            style={{
-              width: '100%',
-              background: 'var(--km-s2)',
-              border: '1px solid var(--km-b)',
-              borderRadius: 11,
-              padding: '12px 14px',
-              fontFamily: 'inherit',
-              fontSize: 14,
-              color: 'var(--km-t)',
-              outline: 'none',
-            }}
-          />
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button
-            style={{
-              flex: 1,
-              fontSize: 13.5,
-              fontWeight: 600,
-              padding: '11px 18px',
-              borderRadius: 11,
-              background: 'var(--km-s2)',
-              color: 'var(--km-t)',
-              border: '1px solid var(--km-b)',
-              cursor: 'pointer',
-            }}
-            onClick={() => setLogWeightOpen(false)}
-          >
-            Cancel
-          </button>
-          <button
-            style={{
-              flex: 1,
-              fontSize: 13.5,
-              fontWeight: 600,
-              padding: '11px 18px',
-              borderRadius: 11,
-              background: 'var(--km-am)',
-              color: '#fff',
-              border: '1px solid var(--km-am)',
-              cursor: 'pointer',
-            }}
-            onClick={handleSaveLogWeight}
-          >
-            Save
-          </button>
-        </div>
-      </Overlay>
+      <LogWeightModal
+        open={logWeightOpen}
+        onClose={() => setLogWeightOpen(false)}
+        onSave={handleSaveLogWeight}
+      />
 
       {/* ─── CONSENT MODAL ─── */}
       <Overlay show={consentOpen} onClose={() => setConsentOpen(false)} maxW={430}>
