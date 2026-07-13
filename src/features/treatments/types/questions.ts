@@ -57,6 +57,10 @@ export interface ProgramQuestion {
   required: boolean;
   source?: "client" | "admin" | "welliemd";
   locked?: boolean;
+  is_client_custom?: boolean;
+  can_be_modified?: boolean;
+  is_from_admin?: boolean;
+  is_read_only?: boolean;
   answerCount?: number;
   flags?: Array<"conditional" | "disqualifying" | "consent">;
   choices?: string[];
