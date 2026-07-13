@@ -145,15 +145,16 @@ export const useUpdateProgramStatus = () => {
 export const useUpdateProgramGroupStatus = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ treatmentTypeKey, status }: { treatmentTypeKey: string; status: ProgramStatus }) =>
-      treatmentsApi.updateProgramGroupStatus(treatmentTypeKey, status),
-    onMutate: async ({ treatmentTypeKey, status }) => {
+    mutationFn: ({ programIds, status }: { programIds: string[]; status: ProgramStatus }) =>
+      treatmentsApi.updateProgramGroupStatus(programIds, status),
+    onMutate: async ({ programIds, status }) => {
       await queryClient.cancelQueries({ queryKey: treatmentQueryKeys.programs() });
       const previousPrograms = queryClient.getQueryData<Program[]>(treatmentQueryKeys.programs());
+      const targetProgramIds = new Set(programIds);
 
       queryClient.setQueryData<Program[]>(treatmentQueryKeys.programs(), (current) =>
         current?.map((program) =>
-          program.treatmentTypeKey === treatmentTypeKey
+          targetProgramIds.has(program.id)
             ? {
                 ...program,
                 status,

@@ -3,11 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { showFloatingToast } from "@/components/ui/floating-toast";
 import { TreatmentPageHeader } from "@/features/treatments/common/components";
 import { getTreatmentApiErrorMessage } from "@/features/treatments/common/utils/apiError";
+import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
 import { CustomProgramsContent } from "@/features/treatments/custom-programs/components/CustomProgramsContent";
 import { CustomProgramPreviewDialog } from "@/features/treatments/custom-programs/components/CustomProgramPreviewDialog";
 import { CustomProgramsToolbar } from "@/features/treatments/custom-programs/components/CustomProgramsToolbar";
 import { useCustomProgramsPage } from "@/features/treatments/custom-programs/hooks/useCustomProgramsPage";
-import { getCustomProgramEffectiveSlug } from "@/features/treatments/custom-programs/utils/customProgramSlug";
+import {
+  getCustomProgramEffectiveSlug,
+  normalizeCustomProgramSlug,
+} from "@/features/treatments/custom-programs/utils/customProgramSlug";
 import { useUpdateCustomProgramSlugOverride } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import type { CustomProgram } from "@/features/treatments/types";
 
@@ -40,16 +44,22 @@ export default function CustomProgramsPage() {
   };
 
   const handleSaveSlug = async (program: CustomProgram, slugOverride: string) => {
+    const nextSlug = normalizeCustomProgramSlug(slugOverride || getCustomProgramEffectiveSlug(program));
+
     try {
       await updateSlugMutation.mutateAsync({
         customProgramId: program.id,
-        slugOverride: slugOverride || getCustomProgramEffectiveSlug(program),
+        slugOverride: nextSlug,
       });
       showFloatingToast({ title: "Slug Updated" });
     } catch (error) {
-      showFloatingToast({
-        title: getTreatmentApiErrorMessage(error, "Slug could not be updated"),
-      });
+      if (isDuplicateSlugError(error)) {
+        showDuplicateSlugToast();
+      } else {
+        showFloatingToast({
+          title: getTreatmentApiErrorMessage(error, "Slug could not be updated"),
+        });
+      }
       throw error;
     }
   };

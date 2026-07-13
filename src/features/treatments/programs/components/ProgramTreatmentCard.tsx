@@ -20,6 +20,7 @@ interface ProgramTreatmentCardProps {
   onEditSlug?: (program: Program) => void;
   onPreviewProgram?: (program: Program) => void;
   onToggleLive?: (group: ProgramTreatmentGroup, live: boolean) => void | Promise<void>;
+  liveOverride?: boolean;
   isUpdatingLive?: boolean;
 }
 
@@ -87,6 +88,17 @@ const formatRelativeUpdatedAt = (value: string) => {
 };
 
 const getTreatmentIcon = (key: string) => treatmentIconMap.find((entry) => entry.match.test(key)) ?? defaultTreatmentIcon;
+
+export const getTreatmentGroupPrograms = (group: ProgramTreatmentGroup) =>
+  [group.intake, group.followUp].filter((program): program is Program => Boolean(program));
+
+export const getTreatmentGroupProgramIds = (group: ProgramTreatmentGroup) =>
+  getTreatmentGroupPrograms(group).map((program) => program.id);
+
+export const isTreatmentGroupLive = (group: ProgramTreatmentGroup) => {
+  const groupPrograms = getTreatmentGroupPrograms(group);
+  return groupPrograms.length > 0 && groupPrograms.every((program) => program.status === "published");
+};
 
 function StagePanel({
   stage,
@@ -205,13 +217,14 @@ export function ProgramTreatmentCard({
   onEditSlug,
   onPreviewProgram,
   onToggleLive,
+  liveOverride,
   isUpdatingLive,
 }: ProgramTreatmentCardProps) {
   const treatmentIcon = getTreatmentIcon(group.treatmentTypeKey);
   const Icon = treatmentIcon.icon;
   const hasFollowUp = Boolean(group.followUp);
-  const intakeProgram = group.intake;
-  const isLive = group.intake?.status === "published" || group.followUp?.status === "published";
+  const canToggleLive = getTreatmentGroupProgramIds(group).length > 0;
+  const isLive = liveOverride ?? isTreatmentGroupLive(group);
 
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-colors hover:border-blue-600 hover:shadow-md dark:border-slate-700 dark:bg-[#171b27] dark:shadow-none dark:hover:border-blue-600">
@@ -238,9 +251,9 @@ export function ProgramTreatmentCard({
           </div>
           <Switch
             checked={isLive}
-            disabled={!intakeProgram || isUpdatingLive}
+            disabled={!canToggleLive || isUpdatingLive}
             onCheckedChange={(checked) => {
-              if (!intakeProgram) return;
+              if (!canToggleLive) return;
               void onToggleLive?.(group, checked);
             }}
             aria-label={`${group.treatmentName} live status`}

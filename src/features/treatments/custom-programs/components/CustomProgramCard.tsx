@@ -1,6 +1,10 @@
 import { Sparkles, Pill } from "lucide-react";
 import type { CustomProgram } from "@/features/treatments/types";
+import { isCustomProgramMulti } from "@/features/treatments/custom-programs/hooks/useCustomProgramsPage";
 import { cn } from "@/lib/utils";
+
+const uniqueNonEmptyValues = (values: Array<string | undefined>) =>
+  Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value))));
 
 interface CustomProgramCardProps {
   customProgram: CustomProgram;
@@ -9,7 +13,7 @@ interface CustomProgramCardProps {
 }
 
 export function CustomProgramCard({ customProgram, onOpenBuilder, onPreview }: CustomProgramCardProps) {
-  const isMulti = customProgram.isMulti === true || customProgram.includedProgramIds.length > 1 || (customProgram.tags && customProgram.tags.includes("Multi-treatment"));
+  const isMulti = isCustomProgramMulti(customProgram);
 
   const renderIcon = () => {
     const iconClass = "h-[17px] w-[17px]";
@@ -42,7 +46,19 @@ export function CustomProgramCard({ customProgram, onOpenBuilder, onPreview }: C
     }
   };
 
-  const routedTreatmentNames = customProgram.builderTreatmentOptions?.map((item) => item.title) ?? [];
+  const builderTreatmentNames = uniqueNonEmptyValues(
+    customProgram.builderTreatmentOptions?.map((item) => item.title) ?? []
+  );
+  const flowTreatmentNames = uniqueNonEmptyValues(
+    customProgram.flowItems.filter((item) => item.kind === "program").map((item) => item.title)
+  );
+  const includedProgramNames = uniqueNonEmptyValues(customProgram.includedProgramIds);
+  const routedTreatmentNames =
+    builderTreatmentNames.length > 0
+      ? builderTreatmentNames
+      : flowTreatmentNames.length > 0
+        ? flowTreatmentNames
+        : includedProgramNames;
   const routedTreatmentCount = routedTreatmentNames.length;
 
   return (

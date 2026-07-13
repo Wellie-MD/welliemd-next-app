@@ -136,10 +136,14 @@ const isLockedProgramQuestion = (question: ProgramQuestion | null | undefined) =
   !question || question.locked === true || !isClientCreatedQuestion(question);
 
 const buildQuestionPreviewUrl = (program: Program, question: ProgramQuestion) => {
+  const clientApiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://knysysapi.welliemd.com/api/v1";
   const previewUrl = buildQuestionnairePreviewUrl({
     type: "program",
     id: program.id,
     slug: program.slug,
+    visitType: program.visitType,
+    templateId: program.sourceQuestionnaireTemplateId,
+    apiBaseUrl: clientApiBaseUrl,
   });
 
   try {

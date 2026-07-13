@@ -6,7 +6,13 @@ export type CustomProgramsViewMode = "card" | "list";
 export type CustomProgramsFilter = "all" | "multi" | "single";
 
 export function isCustomProgramMulti(program: CustomProgram) {
-  return program.isMulti === true || program.includedProgramIds.length > 1 || Boolean(program.tags?.includes("Multi-treatment"));
+  const linkedProgramCount = Math.max(
+    program.includedProgramIds.length,
+    program.builderTreatmentOptions?.length ?? 0,
+    program.flowItems.filter((item) => item.kind === "program").length
+  );
+
+  return linkedProgramCount > 1;
 }
 
 export function useCustomProgramsPage() {

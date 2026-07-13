@@ -22,6 +22,7 @@ export interface Program {
   status: ProgramStatus;
   updatedAt: string;
   slug: string;
+  sourceQuestionnaireTemplateId?: string | null;
   authConfig?: ProgramAuthConfig;
   checkoutQuestions?: ProgramCheckoutQuestion[];
   consentIds?: string[];

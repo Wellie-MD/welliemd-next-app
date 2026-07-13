@@ -39,6 +39,7 @@ type ProgramApiRecord = {
   question_count: number;
   checkout_question_count: number;
   status: Program["status"];
+  is_published?: boolean;
   auth_config?: Program["authConfig"];
   screening_questions?: ProgramQuestion[];
   checkout_questions?: Program["checkoutQuestions"];
@@ -146,6 +147,7 @@ const mapProgramFromApi = (record: ProgramApiRecord): Program => ({
   status: record.status,
   updatedAt: record.updated_at?.split("T")[0] || currentDateStamp(),
   slug: record.slug,
+  sourceQuestionnaireTemplateId: record.source_questionnaire_template || null,
   authConfig: record.auth_config || {
     email: true,
     phone: false,
@@ -164,7 +166,9 @@ const mapProgramFromApi = (record: ProgramApiRecord): Program => ({
 const mapProgramToPatchPayload = (program: Partial<Program>) => ({
   ...(program.name !== undefined ? { name: program.name } : {}),
   ...(program.slug !== undefined ? { slug: normalizeTreatmentSlug(program.slug) } : {}),
-  ...(program.status !== undefined ? { status: program.status } : {}),
+  ...(program.status !== undefined
+    ? { status: program.status, is_published: program.status === "published" }
+    : {}),
   ...(program.authConfig !== undefined ? { auth_config: program.authConfig } : {}),
   ...(program.checkoutQuestions !== undefined ? { checkout_questions: program.checkoutQuestions } : {}),
   ...(program.consentIds !== undefined ? { consent_ids: program.consentIds } : {}),
@@ -191,6 +195,20 @@ const mapBuilderQuestionFromFlowItem = (
   questionKind: item.questionKind || "single_choice",
   choiceCount: item.choiceCount,
   answerOptions: item.answerOptions || [],
+  treatmentTypeKey: item.treatmentTypeKey,
+  sourceId: item.sourceId,
+});
+
+const mapBuilderTreatmentOptionFromFlowItem = (
+  item: CustomProgramApiRecord["flow_items"][number]
+): CustomProgramBuilderStageItem => ({
+  id: item.id,
+  kind: "program",
+  title: item.title,
+  subtitle: item.subtitle || "",
+  source: item.source || "welliemd",
+  locked: item.locked ?? true,
+  required: item.required ?? true,
   treatmentTypeKey: item.treatmentTypeKey,
   sourceId: item.sourceId,
 });
@@ -223,6 +241,9 @@ const mapCustomProgramFromApi = (record: CustomProgramApiRecord): CustomProgram 
     tags: record.tags || [],
     isMulti: record.is_multi ?? false,
     builderQuestions: flowItems.filter(isBuilderQuestionFlowItem).map(mapBuilderQuestionFromFlowItem),
+    builderTreatmentOptions: flowItems
+      .filter((item) => item.kind === "program")
+      .map(mapBuilderTreatmentOptionFromFlowItem),
   };
 };
 
@@ -457,19 +478,25 @@ export const treatmentsApi = {
     return mapProgramFromApi(data);
   },
 
-  updateProgramStatus: async (programId: string, status: ProgramStatus): Promise<Program | undefined> =>
-    patchProgram(programId, {
-      status,
-    }),
-
-  updateProgramGroupStatus: async (treatmentTypeKey: string, status: ProgramStatus): Promise<Program[]> => {
-    const programs = await treatmentsApi.listPrograms();
-    const matchingPrograms = programs.filter((program) => program.treatmentTypeKey === treatmentTypeKey);
-    const updatedPrograms = await Promise.all(
-      matchingPrograms.map((program) => treatmentsApi.updateProgramStatus(program.id, status))
+  updateProgramStatus: async (programId: string, status: ProgramStatus): Promise<Program | undefined> => {
+    const { data } = await axiosInstance.patch<ProgramApiRecord>(
+      `treatments/programs/${programId}/live/`,
+      {
+        is_published: status === "published",
+      }
     );
+    return mapProgramFromApi(data);
+  },
 
-    return updatedPrograms.filter(Boolean) as Program[];
+  updateProgramGroupStatus: async (programIds: string[], status: ProgramStatus): Promise<Program[]> => {
+    const { data } = await axiosInstance.patch<ProgramApiRecord[]>(
+      "treatments/programs/bulk-live/",
+      {
+        program_ids: programIds,
+        is_published: status === "published",
+      }
+    );
+    return (data || []).map(mapProgramFromApi);
   },
 
   saveProgramQuestions: async (programId: string, questions: ProgramQuestion[]): Promise<ProgramQuestion[]> => {
