@@ -41,6 +41,105 @@ import { Permissions } from "@/constants/permissions";
 import { useToast } from "@/hooks/use-toast";
 import { ordersApi, type Order } from "@/api/ordersApi";
 import { patientService, type Patient, type TreatmentEpisode } from "@/services/patientService";
+import api from "@/api/axiosInstance";
+
+type WearableConnection = {
+  id: string;
+  provider: string;
+  status: string;
+  last_sync_at: string | null;
+  last_error?: string;
+};
+
+type WorkoutItem = {
+  date: string;
+  sport: string;
+  durationMinutes: number | null;
+  calories: number | null;
+  avgHr?: number | null;
+  distanceKm?: number | null;
+};
+
+type WearableDeviceData = {
+  steps?: string;
+  sleep?: string;
+  restingHr?: string;
+  activeDays?: string;
+  readiness?: number | null;
+  recovery?: number | null;
+  sleepScore?: number | null;
+  weightSeries?: number[];
+  stepsSeries?: number[];
+  sleepSeries?: number[];
+  readinessSeries?: number[];
+  sleepDetail?: {
+    deep?: number;
+    light?: number;
+    rem?: number;
+    awake?: number;
+    efficiency?: number;
+    avgHr?: number;
+  };
+  workoutsCount?: number;
+  recentWorkouts?: WorkoutItem[];
+  glucoseSeries?: number[];
+  avgGlucose?: number | null;
+  latestGlucose?: number | null;
+};
+
+type MetricItem = { l: string; v: string | number; u?: string };
+
+function buildWearableMetrics(data: WearableDeviceData | null) {
+  const sleep: MetricItem[] = [];
+  const activity: MetricItem[] = [];
+  const heart: MetricItem[] = [];
+  const workouts: MetricItem[] = [];
+  const glucose: MetricItem[] = [];
+  if (!data) return { sleep, activity, heart, workouts, glucose };
+
+  if (data.sleep && data.sleep !== "--" && data.sleep !== "0") sleep.push({ l: "Time asleep", v: data.sleep });
+  if (data.sleepScore != null && data.sleepScore > 0) sleep.push({ l: "Sleep score", v: data.sleepScore, u: "/100" });
+  if (data.sleepDetail) {
+    const { deep, rem, light, awake, efficiency, avgHr } = data.sleepDetail;
+    if (deep) sleep.push({ l: "Deep sleep", v: deep, u: "min" });
+    if (rem) sleep.push({ l: "REM sleep", v: rem, u: "min" });
+    if (light) sleep.push({ l: "Light sleep", v: light, u: "min" });
+    if (awake) sleep.push({ l: "Awake", v: awake, u: "min" });
+    if (efficiency) sleep.push({ l: "Efficiency", v: efficiency, u: "%" });
+    if (avgHr) sleep.push({ l: "Avg heart rate", v: avgHr, u: "bpm" });
+  }
+
+  if (data.steps && data.steps !== "--" && data.steps !== "0") activity.push({ l: "Steps", v: data.steps, u: "/day" });
+  if (data.activeDays && data.activeDays !== "--" && data.activeDays !== "0") activity.push({ l: "Active days", v: data.activeDays, u: "of 7" });
+  if (data.restingHr && data.restingHr !== "--" && data.restingHr !== "0") {
+    activity.push({ l: "Resting HR", v: data.restingHr });
+    heart.push({ l: "Resting HR", v: data.restingHr });
+  }
+
+  const recentWorkouts = data.recentWorkouts || [];
+  if (recentWorkouts.length > 0) {
+    workouts.push({ l: "Workouts", v: data.workoutsCount ?? recentWorkouts.length, u: "this week" });
+    const totalMin = recentWorkouts.reduce((sum, w) => sum + (w.durationMinutes || 0), 0);
+    if (totalMin > 0) workouts.push({ l: "Total time", v: totalMin, u: "min" });
+    const totalCal = recentWorkouts.reduce((sum, w) => sum + (w.calories || 0), 0);
+    if (totalCal > 0) workouts.push({ l: "Calories burned", v: Math.round(totalCal) });
+    const hrReadings = recentWorkouts.map((w) => w.avgHr).filter((v): v is number => v != null);
+    if (hrReadings.length > 0) {
+      workouts.push({ l: "Avg heart rate", v: Math.round(hrReadings.reduce((a, b) => a + b, 0) / hrReadings.length), u: "bpm" });
+    }
+    const sportCounts = recentWorkouts.reduce<Record<string, number>>((acc, w) => {
+      acc[w.sport] = (acc[w.sport] || 0) + 1;
+      return acc;
+    }, {});
+    const topSport = Object.entries(sportCounts).sort((a, b) => b[1] - a[1])[0];
+    if (topSport) workouts.push({ l: "Most frequent", v: `${topSport[0]} (${topSport[1]})` });
+  }
+
+  if (data.avgGlucose != null) glucose.push({ l: "Average glucose", v: data.avgGlucose, u: "mg/dL" });
+  if (data.latestGlucose != null) glucose.push({ l: "Latest reading", v: data.latestGlucose, u: "mg/dL" });
+
+  return { sleep, activity, heart, workouts, glucose };
+}
 
 const buildInitialForm = (patient: Patient) => ({
   first_name: patient.first_name || "",
@@ -59,6 +158,25 @@ const buildInitialForm = (patient: Patient) => ({
   self_reported_meds: patient.self_reported_meds || "",
 });
 
+function ProviderLogo({ provider, logoUrl }: { provider: string; logoUrl?: string }) {
+  const [errored, setErrored] = useState(false);
+  if (logoUrl && !errored) {
+    return (
+      <img
+        src={logoUrl}
+        alt=""
+        className="h-8 w-8 flex-shrink-0 rounded-md border border-slate-200 bg-white object-contain p-1"
+        onError={() => setErrored(true)}
+      />
+    );
+  }
+  return (
+    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-[10px] font-bold uppercase text-slate-500">
+      {provider.slice(0, 2)}
+    </div>
+  );
+}
+
 export default function PatientDetailPage() {
   const { patientId } = useParams();
   const navigate = useNavigate();
@@ -71,6 +189,12 @@ export default function PatientDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [wearableConnections, setWearableConnections] = useState<WearableConnection[]>([]);
+  const [wearableData, setWearableData] = useState<WearableDeviceData | null>(null);
+  const [wearablesLoading, setWearablesLoading] = useState(false);
+  const [wearableConsent, setWearableConsent] = useState<{ granted: boolean; date: string | null } | null>(null);
+  const [providerLogos, setProviderLogos] = useState<Record<string, string>>({});
+  const [healthTab, setHealthTab] = useState<"sleep" | "activity" | "heart" | "workouts" | "glucose">("sleep");
   const [formState, setFormState] = useState({
     first_name: "",
     last_name: "",
@@ -114,6 +238,71 @@ export default function PatientDetailPage() {
   }, [loadData]);
 
   useEffect(() => {
+    if (!patientId) return;
+    let active = true;
+    async function loadWearables() {
+      setWearablesLoading(true);
+      try {
+        api
+          .get("/wearables/consent/", { params: { patient_id: patientId } })
+          .then((res) => {
+            const consent = res.data?.consent;
+            if (active && consent) {
+              setWearableConsent({
+                granted: !!consent.consent_granted,
+                date: consent.consented_at
+                  ? new Date(consent.consented_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+                  : null,
+              });
+            }
+          })
+          .catch((err) => console.error("Failed to load wearables consent:", err));
+
+        const connRes = await api.get("/wearables/connections/", { params: { patient_id: patientId } });
+        const allConns: WearableConnection[] = connRes.data?.connections || [];
+        const conns = allConns.filter((c) => c.status === "connected");
+        if (!active) return;
+        setWearableConnections(conns);
+
+        const hasConnected = conns.length > 0;
+        if (hasConnected) {
+          const dataRes = await api.get("/wearables/device-data/", { params: { patient_id: patientId, days: 7 } });
+          if (active) setWearableData(dataRes.data || null);
+        } else if (active) {
+          setWearableData(null);
+        }
+      } catch (err) {
+        console.error("Failed to load wearables data:", err);
+      } finally {
+        if (active) setWearablesLoading(false);
+      }
+    }
+    loadWearables();
+    return () => {
+      active = false;
+    };
+  }, [patientId]);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .get("/wearables/providers/")
+      .then((res) => {
+        if (!active) return;
+        const sources: Array<{ slug?: string; logo_url?: string }> = res.data?.sources || [];
+        const map: Record<string, string> = {};
+        sources.forEach((s) => {
+          if (s.slug && s.logo_url) map[s.slug] = s.logo_url;
+        });
+        setProviderLogos(map);
+      })
+      .catch((err) => console.error("Failed to load wearable provider catalog:", err));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (patient) {
       setFormState(buildInitialForm(patient));
     }
@@ -134,6 +323,50 @@ export default function PatientDetailPage() {
       [patient.city, patient.state, patient.zip_code].filter(Boolean).join(" ")
     ].filter(Boolean).join(", ")
     : "-";
+
+  const getConnectionStatusTone = (connStatus?: string) => {
+    const s = (connStatus || "").toLowerCase();
+    if (s === "connected") return "text-emerald-700 bg-emerald-50 border-emerald-200";
+    if (s === "pending") return "text-amber-700 bg-amber-50 border-amber-200";
+    if (s === "error") return "text-red-700 bg-red-50 border-red-200";
+    return "text-slate-700 bg-slate-50 border-slate-200";
+  };
+
+  const renderTrendChart = (series: number[], unit = "", dec = 0, color = "#0ea5e9") => {
+    if (!series || series.length < 2) return null;
+    const w = 640, h = 140;
+    const padL = 14, padR = 46, padT = 24, padB = 24;
+    const n = series.length - 1;
+    const mn = Math.min(...series), mx = Math.max(...series), rng = (mx - mn) || 1;
+    const lo = mn - rng * 0.15;
+    const vr = mx + rng * 0.15 - lo || 1;
+    const X = (i: number) => padL + i * ((w - padL - padR) / n);
+    const Y = (v: number) => padT + (1 - (v - lo) / vr) * (h - padT - padB);
+    const pts = series.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
+    const area = `${padL},${h - padB} ${pts} ${w - padR},${h - padB}`;
+    const last = series[n];
+    return (
+      <svg viewBox={`0 0 ${w} ${h}`} className="h-auto w-full">
+        <polyline points={area} fill={color} opacity={0.08} stroke="none" />
+        <polyline points={pts} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        {series.map((v, i) => (
+          <circle
+            key={i}
+            cx={X(i)}
+            cy={Y(v)}
+            r={i === n ? 3.4 : 2}
+            fill={color}
+            stroke={i === n ? "#fff" : undefined}
+            strokeWidth={i === n ? 1.3 : undefined}
+          />
+        ))}
+        <text x={X(n)} y={Y(last) - 8} fontSize={10.5} fontWeight={700} fill="#334155" textAnchor="end">
+          {dec ? last.toFixed(dec) : Math.round(last).toLocaleString()}
+          {unit ? ` ${unit}` : ""}
+        </text>
+      </svg>
+    );
+  };
 
   const getOrderStatusTone = (status?: string) => {
     const s = (status || "").toLowerCase();
@@ -380,6 +613,7 @@ export default function PatientDetailPage() {
                     <TabsTrigger value="treatments" className="rounded-lg px-3">Treatments</TabsTrigger>
                     <TabsTrigger value="orders" className="rounded-lg px-3">Orders</TabsTrigger>
                     <TabsTrigger value="followups" className="rounded-lg px-3">Follow-ups</TabsTrigger>
+                    <TabsTrigger value="wearables" className="rounded-lg px-3">Devices</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="treatments" className="space-y-3">
@@ -516,6 +750,197 @@ export default function PatientDetailPage() {
                       patientName={fullName}
                       patientEmail={patient.email}
                     />
+                  </TabsContent>
+
+                  <TabsContent value="wearables" className="space-y-3">
+                    {wearablesLoading ? (
+                      <div className="flex items-center gap-2 p-6 text-sm text-slate-500">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading wearables...
+                      </div>
+                    ) : wearableConnections.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500">
+                        No wearable connected. The patient can connect a device from their portal.
+                      </div>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          {wearableConnections.map((c) => (
+                            <div
+                              key={c.id}
+                              className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3"
+                            >
+                              <div className="flex min-w-0 items-center gap-3">
+                                <ProviderLogo provider={c.provider} logoUrl={providerLogos[c.provider]} />
+                                <div className="min-w-0">
+                                  <div className="truncate font-semibold capitalize text-slate-900">
+                                    {c.provider.replace(/_/g, " ")}
+                                  </div>
+                                  <div className="mt-0.5 text-xs text-slate-500">
+                                    {c.last_sync_at ? `Last synced ${new Date(c.last_sync_at).toLocaleString()}` : "Never synced"}
+                                  </div>
+                                </div>
+                              </div>
+                              <span className={`inline-flex flex-shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize ${getConnectionStatusTone(c.status)}`}>
+                                {c.status}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {wearableData && (() => {
+                          const {
+                            sleep: sleepMetrics,
+                            activity: activityMetrics,
+                            heart: heartMetrics,
+                            workouts: workoutsMetrics,
+                            glucose: glucoseMetrics,
+                          } = buildWearableMetrics(wearableData);
+                          const healthTabs: { id: "sleep" | "activity" | "heart" | "workouts" | "glucose"; label: string; metrics: MetricItem[] }[] = [
+                            { id: "sleep", label: "Sleep", metrics: sleepMetrics },
+                            { id: "activity", label: "Activity", metrics: activityMetrics },
+                            { id: "heart", label: "Heart", metrics: heartMetrics },
+                            { id: "workouts", label: "Workouts", metrics: workoutsMetrics },
+                            { id: "glucose", label: "Glucose", metrics: glucoseMetrics },
+                          ];
+                          const activeMetrics = healthTabs.find((t) => t.id === healthTab)?.metrics ?? [];
+                          const activeTrend =
+                            healthTab === "sleep" && wearableData.sleepSeries && wearableData.sleepSeries.length > 1
+                              ? { series: wearableData.sleepSeries, unit: "hrs", dec: 1 }
+                              : healthTab === "activity" && wearableData.stepsSeries && wearableData.stepsSeries.length > 1
+                              ? { series: wearableData.stepsSeries, unit: "", dec: 0 }
+                              : healthTab === "glucose" && wearableData.glucoseSeries && wearableData.glucoseSeries.length > 1
+                              ? { series: wearableData.glucoseSeries, unit: "mg/dL", dec: 0 }
+                              : null;
+
+                          const readinessSeries = wearableData.readinessSeries || [];
+                          const weightSeries = wearableData.weightSeries || [];
+
+                          return (
+                            <>
+                              <Card className="border-slate-200 shadow-sm">
+                                <CardHeader className="border-b border-slate-100 pb-2">
+                                  <CardTitle className="text-base text-slate-900">Readiness</CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-4">
+                                  <div className="mb-2 text-2xl font-bold text-slate-900">
+                                    {wearableData.readiness ?? "—"}
+                                    <span className="text-sm font-normal text-slate-500"> /100</span>
+                                  </div>
+                                  {readinessSeries.length > 1 ? (
+                                    renderTrendChart(readinessSeries, "", 0)
+                                  ) : (
+                                    <div className="p-4 text-center text-sm text-slate-500">Not enough history yet for a trend line.</div>
+                                  )}
+                                  <div className="mt-4 grid grid-cols-3 gap-3">
+                                    {[
+                                      { label: "Recovery", val: wearableData.recovery != null ? `${wearableData.recovery}%` : "—" },
+                                      { label: "Sleep score", val: wearableData.sleepScore != null ? `${wearableData.sleepScore}/100` : "—" },
+                                      { label: "Resting HR", val: wearableData.restingHr || "—" },
+                                    ].map((m) => (
+                                      <div key={m.label} className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                                        <div className="text-[11px] uppercase tracking-wide text-slate-500">{m.label}</div>
+                                        <div className="mt-0.5 text-lg font-bold text-slate-900">{m.val}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </CardContent>
+                              </Card>
+
+                              {weightSeries.length > 0 && (() => {
+                                const cur = weightSeries[weightSeries.length - 1];
+                                const chg = weightSeries.length > 1 ? +(cur - weightSeries[0]).toFixed(1) : null;
+                                return (
+                                  <Card className="border-slate-200 shadow-sm">
+                                    <CardHeader className="border-b border-slate-100 pb-2 flex-row items-center justify-between space-y-0">
+                                      <CardTitle className="text-base text-slate-900">Weight Trend</CardTitle>
+                                      {chg != null && (
+                                        <span className={`text-xs font-semibold ${chg <= 0 ? "text-emerald-600" : "text-amber-600"}`}>
+                                          {chg <= 0 ? "▼" : "▲"} {Math.abs(chg)} lb overall
+                                        </span>
+                                      )}
+                                    </CardHeader>
+                                    <CardContent className="pt-4">
+                                      <div className="mb-2 text-2xl font-bold text-slate-900">
+                                        {cur} <span className="text-sm font-normal text-slate-500">lb</span>
+                                      </div>
+                                      {weightSeries.length > 1 ? (
+                                        renderTrendChart(weightSeries, "lb", 1)
+                                      ) : (
+                                        <div className="p-4 text-center text-sm text-slate-500">Not enough history yet for a trend line.</div>
+                                      )}
+                                    </CardContent>
+                                  </Card>
+                                );
+                              })()}
+
+                              <Card className="border-slate-200 shadow-sm">
+                                <CardHeader className="border-b border-slate-100 pb-3">
+                                  <div className="flex flex-wrap gap-2">
+                                    {healthTabs.map((t) => (
+                                      <button
+                                        key={t.id}
+                                        onClick={() => setHealthTab(t.id)}
+                                        className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                                          healthTab === t.id
+                                            ? "border-slate-900 bg-slate-900 text-white"
+                                            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                        }`}
+                                      >
+                                        {t.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </CardHeader>
+                                <CardContent className="pt-4 space-y-4">
+                                  {activeTrend && renderTrendChart(activeTrend.series, activeTrend.unit, activeTrend.dec)}
+                                  {activeMetrics.length === 0 ? (
+                                    <div className="p-4 text-center text-sm text-slate-500">No recent data available.</div>
+                                  ) : (
+                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                      {activeMetrics.map((m) => (
+                                        <div key={m.l} className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                                          <div className="text-[11px] uppercase tracking-wide text-slate-500">{m.l}</div>
+                                          <div className="mt-0.5 font-medium text-slate-900">
+                                            {m.v}
+                                            {m.u ? <span className="ml-1 text-xs font-normal text-slate-500">{m.u}</span> : null}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            </>
+                          );
+                        })()}
+                      </>
+                    )}
+
+                    {wearableConsent && (
+                      <div
+                        className={`rounded-lg border px-3 py-2.5 text-xs ${
+                          wearableConsent.granted ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 font-semibold">
+                          <span className={`inline-block h-2 w-2 rounded-full ${wearableConsent.granted ? "bg-emerald-500" : "bg-slate-400"}`} />
+                          <span className={wearableConsent.granted ? "text-emerald-700" : "text-slate-600"}>
+                            {wearableConsent.granted ? "Consent on file" : "No consent on file"}
+                          </span>
+                        </div>
+                        <p className="mt-1 leading-relaxed text-slate-600">
+                          {wearableConsent.granted ? (
+                            <>Patient agreed to share this data{wearableConsent.date ? ` on ${wearableConsent.date}` : ""}. </>
+                          ) : (
+                            "The patient has not granted consent to share wearables data. "
+                          )}
+                          Synced from the patient's connected devices via Junction. Sections populate based on the sources the
+                          patient has linked, and refresh automatically several times a day. This view is read-only — the
+                          patient manages connections and consent from their own portal.
+                        </p>
+                      </div>
+                    )}
                   </TabsContent>
                 </Tabs>
               </CardContent>

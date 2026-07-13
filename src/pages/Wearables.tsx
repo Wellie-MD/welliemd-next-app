@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Search, Smartphone, X, Shield, Send, ArrowLeft, Download, AlertCircle, Info, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, Smartphone, Send, Download, AlertCircle, Loader2 } from 'lucide-react';
 import api from '../api/axiosInstance';
 import adminApi from '../api/adminApi';
 import { patientService, type Patient as ApiPatient } from '../services/patientService';
@@ -24,12 +25,6 @@ const PROV_CP: Record<string, { name: string; kind: string; gives: string; ic: s
   oura: { name: 'Oura', kind: 'Smart ring', gives: 'Sleep, HRV & readiness', ic: '💍' },
   fitbit: { name: 'Fitbit', kind: 'Wearable', gives: 'Activity, heart rate & sleep', ic: '⌚' },
   garmin: { name: 'Garmin', kind: 'Wearable', gives: 'Activity, heart rate & workouts', ic: '⌚' }
-};
-
-const TONE: Record<string, string> = {
-  'Active': 'pill-green',
-  'Inactive': 'pill-gray',
-  'Drop-off': 'pill-amber'
 };
 
 function _pdHash(s: string) {
@@ -103,11 +98,10 @@ function pdDemoData(p: Patient, connected: boolean, provider: string | null, las
 }
 
 export default function Wearables() {
+  const navigate = useNavigate();
   const [view, setView] = useState<'roster' | 'insights'>('roster');
   const [filter, setFilter] = useState<'all' | 'connected' | 'not' | 'attention'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPatientIndex, setSelectedPatientIndex] = useState<number | null>(null);
-  const [detailTab, setDetailTab] = useState<'devices' | 'history'>('devices');
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [toastTimeoutId, setToastTimeoutId] = useState<NodeJS.Timeout | null>(null);
 
@@ -309,74 +303,6 @@ export default function Wearables() {
     setToastTimeoutId(id);
   };
 
-  const drawTelemetryTrend = (series: number[]) => {
-    const w = 760, h = 160;
-    const padL = 25, padR = 25, padT = 20, padB = 25;
-    const mn = Math.min(...series), mx = Math.max(...series), rng = (mx - mn) || 1;
-    const lo = mn - rng * 0.1, vr = (mx + rng * 0.1) - lo;
-    const n = Math.max(series.length - 1, 1);
-
-    const pts = series.map((v, i) => {
-      const x = padL + i * ((w - padL - padR) / n);
-      const y = padT + (1 - (v - lo) / vr) * (h - padT - padB);
-      return { x, y };
-    });
-
-    const polylinePts = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-    
-    const today = new Date();
-    const ticks = [0, Math.round(n / 2), n];
-
-    return (
-      <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
-        <polyline
-          points={`${padL},${h - padB} ${polylinePts} ${w - padR},${h - padB}`}
-          fill="var(--km-acp)"
-          stroke="none"
-          opacity="0.6"
-        />
-        <polyline
-          points={polylinePts}
-          fill="none"
-          stroke="var(--km-ac)"
-          strokeWidth="2.5"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
-        {pts.map((p, i) => (
-          <circle
-            key={i}
-            cx={p.x.toFixed(1)}
-            cy={p.y.toFixed(1)}
-            r="3"
-            fill="var(--km-ac)"
-          />
-        ))}
-        {ticks.map(i => {
-          if (!pts[i]) return null;
-          const d = new Date(today);
-          d.setDate(d.getDate() - (n - i) * 7);
-          const anchor = i === 0 ? 'start' : (i === n ? 'end' : 'middle');
-          return (
-            <text
-              key={i}
-              x={pts[i].x.toFixed(1)}
-              y={h - 6}
-              fontSize="11"
-              fill="var(--km-tm)"
-              textAnchor={anchor}
-              fontWeight="500"
-            >
-              {d.getMonth() + 1}/{d.getDate()}
-            </text>
-          );
-        })}
-      </svg>
-    );
-  };
-
-  const selectedPatient = selectedPatientIndex !== null ? allComputed[selectedPatientIndex] : null;
-
   return (
     <div className="p-6 space-y-6" style={{ position: 'relative' }}>
       {/* Toast Notification */}
@@ -514,7 +440,7 @@ export default function Wearables() {
             Retry Connection
           </button>
         </div>
-      ) : selectedPatient === null ? (
+      ) : (
         <>
           {/* Main Controls & Segmented Roster / Insights switcher */}
           <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
@@ -744,8 +670,7 @@ export default function Wearables() {
                             <tr
                               key={i}
                               onClick={() => {
-                                setSelectedPatientIndex(r.idx);
-                                setDetailTab('devices');
+                                navigate(`/dashboard/patients/${r.p.mrn}`);
                               }}
                               style={{
                                 borderBottom: '1px solid var(--km-b)',
@@ -809,8 +734,7 @@ export default function Wearables() {
                                   style={{ color: 'var(--km-ac)', fontWeight: 700, cursor: 'pointer' }}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setSelectedPatientIndex(r.idx);
-                                    setDetailTab('devices');
+                                    navigate(`/dashboard/patients/${r.p.mrn}`);
                                   }}
                                 >
                                   View Data
@@ -987,8 +911,7 @@ export default function Wearables() {
                             <tr
                               key={i}
                               onClick={() => {
-                                setSelectedPatientIndex(r.idx);
-                                setDetailTab('devices');
+                                navigate(`/dashboard/patients/${r.p.mrn}`);
                               }}
                               style={{
                                 borderBottom: '1px solid var(--km-b)',
@@ -1026,8 +949,7 @@ export default function Wearables() {
                                   style={{ color: 'var(--km-ac)', fontWeight: 700, cursor: 'pointer' }}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setSelectedPatientIndex(r.idx);
-                                    setDetailTab('devices');
+                                    navigate(`/dashboard/patients/${r.p.mrn}`);
                                   }}
                                 >
                                   View
@@ -1044,377 +966,6 @@ export default function Wearables() {
             </div>
           )}
         </>
-      ) : (
-        /* Patient Detail view */
-        <div>
-          {/* Back button */}
-          <div style={{ marginBottom: 16 }}>
-            <button
-              onClick={() => setSelectedPatientIndex(null)}
-              className="btn"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                fontSize: 12.5,
-                fontWeight: 600,
-                borderRadius: 8,
-                padding: '8px 14px',
-                border: '1px solid var(--km-b)',
-                background: 'var(--km-s2)',
-                color: 'var(--km-t)',
-                cursor: 'pointer'
-              }}
-            >
-              <ArrowLeft size={14} />
-              Back to Patient Roster
-            </button>
-          </div>
-
-          {/* Head */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              gap: 16,
-              marginBottom: 18,
-              flexWrap: 'wrap'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-              <div
-                style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: 10,
-                  background: 'var(--km-s3)',
-                  color: 'var(--km-t)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 800,
-                  fontSize: 14,
-                  border: '1px solid var(--km-b)'
-                }}
-              >
-                {selectedPatient.p.name.split(/\s+/).map(n => n[0]).slice(0, 2).join('').toUpperCase()}
-              </div>
-              <div>
-                <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--km-t)' }}>
-                  {selectedPatient.p.name}
-                </div>
-                <div style={{ fontSize: 11.5, color: 'var(--km-tm)', fontFamily: 'monospace', marginTop: 2 }}>
-                  MRN: {selectedPatient.p.mrn}
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => triggerToast('Telemetry nudge & connection invite pushed to patient device.')}
-              className="btn"
-              style={{
-                background: 'var(--km-ac)',
-                color: '#fff',
-                borderColor: 'var(--km-ac)',
-                fontSize: 12.5,
-                fontWeight: 600,
-                borderRadius: 8,
-                padding: '8px 14px',
-                cursor: 'pointer',
-                border: '1px solid transparent'
-              }}
-            >
-              Send Connection Link
-            </button>
-          </div>
-
-          {/* Grid Layout */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: 18,
-              alignItems: 'start'
-            }}
-          >
-            {/* Left Column Profile & Overview */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {/* Profile Card */}
-              <div style={{ background: 'var(--km-s1)', border: '1px solid var(--km-b)', borderRadius: 'var(--km-r)', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 700, padding: '14px 16px 0', color: 'var(--km-t)' }}>
-                  <Shield size={15} style={{ color: 'var(--km-tm)' }} />
-                  Profile
-                </div>
-                {[
-                  { label: 'Joined', val: selectedPatient.p.start },
-                  { label: 'Email', val: selectedPatient.p.email },
-                  { label: 'Phone', val: selectedPatient.p.phone },
-                  { label: 'Location', val: selectedPatient.p.location !== '-' ? selectedPatient.p.location : '—' },
-                  {
-                    label: 'Patient Status',
-                    val: (
-                      <span className={`pill ${TONE[selectedPatient.p.status] || 'pill-gray'}`} style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 999 }}>
-                        {selectedPatient.p.status}
-                      </span>
-                    )
-                  }
-                ].map((row, idx) => (
-                  <div key={idx} style={{ padding: '11px 16px', borderTop: idx > 0 ? '1px solid var(--km-b)' : 'none' }}>
-                    <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--km-tm)', marginBottom: 3 }}>
-                      {row.label}
-                    </div>
-                    <div style={{ fontSize: 13, color: 'var(--km-t)', fontWeight: 500, wordBreak: 'break-word' }}>
-                      {row.val}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Metrics Overview Card */}
-              <div style={{ background: 'var(--km-s1)', border: '1px solid var(--km-b)', borderRadius: 'var(--km-r)', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 700, padding: '14px 16px 0', color: 'var(--km-t)' }}>
-                  <Info size={15} style={{ color: 'var(--km-tm)' }} />
-                  Metrics Overview
-                </div>
-                {[
-                  { label: 'Height', val: `${selectedPatient.d.heightIn} in` },
-                  { label: 'Starting weight', val: `${selectedPatient.d.start} lb` },
-                  { label: 'Current weight', val: `${selectedPatient.d.weightSeries[selectedPatient.d.weightSeries.length - 1]} lb` }
-                ].map((row, idx) => (
-                  <div key={idx} style={{ padding: '11px 16px', borderTop: idx > 0 ? '1px solid var(--km-b)' : 'none' }}>
-                    <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--km-tm)', marginBottom: 3 }}>
-                      {row.label}
-                    </div>
-                    <div style={{ fontSize: 13, color: 'var(--km-t)', fontWeight: 500 }}>
-                      {row.val}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Right Column Tabs & Data */}
-            <div style={{ background: 'var(--km-s1)', border: '1px solid var(--km-b)', borderRadius: 'var(--km-r)', overflow: 'hidden' }}>
-              {/* Tab headers */}
-              <div style={{ display: 'flex', gap: 22, borderBottom: '1px solid var(--km-b)', padding: '0 18px' }}>
-                <div
-                  onClick={() => setDetailTab('devices')}
-                  style={{
-                    padding: '13px 2px',
-                    fontSize: 13,
-                    fontWeight: detailTab === 'devices' ? 700 : 500,
-                    color: detailTab === 'devices' ? 'var(--km-t)' : 'var(--km-tm)',
-                    cursor: 'pointer',
-                    borderBottom: '2px solid transparent',
-                    borderBottomColor: detailTab === 'devices' ? 'var(--km-ac)' : 'transparent',
-                    marginBottom: -1,
-                    transition: 'all 0.15s'
-                  }}
-                >
-                  Devices
-                </div>
-                <div
-                  onClick={() => setDetailTab('history')}
-                  style={{
-                    padding: '13px 2px',
-                    fontSize: 13,
-                    fontWeight: detailTab === 'history' ? 700 : 500,
-                    color: detailTab === 'history' ? 'var(--km-t)' : 'var(--km-tm)',
-                    cursor: 'pointer',
-                    borderBottom: '2px solid transparent',
-                    borderBottomColor: detailTab === 'history' ? 'var(--km-ac)' : 'transparent',
-                    marginBottom: -1,
-                    transition: 'all 0.15s'
-                  }}
-                >
-                  Telemetry Data
-                </div>
-              </div>
-
-              {/* Tab Content */}
-              <div style={{ padding: 18 }}>
-                {detailTab === 'devices' ? (
-                  <div>
-                    {/* Readiness block */}
-                    <div
-                      style={{
-                        border: '1px solid var(--km-b)',
-                        borderRadius: 'var(--km-r)',
-                        padding: '15px 18px',
-                        marginBottom: 14
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                        <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--km-t)' }}>Readiness & Core Metrics</span>
-                        <span style={{ fontSize: 11, color: 'var(--km-tm)' }}>via Junction Sense • 7-day snapshot</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 15 }}>
-                        <span style={{ fontSize: 34, fontWeight: 800, color: pdScoreColor(selectedPatient.d.readiness) }}>
-                          {selectedPatient.d.readiness}
-                        </span>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: pdScoreColor(selectedPatient.d.readiness) }}>
-                          {pdScoreLabel(selectedPatient.d.readiness)}
-                        </span>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-                        {[
-                          { label: 'Recovery', val: `${selectedPatient.d.recovery}%` },
-                          { label: 'Sleep score', val: `${selectedPatient.d.sleepScore}/100` },
-                          { label: 'Synced', val: `${selectedPatient.d.adherence}/7 days` }
-                        ].map((m, idx) => (
-                          <div
-                            key={idx}
-                            style={{
-                              border: '1px solid var(--km-b)',
-                              borderRadius: 'var(--km-r)',
-                              padding: '13px 15px'
-                            }}
-                          >
-                            <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '.4px', textTransform: 'uppercase', color: 'var(--km-tm)' }}>
-                              {m.label}
-                            </div>
-                            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--km-t)', marginTop: 2 }}>
-                              {m.val}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Weight Trend block */}
-                    <div
-                      style={{
-                        border: '1px solid var(--km-b)',
-                        borderRadius: 'var(--km-r)',
-                        padding: '15px 18px',
-                        marginBottom: 14
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                        <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--km-t)' }}>Weight Trend</span>
-                        <span
-                          style={{
-                            fontSize: 11.5,
-                            fontWeight: 700,
-                            color: (selectedPatient.cur - selectedPatient.d.start) <= 0 ? 'var(--km-gr)' : 'var(--km-am)'
-                          }}
-                        >
-                          {(selectedPatient.cur - selectedPatient.d.start) <= 0 ? '▼' : '▲'}{' '}
-                          {Math.abs(+(selectedPatient.cur - selectedPatient.d.start).toFixed(1))} lb overall
-                        </span>
-                      </div>
-                      {drawTelemetryTrend(selectedPatient.d.weightSeries)}
-                    </div>
-
-                    {/* Clinic note */}
-                    <div
-                      style={{
-                        background: 'var(--km-s2)',
-                        border: '1px solid var(--km-b)',
-                        borderRadius: 'var(--km-r)',
-                        padding: '12px 15px',
-                        fontSize: 12,
-                        color: 'var(--km-tm)',
-                        lineHeight: 1.5
-                      }}
-                    >
-                      <b>💡 Clinical sync insight:</b> Consents are fully authorized. Biomarkers are evaluated under standard guidelines. The patient connects ring, watch, or scale inside the patient portal app.
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    {/* Telemetry data tab pane */}
-                    <div
-                      style={{
-                        border: '1px solid var(--km-b)',
-                        borderRadius: 'var(--km-r)',
-                        padding: '16px 18px'
-                      }}
-                    >
-                      <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10, color: 'var(--km-t)' }}>
-                        Historical Synced Metrics
-                      </div>
-                      <div style={{ fontSize: 12.5, color: 'var(--km-tm)', marginBottom: 14 }}>
-                        Granular sync audit history compiled via secure API.
-                      </div>
-                      <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                          <thead>
-                            <tr style={{ borderBottom: '1px solid var(--km-b)' }}>
-                              {['Metric Date', 'Provider', 'Weight Log', 'Active Steps', 'Resting Heart Rate', 'Sleep Performance'].map((h, i) => (
-                                <th
-                                  key={i}
-                                  style={{
-                                    textAlign: 'left',
-                                    fontSize: 10,
-                                    fontWeight: 700,
-                                    letterSpacing: '.04em',
-                                    textTransform: 'uppercase',
-                                    color: 'var(--km-tm)',
-                                    padding: '10px 12px',
-                                    whiteSpace: 'nowrap'
-                                  }}
-                                >
-                                  {h}
-                                </th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {selectedPatient.d.weightSeries.map((w, idx) => {
-                              const date = new Date();
-                              date.setDate(date.getDate() - idx * 7);
-                              const randSteps = Math.round(5000 + (idx * 300) - (idx * 120));
-                              const randHR = Math.round(62 + (idx % 3) - (idx % 2));
-                              const prov = selectedPatient.d.connections[0]?.provider || 'withings';
-                              return (
-                                <tr key={idx} style={{ borderBottom: '1px solid var(--km-b)' }}>
-                                  <td style={{ padding: '12px 12px', fontSize: 12.5, fontWeight: 700, color: 'var(--km-t)' }}>
-                                    {date.getMonth() + 1}/{date.getDate()}/{date.getFullYear()}
-                                  </td>
-                                  <td style={{ padding: '12px 12px' }}>
-                                    <span
-                                      className="pill pill-blue"
-                                      style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        fontSize: 11,
-                                        fontWeight: 600,
-                                        borderRadius: 999,
-                                        padding: '3px 10px',
-                                        border: '1px solid transparent',
-                                        background: 'var(--km-acp)',
-                                        color: 'var(--km-ac)'
-                                      }}
-                                    >
-                                      {PROV_CP[prov]?.name || prov}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '12px 12px', fontSize: 12.5, fontWeight: 700, color: 'var(--km-t)' }}>
-                                    {w} lb
-                                  </td>
-                                  <td style={{ padding: '12px 12px', fontSize: 12.5, color: 'var(--km-t)' }}>
-                                    {randSteps.toLocaleString()} steps
-                                  </td>
-                                  <td style={{ padding: '12px 12px', fontSize: 12.5, color: 'var(--km-t)' }}>
-                                    {randHR} bpm
-                                  </td>
-                                  <td style={{ padding: '12px 12px', fontSize: 12.5, color: 'var(--km-t)' }}>
-                                    {selectedPatient.d.sleep}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
