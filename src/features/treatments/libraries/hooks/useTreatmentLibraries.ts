@@ -195,7 +195,8 @@ export const useSaveProgramQuestions = (programId: string) => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (questions: ProgramQuestion[]) => treatmentsApi.saveProgramQuestions(programId, questions),
-    onSuccess: () => {
+    onSuccess: (questions) => {
+      queryClient.setQueryData(treatmentQueryKeys.programQuestions(programId), questions);
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programQuestions(programId) });
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
