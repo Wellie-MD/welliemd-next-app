@@ -12,6 +12,7 @@ import {
   useSaveCustomProgram,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { createMockId } from "@/features/treatments/common/data/factories";
+import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
 import type { CustomProgram, CustomProgramBuilderAddItem, CustomProgramFlowItem } from "@/features/treatments/types";
 
 export default function CustomProgramBuilderPage() {
@@ -104,7 +105,12 @@ export default function CustomProgramBuilderPage() {
           description: "All changes saved successfully.",
         });
       },
-      onError: (err) => {
+      onError: (error) => {
+        if (isDuplicateSlugError(error)) {
+          showDuplicateSlugToast();
+          return;
+        }
+
         toast({
           title: "Error Saving Plan",
           description: "An error occurred while saving. Please try again.",

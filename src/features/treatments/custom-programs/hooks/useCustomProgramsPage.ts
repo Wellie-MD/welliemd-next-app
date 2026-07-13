@@ -1,19 +1,26 @@
 import { useMemo, useState } from "react";
 import { toast } from "@/components/ui/use-toast";
 import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
+import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
 import type { CustomProgram } from "@/features/treatments/types";
 import type { PreviewContext } from "@/features/treatments/types";
 import { useCustomPrograms, useDeleteCustomProgram, useSaveCustomProgram } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import type { CustomProgramFormData } from "@/features/treatments/custom-programs/components/CustomProgramModal";
 import { programAssignmentApi } from "@/api/programAssignmentApi";
 import { useClients } from "@/hooks/useClients";
+import { getQuestionnairePreviewApiBaseUrl } from "@/features/treatments/utils/previewUrl";
 
 export type CustomProgramsViewMode = "card" | "list";
 export type CustomProgramsFilter = "all" | "multi" | "single";
 export type CatalogTab = "medicine" | "checkout" | "labs" | "supplies" | "hub";
 
 export function isCustomProgramMulti(program: CustomProgram) {
-  return program.isMulti === true || program.includedProgramIds.length > 1 || Boolean(program.tags?.includes("Multi-treatment"));
+  const linkedProgramCount = Math.max(
+    program.includedProgramIds.length,
+    program.flowItems.filter((item) => item.kind === "program").length
+  );
+
+  return linkedProgramCount > 1;
 }
 
 function buildNewCustomProgram(data: CustomProgramFormData): CustomProgram {
@@ -36,8 +43,8 @@ function buildNewCustomProgram(data: CustomProgramFormData): CustomProgram {
     icon: "sparkles",
     iconBg: "#fdf2f8",
     iconColor: "#be185d",
-    tags: ["Multi-treatment"],
-    isMulti: true,
+    tags: [],
+    isMulti: false,
     flowItems: [
       {
         id: "auth-1",
@@ -107,7 +114,12 @@ export function useCustomProgramsPage() {
   }, [filteredPrograms]);
 
   const handlePreview = (program: CustomProgram) => {
-    setPreviewContext({ type: "custom_program", id: program.id, slug: program.slug });
+    setPreviewContext({
+      type: "custom_program",
+      id: program.id,
+      slug: program.slug,
+      apiBaseUrl: getQuestionnairePreviewApiBaseUrl(),
+    });
     setIsPreviewOpen(true);
   };
 
@@ -137,6 +149,18 @@ export function useCustomProgramsPage() {
         });
         setIsModalOpen(false);
         setSelectedProgram(null);
+      },
+      onError: (error: unknown) => {
+        if (isDuplicateSlugError(error)) {
+          showDuplicateSlugToast();
+          return;
+        }
+
+        toast({
+          title: "Error",
+          description: `Failed to ${selectedProgram ? "update" : "create"} ${data.name}.`,
+          variant: "destructive",
+        });
       },
     });
   };

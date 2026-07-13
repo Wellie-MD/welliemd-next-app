@@ -44,8 +44,6 @@ import ProductBillingConfig from "./pages/ProductBillingConfig";
 import ProductDoseMappings from "./pages/ProductDoseMappings";
 import ProductConfig from "./pages/ProductConfig";
 import Supplies from "./pages/Supplies";
-import ArchiveTemplates from "./pages/ArchiveTemplates";
-import ArchiveProducts from "./pages/ArchiveProducts";
 import ManageAccount from "./pages/ManageAccount";
 import UsersPermissions from "./pages/management/UsersPermissions";
 import MasterKeyAccess from "./pages/MasterKeyAccess";
@@ -55,6 +53,7 @@ import ConsentsPage from "./features/treatments/libraries/pages/ConsentsPage";
 import ContentLibrariesPage from "./features/treatments/libraries/pages/ContentLibrariesPage";
 import CustomProgramBuilderPage from "./features/treatments/flow-builder/pages/CustomProgramBuilderPage";
 import CustomProgramsPage from "./features/treatments/custom-programs/pages/CustomProgramsPage";
+import ArchivePage from "./pages/ArchivePage";
 import ProgramDetailPage from "./features/treatments/programs/pages/ProgramDetailPage";
 import ProgramQuestionsListPage from "./features/treatments/programs/pages/ProgramQuestionsListPage";
 import ProgramsPage from "./features/treatments/programs/pages/ProgramsPage";
@@ -170,6 +169,7 @@ const App = () => {
                     <Route path="/treatments/custom-programs/:customProgramId/builder" element={<ProtectedRoute><CustomProgramBuilderPage /></ProtectedRoute>} />
                     <Route path="/treatments/custom-programs/assignment-history" element={<ProtectedRoute><CustomProgramAssignmentHistory /></ProtectedRoute>} />
                     <Route path="/treatments/programs" element={<ProtectedRoute><ProgramsPage /></ProtectedRoute>} />
+                    <Route path="/archive" element={<ProtectedRoute><ArchivePage /></ProtectedRoute>} />
                     <Route path="/treatments/programs/:programId/flow-builder" element={<ProtectedRoute><ProgramDetailPage /></ProtectedRoute>} />
                     <Route path="/treatments/programs/:programId" element={<ProtectedRoute><ProgramDetailPage /></ProtectedRoute>} />
                     <Route path="/treatments/programs/:programId/questions" element={<ProtectedRoute><ProgramQuestionsListPage /></ProtectedRoute>} />
@@ -204,9 +204,7 @@ const App = () => {
                     <Route path="/questionnaires/:templateId" element={<ProtectedRoute><QuestionnaireQuestions /></ProtectedRoute>} />
                     <Route path="/questionnaires/:templateId/questions" element={<ProtectedRoute><QuestionnaireQuestions /></ProtectedRoute>} />
                     <Route path="/questionnaires/:templateId/flow-builder" element={<ProtectedRoute><FlowBuilder /></ProtectedRoute>} />
-                    <Route path="/questionnaires/archive" element={<ProtectedRoute><ArchiveTemplates /></ProtectedRoute>} />
                     <Route path="/pharmacies" element={<ProtectedRoute><Pharmacies /></ProtectedRoute>} />
-                    <Route path="/products/archive" element={<ProtectedRoute><ArchiveProducts /></ProtectedRoute>} />
                     <Route path="/manage-account" element={<ProtectedRoute><ManageAccount /></ProtectedRoute>} />
                     <Route path="/users-permissions" element={<ProtectedRoute><UsersPermissions /></ProtectedRoute>} />
                   </Routes>

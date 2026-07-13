@@ -11,6 +11,7 @@ export interface ConsentForm {
   id: string;
   name: string;
   scope: TreatmentLibraryScope;
+  isArchived: boolean;
   /** Visit types this consent is shown for (treatment-scoped only; empty = all). */
   visitTypeKeys: string[];
   /** Rich-text (HTML) body of the consent document. */

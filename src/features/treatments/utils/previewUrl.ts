@@ -1,6 +1,7 @@
 import type { PreviewContext } from "@/features/treatments/types";
 
-const DEFAULT_LOCAL_QUESTIONNAIRE_URL = "http://localhost:3000";
+const DEFAULT_LOCAL_QUESTIONNAIRE_URL = "http://localhost:3001";
+const DEFAULT_LOCAL_API_BASE_URL = "http://localhost:8000/api/v1";
 
 const normalizeBaseUrl = (baseUrl: string) => baseUrl.replace(/\/+$/, "");
 
@@ -14,6 +15,10 @@ export const getQuestionnairePreviewBaseUrl = () => {
   return normalizeBaseUrl(
     import.meta.env.VITE_QUESTIONNAIRE_PREVIEW_BASE_URL || DEFAULT_LOCAL_QUESTIONNAIRE_URL
   );
+};
+
+export const getQuestionnairePreviewApiBaseUrl = () => {
+  return normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL || DEFAULT_LOCAL_API_BASE_URL);
 };
 
 export const buildQuestionnairePreviewTarget = (
@@ -37,21 +42,25 @@ export const buildQuestionnairePreviewTarget = (
   );
 
   if (context.slug) params.set("slug", context.slug);
+  if (context.apiBaseUrl) params.set("api_base_url", context.apiBaseUrl);
 
-  if (context.type === "program" && context.slug) {
+  if (context.type === "program") {
+    if (context.visitType) params.set("visit_type", context.visitType);
+    if (context.templateId) params.set("template_id", context.templateId);
+
     return {
-      url: `${baseUrl}/visit/${context.slug}?${params.toString()}`,
+      url: `${baseUrl}/preview?${params.toString()}`,
       supported: true,
     };
   }
 
   return {
     url: `${baseUrl}/preview?${params.toString()}`,
-    supported: false,
+    supported: context.type !== "section",
     reason:
       context.type === "section"
         ? "Section preview is not wired to questionnaire runtime yet because sections do not have a standalone runtime route."
-        : "Custom program preview is not wired to questionnaire runtime yet because the questionnaire app does not consume custom_program preview routes.",
+        : undefined,
   };
 };
 

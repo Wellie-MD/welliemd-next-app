@@ -29,7 +29,7 @@ const KEYS = {
   SECTION_FIELDS: "welliemd_mock_section_fields",
 };
 
-const SEED_VERSION_KEY = "welliemd_mock_data_version_v12";
+const SEED_VERSION_KEY = "welliemd_mock_data_version_v13";
 
 const defaultSectionFields: Record<string, CommonSectionField[]> = {
   "sec-medical-baseline": [
@@ -363,6 +363,8 @@ const setProgramQuestions = (programId: string, questions: ProgramQuestion[]) =>
   setStored(KEYS.PROGRAM_QUESTIONS, allQuestions);
 };
 
+const cloneJson = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null));
+
 const getSectionFields = (sectionId: string) => {
   const allFields = getStored<Record<string, CommonSectionField[]>>(
     KEYS.SECTION_FIELDS,
@@ -429,6 +431,7 @@ type ConsentApiRecord = {
   id: string;
   name: string;
   scope: ConsentForm["scope"];
+  is_archived?: boolean;
   visit_type_keys: string[];
   text?: string;
   options?: ConsentForm["options"];
@@ -492,6 +495,25 @@ type ProgramApiRecord = {
   updated_at?: string;
 };
 
+type ProgramQuestionApiRecord = Partial<ProgramQuestion> & {
+  question_text?: string;
+  text?: string;
+  question_type?: ProgramQuestion["kind"];
+  kind?: ProgramQuestion["kind"];
+  order_index?: number;
+  order?: number;
+  is_required?: boolean;
+  required?: boolean;
+  answer_choices?: string[];
+  choices?: string[];
+  conditional_logic?: unknown;
+  visibilityRules?: unknown;
+  visibility_rules?: unknown;
+  visibilityRuleGroup?: unknown;
+  include_in_qa_section?: boolean;
+  includeInQa?: boolean;
+};
+
 const slugifyTreatmentValue = (value: string): string =>
   value
     .trim()
@@ -501,6 +523,73 @@ const slugifyTreatmentValue = (value: string): string =>
 
 const isPersistedUuid = (value?: string | null): boolean =>
   Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
+
+const isVisibilityRuleGroup = (value: unknown): value is NonNullable<ProgramQuestion["visibilityRuleGroup"]> => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as { mode?: unknown; rules?: unknown };
+  return (candidate.mode === "simple" || candidate.mode === "nested") && Array.isArray(candidate.rules);
+};
+
+const normalizeVisibilityRuleGroup = (record: ProgramQuestionApiRecord): ProgramQuestion["visibilityRuleGroup"] | undefined => {
+  const raw =
+    record.visibilityRuleGroup ||
+    record.visibilityRules ||
+    record.visibility_rules ||
+    record.conditional_logic;
+  if (isVisibilityRuleGroup(raw)) {
+    return {
+      mode: raw.mode,
+      rules: raw.rules || [],
+      subgroups: raw.subgroups || [],
+    };
+  }
+  return undefined;
+};
+
+const mapProgramQuestionFromApi = (record: ProgramQuestionApiRecord, index = 0): ProgramQuestion => ({
+  id: String(record.id || `q-${index + 1}`),
+  order: Number(record.order ?? record.order_index ?? index + 1),
+  text: String(record.text ?? record.question_text ?? ""),
+  kind: (record.kind ?? record.question_type ?? "text") as ProgramQuestion["kind"],
+  section: record.section || "General Intake",
+  required: Boolean(record.required ?? record.is_required ?? true),
+  choices: record.choices ?? record.answer_choices ?? [],
+  dqChoices: record.dqChoices ?? [],
+  consentText: record.consentText,
+  checkoutProductIds: record.checkoutProductIds,
+  checkoutProducts: record.checkoutProducts,
+  visibilityRule: record.visibilityRule,
+  visibilityRuleGroup: normalizeVisibilityRuleGroup(record),
+  includeInQa: record.includeInQa ?? record.include_in_qa_section ?? true,
+  hiddenFromPatient: record.hiddenFromPatient ?? false,
+  prefillFromPrevious: record.prefillFromPrevious ?? false,
+});
+
+const mapProgramQuestionToApi = (question: ProgramQuestion): ProgramQuestionApiRecord => ({
+  id: question.id,
+  order: question.order,
+  order_index: question.order,
+  text: question.text,
+  question_text: question.text,
+  kind: question.kind,
+  question_type: question.kind,
+  required: question.required,
+  is_required: question.required,
+  choices: question.choices || [],
+  answer_choices: question.choices || [],
+  visibilityRuleGroup: question.visibilityRuleGroup,
+  visibilityRules: question.visibilityRuleGroup,
+  visibility_rules: question.visibilityRuleGroup,
+  includeInQa: question.includeInQa,
+  include_in_qa_section: question.includeInQa,
+  hiddenFromPatient: question.hiddenFromPatient,
+  prefillFromPrevious: question.prefillFromPrevious,
+  section: question.section,
+  dqChoices: question.dqChoices,
+  consentText: question.consentText,
+  checkoutProductIds: question.checkoutProductIds,
+  checkoutProducts: question.checkoutProducts,
+});
 
 const mapTreatmentTypeFromApi = (record: TreatmentTypeApiRecord): TreatmentType => ({
   id: record.id,
@@ -567,6 +656,7 @@ const mapConsentFromApi = (record: ConsentApiRecord): ConsentForm => ({
   id: record.id,
   name: record.name,
   scope: record.scope,
+  isArchived: record.is_archived ?? false,
   visitTypeKeys: record.visit_type_keys || [],
   text: record.text || "",
   options: record.options || [],
@@ -576,6 +666,7 @@ const mapConsentFromApi = (record: ConsentApiRecord): ConsentForm => ({
 const mapConsentToApi = (consent: ConsentForm) => ({
   name: consent.name.trim(),
   scope: consent.scope,
+  is_archived: consent.isArchived,
   visit_type_keys: consent.visitTypeKeys || [],
   text: consent.text || "",
   options: consent.options || [],
@@ -640,6 +731,7 @@ const mapProgramFromApi = (record: ProgramApiRecord): Program => ({
   status: record.status,
   updatedAt: record.updated_at?.split("T")[0] || currentDateStamp(),
   slug: record.slug,
+  sourceQuestionnaireTemplateId: record.source_questionnaire_template || null,
   description: record.description || "",
   authConfig: record.auth_config || {
     email: true,
@@ -647,7 +739,7 @@ const mapProgramFromApi = (record: ProgramApiRecord): Program => ({
     identity: false,
     account: true,
   },
-  screeningQuestions: record.screening_questions || [],
+  screeningQuestions: (record.screening_questions || []).map(mapProgramQuestionFromApi),
   checkoutQuestions: record.checkout_questions || [],
   consentIds: record.consent_ids || [],
   sexRequirement: record.sex_requirement || "any",
@@ -691,7 +783,7 @@ const mapProgramToApi = (
       identity: false,
       account: true,
     },
-    screening_questions: program.screeningQuestions || [],
+    screening_questions: (program.screeningQuestions || []).map(mapProgramQuestionToApi),
     checkout_questions: program.checkoutQuestions || [],
     consent_ids: program.consentIds || [],
     sex_requirement: program.sexRequirement || "any",
@@ -775,8 +867,8 @@ export const treatmentsApi = {
     if (!isPersistedUuid(programId)) {
       return getProgramQuestions(programId);
     }
-    const { data } = await axiosInstance.get<ProgramQuestion[]>(`treatments/programs/${programId}/questions/`);
-    return data || [];
+    const { data } = await axiosInstance.get<ProgramQuestionApiRecord[]>(`treatments/programs/${programId}/questions/`);
+    return (data || []).map(mapProgramQuestionFromApi);
   },
 
   saveProgramQuestions: async (programId: string, questions: ProgramQuestion[]): Promise<ProgramQuestion[]> => {
@@ -784,11 +876,11 @@ export const treatmentsApi = {
       setProgramQuestions(programId, questions);
       return questions;
     }
-    const { data } = await axiosInstance.put<ProgramQuestion[]>(
+    const { data } = await axiosInstance.put<ProgramQuestionApiRecord[]>(
       `treatments/programs/${programId}/questions/`,
-      { questions }
+      { questions: questions.map(mapProgramQuestionToApi) }
     );
-    return data;
+    return (data || []).map(mapProgramQuestionFromApi);
   },
 
   // Mutations
@@ -827,6 +919,138 @@ export const treatmentsApi = {
     }
 
     const { data } = await axiosInstance.post<ProgramApiRecord>("treatments/programs/", payload);
+    return mapProgramFromApi(data);
+  },
+
+  updateProgramSlug: async (programId: string, slug: string): Promise<Program> => {
+    const normalizedSlug = slugifyTreatmentValue(slug);
+    if (!isPersistedUuid(programId)) {
+      const list = getPrograms();
+      const index = list.findIndex((program) => program.id === programId);
+      if (index < 0) {
+        throw new Error(`Program ${programId} was not found`);
+      }
+      const updatedProgram = {
+        ...list[index],
+        slug: normalizedSlug || list[index].slug,
+        updatedAt: currentDateStamp(),
+      };
+      const updated = [...list];
+      updated[index] = updatedProgram;
+      setStored(KEYS.PROGRAMS, updated);
+      return updatedProgram;
+    }
+
+    const { data } = await axiosInstance.patch<ProgramApiRecord>(
+      `treatments/programs/${programId}/slug/`,
+      { slug: normalizedSlug }
+    );
+    return mapProgramFromApi(data);
+  },
+
+  archiveProgram: async (id: string): Promise<Program> => {
+    if (!isPersistedUuid(id)) {
+      const list = getPrograms();
+      const index = list.findIndex((program) => program.id === id);
+      if (index < 0) {
+        throw new Error(`Program ${id} was not found`);
+      }
+      const source = list[index];
+      if (source.status === "published") {
+        const activeCustomPrograms = getCustomPrograms().filter(
+          (program) =>
+            program.status !== "archived" &&
+            (program.includedProgramIds || []).map(String).includes(String(id))
+        );
+        if (activeCustomPrograms.length > 0) {
+          throw new Error(
+            `Cannot archive published program while it is included in ${activeCustomPrograms.length} active custom program${activeCustomPrograms.length === 1 ? "" : "s"}.`
+          );
+        }
+      }
+      const archived = {
+        ...source,
+        status: "archived" as const,
+        updatedAt: currentDateStamp(),
+      };
+      const updated = [...list];
+      updated[index] = archived;
+      setStored(KEYS.PROGRAMS, updated);
+      return archived;
+    }
+
+    const { data } = await axiosInstance.post<ProgramApiRecord>(`treatments/programs/${id}/archive/`);
+    return mapProgramFromApi(data);
+  },
+
+  restoreProgram: async (id: string): Promise<Program> => {
+    if (!isPersistedUuid(id)) {
+      const list = getPrograms();
+      const index = list.findIndex((program) => program.id === id);
+      if (index < 0) {
+        throw new Error(`Program ${id} was not found`);
+      }
+      const restored = {
+        ...list[index],
+        status: "draft" as const,
+        updatedAt: currentDateStamp(),
+      };
+      const updated = [...list];
+      updated[index] = restored;
+      setStored(KEYS.PROGRAMS, updated);
+      return restored;
+    }
+
+    const { data } = await axiosInstance.post<ProgramApiRecord>(`treatments/programs/${id}/restore/`);
+    return mapProgramFromApi(data);
+  },
+
+  duplicateProgram: async (id: string): Promise<Program> => {
+    if (!isPersistedUuid(id)) {
+      const list = getPrograms();
+      const source = list.find((program) => program.id === id);
+      if (!source) {
+        throw new Error(`Program ${id} was not found`);
+      }
+
+      const baseName = `Copy of ${source.name}`;
+      let name = baseName;
+      let nameCounter = 2;
+      while (list.some((program) => program.name === name)) {
+        name = `${baseName} ${nameCounter}`;
+        nameCounter += 1;
+      }
+
+      const baseSlug = slugifyTreatmentValue(`copy-of-${source.slug || source.name}`);
+      let slug = baseSlug;
+      let slugCounter = 2;
+      while (list.some((program) => program.slug === slug)) {
+        slug = `${baseSlug}-${slugCounter}`;
+        slugCounter += 1;
+      }
+
+      const duplicate: Program = {
+        ...cloneJson(source),
+        id: createMockId("program"),
+        name,
+        slug,
+        status: "draft",
+        updatedAt: currentDateStamp(),
+        screeningQuestions: cloneJson(source.screeningQuestions || []),
+        checkoutQuestions: cloneJson(source.checkoutQuestions || []),
+        consentIds: cloneJson(source.consentIds || []),
+        authConfig: cloneJson(source.authConfig),
+      };
+
+      setStored(KEYS.PROGRAMS, [...list, duplicate]);
+      const sourceQuestions = getProgramQuestions(source.id);
+      if (sourceQuestions.length > 0) {
+        setProgramQuestions(duplicate.id, cloneJson(sourceQuestions));
+      }
+      return duplicate;
+    }
+
+    const { data } = await axiosInstance.post<ProgramApiRecord>(`treatments/programs/${id}/duplicate/`);
     return mapProgramFromApi(data);
   },
 
@@ -953,6 +1177,71 @@ export const treatmentsApi = {
       return mapConsentFromApi(data);
     }
     const { data } = await axiosInstance.post<ConsentApiRecord>("treatments/consents/", payload);
+    return mapConsentFromApi(data);
+  },
+
+  archiveConsent: async (id: string): Promise<ConsentForm> => {
+    if (!isPersistedUuid(id)) {
+      const list = getConsents();
+      const index = list.findIndex((c) => c.id === id);
+      if (index < 0) throw new Error(`Consent ${id} was not found`);
+
+      const consent = list[index];
+
+      const programs = getPrograms();
+      const customPrograms = getCustomPrograms();
+
+      const referencingPrograms = programs.filter(
+        (p) => p.consentIds?.includes(id)
+      );
+      const referencingCustomPrograms = customPrograms.filter(
+        (cp) =>
+          cp.consentIds?.includes(id) ||
+          cp.flowItems?.some((fi) => fi.kind === "consent" && fi.sourceId === id)
+      );
+
+      if (referencingPrograms.length > 0 || referencingCustomPrograms.length > 0) {
+        const names: string[] = [
+          ...referencingPrograms.map((p) => p.name),
+          ...referencingCustomPrograms.map((cp) => cp.name),
+        ];
+        throw new Error(
+          `Cannot archive: this consent is used by ${names.join(", ")}`
+        );
+      }
+
+      const archived = {
+        ...consent,
+        isArchived: true,
+        updatedAt: currentDateStamp(),
+      };
+      const updated = [...list];
+      updated[index] = archived;
+      setStored(KEYS.CONSENTS, updated);
+      return archived;
+    }
+
+    const { data } = await axiosInstance.post<ConsentApiRecord>(`treatments/consents/${id}/archive/`);
+    return mapConsentFromApi(data);
+  },
+
+  restoreConsent: async (id: string): Promise<ConsentForm> => {
+    if (!isPersistedUuid(id)) {
+      const list = getConsents();
+      const index = list.findIndex((c) => c.id === id);
+      if (index < 0) throw new Error(`Consent ${id} was not found`);
+      const restored = {
+        ...list[index],
+        isArchived: false,
+        updatedAt: currentDateStamp(),
+      };
+      const updated = [...list];
+      updated[index] = restored;
+      setStored(KEYS.CONSENTS, updated);
+      return restored;
+    }
+
+    const { data } = await axiosInstance.post<ConsentApiRecord>(`treatments/consents/${id}/restore/`);
     return mapConsentFromApi(data);
   },
 

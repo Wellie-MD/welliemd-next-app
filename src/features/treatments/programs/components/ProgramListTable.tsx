@@ -1,5 +1,4 @@
-import { Link } from "react-router-dom";
-import { Eye, Pencil } from "lucide-react";
+import { Archive, Copy, Eye, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Program } from "@/features/treatments/types";
 import { formatProgramStage } from "@/features/treatments/utils/labels";
@@ -15,9 +14,23 @@ import {
 
 interface ProgramListTableProps {
   programs: Program[];
+  onEdit: (program: Program) => void;
+  onPreview: (program: Program) => void;
+  onDuplicate: (program: Program) => void;
+  onArchive: (program: Program) => void;
+  duplicatingProgramId?: string | null;
+  archivingProgramId?: string | null;
 }
 
-export function ProgramListTable({ programs }: ProgramListTableProps) {
+export function ProgramListTable({
+  programs,
+  onEdit,
+  onPreview,
+  onDuplicate,
+  onArchive,
+  duplicatingProgramId,
+  archivingProgramId,
+}: ProgramListTableProps) {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <Table>
@@ -37,12 +50,9 @@ export function ProgramListTable({ programs }: ProgramListTableProps) {
           {programs.map((program) => (
             <TableRow key={program.id} className="group hover:bg-slate-50/50">
               <TableCell className="font-medium">
-                <Link
-                  to={`/dashboard/treatments/programs/${program.id}`}
-                  className="text-slate-900 hover:text-[#12517A] hover:underline"
-                >
+                <span className="text-slate-900">
                   {program.name}
-                </Link>
+                </span>
                 <div className="text-xs text-slate-500 font-normal mt-1">
                   {program.description || "Intake questionnaire"}
                 </div>
@@ -64,14 +74,48 @@ export function ProgramListTable({ programs }: ProgramListTableProps) {
                 </StatusPill>
               </TableCell>
               <TableCell className="text-right">
-                <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-[#12517A]" title="Preview">
+                <div className="flex justify-end gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-slate-500 hover:text-[#12517A]"
+                    title="Preview"
+                    onClick={() => onPreview(program)}
+                  >
+                    <span className="sr-only">Preview {program.name}</span>
                     <Eye className="h-4 w-4" />
                   </Button>
-                  <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-[#12517A]" title="Edit">
-                    <Link to={`/dashboard/treatments/programs/${program.id}`}>
-                      <Pencil className="h-4 w-4" />
-                    </Link>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-slate-500 hover:text-[#12517A]"
+                    title="Edit"
+                    onClick={() => onEdit(program)}
+                  >
+                    <span className="sr-only">Edit {program.name}</span>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-slate-500 hover:text-[#12517A]"
+                    title="Duplicate"
+                    onClick={() => onDuplicate(program)}
+                    disabled={duplicatingProgramId === program.id}
+                  >
+                    <span className="sr-only">Duplicate {program.name}</span>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-slate-500 hover:text-amber-700 disabled:opacity-40"
+                    title={program.status === "archived" ? "Already archived" : "Archive"}
+                    onClick={() => onArchive(program)}
+                    disabled={program.status === "archived" || archivingProgramId === program.id}
+                  >
+                    <span className="sr-only">Archive {program.name}</span>
+                    <Archive className="h-4 w-4" />
                   </Button>
                 </div>
               </TableCell>
