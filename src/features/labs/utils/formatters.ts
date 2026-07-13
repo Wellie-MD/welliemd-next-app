@@ -14,3 +14,8 @@ export function formatDate(dateString: string | null): string {
     return dateString;
   }
 }
+
+export function formatMoney(value?: { amount: string } | null): string {
+  const amount = Number.parseFloat(value?.amount || '0');
+  return Number.isFinite(amount) ? `$${amount.toFixed(2)}` : '$0.00';
+}

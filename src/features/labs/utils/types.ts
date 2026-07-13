@@ -23,9 +23,22 @@ export interface GroupedLabPanel {
   orderId: string;
   name: string;
   lab: string;
+  collectionMethod?: string;
   collectedDate: string;
   reportedDate: string;
   biomarkers: LabResult[];
   status: string;
+  amount?: { amount: string; currency: string };
+  pdfAvailable?: boolean;
   standaloneOrderId?: string;
 }
+
+export type LabOrderView = import('../api/index').LabSubmission & {
+  lab_panel_name: string;
+  lab_provider: string;
+  collection_method?: string;
+  collection_method_display?: string;
+  stage?: string;
+  stage_display?: string;
+  panel_tests?: string[];
+};

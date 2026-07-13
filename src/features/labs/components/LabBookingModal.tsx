@@ -11,8 +11,8 @@ export default function LabBookingModal({ submission, onClose, onDownloadRequisi
   if (!submission) return null;
 
   const bookingUrl = submission.booking_link || submission.booking_url || '';
-  const panelName = submission._lab_panel_name || submission.lab_results?.[0]?.test_name || 'your lab test';
-  const lab = submission._lab_provider || 'the lab';
+  const panelName = submission.lab_panel_name || submission.lab_results?.[0]?.test_name || 'your lab test';
+  const lab = submission.lab_provider || 'the lab';
   const canDownloadRequisition = Boolean(submission.requisition_pdf_url || submission.requisition_available);
 
   return (
@@ -23,7 +23,7 @@ export default function LabBookingModal({ submission, onClose, onDownloadRequisi
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 80,
+        zIndex: 9998,
         background: 'rgba(15, 23, 42, .42)',
         display: 'flex',
         alignItems: 'center',

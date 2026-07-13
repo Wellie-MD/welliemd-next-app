@@ -5,7 +5,8 @@
 import { Download, TestTube } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { type GroupedLabPanel } from '../utils/index';
-import { formatDate } from '../utils/index';
+import { formatDate, formatMoney } from '../utils/index';
+import { labCollectionMethodLabel } from '../constants/collectionMethods';
 
 interface Props {
   selectedPanel: GroupedLabPanel | null;
@@ -36,7 +37,7 @@ export default function LabResultModal({ selectedPanel, onClose, downloadingPdf,
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--km-t)', marginBottom: 2 }}>{selectedPanel.name}</div>
                   <div style={{ fontSize: 12, color: 'var(--km-tm)' }}>
-                    {selectedPanel.lab} · {selectedPanel.biomarkers.length} biomarkers
+                    {selectedPanel.lab} · {labCollectionMethodLabel(selectedPanel.collectionMethod)} · {formatMoney(selectedPanel.amount)}
                   </div>
                 </div>
                 {selectedPanel.status === 'Partial Results' ? (
@@ -111,7 +112,7 @@ export default function LabResultModal({ selectedPanel, onClose, downloadingPdf,
                 onClick={() => onDownloadPdf(selectedPanel)}
                 disabled={downloadingPdf}
               >
-                <Download size={14} /> {downloadingPdf ? 'Downloading...' : 'Download report (PDF)'}
+                <Download size={14} /> {downloadingPdf ? 'Downloading...' : `${selectedPanel.status === 'Partial Results' ? 'Download partial results' : 'Download results'} (PDF)`}
               </button>
             </div>
           );

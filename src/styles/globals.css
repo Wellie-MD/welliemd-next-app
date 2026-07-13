@@ -1371,11 +1371,35 @@ body.light .km-nbtn {
   color: var(--km-tm);
 }
 
+.km-oi-status {
+  font-size: 11px;
+  color: var(--km-am);
+  margin-top: 3px;
+}
+
+.km-oi-status.is-progress {
+  color: var(--km-ac);
+}
+
+.km-oi-status.is-attention,
+.km-oi-status.has-flags {
+  color: var(--km-am);
+}
+
+.km-oi-status.is-results {
+  color: var(--km-gr);
+}
+
 .km-oiright {
   text-align: right;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 112px;
 }
 
+.km-oiamount,
 .km-oiamt {
   font-size: 14px;
   font-weight: 700;
@@ -1385,6 +1409,330 @@ body.light .km-nbtn {
 .km-oidt {
   font-size: 11px;
   color: var(--km-tm);
+}
+
+.km-oichev {
+  color: var(--km-tm);
+  margin-top: 4px;
+}
+
+/* --- Patient lab cards and detail modal --- */
+.km-lab-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.km-lab-order-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 74px;
+  padding: 14px 16px;
+  background: var(--km-s1);
+  border: 1px solid var(--km-b);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.km-lab-order-card:hover {
+  border-color: var(--km-bh);
+  box-shadow: 0 5px 16px rgba(15, 23, 42, 0.07);
+  transform: translateY(-1px);
+}
+
+.km-lab-order-icon,
+.km-lab-result-icon {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--km-am);
+}
+
+.km-lab-result-icon {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--km-gr);
+}
+
+.km-lab-order-actions {
+  min-width: 220px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.km-lab-order-action-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.km-lab-order-action-row .km-btn {
+  padding: 5px 12px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.km-lab-order-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--km-t);
+}
+
+.km-lab-order-price-wrap {
+  width: 72px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.km-lab-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.km-lab-order-modal {
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  background: var(--km-s1);
+  border: 1px solid var(--km-b);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.22);
+}
+
+.km-lab-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--km-b);
+}
+
+.km-lab-modal-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--km-tm);
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.km-lab-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--km-tm);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.km-lab-modal-close:hover {
+  color: var(--km-t);
+  background: var(--km-s2);
+}
+
+.km-lab-order-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 16px;
+  padding: 12px;
+  background: var(--km-s2);
+  border: 1px solid var(--km-b);
+  border-radius: 12px;
+}
+
+.km-lab-summary-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  color: var(--km-ac);
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 10px;
+}
+
+.km-lab-summary-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.km-lab-summary-copy strong {
+  overflow: hidden;
+  color: var(--km-t);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.km-lab-summary-copy span {
+  color: var(--km-tm);
+  font-size: 11px;
+}
+
+.km-lab-timeline {
+  margin: 0 16px 14px;
+  padding: 16px 14px 8px;
+  background: var(--km-s2);
+  border: 1px solid var(--km-b);
+  border-radius: 12px;
+}
+
+.km-lab-timeline-item {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  min-height: 42px;
+}
+
+.km-lab-timeline-item:not(:last-child)::after {
+  position: absolute;
+  top: 18px;
+  bottom: 0;
+  left: 8px;
+  width: 1px;
+  content: '';
+  background: var(--km-b);
+}
+
+.km-lab-timeline-marker {
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--km-s3);
+  border: 1px solid var(--km-b);
+  border-radius: 50%;
+}
+
+.km-lab-timeline-item.is-complete .km-lab-timeline-marker {
+  background: var(--km-gr);
+  border-color: var(--km-gr);
+}
+
+.km-lab-timeline-item.is-active .km-lab-timeline-marker {
+  background: var(--km-am);
+  border-color: var(--km-am);
+}
+
+.km-lab-timeline-copy {
+  padding-bottom: 11px;
+}
+
+.km-lab-timeline-label {
+  color: var(--km-t);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.km-lab-timeline-date {
+  margin-top: 2px;
+  color: var(--km-tm);
+  font-size: 10px;
+}
+
+.km-lab-panel-includes {
+  margin: 0 16px 14px;
+}
+
+.km-lab-panel-label {
+  margin-bottom: 7px;
+  color: var(--km-tm);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.km-lab-panel-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.km-lab-panel-chips span {
+  padding: 4px 8px;
+  color: var(--km-tm);
+  font-size: 11px;
+  background: var(--km-s2);
+  border: 1px solid var(--km-b);
+  border-radius: 999px;
+}
+
+.km-lab-order-modal-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
+.km-lab-order-modal-footer .km-btn {
+  justify-content: center;
+}
+
+.km-lab-order-modal-footer p {
+  margin: 0;
+  color: var(--km-tm);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .km-lab-order-card {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .km-lab-order-actions {
+    display: flex;
+    width: calc(100% - 52px);
+    min-width: 0;
+    margin-left: 52px;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .km-lab-order-price-wrap {
+    margin-left: auto;
+  }
+
+  .km-lab-order-action-row .km-btn {
+    padding: 5px 8px;
+  }
+
+  .km-lab-order-summary {
+    align-items: flex-start;
+  }
+
+  .km-lab-order-summary .km-badge {
+    display: none;
+  }
 }
 
 /* --- Visits (vitem) --- */

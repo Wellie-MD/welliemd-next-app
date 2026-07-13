@@ -23,12 +23,13 @@ import {
   type StandaloneLabSubmission,
 } from './api/index';
 import {
-  formatDate,
   type GroupedLabPanel,
 } from './utils/index';
 import LabResultModal from './components/LabResultModal';
 import LabBookingModal from './components/LabBookingModal';
-import SubmissionCard from './components/SubmissionCard';
+import LabOrderCard from './components/LabOrderCard';
+import LabOrderDetailModal from './components/LabOrderDetailModal';
+import LabResultCard from './components/LabResultCard';
 
 // ── sub-components ────────────────────────────────────────────────────────────
 
@@ -57,7 +58,7 @@ export default function LabsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedSubmission, setExpandedSubmission] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<LabSubmission | null>(null);
   const [selectedPanel, setSelectedPanel] = useState<GroupedLabPanel | null>(null);
   const [bookingSubmission, setBookingSubmission] = useState<(LabSubmission & any) | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -114,9 +115,12 @@ export default function LabsPage() {
       standaloneOrderId: r.order_id,
       name: r.lab_panel_name || 'Lab Panel',
       lab: r.lab_provider || '—',
+      collectionMethod: r.collection_method || '',
       collectedDate: r.collected_at || '',
       reportedDate: r.reported_at || '',
       status: r.status === 'critical' ? 'Critical' : String(r.status || '').toLowerCase().includes('partial') ? 'Partial Results' : 'Results Ready',
+      amount: r.amount || { amount: '0.00', currency: 'USD' },
+      pdfAvailable: r.pdf_available ?? false,
       biomarkers: (r.biomarkers || []).map((bm, idx) => ({
         id: `${r.order_id}-${idx}`,
         patient: '', patient_name: '', visit: null,
@@ -169,14 +173,20 @@ export default function LabsPage() {
       requisition_available: s.requisition_available,
       booking_link: s.booking_link,
       booking_url: s.booking_url,
-      // Carry through provider + collection info from standalone
-      _lab_panel_name: (s as any).lab_panel_name,
-      _lab_provider: (s as any).lab_provider,
-      _collection_method: (s as any).collection_method,
-      _collection_method_display: (s as any).collection_method_display,
-      _stage: (s as any).stage,
-      _stage_display: (s as any).stage_display,
-      _bucket: (s as any).bucket,
+      lab_panel_name: s.lab_panel_name,
+      lab_provider: s.lab_provider,
+      collection_method: s.collection_method,
+      collection_method_display: s.collection_method_display,
+      stage: s.stage,
+      stage_display: s.stage_display,
+      bucket: s.bucket,
+      amount: s.amount,
+      results_status: s.results_status,
+      results_available: s.results_available,
+      pdf_available: s.pdf_available,
+      result_count: s.result_count,
+      flagged_count: s.flagged_count,
+      panel_tests: s.panel_tests,
     } as any));
     return [...standaloneMapped, ...labSubmissions];
   }, [standaloneSubmissions, labSubmissions]);
@@ -197,20 +207,20 @@ export default function LabsPage() {
   const filteredSubmissions = useMemo(() => {
     if (!q) return allSubmissions;
     return allSubmissions.filter(s => {
-      const name = ((s as any)._lab_panel_name || '').toLowerCase();
+      const name = (s.lab_panel_name || '').toLowerCase();
       return s.id.toLowerCase().includes(q) || (s.master_id || '').toLowerCase().includes(q) || name.includes(q);
     });
   }, [allSubmissions, q]);
 
   // Buckets
   const needsAttention = filteredSubmissions.filter(s => {
-    const bucket = ((s as any)._bucket || '').toLowerCase();
-    const stage = ((s as any)._stage || '').toLowerCase();
+    const bucket = (s.bucket || '').toLowerCase();
+    const stage = (s.stage || '').toLowerCase();
     return bucket === 'needs_attention' || stage.includes('appointment_pending') || stage.includes('kit_delivered') || s.submission_status === 'failed';
   });
   const inProgress = filteredSubmissions.filter(s => {
-    const bucket = ((s as any)._bucket || '').toLowerCase();
-    const stage = ((s as any)._stage || '').toLowerCase();
+    const bucket = (s.bucket || '').toLowerCase();
+    const stage = (s.stage || '').toLowerCase();
     return bucket === 'in_progress' || (!bucket && !stage.includes('appointment_pending') && !stage.includes('kit_delivered') && s.submission_status !== 'failed');
   });
 
@@ -252,6 +262,22 @@ export default function LabsPage() {
       window.URL.revokeObjectURL(url);
     } catch {
       alert('Failed to download the requisition PDF. Please try again or contact support.');
+    }
+  };
+
+  const handleDownloadResults = async (orderId: string) => {
+    try {
+      const blob = await downloadStandaloneLabResultPdf(orderId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `lab-result-${orderId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      alert('Failed to download the result PDF. Please try again or contact support.');
     }
   };
 
@@ -298,15 +324,18 @@ export default function LabsPage() {
         <BucketLabel>Needs your attention</BucketLabel>
         <div id="labAttn">
           {needsAttention.length === 0 ? <EmptyBucket /> : (
-            <div className="km-dash-card" style={{ marginBottom: 18 }}>
+            <div className="km-lab-card-list">
               {needsAttention.map(sub => (
-                <SubmissionCard
+                <LabOrderCard
                   key={sub.id}
-                  sub={sub}
-                  expanded={expandedSubmission === sub.id}
-                  onToggle={() => setExpandedSubmission(v => v === sub.id ? null : sub.id)}
-                  onDownloadRequisition={handleDownloadRequisition}
-                  onBookAppointment={setBookingSubmission}
+                  order={sub}
+                  onOpen={() => setSelectedOrder(sub)}
+                  onDownloadResults={() => handleDownloadResults(sub.id)}
+                  onDownloadRequisition={() => handleDownloadRequisition(sub.id)}
+                  onBookAppointment={() => {
+                    setSelectedOrder(null);
+                    setBookingSubmission(sub);
+                  }}
                 />
               ))}
             </div>
@@ -317,15 +346,18 @@ export default function LabsPage() {
         <BucketLabel>In progress</BucketLabel>
         <div id="labProg">
           {inProgress.length === 0 ? <EmptyBucket /> : (
-            <div className="km-dash-card" style={{ marginBottom: 18 }}>
+            <div className="km-lab-card-list">
               {inProgress.map(sub => (
-                <SubmissionCard
+                <LabOrderCard
                   key={sub.id}
-                  sub={sub}
-                  expanded={expandedSubmission === sub.id}
-                  onToggle={() => setExpandedSubmission(v => v === sub.id ? null : sub.id)}
-                  onDownloadRequisition={handleDownloadRequisition}
-                  onBookAppointment={setBookingSubmission}
+                  order={sub}
+                  onOpen={() => setSelectedOrder(sub)}
+                  onDownloadResults={() => handleDownloadResults(sub.id)}
+                  onDownloadRequisition={() => handleDownloadRequisition(sub.id)}
+                  onBookAppointment={() => {
+                    setSelectedOrder(null);
+                    setBookingSubmission(sub);
+                  }}
                 />
               ))}
             </div>
@@ -336,36 +368,15 @@ export default function LabsPage() {
         <BucketLabel>Recent results</BucketLabel>
         <div id="labDone">
           {filteredPanels.length === 0 ? <EmptyBucket /> : (
-            <div className="km-dash-card">
-              {filteredPanels.map(panel => {
-                const flagged = panel.biomarkers.filter(b => b.status_indicator === 'H' || b.status_indicator === 'L').length;
-                return (
-                  <div key={panel.orderId} className="km-oitem" onClick={() => setSelectedPanel(panel)}>
-                    <div className="km-oimg" style={{ background: 'rgba(34,197,94,0.1)' }}>🧪</div>
-                    <div className="km-oileft">
-                      <div className="km-oiid">
-                        {panel.orderId}{' '}
-                        {panel.status === 'Partial Results' ? (
-                          <span className="km-badge km-badge-amber" style={{ fontSize: 10, marginLeft: 6 }}>Partial Results</span>
-                        ) : panel.status === 'Critical' ? (
-                          <span className="km-badge km-badge-red" style={{ fontSize: 10, marginLeft: 6 }}>Critical</span>
-                        ) : (
-                          <span className="km-badge km-badge-green" style={{ fontSize: 10, marginLeft: 6 }}>Results Ready</span>
-                        )}
-                      </div>
-                      <div className="km-oinm">{panel.name}</div>
-                      {/* Use backend lab + biomarker count — never hardcode */}
-                      <div className="km-oiph">{panel.lab} · {panel.biomarkers.length} biomarkers</div>
-                    </div>
-                    <div className="km-oiright">
-                      {flagged > 0
-                        ? <div className="km-oiamt" style={{ fontSize: 12, color: 'var(--km-re)' }}>{flagged} flagged</div>
-                        : <div className="km-oiamt" style={{ fontSize: 12, color: 'var(--km-gr)' }}>Normal</div>}
-                      <div className="km-oidt">{formatDate(panel.collectedDate)}</div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="km-lab-card-list">
+              {filteredPanels.map(panel => (
+                <LabResultCard
+                  key={panel.orderId}
+                  panel={panel}
+                  onOpen={() => setSelectedPanel(panel)}
+                  onDownload={() => handleDownloadPdf(panel)}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -381,6 +392,20 @@ export default function LabsPage() {
         submission={bookingSubmission}
         onClose={() => setBookingSubmission(null)}
         onDownloadRequisition={handleDownloadRequisition}
+      />
+      <LabOrderDetailModal
+        order={selectedOrder}
+        onClose={() => setSelectedOrder(null)}
+        onBookAppointment={() => {
+          const order = selectedOrder;
+          setSelectedOrder(null);
+          if (order) setBookingSubmission(order);
+        }}
+        onDownloadRequisition={() => {
+          const order = selectedOrder;
+          setSelectedOrder(null);
+          if (order) void handleDownloadRequisition(order.id);
+        }}
       />
     </div>
   );
