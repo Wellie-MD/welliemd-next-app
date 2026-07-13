@@ -113,6 +113,18 @@ export const useSaveProgram = () => {
   });
 };
 
+export const useUpdateProgramSlug = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ programId, slug }: { programId: string; slug: string }) =>
+      treatmentsApi.updateProgramSlug(programId, slug),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
+    },
+  });
+};
+
 export const useArchiveProgram = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -261,6 +273,28 @@ export const useDeleteConsent = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => treatmentsApi.deleteConsent(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.consents() });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
+    },
+  });
+};
+
+export const useArchiveConsent = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => treatmentsApi.archiveConsent(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.consents() });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
+    },
+  });
+};
+
+export const useRestoreConsent = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => treatmentsApi.restoreConsent(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.consents() });
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });

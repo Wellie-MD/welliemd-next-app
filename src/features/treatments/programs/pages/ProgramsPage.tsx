@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, ArrowDownAZ, Clock, List as ListIcon, LayoutGrid, Users } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Search, ArrowDownAZ, Clock, List as ListIcon, LayoutGrid, Users, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
@@ -14,6 +15,7 @@ import {
   useTreatmentTypes,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
+import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
 import type { Program, ProgramStage } from "@/features/treatments/types";
 import { CreateProgramModal } from "@/features/treatments/programs/components/CreateProgramModal";
 import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
@@ -24,7 +26,29 @@ import { useClients } from "@/hooks/useClients";
 
 type ProgramsViewMode = "cards" | "list";
 
+type ApiErrorData = {
+  detail?: string;
+  error?: string;
+  message?: string;
+  blockers?: Array<{ message?: string }>;
+};
+
+type ApiErrorLike = {
+  response?: {
+    data?: ApiErrorData;
+  };
+  message?: string;
+};
+
+const getApiErrorData = (error: unknown) => (error as ApiErrorLike).response?.data;
+
+const getApiErrorMessage = (error: unknown, fallback: string) => {
+  const apiError = error as ApiErrorLike;
+  return apiError.response?.data?.error || apiError.response?.data?.detail || apiError.response?.data?.message || apiError.message || fallback;
+};
+
 export default function ProgramsPage() {
+  const navigate = useNavigate();
   const { data: programs = [] } = usePrograms();
   const { data: treatmentTypes = [] } = useTreatmentTypes();
   const { clients } = useClients("");
@@ -90,12 +114,14 @@ export default function ProgramsPage() {
           setIsCreateOpen(false);
         },
         onError: (error: unknown) => {
+          if (isDuplicateSlugError(error)) {
+            showDuplicateSlugToast();
+            return;
+          }
+
           toast({
             title: "Error",
-            description:
-              (error as any)?.response?.data?.error ||
-              (error as any)?.message ||
-              "Failed to update program",
+            description: getApiErrorMessage(error, "Failed to update program"),
             variant: "destructive",
           });
         },
@@ -128,12 +154,14 @@ export default function ProgramsPage() {
         });
       },
       onError: (error: unknown) => {
+        if (isDuplicateSlugError(error)) {
+          showDuplicateSlugToast();
+          return;
+        }
+
         toast({
           title: "Error",
-          description:
-            (error as any)?.response?.data?.error ||
-            (error as any)?.message ||
-            "Failed to create program",
+          description: getApiErrorMessage(error, "Failed to create program"),
           variant: "destructive",
         });
       },
@@ -177,10 +205,7 @@ export default function ProgramsPage() {
       onError: (error: unknown) => {
         toast({
           title: "Error",
-          description:
-            (error as any)?.response?.data?.error ||
-            (error as any)?.message ||
-            "Failed to duplicate program",
+          description: getApiErrorMessage(error, "Failed to duplicate program"),
           variant: "destructive",
         });
       },
@@ -202,7 +227,7 @@ export default function ProgramsPage() {
         });
       },
       onError: (error: unknown) => {
-        const responseData = (error as any)?.response?.data;
+        const responseData = getApiErrorData(error);
         const blockerMessage = Array.isArray(responseData?.blockers)
           ? responseData.blockers.map((blocker: { message?: string }) => blocker.message).filter(Boolean).join(" ")
           : "";
@@ -212,7 +237,7 @@ export default function ProgramsPage() {
             blockerMessage ||
             responseData?.detail ||
             responseData?.error ||
-            (error as any)?.message ||
+            (error as ApiErrorLike).message ||
             "Failed to archive program",
           variant: "destructive",
         });
@@ -312,6 +337,14 @@ export default function ProgramsPage() {
         subtitle="Clinical questionnaires linked to specific treatments. Each treatment has an intake module and (optionally) a follow-up module."
         actions={
           <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={() => navigate("/dashboard/treatments/programs/assignment-history")}
+              className="h-9 px-4 text-xs font-semibold rounded-lg shadow-sm"
+            >
+              <History className="mr-1.5 h-4 w-4" />
+              Assignment History
+            </Button>
             <Button
               variant="outline"
               onClick={() => setIsAssignOpen(true)}

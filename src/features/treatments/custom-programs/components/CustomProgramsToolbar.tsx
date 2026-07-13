@@ -1,4 +1,4 @@
-import { LayoutGrid, List, Plus, Search, Users } from "lucide-react";
+import { LayoutGrid, List, Plus, Search, Users, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -30,10 +30,11 @@ function countClassName(active: boolean) {
 
 interface CustomProgramsHeaderActionsProps extends Pick<CustomProgramsToolbarProps, "viewMode" | "onViewModeChange" | "onCreate"> {
   onAssign: () => void;
+  onViewHistory: () => void;
   assignDisabled?: boolean;
 }
 
-export function CustomProgramsHeaderActions({ viewMode, onViewModeChange, onCreate, onAssign, assignDisabled }: CustomProgramsHeaderActionsProps) {
+export function CustomProgramsHeaderActions({ viewMode, onViewModeChange, onCreate, onAssign, onViewHistory, assignDisabled }: CustomProgramsHeaderActionsProps) {
   return (
     <div className="flex items-center gap-3">
       <div className="flex items-center rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
@@ -54,6 +55,14 @@ export function CustomProgramsHeaderActions({ viewMode, onViewModeChange, onCrea
           List
         </button>
       </div>
+      <Button
+        variant="outline"
+        onClick={onViewHistory}
+        data-testid="custom-program-assignment-history"
+      >
+        <History className="mr-2 h-4 w-4" />
+        Assignment History
+      </Button>
       <Button
         variant="outline"
         onClick={onAssign}

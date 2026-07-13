@@ -1,4 +1,4 @@
-import { Eye, Pencil, Trash2 } from "lucide-react";
+import { Archive, Eye, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ConsentForm } from "@/features/treatments/types";
 import { formatDateUS, formatScope } from "@/features/treatments/utils/labels";
@@ -18,9 +18,10 @@ interface ConsentListTableProps {
   onViewDetail?: (id: string) => void;
   onPatientPreview?: (id: string) => void;
   onDelete?: (id: string) => void;
+  onArchive?: (id: string) => void;
 }
 
-export function ConsentListTable({ consents, onEdit, onViewDetail, onPatientPreview, onDelete }: ConsentListTableProps) {
+export function ConsentListTable({ consents, onEdit, onViewDetail, onPatientPreview, onDelete, onArchive }: ConsentListTableProps) {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <Table>
@@ -72,6 +73,11 @@ export function ConsentListTable({ consents, onEdit, onViewDetail, onPatientPrev
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-[#12517A]" title="Edit" onClick={() => onEdit?.(consent.id)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
+                  {onArchive && !consent.isArchived && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-amber-600" title="Archive" onClick={() => onArchive(consent.id)}>
+                      <Archive className="h-4 w-4" />
+                    </Button>
+                  )}
                   {onDelete && (
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-600" title="Delete" onClick={() => onDelete(consent.id)}>
                       <Trash2 className="h-4 w-4" />

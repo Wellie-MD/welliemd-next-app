@@ -12,6 +12,7 @@ export const mockConsents: ConsentForm[] = [
     id: MOCK_IDS.CONSENT_TRUTHFULNESS,
     name: "Consent (Truthfulness)",
     scope: "global",
+    isArchived: false,
     visitTypeKeys: [],
     updatedAt: "2026-05-21",
     text:
@@ -23,6 +24,7 @@ export const mockConsents: ConsentForm[] = [
     id: MOCK_IDS.CONSENT_TELEHEALTH,
     name: "Consent (Telehealth)",
     scope: "global",
+    isArchived: false,
     visitTypeKeys: [],
     updatedAt: "2026-05-18",
     text:
@@ -34,6 +36,7 @@ export const mockConsents: ConsentForm[] = [
     id: MOCK_IDS.CONSENT_PRIVACY,
     name: "Consent (Privacy Policy)",
     scope: "global",
+    isArchived: false,
     visitTypeKeys: [],
     updatedAt: "2026-04-30",
     text:
@@ -44,6 +47,7 @@ export const mockConsents: ConsentForm[] = [
     id: "consent-glp",
     name: "Consent (GLP-1 Weight Loss)",
     scope: "treatment",
+    status: "active",
     visitTypeKeys: ["weightloss", "glpMicrodosing"],
     updatedAt: "2026-05-12",
     text:
@@ -54,6 +58,7 @@ export const mockConsents: ConsentForm[] = [
     id: "consent-trt",
     name: "Consent (TRT)",
     scope: "treatment",
+    status: "active",
     visitTypeKeys: ["trt"],
     updatedAt: "2026-05-10",
     text:
@@ -64,6 +69,7 @@ export const mockConsents: ConsentForm[] = [
     id: "consent-hrt",
     name: "Consent (HRT / Estrogen)",
     scope: "treatment",
+    isArchived: true,
     visitTypeKeys: ["menopause"],
     updatedAt: "2026-05-05",
     text:
@@ -74,6 +80,7 @@ export const mockConsents: ConsentForm[] = [
     id: "consent-ed",
     name: "Consent (ED / PDE5 inhibitors)",
     scope: "treatment",
+    isArchived: true,
     visitTypeKeys: ["ed"],
     updatedAt: "2026-05-02",
     text:
@@ -87,6 +94,7 @@ export const mockConsents: ConsentForm[] = [
     id: "consent-peptide",
     name: "Consent (Peptide therapy)",
     scope: "treatment",
+    status: "active",
     visitTypeKeys: ["antiAging"],
     updatedAt: "2026-04-28",
     text:
