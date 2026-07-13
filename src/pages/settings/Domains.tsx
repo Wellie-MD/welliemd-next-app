@@ -73,61 +73,6 @@ function dnsStatusLabel(status?: CustomDomain["dns_status"]) {
   return "DNS Pending";
 }
 
-function normalizeUrlHostname(value?: string) {
-  if (!value) return "";
-  try {
-    const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`;
-    return new URL(withProtocol).hostname.replace(/^www\./i, "").toLowerCase();
-  } catch {
-    return value
-      .replace(/^https?:\/\//i, "")
-      .replace(/^www\./i, "")
-      .replace(/\/.*$/, "")
-      .toLowerCase();
-  }
-}
-
-function withHttps(hostname?: string) {
-  if (!hostname) return "";
-  return /^https?:\/\//i.test(hostname) ? hostname : `https://${hostname}`;
-}
-
-function slugFromClient(currentClient: ReturnType<typeof useClients>["currentClient"]) {
-  if (!currentClient) return "";
-  if (currentClient.subdomain) return currentClient.subdomain.toLowerCase().replace(/[^a-z0-9-]/g, "");
-
-  const apiHost = normalizeUrlHostname(currentClient.api_endpoint);
-  const apiMatch = apiHost.match(/^([a-z0-9-]+)\.api\.welliemd\.com$/i);
-  if (apiMatch?.[1]) return apiMatch[1];
-
-  return currentClient.name.toLowerCase().replace(/[^a-z0-9]+/g, "");
-}
-
-function wellieManagedFallback(currentClient: ReturnType<typeof useClients>["currentClient"], type: "client" | "patient" | "intake") {
-  const slug = slugFromClient(currentClient);
-  if (!slug) return "";
-
-  if (type === "client") return `https://${slug}client.welliemd.com`;
-  if (type === "patient") return `https://${slug}patientportal.welliemd.com`;
-  return `https://${slug}questionnaire.welliemd.com`;
-}
-
-function managedPortalUrl(
-  currentClient: ReturnType<typeof useClients>["currentClient"],
-  customDomainHosts: Set<string>,
-  type: "client" | "patient" | "intake",
-  value?: string,
-) {
-  const host = normalizeUrlHostname(value);
-  const isCustomDomain = host && customDomainHosts.has(host);
-
-  if (value && !isCustomDomain) {
-    return withHttps(value);
-  }
-
-  return wellieManagedFallback(currentClient, type);
-}
-
 type ApiErrorBody = {
   error?: string;
   detail?: string;
@@ -168,6 +113,44 @@ function normalizeHostname(value: string) {
   if (!raw) return "";
   const withoutProtocol = raw.includes("://") ? raw.split("://")[1] : raw;
   return withoutProtocol.split("/")[0].split(":")[0].replace(/\.+$/, "");
+}
+
+function managedSlugFromApiEndpoint(apiEndpoint?: string) {
+  const host = normalizeHostname(apiEndpoint || "");
+  const dottedMatch = host.match(/^([a-z0-9-]+)\.api\.welliemd\.com$/i);
+  if (dottedMatch?.[1]) return dottedMatch[1];
+
+  const legacyMatch = host.match(/^([a-z0-9-]+)api\.welliemd\.com$/i);
+  return legacyMatch?.[1] || "";
+}
+
+function existingManagedWellieUrl(value: string | undefined, type: "client" | "patient" | "intake") {
+  const host = normalizeHostname(value || "");
+  if (!host) return "";
+
+  const patterns = {
+    client: /^[a-z0-9-]+client\.welliemd\.com$/i,
+    patient: /^[a-z0-9-]+patientportal\.welliemd\.com$/i,
+    intake: /^[a-z0-9-]+questionnaire\.welliemd\.com$/i,
+  };
+
+  return patterns[type].test(host) ? `https://${host}` : "";
+}
+
+function managedWellieUrl(
+  currentClient: ReturnType<typeof useClients>["currentClient"],
+  type: "client" | "patient" | "intake",
+  existingValue?: string,
+) {
+  const existingUrl = existingManagedWellieUrl(existingValue, type);
+  if (existingUrl) return existingUrl;
+
+  const slug = managedSlugFromApiEndpoint(currentClient?.api_endpoint);
+  if (!slug) return "";
+
+  if (type === "client") return `https://${slug}client.welliemd.com`;
+  if (type === "patient") return `https://${slug}patientportal.welliemd.com`;
+  return `https://${slug}questionnaire.welliemd.com`;
 }
 
 function splitAmplifyDomain(hostname: string): { rootDomain: string; prefix: string } | null {
@@ -395,20 +378,10 @@ export default function Domains() {
     );
   }
 
-  const customDomainHosts = new Set(domains.map((domain) => normalizeUrlHostname(domain.domain)).filter(Boolean));
   const defaultUrls = [
-    [
-      "Client/Staff Portal",
-      managedPortalUrl(currentClient, customDomainHosts, "client", currentClient?.admin_panel_domain),
-    ],
-    [
-      "Patient Portal",
-      managedPortalUrl(currentClient, customDomainHosts, "patient", currentClient?.patient_portal_domain),
-    ],
-    [
-      "Intake App",
-      managedPortalUrl(currentClient, customDomainHosts, "intake", currentClient?.questionnaire_url),
-    ],
+    ["Client/Staff Portal", managedWellieUrl(currentClient, "client", currentClient?.admin_panel_domain)],
+    ["Patient Portal", managedWellieUrl(currentClient, "patient", currentClient?.patient_portal_domain)],
+    ["Intake App", managedWellieUrl(currentClient, "intake", currentClient?.questionnaire_url)],
     ["API", currentClient?.api_endpoint],
   ].filter(([, value]) => Boolean(value));
 
