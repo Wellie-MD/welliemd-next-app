@@ -55,6 +55,7 @@ export interface JunctionIntegrationDetail {
   region?: "us" | "eu"
   active_environment?: JunctionEnvironment
   enabled?: boolean
+  physician_ordering_mode?: "junction_network" | "own_physician" | ""
   last_provisioned_at?: string | null
   last_synced_at?: string | null
   last_sync_status?: string
@@ -89,16 +90,23 @@ export const junctionIntegrationApi = {
 
   provision: async (
     clientId: string,
-    ensureProduction = false
+    ensureProduction = false,
+    physicianOrderingMode: "junction_network" | "own_physician" = "junction_network"
   ): Promise<JunctionIntegrationDetail> => {
     const { data } = await axiosInstance.post(`${base(clientId)}/provision/`, {
       ensure_production: ensureProduction,
+      physician_ordering_mode: physicianOrderingMode,
     })
     return data
   },
 
-  syncTenant: async (clientId: string): Promise<JunctionIntegrationDetail> => {
-    const { data } = await axiosInstance.post(`${base(clientId)}/sync-tenant/`, {})
+  syncTenant: async (
+    clientId: string,
+    physicianOrderingMode: "junction_network" | "own_physician"
+  ): Promise<JunctionIntegrationDetail> => {
+    const { data } = await axiosInstance.post(`${base(clientId)}/sync-tenant/`, {
+      physician_ordering_mode: physicianOrderingMode,
+    })
     return data
   },
 

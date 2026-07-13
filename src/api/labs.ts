@@ -133,6 +133,12 @@ const normalizeClientAssignment = (raw: any): ClientAssignment => ({
   blocking_reason: raw.blocking_reason || "",
   patient_price_configured: !!raw.patient_price_configured,
   service_state_options: Array.isArray(raw.service_state_options) ? raw.service_state_options : [],
+  junction_provider_key: raw.junction_provider_key || "",
+  junction_billing_type: raw.junction_billing_type || "",
+  physician_ordering_mode: raw.physician_ordering_mode || "",
+  provider_supported_states: Array.isArray(raw.provider_supported_states) ? raw.provider_supported_states : [],
+  provider_policy_revision: typeof raw.provider_policy_revision === "number" ? raw.provider_policy_revision : null,
+  provider_policy_source: raw.provider_policy_source || "",
 });
 
 const fallbackOrderStatus = (raw: any): string => {
@@ -164,8 +170,13 @@ const normalizeOrder = (raw: any): LabOrder => ({
   ui_lab_event_label: raw.ui_lab_event_label || "",
   ui_lab_event_tone: raw.ui_lab_event_tone || "",
   timeline: { ordered: raw.created_at },
-  resultsReady: raw.results_status === "final" || raw.results_status === "partial",
+  results_status: raw.results_status || "pending",
+  resultsReady: ["partial_results", "results_ready", "critical", "partial", "final"].includes(raw.results_status),
   tracking_number: raw.tracking_number || "",
+  junction_provider_key: raw.junction_provider_key || "",
+  junction_billing_type: raw.junction_billing_type || "",
+  junction_patient_state: raw.junction_patient_state || "",
+  junction_policy_revision: typeof raw.junction_policy_revision === "number" ? raw.junction_policy_revision : null,
 });
 
 export const labsApi = {

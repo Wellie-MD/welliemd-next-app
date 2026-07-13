@@ -27,14 +27,25 @@ export default function LabOrders() {
   const [orders, setOrders] = useState<LabOrder[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [labEventFilter, setLabEventFilter] = useState("All");
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
     try {
       setOrders(await labsApi.getAdminLabOrders());
+    } catch (error: any) {
+      setOrders([]);
+      const responseData = error?.response?.data;
+      setLoadError(
+        responseData?.detail ||
+          responseData?.error ||
+          error?.message ||
+          "The lab orders could not be loaded. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -99,6 +110,14 @@ export default function LabOrders() {
       </div>
 
       <div className="bg-white rounded-lg border overflow-hidden">
+        {loadError && (
+          <div role="alert" className="m-4 flex items-center justify-between gap-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <span>{loadError}</span>
+            <Button variant="outline" size="sm" onClick={loadOrders} className="shrink-0 border-red-300 bg-white text-red-700 hover:bg-red-100">
+              Retry
+            </Button>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm min-w-max">
             <thead className="bg-slate-50 border-b text-[11px] uppercase tracking-wider text-slate-600">
@@ -147,7 +166,7 @@ export default function LabOrders() {
                   </td>
                 </tr>
               ))}
-              {!loading && rows.length === 0 && (
+              {!loading && !loadError && rows.length === 0 && (
                 <tr><td colSpan={13} className="px-3 py-8 text-center text-slate-500">No lab orders found</td></tr>
               )}
               {loading && (

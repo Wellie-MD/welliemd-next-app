@@ -167,6 +167,13 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
 
   const orderProduct = order.product_name || order.product || "—";
   const orderLabProvider = order.lab_provider || order.pharmacy_name || "Quest Diagnostics";
+  const labResultsAvailable = order.resultsReady === true || [
+    "partial_results",
+    "results_ready",
+    "critical",
+    "partial",
+    "final",
+  ].includes(order.results_status);
 
   return (
     <>
@@ -311,35 +318,39 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
 
             {order.is_lab && (
               <div className="pt-2 flex flex-col gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full justify-center text-xs h-9 font-semibold border border-input bg-background hover:bg-muted text-foreground flex items-center gap-1.5"
-                  onClick={() => setResultsOpen(true)}
-                >
-                  <FileText className="h-4 w-4" />
-                  View lab results
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full justify-center text-xs h-9 font-semibold border border-input bg-background hover:bg-muted text-foreground flex items-center gap-1.5"
-                  onClick={async () => {
-                    try {
-                      const base64 = await labsApi.getJunctionLabOrderResultsPdf(order.id);
-                      const linkSource = `data:application/pdf;base64,${base64}`;
-                      const downloadLink = document.createElement("a");
-                      downloadLink.href = linkSource;
-                      downloadLink.download = `results_${order.id}.pdf`;
-                      downloadLink.click();
-                    } catch (e) {
-                      console.error(e);
-                    }
-                  }}
-                >
-                  <Download className="h-4 w-4" />
-                  Download report (PDF)
-                </Button>
+                {labResultsAvailable && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full justify-center text-xs h-9 font-semibold border border-input bg-background hover:bg-muted text-foreground flex items-center gap-1.5"
+                      onClick={() => setResultsOpen(true)}
+                    >
+                      <FileText className="h-4 w-4" />
+                      View lab results
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full justify-center text-xs h-9 font-semibold border border-input bg-background hover:bg-muted text-foreground flex items-center gap-1.5"
+                      onClick={async () => {
+                        try {
+                          const base64 = await labsApi.getJunctionLabOrderResultsPdf(order.id);
+                          const linkSource = `data:application/pdf;base64,${base64}`;
+                          const downloadLink = document.createElement("a");
+                          downloadLink.href = linkSource;
+                          downloadLink.download = `results_${order.id}.pdf`;
+                          downloadLink.click();
+                        } catch (e) {
+                          console.error(e);
+                        }
+                      }}
+                    >
+                      <Download className="h-4 w-4" />
+                      Download report (PDF)
+                    </Button>
+                  </>
+                )}
                 <Button
                   type="button"
                   variant="outline"

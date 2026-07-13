@@ -11,6 +11,10 @@ import { JunctionWearablesSection } from "./JunctionWearablesSection"
 import { JunctionHeader } from "./JunctionHeader"
 import { JunctionApiCredentials } from "./JunctionApiCredentials"
 import { JunctionLabAccountsCard } from "./JunctionLabAccountsCard"
+import {
+  JUNCTION_NETWORK_POLICY_SUMMARY,
+  JUNCTION_ORDERING_MODE_LABELS,
+} from "./junctionOrderingPolicy"
 
 interface Props {
   clientId: string
@@ -68,6 +72,29 @@ export function JunctionIntegrationPanel({ clientId }: Props) {
   return (
     <div className="space-y-6">
       <JunctionHeader detail={detail} clientId={clientId} busy={busy} run={run} />
+
+      <div className="rounded-2xl border bg-card p-5 shadow-sm">
+        <div className="flex flex-col gap-1 border-b pb-4">
+          <h3 className="text-sm font-bold">Lab ordering policy</h3>
+          <p className="text-xs text-muted-foreground">
+            This routing policy is controlled by the control plane and synced to the tenant runtime.
+          </p>
+        </div>
+        <div className="mt-4 grid gap-4 lg:grid-cols-[220px_1fr]">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Ordering mode</span>
+            <p className="mt-1 text-sm font-semibold">
+              {JUNCTION_ORDERING_MODE_LABELS[detail.physician_ordering_mode as keyof typeof JUNCTION_ORDERING_MODE_LABELS] ?? "Not configured"}
+            </p>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Current network rules</span>
+            <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+              {JUNCTION_NETWORK_POLICY_SUMMARY.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          </div>
+        </div>
+      </div>
 
       <JunctionApiCredentials detail={detail} clientId={clientId} busy={busy} run={run} />
 

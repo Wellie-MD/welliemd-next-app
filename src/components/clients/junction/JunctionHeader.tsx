@@ -3,6 +3,8 @@ import { JunctionStatusBadges } from "./JunctionStatusBadges"
 import type { JunctionIntegrationDetail } from "@/api/junctionIntegration"
 import { junctionIntegrationApi } from "@/api/junctionIntegration"
 import { toast } from "sonner"
+import { useState } from "react"
+import { JUNCTION_ORDERING_MODE_LABELS } from "./junctionOrderingPolicy"
 
 interface Props {
   detail: JunctionIntegrationDetail
@@ -14,6 +16,9 @@ interface Props {
 export function JunctionHeader({ detail, clientId, busy, run }: Props) {
   const provisioned = Boolean(detail.team_id)
   const env = detail.active_environment ?? "sandbox"
+  const [orderingMode, setOrderingMode] = useState<"junction_network" | "own_physician">(
+    detail.physician_ordering_mode === "own_physician" ? "own_physician" : "junction_network"
+  )
 
   const fmt = (dt?: string | null) => {
     if (!dt) return "—"
@@ -50,13 +55,25 @@ export function JunctionHeader({ detail, clientId, busy, run }: Props) {
           <button
             disabled={busy !== null}
             onClick={() =>
-              run("provision", () => junctionIntegrationApi.provision(clientId), "Team provisioned.")
+              run("provision", () => junctionIntegrationApi.provision(clientId, false, orderingMode), "Team provisioned.")
             }
             className="px-3 py-1.5 text-xs font-semibold bg-background border hover:bg-muted rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
           >
             <RefreshCcw className="w-3.5 h-3.5 text-muted-foreground" />{" "}
             {provisioned ? "Provision again" : "Provision team"}
           </button>
+
+          <select
+            value={orderingMode}
+            onChange={(event) => setOrderingMode(event.target.value as typeof orderingMode)}
+            disabled={busy !== null}
+            aria-label="Junction ordering mode"
+            className="px-2.5 py-1.5 text-xs font-semibold bg-background border rounded-lg disabled:opacity-50"
+          >
+            {Object.entries(JUNCTION_ORDERING_MODE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
           
           <button
             disabled={busy !== null || !provisioned || env === "sandbox"}
@@ -76,7 +93,7 @@ export function JunctionHeader({ detail, clientId, busy, run }: Props) {
           
           <button
             disabled={busy !== null || !provisioned}
-            onClick={() => run("sync", () => junctionIntegrationApi.syncTenant(clientId), "Synced to tenant.")}
+            onClick={() => run("sync", () => junctionIntegrationApi.syncTenant(clientId, orderingMode), "Synced to tenant.")}
             className="px-3 py-1.5 text-xs font-semibold text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
           >
             <Send className="w-3.5 h-3.5" /> Sync to Tenant

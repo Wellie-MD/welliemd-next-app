@@ -204,6 +204,12 @@ export interface ClientAssignment {
   blocking_reason?: string;
   patient_price_configured?: boolean;
   service_state_options?: string[];
+  junction_provider_key?: string;
+  junction_billing_type?: string;
+  physician_ordering_mode?: "junction_network" | "own_physician" | "";
+  provider_supported_states?: string[];
+  provider_policy_revision?: number | null;
+  provider_policy_source?: string;
 }
 
 export interface LabOrder {
@@ -227,6 +233,11 @@ export interface LabOrder {
   ui_lab_event?: string;
   ui_lab_event_label?: string;
   ui_lab_event_tone?: string;
+  results_status?: string;
+  junction_provider_key?: string;
+  junction_billing_type?: string;
+  junction_patient_state?: string;
+  junction_policy_revision?: number | null;
   doctor_name?: string;
   tracking_number?: string;
   timeline: {
