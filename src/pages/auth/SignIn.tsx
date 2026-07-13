@@ -21,9 +21,10 @@ import { getErrorMessage } from "@/features/auth/utils/errors";
 const SignIn = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showSupport, setShowSupport] = useState(false);
 
   const { login, isLoading, error, clearError } = useAuth();
-  const { logos } = useBranding();
+  const { logos, support } = useBranding();
 
   // Fix LocalStack URLs for browser access
   const fixLocalStackUrl = (url?: string): string | undefined => {
@@ -35,6 +36,10 @@ const SignIn = () => {
   };
 
   const logoUrl = fixLocalStackUrl(logos?.square || logos?.transparent);
+  const supportWebsite = support?.website
+    ? (/^https?:\/\//i.test(support.website) ? support.website : `https://${support.website}`)
+    : '';
+  const hasSupportDetails = Boolean(support?.email || support?.phone || supportWebsite);
 
   const {
     register,
@@ -187,10 +192,53 @@ const SignIn = () => {
         <div className="text-center">
           <p className="text-sm text-muted-foreground">
             Need help?{" "}
-            <Link to="/support" className="text-primary underline hover:no-underline">
+            <button
+              type="button"
+              className="text-primary underline hover:no-underline"
+              onClick={() => setShowSupport((current) => !current)}
+            >
               Contact support
-            </Link>
+            </button>
           </p>
+          {showSupport && (
+            <div className="mt-3 rounded-md border border-border bg-card p-3 text-left text-sm shadow-sm">
+              {hasSupportDetails ? (
+                <div className="space-y-2">
+                  {support?.email && (
+                    <div>
+                      <div className="text-xs font-medium text-muted-foreground">Email</div>
+                      <a className="text-primary underline hover:no-underline" href={`mailto:${support.email}`}>
+                        {support.email}
+                      </a>
+                    </div>
+                  )}
+                  {support?.phone && (
+                    <div>
+                      <div className="text-xs font-medium text-muted-foreground">Phone</div>
+                      <a className="text-primary underline hover:no-underline" href={`tel:${support.phone}`}>
+                        {support.phone}
+                      </a>
+                    </div>
+                  )}
+                  {supportWebsite && (
+                    <div>
+                      <div className="text-xs font-medium text-muted-foreground">Website</div>
+                      <a
+                        className="text-primary underline hover:no-underline"
+                        href={supportWebsite}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {supportWebsite.replace(/^https?:\/\//i, '')}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-muted-foreground">Support details are not configured yet.</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

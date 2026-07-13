@@ -14,6 +14,12 @@ export interface BrandLogos {
   favicon?: string | undefined;
 }
 
+export interface SupportDetails {
+  email?: string;
+  phone?: string;
+  website?: string;
+}
+
 export interface BrandSettings {
   primaryColor: string;
   secondaryColor: string;
@@ -21,6 +27,7 @@ export interface BrandSettings {
   neutralColor: string;
   logos?: BrandLogos;
   patientPortalTheme?: 'light' | 'dark';
+  support?: SupportDetails;
 }
 
 export const brandingService = {
