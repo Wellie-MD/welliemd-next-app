@@ -1078,11 +1078,11 @@ function OrderDetailInner() {
 
             if (firstRxRevision && firstRxRevision.description) {
               const rxDesc = firstRxRevision.description;
-              const prevMatch = rxDesc.match(/Previously prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
+              const prevMatch = rxDesc.match(/Previously prescribed:\s*(.*?)(?=\s+at\s+\$|(?<!\d)\.|$)/);
               if (prevMatch && prevMatch[1]) {
                 pName = prevMatch[1].trim();
               } else if (rxDesc.includes("Prescribed: ")) {
-                const newMatch = rxDesc.match(/Prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
+                const newMatch = rxDesc.match(/Prescribed:\s*(.*?)(?=\s+at\s+\$|(?<!\d)\.|$)/);
                 if (newMatch && newMatch[1]) {
                   pName = newMatch[1].trim();
                 }
