@@ -8,11 +8,44 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { FollowUpList } from "@/features/followups";
 import { ActiveTreatmentsList } from "@/components/ActiveTreatmentsList";
+import NeedsAttentionCard from "@/components/NeedsAttentionCard";
 import { useAuth } from "@/features/auth";
 import { VisitService } from "@/features/visits/services/visit.service";
 import { getOrders } from "@/shared/api/ordersApi";
 import { useNotifications } from "@/contexts/NotificationsContext";
 import { getPatientFollowUps } from "@/features/followups/api";
+import { getConnections, getDeviceData, formatConnection } from "@/features/devices/api";
+import { WeightTrendCard, ReadinessCard } from "@/features/devices/components/TelemetryDashboard";
+import LogWeightModal from "@/features/devices/components/LogWeightModal";
+import { WEIGHT_DEFAULT, DEVICE_METRICS_DEFAULT } from "@/features/devices/constants";
+import type { WeightData, DeviceMetrics } from "@/features/devices/types";
+
+function WeightAndReadinessSkeleton() {
+  const cardStyle = {
+    background: "var(--km-s1)",
+    border: "1px solid var(--km-b)",
+    borderRadius: 14,
+    marginBottom: 10,
+    overflow: "hidden",
+  } as const;
+
+  return (
+    <>
+      <div style={{ ...cardStyle, padding: "16px 18px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <div className="km-skel" style={{ width: 32, height: 32, borderRadius: 9 }} />
+          <div className="km-skel" style={{ width: 120, height: 14 }} />
+        </div>
+        <div className="km-skel" style={{ width: 90, height: 26, marginBottom: 16 }} />
+        <div className="km-skel" style={{ width: "100%", height: 130, borderRadius: 10 }} />
+      </div>
+      <div style={{ ...cardStyle, padding: "14px 18px" }}>
+        <div className="km-skel" style={{ width: 140, height: 14, marginBottom: 14 }} />
+        <div className="km-skel" style={{ width: 90, height: 32 }} />
+      </div>
+    </>
+  );
+}
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -42,6 +75,11 @@ export default function Dashboard() {
   });
   const [pendingFollowUps, setPendingFollowUps] = useState<number | null>(null);
   const { unreadCount } = useNotifications();
+  const [weight, setWeight] = useState<WeightData>({ ...WEIGHT_DEFAULT });
+  const [deviceMetrics, setDeviceMetrics] = useState<DeviceMetrics>({ ...DEVICE_METRICS_DEFAULT });
+  const [weightSyncSource, setWeightSyncSource] = useState<string | null>(null);
+  const [logWeightOpen, setLogWeightOpen] = useState(false);
+  const [wearablesLoading, setWearablesLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -78,6 +116,42 @@ export default function Dashboard() {
     fetchStats();
   }, []);
 
+  // Fetch weight progress + today's readiness from connected wearables
+  useEffect(() => {
+    const fetchWearables = async () => {
+      try {
+        const connections = await getConnections();
+        const [firstConnected] = connections.filter((c) => c.status === "connected");
+        if (!firstConnected) return;
+        setWeightSyncSource(formatConnection(firstConnected).name);
+
+        const data = await getDeviceData();
+        if (!data) return;
+
+        setDeviceMetrics((prev) => ({
+          ...prev,
+          ...(data.readiness && { readiness: data.readiness }),
+          ...(data.recovery && { recovery: data.recovery }),
+          ...(data.sleepScore && { sleepScore: data.sleepScore }),
+          ...(data.restingHr && { restingHr: data.restingHr }),
+        }));
+        if (data.weightSeries && data.weightSeries.length > 0) {
+          setWeight((prev) => ({
+            ...prev,
+            series: data.weightSeries!,
+            start: prev.start || data.weightSeries![0],
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to fetch wearables summary", error);
+      } finally {
+        setWearablesLoading(false);
+      }
+    };
+
+    fetchWearables();
+  }, []);
+
   // Fetch pending follow-up count
   useEffect(() => {
     const fetchFollowUps = async () => {
@@ -91,6 +165,20 @@ export default function Dashboard() {
     };
     fetchFollowUps();
   }, []);
+
+  const handleSaveLogWeight = (v: number) => {
+    setWeight((prev) => {
+      const label = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const newCheckins = [...prev.checkins, { label, w: v }];
+      const newSeries = [...prev.series, v];
+      return {
+        ...prev,
+        checkins: newCheckins,
+        series: newSeries,
+        start: prev.start || newSeries[0],
+      };
+    });
+  };
 
   return (
     <div>
@@ -148,8 +236,11 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* ── Needs your attention ── */}
+      <NeedsAttentionCard />
+
       {/* ── Follow-Up Questionnaires ── */}
-      <div className="km-dash-card km-fade">
+      <div id="follow-up-questionnaires" className="km-dash-card km-fade">
         <div className="km-dash-ch">
           <div className="km-dash-ctrow">
             <div className="km-dash-ci blue">
@@ -169,6 +260,34 @@ export default function Dashboard() {
           <FollowUpList />
         </div>
       </div>
+
+      {/* ── Weight progress & Today's readiness ── */}
+      <div className="km-fade">
+        {wearablesLoading ? (
+          <WeightAndReadinessSkeleton />
+        ) : (
+          <>
+            {weight.series.length > 0 && (
+              <WeightTrendCard
+                weight={weight}
+                onOpenGoalModal={() => navigate("/dashboard/devices")}
+                bottomAction={{
+                  label: "Log today's weight",
+                  onClick: () => setLogWeightOpen(true),
+                }}
+                {...(weightSyncSource ? { syncedFrom: weightSyncSource } : {})}
+              />
+            )}
+            <ReadinessCard deviceMetrics={deviceMetrics} />
+          </>
+        )}
+      </div>
+
+      <LogWeightModal
+        open={logWeightOpen}
+        onClose={() => setLogWeightOpen(false)}
+        onSave={handleSaveLogWeight}
+      />
 
       {/* ── Active Treatments ── */}
       <div className="km-dash-card km-fade">

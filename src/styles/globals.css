@@ -834,6 +834,11 @@ body.light .km-nbtn {
   color: var(--km-pu);
 }
 
+.km-dash-ci.amber {
+  background: var(--km-amp);
+  color: var(--km-am);
+}
+
 .km-dash-ct {
   font-size: 14px;
   font-weight: 600;
@@ -849,6 +854,79 @@ body.light .km-nbtn {
 
 .km-dash-va:hover {
   opacity: 0.8;
+}
+
+/* --- Needs Your Attention (.attn) --- */
+.km-attn-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+}
+
+.km-attn-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.km-attn-icon.amber {
+  background: var(--km-amp);
+  color: var(--km-am);
+}
+
+.km-attn-icon.blue {
+  background: var(--km-acp);
+  color: var(--km-ac);
+}
+
+.km-attn-icon.purple {
+  background: var(--km-pup);
+  color: var(--km-pu);
+}
+
+.km-attn-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.km-attn-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--km-t);
+  margin-bottom: 2px;
+}
+
+.km-attn-sub {
+  font-size: 11.5px;
+  color: var(--km-tm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.km-attn-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.km-attn-amount {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--km-t);
+}
+
+.km-attn-divider {
+  height: 1px;
+  background: var(--km-b);
+  margin: 0 14px;
 }
 
 /* --- Quick Actions Grid (.qagrid, .qaitem) --- */
