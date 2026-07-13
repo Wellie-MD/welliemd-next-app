@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { showFloatingToast } from "@/components/ui/floating-toast";
 import { EmptyStateCard, PatientPreviewDialog, SlugEditorModal } from "@/features/treatments/common/components";
+import { useClients } from "@/hooks/useClients";
 import { getTreatmentApiErrorMessage } from "@/features/treatments/common/utils/apiError";
 import { normalizeTreatmentSlug } from "@/features/treatments/common/utils/slug";
 import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
@@ -87,6 +88,7 @@ const clientApiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://knysysapi
 
 export default function ProgramsPage() {
   const { data: programs = [] } = usePrograms();
+  const { currentClient } = useClients();
   const updateProgramSlug = useUpdateProgramSlug();
   const updateProgramGroupStatus = useUpdateProgramGroupStatus();
   const updateProgramStatus = useUpdateProgramStatus();
@@ -98,6 +100,11 @@ export default function ProgramsPage() {
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
   const [previewProgram, setPreviewProgram] = useState<Program | null>(null);
   const [updatingLiveProgramId, setUpdatingLiveProgramId] = useState<string | null>(null);
+
+  const questionnaireBaseUrl = useMemo(() => {
+    const base = currentClient?.resolved_questionnaire_url || currentClient?.questionnaire_url;
+    return base ? base.replace(/\/+$/, "") : "";
+  }, [currentClient]);
 
   const groupedTreatments = useMemo(() => buildTreatmentGroups(programs), [programs]);
   const treatmentNameByKey = useMemo(
@@ -242,7 +249,11 @@ export default function ProgramsPage() {
   };
 
   const handleCopyProgramUrl = async (program: Program) => {
-    const intakeUrl = `welliemd.com/intake/${program.slug}`;
+    if (!questionnaireBaseUrl) {
+      showFloatingToast({ title: "Questionnaire URL is not configured for this client" });
+      return;
+    }
+    const intakeUrl = `${questionnaireBaseUrl}/visit/${program.slug}`;
     try {
       await navigator.clipboard?.writeText(intakeUrl);
       showFloatingToast({ title: "Intake URL Copied" });
@@ -386,7 +397,7 @@ export default function ProgramsPage() {
             Set a unique URL slug for this treatment. Use lowercase letters, numbers, and hyphens only.
           </>
         }
-        previewUrlPrefix="welliemd.com/intake/"
+        previewUrlPrefix={`${questionnaireBaseUrl}/visit/`}
         currentSlug={editingProgram?.slug ?? ""}
         onSave={handleSaveSlug}
         allowEmpty={false}

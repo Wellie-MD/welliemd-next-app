@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, Copy, GitBranch, Link as LinkIcon, List, Lock, Plus, Play } from "lucide-react";
 import { showFloatingToast } from "@/components/ui/floating-toast";
@@ -15,13 +15,14 @@ import {
   useUpdateCustomProgramBuilderQuestion,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { cn } from "@/lib/utils";
+import { useClients } from "@/hooks/useClients";
 import type { CustomProgram, CustomProgramBuilderQuestionInput, CustomProgramBuilderStageItem } from "@/features/treatments/types";
 
 const BUILDER_VIEW_STORAGE_KEY = "welliemd_custom_program_builder_view";
 type BuilderViewMode = "list" | "flow";
 
-const getCustomProgramStartUrl = (program: CustomProgram) =>
-  `welliemd.com/start/${getCustomProgramEffectiveSlug(program)}`;
+const getCustomProgramStartUrl = (program: CustomProgram, baseUrl: string) =>
+  `${baseUrl}/start/${getCustomProgramEffectiveSlug(program)}`;
 
 function BuilderHeader({
   customProgram,
@@ -30,6 +31,7 @@ function BuilderHeader({
   onCopyUrl,
   onOpenAddQuestion,
   onOpenPreview,
+  questionnaireBaseUrl,
 }: {
   customProgram: CustomProgram;
   viewMode: BuilderViewMode;
@@ -37,8 +39,11 @@ function BuilderHeader({
   onCopyUrl: () => void;
   onOpenAddQuestion: () => void;
   onOpenPreview: () => void;
+  questionnaireBaseUrl: string;
 }) {
-  const startUrl = getCustomProgramStartUrl(customProgram);
+  const startUrl = questionnaireBaseUrl
+    ? getCustomProgramStartUrl(customProgram, questionnaireBaseUrl)
+    : "";
   const effectiveSlug = getCustomProgramEffectiveSlug(customProgram);
 
   return (
@@ -148,9 +153,15 @@ function ManagedFlowView() {
 export default function CustomProgramBuilderPage() {
   const { customProgramId = "" } = useParams();
   const { data: customProgram } = useCustomProgram(customProgramId);
+  const { currentClient } = useClients();
   const addQuestionMutation = useAddCustomProgramBuilderQuestion(customProgramId);
   const updateQuestionMutation = useUpdateCustomProgramBuilderQuestion(customProgramId);
   const deleteQuestionMutation = useDeleteCustomProgramBuilderQuestion(customProgramId);
+
+  const questionnaireBaseUrl = useMemo(() => {
+    const base = currentClient?.resolved_questionnaire_url || currentClient?.questionnaire_url;
+    return base ? base.replace(/\/+$/, "") : "";
+  }, [currentClient]);
   const [isAddQuestionOpen, setIsAddQuestionOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<CustomProgramBuilderStageItem | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -169,7 +180,11 @@ export default function CustomProgramBuilderPage() {
 
   const handleCopyUrl = async () => {
     if (!customProgram) return;
-    const text = getCustomProgramStartUrl(customProgram);
+    if (!questionnaireBaseUrl) {
+      showFloatingToast({ title: "Questionnaire URL is not configured for this client" });
+      return;
+    }
+    const text = getCustomProgramStartUrl(customProgram, questionnaireBaseUrl);
     if (navigator.clipboard?.writeText) {
       try {
         await navigator.clipboard.writeText(text);
@@ -265,6 +280,7 @@ export default function CustomProgramBuilderPage() {
         onCopyUrl={handleCopyUrl}
         onOpenAddQuestion={handleOpenAddQuestion}
         onOpenPreview={handleOpenPreview}
+        questionnaireBaseUrl={questionnaireBaseUrl}
       />
 
       <div className="flex-1 p-8">

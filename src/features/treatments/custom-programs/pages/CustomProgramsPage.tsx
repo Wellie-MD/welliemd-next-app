@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { showFloatingToast } from "@/components/ui/floating-toast";
 import { TreatmentPageHeader } from "@/features/treatments/common/components";
@@ -13,14 +13,21 @@ import {
   normalizeCustomProgramSlug,
 } from "@/features/treatments/custom-programs/utils/customProgramSlug";
 import { useUpdateCustomProgramSlugOverride } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { useClients } from "@/hooks/useClients";
 import type { CustomProgram } from "@/features/treatments/types";
 
 export default function CustomProgramsPage() {
   const navigate = useNavigate();
   const page = useCustomProgramsPage();
+  const { currentClient } = useClients();
   const updateSlugMutation = useUpdateCustomProgramSlugOverride();
   const [previewProgram, setPreviewProgram] = useState<CustomProgram | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  const questionnaireBaseUrl = useMemo(() => {
+    const base = currentClient?.resolved_questionnaire_url || currentClient?.questionnaire_url;
+    return base ? base.replace(/\/+$/, "") : "";
+  }, [currentClient]);
 
   const handleOpenBuilder = (program: CustomProgram) => {
     navigate(`/dashboard/treatments/custom-programs/${program.id}/builder`);
@@ -37,9 +44,14 @@ export default function CustomProgramsPage() {
   };
 
   const handleCopyStartUrl = async (program: CustomProgram) => {
-    const startUrl = `welliemd.com/start/${getCustomProgramEffectiveSlug(program)}`;
+    if (!questionnaireBaseUrl) {
+      showFloatingToast({ title: "Questionnaire URL is not configured for this client" });
+      return;
+    }
+    const startUrl = `${questionnaireBaseUrl}/start/${getCustomProgramEffectiveSlug(program)}`;
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(startUrl);
+      showFloatingToast({ title: "Intake URL Copied" });
     }
   };
 
