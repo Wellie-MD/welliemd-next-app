@@ -38,6 +38,26 @@ function getCategoryTone(category: string) {
   return CATEGORY_CLASS[category.toLowerCase()] ?? "bg-slate-100 text-slate-700 border-slate-200"
 }
 
+function ProviderLogo({ name, logoFile }: { name: string; logoFile: string }) {
+  const [errored, setErrored] = useState(false)
+  const isUrl = /^https?:\/\//i.test(logoFile)
+  if (isUrl && !errored) {
+    return (
+      <img
+        src={logoFile}
+        alt=""
+        className="h-7 w-7 flex-shrink-0 rounded-md border bg-white object-contain p-0.5"
+        onError={() => setErrored(true)}
+      />
+    )
+  }
+  return (
+    <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border bg-slate-50 text-[10px] font-bold text-slate-500">
+      {name.slice(0, 2).toUpperCase()}
+    </div>
+  )
+}
+
 function getCategoryFromSlugAndResources(slug: string, resources: string[]): string {
   const s = slug.toLowerCase()
   if (s.includes("libre") || s.includes("dexcom") || s.includes("accu")) return "CGM"
@@ -66,6 +86,11 @@ export function JunctionWearablesSection({ clientId, initialEnabled = false, lab
   const [priority, setPriority] = useState<string[]>(() => [...WEAR_PRIORITY])
   const [loadingProviders, setLoadingProviders] = useState(true)
 
+  // Keep local state in sync when the parent re-fetches and passes a new value.
+  useEffect(() => {
+    console.log('[WearablesSection] useEffect: initialEnabled changed ->', initialEnabled, '| current enabled state ->', enabled)
+    setEnabled(initialEnabled)
+  }, [initialEnabled])
   useEffect(() => {
     let active = true
     async function fetchProviders() {
@@ -80,7 +105,7 @@ export function JunctionWearablesSection({ clientId, initialEnabled = false, lab
               cat: getCategoryFromSlugAndResources(src.slug, raw.supported_resources || []),
               auth: (raw.auth_type || "oauth") as WearAuth,
               pull: src.client_pull_window_days ?? 90,
-              enabled: src.client_enabled ?? true,
+              enabled: src.client_enabled ?? false,
               domain: `${src.slug}.com`,
               logoFile: src.logo_url || `${src.slug}.png`,
             }
@@ -155,14 +180,16 @@ export function JunctionWearablesSection({ clientId, initialEnabled = false, lab
   }
 
   const handleToggleEnabled = async (checked: boolean) => {
+    console.log('[WearablesSection] handleToggleEnabled called with:', checked)
     setEnabled(checked)
     try {
       await junctionIntegrationApi.updateWearablesSettings({
         enabled: checked,
       }, clientId)
+      // console.log('[WearablesSection] updateWearablesSettings response:', result)
       toast.success(checked ? "Wearable sync enabled." : "Wearable sync disabled.")
     } catch (err) {
-      console.error("Failed to update wearables settings:", err)
+      console.error('Failed to update wearables settings:', err)
       toast.error("Failed to update wearables setting.")
       setEnabled(!checked)
     }
@@ -320,9 +347,7 @@ export function JunctionWearablesSection({ clientId, initialEnabled = false, lab
                       <tr key={provider.id} className="border-t">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <div className="flex h-7 w-7 items-center justify-center rounded-md border bg-slate-50 text-[10px] font-bold text-slate-500">
-                              {provider.name.slice(0, 2).toUpperCase()}
-                            </div>
+                            <ProviderLogo name={provider.name} logoFile={provider.logoFile} />
                             <span className="font-medium text-sm">{provider.name}</span>
                           </div>
                         </td>
@@ -408,6 +433,7 @@ export function JunctionWearablesSection({ clientId, initialEnabled = false, lab
                   <span className="flex h-6 w-6 items-center justify-center rounded-md border bg-muted text-xs font-bold text-muted-foreground">
                     {index + 1}
                   </span>
+                  <ProviderLogo name={provider.name} logoFile={provider.logoFile} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium">{provider.name}</div>
                     <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
