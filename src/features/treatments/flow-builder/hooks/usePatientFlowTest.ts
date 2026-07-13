@@ -6,6 +6,7 @@ import {
   treatmentQueryKeys,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { treatmentsApi } from "@/features/treatments/api/treatmentsApi";
+import { DERIVED_BMI_ID } from "@/components/questionnaires/VisibilityRuleBuilder";
 import { evaluateVisibilityGroup } from "@/features/treatments/utils/visibilityEvaluation";
 import { getCheckoutProductPrice } from "@/features/treatments/utils/checkoutPricing";
 import type { PreviewContext, Program, ProgramQuestion } from "@/features/treatments/types";
@@ -244,6 +245,59 @@ export function usePatientFlowTest({ previewContext, open }: UsePatientFlowTestA
     return ids;
   }, [answers, modules]);
 
+  // ── Enrich answers with calculated values (e.g. BMI) ────────────────────
+  const enrichedAnswers = useMemo((): Record<string, string | string[]> => {
+    let bmiValue: string | undefined;
+
+    for (const mod of modules) {
+      if (bmiValue) break;
+      for (const q of mod.questions) {
+        // Direct BMI question answer
+        if (q.kind === "bmi") {
+          const raw = answers[q.id];
+          if (raw !== undefined && raw !== null && raw !== "") {
+            bmiValue = String(raw);
+            break;
+          }
+        }
+        // Number question with BMI in the text (e.g. "Your BMI is")
+        if (q.kind === "number" && /bmi/i.test(q.text)) {
+          const raw = answers[q.id];
+          if (raw !== undefined && raw !== null && raw !== "") {
+            bmiValue = String(raw);
+            break;
+          }
+        }
+        // Height/weight question — try to parse JSON answer
+        if (q.kind === "height_weight") {
+          const raw = answers[q.id];
+          if (raw !== undefined && raw !== null && raw !== "") {
+            if (typeof raw === "string") {
+              try {
+                const parsed = JSON.parse(raw);
+                const feet = Number(parsed.feet);
+                const inches = Number(parsed.inches);
+                const weightLbs = Number(parsed.weight);
+                if (feet && weightLbs) {
+                  const totalInches = feet * 12 + (inches || 0);
+                  const bmi = (weightLbs / (totalInches * totalInches)) * 703;
+                  bmiValue = String(Math.round(bmi * 10) / 10);
+                }
+              } catch {
+                // not JSON, skip
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (bmiValue !== undefined) {
+      return { ...answers, [DERIVED_BMI_ID]: bmiValue };
+    }
+    return answers;
+  }, [answers, modules]);
+
   // ── Derive visible checkout products, grouped by treatment ────────────────
   // Faithful to the prototype: a disqualifier in an active module blocks the
   // checkout entirely, hides products, and surfaces the disqualification note.
@@ -258,11 +312,11 @@ export function usePatientFlowTest({ previewContext, open }: UsePatientFlowTestA
 
       for (const question of checkoutQuestions) {
         // Question-level visibility gates the whole checkout step.
-        if (!evaluateVisibilityGroup(question.visibilityRuleGroup, answers)) continue;
+        if (!evaluateVisibilityGroup(question.visibilityRuleGroup, enrichedAnswers)) continue;
 
         for (const product of question.checkoutProducts ?? []) {
           // Product-level visibility decides which products appear.
-          if (!evaluateVisibilityGroup(product.visibilityRules, answers)) continue;
+          if (!evaluateVisibilityGroup(product.visibilityRules, enrichedAnswers)) continue;
 
           const title = `${product.category} — ${product.doseLabel}`;
           const subtitle = [product.regimen, question.text].filter(Boolean).join(" · ");
@@ -283,7 +337,7 @@ export function usePatientFlowTest({ previewContext, open }: UsePatientFlowTestA
     }
 
     return groups;
-  }, [answers, disqualifiedModuleIds, modules]);
+  }, [enrichedAnswers, disqualifiedModuleIds, modules]);
 
   // Prune selections that are no longer visible.
   useEffect(() => {

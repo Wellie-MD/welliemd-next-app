@@ -28,7 +28,7 @@ export const toBuilderGroup = (
         question_type: rule.question_type,
         operator: rule.operator,
         value: isBetweenOperator(rule.operator)
-          ? rule.value.split(",").map((item) => item.trim()).filter(Boolean)
+          ? rule.value.split(",").map((item) => item.trim())
           : isMultiValueOperator(rule.operator)
           ? rule.value.split(",").map((item) => item.trim()).filter(Boolean)
           : rule.value,
@@ -49,13 +49,27 @@ export const fromBuilderGroup = (group: VisibilityGroup): VisibilityRuleGroup =>
       return;
     }
 
+    let value: string;
+    if (Array.isArray(child.value)) {
+      if (isBetweenOperator(child.operator) && child.value.length === 2) {
+        const [a, b] = child.value.map(Number);
+        value = isNaN(a) || isNaN(b)
+          ? child.value.join(",")
+          : a <= b
+            ? `${a},${b}`
+            : `${b},${a}`;
+      } else {
+        value = child.value.join(",");
+      }
+    } else {
+      value = String(child.value || "");
+    }
+
     rules.push({
       questionId: child.question_id,
       question_type: child.question_type,
       operator: child.operator,
-      value: Array.isArray(child.value)
-        ? child.value.join(",")
-        : String(child.value || ""),
+      value,
     });
   });
 

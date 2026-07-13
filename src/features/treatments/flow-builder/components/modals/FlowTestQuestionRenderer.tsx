@@ -145,9 +145,10 @@ export function FlowTestQuestionRenderer({
     );
   }
 
-  // ── number / text / textarea / date / email / phone / zip ─────────────────
+  // ── number / bmi / text / textarea / date / email / phone / zip ─────────
   if (
     question.kind === "number" ||
+    question.kind === "bmi" ||
     question.kind === "text" ||
     question.kind === "textarea" ||
     question.kind === "date" ||
