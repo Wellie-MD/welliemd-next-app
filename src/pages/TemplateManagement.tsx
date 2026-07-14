@@ -4,7 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
 import { useNavigate } from "react-router-dom";
-import { templateApi, QuestionnaireTemplate } from "@/api/questionnaires";
+import {
+  templateApi,
+  QuestionnaireTemplate,
+} from "@/api/questionnaires";
 import { useClients } from "@/hooks/useClients";
 import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
@@ -190,7 +193,6 @@ export default function TemplateManagement() {
   const [activeStatusFilter, setActiveStatusFilter] = useState("All");
   const [activeTypeFilter, setActiveTypeFilter] = useState("All Types");
   const [date, setDate] = useState<DateRange | undefined>();
-  const [refreshKey, setRefreshKey] = useState(0);
   const [publishingIds, setPublishingIds] = useState<Set<string>>(new Set());
   const [editingSlugTemplate, setEditingSlugTemplate] = useState<QuestionnaireTemplate | null>(null);
   const [slugInputValue, setSlugInputValue] = useState("");
@@ -209,20 +211,11 @@ export default function TemplateManagement() {
     [currentClient]
   );
 
-  const fetchTemplates = async () => {
+  const fetchTemplates = useCallback(async () => {
     try {
       setLoading(true);
       const data = await templateApi.listTemplates();
-
-      // Handle both array response and paginated response
-      if (Array.isArray(data)) {
-        setTemplates(data);
-      } else if (data && typeof data === "object" && "results" in data) {
-        // Paginated response
-        setTemplates((data as unknown).results || []);
-      } else {
-        setTemplates([]);
-      }
+      setTemplates(data);
     } catch (error: unknown) {
       console.error("Failed to fetch templates:", error);
       toast({
@@ -233,16 +226,15 @@ export default function TemplateManagement() {
           "Failed to fetch templates",
         variant: "destructive",
       });
-      setTemplates([]); // Set empty array on error
+      setTemplates([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchTemplates();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchTemplates]);
 
   const handleManageQuestions = (template: QuestionnaireTemplate) => {
     navigate(`/dashboard/templates/${template.id}/flow-builder`);
@@ -296,7 +288,7 @@ export default function TemplateManagement() {
     } finally {
       setSlugSaving(false);
     }
-  }, [editingSlugTemplate, slugInputValue, toast]);
+  }, [editingSlugTemplate, fetchTemplates, slugInputValue, toast]);
 
   const handleCopyQuestionnaireLink = async (
     template: QuestionnaireTemplate
@@ -390,7 +382,6 @@ export default function TemplateManagement() {
           description: `Template "${template.name}" has been published`,
         });
       }
-      // Refresh templates to get updated status
       fetchTemplates();
     } catch (error: unknown) {
       toast({
@@ -476,7 +467,9 @@ export default function TemplateManagement() {
       label: status,
       type: "button" as const,
       value: activeStatusFilter === status ? status : undefined,
-      onClick: () => setActiveStatusFilter(status),
+      onClick: () => {
+        setActiveStatusFilter(status);
+      },
     })),
     // Type filters
     ...typeFilters.map((type) => ({
@@ -484,7 +477,9 @@ export default function TemplateManagement() {
       label: type,
       type: "button" as const,
       value: activeTypeFilter === type ? type : undefined,
-      onClick: () => setActiveTypeFilter(type),
+      onClick: () => {
+        setActiveTypeFilter(type);
+      },
     })),
   ];
 
@@ -496,10 +491,8 @@ export default function TemplateManagement() {
   }, []);
 
   const handleRefresh = useCallback(() => {
-    setRefreshKey((prev) => prev + 1);
     fetchTemplates();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchTemplates]);
 
   const handleExport = useCallback(() => {
     const exportData = filteredTemplates.map((template) => {
@@ -640,11 +633,7 @@ export default function TemplateManagement() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center p-12">
-          <p className="text-muted-foreground">Loading templates...</p>
-        </div>
-      ) : templates.length === 0 ? (
+      {!loading && templates.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-lg">
           <p className="text-muted-foreground mb-4">
             No templates assigned yet
@@ -666,11 +655,16 @@ export default function TemplateManagement() {
           showResetFilters={true}
           filters={filters}
           dateRange={date}
-          onDateRangeChange={setDate}
-          onSearch={setSearchTerm}
+          onDateRangeChange={(nextDate) => {
+            setDate(nextDate);
+          }}
+          onSearch={(nextSearchTerm) => {
+            setSearchTerm(nextSearchTerm);
+          }}
           onResetFilters={handleResetFilters}
           onExport={handleExport}
           onRefresh={handleRefresh}
+          loading={loading}
         />
       )}
 

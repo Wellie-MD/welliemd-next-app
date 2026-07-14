@@ -115,6 +115,113 @@ function normalizeHostname(value: string) {
   return withoutProtocol.split("/")[0].split(":")[0].replace(/\.+$/, "");
 }
 
+function managedSlugFromApiEndpoint(apiEndpoint?: string) {
+  const host = normalizeHostname(apiEndpoint || "");
+  const dottedMatch = host.match(/^([a-z0-9-]+)\.api\.welliemd\.com$/i);
+  if (dottedMatch?.[1]) return dottedMatch[1];
+
+  const legacyMatch = host.match(/^([a-z0-9-]+)api\.welliemd\.com$/i);
+  return legacyMatch?.[1] || "";
+}
+
+function existingManagedWellieUrl(
+  value: string | undefined,
+  type: "client" | "patient" | "intake",
+  expectedSlug?: string,
+) {
+  const host = normalizeHostname(value || "");
+  if (!host) return "";
+
+  const suffixes = {
+    client: "client.welliemd.com",
+    patient: "patientportal.welliemd.com",
+    intake: "questionnaire.welliemd.com",
+  };
+  const suffix = suffixes[type];
+  const pattern = expectedSlug
+    ? new RegExp(`^${expectedSlug}${suffix.replace(/\./g, "\\.")}$`, "i")
+    : new RegExp(`^[a-z0-9-]+${suffix.replace(/\./g, "\\.")}$`, "i");
+
+  return pattern.test(host) ? `https://${host}` : "";
+}
+
+function managedWellieUrl(
+  currentClient: ReturnType<typeof useClients>["currentClient"],
+  type: "client" | "patient" | "intake",
+  existingValue?: string,
+) {
+  const slug = managedSlugFromApiEndpoint(currentClient?.api_endpoint);
+  const existingUrl = existingManagedWellieUrl(existingValue, type, slug);
+  if (existingUrl) return existingUrl;
+
+  if (!slug) return "";
+
+  if (type === "client") return `https://${slug}client.welliemd.com`;
+  if (type === "patient") return `https://${slug}patientportal.welliemd.com`;
+  return `https://${slug}questionnaire.welliemd.com`;
+}
+
+function isCustomPortalDomain(
+  value: string | undefined,
+  type: "client" | "patient" | "intake",
+  currentClient: ReturnType<typeof useClients>["currentClient"],
+) {
+  const host = normalizeHostname(value || "");
+  if (!host) return false;
+  if (existingManagedWellieUrl(value, type, managedSlugFromApiEndpoint(currentClient?.api_endpoint))) return false;
+  return !host.endsWith(".welliemd.com");
+}
+
+function configuredCustomDomains(
+  currentClient: ReturnType<typeof useClients>["currentClient"],
+): CustomDomain[] {
+  if (!currentClient) return [];
+
+  const candidates: Array<[CustomDomainPortalType, Array<string | undefined>]> = [
+    ["client", [currentClient.resolved_admin_panel_domain, currentClient.admin_panel_domain]],
+    ["patient", [currentClient.resolved_patient_portal_domain, currentClient.patient_portal_domain]],
+    ["intake", [currentClient.resolved_questionnaire_url, currentClient.questionnaire_url]],
+  ];
+
+  return candidates
+    .map(([type, values]) => [type, values.find((value) => isCustomPortalDomain(value, type, currentClient))] as const)
+    .filter((entry): entry is readonly [CustomDomainPortalType, string] => Boolean(entry[1]))
+    .map(([type, value]) => {
+      const host = normalizeHostname(value || "");
+      return {
+        id: `client-config-${type}-${host}`,
+        client: currentClient.id,
+        domain: host,
+        portal_type: type,
+        status: "verified",
+        validation_records: [],
+        dns_status: "applied",
+        is_locked: true,
+        last_error: null,
+        created_at: "",
+        updated_at: "",
+        verified_at: null,
+      };
+    });
+}
+
+function mergeDisplayDomains(apiDomains: CustomDomain[], fallbackDomains: CustomDomain[]) {
+  const byKey = new Map<string, CustomDomain>();
+
+  for (const item of fallbackDomains) {
+    byKey.set(`${item.portal_type}:${normalizeHostname(item.domain)}`, item);
+  }
+  for (const item of apiDomains) {
+    byKey.set(`${item.portal_type}:${normalizeHostname(item.domain)}`, item);
+  }
+
+  return Array.from(byKey.values()).sort((left, right) => {
+    const leftTime = left.created_at ? new Date(left.created_at).getTime() : 0;
+    const rightTime = right.created_at ? new Date(right.created_at).getTime() : 0;
+    return rightTime - leftTime;
+  });
+}
+
 function splitAmplifyDomain(hostname: string): { rootDomain: string; prefix: string } | null {
   const labels = hostname.split(".").filter(Boolean);
   if (labels.length < 2) return null;
@@ -184,15 +291,19 @@ export default function Domains() {
         toast({ title: "Domains refreshed" });
       }
     } catch (error: unknown) {
-      toast({
-        title: "Could not load domains",
-        description: errorMessage(error, "Failed to load domains"),
-        variant: "destructive",
-      });
+      const status = (error as AxiosError).response?.status;
+      const hasConfiguredFallback = configuredCustomDomains(currentClient).length > 0;
+      if (!(status === 403 && hasConfiguredFallback)) {
+        toast({
+          title: "Could not load domains",
+          description: errorMessage(error, "Failed to load domains"),
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [currentClient, toast]);
 
   useEffect(() => {
     if (!canManageDomains) return;
@@ -341,11 +452,12 @@ export default function Domains() {
   }
 
   const defaultUrls = [
-    ["Client/Staff Portal", currentClient?.admin_panel_domain],
-    ["Patient Portal", currentClient?.patient_portal_domain],
-    ["Intake App", currentClient?.questionnaire_url],
+    ["Client/Staff Portal", managedWellieUrl(currentClient, "client", currentClient?.admin_panel_domain)],
+    ["Patient Portal", managedWellieUrl(currentClient, "patient", currentClient?.patient_portal_domain)],
+    ["Intake App", managedWellieUrl(currentClient, "intake", currentClient?.questionnaire_url)],
     ["API", currentClient?.api_endpoint],
   ].filter(([, value]) => Boolean(value));
+  const displayDomains = mergeDisplayDomains(domains, configuredCustomDomains(currentClient));
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -394,12 +506,12 @@ export default function Domains() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {loading && domains.length === 0 ? (
+          {loading && displayDomains.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">Loading domains...</div>
-          ) : domains.length === 0 ? (
+          ) : displayDomains.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">No custom domains configured.</div>
           ) : (
-            domains.map((item) => (
+            displayDomains.map((item) => (
               <div key={item.id} className="rounded-lg border p-4 space-y-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div className="space-y-1">

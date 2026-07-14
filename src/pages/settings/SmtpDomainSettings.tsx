@@ -331,6 +331,45 @@ export default function SmtpDomainSettings() {
     return dkimRecord?.valid === "valid" ? "valid" : "invalid"
   }
 
+  const getDmarcRecords = () => {
+    if (!mgStatus) return []
+
+    const candidates = [
+      mgStatus.authentication_dns_records,
+      mgStatus.authentications_dns_records,
+      mgStatus.dmarc_dns_records,
+      mgStatus.dmarc_dns_record,
+      mgStatus.domain?.authentication_dns_records,
+      mgStatus.domain?.authentications_dns_records,
+      mgStatus.domain?.dmarc_dns_records,
+      mgStatus.domain?.dmarc_dns_record,
+    ]
+
+    const records = candidates.flatMap((value) =>
+      Array.isArray(value) ? value : value ? [value] : []
+    )
+
+    const sendingDmarcRecords = (mgStatus.sending_dns_records || []).filter((rec: any) => {
+      const name = String(rec.name || rec.host || "").toLowerCase()
+      const value = String(rec.value || "").toLowerCase()
+      return name.includes("_dmarc") || value.includes("v=dmarc1")
+    })
+
+    const seen = new Set<string>()
+    return [...records, ...sendingDmarcRecords].filter((rec: any) => {
+      const key = `${rec.name || rec.host || ""}:${rec.value || rec.data || ""}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }
+
+  const getDmarcStatus = () => {
+    const dmarcRecords = getDmarcRecords()
+    if (dmarcRecords.length === 0) return "unknown"
+    return dmarcRecords.every((r: any) => r.valid === "valid" || r.status === "valid") ? "valid" : "invalid"
+  }
+
   // Loading state
   if (isLoading) {
     return (
@@ -469,6 +508,12 @@ export default function SmtpDomainSettings() {
             >
               {getSpfStatus() === "valid" ? "✓" : "○"} SPF
             </Badge>
+            <Badge 
+              variant="outline" 
+              className={getDmarcStatus() === "valid" ? "border-green-500 text-green-600" : "border-muted-foreground"}
+            >
+              {getDmarcStatus() === "valid" ? "✓" : "○"} DMARC
+            </Badge>
           </div>
         </div>
 
@@ -542,6 +587,13 @@ export default function SmtpDomainSettings() {
           >
             <Key className="w-4 h-4" />
             DKIM
+          </TabsTrigger>
+          <TabsTrigger 
+            value="dmarc" 
+            className="gap-2 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-4"
+          >
+            <Shield className="w-4 h-4" />
+            DMARC
           </TabsTrigger>
           <TabsTrigger 
             value="stats" 
@@ -734,6 +786,47 @@ export default function SmtpDomainSettings() {
             >
               {mgLoading ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : null}
               Verify DKIM Records
+            </Button>
+          </div>
+        </TabsContent>
+
+        {/* DMARC Tab */}
+        <TabsContent value="dmarc" className="mt-6">
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-medium mb-1">DMARC Record</h2>
+              <p className="text-sm text-muted-foreground">
+                Add this TXT record to complete domain authentication
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {getDmarcRecords().map((rec: any, i: number) => (
+                <DnsRecordCard
+                  key={`dmarc-${i}`}
+                  type={rec.record_type || rec.type || "TXT"}
+                  name={rec.name || rec.host || `_dmarc.${mgDomain}`}
+                  value={rec.value || rec.data || ""}
+                  priority={rec.priority}
+                  valid={rec.valid || rec.status}
+                />
+              ))}
+
+              {getDmarcRecords().length === 0 && (
+                <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                  No DMARC record was returned for this Mailgun domain yet.
+                </div>
+              )}
+            </div>
+
+            <Button 
+              variant="outline" 
+              onClick={handleVerifyStatus}
+              disabled={mgLoading}
+              className="mt-4"
+            >
+              {mgLoading ? <Loader className="w-4 h-4 mr-2 animate-spin" /> : null}
+              Verify DMARC Record
             </Button>
           </div>
         </TabsContent>

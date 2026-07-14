@@ -26,7 +26,10 @@ const ORDER_STATUS_FILTER_LABELS = [
   "Rx Sent",
   "In Fulfillment",
   "Shipped",
+  "In Transit",
+  "Out for Delivery",
   "Delivered",
+  "Delivery Failed",
   "Canceled",
 ] as const
 
@@ -46,7 +49,10 @@ const ORDER_STATUS_TO_API: Record<string, string> = {
   "Rx Sent": "rx_sent",
   "In Fulfillment": "in_fulfillment",
   Shipped: "shipped",
+  "In Transit": "in_transit",
+  "Out for Delivery": "out_for_delivery",
   Delivered: "delivered",
+  "Delivery Failed": "delivery_failed",
   Canceled: "canceled",
 }
 
@@ -87,7 +93,10 @@ const ORDER_STATUS_CHOICES = [
   { value: "rx_sent", label: "Rx Sent" },
   { value: "in_fulfillment", label: "In Fulfillment" },
   { value: "shipped", label: "Shipped" },
+  { value: "in_transit", label: "In Transit" },
+  { value: "out_for_delivery", label: "Out for Delivery" },
   { value: "delivered", label: "Delivered" },
+  { value: "delivery_failed", label: "Delivery Failed" },
   { value: "canceled", label: "Canceled" },
 ]
 

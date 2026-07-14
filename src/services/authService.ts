@@ -18,6 +18,8 @@ interface User {
   id: string;
   email: string;
   name: string;
+  roles?: string[];
+  primary_role?: string;
 }
 
 interface LoginResponse {
@@ -40,16 +42,31 @@ const normalizeEmail = (email: string): string => email.trim().toLowerCase();
 
 export const authService = {
   login: async (credentials: LoginCredentials): Promise<User> => {
-    // Include portal in the request payload
-    const { data } = await api.post<LoginResponse>('/auth/login/', {
-      email: normalizeEmail(credentials.email),
-      password: credentials.password,
-      // portal: 'client'
-    });
-    const { access: accessToken, user } = data;
-    
-    useAuthStore.getState().login(accessToken, user);
-    return user;
+    try {
+      const { data } = await api.post<LoginResponse>('/auth/login/', {
+        email: normalizeEmail(credentials.email),
+        password: credentials.password,
+        portal: 'client'
+      });
+      const { access: accessToken, user } = data;
+
+      useAuthStore.getState().login(accessToken, user);
+      return user;
+    } catch (error: any) {
+      const responseData = error?.response?.data;
+      const rawMessage =
+        responseData?.message ||
+        responseData?.non_field_errors?.[0]?.message ||
+        responseData?.non_field_errors?.[0] ||
+        responseData?.detail ||
+        responseData?.error;
+      const message = Array.isArray(rawMessage) ? rawMessage[0] : rawMessage;
+      throw new Error(
+        typeof message === "string" && message
+          ? message
+          : "Failed to sign in. Please check your credentials."
+      );
+    }
   },
 
   register: async (credentials: RegisterCredentials): Promise<User> => {

@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { Header } from "@/components/layout/Header";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { groupMessages, type Conversation } from "@/utils/groupMessages";
+import type { ConversationSummary } from "@/services/messageService";
 import BillingSuspendedBanner from "@/components/billing/BillingSuspendedBanner";
 import { useClientMessages } from "@/contexts/MessagesContext";
 import { Permissions } from "@/constants/permissions";
@@ -51,10 +51,7 @@ function writeSeen(seen: Record<string, string | number | undefined>) {
     /* empty */
   }
 }
-const latestKey = (c: Conversation) => {
-  const last = c.messages[c.messages.length - 1];
-  return (last?.id as number | string | undefined) ?? last?.created_at ?? c.lastTime;
-};
+const latestKey = (c: ConversationSummary) => c.last_time || c.master_id;
 
 async function playChime() {
   try {
@@ -98,14 +95,14 @@ function showBrowserNotification(title: string, body: string) {
   }
 }
 
-function MessageChime({ conversations }: { conversations: Conversation[] }) {
+function MessageChime({ conversations }: { conversations: ConversationSummary[] }) {
   const { pathname } = useLocation();
   const lastNotifiedRef = useRef<Record<string, string | number | undefined>>({});
 
   useEffect(() => {
     const seen = readSeen();
     const seed: Record<string, string | number | undefined> = {};
-    conversations.forEach((c) => (seed[c.id] = seen[c.id] ?? latestKey(c)));
+    conversations.forEach((c) => (seed[c.master_id] = seen[c.master_id] ?? latestKey(c)));
     lastNotifiedRef.current = seed;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -116,15 +113,15 @@ function MessageChime({ conversations }: { conversations: Conversation[] }) {
     const seen = readSeen();
     conversations.forEach((c) => {
       const k = latestKey(c);
-      const unseen = seen[c.id] !== undefined && seen[c.id] !== k;
-      const notNotified = lastNotifiedRef.current[c.id] !== k;
+      const unseen = seen[c.master_id] !== undefined && seen[c.master_id] !== k;
+      const notNotified = lastNotifiedRef.current[c.master_id] !== k;
       if (unseen && notNotified) {
         void playChime();
         showBrowserNotification(
           "New message",
-          `${c.patientName || c.patientEmail || "Patient"} • ${c.lastMessage}`
+          `${c.patient_name || c.patient_email || "Patient"} • ${c.last_message}`
         );
-        lastNotifiedRef.current[c.id] = k;
+        lastNotifiedRef.current[c.master_id] = k;
       }
     });
   }, [conversations, pathname]);
@@ -133,8 +130,7 @@ function MessageChime({ conversations }: { conversations: Conversation[] }) {
 }
 
 export default function DashboardFrame() {
-  const { messages } = useClientMessages();
-  const conversations = useMemo(() => groupMessages(messages), [messages]);
+  const { conversations } = useClientMessages();
 
   const [lsTick, setLsTick] = useState(0);
   useEffect(() => {
@@ -143,20 +139,20 @@ export default function DashboardFrame() {
     return () => window.removeEventListener("msg:last-seen-updated", onSeen);
   }, []);
 
-  const unseenCount = useMemo(() => {
+  const unseenCount = (() => {
     const seen = readSeen();
     let count = 0;
     conversations.forEach((c) => {
       const key = latestKey(c);
-      if (seen[c.id] === undefined) {
-        seen[c.id] = key;
-      } else if (seen[c.id] !== key) {
+      if (seen[c.master_id] === undefined) {
+        seen[c.master_id] = key;
+      } else if (seen[c.master_id] !== key) {
         count += 1;
       }
     });
     writeSeen(seen);
     return count;
-  }, [conversations, lsTick]);
+  })();
 
   return (
     <IntercomBannersProvider>
