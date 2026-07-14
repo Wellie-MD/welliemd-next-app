@@ -39,9 +39,9 @@ export default function LabOrderDetailRightColumn({
   getInitials,
 }: Props) {
   const labStatus = humanizeLabStatus(order.ui_lab_event_label || order.results_status || order.order_status || "In Process")
-  const physician = order.junction_physician_ordering_mode === "own_physician"
+  const physician = order.physicianName || (order.junction_physician_ordering_mode === "own_physician"
     ? "WellieMD own physician"
-    : "Junction Physician Network"
+    : "Junction Physician Network")
 
   return (
     <aside className="space-y-4">
@@ -61,6 +61,7 @@ export default function LabOrderDetailRightColumn({
           </span>
         </div>
         <div><SideLabel>Ordered for</SideLabel><SideValue>{order.display_id || order.id} · lab order</SideValue></div>
+        {order.sampleId && <div><SideLabel>Sample ID</SideLabel><SideValue>{order.sampleId}</SideValue></div>}
       </SideCard>
 
       <SideCard title="Patient Details">
@@ -78,6 +79,7 @@ export default function LabOrderDetailRightColumn({
 
       <SideCard title="Medical Network">
         <div><SideLabel>Ordering physician</SideLabel><SideValue>{physician}</SideValue></div>
+        {order.physicianNpi && <div><SideLabel>NPI</SideLabel><SideValue>{order.physicianNpi}</SideValue></div>}
         <div>
           <SideLabel>Results review</SideLabel>
           <SideValue>Junction physicians review abnormal and critical results; the patient is called if needed.</SideValue>

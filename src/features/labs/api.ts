@@ -173,10 +173,22 @@ export interface LabOrder {
 
 export interface LabOrderDetail {
   order: LabOrder;
+  panel_biomarkers: Biomarker[];
   lifecycle_events: Array<Record<string, unknown>>;
   result: Record<string, unknown> | null;
   result_access_allowed: boolean;
   result_access_message: string | null;
+  provider_details: {
+    sample_id: string;
+    physician_name: string;
+    physician_npi: string;
+    expected_result_by_date: string | null;
+    worst_case_result_by_date: string | null;
+  };
+  artifacts: {
+    requisition_available: boolean;
+    result_pdf_available: boolean;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -395,10 +407,28 @@ export const clientLabsApi = {
     const { data } = await axiosInstance.get(clientLabEndpoints.orderDetail(orderId));
     return {
       order: normalizeOrder(data.order as Record<string, unknown>),
+      panel_biomarkers: Array.isArray(data.panel_biomarkers)
+        ? (data.panel_biomarkers as Record<string, unknown>[]).map(normalizeBiomarker)
+        : [],
       lifecycle_events: Array.isArray(data.lifecycle_events) ? data.lifecycle_events : [],
       result: data.result ?? null,
       result_access_allowed: Boolean(data.result_access_allowed),
       result_access_message: data.result_access_message ?? null,
+      provider_details: {
+        sample_id: String(data.provider_details?.sample_id ?? ""),
+        physician_name: String(data.provider_details?.physician_name ?? ""),
+        physician_npi: String(data.provider_details?.physician_npi ?? ""),
+        expected_result_by_date: data.provider_details?.expected_result_by_date
+          ? String(data.provider_details.expected_result_by_date)
+          : null,
+        worst_case_result_by_date: data.provider_details?.worst_case_result_by_date
+          ? String(data.provider_details.worst_case_result_by_date)
+          : null,
+      },
+      artifacts: {
+        requisition_available: Boolean(data.artifacts?.requisition_available),
+        result_pdf_available: Boolean(data.artifacts?.result_pdf_available),
+      },
     };
   },
 

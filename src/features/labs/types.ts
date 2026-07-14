@@ -1,4 +1,4 @@
-import type { LabOrder } from "@/features/labs/api"
+import type { Biomarker, LabOrder } from "@/features/labs/api"
 
 export interface LabResultRow {
   biomarker: string
@@ -27,6 +27,14 @@ export type LabOrderView = LabOrder & {
   resultsReady: boolean
   resultsReleased: boolean
   biomarkers: LabResultRow[]
+  panelBiomarkers: Biomarker[]
+  requisitionAvailable: boolean
+  resultPdfAvailable: boolean
+  sampleId: string
+  physicianName: string
+  physicianNpi: string
+  expectedResultByDate: string | null
+  worstCaseResultByDate: string | null
   timeline: LabOrderTimelineSnapshot
   lifecycle_events: Array<Record<string, unknown>>
   result_access_message: string | null

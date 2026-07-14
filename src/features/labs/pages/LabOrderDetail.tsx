@@ -18,6 +18,7 @@ import { clientLabsApi } from "@/features/labs/api"
 import type { LabOrderView } from "@/features/labs/types"
 import { formatLabCollectionMethod, formatLabOrderDate } from "@/features/labs/utils/formatting"
 import { humanizeLabStatus } from "@/features/labs/constants/status"
+import { labPillTone } from "@/features/labs/constants/tones"
 import { eventTime } from "@/features/labs/utils/lifecycle"
 import { extractLabResultRows } from "@/features/labs/utils/resultRows"
 
@@ -73,6 +74,14 @@ export default function LabOrderDetail() {
             resultsReady: detail.order.results_status?.toLowerCase().includes("result") || resultRows.length > 0,
             resultsReleased: detail.result_access_allowed,
             biomarkers: resultRows,
+            panelBiomarkers: detail.panel_biomarkers,
+            requisitionAvailable: detail.artifacts.requisition_available,
+            resultPdfAvailable: detail.artifacts.result_pdf_available,
+            sampleId: detail.provider_details.sample_id,
+            physicianName: detail.provider_details.physician_name,
+            physicianNpi: detail.provider_details.physician_npi,
+            expectedResultByDate: detail.provider_details.expected_result_by_date,
+            worstCaseResultByDate: detail.provider_details.worst_case_result_by_date,
             timeline: {
               ordered: detail.order.created_at,
               requisition: eventTime(events, (e) => String(e.status || e.event_type || "").toLowerCase().includes("requisition")),
@@ -206,7 +215,12 @@ export default function LabOrderDetail() {
   const formattedOrderDate = formatLabOrderDate(orderDateStr)
   const collectionMethodLabel = formatLabCollectionMethod(order.collection_method)
   const statusLabel = humanizeLabStatus(order.ui_lab_event_label || order.results_status || order.order_status || "In Process")
-  const orderStatusLabel = humanizeLabStatus(order.ui_order_status || order.order_status || "In Process")
+  const lifecycleIsTerminal = /results_ready|critical|completed/i.test(
+    `${order.ui_lab_event || ""} ${order.ui_lab_event_label || ""} ${order.results_status || ""}`,
+  )
+  const orderStatusLabel = lifecycleIsTerminal
+    ? "Completed"
+    : humanizeLabStatus(order.ui_order_status || order.order_status || "In Process")
 
   return (
     <div className="p-5 lg:p-6">
@@ -247,10 +261,10 @@ export default function LabOrderDetail() {
                   variant="outline"
                   size="sm"
                   onClick={handleDownloadRequisition}
-                  disabled={downloadingRequisition}
+                  disabled={downloadingRequisition || !order.requisitionAvailable}
                   className="h-8 gap-1 px-3 text-xs text-slate-600"
                 >
-                  {downloadingRequisition ? "Downloading…" : "Requisition form"}
+                  {downloadingRequisition ? "Downloading…" : order.requisitionAvailable ? "Requisition form" : "Requisition pending"}
                 </Button>
                 <span className="rounded border border-blue-100 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-600 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-400">Lab</span>
               </div>
@@ -260,7 +274,7 @@ export default function LabOrderDetail() {
                 {order.product_name || "Lab Panel"}
               </h4>
               <p className="text-xs text-slate-400 dark:text-gray-500">
-                {order.pharmacy_display || order.lab_provider || "Lab provider unavailable"} • {order.biomarkers?.length || 0} biomarkers • {collectionMethodLabel}
+                {order.pharmacy_display || order.lab_provider || "Lab provider unavailable"} • {order.panelBiomarkers.length} biomarkers • {collectionMethodLabel}
               </p>
               
               <div className="mt-4 space-y-3 border-t border-slate-100 pt-3 dark:border-gray-800/60">
@@ -284,10 +298,10 @@ export default function LabOrderDetail() {
           <div className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-none dark:border-gray-800 dark:bg-gray-900">
             <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3 dark:border-gray-800">
               <h3 className="text-sm font-semibold text-slate-800 dark:text-gray-200">Order Status</h3>
-              <span className="rounded border border-sky-100 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:border-sky-900/40 dark:bg-sky-950/40 dark:text-sky-400">
+              <span className={`rounded border px-2.5 py-1 text-xs font-semibold ${labPillTone(orderStatusLabel)}`}>
                 {orderStatusLabel}
               </span>
-              <span className="rounded border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+              <span className={`rounded border px-2.5 py-1 text-xs font-semibold ${labPillTone(order.ui_lab_event_label || statusLabel)}`}>
                 {order.ui_lab_event_label || statusLabel}
               </span>
             </div>
