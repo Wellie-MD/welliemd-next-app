@@ -96,10 +96,17 @@ export interface DashboardOverviewParams {
 }
 
 export async function getAdminDashboardOverview(params?: DashboardOverviewParams): Promise<DashboardData> {
+  const start = performance.now();
   try {
     const { data } = await axiosInstance.get<DashboardData>('/admin/dashboard/overview/', { params });
+    const duration = performance.now() - start;
+    const existing = (window as any).__perfMetrics || {};
+    (window as any).__perfMetrics = { ...existing, dashboard_api_ms: duration };
     return data;
   } catch (error: any) {
+    const duration = performance.now() - start;
+    const existing = (window as any).__perfMetrics || {};
+    (window as any).__perfMetrics = { ...existing, dashboard_api_ms: duration };
     console.error('Failed to fetch admin dashboard overview:', error);
     throw new Error(
       error.response?.data?.error ||
@@ -195,12 +202,19 @@ export interface OrdersQueryParams {
  * @throws Error if request fails
  */
 export async function getAdminOrders(params: OrdersQueryParams = {}): Promise<OrdersListResponse> {
+  const start = performance.now();
   try {
     const { data } = await axiosInstance.get<OrdersListResponse>('/admin/dashboard/orders/', {
       params
     });
+    const duration = performance.now() - start;
+    const existing = (window as any).__perfMetrics || {};
+    (window as any).__perfMetrics = { ...existing, orders_api_ms: duration };
     return data;
   } catch (error: any) {
+    const duration = performance.now() - start;
+    const existing = (window as any).__perfMetrics || {};
+    (window as any).__perfMetrics = { ...existing, orders_api_ms: duration };
     console.error('Failed to fetch admin orders:', error);
     throw new Error(
       error.response?.data?.error ||
