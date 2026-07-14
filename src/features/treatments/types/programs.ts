@@ -29,6 +29,7 @@ export interface Program {
   screeningQuestions?: ProgramQuestion[];
   checkoutQuestions?: ProgramCheckoutQuestion[];
   consentIds?: string[];
+  assignedClientsCount?: number;
   sexRequirement?: "any" | "male" | "female";
   minAge?: number | null;
   maxAge?: number | null;

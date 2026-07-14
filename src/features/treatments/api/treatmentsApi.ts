@@ -485,6 +485,7 @@ type ProgramApiRecord = {
   screening_questions?: ProgramQuestion[];
   checkout_questions?: Program["checkoutQuestions"];
   consent_ids?: string[];
+  assigned_clients_count?: number;
   sex_requirement?: Program["sexRequirement"];
   min_age?: number | null;
   max_age?: number | null;
@@ -742,6 +743,7 @@ const mapProgramFromApi = (record: ProgramApiRecord): Program => ({
   screeningQuestions: (record.screening_questions || []).map(mapProgramQuestionFromApi),
   checkoutQuestions: record.checkout_questions || [],
   consentIds: record.consent_ids || [],
+  assignedClientsCount: record.assigned_clients_count ?? 0,
   sexRequirement: record.sex_requirement || "any",
   minAge: record.min_age ?? null,
   maxAge: record.max_age ?? null,
