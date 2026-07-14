@@ -9,6 +9,11 @@ import { authService } from './services/authService';
 import { useAuthStore } from './store/useAuthStore';
 import { Loader2 } from 'lucide-react';
 import { reportPerfMetrics } from './utils/perfMetrics';
+import ChunkErrorBoundary from './components/ui/ChunkErrorBoundary';
+import SignIn from "./pages/auth/SignIn";
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
+import RegisterInvitation from "./pages/auth/RegisterInvitation";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Clients = lazy(() => import("./pages/Clients"));
@@ -30,10 +35,6 @@ const Orders = lazy(() => import("./pages/Orders"));
 const Prescriptions = lazy(() => import("./pages/Prescriptions"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Payments = lazy(() => import("./pages/Payments"));
-const SignIn = lazy(() => import("./pages/auth/SignIn"));
-const ForgotPassword = lazy(() => import("./pages/auth/ForgotPassword"));
-const ResetPassword = lazy(() => import("./pages/auth/ResetPassword"));
-const RegisterInvitation = lazy(() => import("./pages/auth/RegisterInvitation"));
 const AnalyticsCohorts = lazy(() => import("./pages/AnalyticsCohorts"));
 const AnalyticsReports = lazy(() => import("./pages/AnalyticsReports"));
 const CouponInsights = lazy(() => import("./pages/CouponInsights"));
@@ -143,6 +144,7 @@ const App = () => {
               <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
                 <Header />
                 <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
+                  <ChunkErrorBoundary>
                   <Suspense fallback={<PageLoader />}>
                   <Routes>
                     <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -195,6 +197,7 @@ const App = () => {
                     <Route path="/users-permissions" element={<ProtectedRoute><UsersPermissions /></ProtectedRoute>} />
                   </Routes>
                   </Suspense>
+                  </ChunkErrorBoundary>
                 </main>
               </div>
             </div>
