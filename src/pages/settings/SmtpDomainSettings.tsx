@@ -12,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { smtpApi, ClientEmailConfiguration } from "@/api/smtpApi"
+import { smtpApi, ClientEmailConfiguration, MailgunDomainStats, MailgunStatsRange } from "@/api/smtpApi"
 import { 
   AlertCircle, 
   CheckCircle, 
@@ -124,6 +124,10 @@ export default function SmtpDomainSettings() {
   const [fromName, setFromName] = useState("")
   const [showAddDomain, setShowAddDomain] = useState(false)
   const [newDomainName, setNewDomainName] = useState("")
+  const [statsRange, setStatsRange] = useState<MailgunStatsRange>("week")
+  const [emailStats, setEmailStats] = useState<MailgunDomainStats | null>(null)
+  const [statsLoading, setStatsLoading] = useState(false)
+  const [statsError, setStatsError] = useState<string | null>(null)
 
   // Mailgun Domain Status
   const [mgStatus, setMgStatus] = useState<any>(null);
@@ -294,6 +298,27 @@ export default function SmtpDomainSettings() {
     }
   };
 
+  const loadEmailStats = async (range: MailgunStatsRange = statsRange) => {
+    if (!mgDomain) return
+    setStatsError(null)
+    setStatsLoading(true)
+    try {
+      const stats = await smtpApi.getMailgunDomainStats(mgDomain, range)
+      setEmailStats(stats)
+    } catch (err: any) {
+      setStatsError(err?.response?.data?.error || err.message || "Failed to load email statistics")
+      setEmailStats(null)
+    } finally {
+      setStatsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "stats" && mgDomain) {
+      loadEmailStats(statsRange)
+    }
+  }, [activeTab, mgDomain, statsRange])
+
   // Mailgun: Delete Domain
   const handleDeleteDomain = async () => {
     if (!window.confirm('Are you sure you want to delete this domain? This cannot be undone.')) return;
@@ -369,6 +394,23 @@ export default function SmtpDomainSettings() {
     if (dmarcRecords.length === 0) return "unknown"
     return dmarcRecords.every((r: any) => r.valid === "valid" || r.status === "valid") ? "valid" : "invalid"
   }
+
+  const formatPercent = (value?: number | null) => {
+    const numericValue = Number(value || 0)
+    return `${Number.isInteger(numericValue) ? numericValue : numericValue.toFixed(1)}%`
+  }
+
+  const formatLastUsed = (value?: string | null) => {
+    if (!value) return "Never"
+    return new Date(value).toLocaleString()
+  }
+
+  const statsRanges: Array<{ value: MailgunStatsRange; label: string }> = [
+    { value: "today", label: "Today" },
+    { value: "week", label: "This Week" },
+    { value: "month", label: "This Month" },
+    { value: "all", label: "All Time" },
+  ]
 
   // Loading state
   if (isLoading) {
@@ -843,51 +885,72 @@ export default function SmtpDomainSettings() {
 
             {/* Time Filter */}
             <div className="flex gap-2">
-              <Button variant="outline" size="sm">Today</Button>
-              <Button variant="default" size="sm">This Week</Button>
-              <Button variant="outline" size="sm">This Month</Button>
-              <Button variant="outline" size="sm">All Time</Button>
+              {statsRanges.map((option) => (
+                <Button
+                  key={option.value}
+                  variant={statsRange === option.value ? "default" : "outline"}
+                  size="sm"
+                  disabled={statsLoading}
+                  onClick={() => setStatsRange(option.value)}
+                >
+                  {option.label}
+                </Button>
+              ))}
             </div>
+
+            {statsError && (
+              <div className="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <p className="text-sm">{statsError}</p>
+              </div>
+            )}
+
+            {statsLoading && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader className="w-4 h-4 animate-spin" />
+                Loading email statistics...
+              </div>
+            )}
 
             {/* Stat Cards Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <StatCard 
                 title="Total Emails" 
-                value="0" 
+                value={emailStats?.total_emails ?? 0}
                 colorClass="bg-cyan-500/20 dark:bg-cyan-900/30"
               />
               <StatCard 
                 title="Sent Successfully" 
-                value="0" 
+                value={emailStats?.sent_successfully ?? 0}
                 colorClass="bg-green-500/20 dark:bg-green-900/30"
               />
               <StatCard 
                 title="Failed" 
-                value="0" 
+                value={emailStats?.failed ?? 0}
                 colorClass="bg-purple-500/20 dark:bg-purple-900/30"
               />
               <div className="rounded-lg p-4">
                 <p className="text-xs text-muted-foreground mb-1">Success Rate</p>
-                <p className="text-2xl font-bold">0%</p>
+                <p className="text-2xl font-bold">{formatPercent(emailStats?.success_rate)}</p>
               </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <StatCard 
                 title="Opened" 
-                value="0" 
-                subtext="0% open rate"
+                value={emailStats?.opened ?? 0}
+                subtext={`${formatPercent(emailStats?.open_rate)} open rate`}
                 colorClass="bg-orange-500/20 dark:bg-orange-900/30"
               />
               <StatCard 
                 title="Clicked" 
-                value="0" 
-                subtext="0% click rate"
+                value={emailStats?.clicked ?? 0}
+                subtext={`${formatPercent(emailStats?.click_rate)} click rate`}
                 colorClass="bg-amber-500/20 dark:bg-amber-900/30"
               />
               <div className="rounded-lg p-4">
                 <p className="text-xs text-muted-foreground mb-1">Last Used</p>
-                <p className="text-lg font-medium">Never</p>
+                <p className="text-lg font-medium">{formatLastUsed(emailStats?.last_used)}</p>
               </div>
             </div>
 
