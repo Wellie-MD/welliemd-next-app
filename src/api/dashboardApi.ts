@@ -143,6 +143,7 @@ export interface AdminOrder {
   id: string;
   display_id: string;
   order_id?: string | null;
+  master_id?: string | null;
   patient_name: string;
   patient_email: string;
   patient_phone: string;
@@ -150,6 +151,7 @@ export interface AdminOrder {
   pharmacy_name: string;
   status: string;
   status_display: string;
+  visit_status?: string | null;
   amount: number;
   payment_recovery_state?: 'recovery_pending' | null;
   remaining_supplemental_amount?: string | null;

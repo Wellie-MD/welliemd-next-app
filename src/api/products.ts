@@ -14,6 +14,7 @@ import axiosInstance from "./axiosInstance";
 export interface Product {
   id: number | string;
   name: string;
+  beluga_internal_product_name?: string;
   description?: string;
   application_directions?: string;
   learn_more?: string;
@@ -79,6 +80,17 @@ export interface Product {
   pharmacy_api?: string;
   generic_name?: string;
   generic_group?: string;
+  service_states?: string[];
+  admin_service_states?: string[];
+  is_lab_product?: boolean;
+  junction_lab_test_id?: string;
+  junction_lab_test_name_snapshot?: string;
+  junction_collection_method?:
+    | "testkit"
+    | "walk_in_test"
+    | "at_home_phlebotomy"
+    | "on_site_collection";
+  junction_last_catalog_sync_at?: string;
   onboarding_questionnaire?: string;
   onboarding_questionnaire_name?: string;
   followup_questionnaire?: string;
@@ -88,11 +100,6 @@ export interface Product {
   side_effects?: string;
   safety_info?: string;
   quantity?: string | number;
-  is_lab_product?: boolean;
-  junction_lab_test_id?: string;
-  junction_lab_test_name_snapshot?: string;
-  junction_collection_method?: "testkit" | "walk_in_test" | "at_home_phlebotomy" | "on_site_collection";
-  junction_last_catalog_sync_at?: string;
   is_admin_product?: boolean;
   source_product_id?: string;
   admin_product_version?: string;
@@ -109,6 +116,7 @@ export interface Product {
 
 export interface CreateProductPayload {
   name: string;
+  beluga_internal_product_name?: string;
   description?: string;
   application_directions?: string;
   product_type: "single" | "bundle" | "supply";
@@ -116,18 +124,19 @@ export interface CreateProductPayload {
   base_price: string | number;
   treatment: string;
   rx_or_otc: "rx" | "otc";
+  service_states?: string[];
   is_lab_product?: boolean;
   junction_lab_test_id?: string;
   junction_lab_test_name_snapshot?: string;
-  junction_collection_method?: "testkit" | "walk_in_test" | "at_home_phlebotomy" | "on_site_collection";
+  junction_collection_method?:
+    | "testkit"
+    | "walk_in_test"
+    | "at_home_phlebotomy"
+    | "on_site_collection";
   [key: string]: any;
 }
 
 export interface UpdateProductPayload {
-  is_lab_product?: boolean;
-  junction_lab_test_id?: string;
-  junction_lab_test_name_snapshot?: string;
-  junction_collection_method?: "testkit" | "walk_in_test" | "at_home_phlebotomy" | "on_site_collection";
   [key: string]: any;
 }
 
@@ -180,13 +189,6 @@ export const RX_DRUG_FORM_OPTIONS = [
   { value: "each", label: "Each" },
 ];
 
-export const JUNCTION_COLLECTION_METHOD_OPTIONS = [
-  { value: "testkit", label: "Test Kit" },
-  { value: "walk_in_test", label: "Walk-in Test" },
-  { value: "at_home_phlebotomy", label: "At-home Phlebotomy" },
-  { value: "on_site_collection", label: "On-site Collection" },
-];
-
 export const PHARMACY_API_OPTIONS = [
   { value: "inherit", label: "Inherit from Pharmacy" },
   { value: "life_file", label: "Life File" },
@@ -236,6 +238,10 @@ export interface BulkAssignmentResponse {
   success_count: number;
   failure_count: number;
   results: AssignmentResult[];
+  max_pairs?: number;
+  total_pairs?: number;
+  successful?: number;
+  failed?: number;
 }
 
 export interface AssignmentSummary {
@@ -271,14 +277,6 @@ export const productApi = {
    */
   getProduct: async (id: string | number): Promise<any> => {
     const { data } = await axiosInstance.get(`products/${id}/`);
-    return data;
-  },
-
-  /**
-   * Fetch cached Junction lab tests for the admin product picker
-   */
-  listJunctionLabTests: async (): Promise<{ source?: string; cached?: boolean; count?: number; results: Array<{ id: string; name: string; raw?: Record<string, any> }> }> => {
-    const { data } = await axiosInstance.get("products/junction/lab-tests/");
     return data;
   },
 

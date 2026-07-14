@@ -25,7 +25,6 @@ import {
   PURCHASE_TYPE_OPTIONS,
   RX_OTC_OPTIONS,
   RX_DRUG_FORM_OPTIONS,
-  JUNCTION_COLLECTION_METHOD_OPTIONS,
 } from "@/api/products";
 import { CategorySelector } from "./CategorySelector";
 import { TitrationCategoryManager } from "./TitrationCategoryManager";
@@ -36,12 +35,6 @@ import { templateApi } from "@/api/questionnaires";
 type TreatmentOption = {
   value: string;  // slug, e.g. "branded_weight_loss"
   label: string;  // original text, e.g. "Branded Weight Loss"
-};
-
-type JunctionLabTestOption = {
-  id: string;
-  name: string;
-  raw?: Record<string, any>;
 };
 
 /**
@@ -70,6 +63,14 @@ type LinkedSupplyRow = {
   is_included: boolean;
 };
 
+const US_STATES = [
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+  "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+  "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+  "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+  "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC", "PR"
+];
+
 export function ProductFormModal({
   open,
   onOpenChange,
@@ -83,9 +84,7 @@ export function ProductFormModal({
   const [supplyProducts, setSupplyProducts] = useState<Product[]>([]);
   const [linkedSupplies, setLinkedSupplies] = useState<LinkedSupplyRow[]>([]);
   const [treatmentOptions, setTreatmentOptions] = useState<TreatmentOption[]>([]);
-  const [junctionLabTests, setJunctionLabTests] = useState<JunctionLabTestOption[]>([]);
   const [loadingTreatmentOptions, setLoadingTreatmentOptions] = useState(false);
-  const [loadingJunctionLabTests, setLoadingJunctionLabTests] = useState(false);
   const [loadingDoseMappings, setLoadingDoseMappings] = useState(false);
   // Track the category for which dose mappings were loaded
   const doseMappingsLoadedForCategoryRef = useRef<number | null>(null);
@@ -93,6 +92,7 @@ export function ProductFormModal({
   const isInitialLoadRef = useRef(true);
   const [formData, setFormData] = useState({
     name: "",
+    beluga_internal_product_name: "",
     base_medication_name: "",
     description: "",
     application_directions: "",
@@ -100,6 +100,7 @@ export function ProductFormModal({
     dose_mapping: null as number | null,
     titration_category: null as number | null,
     pharmacy: null as string | null,
+    service_states: [] as string[],
     product_type: defaultProductType,
     purchase_type: "one_time",
     treatment: "weight_loss",
@@ -120,10 +121,6 @@ export function ProductFormModal({
     provider_network: "welliemd",
     followup_days_after: 30,
     quantity: "100",
-    is_lab_product: false,
-    junction_lab_test_id: "",
-    junction_lab_test_name_snapshot: "",
-    junction_collection_method: "testkit",
     is_active: true,
     requires_video_visit: false,
     allow_client_modifications: true,
@@ -227,37 +224,6 @@ export function ProductFormModal({
     }
   }, [open, product?.treatment]);
 
-  useEffect(() => {
-    const shouldLoadLabTests = open && (formData.is_lab_product || product?.is_lab_product);
-    if (!shouldLoadLabTests) {
-      return;
-    }
-
-    const fetchLabTests = async () => {
-      setLoadingJunctionLabTests(true);
-      try {
-        const catalogResponse = await productApi.listJunctionLabTests();
-        const items = Array.isArray(catalogResponse?.results) ? catalogResponse.results : [];
-        const mapped: JunctionLabTestOption[] = items
-          .map((item: any) => ({
-            id: String(item.id ?? ""),
-            name: String(item.name ?? ""),
-            raw: item.raw || item,
-          }))
-          .filter((item) => item.id && item.name);
-
-        setJunctionLabTests(mapped);
-      } catch (error) {
-        console.error("Failed to fetch Junction lab tests:", error);
-        setJunctionLabTests([]);
-      } finally {
-        setLoadingJunctionLabTests(false);
-      }
-    };
-
-    fetchLabTests();
-  }, [open, formData.is_lab_product, product?.is_lab_product, product?.junction_lab_test_id, product?.junction_lab_test_name_snapshot]);
-
   // Fetch dose mappings when category changes
   useEffect(() => {
     // Set loading state synchronously BEFORE the async call
@@ -348,6 +314,7 @@ export function ProductFormModal({
     if (product) {
       setFormData({
         name: product.name || "",
+        beluga_internal_product_name: product.beluga_internal_product_name || "",
         base_medication_name: (product as any).base_medication_name || "",
         description: product.description || "",
         application_directions: product.application_directions || "",
@@ -355,6 +322,11 @@ export function ProductFormModal({
         dose_mapping: (product as any).dose_mapping || null,
         titration_category: (product as unknown).titration_category || null,
         pharmacy: product.pharmacy ? String(product.pharmacy) : null,
+        service_states: Array.isArray((product as any).service_states)
+          ? (product as any).service_states
+              .map((state: string) => String(state || "").toUpperCase())
+              .filter(Boolean)
+          : [],
         product_type: product.product_type || "single",
         purchase_type: product.purchase_type || "one_time",
         treatment: product.treatment || "weight_loss",
@@ -375,10 +347,6 @@ export function ProductFormModal({
         provider_network: product.provider_network || "welliemd",
         followup_days_after: product.followup_days_after || 30,
         quantity: product.quantity?.toString() || "100",
-        is_lab_product: product.is_lab_product || false,
-        junction_lab_test_id: product.junction_lab_test_id || "",
-        junction_lab_test_name_snapshot: product.junction_lab_test_name_snapshot || "",
-        junction_collection_method: product.junction_collection_method || "testkit",
         is_active: product.is_active !== undefined ? product.is_active : true,
         requires_video_visit: product.requires_video_visit || false,
         allow_client_modifications: product.allow_client_modifications !== undefined ? product.allow_client_modifications : true,
@@ -396,6 +364,7 @@ export function ProductFormModal({
       // Reset form for new product
       setFormData({
         name: "",
+        beluga_internal_product_name: "",
         base_medication_name: "",
         description: "",
         application_directions: "",
@@ -403,6 +372,7 @@ export function ProductFormModal({
         dose_mapping: null,
         titration_category: null,
         pharmacy: null,
+        service_states: [],
         product_type: defaultProductType,
         purchase_type: "one_time",
         treatment: "weight_loss",
@@ -423,10 +393,6 @@ export function ProductFormModal({
         provider_network: "welliemd",
         followup_days_after: 30,
         quantity: "100",
-        is_lab_product: false,
-        junction_lab_test_id: "",
-        junction_lab_test_name_snapshot: "",
-        junction_collection_method: "testkit",
         is_active: true,
         requires_video_visit: false,
         allow_client_modifications: true,
@@ -441,22 +407,6 @@ export function ProductFormModal({
       setLinkedSupplies([]);
     }
   }, [formData.product_type, linkedSupplies.length]);
-
-  useEffect(() => {
-    if (
-      !formData.is_lab_product &&
-      (formData.junction_lab_test_id ||
-        formData.junction_lab_test_name_snapshot ||
-        formData.junction_collection_method !== "testkit")
-    ) {
-      setFormData((prev) => ({
-        ...prev,
-        junction_lab_test_id: "",
-        junction_lab_test_name_snapshot: "",
-        junction_collection_method: "testkit",
-      }));
-    }
-  }, [formData.is_lab_product]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -479,22 +429,33 @@ export function ProductFormModal({
       return;
     }
 
-    if (formData.is_lab_product && !formData.junction_lab_test_id.trim()) {
+    if (!formData.beluga_internal_product_name.trim()) {
       toast({
         title: "Validation Error",
-        description: "Select a Junction lab test for lab-linked products",
+        description: "Beluga Internal Product Name is required",
         variant: "destructive",
       });
       return;
     }
 
-    if (formData.is_lab_product && !formData.junction_collection_method.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Select a Junction collection method for lab-linked products",
-        variant: "destructive",
-      });
-      return;
+    if (formData.product_type !== "supply") {
+      if (!formData.titration_category) {
+        toast({
+          title: "Validation Error",
+          description: "Titration Category / Regimen is required",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!formData.dose_mapping) {
+        toast({
+          title: "Validation Error",
+          description: "Dose Level is required",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     try {
@@ -509,6 +470,7 @@ export function ProductFormModal({
         shipping_cost_to_welliemd: parseFloat(formData.shipping_cost_to_welliemd),
         rx_quantity: parseFloat(formData.rx_quantity),
         quantity: parseInt(formData.quantity),
+        service_states: formData.service_states,
         linked_supplies_payload:
           formData.product_type === "supply"
             ? []
@@ -519,10 +481,8 @@ export function ProductFormModal({
               })),
       };
 
-      if (formData.is_lab_product) {
-        const selectedLabTest = junctionLabTests.find((item) => item.id === formData.junction_lab_test_id);
-        payload.junction_lab_test_name_snapshot =
-          selectedLabTest?.name || formData.junction_lab_test_name_snapshot || "";
+      if (product && !String(payload.treatment || "").trim()) {
+        delete (payload as Partial<typeof payload>).treatment;
       }
 
       if (product) {
@@ -585,6 +545,19 @@ export function ProductFormModal({
               </div>
 
               <div className="col-span-2">
+                <Label htmlFor="beluga_internal_product_name">
+                  Beluga Internal Product Name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="beluga_internal_product_name"
+                  value={formData.beluga_internal_product_name}
+                  onChange={(e) => setFormData({ ...formData, beluga_internal_product_name: e.target.value })}
+                  placeholder="e.g., Tirzepatide/B12 6mg (1 Month)"
+                />
+              </div>
+
+              {/*
+              <div className="col-span-2">
                 <Label htmlFor="base_medication_name">Medication Family (Base Name)</Label>
                 <Input
                   id="base_medication_name"
@@ -596,6 +569,7 @@ export function ProductFormModal({
                   Used for grouping and prefill when applicable.
                 </p>
               </div>
+              */}
 
               <div className="col-span-2">
                 <Label htmlFor="description">Description</Label>
@@ -635,6 +609,65 @@ export function ProductFormModal({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="col-span-2 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <Label>Service States</Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Leave empty to inherit pharmacy coverage. Set product-specific states only when a formulation has different licensing rules.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFormData((prev) => ({ ...prev, service_states: [...US_STATES] }))}
+                    >
+                      Select all states
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setFormData((prev) => ({ ...prev, service_states: [] }))}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {US_STATES.map((state) => {
+                    const isSelected = formData.service_states.includes(state);
+                    return (
+                      <Button
+                        key={state}
+                        type="button"
+                        variant={isSelected ? "default" : "outline"}
+                        size="sm"
+                        className="h-9 px-3"
+                        onClick={() => {
+                          setFormData((prev) => {
+                            const current = Array.isArray(prev.service_states) ? prev.service_states : [];
+                            const nextStates = current.includes(state)
+                              ? current.filter((s) => s !== state)
+                              : [...current, state];
+                            return { ...prev, service_states: nextStates };
+                          });
+                        }}
+                      >
+                        {state}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {formData.service_states.length > 0
+                    ? `${formData.service_states.length} state${formData.service_states.length === 1 ? "" : "s"} selected`
+                    : "No states selected"}
+                </div>
               </div>
 
               <div>
@@ -940,125 +973,6 @@ export function ProductFormModal({
                 />
               </div>
             </div>
-
-            <div className="flex items-center justify-between rounded-md border p-4">
-              <div>
-                <Label htmlFor="is_lab_product" className="text-base font-medium">
-                  Lab Product
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Enable this when the product should be mapped to a Junction lab test.
-                </p>
-              </div>
-              <Switch
-                id="is_lab_product"
-                checked={formData.is_lab_product}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_lab_product: checked })}
-              />
-            </div>
-
-            {formData.is_lab_product && (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <Label htmlFor="junction_lab_test_id">
-                    Junction Lab Test <span className="text-red-500">*</span>
-                  </Label>
-                  {junctionLabTests.length > 0 ? (
-                    <Select
-                      value={formData.junction_lab_test_id || "none"}
-                      onValueChange={(value) => {
-                        const selected = junctionLabTests.find((item) => item.id === value);
-                        setFormData({
-                          ...formData,
-                          junction_lab_test_id: value === "none" ? "" : value,
-                          junction_lab_test_name_snapshot: selected?.name || "",
-                        });
-                      }}
-                      disabled={loadingJunctionLabTests}
-                    >
-                      <SelectTrigger>
-                        <SelectValue
-                          placeholder={
-                            loadingJunctionLabTests
-                              ? "Loading Junction catalog..."
-                              : "Select Junction lab test"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No lab test selected</SelectItem>
-                        {junctionLabTests.map((item) => (
-                          <SelectItem key={item.id} value={item.id}>
-                            {item.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input
-                      id="junction_lab_test_id"
-                      value={formData.junction_lab_test_id}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          junction_lab_test_id: e.target.value,
-                        })
-                      }
-                      placeholder={
-                        loadingJunctionLabTests
-                          ? "Loading Junction catalog..."
-                          : "Paste Junction lab test ID"
-                      }
-                      disabled={loadingJunctionLabTests}
-                    />
-                  )}
-                  {junctionLabTests.length === 0 && !loadingJunctionLabTests && (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      Catalog is unavailable in admin. Paste the Junction lab test ID and name from the tenant's
-                      Junction team.
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="junction_collection_method">
-                    Collection Method <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={formData.junction_collection_method}
-                    onValueChange={(value) =>
-                      setFormData({
-                        ...formData,
-                        junction_collection_method: value as typeof formData.junction_collection_method,
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select collection method" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {JUNCTION_COLLECTION_METHOD_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="junction_lab_test_name_snapshot">Catalog Name Snapshot</Label>
-                  <Input
-                    id="junction_lab_test_name_snapshot"
-                    value={formData.junction_lab_test_name_snapshot}
-                    onChange={(e) =>
-                      setFormData({ ...formData, junction_lab_test_name_snapshot: e.target.value })
-                    }
-                    placeholder="Auto-filled from Junction catalog"
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Simplified Product Configuration */}
@@ -1068,7 +982,7 @@ export function ProductFormModal({
 
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
-                <Label htmlFor="titration_category">Titration Category / Regimen</Label>
+                <Label htmlFor="titration_category">Titration Category / Regimen <span className="text-red-500">*</span></Label>
                 <TitrationCategoryManager
                   value={formData.titration_category}
                   onChange={(categoryId) => setFormData({ ...formData, titration_category: categoryId })}
@@ -1080,7 +994,7 @@ export function ProductFormModal({
               </div>
 
               <div className="col-span-2">
-                <Label htmlFor="dose_mapping">Dose Level</Label>
+                <Label htmlFor="dose_mapping">Dose Level <span className="text-red-500">*</span></Label>
                 <Select
                   key={`dose-select-${doseMappings.length}-${formData.category}`}
                   value={formData.dose_mapping !== null ? formData.dose_mapping.toString() : "none"}

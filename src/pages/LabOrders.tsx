@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Download, Eye, RefreshCw, Search } from "lucide-react";
 import { labsApi, type LabOrder } from "@/api/labs";
 import { junctionMockEnabled } from "@/api/junctionMockData";
-import { OrderDetailDrawer } from "@/components/orders/OrderDetailDrawer";
+import { OrderDetailDrawer as LabOrderDetailDrawer } from "@/features/labs/components/LabOrderDetailDrawer";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { labPillTone } from "@/features/labs/constants/tones";
 
@@ -177,7 +177,7 @@ export default function LabOrders() {
         </div>
       </div>
 
-      <OrderDetailDrawer
+      <LabOrderDetailDrawer
         order={selectedOrder}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}

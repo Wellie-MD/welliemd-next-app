@@ -23,21 +23,45 @@ export interface UpdateCategoryPayload {
   description?: string;
 }
 
+const normalizeCategoryResponse = (data: any): ProductCategory[] => {
+  if (data && typeof data === "object" && "results" in data) {
+    return data.results || [];
+  }
+  if (Array.isArray(data)) {
+    return data;
+  }
+  return [];
+};
+
 export const productCategoryApi = {
   /**
    * List all product categories
    */
   listCategories: async (): Promise<ProductCategory[]> => {
-    const { data } = await axiosInstance.get("products/categories/");
-    // Handle paginated response
-    if (data && typeof data === "object" && "results" in data) {
-      return data.results || [];
+    const { data } = await axiosInstance.get("products/categories/", {
+      params: { page_size: 100 },
+    });
+    const firstPage = normalizeCategoryResponse(data);
+    const totalCount = data && typeof data === "object" ? Number(data.count) : firstPage.length;
+    const pageSize = firstPage.length || 100;
+
+    if (!data?.next || firstPage.length >= totalCount) {
+      return firstPage;
     }
-    // Handle array response
-    if (Array.isArray(data)) {
-      return data;
-    }
-    return [];
+
+    const pageCount = Math.ceil(totalCount / pageSize);
+    const remainingPages = await Promise.all(
+      Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) =>
+        axiosInstance.get("products/categories/", {
+          params: { page: index + 2, page_size: pageSize },
+        })
+      )
+    );
+
+    return [
+      ...firstPage,
+      ...remainingPages.flatMap((response) => normalizeCategoryResponse(response.data)),
+    ];
   },
 
   /**
