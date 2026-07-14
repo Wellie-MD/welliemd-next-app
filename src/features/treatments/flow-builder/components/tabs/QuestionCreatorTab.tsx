@@ -2,14 +2,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Check } from "lucide-react";
 import { QuestionEditorDialog } from "@/features/treatments/question-editor/components/shell/QuestionEditorDialog";
-import type { ProgramQuestion } from "@/features/treatments/types";
+import type { CustomProgramBuilderAddItem, ProgramQuestion } from "@/features/treatments/types";
 
 interface QuestionCreatorTabProps {
-  onAddItem: (item: {
-    kind: "routing_question";
-    title: string;
-    subtitle: string;
-  }) => void;
+  onAddItem: (item: CustomProgramBuilderAddItem) => void;
   flowItems?: Array<{ kind: string; title: string }>;
 }
 
@@ -24,12 +20,35 @@ const AVAILABLE_QUESTIONS = [
 
 export function QuestionCreatorTab({ onAddItem, flowItems = [] }: QuestionCreatorTabProps) {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+
+  const buildQuestionItem = (q: {
+    id?: string;
+    text: string;
+    kind: ProgramQuestion["kind"] | "single" | "multiple";
+    choices?: string[];
+    required?: boolean;
+    mappedField?: string;
+    visibilityRuleGroup?: ProgramQuestion["visibilityRuleGroup"];
+    includeInQa?: boolean;
+    hiddenFromPatient?: boolean;
+    prefillFromPrevious?: boolean;
+  }): CustomProgramBuilderAddItem => ({
+    kind: "routing_question",
+    title: q.text || "(untitled question)",
+    subtitle: `Routing question (${q.kind}).`,
+    sourceId: q.id,
+    questionKind: q.kind,
+    answerOptions: q.choices || [],
+    required: q.required ?? true,
+    mappedField: q.mappedField,
+    visibilityRules: q.visibilityRuleGroup,
+    includeInQa: q.includeInQa,
+    hiddenFromPatient: q.hiddenFromPatient,
+    prefillFromPrevious: q.prefillFromPrevious,
+  });
+
   const handleCreateQuestion = (q: ProgramQuestion) => {
-    onAddItem({
-      kind: "routing_question",
-      title: q.text || "(untitled question)",
-      subtitle: `Routing question (${q.kind}).`,
-    });
+    onAddItem(buildQuestionItem(q));
   };
 
   return (
@@ -74,10 +93,18 @@ export function QuestionCreatorTab({ onAddItem, flowItems = [] }: QuestionCreato
                   size="icon"
                   className="shrink-0 h-7 w-7 text-blue-600 border-blue-200 hover:bg-blue-50"
                   onClick={() =>
-                    onAddItem({
-                      kind: "routing_question",
-                      title: q.title,
-                      subtitle: `Routing question (${q.type}).`,
+                  onAddItem({
+                      ...buildQuestionItem({
+                        id: q.id,
+                        text: q.title,
+                        kind: q.type,
+                        choices:
+                          q.type === "single"
+                            ? ["Option 1", "Option 2"]
+                            : q.type === "multiple"
+                              ? ["Option 1", "Option 2", "Option 3"]
+                              : [],
+                      }),
                     })
                   }
                 >

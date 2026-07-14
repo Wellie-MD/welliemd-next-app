@@ -1,4 +1,5 @@
 import type { CheckoutProductOption } from "./checkout";
+import type { QuestionKind, VisibilityRuleGroup } from "./questions";
 
 export type CustomProgramStatus = "draft" | "published" | "archived";
 
@@ -18,6 +19,15 @@ export interface CustomProgramFlowItem {
   locked?: boolean;
   treatmentTypeKey?: string;
   sourceId?: string;
+  questionKind?: QuestionKind | "single" | "multiple";
+  answerOptions?: string[];
+  choices?: string[];
+  required?: boolean;
+  mappedField?: string;
+  visibilityRules?: VisibilityRuleGroup | Record<string, unknown>;
+  includeInQa?: boolean;
+  hiddenFromPatient?: boolean;
+  prefillFromPrevious?: boolean;
 }
 
 export type CustomProgramFlowItemInput = Omit<CustomProgramFlowItem, "id">;
