@@ -10,6 +10,9 @@ export interface Visit {
   master_id: string;
   order_status?: string | null;
   order_type?: string | null;
+  episode_id?: string | null;
+  treatment_key?: string | null;
+  episode_started_at?: string | null;
   checkout_url?: string | null;
   consents_signed: boolean;
   beluga_visit_id: string;

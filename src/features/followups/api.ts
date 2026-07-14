@@ -13,8 +13,11 @@ export interface FollowUp {
     questionnaire_name: string;
     treatment_type: string;
     status: 'CREATED' | 'VIEWED' | 'IN_PROGRESS' | 'COMPLETED' | 'EXPIRED';
+    is_active?: boolean;
     created_at: string;
     expires_at: string;
+    link_expires_at?: string | null;
+    due_date?: string | null;
     completed_at: string | null;
 }
 
@@ -46,8 +49,11 @@ export async function getPatientFollowUps(): Promise<FollowUp[]> {
                 questionnaire_name: f.questionnaire__name || 'Follow-Up Questionnaire',
                 treatment_type: f.questionnaire__treatment_type || '',
                 status: f.status,
+                is_active: f.is_active,
                 created_at: f.created_at,
                 expires_at: f.expires_at,
+                link_expires_at: f.link_expires_at,
+                due_date: f.due_date,
                 completed_at: f.completed_at,
             }));
         }

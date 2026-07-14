@@ -65,23 +65,27 @@ function getProductIconBg(productName: string): string {
 
 // ---------- Status badge mapping (full kinmeds3 set) ----------
 const STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {
-  created:            { label: 'Order Created',      badgeClass: 'km-badge km-badge-gray' },
-  processing:         { label: 'Processing',         badgeClass: 'km-badge km-badge-gray' },
-  visit_pending:      { label: 'Visit Pending',      badgeClass: 'km-badge km-badge-amber' },
-  visit_scheduled:    { label: 'Visit Scheduled',    badgeClass: 'km-badge km-badge-blue' },
-  visit_rescheduled:  { label: 'Visit Rescheduled',  badgeClass: 'km-badge km-badge-amber' },
-  consult_scheduled:  { label: 'Consult Scheduled',  badgeClass: 'km-badge km-badge-blue' },
-  consult_rescheduled:{ label: 'Consult Rescheduled',badgeClass: 'km-badge km-badge-amber' },
-  visit_failed:       { label: 'Visit Cancelled',    badgeClass: 'km-badge km-badge-red' },
-  consult_canceled:   { label: 'Visit Cancelled',    badgeClass: 'km-badge km-badge-red' },
-  no_show:            { label: 'No Show',            badgeClass: 'km-badge km-badge-red' },
-  referred:           { label: 'Referred',           badgeClass: 'km-badge km-badge-amber' },
-  prescribed:         { label: 'Prescribed',         badgeClass: 'km-badge km-badge-green' },
-  billing_pending:    { label: 'Billing Pending',    badgeClass: 'km-badge km-badge-amber' },
-  rx_sent:            { label: 'Rx Sent',            badgeClass: 'km-badge km-badge-green' },
-  shipped:            { label: 'Shipped',            badgeClass: 'km-badge km-badge-green' },
-  canceled:           { label: 'Cancelled',          badgeClass: 'km-badge km-badge-red' },
-  refunded:           { label: 'Refunded',           badgeClass: 'km-badge km-badge-purple' },
+  created: { label: 'Order Created', badgeClass: 'km-badge km-badge-gray' },
+  processing: { label: 'Processing', badgeClass: 'km-badge km-badge-gray' },
+  visit_pending: { label: 'Visit Pending', badgeClass: 'km-badge km-badge-amber' },
+  visit_scheduled: { label: 'Visit Scheduled', badgeClass: 'km-badge km-badge-blue' },
+  visit_rescheduled: { label: 'Visit Rescheduled', badgeClass: 'km-badge km-badge-amber' },
+  consult_scheduled: { label: 'Consult Scheduled', badgeClass: 'km-badge km-badge-blue' },
+  consult_rescheduled: { label: 'Consult Rescheduled', badgeClass: 'km-badge km-badge-amber' },
+  visit_failed: { label: 'Visit Cancelled', badgeClass: 'km-badge km-badge-red' },
+  consult_canceled: { label: 'Visit Cancelled', badgeClass: 'km-badge km-badge-red' },
+  no_show: { label: 'No Show', badgeClass: 'km-badge km-badge-red' },
+  referred: { label: 'Referred', badgeClass: 'km-badge km-badge-amber' },
+  prescribed: { label: 'Prescribed', badgeClass: 'km-badge km-badge-green' },
+  billing_pending: { label: 'Billing Pending', badgeClass: 'km-badge km-badge-amber' },
+  rx_sent: { label: 'Rx Sent', badgeClass: 'km-badge km-badge-green' },
+  shipped: { label: 'Shipped', badgeClass: 'km-badge km-badge-green' },
+  in_transit: { label: 'In Transit', badgeClass: 'km-badge km-badge-blue' },
+  out_for_delivery: { label: 'Out for Delivery', badgeClass: 'km-badge km-badge-amber' },
+  delivered: { label: 'Delivered', badgeClass: 'km-badge km-badge-green' },
+  delivery_failed: { label: 'Delivery Failed', badgeClass: 'km-badge km-badge-red' },
+  canceled: { label: 'Cancelled', badgeClass: 'km-badge km-badge-red' },
+  refunded: { label: 'Refunded', badgeClass: 'km-badge km-badge-purple' },
 };
 
 function formatDate(d: string | null) {
@@ -369,12 +373,20 @@ export default function OrderDetail() {
   const prescribedNameNormalized = rawPrescribedMedicineName?.trim().toLowerCase();
   const prescribedMedicineName =
     prescribedNameNormalized === 'same med' ||
-    prescribedNameNormalized === 'same medicine' ||
-    prescribedNameNormalized === 'same medication'
+      prescribedNameNormalized === 'same medicine' ||
+      prescribedNameNormalized === 'same medication'
       ? requestedMedicineName
       : rawPrescribedMedicineName;
   const displayAmount = order.chargeable_amount || order.amount;
   const showProductImage = Boolean(order.product_image) && !productImageFailed;
+  const hasBeenPrescribed =
+    Boolean(order.prescribed_at) ||
+    ['prescribed', 'billing_pending', 'rx_sent', 'shipped'].includes(order.status);
+  let prescribedBy = hasBeenPrescribed ? (order.doctor_name || '').trim() : '';
+  if (prescribedBy === 'Healthcare Professional') {
+    prescribedBy = '';
+  }
+  const canContinueCheckout = order.status === 'payment_pending' && Boolean(order.checkout_url);
 
   return (
     <div className="pg" id="pg-orderdetail">
@@ -435,9 +447,9 @@ export default function OrderDetail() {
           {/* Main Product Title - Hide ONLY if diff shown (per kinmeds3) */}
           {(order.status === 'prescribed' || order.status === 'rx_sent' || order.status === 'shipped') ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', marginTop: 2 }}>
-              <div style={{ 
-                background: 'var(--km-rep)', 
-                borderRadius: 8, 
+              <div style={{
+                background: 'var(--km-rep)',
+                borderRadius: 8,
                 padding: '8px 12px',
                 border: '1px solid rgba(239, 68, 68, 0.15)'
               }}>
@@ -448,7 +460,7 @@ export default function OrderDetail() {
                   {requestedMedicineName}
                 </div>
               </div>
-              
+
               <div style={{ paddingLeft: 12 }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--km-tm)' }}>
                   <line x1="12" y1="4" x2="12" y2="20" />
@@ -456,9 +468,9 @@ export default function OrderDetail() {
                 </svg>
               </div>
 
-              <div style={{ 
-                background: 'var(--km-grp)', 
-                borderRadius: 8, 
+              <div style={{
+                background: 'var(--km-grp)',
+                borderRadius: 8,
                 padding: '8px 12px',
                 border: '1px solid rgba(34, 197, 94, 0.15)'
               }}>
@@ -557,7 +569,7 @@ export default function OrderDetail() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderBottom: '1px solid var(--km-b)' }}>
           <span style={{ fontSize: 13, color: 'var(--km-tm)' }}>Prescribed by</span>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>{order.doctor_name || 'Healthcare Professional'}</span>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>{prescribedBy}</span>
         </div>
         {(order.booking_scheduled_at || order.booking_location) && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderBottom: '1px solid var(--km-b)' }}>
@@ -584,8 +596,20 @@ export default function OrderDetail() {
 
       {/* Action buttons — using km-btn classes */}
       <div className="km-fade" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {canContinueCheckout && (
+          <button
+            className="km-btn km-btn-primary"
+            style={{ width: '100%', justifyContent: 'center', padding: '12px 16px' }}
+            onClick={() => {
+              window.location.assign(order.checkout_url as string);
+            }}
+          >
+            <CreditCard size={14} />
+            Continue to Checkout
+          </button>
+        )}
         <button
-          className="km-btn km-btn-primary"
+          className={canContinueCheckout ? 'km-btn km-btn-outline' : 'km-btn km-btn-primary'}
           style={{ width: '100%', justifyContent: 'center', padding: '12px 16px' }}
           onClick={() => {
             const orderRef = ref || order.id;
