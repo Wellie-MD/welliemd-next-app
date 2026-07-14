@@ -6,6 +6,8 @@ import { NotificationsProvider } from '@/contexts/NotificationsContext';
 import { ImpersonationBanner } from '@/components/auth/ImpersonationBanner';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { IntercomWidget } from '@/features/integrations/IntercomWidget';
+import { IntercomBannersProvider } from '@/features/announcements/IntercomBannersContext';
+import { IntercomCardBanner } from '@/features/announcements/IntercomBanners';
 
 const DashboardLayout: React.FC = () => {
   const location = useLocation();
@@ -49,6 +51,7 @@ const DashboardLayout: React.FC = () => {
   }, [bannerH]);
 
   return (
+    <IntercomBannersProvider>
     <NotificationsProvider>
       <div
         style={{
@@ -104,8 +107,10 @@ const DashboardLayout: React.FC = () => {
           </div>
         </div>
         <IntercomWidget />
+        <IntercomCardBanner />
       </div>
     </NotificationsProvider>
+    </IntercomBannersProvider>
   );
 };
 

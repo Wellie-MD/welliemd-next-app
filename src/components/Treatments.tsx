@@ -11,25 +11,11 @@ import { useEffect, useState } from "react";
 import { Edit2, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { VisitService, Visit } from "@/features/visits/services/visit.service";
-
-/**
- * A treatment is only considered "active" if its associated order has
- * reached a paid-or-later status.
- * Includes all post-payment statuses from the Order lifecycle:
- *   processing → visit_pending → consult_* → prescribed → rx_sent → shipped
- */
-const PAID_ORDER_STATUSES = [
-  "processing",
-  "visit_pending",
-  "consult_scheduled",
-  "consult_rescheduled",
-  "no_show",
-  "referred",
-  "prescribed",
-  "billing_pending",
-  "rx_sent",
-  "shipped",
-];
+import {
+  getActiveTreatmentVisits,
+  getTreatmentName,
+  getTreatmentStartedAt,
+} from "@/features/visits/utils/activeTreatments";
 
 
 export default function Treatments() {
@@ -87,13 +73,7 @@ export default function Treatments() {
     });
   };
 
-  // Active vs completed — only visits with a paid order qualify
-  const activeTreatments = visits.filter(
-    (v) =>
-      !["completed", "cancelled"].includes(v.status.toLowerCase()) &&
-      v.order_status &&
-      PAID_ORDER_STATUSES.includes(v.order_status.toLowerCase())
-  );
+  const activeTreatments = getActiveTreatmentVisits(visits);
 
   return (
     <div id="pg-treatments">
@@ -165,9 +145,9 @@ export default function Treatments() {
                       <Edit2 size={18} style={{ strokeWidth: 1.8 }} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="km-atx-name">{visit.visit_type || 'Active Treatment'}</div>
+                      <div className="km-atx-name">{getTreatmentName(visit) || 'Active Treatment'}</div>
                       <div className="km-atx-meta">
-                        Started {formatDate(visit.created_at)} · {getVisitTypeLabel(visit.visit_type)}
+                        Started {formatDate(getTreatmentStartedAt(visit))} · {getVisitTypeLabel(visit.visit_type)}
                       </div>
                     </div>
                     <span className="km-badge km-badge-blue">Active</span>

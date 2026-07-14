@@ -7,46 +7,13 @@
 import { useEffect, useState } from "react";
 import { Edit2 } from "lucide-react";
 import { VisitService, Visit } from "@/features/visits/services/visit.service";
+import {
+  getActiveTreatmentVisits,
+  getTreatmentName,
+  getTreatmentStartedAt,
+} from "@/features/visits/utils/activeTreatments";
 
-const INACTIVE_STATUSES = ["completed", "cancelled"];
 const DASHBOARD_LIMIT = 3;
-
-/**
- * A treatment is only considered "active" if its associated order has
- * reached a paid-or-later status.  Visits still in draft / payment_pending
- * have not been paid and should not appear as active treatments.
- * Includes all post-payment statuses from the Order lifecycle:
- *   processing → visit_pending → consult_* → prescribed → rx_sent → shipped
- */
-const PAID_ORDER_STATUSES = [
-  "processing",
-  "visit_pending",
-  "consult_scheduled",
-  "consult_rescheduled",
-  "no_show",
-  "referred",
-  "prescribed",
-  "billing_pending",
-  "rx_sent",
-  "shipped",
-];
-
-
-/** Get the display name for a treatment — prefer template name over visit_type slug */
-function getTreatmentName(visit: Visit): string {
-  if (visit.assigned_template?.treatment_type) {
-    return visit.assigned_template.treatment_type;
-  }
-  if (visit.assigned_template?.name) {
-    return visit.assigned_template.name;
-  }
-  // Fallback: humanize the visit_type slug
-  return visit.visit_type
-    .replace(/([A-Z])/g, " $1")   // camelCase → spaces
-    .replace(/[_-]+/g, " ")        // snake_case/kebab → spaces
-    .replace(/\b\w/g, (c) => c.toUpperCase()) // capitalize words
-    .trim();
-}
 
 export function ActiveTreatmentsList() {
   const [visits, setVisits] = useState<Visit[]>([]);
@@ -56,14 +23,7 @@ export function ActiveTreatmentsList() {
     (async () => {
       try {
         const data = await VisitService.getPatientVisits();
-        setVisits(
-          data.filter(
-            (v) =>
-              !INACTIVE_STATUSES.includes(v.status.toLowerCase()) &&
-              v.order_status &&
-              PAID_ORDER_STATUSES.includes(v.order_status.toLowerCase())
-          )
-        );
+        setVisits(getActiveTreatmentVisits(data));
       } catch {
         // Silent — dashboard section doesn't block
       } finally {
@@ -122,7 +82,7 @@ export function ActiveTreatmentsList() {
           <div style={{ flex: 1 }}>
             <div className="km-atxnm">{getTreatmentName(visit)}</div>
             <div className="km-atxmt">
-              Started {formatDate(visit.created_at)}
+              Started {formatDate(getTreatmentStartedAt(visit))}
             </div>
           </div>
           <span className="km-badge km-badge-blue">Active</span>

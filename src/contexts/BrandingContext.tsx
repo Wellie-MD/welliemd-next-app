@@ -1,10 +1,11 @@
 import React, { createContext, useEffect, useState, ReactNode } from 'react';
-import { brandingService, BrandColors, BrandLogos } from '../features/branding/services/branding.service';
+import { brandingService, BrandColors, BrandLogos, SupportDetails } from '../features/branding/services/branding.service';
 import { useTheme } from 'next-themes';
 
 interface BrandContextValue {
   colors: BrandColors;
   logos: BrandLogos | undefined;
+  support: SupportDetails | undefined;
   isLoading: boolean;
   error: string | null;
 }
@@ -19,6 +20,7 @@ const defaultColors: BrandColors = {
 export const BrandContext = createContext<BrandContextValue>({
   colors: defaultColors,
   logos: undefined,
+  support: undefined,
   isLoading: false,
   error: null,
 });
@@ -79,6 +81,7 @@ function hexToHSL(hex: string | null | undefined): string {
 export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
   const [colors, setColors] = useState<BrandColors>(defaultColors);
   const [logos, setLogos] = useState<BrandLogos | undefined>(undefined);
+  const [support, setSupport] = useState<SupportDetails | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { setTheme } = useTheme();
@@ -142,6 +145,7 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
         } : undefined;
         
         setLogos(fixedLogos);
+        setSupport(brandSettings.support);
 
         const storedTheme = localStorage.getItem(themeStorageKey);
         const userThemeOverride = localStorage.getItem(userThemeOverrideKey);
@@ -182,6 +186,7 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
         
         setColors(defaultColors);
         setLogos(undefined);
+        setSupport(undefined);
       } finally {
         setIsLoading(false);
       }
@@ -191,7 +196,7 @@ export const BrandProvider: React.FC<BrandProviderProps> = ({ children }) => {
   }, []);
 
   return (
-    <BrandContext.Provider value={{ colors, logos, isLoading, error }}>
+    <BrandContext.Provider value={{ colors, logos, support, isLoading, error }}>
       {children}
     </BrandContext.Provider>
   );

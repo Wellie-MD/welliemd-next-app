@@ -43,6 +43,15 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
+        // // WebSocket proxy for the realtime notifications (support chat, etc.).
+        // // VITE_API_BASE_URL is relative in dev, so the widget derives the WS
+        // // origin from this dev server — which must forward /ws to the backend.
+        // '/ws': {
+        //   target: 'http://127.0.0.1:8101',
+        //   ws: true,
+        //   changeOrigin: true,
+        //   secure: false,
+        // },
       } : undefined,
       allowedHosts: ['2c752aff7f92.ngrok-free.app'],
     },
