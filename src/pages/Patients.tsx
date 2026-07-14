@@ -27,9 +27,11 @@ interface PatientTableRow {
 const getPatientStatusLabel = (engagementStatus?: string) => {
   const normalized = (engagementStatus || "").trim().toLowerCase()
   if (normalized === "active") return "Active"
-  if (normalized === "inactive") return "Inactive"
+  if (normalized === "in_review") return "In Review"
+  if (normalized === "lapsed" || normalized === "inactive") return "Lapsed"
+  if (normalized === "registered") return "Registered"
   if (normalized === "dropoff" || normalized === "drop_off" || normalized === "abandon") {
-    return "Drop-off"
+    return "Registered"
   }
   return "-"
 }
@@ -76,7 +78,7 @@ const patientColumns = [
   { key: "lastOrder", label: "Last Order", width: "100px" }
 ]
 
-const statusFilters = ["All", "Active", "Inactive", "Drop-off"]
+const statusFilters = ["All", "Active", "In Review", "Lapsed", "Registered"]
 
 // Helper function to parse date in DD/MM/YYYY format
 const parseDate = (dateString: string) => {
@@ -112,8 +114,9 @@ export default function Patients() {
   // Map UI filter to backend engagement_status
   const getEngagementStatus = (filter: string): string | undefined => {
     if (filter === "Active") return "active"
-    if (filter === "Inactive") return "inactive"
-    if (filter === "Drop-off") return "dropoff"
+    if (filter === "In Review") return "in_review"
+    if (filter === "Lapsed") return "lapsed"
+    if (filter === "Registered") return "registered"
     if (filter === "All") return "all"
     return undefined
   }

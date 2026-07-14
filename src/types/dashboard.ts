@@ -21,6 +21,10 @@ export interface LiveSummary {
 
 export interface PatientSummary {
   active_patients: number
+  in_review_patients?: number
+  lapsed_patients?: number
+  registered_patients?: number
+  total_patients?: number
   inactive_patients: number
   dropoff_patients: number
   calculated_at: string
