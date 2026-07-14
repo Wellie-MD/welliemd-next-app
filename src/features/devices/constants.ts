@@ -97,6 +97,9 @@ export const WEIGHT_DEFAULT: WeightData = {
   start: 0,
   goal: null,
   heightIn: 70,
+  points: [],
+  latestBmi: null,
+  latestBmiCategory: null,
 };
 
 /**

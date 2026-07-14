@@ -14,11 +14,50 @@ import { VisitService } from "@/features/visits/services/visit.service";
 import { getOrders } from "@/shared/api/ordersApi";
 import { useNotifications } from "@/contexts/NotificationsContext";
 import { getPatientFollowUps } from "@/features/followups/api";
-import { getConnections, getDeviceData, formatConnection } from "@/features/devices/api";
+import { getConnections, getDeviceData, formatConnection, getVitalsHistory, logWeight } from "@/features/devices/api";
 import { WeightTrendCard, ReadinessCard } from "@/features/devices/components/TelemetryDashboard";
 import LogWeightModal from "@/features/devices/components/LogWeightModal";
 import { WEIGHT_DEFAULT, DEVICE_METRICS_DEFAULT } from "@/features/devices/constants";
-import type { WeightData, DeviceMetrics } from "@/features/devices/types";
+import type { WeightData, DeviceMetrics, VitalsEntry } from "@/features/devices/types";
+
+/**
+ * Build the dashboard's WeightData from the persisted vitals history
+ * (questionnaire baseline + manual entries + wearable-synced entries).
+ */
+function buildWeightData(entries: VitalsEntry[], prev: WeightData): WeightData {
+  const sorted = [...entries]
+    .filter((e) => e.weight_lbs != null)
+    .sort((a, b) => new Date(a.measured_at).getTime() - new Date(b.measured_at).getTime());
+
+  if (sorted.length === 0) {
+    return prev;
+  }
+
+  const points = sorted.map((e) => ({
+    date: e.measured_at,
+    weight: Number(e.weight_lbs),
+    bmi: e.bmi != null ? Number(e.bmi) : null,
+  }));
+  const series = points.map((p) => p.weight);
+  const checkins = points.map((p) => ({
+    label: new Date(p.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    w: p.weight,
+  }));
+
+  const latestHeight = [...sorted].reverse().find((e) => e.height_inches != null)?.height_inches;
+  const latest = sorted[sorted.length - 1]!;
+
+  return {
+    ...prev,
+    series,
+    checkins,
+    points,
+    start: prev.start || series[0]!,
+    heightIn: latestHeight ?? prev.heightIn,
+    latestBmi: latest.bmi != null ? Number(latest.bmi) : null,
+    latestBmiCategory: latest.bmi_category ?? null,
+  };
+}
 
 function WeightAndReadinessSkeleton() {
   const cardStyle = {
@@ -116,32 +155,33 @@ export default function Dashboard() {
     fetchStats();
   }, []);
 
-  // Fetch weight progress + today's readiness from connected wearables
+  // Fetch weight/BMI history (baseline + manual + wearable, persisted) and
+  // today's readiness from connected wearables.
   useEffect(() => {
     const fetchWearables = async () => {
       try {
-        const connections = await getConnections();
+        const [connections, vitalsHistory] = await Promise.all([
+          getConnections(),
+          getVitalsHistory(),
+        ]);
+
         const [firstConnected] = connections.filter((c) => c.status === "connected");
-        if (!firstConnected) return;
-        setWeightSyncSource(formatConnection(firstConnected).name);
+        if (firstConnected) {
+          setWeightSyncSource(formatConnection(firstConnected).name);
 
-        const data = await getDeviceData();
-        if (!data) return;
-
-        setDeviceMetrics((prev) => ({
-          ...prev,
-          ...(data.readiness && { readiness: data.readiness }),
-          ...(data.recovery && { recovery: data.recovery }),
-          ...(data.sleepScore && { sleepScore: data.sleepScore }),
-          ...(data.restingHr && { restingHr: data.restingHr }),
-        }));
-        if (data.weightSeries && data.weightSeries.length > 0) {
-          setWeight((prev) => ({
-            ...prev,
-            series: data.weightSeries!,
-            start: prev.start || data.weightSeries![0],
-          }));
+          const data = await getDeviceData();
+          if (data) {
+            setDeviceMetrics((prev) => ({
+              ...prev,
+              ...(data.readiness && { readiness: data.readiness }),
+              ...(data.recovery && { recovery: data.recovery }),
+              ...(data.sleepScore && { sleepScore: data.sleepScore }),
+              ...(data.restingHr && { restingHr: data.restingHr }),
+            }));
+          }
         }
+
+        setWeight((prev) => buildWeightData(vitalsHistory, prev));
       } catch (error) {
         console.error("Failed to fetch wearables summary", error);
       } finally {
@@ -166,18 +206,14 @@ export default function Dashboard() {
     fetchFollowUps();
   }, []);
 
-  const handleSaveLogWeight = (v: number) => {
-    setWeight((prev) => {
-      const label = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      const newCheckins = [...prev.checkins, { label, w: v }];
-      const newSeries = [...prev.series, v];
-      return {
-        ...prev,
-        checkins: newCheckins,
-        series: newSeries,
-        start: prev.start || newSeries[0],
-      };
-    });
+  const handleSaveLogWeight = async (v: number) => {
+    try {
+      await logWeight(v);
+      const history = await getVitalsHistory();
+      setWeight((prev) => buildWeightData(history, prev));
+    } catch (error) {
+      console.error("Failed to log weight", error);
+    }
   };
 
   return (

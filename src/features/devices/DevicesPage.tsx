@@ -13,9 +13,9 @@ import {
   DEVICE_METRICS_DEFAULT,
 } from './constants';
 import type { Connection, WeightData, DeviceMetrics, Consent, Provider } from './types';
-import { 
-  getConnections, 
-  getDeviceData, 
+import {
+  getConnections,
+  getDeviceData,
   getLinkToken,
   listWearableProviders,
   deregisterProvider,
@@ -23,9 +23,46 @@ import {
   formatConnection,
   getConsent,
   updateConsent,
-  deleteHealthData
+  deleteHealthData,
+  getVitalsHistory,
+  logWeight
 } from './api';
 import { useProfile } from '../profile/hooks/use-profile';
+
+function buildWeightData(entries: import('./types').VitalsEntry[], prev: WeightData): WeightData {
+  const sorted = [...entries]
+    .filter((e) => e.weight_lbs != null)
+    .sort((a, b) => new Date(a.measured_at).getTime() - new Date(b.measured_at).getTime());
+
+  if (sorted.length === 0) {
+    return prev;
+  }
+
+  const points = sorted.map((e) => ({
+    date: e.measured_at,
+    weight: Number(e.weight_lbs),
+    bmi: e.bmi != null ? Number(e.bmi) : null,
+  }));
+  const series = points.map((p) => p.weight);
+  const checkins = points.map((p) => ({
+    label: new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    w: p.weight,
+  }));
+
+  const latestHeight = [...sorted].reverse().find((e) => e.height_inches != null)?.height_inches;
+  const latest = sorted[sorted.length - 1]!;
+
+  return {
+    ...prev,
+    series,
+    checkins,
+    points,
+    start: prev.start || series[0]!,
+    heightIn: latestHeight ?? prev.heightIn,
+    latestBmi: latest.bmi != null ? Number(latest.bmi) : null,
+    latestBmiCategory: latest.bmi_category ?? null,
+  };
+}
 
 function DevicesSkeleton() {
   const row = (
@@ -73,15 +110,16 @@ export default function DevicesPage() {
   const fetchConnectionsList = useCallback(async () => {
     setLoading(true);
     try {
-      const conns = await getConnections();
+      const [conns, vitalsHistory] = await Promise.all([
+        getConnections(),
+        getVitalsHistory(),
+      ]);
       const formatted = conns.map((c) => formatConnection(c));
       setConnections(formatted);
       const isConnected = formatted.length > 0;
-      
+
       const data = await getDeviceData();
-      let hasData = false;
       if (data) {
-        hasData = !!(data.steps || data.sleep || data.restingHr || (data.weightSeries && data.weightSeries.length > 0));
         setDeviceMetrics(prev => ({
           ...prev,
           ...(data.steps && { steps: data.steps }),
@@ -100,14 +138,9 @@ export default function DevicesPage() {
           ...(data.avgGlucose != null && { avgGlucose: data.avgGlucose }),
           ...(data.latestGlucose != null && { latestGlucose: data.latestGlucose }),
         }));
-        if (data.weightSeries && data.weightSeries.length > 0) {
-          setWeight(prev => ({
-            ...prev,
-            series: data.weightSeries!
-          }));
-        }
       }
-      
+
+      setWeight(prev => buildWeightData(vitalsHistory, prev));
       setDeviceConnected(isConnected);
     } catch (err) {
       console.error("Failed to load connections:", err);
@@ -116,11 +149,13 @@ export default function DevicesPage() {
     }
   }, []);
 
+  // Connections/vitals/device-data are all resolved server-side from the
+  // authenticated user (JWT) — no patientProfile.id needed to load them, so
+  // this must not be gated on the separate patientProfile fetch (which can
+  // legitimately fail/404 without blocking the rest of this page).
   useEffect(() => {
-    if (patientProfile?.id) {
-      fetchConnectionsList().finally(() => setInitialLoading(false));
-    }
-  }, [patientProfile?.id, fetchConnectionsList]);
+    fetchConnectionsList().finally(() => setInitialLoading(false));
+  }, [fetchConnectionsList]);
 
   useEffect(() => {
     async function loadConsent() {
@@ -142,10 +177,8 @@ export default function DevicesPage() {
         console.error("Failed to load consent:", err);
       }
     }
-    if (patientProfile?.id) {
-      loadConsent();
-    }
-  }, [patientProfile?.id]);
+    loadConsent();
+  }, []);
 
   useEffect(() => {
     async function loadAllowedProviders() {
@@ -193,10 +226,8 @@ export default function DevicesPage() {
         console.error("Failed to load allowed providers:", err);
       }
     }
-    if (patientProfile?.id) {
-      loadAllowedProviders();
-    }
-  }, [patientProfile?.id]);
+    loadAllowedProviders();
+  }, []);
 
   // Device picker (connect state) filters
   const [devCat, setDevCat] = useState('all');
@@ -356,23 +387,20 @@ export default function DevicesPage() {
     setLogWeightOpen(true);
   }, []);
 
-  const handleSaveLogWeight = useCallback((v: number) => {
-    setWeight((prev) => {
-      const label = new Date().toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-      });
-      const newCheckins = [...prev.checkins, { label, w: v }];
-      const newSeries = deviceConnected ? [...prev.series, v] : prev.series;
-      return { ...prev, checkins: newCheckins, series: newSeries };
-    });
-  }, [deviceConnected]);
+  const handleSaveLogWeight = useCallback(async (v: number) => {
+    try {
+      await logWeight(v);
+      const history = await getVitalsHistory();
+      setWeight((prev) => buildWeightData(history, prev));
+    } catch (err) {
+      console.error("Failed to log weight:", err);
+    }
+  }, []);
 
   /* ─── Consent (from non-review / "Before you connect") ─── */
   const handleAgreeConsent = useCallback(() => {
-    if (!patientProfile?.id) return;
     setLoading(true);
-    updateConsent(true, patientProfile.id)
+    updateConsent(true, patientProfile?.id)
       .then((response) => {
         if (response.success && response.consent) {
           setConsent({
@@ -404,9 +432,8 @@ export default function DevicesPage() {
 
   /* ─── Delete Data ─── */
   const handleConfirmDeleteData = useCallback(() => {
-    if (!patientProfile?.id) return;
     setLoading(true);
-    deleteHealthData(true, patientProfile.id, "User requested delete from patient portal")
+    deleteHealthData(true, patientProfile?.id, "User requested delete from patient portal")
       .then(() => {
         setConnections([]);
         setDeviceConnected(false);

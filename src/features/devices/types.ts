@@ -103,6 +103,21 @@ export interface WeightData {
   start: number;
   goal: number | null;
   heightIn: number;
+  points: { date: string; weight: number; bmi: number | null }[];
+  latestBmi: number | null;
+  latestBmiCategory: string | null;
+}
+
+export type VitalsSource = 'questionnaire' | 'patient_portal' | 'admin' | 'import' | 'wearable';
+
+export interface VitalsEntry {
+  id: string;
+  source: VitalsSource;
+  height_inches: number | null;
+  weight_lbs: string | number | null;
+  bmi: string | number | null;
+  bmi_category: string | null;
+  measured_at: string;
 }
 
 export interface LinkTokenResponse {

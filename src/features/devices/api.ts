@@ -5,7 +5,7 @@
  * to YOUR backend; the backend holds the key and calls Junction.
  */
 import { apiClient } from '@/shared/api/client';
-import type { ConnectionResponse, DeviceDataResponse, LinkTokenResponse } from './types';
+import type { ConnectionResponse, DeviceDataResponse, LinkTokenResponse, VitalsEntry } from './types';
 
 /**
  * Fetch the permitted wearable providers for the patient client context.
@@ -55,6 +55,34 @@ export async function getDeviceData(): Promise<DeviceDataResponse> {
     console.error('Failed to fetch device data:', err);
     return {};
   }
+}
+
+/**
+ * Get the patient's persisted weight/height/BMI history — the single source
+ * of truth for the dashboard graph (questionnaire baseline + manual + wearable).
+ */
+export async function getVitalsHistory(days = 90): Promise<VitalsEntry[]> {
+  try {
+    const response = await apiClient.get<{ results?: VitalsEntry[] } | VitalsEntry[]>(
+      `/medical/vitals/?days=${days}`
+    );
+    const data = response.data as any;
+    return Array.isArray(data) ? data : data?.results ?? [];
+  } catch (err) {
+    console.error('Failed to fetch vitals history:', err);
+    return [];
+  }
+}
+
+/**
+ * Manually log a weight entry from the dashboard. Height/BMI are resolved
+ * and computed server-side.
+ */
+export async function logWeight(weightLbs: number): Promise<VitalsEntry> {
+  const response = await apiClient.post<VitalsEntry>('/medical/vitals/', {
+    weight_lbs: weightLbs,
+  });
+  return response.data;
 }
 
 /**

@@ -154,9 +154,13 @@ export function WeightTrendCard({
   const cur = weight.series[weight.series.length - 1] ?? weight.start;
   const chg = Math.abs(+(cur - weight.start).toFixed(1));
   const pct = weight.start ? Math.abs(((cur - weight.start) / weight.start) * 100) : 0;
-  const bmi = (703 * cur) / (weight.heightIn * weight.heightIn);
+  // Prefer the server-computed BMI (correct patient height); only fall back to a
+  // client-side estimate when there's truly no vitals history with a height on file yet.
+  const hasServerBmi = weight.latestBmi != null;
+  const bmi = hasServerBmi ? weight.latestBmi! : (703 * cur) / (weight.heightIn * weight.heightIn);
   const bmiCat =
-    bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Healthy' : bmi < 30 ? 'Overweight' : 'Obesity';
+    weight.latestBmiCategory ??
+    (bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Healthy' : bmi < 30 ? 'Overweight' : 'Obesity');
 
   return (
     <div style={CARD}>
@@ -188,7 +192,7 @@ export function WeightTrendCard({
           <span style={{ fontWeight: 700, fontSize: 14.5 }}>Weight progress</span>
         </div>
         <span style={{ fontSize: 11, color: 'var(--km-tm)' }}>
-          Last {weight.series.length} weeks
+          Last {weight.series.length} {weight.series.length === 1 ? 'entry' : 'entries'}
         </span>
       </div>
 
@@ -251,7 +255,13 @@ export function WeightTrendCard({
       )}
 
       <div style={{ padding: '4px 14px 0' }}>
-        <WeightTrendChart series={weight.series} goal={weight.goal} />
+        <WeightTrendChart
+          series={weight.series}
+          goal={weight.goal}
+          {...(weight.points.length === weight.series.length
+            ? { dates: weight.points.map((p) => p.date) }
+            : {})}
+        />
       </div>
 
       {bottomAction && (
@@ -277,7 +287,15 @@ export function WeightTrendCard({
 }
 
 /* ─── Weight Trend Chart ─── */
-function WeightTrendChart({ series, goal }: { series: number[]; goal: number | null }) {
+function WeightTrendChart({
+  series,
+  goal,
+  dates,
+}: {
+  series: number[];
+  goal: number | null;
+  dates?: string[];
+}) {
   if (!series || series.length < 2) return null;
 
   const w = 500, h = 170;
@@ -367,8 +385,8 @@ function WeightTrendChart({ series, goal }: { series: number[]; goal: number | n
           {v.toFixed(1)}
         </text>
       ))}      {ti.map((i) => {
-        const d = new Date(today);
-        d.setDate(d.getDate() - (n - i) * 7);
+        const d = dates?.[i] ? new Date(dates[i]) : new Date(today);
+        if (!dates?.[i]) d.setDate(d.getDate() - (n - i) * 7);
         return (
           <text
             key={`date-${i}`} x={X(i)} y={h - 4} fontSize={10} fill="var(--km-tm)"
