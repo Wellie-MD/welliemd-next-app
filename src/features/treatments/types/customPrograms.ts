@@ -92,6 +92,7 @@ export interface CustomProgram {
   tags?: string[];
   isMulti?: boolean;
   builderQuestions?: CustomProgramBuilderStageItem[];
+  builderSections?: CustomProgramBuilderStageItem[];
   builderTreatmentOptions?: CustomProgramBuilderStageItem[];
   builderConsents?: CustomProgramBuilderStageItem[];
 }

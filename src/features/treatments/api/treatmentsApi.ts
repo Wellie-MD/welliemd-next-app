@@ -213,6 +213,20 @@ const mapBuilderTreatmentOptionFromFlowItem = (
   sourceId: item.sourceId,
 });
 
+const mapBuilderSectionFromFlowItem = (
+  item: CustomProgramApiRecord["flow_items"][number]
+): CustomProgramBuilderStageItem => ({
+  id: item.id,
+  kind: "section",
+  title: item.title,
+  subtitle: item.subtitle || "Reusable section fields.",
+  source: item.source || "welliemd",
+  locked: item.locked ?? true,
+  required: item.required ?? true,
+  treatmentTypeKey: item.treatmentTypeKey,
+  sourceId: item.sourceId,
+});
+
 const mapCustomProgramFromApi = (record: CustomProgramApiRecord): CustomProgram => {
   const flowItems = record.flow_items || [];
 
@@ -241,6 +255,9 @@ const mapCustomProgramFromApi = (record: CustomProgramApiRecord): CustomProgram 
     tags: record.tags || [],
     isMulti: record.is_multi ?? false,
     builderQuestions: flowItems.filter(isBuilderQuestionFlowItem).map(mapBuilderQuestionFromFlowItem),
+    builderSections: flowItems
+      .filter((item) => item.kind === "section")
+      .map(mapBuilderSectionFromFlowItem),
     builderTreatmentOptions: flowItems
       .filter((item) => item.kind === "program")
       .map(mapBuilderTreatmentOptionFromFlowItem),
