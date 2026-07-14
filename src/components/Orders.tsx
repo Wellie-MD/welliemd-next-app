@@ -37,6 +37,7 @@ const STATUS_CONFIG: Record<string, { label: string; css: string }> = {
   in_transit:         { label: 'In Transit',        css: 'km-badge km-badge-blue' },
   out_for_delivery:   { label: 'Out for Delivery',   css: 'km-badge km-badge-amber' },
   delivered:          { label: 'Delivered',          css: 'km-badge km-badge-green' },
+  delivery_failed:    { label: 'Delivery Failed',    css: 'km-badge km-badge-red' },
   shipped:            { label: 'Shipped',            css: 'km-badge km-badge-green' },
   completed:          { label: 'Completed',          css: 'km-badge km-badge-green' },
   refunded:           { label: 'Refunded',           css: 'km-badge km-badge-green' },

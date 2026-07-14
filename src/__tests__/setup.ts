@@ -2,7 +2,7 @@ import '@testing-library/jest-dom';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeAll, afterAll } from 'vitest';
 
-import { server } from './mocks/server';
+let server: Awaited<typeof import('./mocks/server')>['server'];
 
 // Mock environment variables for testing
 Object.assign(process.env, {
@@ -10,7 +10,7 @@ Object.assign(process.env, {
   VITE_API_TIMEOUT: '5000',
   VITE_AUTH_TOKEN_KEY: 'test_auth_token',
   VITE_REFRESH_TOKEN_KEY: 'test_refresh_token',
-  VITE_APP_ENV: 'test',
+  VITE_APP_ENV: 'development',
   VITE_ENABLE_FEATURE_FLAGS: 'true',
   VITE_MOCK_API: 'true',
   VITE_DEBUG_MODE: 'false',
@@ -121,19 +121,20 @@ Object.defineProperty(navigator, 'clipboard', {
 });
 
 // Setup MSW
-beforeAll(() => {
+beforeAll(async () => {
+  ({ server } = await import('./mocks/server'));
   server.listen({ onUnhandledRequest: 'error' });
 });
 
 afterEach(() => {
   // Clean up after each test
   cleanup();
-  server.resetHandlers();
+  server?.resetHandlers();
   localStorageMock.clear();
 });
 
 afterAll(() => {
-  server.close();
+  server?.close();
 });
 
 // Global test utilities
