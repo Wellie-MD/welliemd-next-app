@@ -1,7 +1,8 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Archive, Copy, Eye, HelpCircle, CheckSquare, FileText,
-  MoreHorizontal, Pencil,
+  MoreHorizontal, Pencil, Check, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +23,7 @@ interface ProgramCardProps {
   onEdit: (program: Program) => void;
   onDuplicate: (program: Program) => void;
   onArchive: (program: Program) => void;
+  onSaveSlug: (programId: string, newSlug: string) => void;
   duplicatingProgramId?: string | null;
   archivingProgramId?: string | null;
 }
@@ -35,11 +37,29 @@ export function ProgramCard({
   onEdit,
   onDuplicate,
   onArchive,
+  onSaveSlug,
   duplicatingProgramId,
   archivingProgramId,
 }: ProgramCardProps) {
   const screeningQuestionCount = program.questionCount || 0;
   const isPublished = program.status === "published";
+  const [isEditingSlug, setIsEditingSlug] = useState(false);
+  const [tempSlug, setTempSlug] = useState(program.slug);
+
+  useEffect(() => {
+    setTempSlug(program.slug);
+  }, [program.slug]);
+
+  const handleSaveSlug = () => {
+    const formatted = tempSlug
+      .toLowerCase()
+      .replace(/[^a-z0-9-_]/g, "")
+      .trim();
+    if (formatted) {
+      onSaveSlug(program.id, formatted);
+    }
+    setIsEditingSlug(false);
+  };
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col min-h-[300px] group">
@@ -109,10 +129,54 @@ export function ProgramCard({
       <h3 className="text-sm font-bold text-slate-900 leading-tight mb-1">
         {program.name}
       </h3>
-      <p className="text-xs text-slate-500 line-clamp-2 min-h-[2rem]">
-        {program.description || "No description"}
-      </p>
-
+      <div className="mt-1 mb-2">
+        {isEditingSlug ? (
+          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-md p-1 shadow-sm h-7">
+            <span className="text-[10px] text-slate-400 px-1">welliemd.com/intake/</span>
+            <input
+              value={tempSlug}
+              onChange={(e) => setTempSlug(e.target.value)}
+              className="w-28 text-[11px] font-bold text-slate-800 focus:outline-none"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSaveSlug();
+                if (e.key === "Escape") setIsEditingSlug(false);
+              }}
+            />
+            <button
+              onClick={handleSaveSlug}
+              className="p-1 hover:bg-slate-50 text-green-600 rounded"
+              aria-label="Save slug"
+              type="button"
+            >
+              <Check className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setIsEditingSlug(false)}
+              className="p-1 hover:bg-slate-50 text-slate-400 rounded"
+              aria-label="Cancel slug edit"
+              type="button"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-[11px] text-slate-500">
+            <span className="truncate">
+              <span className="text-slate-400">welliemd.com/intake/</span>
+              <span className="text-slate-700 font-semibold">{program.slug}</span>
+            </span>
+            <button
+              onClick={() => setIsEditingSlug(true)}
+              className="p-1 rounded hover:bg-slate-100 text-slate-400"
+              aria-label="Edit slug"
+              type="button"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
       <div className="flex-1" />
 
       <div className="h-px bg-slate-100 my-3" />

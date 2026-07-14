@@ -33,6 +33,7 @@ import {
   useDuplicateProgram,
   usePrograms,
   useSaveProgram,
+  useUpdateProgramSlug,
   useTreatmentTypes,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
@@ -78,6 +79,7 @@ export default function ProgramsPage() {
   const saveProgramMutation = useSaveProgram();
   const duplicateProgramMutation = useDuplicateProgram();
   const archiveProgramMutation = useArchiveProgram();
+  const updateProgramSlugMutation = useUpdateProgramSlug();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"alpha" | "recent">("recent");
@@ -230,6 +232,27 @@ export default function ProgramsPage() {
         });
       },
     });
+  };
+
+  const handleSaveSlug = async (programId: string, newSlug: string) => {
+    try {
+      await updateProgramSlugMutation.mutateAsync({ programId, slug: newSlug });
+      toast({
+        title: "Slug Updated",
+        description: `Program slug updated to: ${newSlug}`,
+      });
+    } catch (error) {
+      if (isDuplicateSlugError(error)) {
+        showDuplicateSlugToast();
+        return;
+      }
+
+      toast({
+        title: "Error Updating Slug",
+        description: getApiErrorMessage(error, "Slug could not be updated"),
+        variant: "destructive",
+      });
+    }
   };
 
   const openCreateProgram = () => {
@@ -745,6 +768,7 @@ export default function ProgramsPage() {
               treatmentType={treatmentTypeMap.get(program.treatmentTypeKey)}
               consentCount={consentCountMap.get(program.id) ?? 0}
               assignedClientsCount={usageMap.get(program.id) ?? 0}
+              onSaveSlug={handleSaveSlug}
               onPreview={handlePreviewProgram}
               onEdit={handleEditProgram}
               onDuplicate={handleDuplicateProgram}
