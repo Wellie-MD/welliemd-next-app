@@ -59,22 +59,19 @@ export default function CustomProgramBuilderPage() {
       }
     }
 
+    const { checkoutOption, ...flowItemExtras } = item;
     const newItem: CustomProgramFlowItem = {
       id: createMockId(item.kind),
-      kind: item.kind,
-      title: item.title,
-      subtitle: item.subtitle,
-      treatmentTypeKey: item.treatmentTypeKey,
-      sourceId: item.sourceId,
+      ...flowItemExtras,
     };
 
     items.splice(insertIdx, 0, newItem);
 
     // If it's a checkout option, we also add it to checkoutOptions
     const updatedCheckoutOptions = [...customProgram.checkoutOptions];
-    if (item.kind === "checkout" && item.checkoutOption) {
+    if (item.kind === "checkout" && checkoutOption) {
       updatedCheckoutOptions.push({
-        ...item.checkoutOption,
+        ...checkoutOption,
         id: createMockId("co"),
       });
     }
