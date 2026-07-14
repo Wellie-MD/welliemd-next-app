@@ -55,10 +55,12 @@ export interface QuestionnairePhoto {
 export interface PrescriptionMedication {
   name?: string
   strength?: string
+  price?: string | number | null
   refills?: string
   quantity?: string
   medId?: string
   rxId?: string
+  shipping_fee?: string | number | null
 }
 
 export interface OrderPricingSupplyLineItem {
@@ -91,7 +93,6 @@ export interface OrderActivityEvent {
   description: string
   source: string
   occurred_at: string
-  sort_order?: number
   payload?: Record<string, unknown>
 }
 
@@ -131,7 +132,12 @@ export interface Order {
   supplemental_captured_amount?: string | null
   payment_settlement_transactions?: OrderSettlementTransaction[]
   totalRefunded?: string | null
+  netCollected?: string | null
   refundableAmount?: string | null
+  baseRefundableAmount?: string | null
+  supplementalRefundableAmount?: string | null
+  rx_revision_tag?: string | null
+  rx_revision_refund_required_amount?: string | null
   created_at?: string
   updated_at?: string
   name?: string
@@ -143,6 +149,7 @@ export interface Order {
   datePrescribed?: string | null
   datePrintedShipped?: string | null
   paymentDate?: string | null
+  paymentUpdatedAt?: string | null
   mrn?: string | null
   paymentStatus?: string | null
   visitStatus?: string | null
@@ -162,19 +169,13 @@ export interface Order {
   notes?: string | null
   // Detail page: from PrescriptionEvent / Visit
   product_name?: string | null
+  product_image?: string | null
   treatment_type?: string | null
   treatment?: string | null
   doctor_name?: string | null
   requested_medicines?: PrescriptionMedication[]
   prescribed_medicines?: PrescriptionMedication[]
   chargeable_amount_source?: "requested_medicine" | "prescribed_medicine" | "requested_medicine_fallback" | null
-  junction_order_state?: "not_submitted" | "pending" | "submitted" | "synced" | "failed" | null
-  junction_order_id?: string | null
-  junction_order_status?: string | null
-  junction_last_synced_at?: string | null
-  junction_order_last_error?: string | null
-  junction_results_state?: "not_requested" | "pending" | "synced" | "failed" | null
-  junction_results_synced_at?: string | null
   booking_scheduled_at?: string | null
   booking_location?: string | null
   prescription_medications?: PrescriptionMedication[]
@@ -189,25 +190,7 @@ export interface Order {
   consult_type?: 'async' | 'sync' | null
   shipping_fee_to_client?: string | null
   activity_events?: OrderActivityEvent[]
-  lab_integration_highlights?: {
-    submission_status?: string | null
-    requisition_pdf_url?: string | null
-    booking_link?: string | null
-    appointment?: {
-      provider?: string | null
-      status?: string | null
-      scheduled_start?: string | null
-      scheduled_end?: string | null
-      timezone?: string | null
-    } | null
-    latest_event?: {
-      title?: string | null
-      description?: string | null
-      occurred_at?: string | null
-      status?: string | null
-    } | null
-    critical_result?: boolean
-  } | null
+  episode_id?: string | null
 }
 
 export interface PaginatedOrdersResponse {
@@ -219,6 +202,7 @@ export interface PaginatedOrdersResponse {
 
 export interface OrderRefundRequest {
   amount?: string | number
+  refund_target?: "auto" | "base" | "supplemental"
   reason: string
   reason_description?: string
   notes?: string
@@ -251,15 +235,6 @@ export interface RetryPaymentResponse {
   transaction_status?: string
   reason_code?: string
   retryable?: boolean
-}
-
-export interface RetryJunctionOrderResponse {
-  success: boolean
-  error?: string
-  detail?: string
-  message?: string
-  code?: string
-  order?: Order
 }
 
 export interface SendCheckoutLinkResponse {
@@ -384,16 +359,6 @@ export const retryPayment = async (id: string, payload: RetryPaymentPayload): Pr
   }
 }
 
-export const retryJunctionOrder = async (id: string): Promise<RetryJunctionOrderResponse> => {
-  try {
-    const { data } = await api.post<RetryJunctionOrderResponse>(`${ENDPOINT}${id}/retry-junction-order/`)
-    return data
-  } catch (error) {
-    console.error(`Failed to retry Junction order for order ${id}:`, error)
-    throw error
-  }
-}
-
 export const sendCheckoutLink = async (id: string): Promise<SendCheckoutLinkResponse> => {
   try {
     const { data } = await api.post<SendCheckoutLinkResponse>(`${ENDPOINT}${id}/send-checkout-link/`)
@@ -434,6 +399,37 @@ export const updateOrderQuestionnaireImages = async (
   }
 }
 
+export interface FilterOption {
+  id: string | number
+  name: string
+}
+
+const extractResults = (data: unknown): FilterOption[] => {
+  if (Array.isArray(data)) return data
+  if (data && typeof data === 'object' && 'results' in data && Array.isArray((data as any).results)) return (data as any).results
+  return []
+}
+
+export const fetchCategories = async (): Promise<FilterOption[]> => {
+  try {
+    const { data } = await api.get('/products/categories/')
+    return extractResults(data)
+  } catch (error) {
+    console.error('Failed to fetch categories:', error)
+    return []
+  }
+}
+
+export const fetchPharmacies = async (): Promise<FilterOption[]> => {
+  try {
+    const { data } = await api.get('/products/pharmacies/')
+    return extractResults(data)
+  } catch (error) {
+    console.error('Failed to fetch pharmacies:', error)
+    return []
+  }
+}
+
 export const ordersApi = {
   fetchOrders,
   fetchOrdersByPatient,
@@ -445,8 +441,9 @@ export const ordersApi = {
   searchOrders,
   refundOrder,
   retryPayment,
-  retryJunctionOrder,
   sendCheckoutLink,
   changeProduct,
   updateOrderQuestionnaireImages,
+  fetchCategories,
+  fetchPharmacies,
 }

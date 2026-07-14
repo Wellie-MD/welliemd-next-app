@@ -3,35 +3,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Info, Eye, EyeOff, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { useState, useEffect, useCallback } from "react"
 import { storeSettingsApi } from "@/api/storeSettingsApi"
 import type { StoreSettings } from "@/types/storeSettings"
 import { useToast } from "@/hooks/use-toast"
-import { authService } from "@/services/authService"
+
+const normalizeWebsiteUrl = (value?: string) => {
+  const website = value?.trim() || ''
+  if (!website) return ''
+
+  return /^[a-z][a-z\d+\-.]*:\/\//i.test(website) ? website : `https://${website}`
+}
 
 export default function StoreDetails() {
   const [settings, setSettings] = useState<StoreSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
   const { toast } = useToast()
-
-  // Password reset form state
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
-  const [showNewPassword, setShowNewPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [resettingPassword, setResettingPassword] = useState(false)
-  const [passwordErrors, setPasswordErrors] = useState<{
-    currentPassword?: string
-    newPassword?: string
-    confirmPassword?: string
-  }>({})
 
   const loadSettings = useCallback(async () => {
     try {
@@ -58,7 +47,12 @@ export default function StoreDetails() {
     
     try {
       setSaving(true)
-      await storeSettingsApi.partialUpdate(settings.id, settings)
+      const payload = {
+        ...settings,
+        support_website: normalizeWebsiteUrl(settings.support_website),
+      }
+      const updatedSettings = await storeSettingsApi.partialUpdate(settings.id, payload)
+      setSettings(updatedSettings)
       toast({
         title: 'Success',
         description: 'Store settings updated successfully',
@@ -77,69 +71,6 @@ export default function StoreDetails() {
   const updateField = (field: keyof StoreSettings, value: any) => {
     if (settings) {
       setSettings({ ...settings, [field]: value })
-    }
-  }
-
-  const validatePasswordForm = (): boolean => {
-    const errors: typeof passwordErrors = {}
-
-    if (!currentPassword.trim()) {
-      errors.currentPassword = "Current password is required"
-    }
-
-    if (!newPassword.trim()) {
-      errors.newPassword = "New password is required"
-    } else if (newPassword.length < 8) {
-      errors.newPassword = "New password must be at least 8 characters"
-    }
-
-    if (!confirmPassword.trim()) {
-      errors.confirmPassword = "Please confirm your new password"
-    } else if (newPassword !== confirmPassword) {
-      errors.confirmPassword = "Passwords do not match"
-    }
-
-    setPasswordErrors(errors)
-    return Object.keys(errors).length === 0
-  }
-
-  const handlePasswordReset = async () => {
-    // Clear previous errors
-    setPasswordErrors({})
-
-    // Validate form
-    if (!validatePasswordForm()) {
-      return
-    }
-
-    try {
-      setResettingPassword(true)
-      await authService.changePassword(currentPassword, newPassword, confirmPassword)
-      
-      // Success - user will be logged out and redirected by authService
-      toast({
-        title: 'Success',
-        description: 'Password changed successfully. Please login with your new password.',
-      })
-    } catch (error: any) {
-      // Error handling - extract message from error
-      const errorMessage = error.message || 'Failed to change password. Please try again.'
-      
-      // Check if it's a current password error
-      if (errorMessage.toLowerCase().includes('current password') || 
-          errorMessage.toLowerCase().includes('incorrect')) {
-        setPasswordErrors({ currentPassword: errorMessage })
-      } else {
-        setPasswordErrors({ newPassword: errorMessage })
-      }
-
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      })
-    } finally {
-      setResettingPassword(false)
     }
   }
 
@@ -178,22 +109,6 @@ export default function StoreDetails() {
           )}
         </Button>
       </div>
-
-      {/* Message for visitors */}
-      <Card>
-        <CardContent className="p-6">
-          <Label htmlFor="visitor-message" className="text-sm font-medium text-muted-foreground">
-            Message for your visitors
-          </Label>
-          <Textarea
-            id="visitor-message"
-            placeholder="Enter your message here"
-            className="mt-2 min-h-[100px]"
-            value={settings.visitor_message || ''}
-            onChange={(e) => updateField('visitor_message', e.target.value)}
-          />
-        </CardContent>
-      </Card>
 
       {/* Basic Information */}
       <Card>
@@ -286,279 +201,6 @@ export default function StoreDetails() {
                 <SelectItem value="UTC">UTC</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Password Protection */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-medium text-primary">Password Protection</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Enable the password to restrict access to your online store. Only customers with the password can access it.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <Info className="h-4 w-4 text-blue-600" />
-            <span className="text-sm text-blue-700">
-              This feature is still in development and is coming soon.
-            </span>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <Checkbox 
-              id="enable-password" 
-              checked={settings.password_enabled || false}
-              onCheckedChange={(checked) => updateField('password_enabled', checked)}
-            />
-            <Label htmlFor="enable-password" className="text-sm">Enable Password</Label>
-          </div>
-
-          {settings.password_enabled && (
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <div className="relative mt-1">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password here"
-                  value={settings.password || ''}
-                  onChange={(e) => updateField('password', e.target.value)}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Personal Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-medium text-primary">Personal Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div>
-            <Label className="text-sm font-medium">Name</Label>
-            <div className="mt-2 grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="legal-first-name" className="text-xs text-muted-foreground">Legal First Name</Label>
-                <Input 
-                  id="legal-first-name" 
-                  value={settings.legal_first_name || ''} 
-                  onChange={(e) => updateField('legal_first_name', e.target.value)}
-                  className="mt-1" 
-                />
-              </div>
-              <div>
-                <Label htmlFor="legal-last-name" className="text-xs text-muted-foreground">Legal Last Name</Label>
-                <Input 
-                  id="legal-last-name" 
-                  value={settings.legal_last_name || ''} 
-                  onChange={(e) => updateField('legal_last_name', e.target.value)}
-                  className="mt-1" 
-                />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <Label className="text-sm font-medium">Other</Label>
-            <div className="mt-2">
-              <Label htmlFor="date-of-birth" className="text-xs text-muted-foreground">Date of Birth</Label>
-              <Input 
-                id="date-of-birth" 
-                type="date"
-                value={settings.date_of_birth || ''} 
-                onChange={(e) => updateField('date_of_birth', e.target.value)}
-                className="mt-1" 
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="email-address" className="text-xs text-muted-foreground">Email Address</Label>
-            <Input 
-              id="email-address" 
-              type="email"
-              value={settings.email || ''} 
-              onChange={(e) => updateField('email', e.target.value)}
-              className="mt-1" 
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="phone-number" className="text-xs text-muted-foreground">Phone Number</Label>
-            <Input 
-              id="phone-number" 
-              type="tel"
-              value={settings.phone || ''} 
-              onChange={(e) => updateField('phone', e.target.value)}
-              className="mt-1" 
-            />
-          </div>
-
-          {/* Password Reset Section */}
-          <div className="pt-6 border-t">
-            <Label className="text-sm font-medium">Reset Password</Label>
-            <p className="text-xs text-muted-foreground mt-1 mb-4">
-              Change your account password. You will be logged out after changing your password.
-            </p>
-
-            <div className="space-y-4">
-              {/* Current Password */}
-              <div>
-                <Label htmlFor="current-password" className="text-xs text-muted-foreground">Current Password</Label>
-                <div className="relative mt-1">
-                  <Input
-                    id="current-password"
-                    type={showCurrentPassword ? "text" : "password"}
-                    placeholder="Enter your current password"
-                    value={currentPassword}
-                    onChange={(e) => {
-                      setCurrentPassword(e.target.value)
-                      if (passwordErrors.currentPassword) {
-                        setPasswordErrors({ ...passwordErrors, currentPassword: undefined })
-                      }
-                    }}
-                    className={passwordErrors.currentPassword ? "border-destructive" : ""}
-                    disabled={resettingPassword}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    disabled={resettingPassword}
-                  >
-                    {showCurrentPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-                {passwordErrors.currentPassword && (
-                  <p className="text-xs text-destructive mt-1">{passwordErrors.currentPassword}</p>
-                )}
-              </div>
-
-              {/* New Password */}
-              <div>
-                <Label htmlFor="new-password" className="text-xs text-muted-foreground">New Password</Label>
-                <div className="relative mt-1">
-                  <Input
-                    id="new-password"
-                    type={showNewPassword ? "text" : "password"}
-                    placeholder="Enter your new password"
-                    value={newPassword}
-                    onChange={(e) => {
-                      setNewPassword(e.target.value)
-                      if (passwordErrors.newPassword) {
-                        setPasswordErrors({ ...passwordErrors, newPassword: undefined })
-                      }
-                      // Clear confirm password error if passwords now match
-                      if (e.target.value === confirmPassword && passwordErrors.confirmPassword) {
-                        setPasswordErrors({ ...passwordErrors, confirmPassword: undefined })
-                      }
-                    }}
-                    className={passwordErrors.newPassword ? "border-destructive" : ""}
-                    disabled={resettingPassword}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    disabled={resettingPassword}
-                  >
-                    {showNewPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-                {passwordErrors.newPassword && (
-                  <p className="text-xs text-destructive mt-1">{passwordErrors.newPassword}</p>
-                )}
-                <p className="text-xs text-muted-foreground mt-1">
-                  Password must be at least 8 characters long
-                </p>
-              </div>
-
-              {/* Confirm Password */}
-              <div>
-                <Label htmlFor="confirm-password" className="text-xs text-muted-foreground">Confirm New Password</Label>
-                <div className="relative mt-1">
-                  <Input
-                    id="confirm-password"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Confirm your new password"
-                    value={confirmPassword}
-                    onChange={(e) => {
-                      setConfirmPassword(e.target.value)
-                      if (passwordErrors.confirmPassword) {
-                        setPasswordErrors({ ...passwordErrors, confirmPassword: undefined })
-                      }
-                    }}
-                    className={passwordErrors.confirmPassword ? "border-destructive" : ""}
-                    disabled={resettingPassword}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    disabled={resettingPassword}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-                {passwordErrors.confirmPassword && (
-                  <p className="text-xs text-destructive mt-1">{passwordErrors.confirmPassword}</p>
-                )}
-              </div>
-
-              {/* Reset Password Button */}
-              <div>
-                <Button
-                  type="button"
-                  onClick={handlePasswordReset}
-                  disabled={resettingPassword || !currentPassword || !newPassword || !confirmPassword}
-                  variant="default"
-                >
-                  {resettingPassword ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Resetting Password...
-                    </>
-                  ) : (
-                    'Reset Password'
-                  )}
-                </Button>
-              </div>
-            </div>
           </div>
         </CardContent>
       </Card>
@@ -665,86 +307,6 @@ export default function StoreDetails() {
         </CardContent>
       </Card>
 
-      {/* Payment Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-medium text-primary">Payment Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div>
-            <Label htmlFor="bank-account" className="text-xs text-muted-foreground">Set up US or Canadian Bank Account</Label>
-            <Select 
-              value={settings.bank_account_type || ''}
-              onValueChange={(value) => updateField('bank_account_type', value)}
-            >
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Select account type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="us-checking">US Checking Account</SelectItem>
-                <SelectItem value="us-savings">US Savings Account</SelectItem>
-                <SelectItem value="canadian-checking">Canadian Checking Account</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label className="text-sm font-medium">Numbers</Label>
-            <div className="mt-2 space-y-4">
-              <div>
-                <Label htmlFor="routing-number" className="text-xs text-muted-foreground">Routing Number</Label>
-                <Input 
-                  id="routing-number" 
-                  value={settings.routing_number || ''} 
-                  onChange={(e) => updateField('routing_number', e.target.value)}
-                  className="mt-1" 
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="account-number" className="text-xs text-muted-foreground">Account number</Label>
-                <Input 
-                  id="account-number" 
-                  type="password"
-                  value={settings.account_number || ''} 
-                  onChange={(e) => updateField('account_number', e.target.value)}
-                  placeholder="Enter account number"
-                  className="mt-1" 
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Account number is encrypted and not displayed for security
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <Label className="text-sm font-medium">Descriptors</Label>
-            <div className="mt-2 space-y-4">
-              <div>
-                <Label htmlFor="statement-descriptor" className="text-xs text-muted-foreground">Statement descriptor</Label>
-                <Input 
-                  id="statement-descriptor" 
-                  value={settings.statement_descriptor || ''} 
-                  onChange={(e) => updateField('statement_descriptor', e.target.value)}
-                  className="mt-1" 
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="shortened-descriptor" className="text-xs text-muted-foreground">Shortened descriptor</Label>
-                <Input 
-                  id="shortened-descriptor" 
-                  value={settings.shortened_descriptor || ''} 
-                  onChange={(e) => updateField('shortened_descriptor', e.target.value)}
-                  className="mt-1" 
-                />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Customer Support Details */}
       <Card>
         <CardHeader>
@@ -838,6 +400,19 @@ export default function StoreDetails() {
               value={settings.support_email || ''} 
               onChange={(e) => updateField('support_email', e.target.value)}
               className="mt-1" 
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="support-website" className="text-xs text-muted-foreground">Website</Label>
+            <Input
+              id="support-website"
+              type="url"
+              value={settings.support_website || ''}
+              onChange={(e) => updateField('support_website', e.target.value)}
+              onBlur={(e) => updateField('support_website', normalizeWebsiteUrl(e.target.value))}
+              placeholder="https://example.com"
+              className="mt-1"
             />
           </div>
         </CardContent>

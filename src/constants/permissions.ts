@@ -60,6 +60,7 @@ export const RoleNames = {
     PRIMARY_OWNER: 'Primary Owner',
     ADMIN: 'Admin',
     CUSTOMER_SERVICE: 'Customer Service',
+    SUPER_ADMIN: 'Super Admin',
 } as const;
 
 export type Permission = typeof Permissions[keyof typeof Permissions];

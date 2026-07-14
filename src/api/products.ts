@@ -98,6 +98,9 @@ export interface Product {
   pharmacy_api: "inherit" | "life_file" | "dispense_pro";
   generic_name?: string;
   generic_group?: string;
+  service_states?: string[];
+  admin_service_states?: string[];
+  category?: string;
   category_name?: string;
   is_lab_product?: boolean;
   junction_lab_test_id?: string;
@@ -171,6 +174,8 @@ export interface CreateProductPayload {
   pharmacy_api?: string;
   generic_name?: string;
   generic_group?: string;
+  service_states?: string[];
+  admin_service_states?: string[];
   onboarding_questionnaire?: string;
   followup_questionnaire?: string;
   onboarding_script_config?: Record<string, any>;
@@ -226,6 +231,7 @@ export interface UpdateProductPayload {
   pharmacy_api?: string;
   generic_name?: string;
   generic_group?: string;
+  service_states?: string[];
   onboarding_questionnaire?: string;
   followup_questionnaire?: string;
   allow_client_modifications?: boolean;
@@ -262,6 +268,8 @@ export interface ProductListParams {
   rx_or_otc?: "rx" | "otc";
   purchase_type?: "one_time" | "subscription";
   requires_video_visit?: boolean;
+  category?: string;
+  pharmacy?: string;
   search?: string;
   ordering?: string;
   page?: number;

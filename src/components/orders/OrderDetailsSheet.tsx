@@ -78,6 +78,10 @@ const statusColors: Record<string, string> = {
   billing_pending: "bg-orange-100 text-orange-800",
   rx_sent: "bg-indigo-100 text-indigo-800",
   shipped: "bg-emerald-100 text-emerald-800",
+  in_transit: "bg-blue-100 text-blue-800",
+  out_for_delivery: "bg-amber-100 text-amber-800",
+  delivered: "bg-teal-100 text-teal-800",
+  delivery_failed: "bg-red-100 text-red-800",
   canceled: "bg-red-100 text-red-800",
 }
 
@@ -97,6 +101,10 @@ const statusLabels: Record<string, string> = {
   billing_pending: "Billing Pending",
   rx_sent: "Rx Sent",
   shipped: "Shipped",
+  in_transit: "In Transit",
+  out_for_delivery: "Out for Delivery",
+  delivered: "Delivered",
+  delivery_failed: "Delivery Failed",
   canceled: "Canceled",
 }
 
@@ -111,6 +119,7 @@ export function OrderDetailsSheet({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [refundAmount, setRefundAmount] = useState("")
+  const [refundTarget, setRefundTarget] = useState<"auto" | "base" | "supplemental">("auto")
   const [refundReason, setRefundReason] = useState("customer_request")
   const [refundReasonDescription, setRefundReasonDescription] = useState("")
   const [refundNotes, setRefundNotes] = useState("")
@@ -127,14 +136,24 @@ export function OrderDetailsSheet({
   }
 
   const status = order?.orderStatus || order?.status || "created"
-  const paymentStatus = order?.paymentStatus || ""
+  const paymentStatus = (order?.paymentStatus || "").toLowerCase()
   const isAuthorized = paymentStatus === "authorized"
-  const isRefundable = paymentStatus === "captured" || paymentStatus === "approved"
-  const canRefundOrVoid = isAuthorized || isRefundable
   const remainingRefundable = useMemo(() => {
     const amount = order?.refundableAmount ? parseFloat(order.refundableAmount) : 0
     return Number.isNaN(amount) ? 0 : amount
   }, [order?.refundableAmount])
+  const isRefundable = remainingRefundable > 0
+  const canRefundOrVoid = isAuthorized || isRefundable
+  const baseRemainingRefundable = useMemo(() => {
+    const amount = order?.baseRefundableAmount ? parseFloat(order.baseRefundableAmount) : 0
+    return Number.isNaN(amount) ? 0 : amount
+  }, [order?.baseRefundableAmount])
+  const supplementalRemainingRefundable = useMemo(() => {
+    const amount = order?.supplementalRefundableAmount
+      ? parseFloat(order.supplementalRefundableAmount)
+      : 0
+    return Number.isNaN(amount) ? 0 : amount
+  }, [order?.supplementalRefundableAmount])
   const totalRefunded = useMemo(() => {
     const amount = order?.totalRefunded ? parseFloat(order.totalRefunded) : 0
     return Number.isNaN(amount) ? 0 : amount
@@ -217,18 +236,28 @@ export function OrderDetailsSheet({
         toast({ title: "Refund amount exceeds remaining refundable amount", variant: "destructive" })
         return
       }
+      if (refundTarget === "base" && amountNum > baseRemainingRefundable) {
+        toast({ title: "Refund amount exceeds base refundable amount", variant: "destructive" })
+        return
+      }
+      if (refundTarget === "supplemental" && amountNum > supplementalRemainingRefundable) {
+        toast({ title: "Refund amount exceeds supplemental refundable amount", variant: "destructive" })
+        return
+      }
     }
 
     try {
       setRefundLoading(true)
       await ordersApi.refundOrder(order.id, {
         amount: isRefundable ? refundAmount : undefined,
+        refund_target: refundTarget,
         reason: refundReason,
         reason_description: refundReasonDescription,
         notes: refundNotes,
       })
       setShowRefundDialog(false)
       setRefundAmount("")
+      setRefundTarget("auto")
       setRefundReasonDescription("")
       setRefundNotes("")
       toast({
@@ -559,6 +588,29 @@ export function OrderDetailsSheet({
                 <p className="text-xs text-muted-foreground">
                   Remaining refundable: ${remainingRefundable.toFixed(2)}
                 </p>
+              </div>
+            )}
+            {isRefundable && supplementalRemainingRefundable > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Refund Target</label>
+                <Select
+                  value={refundTarget}
+                  onValueChange={(value: "auto" | "base" | "supplemental") => setRefundTarget(value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select target" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto</SelectItem>
+                    <SelectItem value="base">Refund Base</SelectItem>
+                    <SelectItem value="supplemental">Refund Supplemental</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p>Base refundable: ${baseRemainingRefundable.toFixed(2)}</p>
+                  <p>Supplemental refundable: ${supplementalRemainingRefundable.toFixed(2)}</p>
+                  <p>Total remaining refundable: ${remainingRefundable.toFixed(2)}</p>
+                </div>
               </div>
             )}
 

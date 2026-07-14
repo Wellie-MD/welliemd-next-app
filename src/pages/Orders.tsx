@@ -1,16 +1,21 @@
-import { useState, useMemo, useCallback, useEffect } from "react"
+import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { DataTable } from "@/components/ui/data-table"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { TrendingUp, Grid3X3, Eye } from "lucide-react"
-import { DateRange } from "react-day-picker"
-import { ordersApi, Order } from "@/api/ordersApi"
+import { ordersApi, Order, FilterOption } from "@/api/ordersApi"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { exportToCSV } from "@/utils/exportUtils"
+import { ChevronLeft, ChevronRight, Eye, RotateCcw, Calendar, Download, Search, X } from "lucide-react"
+import { DateRange } from "react-day-picker"
+import { format } from "date-fns"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar as CalendarUI } from "@/components/ui/calendar"
 
-/** Match admin portal order status filter pills → API `status` param */
-const ORDER_STATUS_FILTER_LABELS = [
+const ORDER_STATUSES = [
   "All",
   "Created",
   "Payment Pending",
@@ -26,10 +31,15 @@ const ORDER_STATUS_FILTER_LABELS = [
   "Billing Pending",
   "Rx Sent",
   "Shipped",
+  "In Transit",
+  "Out for Delivery",
+  "Delivered",
+  "Delivery Failed",
   "Canceled",
 ] as const
 
 const ORDER_STATUS_TO_API: Record<string, string> = {
+  All: "",
   Created: "created",
   "Payment Pending": "payment_pending",
   Processing: "processing",
@@ -44,79 +54,14 @@ const ORDER_STATUS_TO_API: Record<string, string> = {
   "Billing Pending": "billing_pending",
   "Rx Sent": "rx_sent",
   Shipped: "shipped",
+  "In Transit": "in_transit",
+  "Out for Delivery": "out_for_delivery",
+  Delivered: "delivered",
+  "Delivery Failed": "delivery_failed",
   Canceled: "canceled",
 }
 
-const PAYMENT_STATUS_FILTER_LABELS = ["All", "Paid", "Pending", "Failed"] as const
-
-const orderColumns = [
-  { key: "order_id", label: "Order #", minWidth: "120px", className: "font-medium" },
-  { key: "patient_name", label: "Patient", minWidth: "160px", className: "max-w-[220px]" },
-  { key: "email", label: "Email", minWidth: "200px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell max-w-[220px]" },
-  { key: "phone", label: "Phone", minWidth: "130px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell max-w-[140px]" },
-  { key: "pharmacy_display", label: "Pharmacy", minWidth: "150px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell max-w-[180px]" },
-  { key: "orderDate", label: "Order Date", minWidth: "120px" },
-  { key: "datePrescribed", label: "Date Prescribed", minWidth: "130px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
-  { key: "paymentDate", label: "Payment Date", minWidth: "120px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
-  { key: "mrn", label: "MRN#", minWidth: "120px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell" },
-  { key: "paymentStatus", label: "Payment Status", minWidth: "130px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
-  { key: "visitStatus", label: "Visit Status", minWidth: "120px", headerClassName: "hidden lg:table-cell", className: "hidden lg:table-cell" },
-  { key: "orderStatus", label: "Order Status", minWidth: "150px" },
-  { key: "orderTotal", label: "Order Total", minWidth: "110px" },
-  { key: "tracking_number", label: "Tracking #", minWidth: "140px", headerClassName: "hidden xl:table-cell", className: "hidden xl:table-cell max-w-[160px]" },
-  { key: "actions", label: "Actions", minWidth: "110px", render: (_: any, row: any) => null }
-]
-
-// Backend order status choices for row editor (value, label) — aligned with Order.ORDER_STATUS_CHOICES
-const ORDER_STATUS_CHOICES = [
-  { value: "created", label: "Created" },
-  { value: "payment_pending", label: "Payment Pending" },
-  { value: "processing", label: "Processing" },
-  { value: "visit_failed", label: "Visit Failed" },
-  { value: "visit_pending", label: "Visit Pending" },
-  { value: "consult_scheduled", label: "Consult Scheduled" },
-  { value: "consult_rescheduled", label: "Consult Rescheduled" },
-  { value: "consult_canceled", label: "Consult Canceled" },
-  { value: "no_show", label: "No Show" },
-  { value: "referred", label: "Referred" },
-  { value: "prescribed", label: "Prescribed" },
-  { value: "billing_pending", label: "Billing Pending" },
-  { value: "rx_sent", label: "Rx Sent" },
-  { value: "shipped", label: "Shipped" },
-  { value: "canceled", label: "Canceled" },
-]
-
-// Helper function to parse date strings. Handles ISO timestamps and DD/MM/YYYY.
-const parseDate = (dateString?: string | null) => {
-  if (!dateString) return new Date()
-
-  // If it's an ISO-like string with a 'T' or '-' assume Date can parse it
-  if (dateString.includes('T') || /\d{4}-\d{2}-\d{2}/.test(dateString)) {
-    const d = new Date(dateString)
-    if (!isNaN(d.getTime())) return d
-  }
-
-  // Fallback: try DD/MM/YYYY format
-  const parts = dateString.split('/')
-  if (parts.length === 3) {
-    const [day, month, year] = parts
-    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
-  }
-
-  // Final fallback
-  return new Date(dateString)
-}
-
-const formatDateLabel = (dateString?: string | null) => {
-  if (!dateString) return "-"
-  const date = parseDate(dateString)
-  if (isNaN(date.getTime())) return "-"
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-  })
-}
+const PAYMENT_STATUSES = ["All", "Paid", "Pending", "Failed", "Refunded"]
 
 const parseMoney = (value: unknown): number | null => {
   if (value === null || value === undefined || value === "") return null
@@ -124,473 +69,457 @@ const parseMoney = (value: unknown): number | null => {
   return Number.isFinite(n) ? n : null
 }
 
-const titleCaseStatus = (value?: string) => {
-  if (!value) return "Processing"
-  return value
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase())
+const formatMoney = (value: unknown) => {
+  const amount = parseMoney(value)
+  if (amount == null) return "0.00"
+  return `$${amount.toFixed(2)}`
 }
 
+const formatDate = (dateString?: string | null) => {
+  if (!dateString) return "-"
+  const d = new Date(dateString)
+  if (isNaN(d.getTime())) return "-"
+  return d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })
+}
+
+const formatStatus = (value?: string | null) => {
+  if (!value) return "-"
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
+const statusBadgeClass = (s: string) => {
+  const lower = s.toLowerCase().replace(/_/g, " ")
+  if (["prescribed", "shipped", "rx sent"].includes(lower)) return "bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200 border-green-300 dark:border-green-800"
+  if (["payment pending", "billing pending", "pending", "visit pending", "consult scheduled", "consult rescheduled", "processing"].includes(lower)) return "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-800"
+  return "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600"
+}
+
+const columns = [
+  { key: "order_number", label: "Order #", minWidth: "140px" },
+  { key: "patient_name", label: "Patient Name", minWidth: "160px" },
+  { key: "patient_email", label: "Patient Email", minWidth: "200px" },
+  { key: "patient_phone", label: "Patient Phone", minWidth: "140px" },
+  { key: "product_name", label: "Product Name", minWidth: "220px" },
+  { key: "pharmacy_name", label: "Pharmacy Name", minWidth: "160px" },
+  { key: "order_date", label: "Order Date", minWidth: "120px" },
+  { key: "amount", label: "Order Amount", minWidth: "120px" },
+  { key: "status", label: "Order Status", minWidth: "140px" },
+  { key: "actions", label: "Actions", minWidth: "60px" },
+]
 
 export default function Orders() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
-  const [activePaymentStatusFilter, setActivePaymentStatusFilter] = useState("All")
-  const [activeOrderStatusFilter, setActiveOrderStatusFilter] = useState("All")
-  const [date, setDate] = useState<DateRange | undefined>()
-  /** Remount DataTable so toolbar search input clears when filters reset */
-  const [dataTableKey, setDataTableKey] = useState(0)
+  const navigate = useNavigate()
+
   const [orders, setOrders] = useState<Order[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
-  const [isLoadingOrders, setIsLoadingOrders] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [editedStatuses, setEditedStatuses] = useState<Record<string, string>>({})
-  const [editedTrackingNumbers, setEditedTrackingNumbers] = useState<Record<string, string>>({})
-  const [savingId, setSavingId] = useState<string | null>(null)
 
+  const [orderStatus, setOrderStatus] = useState("All")
+  const [categoryId, setCategoryId] = useState("all")
+  const [pharmacyId, setPharmacyId] = useState("all")
+  const [paymentStatus, setPaymentStatus] = useState("All")
+  const [search, setSearch] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [dateRange, setDateRange] = useState<DateRange | undefined>()
 
+  const [categories, setCategories] = useState<FilterOption[]>([])
+  const [pharmacies, setPharmacies] = useState<FilterOption[]>([])
+  const filterOptionsLoadedRef = useRef(false)
 
-
-  // Order Details Sheet state
-  const navigate = useNavigate()
+  const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm.trim())
-    }, 350)
+    const timeout = setTimeout(() => setDebouncedSearch(search.trim()), 350)
     return () => clearTimeout(timeout)
-  }, [searchTerm])
+  }, [search])
 
-  const filteredOrders = useMemo(() => orders, [orders])
+  const hasActiveFilters = orderStatus !== "All" || categoryId !== "all" || pharmacyId !== "all" || paymentStatus !== "All" || debouncedSearch || dateRange?.from || dateRange?.to
 
-  // Same pill layout as admin portal: Order Status group, then Payment Status group
-  const filters = useMemo(
-    () => [
-      ...ORDER_STATUS_FILTER_LABELS.map((status) => ({
-        key: `order-${status}`,
-        label: status === "All" ? "Order Status" : status,
-        type: "button" as const,
-        value: activeOrderStatusFilter === status ? status : undefined,
-        onClick: () => setActiveOrderStatusFilter(status),
-      })),
-      ...PAYMENT_STATUS_FILTER_LABELS.map((status) => ({
-        key: `payment-${status}`,
-        label: status === "All" ? "Payment Status" : status,
-        type: "button" as const,
-        value: activePaymentStatusFilter === status ? status : undefined,
-        onClick: () => setActivePaymentStatusFilter(status),
-      })),
-    ],
-    [activeOrderStatusFilter, activePaymentStatusFilter]
-  )
-
-  const handleResetFilters = useCallback(() => {
-    setActivePaymentStatusFilter("All")
-    setActiveOrderStatusFilter("All")
-    setDate(undefined)
-    setSearchTerm("")
-    setDebouncedSearchTerm("")
-    setCurrentPage(1)
-    setDataTableKey((k) => k + 1)
-  }, [])
-
-  const normalizePaymentStatus = (status: string) => {
-    if (status === "All") return undefined
-    return status.toLowerCase()
-  }
+  const displayOrders = useMemo(() => orders.map((o) => ({
+    ...o,
+    order_number: o.order_id || o.display_id || "-",
+    patient_name: o.patient?.full_name || (o as any).patient_name || o.name || o.email || "-",
+    patient_email: (o as any).patient_email || o.email || "-",
+    patient_phone: (o as any).patient_phone || o.phone || "-",
+    product_name: o.product_name || "-",
+    pharmacy_name: o.pharmacy_name || o.pharmacy_display || "-",
+    order_date: o.created_at,
+    amount: o.pricing?.grand_total || o.grand_total || o.payable_amount || o.amount || "0.00",
+    status: o.status || "created",
+  })), [orders])
 
   const loadOrders = useCallback(async () => {
-    setIsLoadingOrders(true)
+    setIsLoading(true)
     setError(null)
     try {
+      if (!filterOptionsLoadedRef.current) {
+        const [cats, pharms] = await Promise.all([
+          ordersApi.fetchCategories(),
+          ordersApi.fetchPharmacies(),
+        ])
+        if (cats.length > 0) setCategories(cats)
+        if (pharms.length > 0) setPharmacies(pharms)
+        if (cats.length > 0 || pharms.length > 0) filterOptionsLoadedRef.current = true
+      }
+
       const params: Record<string, string | number> = {
         page: currentPage,
         page_size: pageSize,
       }
-      if (debouncedSearchTerm) params.search = debouncedSearchTerm
-      if (activeOrderStatusFilter !== "All") {
-        const apiStatus = ORDER_STATUS_TO_API[activeOrderStatusFilter]
+      if (debouncedSearch) params.search = debouncedSearch
+      if (orderStatus !== "All") {
+        const apiStatus = ORDER_STATUS_TO_API[orderStatus]
         if (apiStatus) params.status = apiStatus
       }
-      const paymentStatus = normalizePaymentStatus(activePaymentStatusFilter)
-      // Backend maps captured/approved → "paid" (same as admin dashboard), not raw NMI status
-      if (paymentStatus) params.payment_status = paymentStatus
-      if (date?.from) params["created_at__gte"] = date.from.toISOString().slice(0, 10)
-      if (date?.to) params["created_at__lte"] = date.to.toISOString().slice(0, 10)
+      if (categoryId !== "all") params["product__category__id"] = categoryId
+      if (pharmacyId !== "all") params["pharmacy__id"] = pharmacyId
+      if (paymentStatus !== "All") params.payment_status = paymentStatus.toLowerCase()
+      if (dateRange?.from) {
+        const startDate = new Date(dateRange.from)
+        startDate.setHours(0, 0, 0, 0)
+        params["created_at__gte"] = startDate.toISOString()
+
+        const endDate = dateRange.to ? new Date(dateRange.to) : new Date(dateRange.from)
+        endDate.setHours(23, 59, 59, 999)
+        params["created_at__lte"] = endDate.toISOString()
+      }
 
       const data = await ordersApi.fetchOrders(params)
-      const apiOrders = data.results || []
-      const mergedOrders = [...apiOrders]
-
-
-      setOrders(mergedOrders)
-      setTotalCount(data.count ?? mergedOrders.length)
+      setOrders(data.results)
+      setTotalCount(data.count ?? data.results.length)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load orders')
-      console.error('Error loading orders:', err)
+      setError(err instanceof Error ? err.message : "Failed to load orders")
     } finally {
-      setIsLoadingOrders(false)
+      setIsLoading(false)
     }
-  }, [
-    currentPage,
-    pageSize,
-    debouncedSearchTerm,
-    activeOrderStatusFilter,
-    activePaymentStatusFilter,
-    date,
-  ])
+  }, [currentPage, pageSize, debouncedSearch, orderStatus, categoryId, pharmacyId, paymentStatus, dateRange])
 
   useEffect(() => {
     loadOrders()
   }, [loadOrders])
 
-  useEffect(() => {
+
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const showingStart = totalCount ? (currentPage - 1) * pageSize + 1 : 0
+  const showingEnd = Math.min(currentPage * pageSize, totalCount)
+
+  const resetFilters = () => {
+    setOrderStatus("All")
+    setCategoryId("all")
+    setPharmacyId("all")
+    setPaymentStatus("All")
+    setSearch("")
+    setDebouncedSearch("")
+    setDateRange(undefined)
     setCurrentPage(1)
-  }, [debouncedSearchTerm, activePaymentStatusFilter, activeOrderStatusFilter, date])
-
-  const handleRefresh = useCallback(() => {
-    loadOrders()
-  }, [loadOrders])
-
-  const handleStatusChange = (id: string, value: string) => {
-    setEditedStatuses(prev => ({ ...prev, [id]: value }))
   }
 
-  const handleTrackingNumberChange = (id: string, value: string) => {
-    setEditedTrackingNumbers(prev => ({ ...prev, [id]: value }))
+  const handleExport = () => {
+    exportToCSV(displayOrders, columns.map((c) => ({ key: c.key, label: c.label })), "orders_export")
   }
 
-  const handleSaveOrder = async (id: string) => {
-    const newStatus = editedStatuses[id]
-    const newTrackingNumber = editedTrackingNumbers[id]
-
-    if (newStatus == null && newTrackingNumber == null) return
-
-    // Find the current order to get existing tracking number
-    const currentOrder = orders.find(o => o.id === id)
-    const existingTrackingNumber = currentOrder?.tracking_number
-
-    // Validate: tracking number required when setting status to 'shipped'
-    if (newStatus === 'shipped') {
-      const trackingToUse = newTrackingNumber ?? existingTrackingNumber
-      if (!trackingToUse || !trackingToUse.trim()) {
-        setError('Tracking number is required when setting status to Shipped. Please enter a tracking number first.')
-        return
-      }
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+      e.preventDefault()
+      searchRef.current?.focus()
     }
-
-    setSavingId(id)
-    setError(null)
-    try {
-      const payload: Partial<Order> = {}
-      if (newStatus != null) payload.status = newStatus
-      if (newTrackingNumber != null) payload.tracking_number = newTrackingNumber
-
-      await ordersApi.updateOrder(id, payload)
-      // clear local edited values for this row
-      setEditedStatuses(prev => {
-        const copy = { ...prev }
-        delete copy[id]
-        return copy
-      })
-      setEditedTrackingNumbers(prev => {
-        const copy = { ...prev }
-        delete copy[id]
-        return copy
-      })
-      await loadOrders()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update order')
-      console.error('Update order error:', err)
-    } finally {
-      setSavingId(null)
-    }
-  }
-
-
-  const handleExport = useCallback(() => {
-    exportToCSV(filteredOrders, orderColumns, 'orders_export')
-  }, [filteredOrders])
-
-  const handleUpgrade = () => {
-    console.log("Upgrade clicked")
-    // Implement upgrade logic
-  }
-
-  const handleGridView = () => {
-    console.log("Grid view clicked")
-    // Implement grid view toggle logic
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Rx Orders</h1>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-            <span>Orders</span>
-            <span>›</span>
-            <span>Rx Orders</span>
+    <div className="flex flex-col min-h-screen bg-background" onKeyDown={handleKeyDown}>
+      <div className="flex-1 p-6 lg:p-8">
+        <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-foreground">Orders</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Orders <span className="text-muted-foreground mx-1">›</span> <span className="text-foreground font-medium">All Orders</span>
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-muted-foreground bg-card border border-border rounded-lg hover:bg-accent"
+                >
+                  <Calendar className="h-4 w-4" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>{format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}</>
+                    ) : (
+                      format(dateRange.from, "LLL dd, y")
+                    )
+                  ) : (
+                    "Date range"
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <CalendarUI
+                  mode="range"
+                  defaultMonth={dateRange?.from}
+                  selected={dateRange}
+                  onSelect={(range) => { setDateRange(range); setCurrentPage(1) }}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+            <button
+              type="button"
+              onClick={handleExport}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-muted-foreground bg-card border border-border rounded-lg hover:bg-accent"
+            >
+              <Download className="h-4 w-4" /> Export
+            </button>
+            <button
+              type="button"
+              onClick={loadOrders}
+              className="inline-flex items-center justify-center w-9 h-9 text-sm font-semibold text-muted-foreground bg-card border border-border rounded-lg hover:bg-accent"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
           </div>
         </div>
-        {/* Right side buttons that were originally in the top row */}
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2" onClick={handleUpgrade}>
-            <TrendingUp className="h-4 w-4" />
-            Upgrade
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleGridView}>
-            <Grid3X3 className="h-4 w-4" />
-          </Button>
+
+        <div className="mb-5">
+          <div className="flex gap-4 items-end flex-wrap">
+            <div className="flex flex-col gap-1.5 min-w-[150px]">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Order Status</label>
+              <Select value={orderStatus} onValueChange={(v) => { setOrderStatus(v); setCurrentPage(1) }}>
+                <SelectTrigger className="h-10 bg-card border-border text-sm">
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All Statuses</SelectItem>
+                  {ORDER_STATUSES.filter((s) => s !== "All").map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5 min-w-[150px]">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Product Category</label>
+              <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setCurrentPage(1) }}>
+                <SelectTrigger className="h-10 bg-card border-border text-sm">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5 min-w-[150px]">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pharmacy</label>
+              <Select value={pharmacyId} onValueChange={(v) => { setPharmacyId(v); setCurrentPage(1) }}>
+                <SelectTrigger className="h-10 bg-card border-border text-sm">
+                  <SelectValue placeholder="All Pharmacies" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Pharmacies</SelectItem>
+                  {pharmacies.map((p) => (
+                    <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5 min-w-[150px]">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Payment Status</label>
+              <Select value={paymentStatus} onValueChange={(v) => { setPaymentStatus(v); setCurrentPage(1) }}>
+                <SelectTrigger className="h-10 bg-card border-border text-sm">
+                  <SelectValue placeholder="All Payment Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All Payment Statuses</SelectItem>
+                  {PAYMENT_STATUSES.filter((s) => s !== "All").map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5 flex-1 min-w-[220px]">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Search</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  ref={searchRef}
+                  type="text"
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); setCurrentPage(1) }}
+                  placeholder="Search order #, name, email, or phone"
+                  className="w-full border border-border rounded-lg bg-card text-sm pl-9 pr-3.5 py-2.5 focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => { setSearch(""); setDebouncedSearch(""); setCurrentPage(1) }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={resetFilters}
+              className={`text-sm font-semibold text-primary hover:underline pb-2.5 ${hasActiveFilters ? "" : "invisible"}`}
+            >
+              Reset filters
+            </button>
+
+            <span className="text-sm text-muted-foreground whitespace-nowrap pb-2.5">
+              {totalCount > 0 ? `Showing ${showingStart}-${showingEnd} of ${totalCount}` : `Showing 0 of ${totalCount}`}
+            </span>
+
+
+          </div>
+        </div>
+
+        {error && (
+          <div className="text-sm text-destructive mb-4">{error}</div>
+        )}
+
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1000px]">
+              <thead>
+                <tr>
+                  {columns.map((col) => (
+                    <th
+                      key={col.key}
+                      style={{ minWidth: col.minWidth }}
+                      className="text-left text-[11px] font-bold uppercase tracking-wider text-muted-foreground px-4 py-3.5 border-b border-border bg-card whitespace-nowrap"
+                    >
+                      {col.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={columns.length} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                      Loading...
+                    </td>
+                  </tr>
+                ) : displayOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={columns.length}>
+                      <div className="py-12 text-center text-sm text-muted-foreground">
+                        <div className="font-semibold text-foreground mb-1">No orders match these filters.</div>
+                        Try clearing a filter or resetting.
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  displayOrders.map((row) => (
+                    <tr key={row.id} className="hover:bg-accent/50 border-b border-border last:border-b-0">
+                      <td className="px-4 py-3.5">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/dashboard/orders/details/${row.id}`)}
+                          className="text-primary font-semibold text-sm hover:underline text-left"
+                        >
+                          {row.order_number}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const pid = row.patient?.id
+                            if (pid) navigate(`/dashboard/patients/${pid}`)
+                          }}
+                          className="text-primary font-semibold text-sm hover:underline text-left whitespace-nowrap"
+                        >
+                          {row.patient_name}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-muted-foreground">{row.patient_email}</td>
+                      <td className="px-4 py-3.5 text-sm text-muted-foreground">{row.patient_phone}</td>
+                      <td className="px-4 py-3.5 text-sm text-foreground max-w-[220px]">{row.product_name}</td>
+                      <td className="px-4 py-3.5 text-sm text-muted-foreground">{row.pharmacy_name}</td>
+                      <td className="px-4 py-3.5 text-sm text-muted-foreground whitespace-nowrap">{formatDate(row.order_date)}</td>
+                      <td className="px-4 py-3.5 text-sm font-semibold text-foreground whitespace-nowrap">{formatMoney(row.amount)}</td>
+                      <td className="px-4 py-3.5">
+                        <span
+                          className={`inline-flex items-center border rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap ${statusBadgeClass(row.status)}`}
+                        >
+                          {row.status_display || formatStatus(row.status)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/dashboard/orders/details/${row.id}`)}
+                          className="text-muted-foreground hover:text-primary transition-colors"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {!isLoading && displayOrders.length > 0 && (
+            <div className="flex items-center justify-between flex-wrap gap-3 px-4 py-3.5 border-t border-border text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <span>Rows per page:</span>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(v) => { setPageSize(Number(v)); setCurrentPage(1) }}
+                >
+                  <SelectTrigger className="h-8 w-[70px] bg-card border-border text-sm">
+                    <SelectValue placeholder="20" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2 text-foreground font-medium">
+                <span className="text-muted-foreground font-normal">Page {currentPage} of {totalPages}</span>
+                <button
+                  type="button"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                  className="w-8 h-8 border border-border rounded-lg bg-card text-muted-foreground flex items-center justify-center hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  className="w-8 h-8 border border-border rounded-lg bg-card text-muted-foreground flex items-center justify-center hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
-
-      {error && (
-        <div className="text-sm text-red-600">{error}</div>
-      )}
-
-
-      {(
-        <DataTable
-          key={dataTableKey}
-          data={filteredOrders.map(o => {
-            const paymentSettlementAmount = (o as Order & { payment_settlement_amount?: string | number | null }).payment_settlement_amount
-            const settlementState = String((o as Order & { payment_settlement_state?: string | null }).payment_settlement_state || "").toLowerCase()
-            const settlementBasis = String((o as Order & { payment_settlement_basis?: string | null }).payment_settlement_basis || "").toLowerCase()
-            const amountSource = String((o as Order & { chargeable_amount_source?: string | null }).chargeable_amount_source || "").toLowerCase()
-            const hasSettlementAmount = paymentSettlementAmount != null && paymentSettlementAmount !== ""
-            const shouldUsePrescribedAmount =
-              hasSettlementAmount &&
-              (
-                settlementState === "captured" ||
-                settlementBasis === "prescribed" ||
-                amountSource === "prescribed_medicine"
-              )
-
-            return {
-              ...o,
-              patient_name: o.patient?.full_name || o.name || o.email || '-',
-              orderTotal: shouldUsePrescribedAmount
-                ? paymentSettlementAmount
-                : (o.pricing?.grand_total || o.grand_total || o.payable_amount || o.orderTotal || o.amount || '0.00'),
-            }
-          })}
-          columns={orderColumns.map(col => {
-            // Canonical order number (matches invoice/admin priority).
-            if (col.key === 'order_id') {
-              return {
-                ...col,
-                render: (_: any, row: any) => {
-                  const detailId = row.id
-                  const orderLabel = row.order_id ?? row.display_id ?? '—'
-                  if (!detailId) {
-                    return <span className="text-sm font-medium">{orderLabel}</span>
-                  }
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/dashboard/orders/details/${detailId}`)}
-                      className="text-primary hover:underline font-medium text-left"
-                    >
-                      {orderLabel}
-                    </button>
-                  )
-                },
-              }
-            }
-
-            // Make the patient column clickable to open patient detail page
-            if (col.key === 'patient_name') {
-              return {
-                ...col,
-                render: (_: any, row: any) => {
-                  const patientId = row.patient?.id
-                  if (!patientId) {
-                    return <span className="text-sm font-medium">{row.patient_name || '-'}</span>
-                  }
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/dashboard/patients/${patientId}`)}
-                      className="text-primary hover:underline font-medium text-left"
-                    >
-                      {row.patient_name || '-'}
-                    </button>
-                  )
-                },
-              }
-            }
-
-            if (col.key === 'actions') {
-              return {
-                ...col,
-                render: (_: any, row: any) => {
-                  const detailId = row.id
-                  return (
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => detailId && navigate(`/dashboard/orders/details/${detailId}`)}
-                        disabled={!detailId}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleSaveOrder(row.id)}
-                        disabled={
-                          savingId === row.id ||
-                          (!(editedStatuses[row.id] && editedStatuses[row.id] !== (row.orderStatus || '')) &&
-                            !(editedTrackingNumbers[row.id] !== undefined && editedTrackingNumbers[row.id] !== (row.tracking_number || '')))
-                        }
-                      >
-                        {savingId === row.id ? 'Saving...' : 'Save'}
-                      </Button>
-                    </div>
-                  )
-                },
-              }
-            }
-
-            if (['orderDate', 'datePrescribed', 'paymentDate'].includes(col.key)) {
-              return {
-                ...col,
-                render: (_: any, row: any) => formatDateLabel(row[col.key]),
-              }
-            }
-
-            if (col.key === 'orderStatus') {
-              return {
-                ...col,
-                render: (_: any, row: any) => {
-                  const currentStatus = row.orderStatus ?? 'created'
-                  const isLocked = currentStatus === 'shipped' || currentStatus === 'canceled'
-                  const isPrescribedStatus = String(currentStatus || "").toLowerCase() === "prescribed"
-                  const recoveryState = String(row.payment_recovery_state || "").toLowerCase()
-                  const remaining = parseMoney(row.remaining_supplemental_amount)
-                  const hasRecoveryPending =
-                    isPrescribedStatus &&
-                    (
-                      recoveryState === "recovery_pending" ||
-                      (remaining != null && remaining > 0)
-                    )
-
-                  return (
-                    <div className="relative space-y-1">
-                      <Select
-                        value={editedStatuses[row.id] ?? currentStatus}
-                        onValueChange={(v) => handleStatusChange(row.id, v)}
-                        disabled={isLocked}
-                      >
-                        <SelectTrigger className={`w-44 ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ORDER_STATUS_CHOICES.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {hasRecoveryPending ? (
-                        <Badge className="bg-amber-100 text-amber-700 border border-amber-200 hover:bg-amber-100">
-                          Recovery Pending
-                        </Badge>
-                      ) : null}
-                    </div>
-                  )
-                },
-              }
-            }
-
-            if (col.key === 'orderTotal') {
-              return {
-                ...col,
-                render: (_: any, row: any) => {
-                  const remaining = parseMoney(row.remaining_supplemental_amount)
-                  const hasRemaining = remaining != null && remaining > 0
-                  return (
-                    <div className="space-y-1">
-                      <div>{row.orderTotal || '0.00'}</div>
-                      {hasRemaining ? (
-                        <div className="text-[11px] text-amber-700">Remaining ${remaining.toFixed(2)}</div>
-                      ) : null}
-                    </div>
-                  )
-                },
-              }
-            }
-
-
-            if (col.key === 'tracking_number') {
-              return {
-                ...col,
-                render: (_: any, row: any) => {
-                  const originalStatus = row.orderStatus ?? 'created'
-                  const editedStatus = editedStatuses[row.id]
-                  const isAlreadyShipped = originalStatus === 'shipped'  // Already shipped in DB
-                  const isChangingToShipped = editedStatus === 'shipped' && !isAlreadyShipped  // User is changing TO shipped
-                  const showTrackingInput = isAlreadyShipped || isChangingToShipped
-
-                  if (!showTrackingInput) {
-                    return <span className="text-sm text-muted-foreground italic">N/A</span>
-                  }
-
-                  // Already shipped - show as read-only
-                  if (isAlreadyShipped) {
-                    return (
-                      <span className="text-sm font-medium">{row.tracking_number || '-'}</span>
-                    )
-                  }
-
-                  // Changing to shipped - show editable input
-                  return (
-                    <input
-                      type="text"
-                      className="w-32 px-2 py-1 text-sm border rounded"
-                      placeholder="Tracking # (required)"
-                      value={editedTrackingNumbers[row.id] ?? (row.tracking_number ?? '')}
-                      onChange={(e) => handleTrackingNumberChange(row.id, e.target.value)}
-                    />
-                  )
-                }
-              }
-            }
-
-
-            return col
-          })}
-          searchPlaceholder="Search by Order ID, Order#, affiliate order #, MRN#, patient name, phone number"
-          showDatePicker={true}
-          showExport={true}
-          showResetFilters={true}
-          filters={filters}
-          dateRange={date}
-          onDateRangeChange={setDate}
-          onSearch={setSearchTerm}
-          onResetFilters={handleResetFilters}
-          onExport={handleExport}
-          onRefresh={handleRefresh}
-          pagination={{
-            currentPage,
-            totalPages: Math.max(1, Math.ceil(totalCount / pageSize)),
-            pageSize,
-            totalCount,
-            onPageChange: setCurrentPage,
-            onPageSizeChange: (nextSize) => {
-              setPageSize(nextSize)
-              setCurrentPage(1)
-            },
-          }}
-          loading={isLoadingOrders || isSaving}
-        />
-      )}
     </div>
   )
 }
