@@ -32,6 +32,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
+import { IntercomInlineBanner } from "@/features/announcements/IntercomBanners";
 import { fetchOrders } from "@/api/ordersApi";
 import { fetchDashboardCharts } from "@/api/dashboardApi";
 import { useDashboardMetrics } from "@/hooks/useDashboardMetrics";
@@ -345,6 +346,8 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 space-y-4 w-full min-w-0 overflow-x-hidden">
+      <IntercomInlineBanner />
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center justify-between min-w-0">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-slate-100">Dashboard</h1>

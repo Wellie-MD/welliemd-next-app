@@ -200,9 +200,14 @@ export default function PatientDetailPage() {
     }
   }, [patient?.id]);
 
-  const ordersById = useMemo(() => {
-    const map = new Map<string, Order>();
-    orders.forEach((order) => map.set(order.id, order));
+  const ordersByEpisode = useMemo(() => {
+    const map = new Map<string, Order[]>();
+    orders.forEach((order) => {
+      const epId = order.episode_id;
+      if (!epId) return;
+      if (!map.has(epId)) map.set(epId, []);
+      map.get(epId)!.push(order);
+    });
     return map;
   }, [orders]);
 
@@ -476,7 +481,7 @@ export default function PatientDetailPage() {
                         No treatment episodes found.
                       </div>
                     ) : episodes.map((episode) => {
-                      const currentOrder = episode.current_order_id ? ordersById.get(episode.current_order_id) : undefined;
+                      const episodeOrders = ordersByEpisode.get(episode.id) || [];
                       return (
                         <Card key={episode.id} className="overflow-hidden border-slate-200 shadow-sm">
                           <CardHeader className="border-b border-slate-100 bg-slate-50/80 pb-2">
@@ -515,31 +520,31 @@ export default function PatientDetailPage() {
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {currentOrder ? (
-                                    <tr className="bg-white hover:bg-slate-50">
+                                  {episodeOrders.length > 0 ? episodeOrders.map((order) => (
+                                    <tr key={order.id} className="bg-white hover:bg-slate-50 border-t border-slate-100">
                                       <td className="p-2">
                                         <Link
                                           className="font-medium text-blue-600 hover:underline"
-                                          to={`/dashboard/orders/details/${currentOrder.order_id || currentOrder.display_id || currentOrder.id}`}
+                                          to={`/dashboard/orders/details/${order.order_id || order.display_id || order.id}`}
                                         >
-                                          {currentOrder.order_id || currentOrder.display_id || currentOrder.id.slice(0, 8)}
+                                          {order.order_id || order.display_id || order.id.slice(0, 8)}
                                         </Link>
                                       </td>
-                                      <td className="p-2 text-slate-700">{currentOrder.product_name || "-"}</td>
-                                      <td className="p-2 font-semibold text-slate-900">{getCanonicalOrderAmount(currentOrder)}</td>
+                                      <td className="p-2 text-slate-700">{order.product_name || "-"}</td>
+                                      <td className="p-2 font-semibold text-slate-900">{getCanonicalOrderAmount(order)}</td>
                                       <td className="p-2">
-                                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize ${getOrderStatusTone(currentOrder.orderStatus || currentOrder.status)}`}>
-                                          {currentOrder.orderStatus || currentOrder.status || "-"}
+                                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize ${getOrderStatusTone(order.orderStatus || order.status)}`}>
+                                          {order.orderStatus || order.status || "-"}
                                         </span>
                                       </td>
                                       <td className="p-2 text-slate-700">
-                                        {currentOrder.orderDate ? new Date(currentOrder.orderDate).toLocaleDateString() : "-"}
+                                        {order.orderDate ? new Date(order.orderDate).toLocaleDateString() : "-"}
                                       </td>
                                     </tr>
-                                  ) : (
+                                  )) : (
                                     <tr>
                                       <td className="p-3 text-slate-500" colSpan={5}>
-                                        No contextual order linked.
+                                        No orders linked to this treatment.
                                       </td>
                                     </tr>
                                   )}
