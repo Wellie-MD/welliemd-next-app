@@ -43,7 +43,8 @@ function useDraftNumberField(committed: number | null, commit: (val: number | nu
     },
     onBlur: () => {
       isFocused.current = false;
-      if (draft !== committed) commit(draft);
+      const sanitized = draft !== null && draft < 0 ? 0 : draft;
+      if (sanitized !== committed) commit(sanitized);
     },
   };
 }
