@@ -21,7 +21,7 @@ const APPOINTMENT_STEPS: TimelineStep[] = [
 ];
 
 function currentRank(order: LabSubmission, steps: TimelineStep[], eventTexts: string[]) {
-  const value = String(order.stage || order.order_status || '').toLowerCase();
+  const value = String(order.stage || order.submission_status || '').toLowerCase();
   if (order.results_status === 'partial_results' || order.results_status === 'results_ready' || order.results_status === 'critical') return steps.length - 1;
   const stageIndex = steps.findIndex(step => value.includes(step.key) || (step.key === 'appointment' && value.includes('appointment')));
   const eventIndex = steps.reduce((highest, step, index) => (
