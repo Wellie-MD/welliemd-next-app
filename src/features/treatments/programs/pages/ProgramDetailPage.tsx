@@ -130,10 +130,19 @@ const getDefaultQuestionSection = (questions: ProgramQuestion[]) =>
   questions.find((question) => question.section)?.section ?? "Custom Questions";
 
 const isClientCreatedQuestion = (question: ProgramQuestion | null | undefined) =>
-  Boolean(question && (question.source === "client" || question.id.startsWith("program-question-")));
+  Boolean(
+    question &&
+      (question.source === "client" ||
+        question.is_client_custom === true ||
+        question.id.startsWith("program-question-")),
+  );
 
 const isLockedProgramQuestion = (question: ProgramQuestion | null | undefined) =>
-  !question || question.locked === true || !isClientCreatedQuestion(question);
+  !question ||
+  question.locked === true ||
+  question.is_read_only === true ||
+  question.can_be_modified === false ||
+  !isClientCreatedQuestion(question);
 
 const buildQuestionPreviewUrl = (program: Program, question: ProgramQuestion) => {
   const clientApiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://knysysapi.welliemd.com/api/v1";
