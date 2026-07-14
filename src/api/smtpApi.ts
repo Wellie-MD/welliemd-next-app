@@ -1,6 +1,7 @@
 import api from './axiosInstance';
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1/";
+const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api/v1/";
+const apiBaseUrl = rawApiBaseUrl.endsWith("/") ? rawApiBaseUrl : `${rawApiBaseUrl}/`;
 
 // --- Mailgun Domain API ---
 export interface MailgunDomain {
@@ -14,6 +15,25 @@ export interface MailgunDomainResponse {
   receiving_dns_records: any[];
   sending_dns_records: any[];
   [key: string]: any;
+}
+
+export type MailgunStatsRange = "today" | "week" | "month" | "all";
+
+export interface MailgunDomainStats {
+  domain: string;
+  range: MailgunStatsRange;
+  start_at: string | null;
+  end_at: string | null;
+  total_emails: number;
+  sent_successfully: number;
+  failed: number;
+  opened: number;
+  clicked: number;
+  success_rate: number;
+  open_rate: number;
+  click_rate: number;
+  last_used: string | null;
+  source: "mailgun" | "local";
 }
 
 export const createMailgunDomain = async (domain: MailgunDomain): Promise<MailgunDomainResponse> => {
@@ -43,6 +63,16 @@ export const createMailgunCredentials = async (domainName: string, login: string
 
 export const deleteMailgunCredentials = async (domainName: string, login: string): Promise<MailgunDomainResponse> => {
   const { data } = await api.delete(`${apiBaseUrl}mailgun-domains/${domainName}/credentials/${login}/`);
+  return data;
+};
+
+export const getMailgunDomainStats = async (
+  domainName: string,
+  range: MailgunStatsRange
+): Promise<MailgunDomainStats> => {
+  const { data } = await api.get(`${apiBaseUrl}mailgun-domains/${domainName}/stats/`, {
+    params: { range },
+  });
   return data;
 };
 
@@ -196,5 +226,6 @@ export const smtpApi = {
   verifyMailgunDomain,
   deleteMailgunDomain,
   createMailgunCredentials,
-  deleteMailgunCredentials
+  deleteMailgunCredentials,
+  getMailgunDomainStats
 };
