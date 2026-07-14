@@ -262,6 +262,11 @@ export default function LabAssignModal({
                           {c.blocking_reason}
                         </div>
                       )}
+                      {c.checked && c.submission_ready && !c.patient_price_configured && (
+                        <div className="mt-1 text-[10px] text-sky-700">
+                          Client pricing can be configured after Junction approval.
+                        </div>
+                      )}
                       {c.checked && usesPlatformAccounts && (
                         <div className="mt-2 rounded-md border border-sky-200 bg-sky-50 px-2 py-1.5 text-[10px] text-sky-800">
                           Junction routes orders through platform lab accounts for this assignment. No tenant lab account selection is required.
