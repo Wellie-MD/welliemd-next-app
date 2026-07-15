@@ -19,7 +19,8 @@ import {
   ChevronDown,
   ChevronRight,
   Archive,
-  ShieldCheck
+  ShieldCheck,
+  Activity,      // <- used for Sense insights
 } from "lucide-react"
 
 import {
@@ -84,6 +85,8 @@ const menuSections = [
 
       // ✅ NEW: Pharmacies top-level item
       { title: "Pharmacies", url: "/dashboard/pharmacies", icon: MapPin },
+
+      { title: "Sense insights", url: "/dashboard/tools/sense", icon: Activity },
 
       {
         title: "Products",
