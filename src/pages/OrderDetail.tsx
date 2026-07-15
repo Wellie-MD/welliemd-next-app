@@ -1063,32 +1063,34 @@ function OrderDetailInner() {
           }
         }
 
+        // Show unresolved product name on billing_pending events
+        if (evt.event_type === "status.billing_pending") {
+          const evtPayload = evt.payload || {} as any;
+          if (evtPayload.mapping_status === "unresolved" || evtPayload.decision === "unresolved") {
+            const rawName = evtPayload.prescribed_medication_name || "";
+            desc = rawName
+              ? `${desc}\nPrescribed: ${rawName} — catalog mapping unresolved.`.trim()
+              : `${desc}\nPrescription catalog mapping unresolved.`.trim()
+          }
+        }
+
         // Inject prescribed product into initial Prescribed event if missing
         if (evt.event_type === "status.prescribed") {
           if (!desc.includes("Prescribed: ")) {
-            let pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
+            const evtPayload = evt.payload || {} as any;
+            const mappingUnresolved = evtPayload.mapping_status === "unresolved" || evtPayload.decision === "unresolved";
 
-            // If there are revisions, the CURRENT product name might not be the INITIAL one.
-            // We can find the initial product from the FIRST rx_revision event.
-            const firstRxRevision = Array.isArray(order.activity_events)
-              ? order.activity_events.find((e: any) => e.event_type === "rx_revision")
-              : null;
+            if (mappingUnresolved) {
+              const rawName = evtPayload.prescribed_medication_name || "";
+              desc = rawName
+                ? `${desc}\nPrescribed: ${rawName} (mapping unresolved).`.trim()
+                : `${desc}\nPrescription mapping unresolved.`.trim()
+            } else {
+              let pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
 
-            if (firstRxRevision && firstRxRevision.description) {
-              const rxDesc = firstRxRevision.description;
-              const prevMatch = rxDesc.match(/Previously prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
-              if (prevMatch && prevMatch[1]) {
-                pName = prevMatch[1].trim();
-              } else if (rxDesc.includes("Prescribed: ")) {
-                const newMatch = rxDesc.match(/Prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
-                if (newMatch && newMatch[1]) {
-                  pName = newMatch[1].trim();
-                }
+              if (pName && pName.toLowerCase() !== "same med" && pName.toLowerCase() !== "same medicine" && pName !== "Unknown Product") {
+                desc = `${desc}\nPrescribed: ${pName}.`.trim()
               }
-            }
-
-            if (pName && pName.toLowerCase() !== "same med" && pName.toLowerCase() !== "same medicine" && pName !== "Unknown Product") {
-              desc = `${desc}\nPrescribed: ${pName}.`.trim()
             }
           }
 
@@ -1805,28 +1807,51 @@ function OrderDetailInner() {
                         {prescribedMedicineDisplayName}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center py-1.5 text-[13.5px]">
-                      <span className="text-slate-500 dark:text-slate-400">Product amount</span>
-                      <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(prescribedProductOriginalAmount)}</span>
-                    </div>
-                    {previewDiscountAmount > 0 && (
-                      <div className="flex justify-between items-center py-1.5 text-[13.5px]">
-                        <span className="text-slate-500 dark:text-slate-400">Discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}</span>
-                        <span className="font-semibold tabular-nums text-green-600 dark:text-green-400">−${previewDiscountAmount.toFixed(2)}</span>
-                      </div>
+                    {order.billing_pending_reason === "prescription_mapping_unresolved" ? (
+                      <>
+                        <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                          <span className="text-slate-500 dark:text-slate-400">Product amount</span>
+                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">—</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                          <span className="text-slate-500 dark:text-slate-400">Subtotal</span>
+                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">—</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                          <span className="text-slate-500 dark:text-slate-400">Shipping</span>
+                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">—</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1.5 text-[13.5px] border-t border-slate-100 dark:border-slate-800 mt-0.5">
+                          <span className="text-slate-900 dark:text-white font-bold">Prescribed total</span>
+                          <span className="text-slate-900 dark:text-white font-bold tabular-nums">—</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                          <span className="text-slate-500 dark:text-slate-400">Product amount</span>
+                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(prescribedProductOriginalAmount)}</span>
+                        </div>
+                        {previewDiscountAmount > 0 && (
+                          <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                            <span className="text-slate-500 dark:text-slate-400">Discount{appliedCouponCodes ? ` (${appliedCouponCodes})` : ""}</span>
+                            <span className="font-semibold tabular-nums text-green-600 dark:text-green-400">−${previewDiscountAmount.toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                          <span className="text-slate-500 dark:text-slate-400">Subtotal</span>
+                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${productSubtotalPrice}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1.5 text-[13.5px]">
+                          <span className="text-slate-500 dark:text-slate-400">Shipping</span>
+                          <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(previewShippingFee)}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1.5 text-[13.5px] border-t border-slate-100 dark:border-slate-800 mt-0.5">
+                          <span className="text-slate-900 dark:text-white font-bold">Prescribed total</span>
+                          <span className="text-slate-900 dark:text-white font-bold tabular-nums">${prescribedFinalDisplay ?? totalPrice}</span>
+                        </div>
+                      </>
                     )}
-                    <div className="flex justify-between items-center py-1.5 text-[13.5px]">
-                      <span className="text-slate-500 dark:text-slate-400">Subtotal</span>
-                      <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${productSubtotalPrice}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-1.5 text-[13.5px]">
-                      <span className="text-slate-500 dark:text-slate-400">Shipping</span>
-                      <span className="font-semibold tabular-nums text-slate-900 dark:text-white">${formatMoney(previewShippingFee)}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-1.5 text-[13.5px] border-t border-slate-100 dark:border-slate-800 mt-0.5">
-                      <span className="text-slate-900 dark:text-white font-bold">Prescribed total</span>
-                      <span className="text-slate-900 dark:text-white font-bold tabular-nums">${prescribedFinalDisplay ?? totalPrice}</span>
-                    </div>
                   </>
                 )}
               </div>
