@@ -33,6 +33,8 @@ export interface GroupedLabPanel {
   pdfAvailable?: boolean;
   standaloneOrderId?: string;
   appointmentDetails?: LabAppointmentDetails | null;
+  bookingUrl?: string | null;
+  requisitionAvailable?: boolean;
 }
 
 export type LabOrderView = import('../api/index').LabSubmission & {

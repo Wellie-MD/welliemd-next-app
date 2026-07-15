@@ -2,7 +2,7 @@
  * LabResultModal — patient lab results dialog.
  * Extracted from LabsPage to stay under 600 lines.
  */
-import { Download, TestTube } from 'lucide-react';
+import { CalendarDays, Download, TestTube } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { type GroupedLabPanel } from '../utils/index';
 import { formatDate, formatMoney } from '../utils/index';
@@ -13,9 +13,18 @@ interface Props {
   onClose: () => void;
   downloadingPdf: boolean;
   onDownloadPdf: (panel: GroupedLabPanel) => void;
+  onDownloadRequisition: (panel: GroupedLabPanel) => void;
+  onViewAppointment: (panel: GroupedLabPanel) => void;
 }
 
-export default function LabResultModal({ selectedPanel, onClose, downloadingPdf, onDownloadPdf }: Props) {
+export default function LabResultModal({
+  selectedPanel,
+  onClose,
+  downloadingPdf,
+  onDownloadPdf,
+  onDownloadRequisition,
+  onViewAppointment,
+}: Props) {
   return (
     <Dialog open={selectedPanel !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="km-billing-dialog km-lab-result-dialog" style={{ padding: 0 }}>
@@ -120,14 +129,27 @@ export default function LabResultModal({ selectedPanel, onClose, downloadingPdf,
               <p className="km-lab-result-disclaimer">
                 These results have also been shared with your ordering provider.
               </p>
-              {selectedPanel.pdfAvailable && <button
-                className="km-btn km-btn-primary"
-                style={{ width: '100%', marginTop: 16, justifyContent: 'center', minHeight: 42 }}
-                onClick={() => onDownloadPdf(selectedPanel)}
-                disabled={downloadingPdf}
-              >
-                <Download size={14} /> {downloadingPdf ? 'Downloading...' : `${selectedPanel.status === 'Partial Results' ? 'Download partial results' : 'Download results'} (PDF)`}
-              </button>}
+              <div className="km-lab-result-actions">
+                {(selectedPanel.bookingUrl || selectedPanel.appointmentDetails) && (
+                  <button className="km-btn km-btn-outline" onClick={() => onViewAppointment(selectedPanel)}>
+                    <CalendarDays size={14} /> View appointment
+                  </button>
+                )}
+                {selectedPanel.requisitionAvailable && selectedPanel.standaloneOrderId && (
+                  <button className="km-btn km-btn-outline" onClick={() => onDownloadRequisition(selectedPanel)}>
+                    <Download size={14} /> Download requisition
+                  </button>
+                )}
+                {selectedPanel.standaloneOrderId && (
+                  <button
+                    className="km-btn km-lab-action-primary"
+                    onClick={() => onDownloadPdf(selectedPanel)}
+                    disabled={downloadingPdf}
+                  >
+                    <Download size={14} /> {downloadingPdf ? 'Downloading...' : `${selectedPanel.status === 'Partial Results' ? 'Download partial results' : 'Download results'} (PDF)`}
+                  </button>
+                )}
+              </div>
             </div>
           );
         })()}

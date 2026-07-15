@@ -32,6 +32,7 @@ import LabResultCard from './components/LabResultCard';
 import LabStatusSummary from './components/LabStatusSummary';
 import LabResultsToolbar, { type ResultFilter, type ResultSort } from './components/LabResultsToolbar';
 import { panelFlaggedCount, panelReportedTimestamp } from './utils/resultPresentation';
+import { safeLabUrl } from './utils/urls';
 
 function EmptyBucket() {
   return <div style={{ fontSize: 12, color: 'var(--km-tm)', paddingBottom: 8 }}>None at the moment.</div>;
@@ -115,7 +116,9 @@ export default function LabsPage() {
       status: r.status === 'critical' ? 'Critical' : String(r.status || '').toLowerCase().includes('partial') ? 'Partial Results' : 'Results Ready',
       amount: r.amount || { amount: '0.00', currency: 'USD' },
       pdfAvailable: r.pdf_available ?? false,
-      appointmentDetails: r.appointment_details,
+      appointmentDetails: r.appointment_details ?? null,
+      bookingUrl: r.booking_url ?? null,
+      requisitionAvailable: r.requisition_available ?? false,
       biomarkers: (r.biomarkers || []).map((bm, idx) => ({
         id: `${r.order_id}-${idx}`,
         patient: '', patient_name: '', visit: null,
@@ -186,6 +189,11 @@ export default function LabsPage() {
     } as any));
     return [...standaloneMapped, ...labSubmissions];
   }, [standaloneSubmissions, labSubmissions]);
+
+  const submissionById = useMemo(
+    () => new Map(allSubmissions.map((submission) => [submission.id, submission])),
+    [allSubmissions],
+  );
 
   // ── search filter ────────────────────────────────────────────────────────
 
@@ -264,6 +272,20 @@ export default function LabsPage() {
     }
   };
 
+  const handleViewPanelAppointment = (panel: GroupedLabPanel) => {
+    const submission = panel.standaloneOrderId
+      ? submissionById.get(panel.standaloneOrderId)
+      : undefined;
+    if (submission) {
+      setSelectedPanel(null);
+      setBookingSubmission(submission);
+      return;
+    }
+
+    const appointmentUrl = safeLabUrl(panel.bookingUrl || panel.appointmentDetails?.view_url);
+    if (appointmentUrl) window.open(appointmentUrl, '_blank', 'noopener,noreferrer');
+  };
+
   // ── render ────────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -313,6 +335,11 @@ export default function LabsPage() {
                   key={panel.orderId}
                   panel={panel}
                   onOpen={() => setSelectedPanel(panel)}
+                  onDownloadResults={() => void handleDownloadPdf(panel)}
+                  onDownloadRequisition={() => {
+                    if (panel.standaloneOrderId) void handleDownloadRequisition(panel.standaloneOrderId);
+                  }}
+                  onViewAppointment={() => handleViewPanelAppointment(panel)}
                 />
               ))}
             </div>
@@ -325,6 +352,10 @@ export default function LabsPage() {
         onClose={() => setSelectedPanel(null)}
         downloadingPdf={downloadingPdf}
         onDownloadPdf={handleDownloadPdf}
+        onDownloadRequisition={(panel) => {
+          if (panel.standaloneOrderId) void handleDownloadRequisition(panel.standaloneOrderId);
+        }}
+        onViewAppointment={handleViewPanelAppointment}
       />
       <LabBookingModal
         submission={bookingSubmission}

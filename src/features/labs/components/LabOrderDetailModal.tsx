@@ -53,7 +53,7 @@ export default function LabOrderDetailModal({ order, onClose, onBookAppointment,
         {!hasResults && (
           <div className="km-lab-order-modal-footer">
             {hasBooking && (
-              <button type="button" className="km-btn km-btn-primary" onClick={onBookAppointment}>
+              <button type="button" className="km-btn km-lab-action-primary" onClick={onBookAppointment}>
                 {scheduled ? 'View appointment' : 'Book appointment'}
               </button>
             )}

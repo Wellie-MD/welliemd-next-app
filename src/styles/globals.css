@@ -1483,6 +1483,14 @@ body.light .km-nbtn {
   color: var(--km-gr);
 }
 
+.km-lab-result-card-container {
+  width: 100%;
+}
+
+.km-lab-result-card .km-oiph {
+  overflow-wrap: anywhere;
+}
+
 .km-lab-order-actions {
   min-width: 220px;
   flex-shrink: 0;
@@ -1500,6 +1508,62 @@ body.light .km-nbtn {
   padding: 5px 12px;
   font-size: 11px;
   white-space: nowrap;
+}
+
+.km-lab-action-primary {
+  border: 1px solid #171717;
+  background: #171717;
+  color: #fff;
+}
+
+.km-lab-action-primary:hover {
+  border-color: #2f2f2f;
+  background: #2f2f2f;
+}
+
+.km-lab-result-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.km-lab-result-actions .km-btn {
+  min-height: 40px;
+  justify-content: center;
+}
+
+.km-lab-result-actions .km-btn-primary {
+  flex: 1 1 210px;
+}
+
+.km-lab-result-actions .km-lab-action-primary {
+  flex: 1 1 210px;
+}
+
+/* Result cards keep their primary information readable at every card width. */
+.km-lab-result-card {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.km-lab-result-card .km-lab-order-actions {
+  order: 5;
+  flex: 0 0 calc(100% - 52px);
+  width: calc(100% - 52px);
+  min-width: 0;
+  margin-left: 52px;
+  margin-top: 2px;
+  text-align: left;
+}
+
+.km-lab-result-card .km-lab-order-action-row {
+  justify-content: flex-start;
+}
+
+.km-lab-result-card .km-lab-order-price-wrap {
+  margin-left: auto;
 }
 
 .km-lab-order-price {
@@ -1905,6 +1969,17 @@ body.light .km-nbtn {
 
   .km-lab-order-action-row .km-btn {
     padding: 5px 8px;
+  }
+
+  .km-lab-result-actions {
+    flex-direction: column;
+  }
+
+  .km-lab-result-actions .km-btn,
+  .km-lab-result-actions .km-btn-primary,
+  .km-lab-result-actions .km-lab-action-primary {
+    width: 100%;
+    flex-basis: auto;
   }
 
   .km-lab-order-summary {

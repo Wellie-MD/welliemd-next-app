@@ -4,12 +4,7 @@
  */
 import type { LabSubmission } from '../api/index';
 import type { TimelineAction, TimelineItem } from './types';
-
-function toSafeUrl(value?: string | null): string | null {
-  if (!value) return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
+import { safeLabUrl } from './urls';
 
 function getEventType(event: Record<string, any>): string {
   return (event.event_type || event.event || event.type || event.name || '').toUpperCase();
@@ -59,25 +54,25 @@ function eventActions(event: Record<string, any>): TimelineAction[] {
       : rawLabReqPdf;
 
   const requisitionUrl =
-    toSafeUrl(event.requisition_pdf_url) ||
-    toSafeUrl(event.requisition_url) ||
-    toSafeUrl(event.requisition_link) ||
-    toSafeUrl(payload.requisitionPdfUrl) ||
-    toSafeUrl(requisitionFromBase64);
+    safeLabUrl(event.requisition_pdf_url, { allowPdfData: true }) ||
+    safeLabUrl(event.requisition_url, { allowPdfData: true }) ||
+    safeLabUrl(event.requisition_link, { allowPdfData: true }) ||
+    safeLabUrl(payload.requisitionPdfUrl, { allowPdfData: true }) ||
+    safeLabUrl(requisitionFromBase64, { allowPdfData: true });
   const bookingUrl =
-    toSafeUrl(event.booking_link) ||
-    toSafeUrl(event.booking_url) ||
-    toSafeUrl(event.result_booking_link) ||
-    toSafeUrl(event.result_booking_url) ||
-    toSafeUrl(payload.resultBookingLink) ||
-    toSafeUrl(payload.bookingLink) ||
-    toSafeUrl(payload.booking_url);
+    safeLabUrl(event.booking_link) ||
+    safeLabUrl(event.booking_url) ||
+    safeLabUrl(event.result_booking_link) ||
+    safeLabUrl(event.result_booking_url) ||
+    safeLabUrl(payload.resultBookingLink) ||
+    safeLabUrl(payload.bookingLink) ||
+    safeLabUrl(payload.booking_url);
   const trackingUrl =
-    toSafeUrl(event.tracking_url) ||
-    toSafeUrl(event.tracking_link) ||
-    toSafeUrl(event.tracking_link_url) ||
-    toSafeUrl(payload.trackingUrl) ||
-    toSafeUrl(payload.info?.trackingUrl);
+    safeLabUrl(event.tracking_url) ||
+    safeLabUrl(event.tracking_link) ||
+    safeLabUrl(event.tracking_link_url) ||
+    safeLabUrl(payload.trackingUrl) ||
+    safeLabUrl(payload.info?.trackingUrl);
 
   if (requisitionUrl) actions.push({ label: 'Download Requisition', url: requisitionUrl });
   if (bookingUrl) actions.push({ label: 'Book Appointment', url: bookingUrl });
@@ -129,8 +124,8 @@ export function normalizeTimeline(submission: LabSubmission): TimelineItem[] {
     timeline.flatMap((item) => item.actions.map((a) => a.label))
   );
   const submissionActions: TimelineAction[] = [];
-  const reqUrl = toSafeUrl(submission.requisition_pdf_url);
-  const bookUrl = toSafeUrl(submission.booking_link) || toSafeUrl(submission.booking_url);
+  const reqUrl = safeLabUrl(submission.requisition_pdf_url, { allowPdfData: true });
+  const bookUrl = safeLabUrl(submission.booking_link) || safeLabUrl(submission.booking_url);
   if (reqUrl && !existingActionLabels.has('Download Requisition'))
     submissionActions.push({ label: 'Download Requisition', url: reqUrl });
   if (bookUrl && !existingActionLabels.has('Book Appointment'))

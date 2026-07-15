@@ -46,7 +46,7 @@ export default function LabOrderCard({
             </button>
           )}
           {!hasResults && hasBooking && (
-            <button type="button" className="km-btn km-btn-primary" onClick={event => { event.stopPropagation(); onBookAppointment(); }}>
+            <button type="button" className="km-btn km-lab-action-primary" onClick={event => { event.stopPropagation(); onBookAppointment(); }}>
               {isScheduled ? 'View appointment' : 'Book appointment'}
             </button>
           )}

@@ -1,5 +1,6 @@
 import { CalendarDays, Download, ExternalLink, X } from 'lucide-react';
 import type { LabSubmission } from '../api/index';
+import { safeLabUrl } from '../utils/urls';
 
 type Props = {
   submission: (LabSubmission & any) | null;
@@ -10,7 +11,7 @@ type Props = {
 export default function LabBookingModal({ submission, onClose, onDownloadRequisition }: Props) {
   if (!submission) return null;
 
-  const bookingUrl = submission.booking_link || submission.booking_url || '';
+  const bookingUrl = safeLabUrl(submission.booking_link || submission.booking_url);
   const panelName = submission.lab_panel_name || submission.lab_results?.[0]?.test_name || 'your lab test';
   const lab = submission.lab_provider || 'the lab';
   const canDownloadRequisition = Boolean(submission.requisition_pdf_url || submission.requisition_available);
@@ -88,7 +89,7 @@ export default function LabBookingModal({ submission, onClose, onDownloadRequisi
               href={bookingUrl}
               target="_blank"
               rel="noreferrer"
-              className="km-btn km-btn-primary"
+              className="km-btn km-lab-action-primary"
               style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textDecoration: 'none', marginBottom: 12 }}
             >
               <ExternalLink size={15} />

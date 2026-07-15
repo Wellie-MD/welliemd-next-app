@@ -120,10 +120,13 @@ export interface StandaloneLabResult {
     biomarkers: StandaloneLabResultRow[];
     lifecycle_events?: Array<Record<string, unknown>>;
     appointment_details?: LabAppointmentDetails | null;
+    booking_url?: string | null;
+    requisition_available?: boolean;
 }
 
 export interface StandaloneLabSubmission {
     id: string;
+    master_id?: string | null;
     patient_name: string;
     lab_panel_name: string;
     lab_provider: string;
