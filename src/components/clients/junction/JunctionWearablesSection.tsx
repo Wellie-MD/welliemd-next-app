@@ -13,11 +13,8 @@ import {
   type WearableProvider,
   type WearAuth,
 } from "./wearableCatalog"
+import type { JunctionWearableProviderSource } from "@/api/junctionIntegration"
 
-// Sense continuous-query metric domains the admin can set provider priority
-// for. Must match apps/integrations/junction_sense_constants.py's
-// SENSE_DOMAIN_QUERY_DEFINITIONS keys (minus "workouts", which isn't exposed
-// as a priority-configurable domain in this UI).
 const SENSE_DOMAINS: { id: string; label: string }[] = [
   { id: "sleep", label: "Sleep" },
   { id: "activity", label: "Activity" },
@@ -26,12 +23,18 @@ const SENSE_DOMAINS: { id: string; label: string }[] = [
 ]
 
 function seedPriorityFromConfigs(
-  providerConfigs: Record<string, any> | undefined
+  providerConfigs: Record<string, unknown> | undefined
 ): Record<string, string[]> {
-  const sensePriority = providerConfigs?.sense_priority ?? {}
+  const rawSensePriority = providerConfigs?.sense_priority
+  const sensePriority = rawSensePriority && typeof rawSensePriority === "object" && !Array.isArray(rawSensePriority)
+    ? rawSensePriority as Record<string, unknown>
+    : {}
   const seeded: Record<string, string[]> = {}
   SENSE_DOMAINS.forEach(({ id }) => {
-    seeded[id] = Array.isArray(sensePriority[id]) ? [...sensePriority[id]] : []
+    const values = sensePriority[id]
+    seeded[id] = Array.isArray(values)
+      ? values.filter((value): value is string => typeof value === "string")
+      : []
   })
   return seeded
 }
@@ -95,13 +98,15 @@ type FilterKey = "all" | "wearables" | "cgm" | "apps"
 
 interface Props {
   clientId?: string
+  senseEnvironment?: "sandbox" | "production"
   initialEnabled?: boolean
-  providerConfigs?: Record<string, any>
+  providerConfigs?: Record<string, unknown>
   labAccountsCard: ReactNode
 }
 
 export function JunctionWearablesSection({
   clientId,
+  senseEnvironment = "sandbox",
   initialEnabled = false,
   providerConfigs,
   labAccountsCard,
@@ -115,10 +120,10 @@ export function JunctionWearablesSection({
   )
   const [activeDomain, setActiveDomain] = useState<string>(SENSE_DOMAINS[0].id)
   const [loadingProviders, setLoadingProviders] = useState(true)
+  const [applyingPriority, setApplyingPriority] = useState(false)
 
   // Keep local state in sync when the parent re-fetches and passes a new value.
   useEffect(() => {
-    console.log('[WearablesSection] useEffect: initialEnabled changed ->', initialEnabled, '| current enabled state ->', enabled)
     setEnabled(initialEnabled)
   }, [initialEnabled])
   useEffect(() => {
@@ -130,13 +135,17 @@ export function JunctionWearablesSection({
       try {
         const response = await junctionIntegrationApi.listWearableProviders(clientId)
         if (response.success && active && response.sources?.length > 0) {
-          const mapped: WearableProvider[] = response.sources.map((src: any) => {
-            const raw = src.raw_snapshot || {}
+          const mapped: WearableProvider[] = response.sources.map((src: JunctionWearableProviderSource) => {
+            const raw = src.raw_snapshot ?? {}
+            const resources = Array.isArray(raw.supported_resources)
+              ? raw.supported_resources.filter((value): value is string => typeof value === "string")
+              : []
+            const authType = typeof raw.auth_type === "string" ? raw.auth_type : "oauth"
             return {
               id: src.slug,
               name: src.name,
-              cat: getCategoryFromSlugAndResources(src.slug, raw.supported_resources || []),
-              auth: (raw.auth_type || "oauth") as WearAuth,
+              cat: getCategoryFromSlugAndResources(src.slug, resources),
+              auth: authType as WearAuth,
               pull: src.client_pull_window_days ?? 90,
               enabled: src.client_enabled ?? false,
               domain: `${src.slug}.com`,
@@ -159,8 +168,8 @@ export function JunctionWearablesSection({
             return next
           })
         }
-      } catch (err) {
-        console.error("Failed to load wearable providers from db:", err)
+      } catch {
+        toast.error("Failed to load wearable providers from the control plane.")
       } finally {
         if (active) setLoadingProviders(false)
       }
@@ -169,7 +178,7 @@ export function JunctionWearablesSection({
     return () => {
       active = false
     }
-  }, [])
+  }, [clientId])
 
   const providerMap = useMemo(() => {
     const map = new Map<string, WearableProvider>()
@@ -229,7 +238,6 @@ export function JunctionWearablesSection({
         provider_configs: buildProviderConfigsPayload(nextProviders, priority),
       }, clientId)
     } catch (err) {
-      console.error("Failed to save provider configs:", err)
       toast.error("Failed to save wearable provider configuration.")
     }
   }
@@ -239,23 +247,19 @@ export function JunctionWearablesSection({
       await junctionIntegrationApi.updateWearablesSettings({
         provider_configs: buildProviderConfigsPayload(providers, nextPriority),
       }, clientId)
-    } catch (err) {
-      console.error("Failed to save Sense priority:", err)
+    } catch {
       toast.error("Failed to save data prioritization order.")
     }
   }
 
   const handleToggleEnabled = async (checked: boolean) => {
-    console.log('[WearablesSection] handleToggleEnabled called with:', checked)
     setEnabled(checked)
     try {
       await junctionIntegrationApi.updateWearablesSettings({
         enabled: checked,
       }, clientId)
-      // console.log('[WearablesSection] updateWearablesSettings response:', result)
       toast.success(checked ? "Wearable sync enabled." : "Wearable sync disabled.")
-    } catch (err) {
-      console.error('Failed to update wearables settings:', err)
+    } catch {
       toast.error("Failed to update wearables setting.")
       setEnabled(!checked)
     }
@@ -295,6 +299,19 @@ export function JunctionWearablesSection({
       void savePriority(next)
       return next
     })
+  }
+
+  const applyPriority = async () => {
+    if (!clientId) return
+    setApplyingPriority(true)
+    try {
+      await junctionIntegrationApi.ensureSense(clientId, senseEnvironment)
+      toast.success("Provider priority applied to the Junction Sense query revision.")
+    } catch {
+      toast.error("Junction could not apply the provider priority revision.")
+    } finally {
+      setApplyingPriority(false)
+    }
   }
 
   return (
@@ -561,8 +578,16 @@ export function JunctionWearablesSection({
             <div className="pt-2 text-[11px] text-muted-foreground">
               Use the up and down controls to set provider priority for{" "}
               {SENSE_DOMAINS.find((d) => d.id === activeDomain)?.label.toLowerCase()}. Saved
-              automatically to the database.
+              to the control plane. Apply the revision after reviewing the order.
             </div>
+            <button
+              type="button"
+              onClick={() => void applyPriority()}
+              disabled={!clientId || applyingPriority}
+              className="w-full rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 disabled:opacity-50"
+            >
+              {applyingPriority ? "Applying revision…" : `Apply ${senseEnvironment} priority revision`}
+            </button>
           </CardContent>
         </Card>
       </div>

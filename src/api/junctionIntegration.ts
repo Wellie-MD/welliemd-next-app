@@ -1,4 +1,5 @@
 import axiosInstance from "./axiosInstance"
+import { JUNCTION_ENDPOINTS } from "./endpoints"
 
 export type JunctionEnvironment = "sandbox" | "production"
 
@@ -71,6 +72,20 @@ export interface JunctionSenseEnvBlock {
   queries: JunctionSenseQueryStatus[]
 }
 
+export interface JunctionWearableProviderSource {
+  slug: string
+  name: string
+  raw_snapshot?: Record<string, unknown> | null
+  client_pull_window_days?: number | null
+  client_enabled?: boolean | null
+  logo_url?: string | null
+}
+
+export interface JunctionWearablesSettingsPayload {
+  enabled?: boolean
+  provider_configs?: Record<string, unknown>
+}
+
 export interface JunctionIntegrationDetail {
   client_id: string
   team_id: string
@@ -108,7 +123,7 @@ export interface JunctionLabAccountsList {
   items: JunctionLabAccountItem[]
 }
 
-const base = (clientId: string) => `clients/${clientId}/integrations/junction`
+const base = JUNCTION_ENDPOINTS.base
 
 export const junctionIntegrationApi = {
   get: async (clientId: string): Promise<JunctionIntegrationDetail> => {
@@ -121,7 +136,7 @@ export const junctionIntegrationApi = {
     ensureProduction = false,
     physicianOrderingMode: "junction_network" | "own_physician" = "junction_network"
   ): Promise<JunctionIntegrationDetail> => {
-    const { data } = await axiosInstance.post(`${base(clientId)}/provision/`, {
+    const { data } = await axiosInstance.post(JUNCTION_ENDPOINTS.provision(clientId), {
       ensure_production: ensureProduction,
       physician_ordering_mode: physicianOrderingMode,
     })
@@ -132,7 +147,7 @@ export const junctionIntegrationApi = {
     clientId: string,
     physicianOrderingMode: "junction_network" | "own_physician"
   ): Promise<JunctionIntegrationDetail> => {
-    const { data } = await axiosInstance.post(`${base(clientId)}/sync-tenant/`, {
+    const { data } = await axiosInstance.post(JUNCTION_ENDPOINTS.syncTenant(clientId), {
       physician_ordering_mode: physicianOrderingMode,
     })
     return data
@@ -143,7 +158,7 @@ export const junctionIntegrationApi = {
     environment: JunctionEnvironment
   ): Promise<JunctionIntegrationDetail> => {
     const { data } = await axiosInstance.post(
-      `${base(clientId)}/api-keys/${environment}/ensure/`,
+      JUNCTION_ENDPOINTS.ensureKey(clientId, environment),
       {}
     )
     return data
@@ -154,7 +169,7 @@ export const junctionIntegrationApi = {
     environment: JunctionEnvironment
   ): Promise<JunctionIntegrationDetail> => {
     const { data } = await axiosInstance.post(
-      `${base(clientId)}/api-keys/${environment}/rotate/`,
+      JUNCTION_ENDPOINTS.rotateKey(clientId, environment),
       {}
     )
     return data
@@ -165,7 +180,7 @@ export const junctionIntegrationApi = {
     environment: JunctionEnvironment
   ): Promise<JunctionIntegrationDetail> => {
     const { data } = await axiosInstance.post(
-      `${base(clientId)}/webhooks/${environment}/ensure/`,
+      JUNCTION_ENDPOINTS.ensureWebhook(clientId, environment),
       {}
     )
     return data
@@ -175,7 +190,7 @@ export const junctionIntegrationApi = {
     clientId: string,
     environment: JunctionEnvironment
   ): Promise<{ wearables: JunctionIntegrationDetail["wearables"] }> => {
-    const { data } = await axiosInstance.post(`${base(clientId)}/sense/${environment}/ensure/`, {})
+    const { data } = await axiosInstance.post(JUNCTION_ENDPOINTS.ensureSense(clientId, environment), {})
     return data
   },
 
@@ -185,7 +200,7 @@ export const junctionIntegrationApi = {
     accessGranted: boolean
   ): Promise<{ wearables: JunctionIntegrationDetail["wearables"] }> => {
     const { data } = await axiosInstance.post(
-      `${base(clientId)}/sense/${environment}/access-granted/`,
+      JUNCTION_ENDPOINTS.senseAccess(clientId, environment),
       { access_granted: accessGranted }
     )
     return data
@@ -197,7 +212,7 @@ export const junctionIntegrationApi = {
     payload: { name: string; slug: string; query: Record<string, unknown>; custom_inputs?: string; custom_output?: string; min_gap_seconds?: number }
   ): Promise<{ wearables: JunctionIntegrationDetail["wearables"] }> => {
     const { data } = await axiosInstance.post(
-      `${base(clientId)}/sense/${environment}/queries/`,
+      JUNCTION_ENDPOINTS.senseQueries(clientId, environment),
       payload
     )
     return data
@@ -210,7 +225,7 @@ export const junctionIntegrationApi = {
     payload: { name?: string; query?: Record<string, unknown>; custom_inputs?: string; custom_output?: string; min_gap_seconds?: number }
   ): Promise<{ wearables: JunctionIntegrationDetail["wearables"] }> => {
     const { data } = await axiosInstance.patch(
-      `${base(clientId)}/sense/${environment}/queries/${queryId}/`,
+      JUNCTION_ENDPOINTS.senseQuery(clientId, environment, queryId),
       payload
     )
     return data
@@ -222,7 +237,7 @@ export const junctionIntegrationApi = {
     queryId: string
   ): Promise<{ wearables: JunctionIntegrationDetail["wearables"] }> => {
     const { data } = await axiosInstance.delete(
-      `${base(clientId)}/sense/${environment}/queries/${queryId}/`
+      JUNCTION_ENDPOINTS.senseQuery(clientId, environment, queryId)
     )
     return data
   },
@@ -232,7 +247,7 @@ export const junctionIntegrationApi = {
     environment: JunctionEnvironment
   ): Promise<JunctionIntegrationDetail> => {
     const { data } = await axiosInstance.post(
-      `${base(clientId)}/environments/${environment}/prepare/`,
+      JUNCTION_ENDPOINTS.prepareEnvironment(clientId, environment),
       {}
     )
     return data
@@ -243,7 +258,7 @@ export const junctionIntegrationApi = {
     environment: JunctionEnvironment
   ): Promise<JunctionIntegrationDetail> => {
     const { data } = await axiosInstance.post(
-      `${base(clientId)}/environments/${environment}/switch/`,
+      JUNCTION_ENDPOINTS.switchEnvironment(clientId, environment),
       {}
     )
     return data
@@ -253,7 +268,7 @@ export const junctionIntegrationApi = {
     clientId: string,
     environment?: JunctionEnvironment
   ): Promise<JunctionLabAccountsList> => {
-    const { data } = await axiosInstance.get(`${base(clientId)}/lab-accounts/`, {
+    const { data } = await axiosInstance.get(JUNCTION_ENDPOINTS.labAccounts(clientId), {
       params: environment ? { environment } : undefined,
     })
     return data
@@ -265,7 +280,7 @@ export const junctionIntegrationApi = {
     environment: JunctionEnvironment
   ): Promise<JunctionIntegrationDetail> => {
     const { data } = await axiosInstance.post(
-      `${base(clientId)}/lab-accounts/${labAccountId}/link/`,
+      JUNCTION_ENDPOINTS.linkLabAccount(clientId, labAccountId),
       { environment }
     )
     return data
@@ -277,28 +292,25 @@ export const junctionIntegrationApi = {
     environment: JunctionEnvironment
   ): Promise<JunctionIntegrationDetail> => {
     const { data } = await axiosInstance.post(
-      `${base(clientId)}/lab-accounts/${labAccountId}/unlink/`,
+      JUNCTION_ENDPOINTS.unlinkLabAccount(clientId, labAccountId),
       { environment }
     )
     return data
   },
 
-  listWearableProviders: async (clientId?: string): Promise<{ success: boolean; sources: any[] }> => {
-    const { data } = await axiosInstance.get("wearables/providers/", {
+  listWearableProviders: async (clientId?: string): Promise<{ success: boolean; sources: JunctionWearableProviderSource[] }> => {
+    const { data } = await axiosInstance.get(JUNCTION_ENDPOINTS.wearablesProviders, {
       params: clientId ? { client_id: clientId } : undefined,
     })
     return data
   },
 
   updateWearablesSettings: async (
-    settings: {
-      enabled?: boolean
-      provider_configs?: Record<string, any>
-    },
+    settings: JunctionWearablesSettingsPayload,
     clientId?: string
-  ): Promise<{ success: boolean; junction_settings: any }> => {
+  ): Promise<{ success: boolean; junction_settings: Record<string, unknown> }> => {
     const payload = clientId ? { ...settings, client_id: clientId } : settings
-    const { data } = await axiosInstance.patch("wearables/settings/current/", payload)
+    const { data } = await axiosInstance.patch(JUNCTION_ENDPOINTS.wearablesSettings, payload)
     return data
   },
 }

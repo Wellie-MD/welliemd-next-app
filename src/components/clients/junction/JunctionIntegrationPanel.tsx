@@ -100,6 +100,7 @@ export function JunctionIntegrationPanel({ clientId }: Props) {
 
       <JunctionWearablesSection
         clientId={clientId}
+        senseEnvironment={env}
         initialEnabled={Boolean(detail.wearables?.enabled)}
         providerConfigs={detail.wearables?.settings}
         labAccountsCard={
