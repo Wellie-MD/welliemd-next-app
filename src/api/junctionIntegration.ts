@@ -48,6 +48,29 @@ export interface JunctionLabAccountItem {
   last_verified_at?: string | null
 }
 
+export interface JunctionSenseQueryStatus {
+  id: string
+  domain: string
+  slug: string
+  is_custom: boolean
+  display_name: string
+  junction_query_id: string
+  query_definition: Record<string, unknown>
+  sync_status: "pending" | "synced" | "failed"
+  access_granted: boolean
+  last_synced_at?: string | null
+  last_computed_at?: string | null
+  last_error?: string
+  custom_inputs?: string
+  custom_output?: string
+  min_gap_seconds?: number
+}
+
+export interface JunctionSenseEnvBlock {
+  ready: boolean
+  queries: JunctionSenseQueryStatus[]
+}
+
 export interface JunctionIntegrationDetail {
   client_id: string
   team_id: string
@@ -69,7 +92,12 @@ export interface JunctionIntegrationDetail {
     ambiguous_providers?: string[]
     items: JunctionLabAccountItem[]
   }
-  wearables: { enabled: boolean; status: string; settings?: Record<string, unknown> }
+  wearables: {
+    enabled: boolean
+    status: string
+    settings?: Record<string, unknown>
+    sense?: { sandbox: JunctionSenseEnvBlock; production: JunctionSenseEnvBlock }
+  }
   rotation?: { rotated: boolean; reason?: string; error?: string }
   detail?: string
 }
@@ -131,6 +159,62 @@ export const junctionIntegrationApi = {
     const { data } = await axiosInstance.post(
       `${base(clientId)}/webhooks/${environment}/ensure/`,
       {}
+    )
+    return data
+  },
+
+  ensureSense: async (
+    clientId: string,
+    environment: JunctionEnvironment
+  ): Promise<{ wearables: JunctionIntegrationDetail["wearables"] }> => {
+    const { data } = await axiosInstance.post(`${base(clientId)}/sense/${environment}/ensure/`, {})
+    return data
+  },
+
+  setSenseAccessGranted: async (
+    clientId: string,
+    environment: JunctionEnvironment,
+    accessGranted: boolean
+  ): Promise<{ wearables: JunctionIntegrationDetail["wearables"] }> => {
+    const { data } = await axiosInstance.post(
+      `${base(clientId)}/sense/${environment}/access-granted/`,
+      { access_granted: accessGranted }
+    )
+    return data
+  },
+
+  createSenseQuery: async (
+    clientId: string,
+    environment: JunctionEnvironment,
+    payload: { name: string; slug: string; query: Record<string, unknown>; custom_inputs?: string; custom_output?: string; min_gap_seconds?: number }
+  ): Promise<{ wearables: JunctionIntegrationDetail["wearables"] }> => {
+    const { data } = await axiosInstance.post(
+      `${base(clientId)}/sense/${environment}/queries/`,
+      payload
+    )
+    return data
+  },
+
+  updateSenseQuery: async (
+    clientId: string,
+    environment: JunctionEnvironment,
+    queryId: string,
+    payload: { name?: string; query?: Record<string, unknown>; custom_inputs?: string; custom_output?: string; min_gap_seconds?: number }
+  ): Promise<{ wearables: JunctionIntegrationDetail["wearables"] }> => {
+    const { data } = await axiosInstance.patch(
+      `${base(clientId)}/sense/${environment}/queries/${queryId}/`,
+      payload
+    )
+    return data
+  },
+
+  deleteSenseQuery: async (
+    clientId: string,
+    environment: JunctionEnvironment,
+    queryId: string
+  ): Promise<{ wearables: JunctionIntegrationDetail["wearables"] }> => {
+    const { data } = await axiosInstance.delete(
+      `${base(clientId)}/sense/${environment}/queries/${queryId}/`
     )
     return data
   },
