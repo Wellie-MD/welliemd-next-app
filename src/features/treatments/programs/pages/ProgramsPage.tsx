@@ -1,7 +1,13 @@
 import { useMemo, useState } from "react";
-import { ArrowDownAZ, Clock3, Search } from "lucide-react";
+import { ArrowDownAZ, Clock3, Filter, Search, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { showFloatingToast } from "@/components/ui/floating-toast";
 import { EmptyStateCard, PatientPreviewDialog, SlugEditorModal } from "@/features/treatments/common/components";
 import { useClients } from "@/hooks/useClients";
@@ -11,16 +17,10 @@ import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatme
 import {
   usePrograms,
   useUpdateProgramSlug,
-  useUpdateProgramGroupStatus,
   useUpdateProgramStatus,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { ProgramListTable } from "@/features/treatments/programs/components/ProgramListTable";
-import {
-  getTreatmentGroupProgramIds,
-  isTreatmentGroupLive,
-  ProgramTreatmentCard,
-  type ProgramTreatmentGroup,
-} from "@/features/treatments/programs/components/ProgramTreatmentCard";
+import { ProgramCard } from "@/features/treatments/programs/components/ProgramCard";
 import type { Program, ProgramStatus } from "@/features/treatments/types";
 import { buildQuestionnairePreviewUrl } from "@/features/treatments/utils/previewUrl";
 import { cn } from "@/lib/utils";
@@ -28,45 +28,11 @@ import { cn } from "@/lib/utils";
 type ProgramsFilter = "all" | "missing_follow_up";
 type ProgramsSort = "recent" | "alpha";
 type ProgramsViewMode = "card" | "list";
+type ActiveTab = "all" | "intake" | "follow_up";
 
 const stripTreatmentSuffix = (name: string) => name.replace(/\s+(Intake|Follow-?up)$/i, "").trim() || name.trim();
 
 const formatQuery = (value: string) => value.toLowerCase().trim();
-
-const getProgramSearchText = (program?: Program) =>
-  [program?.name, program?.slug, program?.visitType, program?.treatmentTypeKey]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-const getLatestUpdatedAt = (intake?: Program, followUp?: Program) => {
-  const values = [intake?.updatedAt, followUp?.updatedAt].filter(Boolean) as string[];
-  return values.sort((a, b) => b.localeCompare(a))[0] ?? "";
-};
-
-const buildTreatmentGroups = (programs: Program[]): ProgramTreatmentGroup[] => {
-  const map = new Map<string, { intake?: Program; followUp?: Program }>();
-
-  programs.forEach((program) => {
-    const entry = map.get(program.treatmentTypeKey) ?? {};
-    if (program.stage === "intake") entry.intake = program;
-    if (program.stage === "follow_up") entry.followUp = program;
-    map.set(program.treatmentTypeKey, entry);
-  });
-
-  return Array.from(map.entries()).map(([treatmentTypeKey, value]) => {
-    const primaryProgram = value.intake ?? value.followUp;
-
-    return {
-      treatmentTypeKey,
-      treatmentName: stripTreatmentSuffix(primaryProgram?.name ?? treatmentTypeKey),
-      visitType: primaryProgram?.visitType ?? value.intake?.visitType ?? value.followUp?.visitType ?? "—",
-      intake: value.intake,
-      followUp: value.followUp,
-      latestUpdatedAt: getLatestUpdatedAt(value.intake, value.followUp),
-    };
-  });
-};
 
 const sortButtonClassName = (active: boolean) =>
   cn(
@@ -90,67 +56,63 @@ export default function ProgramsPage() {
   const { data: programs = [] } = usePrograms();
   const { currentClient } = useClients();
   const updateProgramSlug = useUpdateProgramSlug();
-  const updateProgramGroupStatus = useUpdateProgramGroupStatus();
   const updateProgramStatus = useUpdateProgramStatus();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<ProgramsSort>("recent");
   const [filter, setFilter] = useState<ProgramsFilter>("all");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("all");
   const [viewMode, setViewMode] = useState<ProgramsViewMode>("card");
+  const [selectedStatus, setSelectedStatus] = useState<"all" | "draft" | "published">("all");
+  const [selectedTreatment, setSelectedTreatment] = useState<string>("all");
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
   const [previewProgram, setPreviewProgram] = useState<Program | null>(null);
-  const [updatingLiveProgramId, setUpdatingLiveProgramId] = useState<string | null>(null);
+  const [duplicatingProgramId, setDuplicatingProgramId] = useState<string | null>(null);
+  const [archivingProgramId, setArchivingProgramId] = useState<string | null>(null);
 
   const questionnaireBaseUrl = useMemo(() => {
     const base = currentClient?.resolved_questionnaire_url || currentClient?.questionnaire_url;
     return base ? base.replace(/\/+$/, "") : "";
   }, [currentClient]);
 
-  const groupedTreatments = useMemo(() => buildTreatmentGroups(programs), [programs]);
-  const treatmentNameByKey = useMemo(
-    () =>
-      groupedTreatments.reduce<Record<string, string>>((acc, group) => {
-        acc[group.treatmentTypeKey] = group.treatmentName;
-        return acc;
-      }, {}),
-    [groupedTreatments]
-  );
+  const treatmentNameByKey = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const program of programs) {
+      const name = stripTreatmentSuffix(program.name);
+      if (!map.has(program.treatmentTypeKey)) {
+        map.set(program.treatmentTypeKey, name);
+      }
+    }
+    return map;
+  }, [programs]);
 
-  const totalTreatmentsCount = groupedTreatments.length;
-  const missingFollowUpCount = groupedTreatments.filter((group) => !group.followUp && Boolean(group.intake)).length;
+  const totalTreatmentsCount = new Set(programs.map(p => p.treatmentTypeKey)).size;
+  const missingFollowUpCount = (() => {
+    const keysWithIntake = new Set(programs.filter(p => p.stage === "intake").map(p => p.treatmentTypeKey));
+    const keysWithFollowUp = new Set(programs.filter(p => p.stage === "follow_up").map(p => p.treatmentTypeKey));
+    return [...keysWithIntake].filter(key => !keysWithFollowUp.has(key)).length;
+  })();
 
-  const filteredTreatments = useMemo(() => {
-    const query = formatQuery(searchQuery);
+  const treatmentTypes = useMemo(() => {
+    const keys = new Set(programs.map(p => p.treatmentTypeKey));
+    return Array.from(keys).map(key => ({
+      key,
+      name: treatmentNameByKey.get(key) || key,
+    }));
+  }, [programs, treatmentNameByKey]);
 
-    let result = groupedTreatments.filter((group) => {
-      if (filter === "missing_follow_up" && group.followUp) return false;
-      if (!query) return true;
-
-      const searchableText = [
-        group.treatmentName,
-        group.treatmentTypeKey,
-        getProgramSearchText(group.intake),
-        getProgramSearchText(group.followUp),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      return searchableText.includes(query);
-    });
-
-    result = [...result].sort((a, b) => {
-      if (sortBy === "alpha") return a.treatmentName.localeCompare(b.treatmentName);
-      return b.latestUpdatedAt.localeCompare(a.latestUpdatedAt);
-    });
-
-    return result;
-  }, [filter, groupedTreatments, searchQuery, sortBy]);
+  const hasActiveFilters = selectedStatus !== "all" || selectedTreatment !== "all";
+  const activeFilterCount = (selectedStatus !== "all" ? 1 : 0) + (selectedTreatment !== "all" ? 1 : 0);
 
   const filteredPrograms = useMemo(() => {
     const query = formatQuery(searchQuery);
 
     let result = programs.filter((program) => {
+      if (activeTab === "intake" && program.stage !== "intake") return false;
+      if (activeTab === "follow_up" && program.stage !== "follow_up") return false;
+      if (selectedStatus !== "all" && program.status !== selectedStatus) return false;
+      if (selectedTreatment !== "all" && program.treatmentTypeKey !== selectedTreatment) return false;
+
       if (!query) return true;
 
       const searchableText = [
@@ -158,7 +120,7 @@ export default function ProgramsPage() {
         program.slug,
         program.visitType,
         program.treatmentTypeKey,
-        treatmentNameByKey[program.treatmentTypeKey],
+        treatmentNameByKey.get(program.treatmentTypeKey) || "",
         program.stage,
         program.status,
       ]
@@ -175,25 +137,11 @@ export default function ProgramsPage() {
     });
 
     return result;
-  }, [programs, searchQuery, sortBy, treatmentNameByKey]);
+  }, [programs, searchQuery, sortBy, activeTab, selectedStatus, selectedTreatment, treatmentNameByKey]);
 
-  const handleOpenSlugEditor = (program: Program) => {
-    setEditingProgram(program);
-  };
-
-  const handleCloseSlugEditor = (open: boolean) => {
-    if (!open) setEditingProgram(null);
-  };
-
-  const handleSaveSlug = async (slug: string) => {
-    if (!editingProgram) return;
-    const nextSlug = normalizeTreatmentSlug(slug || editingProgram.slug);
-
+  const handleSaveSlug = async (programId: string, newSlug: string) => {
     try {
-      await updateProgramSlug.mutateAsync({
-        programId: editingProgram.id,
-        slug: nextSlug,
-      });
+      await updateProgramSlug.mutateAsync({ programId, slug: newSlug });
       showFloatingToast({ title: "Slug Updated" });
     } catch (error) {
       if (isDuplicateSlugError(error)) {
@@ -203,7 +151,6 @@ export default function ProgramsPage() {
           title: getTreatmentApiErrorMessage(error, "Slug could not be updated"),
         });
       }
-      throw error;
     }
   };
 
@@ -215,37 +162,9 @@ export default function ProgramsPage() {
     if (!open) setPreviewProgram(null);
   };
 
-  const handleToggleLive = async (group: ProgramTreatmentGroup, live: boolean) => {
-    const nextStatus = live ? "published" : "draft";
-    const currentLive = isTreatmentGroupLive(group);
-    if (currentLive === live) return;
-
-    const programIds = getTreatmentGroupProgramIds(group);
-    if (programIds.length === 0) return;
-
-    const updateKey = group.intake?.id ?? group.followUp?.id ?? group.treatmentTypeKey;
-    setUpdatingLiveProgramId(updateKey);
-
-    try {
-      await updateProgramGroupStatus.mutateAsync({
-        programIds,
-        status: nextStatus,
-      });
-    } catch {
-      showFloatingToast({
-        title: "Cannot update the Status of your program",
-      });
-    } finally {
-      setUpdatingLiveProgramId((current) => (current === updateKey ? null : current));
-    }
-  };
-
   const handleProgramStatusChange = async (program: Program, status: ProgramStatus) => {
     if (program.status === status) return;
-    await updateProgramStatus.mutateAsync({
-      programId: program.id,
-      status,
-    });
+    await updateProgramStatus.mutateAsync({ programId: program.id, status });
   };
 
   const handleCopyProgramUrl = async (program: Program) => {
@@ -258,7 +177,7 @@ export default function ProgramsPage() {
       await navigator.clipboard?.writeText(intakeUrl);
       showFloatingToast({ title: "Intake URL Copied" });
     } catch {
-      // Keep copy failures quiet; the toast should only show after a confirmed write.
+      // quiet
     }
   };
 
@@ -278,119 +197,162 @@ export default function ProgramsPage() {
           {viewMode === "card" ? (
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-[#171b27] dark:shadow-none">
               <div className="grid md:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => setFilter("all")}
-                  className={statusSegmentClassName(filter === "all")}
-                >
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-                    Total Treatments
-                  </span>
-                  <span className="mt-1 text-[30px] font-extrabold leading-none text-[#5b4dff] dark:text-[#7b83ff]">
-                    {totalTreatmentsCount}
-                  </span>
+                <button type="button" onClick={() => setFilter("all")} className={statusSegmentClassName(filter === "all")}>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Total Treatments</span>
+                  <span className="mt-1 text-[30px] font-extrabold leading-none text-[#5b4dff] dark:text-[#7b83ff]">{totalTreatmentsCount}</span>
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => setFilter("missing_follow_up")}
-                  className={cn(
-                    statusSegmentClassName(filter === "missing_follow_up"),
-                    "border-t border-slate-200 md:border-l md:border-t-0 dark:border-slate-700"
-                  )}
-                >
+                <button type="button" onClick={() => setFilter("missing_follow_up")}
+                  className={cn(statusSegmentClassName(filter === "missing_follow_up"), "border-t border-slate-200 md:border-l md:border-t-0 dark:border-slate-700")}>
                   <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
-                    <span className="h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-500" />
-                    Missing Follow-Up
+                    <span className="h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-500" />Missing Follow-Up
                   </span>
-                  <span className="mt-1 text-[30px] font-extrabold leading-none text-slate-950 dark:text-slate-50">
-                    {missingFollowUpCount}
-                  </span>
+                  <span className="mt-1 text-[30px] font-extrabold leading-none text-slate-950 dark:text-slate-50">{missingFollowUpCount}</span>
                 </button>
               </div>
             </div>
           ) : null}
         </section>
 
+        <section>
+          <div className="flex bg-slate-100/70 p-1 rounded-xl self-start border border-slate-100 dark:border-slate-700 dark:bg-slate-800/50">
+            {(["all","intake","follow_up"] as const).map((tab) => (
+              <button key={tab} onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === tab
+                    ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100"
+                    : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                }`}
+              >
+                {tab === "all" ? "All Programs" : tab === "intake" ? "Intake Programs" : "Follow-up Programs"}
+              </button>
+            ))}
+          </div>
+        </section>
+
         <section className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <div className="relative w-full sm:w-[360px]">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
-              <Input
-                placeholder="Search treatments..."
-                value={searchQuery}
+              <Input placeholder="Search programs..." value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                className="h-10 rounded-lg border-slate-200 bg-white pl-9 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 dark:border-slate-700 dark:bg-[#151924] dark:text-slate-100 dark:placeholder:text-slate-500"
-              />
+                className="h-10 rounded-lg border-slate-200 bg-white pl-9 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 dark:border-slate-700 dark:bg-[#151924] dark:text-slate-100 dark:placeholder:text-slate-500" />
             </div>
-
             <Button type="button" variant="outline" onClick={() => setSortBy("alpha")} className={sortButtonClassName(sortBy === "alpha")}>
-              <ArrowDownAZ className="h-4 w-4" />
-              Sort A-Z
+              <ArrowDownAZ className="h-4 w-4" /> Sort A-Z
             </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setSortBy("recent")}
-              className={sortButtonClassName(sortBy === "recent")}
-            >
-              <Clock3 className="h-4 w-4" />
-              Recently updated
+            <Button type="button" variant="outline" onClick={() => setSortBy("recent")} className={sortButtonClassName(sortBy === "recent")}>
+              <Clock3 className="h-4 w-4" /> Recently updated
             </Button>
           </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setViewMode((current) => (current === "card" ? "list" : "card"))}
-            className="h-10 rounded-lg border-[#5b4dff] bg-white px-4 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-[#151924] dark:text-slate-300 dark:hover:bg-[#1b2030]"
-          >
-            {viewMode === "card" ? "List view" : "Card view"}
-          </Button>
+          <div className="flex items-center gap-3">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline"
+                  className={`h-10 rounded-lg px-4 text-xs font-semibold shadow-sm ${
+                    hasActiveFilters
+                      ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-[#151924] dark:text-slate-300 dark:hover:bg-[#1b2030]"
+                  }`}
+                >
+                  <Filter className="mr-1.5 h-4 w-4" /> Filters
+                  {hasActiveFilters && <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center rounded-full bg-blue-600 text-[10px] text-white">{activeFilterCount}</Badge>}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 p-3">
+                <div className="mb-2">
+                  <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5 px-1">STATUS</div>
+                  <div className="space-y-0.5">
+                    {([{value:"all",label:"All Statuses"},{value:"published",label:"Published"},{value:"draft",label:"Draft"}] as const).map((opt) => (
+                      <button key={opt.value} onClick={() => setSelectedStatus(opt.value)}
+                        className={`w-full text-left px-3 py-1.5 rounded-md text-xs flex items-center justify-between transition-colors ${
+                          selectedStatus === opt.value
+                            ? "bg-blue-50 text-blue-700 font-medium dark:bg-blue-900/20 dark:text-blue-300"
+                            : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        <span>{opt.label}</span>
+                        {selectedStatus === opt.value && <Check className="h-3.5 w-3.5 text-blue-600" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="h-px bg-slate-100 my-2 dark:bg-slate-700" />
+                <div>
+                  <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5 px-1">TREATMENT TYPE</div>
+                  <div className="space-y-0.5 max-h-48 overflow-y-auto">
+                    <button onClick={() => setSelectedTreatment("all")}
+                      className={`w-full text-left px-3 py-1.5 rounded-md text-xs flex items-center justify-between transition-colors ${
+                        selectedTreatment === "all"
+                          ? "bg-blue-50 text-blue-700 font-medium dark:bg-blue-900/20 dark:text-blue-300"
+                          : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      <span>All Treatment Types</span>
+                      {selectedTreatment === "all" && <Check className="h-3.5 w-3.5 text-blue-600" />}
+                    </button>
+                    {treatmentTypes.map((tt) => (
+                      <button key={tt.key} onClick={() => setSelectedTreatment(tt.key)}
+                        className={`w-full text-left px-3 py-1.5 rounded-md text-xs flex items-center justify-between transition-colors ${
+                          selectedTreatment === tt.key
+                            ? "bg-blue-50 text-blue-700 font-medium dark:bg-blue-900/20 dark:text-blue-300"
+                            : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        <span>{tt.name}</span>
+                        {selectedTreatment === tt.key && <Check className="h-3.5 w-3.5 text-blue-600" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {hasActiveFilters && (
+                  <>
+                    <div className="h-px bg-slate-100 my-2 dark:bg-slate-700" />
+                    <div className="flex justify-end">
+                      <button onClick={() => { setSelectedStatus("all"); setSelectedTreatment("all"); }}
+                        className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer dark:text-blue-400 dark:hover:text-blue-300">Reset Filters</button>
+                    </div>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button type="button" variant="outline" onClick={() => setViewMode((current) => (current === "card" ? "list" : "card"))}
+              className="h-10 rounded-lg border-[#5b4dff] bg-white px-4 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-[#151924] dark:text-slate-300 dark:hover:bg-[#1b2030]">
+              {viewMode === "card" ? "List view" : "Card view"}
+            </Button>
+          </div>
         </section>
 
         {viewMode === "list" ? (
           filteredPrograms.length === 0 ? (
             <EmptyStateCard title="No programs found" description="No program rows match your search." />
           ) : (
-            <ProgramListTable
-              programs={filteredPrograms}
-              treatmentNameByKey={treatmentNameByKey}
-              onEditSlug={handleOpenSlugEditor}
+            <ProgramListTable programs={filteredPrograms}
+              treatmentNameByKey={Object.fromEntries(treatmentNameByKey)}
+              onEditSlug={(p) => setEditingProgram(p)}
               onPreviewProgram={handleOpenPreview}
               onStatusChange={handleProgramStatusChange}
-              onCopyUrl={handleCopyProgramUrl}
-            />
+              onCopyUrl={handleCopyProgramUrl} />
           )
-        ) : filteredTreatments.length === 0 ? (
-          <EmptyStateCard
-            title="No treatments found"
-            description={
-              filter === "missing_follow_up"
-                ? "No intake programs are missing a follow-up module for the current search."
-                : "No treatment groups match your search."
-            }
-          />
+        ) : filteredPrograms.length === 0 ? (
+          <EmptyStateCard title="No programs found" description="No programs match your search." />
         ) : (
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-            {filteredTreatments.map((group) => (
-              <ProgramTreatmentCard
-                key={group.treatmentTypeKey}
-                group={group}
-                onEditSlug={handleOpenSlugEditor}
-                onPreviewProgram={handleOpenPreview}
-                onToggleLive={handleToggleLive}
-                isUpdatingLive={updatingLiveProgramId === (group.intake?.id ?? group.followUp?.id ?? group.treatmentTypeKey)}
-              />
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 2xl:grid-cols-3">
+            {filteredPrograms.map((program) => (
+              <ProgramCard key={program.id} program={program}
+                treatmentName={treatmentNameByKey.get(program.treatmentTypeKey)}
+                screeningQuestionCount={program.questionCount || 0}
+                onSaveSlug={handleSaveSlug} onPreview={handleOpenPreview}
+                onEdit={(p) => setEditingProgram(p)}
+                onDuplicate={(p) => { setDuplicatingProgramId(p.id); setTimeout(() => setDuplicatingProgramId(null), 1000); }}
+                onArchive={(p) => { setArchivingProgramId(p.id); setTimeout(() => setArchivingProgramId(null), 1000); }}
+                duplicatingProgramId={duplicatingProgramId} archivingProgramId={archivingProgramId} />
             ))}
           </div>
         )}
       </div>
 
-      <SlugEditorModal
-        open={Boolean(editingProgram)}
-        onOpenChange={handleCloseSlugEditor}
+      <SlugEditorModal open={Boolean(editingProgram)} onOpenChange={(open) => { if (!open) setEditingProgram(null); }}
         title="Edit Slug"
         description={
           <>
@@ -399,25 +361,18 @@ export default function ProgramsPage() {
         }
         previewUrlPrefix={`${questionnaireBaseUrl}/visit/`}
         currentSlug={editingProgram?.slug ?? ""}
-        onSave={handleSaveSlug}
+        onSave={async (slug) => {
+          if (!editingProgram) return;
+          await handleSaveSlug(editingProgram.id, normalizeTreatmentSlug(slug || editingProgram.slug));
+        }}
         allowEmpty={false}
       />
 
       {previewProgram ? (
-        <PatientPreviewDialog
-          open={Boolean(previewProgram)}
-          onOpenChange={handlePreviewOpenChange}
-          previewUrl={buildQuestionnairePreviewUrl({
-            type: "program",
-            id: previewProgram.id,
-            slug: previewProgram.slug,
-            visitType: previewProgram.visitType,
-            templateId: previewProgram.sourceQuestionnaireTemplateId,
-            apiBaseUrl: clientApiBaseUrl,
-          })}
+        <PatientPreviewDialog open={Boolean(previewProgram)} onOpenChange={handlePreviewOpenChange}
+          previewUrl={buildQuestionnairePreviewUrl({ type: "program", id: previewProgram.id, slug: previewProgram.slug, visitType: previewProgram.visitType, templateId: previewProgram.sourceQuestionnaireTemplateId, apiBaseUrl: clientApiBaseUrl })}
           subtitle={`${previewProgram.name} · how patients see this ${previewProgram.stage === "follow_up" ? "follow-up" : "intake"}`}
-          iframeTitle={`${previewProgram.name} questionnaire preview`}
-        />
+          iframeTitle={`${previewProgram.name} questionnaire preview`} />
       ) : null}
     </div>
   );
