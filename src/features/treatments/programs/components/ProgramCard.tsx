@@ -11,7 +11,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { Program, TreatmentType } from "@/features/treatments/types";
+import { Switch } from "@/components/ui/switch";
+import type { Program, ProgramStatus, TreatmentType } from "@/features/treatments/types";
 import { formatProgramStage } from "@/features/treatments/utils/labels";
 
 interface ProgramCardProps {
@@ -24,6 +25,7 @@ interface ProgramCardProps {
   onDuplicate: (program: Program) => void;
   onArchive: (program: Program) => void;
   onSaveSlug: (programId: string, newSlug: string) => void;
+  onToggleStatus?: (program: Program, status: ProgramStatus) => void | Promise<void>;
   duplicatingProgramId?: string | null;
   archivingProgramId?: string | null;
 }
@@ -38,6 +40,7 @@ export function ProgramCard({
   onDuplicate,
   onArchive,
   onSaveSlug,
+  onToggleStatus,
   duplicatingProgramId,
   archivingProgramId,
 }: ProgramCardProps) {
@@ -89,6 +92,14 @@ export function ProgramCard({
             />
             {program.status}
           </span>
+          <Switch
+            checked={isPublished}
+            disabled={program.status === "archived"}
+            onCheckedChange={(checked) =>
+              onToggleStatus?.(program, checked ? "published" : "draft")
+            }
+            className="disabled:opacity-100 data-[state=checked]:bg-[#5b4dff] data-[state=unchecked]:bg-slate-300"
+          />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

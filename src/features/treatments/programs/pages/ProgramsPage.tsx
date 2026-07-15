@@ -34,11 +34,12 @@ import {
   usePrograms,
   useSaveProgram,
   useUpdateProgramSlug,
+  useUpdateProgramStatus,
   useTreatmentTypes,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { createMockId, currentDateStamp } from "@/features/treatments/common/data/factories";
 import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
-import type { Program, ProgramStage, TreatmentType } from "@/features/treatments/types";
+import type { Program, ProgramStage, ProgramStatus, TreatmentType } from "@/features/treatments/types";
 import { CreateProgramModal } from "@/features/treatments/programs/components/CreateProgramModal";
 import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
 import type { PreviewContext } from "@/features/treatments/types";
@@ -80,6 +81,7 @@ export default function ProgramsPage() {
   const duplicateProgramMutation = useDuplicateProgram();
   const archiveProgramMutation = useArchiveProgram();
   const updateProgramSlugMutation = useUpdateProgramSlug();
+  const updateProgramStatusMutation = useUpdateProgramStatus();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"alpha" | "recent">("recent");
@@ -253,6 +255,11 @@ export default function ProgramsPage() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleToggleStatus = async (program: Program, status: ProgramStatus) => {
+    if (program.status === status) return;
+    await updateProgramStatusMutation.mutateAsync({ programId: program.id, status });
   };
 
   const openCreateProgram = () => {
@@ -437,12 +444,12 @@ export default function ProgramsPage() {
   }, [activePrograms, activeTab, searchQuery, selectedStatus, selectedTreatment, sortBy]);
 
   const assignItems = useMemo(() => {
-    return programs.map((p) => ({
+    return activePrograms.map((p) => ({
       id: p.id,
       name: p.name,
       subtitle: p.treatmentTypeKey || undefined,
     }));
-  }, [programs]);
+  }, [activePrograms]);
 
   const handleAssignPrograms = async (selectedProgramIds: string[], clientIds: string[]) => {
     const res = await programAssignmentApi.bulkAssignPrograms({
@@ -773,6 +780,7 @@ export default function ProgramsPage() {
               onEdit={handleEditProgram}
               onDuplicate={handleDuplicateProgram}
               onArchive={handleArchiveProgram}
+              onToggleStatus={handleToggleStatus}
               duplicatingProgramId={duplicatingProgramId}
               archivingProgramId={archivingProgramId}
             />

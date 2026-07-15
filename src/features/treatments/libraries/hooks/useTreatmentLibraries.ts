@@ -7,6 +7,7 @@ import type {
   CustomProgram,
   Program,
   ProgramQuestion,
+  ProgramStatus,
   TreatmentType,
 } from "@/features/treatments/types";
 
@@ -119,6 +120,35 @@ export const useUpdateProgramSlug = () => {
     mutationFn: ({ programId, slug }: { programId: string; slug: string }) =>
       treatmentsApi.updateProgramSlug(programId, slug),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
+    },
+  });
+};
+
+export const useUpdateProgramStatus = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ programId, status }: { programId: string; status: ProgramStatus }) =>
+      treatmentsApi.updateProgramStatus(programId, status),
+    onMutate: async ({ programId, status }) => {
+      await queryClient.cancelQueries({ queryKey: treatmentQueryKeys.programs() });
+      const previous = queryClient.getQueryData<Program[]>(treatmentQueryKeys.programs());
+
+      queryClient.setQueryData<Program[]>(treatmentQueryKeys.programs(), (current) =>
+        current?.map((p) =>
+          p.id === programId ? { ...p, status, updatedAt: new Date().toISOString().split("T")[0] } : p
+        )
+      );
+
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(treatmentQueryKeys.programs(), context.previous);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
       queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
     },

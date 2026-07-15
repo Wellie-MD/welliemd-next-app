@@ -5,6 +5,7 @@ import type {
   CustomProgram,
   Program,
   ProgramQuestion,
+  ProgramStatus,
   CommonSectionField,
   TreatmentType,
 } from "@/features/treatments/types";
@@ -946,6 +947,31 @@ export const treatmentsApi = {
     const { data } = await axiosInstance.patch<ProgramApiRecord>(
       `treatments/programs/${programId}/slug/`,
       { slug: normalizedSlug }
+    );
+    return mapProgramFromApi(data);
+  },
+
+  updateProgramStatus: async (programId: string, status: ProgramStatus): Promise<Program> => {
+    if (!isPersistedUuid(programId)) {
+      const list = getPrograms();
+      const index = list.findIndex((program) => program.id === programId);
+      if (index < 0) {
+        throw new Error(`Program ${programId} was not found`);
+      }
+      const updatedProgram = {
+        ...list[index],
+        status,
+        updatedAt: currentDateStamp(),
+      };
+      const updated = [...list];
+      updated[index] = updatedProgram;
+      setStored(KEYS.PROGRAMS, updated);
+      return updatedProgram;
+    }
+
+    const { data } = await axiosInstance.patch<ProgramApiRecord>(
+      `treatments/programs/${programId}/live/`,
+      { is_published: status === "published" }
     );
     return mapProgramFromApi(data);
   },
