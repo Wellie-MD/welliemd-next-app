@@ -1,4 +1,4 @@
-import { Outlet, Routes, Route } from "react-router-dom"
+import { Routes, Route } from "react-router-dom"
 import { SettingsSidebar } from "./SettingsSidebar"
 import StoreDetails from "@/pages/settings/StoreDetails"
 import Integrations from "@/pages/settings/Integrations"

@@ -102,6 +102,11 @@ export interface Product {
   admin_service_states?: string[];
   category?: string;
   category_name?: string;
+  is_lab_product?: boolean;
+  junction_lab_test_id?: string;
+  junction_lab_test_name_snapshot?: string;
+  junction_collection_method?: "testkit" | "walk_in_test" | "at_home_phlebotomy" | "on_site_collection";
+  junction_last_catalog_sync_at?: string;
 
   // Questionnaires
   onboarding_questionnaire?: string;
