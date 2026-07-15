@@ -1,5 +1,4 @@
 /** Compact right rail for the client lab-order detail view. */
-import { Button } from "@/components/ui/button"
 import { humanizeLabStatus } from "@/features/labs/constants/status"
 import { labPillTone } from "@/features/labs/constants/tones"
 import { formatLabCollectionMethod } from "@/features/labs/utils/formatting"
@@ -9,8 +8,6 @@ import { cn } from "@/lib/utils"
 interface Props {
   order: LabOrderView
   formattedOrderDate: string
-  togglingRelease: boolean
-  onToggleRelease: () => void
   getInitials: (name?: string) => string
 }
 
@@ -34,8 +31,6 @@ function SideCard({ title, children }: { title: string; children: React.ReactNod
 export default function LabOrderDetailRightColumn({
   order,
   formattedOrderDate,
-  togglingRelease,
-  onToggleRelease,
   getInitials,
 }: Props) {
   const labStatus = humanizeLabStatus(order.ui_lab_event_label || order.results_status || order.order_status || "In Process")
@@ -84,14 +79,7 @@ export default function LabOrderDetailRightColumn({
           <SideLabel>Results review</SideLabel>
           <SideValue>Junction physicians review abnormal and critical results; the patient is called if needed.</SideValue>
         </div>
-        {order.resultsReady && <div className="border-t border-slate-100 pt-2 dark:border-gray-800">
-          <p className="text-xs leading-5 text-slate-400">
-            Patient portal access: <strong className={order.resultsReleased ? "text-emerald-600" : "text-amber-600"}>{order.resultsReleased ? "Released" : "Gated"}</strong>
-          </p>
-          <Button size="sm" variant={order.resultsReleased ? "outline" : "default"} onClick={onToggleRelease} disabled={togglingRelease} className="mt-2 h-8 w-full text-xs">
-            {togglingRelease ? "Saving…" : order.resultsReleased ? "Gate results" : "Release results"}
-          </Button>
-        </div>}
+        {order.resultsAvailable && <p className="border-t border-slate-100 pt-3 text-xs font-semibold text-emerald-700 dark:border-gray-800 dark:text-emerald-400">Results available in the patient portal</p>}
       </SideCard>
 
       <SideCard title="Payment Info">

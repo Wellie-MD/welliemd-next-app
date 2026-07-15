@@ -44,7 +44,6 @@ export default function LabOrderDetail() {
   const [error, setError] = useState<string | null>(null)
   const [downloadingPdf, setDownloadingPdf] = useState(false)
   const [downloadingRequisition, setDownloadingRequisition] = useState(false)
-  const [togglingRelease, setTogglingRelease] = useState(false)
 
   useEffect(() => {
     if (!orderId) {
@@ -72,11 +71,11 @@ export default function LabOrderDetail() {
             price: detail.order.total_paid,
             status: detail.order.order_status,
             resultsReady: detail.order.results_status?.toLowerCase().includes("result") || resultRows.length > 0,
-            resultsReleased: detail.result_access_allowed,
+            resultsAvailable: detail.result_access_allowed,
+            resultPdfAvailable: detail.artifacts.result_pdf_available,
             biomarkers: resultRows,
             panelBiomarkers: detail.panel_biomarkers,
             requisitionAvailable: detail.artifacts.requisition_available,
-            resultPdfAvailable: detail.artifacts.result_pdf_available,
             sampleId: detail.provider_details.sample_id,
             physicianName: detail.provider_details.physician_name,
             physicianNpi: detail.provider_details.physician_npi,
@@ -111,34 +110,6 @@ export default function LabOrderDetail() {
       cancelled = true
     }
   }, [orderId])
-
-  const handleToggleReleaseResults = async () => {
-    if (!orderId || !order) return
-    const newReleasedState = !order.resultsReleased
-    setTogglingRelease(true)
-    try {
-      await clientLabsApi.toggleResultAccess(orderId, newReleasedState)
-      setOrder((prev) => {
-        if (!prev) return prev
-        return { ...prev, resultsReleased: newReleasedState }
-      })
-      toast({
-        title: newReleasedState ? "Results Released" : "Results Gated",
-        description: newReleasedState
-          ? "The patient can now view their lab results in the patient portal."
-          : "Patient access to these lab results has been blocked.",
-      })
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { detail?: string } } }
-      toast({
-        title: "Failed to update result access",
-        description: error.response?.data?.detail ?? "Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setTogglingRelease(false)
-    }
-  }
 
   const handleDownloadPdf = async () => {
     if (!orderId) return
@@ -319,7 +290,11 @@ export default function LabOrderDetail() {
           {/* Lab Results Table Card */}
           <LabResultsTable
             biomarkers={order.biomarkers ?? []}
-            resultsReleased={!!order.resultsReleased}
+            panelName={order.product_name}
+            provider={order.pharmacy_display || order.lab_provider}
+            orderingPhysician={order.physicianName}
+            resultsAvailable={order.resultsAvailable}
+            pdfAvailable={order.resultPdfAvailable}
             downloadingPdf={downloadingPdf}
             onDownloadPdf={handleDownloadPdf}
             statusLabel={order.ui_lab_event_label || statusLabel}
@@ -330,8 +305,6 @@ export default function LabOrderDetail() {
         <LabOrderDetailRightColumn
           order={order}
           formattedOrderDate={formattedOrderDate}
-          togglingRelease={togglingRelease}
-          onToggleRelease={handleToggleReleaseResults}
           getInitials={getInitials}
         />
       </div>

@@ -6,6 +6,11 @@ export interface LabResultRow {
   units: string
   reference_range: string
   flag: string
+  interpretation: string
+  collected_at: string | null
+  reported_at: string | null
+  min_range_value: number | null
+  max_range_value: number | null
 }
 
 export interface LabOrderTimelineSnapshot {
@@ -25,11 +30,11 @@ export type LabOrderView = LabOrder & {
   price: number
   status: string
   resultsReady: boolean
-  resultsReleased: boolean
+  resultsAvailable: boolean
+  resultPdfAvailable: boolean
   biomarkers: LabResultRow[]
   panelBiomarkers: Biomarker[]
   requisitionAvailable: boolean
-  resultPdfAvailable: boolean
   sampleId: string
   physicianName: string
   physicianNpi: string

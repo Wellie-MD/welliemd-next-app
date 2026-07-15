@@ -15,6 +15,11 @@ export const extractLabResultRows = (result: Record<string, unknown> | null | un
       units: String(data.units || data.unit || ""),
       reference_range: String(data.reference_range || data.referenceRange || data.range || ""),
       flag: String(data.flag || data.interpretation || ""),
+      interpretation: String(data.interpretation || data.flag || ""),
+      collected_at: data.collected_at ? String(data.collected_at) : null,
+      reported_at: data.reported_at ? String(data.reported_at) : null,
+      min_range_value: typeof data.min_range_value === "number" ? data.min_range_value : null,
+      max_range_value: typeof data.max_range_value === "number" ? data.max_range_value : null,
     }
   })
 };
