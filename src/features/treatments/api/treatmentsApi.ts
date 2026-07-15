@@ -76,6 +76,7 @@ type CustomProgramApiRecord = {
   icon_color?: string;
   tags?: string[];
   is_multi?: boolean;
+  routed_treatment_names?: string[];
   created_at?: string;
   updated_at?: string;
 };
@@ -261,6 +262,7 @@ const mapCustomProgramFromApi = (record: CustomProgramApiRecord): CustomProgram 
     builderTreatmentOptions: flowItems
       .filter((item) => item.kind === "program")
       .map(mapBuilderTreatmentOptionFromFlowItem),
+    routedTreatmentNames: record.routed_treatment_names || [],
   };
 };
 

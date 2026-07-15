@@ -46,19 +46,16 @@ export function CustomProgramCard({ customProgram, onOpenBuilder, onPreview }: C
     }
   };
 
-  const builderTreatmentNames = uniqueNonEmptyValues(
-    customProgram.builderTreatmentOptions?.map((item) => item.title) ?? []
-  );
-  const flowTreatmentNames = uniqueNonEmptyValues(
-    customProgram.flowItems.filter((item) => item.kind === "program").map((item) => item.title)
-  );
-  const includedProgramNames = uniqueNonEmptyValues(customProgram.includedProgramIds);
-  const routedTreatmentNames =
-    builderTreatmentNames.length > 0
-      ? builderTreatmentNames
-      : flowTreatmentNames.length > 0
-        ? flowTreatmentNames
-        : includedProgramNames;
+  // Prefer backend-provided names; fall back to local derivation for mock/legacy data
+  const routedTreatmentNames = (customProgram.routedTreatmentNames?.length ?? 0) > 0
+    ? customProgram.routedTreatmentNames!
+    : (() => {
+        const builder = uniqueNonEmptyValues(customProgram.builderTreatmentOptions?.map((i) => i.title) ?? []);
+        if (builder.length) return builder;
+        const flow = uniqueNonEmptyValues(customProgram.flowItems.filter((i) => i.kind === "program").map((i) => i.title));
+        if (flow.length) return flow;
+        return uniqueNonEmptyValues(customProgram.includedProgramIds);
+      })();
   const routedTreatmentCount = routedTreatmentNames.length;
 
   return (

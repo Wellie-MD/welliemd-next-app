@@ -95,4 +95,6 @@ export interface CustomProgram {
   builderSections?: CustomProgramBuilderStageItem[];
   builderTreatmentOptions?: CustomProgramBuilderStageItem[];
   builderConsents?: CustomProgramBuilderStageItem[];
+  routedTreatmentNames?: string[];
 }
+
