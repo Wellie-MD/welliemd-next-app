@@ -498,7 +498,7 @@ export default function ProgramDetailPage() {
   }, [clientQuestions.length, isReorderActive]);
 
   const headerQuestionCount = allRows.length;
-  const treatmentName = foundProgram ? stripTreatmentSuffix(foundProgram.name) : "";
+  const treatmentName = foundProgram ? (foundProgram.treatmentTypeName || stripTreatmentSuffix(foundProgram.name)) : "";
 
   const handleOpenAddQuestion = () => {
     setEditingQuestionId(null);

@@ -16,6 +16,7 @@ export interface Program {
   name: string;
   stage: ProgramStage;
   treatmentTypeKey: string;
+  treatmentTypeName?: string;
   visitType: string;
   questionCount: number;
   checkoutQuestionCount: number;
