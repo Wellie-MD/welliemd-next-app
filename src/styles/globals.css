@@ -26,8 +26,8 @@
   --km-acp: rgba(79, 142, 247, 0.12);
   --km-gr: #22c55e;
   --km-grp: rgba(34, 197, 94, 0.12);
-  --km-am: #f59e0b;
-  --km-amp: rgba(245, 158, 11, 0.12);
+  --km-am: #c2772a;
+  --km-amp: rgba(194, 119, 42, 0.14);
   --km-pu: #a78bfa;
   --km-pup: rgba(167, 139, 250, 0.12);
   --km-re: #ef4444;
@@ -834,6 +834,11 @@ body.light .km-nbtn {
   color: var(--km-pu);
 }
 
+.km-dash-ci.amber {
+  background: var(--km-amp);
+  color: var(--km-am);
+}
+
 .km-dash-ct {
   font-size: 14px;
   font-weight: 600;
@@ -849,6 +854,79 @@ body.light .km-nbtn {
 
 .km-dash-va:hover {
   opacity: 0.8;
+}
+
+/* --- Needs Your Attention (.attn) --- */
+.km-attn-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+}
+
+.km-attn-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.km-attn-icon.amber {
+  background: var(--km-amp);
+  color: var(--km-am);
+}
+
+.km-attn-icon.blue {
+  background: var(--km-acp);
+  color: var(--km-ac);
+}
+
+.km-attn-icon.purple {
+  background: var(--km-pup);
+  color: var(--km-pu);
+}
+
+.km-attn-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.km-attn-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--km-t);
+  margin-bottom: 2px;
+}
+
+.km-attn-sub {
+  font-size: 11.5px;
+  color: var(--km-tm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.km-attn-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.km-attn-amount {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--km-t);
+}
+
+.km-attn-divider {
+  height: 1px;
+  background: var(--km-b);
+  margin: 0 14px;
 }
 
 /* --- Quick Actions Grid (.qagrid, .qaitem) --- */
@@ -2252,6 +2330,11 @@ body.light .km-nbtn {
   color: var(--km-tm);
   line-height: 1.5;
   max-width: 210px;
+}
+
+/* --- Health tabs (hide scrollbar = no thick underline) --- */
+.km-health-tabs::-webkit-scrollbar {
+  height: 0;
 }
 
 /* --- Page subtitle --- */
