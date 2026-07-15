@@ -245,6 +245,12 @@ export interface SendCheckoutLinkResponse {
   order_display_id?: string
 }
 
+export interface ResendReceiptResponse {
+  success: boolean
+  message?: string
+  recipient_email?: string
+}
+
 export interface UpdateQuestionnaireImagesPayload {
   photos: QuestionnairePhoto[]
 }
@@ -369,6 +375,28 @@ export const sendCheckoutLink = async (id: string): Promise<SendCheckoutLinkResp
   }
 }
 
+export const resendReceipt = async (id: string): Promise<ResendReceiptResponse> => {
+  try {
+    const { data } = await api.post<ResendReceiptResponse>(`${ENDPOINT}${id}/receipt/resend/`)
+    return data
+  } catch (error) {
+    console.error(`Failed to resend receipt for order ${id}:`, error)
+    throw error
+  }
+}
+
+export const downloadReceipt = async (id: string): Promise<Blob> => {
+  try {
+    const { data } = await api.get(`${ENDPOINT}${id}/receipt/download/`, {
+      responseType: "blob",
+    })
+    return data
+  } catch (error) {
+    console.error(`Failed to download receipt for order ${id}:`, error)
+    throw error
+  }
+}
+
 export const changeProduct = async (
   orderId: string,
   newProductId: number | string,
@@ -442,6 +470,8 @@ export const ordersApi = {
   refundOrder,
   retryPayment,
   sendCheckoutLink,
+  resendReceipt,
+  downloadReceipt,
   changeProduct,
   updateOrderQuestionnaireImages,
   fetchCategories,

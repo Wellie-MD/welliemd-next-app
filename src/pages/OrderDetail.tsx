@@ -57,6 +57,7 @@ import {
   Copy,
   Edit,
   ExternalLink,
+  Download,
 } from "lucide-react"
 import { format } from "date-fns"
 import { Loader2 } from "lucide-react"
@@ -197,6 +198,8 @@ function OrderDetailInner() {
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("")
   const [retryPaymentLoading, setRetryPaymentLoading] = useState(false)
   const [sendCheckoutLinkLoading, setSendCheckoutLinkLoading] = useState(false)
+  const [resendReceiptLoading, setResendReceiptLoading] = useState(false)
+  const [downloadReceiptLoading, setDownloadReceiptLoading] = useState(false)
   const retrySingleFlightRef = useRef(false)
   const [retryGateway, setRetryGateway] = useState<PatientPaymentGateway | null>(null)
   const { toast } = useToast()
@@ -258,6 +261,60 @@ function OrderDetailInner() {
       })
     } finally {
       setSendCheckoutLinkLoading(false)
+    }
+  }
+
+  const handleDownloadReceipt = async () => {
+    if (!order?.id || downloadReceiptLoading) return
+
+    try {
+      setDownloadReceiptLoading(true)
+      const blob = await ordersApi.downloadReceipt(order.id)
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `receipt-${order.order_id || order.display_id || order.id}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.message ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.error ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.detail ||
+        "Failed to download receipt."
+      toast({
+        title: message,
+        variant: "destructive",
+      })
+    } finally {
+      setDownloadReceiptLoading(false)
+    }
+  }
+
+  const handleResendReceipt = async () => {
+    if (!order?.id || resendReceiptLoading) return
+
+    try {
+      setResendReceiptLoading(true)
+      const response = await ordersApi.resendReceipt(order.id)
+      toast({
+        title: response.message || "Receipt email sent.",
+        description: response.recipient_email ? `Sent to ${response.recipient_email}` : undefined,
+      })
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.message ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.error ||
+        (err as { response?: { data?: { message?: string; error?: string; detail?: string } } })?.response?.data?.detail ||
+        "Failed to resend receipt."
+      toast({
+        title: message,
+        variant: "destructive",
+      })
+    } finally {
+      setResendReceiptLoading(false)
     }
   }
 
@@ -512,6 +569,7 @@ function OrderDetailInner() {
   const isAllowedStatus = status === "created" || status === "payment_pending"
   const canChangeProduct = isAllowedStatus && !isLocked
   const canRefundOrVoid = isAuthorized || isRefundable
+  const canUseReceipt = ["captured", "approved", "succeeded", "refunded"].includes(paymentStatus) || paymentCaptured
 
   const parseAmt = (val: any) => val != null && val !== "" && Number.isFinite(parseFloat(String(val))) ? parseFloat(String(val)) : null;
   const initialReqPrice = parseAmt(order?.requested_medicines?.[0]?.price) ?? parseAmt(order?.pricing?.subtotal_before_discount ?? order?.original_price) ?? 0;
@@ -2194,6 +2252,39 @@ function OrderDetailInner() {
                 </span>
               </div>
             </div>
+
+            {canUseReceipt && (
+              <div className="flex flex-wrap justify-end gap-2 mb-6">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-[11px] h-7 border-slate-200 text-slate-700 hover:bg-slate-50 dark:text-slate-200"
+                  onClick={handleDownloadReceipt}
+                  disabled={downloadReceiptLoading}
+                >
+                  {downloadReceiptLoading ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Download className="h-3 w-3 mr-1" />
+                  )}
+                  Download Receipt
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-[11px] h-7 border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-300"
+                  onClick={handleResendReceipt}
+                  disabled={resendReceiptLoading}
+                >
+                  {resendReceiptLoading ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Mail className="h-3 w-3 mr-1" />
+                  )}
+                  Resend Receipt
+                </Button>
+              </div>
+            )}
 
             {(hasSplitSettlement || settlementTransactions.length > 0) && (
               <div className="bg-muted/30 border rounded-lg p-4 mb-6 space-y-2 text-[12px]">
