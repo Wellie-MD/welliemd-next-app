@@ -141,6 +141,7 @@ const mapProgramFromApi = (record: ProgramApiRecord): Program => ({
   name: record.name,
   stage: record.stage || (record.phase === "follow_up" ? "follow_up" : "intake"),
   treatmentTypeKey: record.treatment_type_key,
+  treatmentTypeName: record.treatment_type_name,
   visitType: record.visit_type,
   questionCount: record.question_count || 0,
   checkoutQuestionCount: record.checkout_question_count || 0,

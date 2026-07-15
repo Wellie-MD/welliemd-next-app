@@ -77,9 +77,8 @@ export default function ProgramsPage() {
   const treatmentNameByKey = useMemo(() => {
     const map = new Map<string, string>();
     for (const program of programs) {
-      const name = stripTreatmentSuffix(program.name);
       if (!map.has(program.treatmentTypeKey)) {
-        map.set(program.treatmentTypeKey, name);
+        map.set(program.treatmentTypeKey, program.treatmentTypeName || stripTreatmentSuffix(program.name));
       }
     }
     return map;
