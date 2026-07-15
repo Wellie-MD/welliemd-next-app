@@ -150,6 +150,8 @@ const fallbackOrderStatus = (raw: any): string => {
 
 const normalizeOrder = (raw: any): LabOrder => ({
   id: String(raw.id),
+  display_id: String(raw.display_id || raw.id),
+  client_id: raw.client_id ? String(raw.client_id) : undefined,
   patient_name: raw.patient_name || "",
   patient_email: raw.patient_email || "",
   patient_phone: raw.patient_phone || "",
@@ -400,9 +402,11 @@ export const labsApi = {
     return (data.results || data || []).map(normalizeOrder);
   },
 
-  getAdminLabOrderResults: async (orderId: string) => {
+  getAdminLabOrderResults: async (orderId: string, clientId?: string) => {
     if (junctionMockEnabled) return mockLabOrderResults(orderId);
-    const { data } = await axiosInstance.get(adminLabEndpoints.orderResults(orderId));
+    const { data } = await axiosInstance.get(adminLabEndpoints.orderResults(orderId), {
+      params: clientId ? { client_id: clientId } : undefined,
+    });
     return data;
   },
 
@@ -415,23 +419,26 @@ export const labsApi = {
     return normalizeOrder(data.order || data);
   },
 
-  downloadAdminLabResultPdf: async (orderId: string): Promise<Blob> => {
+  downloadAdminLabResultPdf: async (orderId: string, clientId?: string): Promise<Blob> => {
     const { data } = await axiosInstance.get(adminLabEndpoints.orderResultPdf(orderId), {
       responseType: "blob",
+      params: clientId ? { client_id: clientId } : undefined,
     });
     return data;
   },
 
-  downloadAdminLabRequisitionPdf: async (orderId: string): Promise<Blob> => {
+  downloadAdminLabRequisitionPdf: async (orderId: string, clientId?: string): Promise<Blob> => {
     const { data } = await axiosInstance.get(adminLabEndpoints.orderRequisitionPdf(orderId), {
       responseType: "blob",
+      params: clientId ? { client_id: clientId } : undefined,
     });
     return data;
   },
 
-  downloadAdminLabCollectionInstructionsPdf: async (orderId: string): Promise<Blob> => {
+  downloadAdminLabCollectionInstructionsPdf: async (orderId: string, clientId?: string): Promise<Blob> => {
     const { data } = await axiosInstance.get(adminLabEndpoints.orderCollectionInstructionsPdf(orderId), {
       responseType: "blob",
+      params: clientId ? { client_id: clientId } : undefined,
     });
     return data;
   },

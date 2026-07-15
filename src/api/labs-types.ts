@@ -214,6 +214,8 @@ export interface ClientAssignment {
 
 export interface LabOrder {
   id: string;
+  display_id: string;
+  client_id?: string;
   patient_name: string;
   patient_email: string;
   patient_phone?: string;
@@ -246,6 +248,9 @@ export interface LabOrder {
     results?: string;
   };
   resultsReady: boolean;
+  lifecycle_events?: Array<Record<string, unknown>>;
+  requisition_available?: boolean;
+  result_pdf_available?: boolean;
   biomarkers?: Array<{
     biomarker: string;
     result: string;

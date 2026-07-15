@@ -86,12 +86,22 @@ export default function LabOrders() {
           <SelectContent>
             <SelectItem value="All">All Lab Events</SelectItem>
             <SelectItem value="Requisition Created">Requisition Created</SelectItem>
+            <SelectItem value="Requisition Bypassed">Requisition Bypassed</SelectItem>
+            <SelectItem value="Kit Registration Required">Kit Registration Required</SelectItem>
+            <SelectItem value="Kit Registered">Kit Registered</SelectItem>
             <SelectItem value="Appointment Pending">Appointment Pending</SelectItem>
             <SelectItem value="Appointment Scheduled">Appointment Scheduled</SelectItem>
+            <SelectItem value="Appointment Cancelled">Appointment Cancelled</SelectItem>
+            <SelectItem value="Kit Shipped">Kit Shipped</SelectItem>
+            <SelectItem value="Kit Delivered">Kit Delivered</SelectItem>
+            <SelectItem value="Shipping Problem">Shipping Problem</SelectItem>
             <SelectItem value="Sample Collected">Sample Collected</SelectItem>
             <SelectItem value="At Lab">At Lab</SelectItem>
             <SelectItem value="Partial Results">Partial Results</SelectItem>
+            <SelectItem value="Lab Processing Blocked">Lab Processing Blocked</SelectItem>
+            <SelectItem value="Redraw Required">Redraw Required</SelectItem>
             <SelectItem value="Results Ready">Results Ready</SelectItem>
+            <SelectItem value="Canceled">Canceled</SelectItem>
             <SelectItem value="Failed">Failed</SelectItem>
           </SelectContent>
         </Select>
@@ -138,7 +148,7 @@ export default function LabOrders() {
                       }}
                       className="text-blue-600 hover:underline font-semibold"
                     >
-                      {row.id}
+                      {row.display_id || row.id}
                     </button>
                   </td>
                   <td className="px-3 py-4 font-semibold">{row.patient}</td>

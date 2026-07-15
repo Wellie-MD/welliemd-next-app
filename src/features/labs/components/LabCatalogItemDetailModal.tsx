@@ -60,19 +60,19 @@ export default function LabCatalogItemDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-24px)] max-w-4xl p-0 gap-0 overflow-hidden">
-        <div className="px-6 pt-5 pb-4 border-b">
+      <DialogContent className="w-[calc(100vw-24px)] max-w-4xl gap-0 overflow-hidden border-sky-100 p-0">
+        <div className="border-b border-sky-100 bg-gradient-to-r from-sky-50 via-white to-teal-50 px-6 pb-4 pt-5">
           <DialogHeader>
-            <DialogTitle className="text-[30px] leading-none font-bold tracking-tight text-slate-900">
+            <DialogTitle className="text-2xl font-bold leading-none tracking-tight text-slate-900">
               Test Details
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500 mt-1">
+            <DialogDescription className="mt-2 text-xs text-slate-600">
               Reference-catalog item from Junction's marker/test catalog.
             </DialogDescription>
           </DialogHeader>
         </div>
 
-        <div className="px-6 py-5 max-h-[80vh] overflow-y-auto space-y-6 text-sm">
+        <div className="max-h-[80vh] space-y-6 overflow-y-auto bg-white px-6 py-5 text-sm">
           {loading ? (
             <div className="text-sm text-slate-500">Loading test details…</div>
           ) : error ? (
@@ -81,7 +81,7 @@ export default function LabCatalogItemDetailModal({
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <Detail label="Name" value={detail?.name || item.name} />
                 <Detail label="Test code / Provider ID" value={detail?.provider_id || item.provider_id || "—"} mono />
                 <Detail label="Type" value={detail?.item_type || item.item_type || "—"} />
@@ -92,21 +92,22 @@ export default function LabCatalogItemDetailModal({
                 <Detail label="Worst-case turnaround time" value={tatLabel(detail?.worst_case_tat_days ?? item.worst_case_tat_days)} />
               </div>
 
-              <div className="rounded-xl border border-slate-200 overflow-hidden">
-                <div className="px-4 py-3 border-b bg-slate-50/80">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+              <div className="overflow-hidden rounded-xl border border-sky-100 shadow-sm">
+                <div className="border-b border-sky-100 bg-sky-50/80 px-4 py-3">
+                  <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-sky-800">
+                    <span className="h-4 w-1 rounded-full bg-sky-600" />
                     LOINC Map
                   </p>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[720px] text-sm">
                     <thead className="bg-white">
-                      <tr className="border-b border-slate-200">
-                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Name</th>
-                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Test code</th>
-                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Slug</th>
-                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Required</th>
-                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">LOINC</th>
+                      <tr className="border-b border-sky-100">
+                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-sky-800">Name</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-sky-800">Test code</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-sky-800">Slug</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-sky-800">Required</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.12em] text-sky-800">LOINC</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -118,12 +119,16 @@ export default function LabCatalogItemDetailModal({
                         </tr>
                       ) : (
                         rows.map((row, index) => (
-                          <tr key={`${row.test_code}-${index}`} className="border-b border-slate-100 last:border-b-0">
+                          <tr key={`${row.test_code}-${index}`} className="border-b border-sky-50 odd:bg-white even:bg-slate-50/40 last:border-b-0 hover:bg-sky-50/50">
                             <td className="px-4 py-3 font-medium text-slate-900">{row.name || "—"}</td>
-                            <td className="px-4 py-3 font-mono text-emerald-700">{row.test_code || "—"}</td>
+                            <td className="px-4 py-3 font-mono text-teal-700">{row.test_code || "—"}</td>
                             <td className="px-4 py-3 text-slate-600 break-words">{row.slug || "—"}</td>
-                            <td className="px-4 py-3 text-slate-700">{row.required ? "Yes" : "No"}</td>
-                            <td className="px-4 py-3 font-mono text-emerald-700">{row.loinc || "—"}</td>
+                            <td className="px-4 py-3 text-slate-700">
+                              <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${row.required ? "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200" : "bg-slate-100 text-slate-500"}`}>
+                                {row.required ? "Yes" : "No"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 font-mono text-teal-700">{row.loinc || "—"}</td>
                           </tr>
                         ))
                       )}
@@ -176,9 +181,9 @@ function Detail({
   mono?: boolean;
 }) {
   return (
-    <div className="space-y-1">
-      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
-      <p className={mono ? "font-mono text-slate-900 break-all" : "text-slate-900"}>{value || "—"}</p>
+    <div className="rounded-lg border border-sky-100 bg-sky-50/40 p-3 space-y-1">
+      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-sky-800">{label}</p>
+      <p className={mono ? "break-all font-mono text-slate-900" : "text-slate-900"}>{value || "—"}</p>
     </div>
   );
 }
@@ -191,8 +196,8 @@ function InfoBlock({
   rows: Array<{ label: string; value: string }>;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 p-4 space-y-3">
-      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{title}</p>
+    <div className="space-y-3 rounded-xl border border-teal-100 bg-teal-50/30 p-4">
+      <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.12em] text-teal-800"><span className="h-4 w-1 rounded-full bg-teal-600" />{title}</p>
       {rows.map((row) => (
         <div key={row.label} className="flex items-start justify-between gap-4 text-sm">
           <span className="text-slate-500">{row.label}</span>

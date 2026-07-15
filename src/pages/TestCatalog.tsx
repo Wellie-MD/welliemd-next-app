@@ -134,8 +134,8 @@ export default function TestCatalog() {
         <div className={`w-full space-y-6 transition-all duration-300 ${createOpen ? (createExpanded ? "xl:max-w-[50%]" : "xl:max-w-[calc(100%-400px)]") : ""}`}>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-[#1A202C]">Test Catalog</h1>
-              <p className="text-xs text-slate-500 mt-1 max-w-3xl leading-relaxed">
+              <h1 className="text-3xl font-bold tracking-tight text-slate-900">Test Catalog</h1>
+              <p className="mt-1 max-w-3xl text-sm leading-relaxed text-slate-600">
                 Search the Junction reference catalog and create draft WellieMD panels for later configuration on the Labs page.
               </p>
             </div>

@@ -136,15 +136,15 @@ export default function TestDetailSheet({
           )}
         </button>
 
-        <div className="px-6 py-5 border-b shrink-0 flex items-center justify-between bg-white">
+        <div className="flex shrink-0 items-center justify-between border-b border-sky-100 bg-gradient-to-r from-sky-50 to-white px-6 py-5">
           <SheetHeader>
-            <SheetTitle className="text-lg font-bold text-[#1A202C]">
+            <SheetTitle className="text-xl font-bold tracking-tight text-slate-900">
               Test Details
             </SheetTitle>
           </SheetHeader>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 text-sm bg-white">
+        <div className="flex-1 space-y-6 overflow-y-auto bg-white px-6 py-6 text-sm">
           {loading ? (
             <div className="text-sm text-slate-500 py-4">Loading test details…</div>
           ) : error ? (
@@ -154,7 +154,7 @@ export default function TestDetailSheet({
           ) : (
             <>
               {/* Metadata Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-5 gap-x-8">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <MetaField label="Name" value={detail?.name || item?.name || "—"} />
                 <MetaField
                   label="Test Code / Provider ID"
@@ -185,12 +185,12 @@ export default function TestDetailSheet({
                 />
               </div>
 
-              <hr className="border-slate-100" />
+              <hr className="border-sky-100" />
 
               {/* LOINC Map Section */}
               <div className="space-y-4">
-                <h3 className="font-bold text-base text-[#1A202C]">LOINC Map</h3>
-                <div className="border border-slate-100 rounded-lg overflow-hidden shadow-sm">
+                <h3 className="flex items-center gap-2 font-bold text-base text-sky-900"><span className="h-5 w-1 rounded-full bg-sky-600" />LOINC Map</h3>
+                <div className="overflow-hidden rounded-xl border border-sky-100 shadow-sm">
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm table-fixed min-w-[600px]">
                       <colgroup>
@@ -200,12 +200,12 @@ export default function TestDetailSheet({
                         <col className="w-[12%]" />
                         <col className="w-[13%]" />
                       </colgroup>
-                      <thead className="bg-slate-50/50">
-                        <tr className="border-b border-slate-100">
-                          <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Name</th>
-                          <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Test Code</th>
-                          <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">Slug</th>
-                          <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      <thead className="bg-sky-50/80">
+                        <tr className="border-b border-sky-100">
+                          <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-sky-800">Name</th>
+                          <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-sky-800">Test Code</th>
+                          <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-sky-800">Slug</th>
+                          <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-sky-800">
                             <span className="inline-flex items-center gap-1 whitespace-nowrap">
                               Required
                               <span className="text-slate-400 text-[10px] cursor-help font-normal" title="Whether this marker is required when ordering this panel">
@@ -213,10 +213,10 @@ export default function TestDetailSheet({
                               </span>
                             </span>
                           </th>
-                          <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">LOINC</th>
+                          <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-sky-800">LOINC</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 bg-white">
+                      <tbody className="divide-y divide-sky-50 bg-white">
                         {rows.length === 0 ? (
                           <tr>
                             <td colSpan={5} className="px-3 py-8 text-center text-sm text-slate-500 italic">
@@ -225,7 +225,7 @@ export default function TestDetailSheet({
                           </tr>
                         ) : (
                           rows.map((row, index) => (
-                            <tr key={`${row.test_code}-${index}`} className="hover:bg-slate-50/30 transition-colors duration-150">
+                            <tr key={`${row.test_code}-${index}`} className="transition-colors duration-150 odd:bg-white even:bg-slate-50/40 hover:bg-sky-50/50">
                               <td className="px-3 py-3 font-medium text-slate-800 break-words">{row.name || "—"}</td>
                               <td className="px-3 py-3 text-slate-700 whitespace-nowrap">
                                 <Copyable value={row.test_code || "—"} mono />
@@ -234,7 +234,7 @@ export default function TestDetailSheet({
                                 <Copyable value={row.slug || "—"} truncateWidth="130px" />
                               </td>
                               <td className="px-3 py-3 text-slate-700 whitespace-nowrap">
-                                <span className="inline-flex items-center gap-1">
+                                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${row.required ? "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200" : "bg-slate-100 text-slate-500"}`}>
                                   {row.required ? "Yes" : "No"}
                                 </span>
                               </td>

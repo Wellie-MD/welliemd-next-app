@@ -59,7 +59,7 @@ export default function TestCatalogTable({
 
   return (
     <>
-      <div className="bg-card border border-border/60 rounded-lg p-4 shadow-sm">
+      <div className="rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 via-white to-teal-50 p-4 shadow-sm">
         <div className="flex flex-col sm:flex-row items-center gap-3">
           <SearchCombobox
             search={search}
@@ -70,7 +70,7 @@ export default function TestCatalogTable({
           <select
             value={labFilter}
             onChange={(e) => onLabFilterChange(e.target.value)}
-            className="h-10 text-xs font-semibold rounded-md border border-border/80 bg-white px-3 py-2 text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring w-full sm:w-[200px] shrink-0"
+            className="h-10 w-full shrink-0 rounded-md border border-sky-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-400 sm:w-[200px]"
           >
             <option value="all">All Labs</option>
             {catalogLabs.map((lab) => (
@@ -82,17 +82,17 @@ export default function TestCatalogTable({
         </div>
       </div>
 
-      <div className="border rounded-lg bg-card overflow-hidden">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <Table>
-          <TableHeader className="bg-muted/30">
-            <TableRow>
-              <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground">
+          <TableHeader className="bg-slate-50">
+            <TableRow className="border-b border-slate-200">
+              <TableHead className="font-semibold text-xs tracking-wider text-sky-800">
                 LAB TEST
               </TableHead>
-              <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground">
+              <TableHead className="font-semibold text-xs tracking-wider text-sky-800">
                 TEST CODE
               </TableHead>
-              <TableHead className="font-semibold text-xs tracking-wider text-muted-foreground">
+              <TableHead className="font-semibold text-xs tracking-wider text-sky-800">
                 <span className="inline-flex items-center gap-1">
                   PRICE
                   <span className="text-slate-400 text-[10px] cursor-help font-normal" title="Estimated source price from the Junction reference catalog">
@@ -100,7 +100,7 @@ export default function TestCatalogTable({
                   </span>
                 </span>
               </TableHead>
-              <TableHead className="text-right font-semibold text-xs tracking-wider text-muted-foreground pr-6">
+              <TableHead className="text-right font-semibold text-xs tracking-wider text-sky-800 pr-6">
                 ACTION
               </TableHead>
             </TableRow>
@@ -111,28 +111,28 @@ export default function TestCatalogTable({
               return (
                 <TableRow
                   key={item.id}
-                  className="hover:bg-muted/5 cursor-pointer"
+                  className="cursor-pointer border-b border-slate-100 odd:bg-white even:bg-slate-50/50 hover:bg-sky-50/70"
                   onClick={() => onDetails(item)}
                 >
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <p
-                          className="font-medium text-slate-900 truncate cursor-pointer hover:text-blue-700"
+                          className="cursor-pointer truncate font-semibold text-slate-900 hover:text-sky-700"
                           onClick={() => onDetails(item)}
                         >
                           {item.name}
                         </p>
                         <button
                           type="button"
-                          className="text-muted-foreground hover:text-foreground"
+                          className="text-sky-500 hover:text-sky-700"
                           onClick={() => onDetails(item)}
                           title="View details"
                         >
                           <Info className="h-3.5 w-3.5" />
                         </button>
                         {item.has_aoe_required && (
-                          <span className="inline-flex items-center gap-1 shrink-0 rounded bg-slate-100 border border-slate-200/50 px-1.5 py-0.5 text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-700">
                             AOE REQUIRED
                             <span className="text-slate-400 text-[10px] cursor-help font-normal" title="Junction requires answers to order-entry questions for this test">
                               ⓘ
@@ -140,20 +140,20 @@ export default function TestCatalogTable({
                           </span>
                         )}
                       </div>
-                      <div className="mt-1 text-xs text-slate-500">
-                        {item.lab_name}
+                      <div className="mt-1 text-xs font-medium text-teal-700">
+                        {item.lab_name || "Unknown provider"}
                       </div>
                     </div>
                   </TableCell>
 
                   <TableCell>
-                    <span className="font-bold text-[#12517A] text-sm">
+                    <span className="inline-flex rounded-md bg-sky-50 px-2 py-1 font-mono text-xs font-bold text-sky-800 ring-1 ring-inset ring-sky-200">
                       {item.provider_id || "—"}
                     </span>
                   </TableCell>
 
-                  <TableCell className="text-sm text-slate-700">
-                    {item.price || "—"}
+                  <TableCell className="text-sm font-semibold text-emerald-700">
+                    {item.price && item.price !== "N/A" ? item.price : <span className="text-slate-400">N/A</span>}
                   </TableCell>
 
                   <TableCell className="text-right pr-6" onClick={(e) => e.stopPropagation()}>
@@ -163,7 +163,7 @@ export default function TestCatalogTable({
                         variant="outline"
                         size="sm"
                         onClick={() => onDetails(item)}
-                        className="border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold text-xs py-1 px-3 h-8 shadow-none transition-colors duration-200"
+                        className="border-sky-200 bg-white text-sky-700 shadow-none transition-colors duration-200 hover:bg-sky-50 hover:text-sky-800 font-semibold text-xs py-1 px-3 h-8"
                       >
                         Details
                       </Button>

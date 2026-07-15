@@ -30,7 +30,6 @@ import { toast } from "@/components/ui/use-toast";
 import { Hexagon, User, Mail, Phone, FileText, Download } from "lucide-react";
 import { labsApi } from "@/api/labs";
 import { labOrderToneStyles } from "@/features/labs/constants/tones";
-import { getLabEventTime } from "@/features/labs/utils/lifecycle";
 import { extractLabResultRows } from "@/features/labs/utils/resultRows";
 
 interface OrderDetailDrawerProps {
@@ -38,6 +37,26 @@ interface OrderDetailDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOrderUpdated: (updatedOrder: any) => void;
+}
+
+interface LabLifecycleEvent {
+  id?: string;
+  event_type?: string;
+  occurred_at?: string;
+  title?: string;
+  status?: string;
+  description?: string;
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
 }
 
 function OrderPill({ status }: { status: string }) {
@@ -66,7 +85,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
       if (!order?.is_lab) return;
       try {
         setLoadingResults(true);
-        const res = await labsApi.getAdminLabOrderResults(order.id);
+        const res = await labsApi.getAdminLabOrderResults(order.id, order.client_id);
         setLabResults(res);
       } catch (e) {
         console.error(e);
@@ -75,10 +94,10 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
       }
     };
 
-    if (resultsOpen && order?.is_lab) {
+    if (open && order?.is_lab) {
       fetchResults();
     }
-  }, [resultsOpen, order]);
+  }, [open, order]);
 
   const handleOpen = (isOpen: boolean) => {
     if (isOpen && order) {
@@ -166,7 +185,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
       : parseFloat(String(order.amount).replace(/[^0-9.]/g, "")) || 0;
 
   const orderProduct = order.product_name || order.product || "—";
-  const orderLabProvider = order.lab_provider || order.pharmacy_name || "Quest Diagnostics";
+  const orderLabProvider = order.lab_provider || order.pharmacy_name || "—";
   const labResultsAvailable = order.resultsReady === true || [
     "partial_results",
     "results_ready",
@@ -174,6 +193,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
     "partial",
     "final",
   ].includes(order.results_status);
+  const hasStructuredResults = extractLabResultRows(labResults).length > 0;
 
   return (
     <>
@@ -186,7 +206,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                 Order Details
               </SheetTitle>
               <div className="text-[12px] text-muted-foreground font-mono mt-1">
-                {order.id}
+                {labResults?.order?.display_id || order.display_id || order.id}
               </div>
               <div className="flex flex-wrap gap-2 mt-3">
                 <OrderPill status={order.status_display || order.status} />
@@ -242,7 +262,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                 </div>
 
                 <div className="text-muted-foreground">{order.is_lab ? "Ordering provider" : "Doctor"}</div>
-                <div className="font-semibold text-foreground text-right truncate pl-2">{order.doctor_name || "Mitchell Stotland MD"}</div>
+                <div className="font-semibold text-foreground text-right truncate pl-2">{order.doctor_name || "—"}</div>
 
                 <div className="text-muted-foreground">Lab</div>
                 <div className="font-semibold text-foreground text-right truncate pl-2">{orderLabProvider}</div>
@@ -274,43 +294,26 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
 
             <div className="space-y-2.5 pt-4 border-t">
               <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Timeline</div>
-              <div className="grid grid-cols-2 gap-y-2 text-xs">
+              <div className="space-y-3 text-xs">
                 {order.is_lab ? (
-                  <>
-                    <div className="text-muted-foreground">Ordered</div>
-                    <div className="font-semibold text-foreground text-right">{order.timeline?.ordered || order.date || "—"}</div>
-                    
-                    <div className="text-muted-foreground">Requisition created</div>
-                    <div className="font-semibold text-foreground text-right">{getLabEventTime(order.lifecycle_events || labResults?.lifecycle_events, ["requisition"]) || order.timeline?.requisition_created || "—"}</div>
-                    
-                    <div className="text-muted-foreground">Appointment link sent</div>
-                    <div className="font-semibold text-foreground text-right">{getLabEventTime(order.lifecycle_events || labResults?.lifecycle_events, ["appointment link", "link sent"]) || order.timeline?.appointment_link_sent || "—"}</div>
-                    
-                    <div className="text-muted-foreground">Appointment booked</div>
-                    <div className="font-semibold text-foreground text-right">{getLabEventTime(order.lifecycle_events || labResults?.lifecycle_events, ["scheduled", "booked"]) || order.timeline?.appointment_booked || "—"}</div>
-                    
-                    <div className="text-muted-foreground">Sample collected</div>
-                    <div className="font-semibold text-foreground text-right">{getLabEventTime(order.lifecycle_events || labResults?.lifecycle_events, ["sample", "collected"]) || order.timeline?.sample_collected || "—"}</div>
-                    
-                    <div className="text-muted-foreground">At lab</div>
-                    <div className="font-semibold text-foreground text-right">{getLabEventTime(order.lifecycle_events || labResults?.lifecycle_events, ["at lab"]) || order.timeline?.at_lab || "—"}</div>
-                    
-                    <div className="text-muted-foreground">Partial results</div>
-                    <div className="font-semibold text-foreground text-right">{getLabEventTime(order.lifecycle_events || labResults?.lifecycle_events, ["partial"]) || order.timeline?.partial_results || "—"}</div>
-                    
-                    <div className="text-muted-foreground">Results</div>
-                    <div className="font-semibold text-foreground text-right">{getLabEventTime(order.lifecycle_events || labResults?.lifecycle_events, ["result"]) || order.timeline?.results || "—"}</div>
-                  </>
+                  (labResults?.lifecycle_events || order.lifecycle_events || []).length ? (
+                    ((labResults?.lifecycle_events || order.lifecycle_events || []) as LabLifecycleEvent[]).map((event) => (
+                      <div key={event.id || `${event.event_type}-${event.occurred_at}`} className="flex items-start justify-between gap-4">
+                        <div><div className="font-semibold text-foreground">{event.title || event.status || "Lab update"}</div><div className="text-muted-foreground">{event.description || ""}</div></div>
+                        <div className="shrink-0 text-right text-muted-foreground">{event.occurred_at ? new Date(event.occurred_at).toLocaleString() : "—"}</div>
+                      </div>
+                    ))
+                  ) : <div className="text-muted-foreground">No provider lifecycle events received yet.</div>
                 ) : (
                   <>
-                    <div className="text-muted-foreground">Ordered</div>
+                    <div className="grid grid-cols-2"><div className="text-muted-foreground">Ordered</div>
                     <div className="font-semibold text-foreground text-right">{order.timeline?.ordered || order.date || "—"}</div>
 
                     <div className="text-muted-foreground">Sample collected</div>
                     <div className="font-semibold text-foreground text-right">{order.timeline?.sample_collected || "—"}</div>
 
                     <div className="text-muted-foreground">Results</div>
-                    <div className="font-semibold text-foreground text-right">{order.timeline?.results || "—"}</div>
+                    <div className="font-semibold text-foreground text-right">{order.timeline?.results || "—"}</div></div>
                   </>
                 )}
               </div>
@@ -320,7 +323,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
               <div className="pt-2 flex flex-col gap-2">
                 {labResultsAvailable && (
                   <>
-                    <Button
+                    {hasStructuredResults && <Button
                       type="button"
                       variant="outline"
                       className="w-full justify-center text-xs h-9 font-semibold border border-input bg-background hover:bg-muted text-foreground flex items-center gap-1.5"
@@ -328,19 +331,15 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                     >
                       <FileText className="h-4 w-4" />
                       View lab results
-                    </Button>
-                    <Button
+                    </Button>}
+                    {labResults?.artifacts?.result_pdf_available && <Button
                       type="button"
                       variant="outline"
                       className="w-full justify-center text-xs h-9 font-semibold border border-input bg-background hover:bg-muted text-foreground flex items-center gap-1.5"
                       onClick={async () => {
                         try {
-                          const base64 = await labsApi.getJunctionLabOrderResultsPdf(order.id);
-                          const linkSource = `data:application/pdf;base64,${base64}`;
-                          const downloadLink = document.createElement("a");
-                          downloadLink.href = linkSource;
-                          downloadLink.download = `results_${order.id}.pdf`;
-                          downloadLink.click();
+                          const blob = await labsApi.downloadAdminLabResultPdf(order.id, order.client_id);
+                          downloadBlob(blob, `results_${order.display_id || order.id}.pdf`);
                         } catch (e) {
                           console.error(e);
                         }
@@ -348,16 +347,17 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                     >
                       <Download className="h-4 w-4" />
                       Download report (PDF)
-                    </Button>
+                    </Button>}
                   </>
                 )}
-                <Button
+                {labResults?.artifacts?.requisition_available && <Button
                   type="button"
                   variant="outline"
                   className="w-full justify-center text-xs h-9 font-semibold border border-input bg-background hover:bg-muted text-foreground flex items-center gap-1.5"
                   onClick={async () => {
                     try {
-                      await labsApi.downloadAdminLabRequisitionPdf(order.id);
+                      const blob = await labsApi.downloadAdminLabRequisitionPdf(order.id, order.client_id);
+                      downloadBlob(blob, `requisition_${order.display_id || order.id}.pdf`);
                     } catch (e) {
                       console.error(e);
                     }
@@ -365,7 +365,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                 >
                   <Download className="h-4 w-4" />
                   Download requisition form
-                </Button>
+                </Button>}
               </div>
             )}
 
@@ -437,7 +437,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                       const linkSource = `data:application/pdf;base64,${base64}`;
                       const downloadLink = document.createElement("a");
                       downloadLink.href = linkSource;
-                      downloadLink.download = `results_${order.id}.pdf`;
+                      downloadLink.download = `results_${order.display_id || order.id}.pdf`;
                       downloadLink.click();
                     } catch (e) {
                       console.error(e);
@@ -450,7 +450,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
               </div>
             </DialogTitle>
             <DialogDescription className="text-xs font-mono text-muted-foreground mt-1">
-              From Junction API &bull; Order ID: {order.id}
+              From Junction API &bull; Order reference: {labResults?.order?.display_id || order.display_id || order.id}
             </DialogDescription>
           </DialogHeader>
 
@@ -478,8 +478,8 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                   <span className="font-semibold text-foreground truncate block">{orderProduct}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] sm:text-xs text-muted-foreground block">Junction Order ID</span>
-                  <span className="font-semibold text-foreground font-mono truncate block">{order.id}</span>
+                  <span className="text-[10px] sm:text-xs text-muted-foreground block">Order reference</span>
+                  <span className="font-semibold text-foreground font-mono truncate block">{labResults?.order?.display_id || order.display_id || order.id}</span>
                 </div>
                 <div>
                   <span className="text-[10px] sm:text-xs text-muted-foreground block">Reporting Date</span>
@@ -546,10 +546,11 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                   <Button variant="outline" onClick={() => setResultsOpen(false)} className="text-xs h-8">
                     Close
                   </Button>
-                  <Button
+                  {labResults?.artifacts?.result_pdf_available && <Button
                     onClick={async () => {
                       try {
-                        await labsApi.downloadAdminLabResultPdf(order.id);
+                        const blob = await labsApi.downloadAdminLabResultPdf(order.id, order.client_id);
+                        downloadBlob(blob, `results_${order.display_id || order.id}.pdf`);
                       } catch (e) {
                         console.error(e);
                       }
@@ -557,7 +558,7 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                     className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs h-8"
                   >
                     <Download className="h-4 w-4 mr-2" /> Download report (PDF)
-                  </Button>
+                  </Button>}
                 </div>
               </DialogFooter>
             </div>
