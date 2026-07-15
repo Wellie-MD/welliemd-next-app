@@ -36,8 +36,9 @@ export default function ConnectedState({
           name: c.name || 'Device',
           gives: 'Health data',
           ic: '⌚',
-          cat: undefined,
+          cat: 'wear',
         };
+        const logoUrl = 'logoUrl' in p ? p.logoUrl : undefined;
         const broken = c.status === 'error';
 
         return (
@@ -51,7 +52,7 @@ export default function ConnectedState({
               }}
             >
               <ProviderIcon
-                logoUrl={p.logoUrl}
+                {...(logoUrl ? { logoUrl } : {})}
                 fallback={p.ic}
                 size={36}
                 radius={10}

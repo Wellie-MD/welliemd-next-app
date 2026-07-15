@@ -1,10 +1,10 @@
-import React from 'react';
 import { Search, Smartphone } from 'lucide-react';
 import { PROVIDERS, CATS } from '../constants';
 import type { Provider } from '../types';
 import ProviderIcon from './ProviderIcon';
 
 interface ConnectStateProps {
+  allowedProviders?: Provider[];
   devCat: string;
   devQuery: string;
   onSetCategory: (cat: string) => void;
@@ -13,13 +13,14 @@ interface ConnectStateProps {
 }
 
 export default function ConnectState({
+  allowedProviders,
   devCat,
   devQuery,
   onSetCategory,
   onSearchChange,
   onConnect,
 }: ConnectStateProps) {
-  const filteredList = PROVIDERS.filter(
+  const filteredList = (allowedProviders ?? PROVIDERS).filter(
     (p) =>
       (devCat === 'all' || p.cat === devCat) &&
       (!devQuery.trim() ||
@@ -138,7 +139,7 @@ export default function ConnectState({
                 gap: 13,
               }}
             >
-              <ProviderIcon logoUrl={p.logoUrl} fallback={p.ic} size={42} radius={12} fontSize={22} />
+              <ProviderIcon {...(p.logoUrl ? { logoUrl: p.logoUrl } : {})} fallback={p.ic} size={42} radius={12} fontSize={22} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 14 }}>{p.name}</div>
                 <div

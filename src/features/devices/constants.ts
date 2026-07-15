@@ -4,10 +4,20 @@ import type { Provider, CategoryDef, HealthSection, MetricItem, DeviceMetrics, W
  * Junction configuration
  */
 export const JUNCTION = {
-  backend: null as string | null, // e.g. 'https://api.kinmeds.com' — null = DEMO mode
-  userId: 'demo-user',
-  env: 'sandbox' as 'sandbox' | 'production',
-  get live() { return !!this.backend; },
+  env: 'production' as 'sandbox' | 'production',
+};
+
+export const DEVICE_ENDPOINTS = {
+  providers: '/wearables/providers/?client_view=true',
+  oauthSession: '/wearables/oauth-session/',
+  connections: '/wearables/connections/',
+  consent: '/wearables/consent/',
+  deleteHealthData: '/wearables/delete-health-data/',
+  deviceData: '/wearables/device-data/',
+  vitals: '/medical/vitals/',
+  healthGoal: '/medical/health-goal/',
+  disconnect: (id: string) => `/wearables/connections/${id}/disconnect/`,
+  reconnect: (id: string) => `/wearables/connections/${id}/reconnect/`,
 };
 
 /**
@@ -79,10 +89,10 @@ export const TRENDS: Record<string, TrendData> = {};
  * Default device metrics / readiness
  */
 export const DEVICE_METRICS_DEFAULT: DeviceMetrics = {
-  steps: '0',
-  sleep: '0',
-  restingHr: '0',
-  activeDays: '0',
+  steps: '',
+  sleep: '',
+  restingHr: '',
+  activeDays: '',
   readiness: 0,
   recovery: 0,
   sleepScore: 0,
@@ -94,9 +104,9 @@ export const DEVICE_METRICS_DEFAULT: DeviceMetrics = {
 export const WEIGHT_DEFAULT: WeightData = {
   series: [],
   checkins: [],
-  start: 0,
-  goal: null,
-  heightIn: 70,
+  start: null,
+  targetBmi: null,
+  heightIn: null,
   points: [],
   latestBmi: null,
   latestBmiCategory: null,

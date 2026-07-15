@@ -100,9 +100,9 @@ export interface DeviceMetrics {
 export interface WeightData {
   series: number[];
   checkins: { label: string; w: number }[];
-  start: number;
-  goal: number | null;
-  heightIn: number;
+  start: number | null;
+  targetBmi: number | null;
+  heightIn: number | null;
   points: { date: string; weight: number; bmi: number | null }[];
   latestBmi: number | null;
   latestBmiCategory: string | null;
@@ -120,8 +120,8 @@ export interface VitalsEntry {
   measured_at: string;
 }
 
-export interface LinkTokenResponse {
-  link_token: string | null;
+export interface LinkSessionResponse {
+  authorization_url: string | null;
   expires_at: string | null;
   demo?: boolean;
 }
@@ -143,6 +143,10 @@ export interface DeviceDataResponse {
   glucoseSeries?: number[];
   avgGlucose?: number | null;
   latestGlucose?: number | null;
+}
+
+export interface HealthGoalResponse {
+  goal: { target_bmi: string | number; updated_at: string } | null;
 }
 
 export interface ConnectionResponse {

@@ -152,15 +152,10 @@ export function WeightTrendCard({
   bottomAction?: { label: string; onClick: () => void };
 }) {
   const cur = weight.series[weight.series.length - 1] ?? weight.start;
-  const chg = Math.abs(+(cur - weight.start).toFixed(1));
-  const pct = weight.start ? Math.abs(((cur - weight.start) / weight.start) * 100) : 0;
-  // Prefer the server-computed BMI (correct patient height); only fall back to a
-  // client-side estimate when there's truly no vitals history with a height on file yet.
-  const hasServerBmi = weight.latestBmi != null;
-  const bmi = hasServerBmi ? weight.latestBmi! : (703 * cur) / (weight.heightIn * weight.heightIn);
-  const bmiCat =
-    weight.latestBmiCategory ??
-    (bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Healthy' : bmi < 30 ? 'Overweight' : 'Obesity');
+  const chg = cur != null && weight.start != null ? Math.abs(+(cur - weight.start).toFixed(1)) : null;
+  const pct = cur != null && weight.start ? Math.abs(((cur - weight.start) / weight.start) * 100) : null;
+  const bmi = weight.latestBmi;
+  const bmiCat = weight.latestBmiCategory;
 
   return (
     <div style={CARD}>
@@ -212,24 +207,23 @@ export function WeightTrendCard({
             color: 'var(--km-t)',
           }}
         >
-          {cur} <span style={{ fontSize: 14, color: 'var(--km-tm)' }}>lb</span>
+          {cur != null ? cur : 'Unavailable'} <span style={{ fontSize: 14, color: 'var(--km-tm)' }}>{cur != null ? 'lb' : ''}</span>
         </span>
-        <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--km-gr)' }}>
-          ▼ {chg} lb · {pct.toFixed(1)}%
-        </span>
+        {chg != null && pct != null && (
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--km-gr)' }}>
+            Change {chg} lb · {pct.toFixed(1)}%
+          </span>
+        )}
         <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--km-tm)' }}>
-          BMI <b style={{ color: 'var(--km-t)' }}>{bmi.toFixed(1)}</b> · {bmiCat}
+          BMI <b style={{ color: 'var(--km-t)' }}>{bmi != null ? bmi.toFixed(1) : 'Unavailable'}</b>{bmiCat ? ` · ${bmiCat}` : ''}
         </span>
       </div>
 
       {onOpenGoalModal && (
         <div style={{ padding: '2px 18px 2px', fontSize: 12, color: 'var(--km-t2)' }}>
-          {weight.goal && weight.goal > 0 ? (
+          {weight.targetBmi && weight.targetBmi > 0 ? (
             <>
-              Goal <b style={{ color: 'var(--km-t)' }}>{weight.goal} lb</b> ·{' '}
-              {cur > weight.goal
-                ? `${Math.abs(+(cur - weight.goal).toFixed(1))} lb to go`
-                : 'reached 🎉'}{' '}
+              Target BMI <b style={{ color: 'var(--km-t)' }}>{weight.targetBmi.toFixed(1)}</b>{' '}
               <span
                 style={{ color: 'var(--km-ac)', cursor: 'pointer', marginLeft: 6 }}
                 onClick={onOpenGoalModal}
@@ -242,7 +236,7 @@ export function WeightTrendCard({
               style={{ color: 'var(--km-ac)', cursor: 'pointer' }}
               onClick={onOpenGoalModal}
             >
-              + Set a goal weight
+              + Set a target BMI
             </span>
           )}
         </div>
@@ -257,11 +251,13 @@ export function WeightTrendCard({
       <div style={{ padding: '4px 14px 0' }}>
         <WeightTrendChart
           series={weight.series}
-          goal={weight.goal}
           {...(weight.points.length === weight.series.length
             ? { dates: weight.points.map((p) => p.date) }
             : {})}
         />
+      </div>
+      <div style={{ padding: '0 14px 8px' }}>
+        <BmiTrendChart points={weight.points} targetBmi={weight.targetBmi} />
       </div>
 
       {bottomAction && (
@@ -289,11 +285,9 @@ export function WeightTrendCard({
 /* ─── Weight Trend Chart ─── */
 function WeightTrendChart({
   series,
-  goal,
   dates,
 }: {
   series: number[];
-  goal: number | null;
   dates?: string[];
 }) {
   if (!series || series.length < 2) return null;
@@ -301,8 +295,7 @@ function WeightTrendChart({
   const w = 500, h = 170;
   const padL = 14, padR = 44, padT = 36, padB = 24;
   const n = series.length - 1;
-  const hasGoal = typeof goal === 'number' && goal > 0;
-  const vals = hasGoal ? series.concat([goal as number]) : series;
+  const vals = series;
   const mn = Math.min(...vals);
   const mx = Math.max(...vals);
   const rng = mx - mn || 1;
@@ -320,19 +313,17 @@ function WeightTrendChart({
   const ti = [0, Math.round(n / 2), n].filter((v, ix, a) => a.indexOf(v) === ix);
 
   // Smart label positioning — always above the point
-  const LABEL_OFFSET = 20;
-
   const labelSet = new Set<number>([0, n]);
   let minI = 0, maxI = 0;
   series.forEach((v, i) => {
-    if (v < series[minI]) minI = i;
-    if (v > series[maxI]) maxI = i;
+    if (v < series[minI]!) minI = i;
+    if (v > series[maxI]!) maxI = i;
   });
   labelSet.add(minI);
   labelSet.add(maxI);
 
   const labeledPoints = Array.from(labelSet).map((i) => {
-    const v = series[i];
+    const v = series[i]!;
     const cy = Y(v);
     const ty = Math.max(12, cy - 20);
     const anchor = i === 0 ? 'start' : i === n ? 'end' : 'middle';
@@ -352,17 +343,6 @@ function WeightTrendChart({
       preserveAspectRatio="none"
     >
       <polyline points={area} fill="var(--km-acp)" stroke="none" />
-      {hasGoal && (
-        <>
-          <line
-            x1={padL} y1={Y(goal!)} x2={w - padR} y2={Y(goal!)}
-            stroke="var(--km-gr)" strokeWidth={1.2} strokeDasharray="5 4" opacity={0.7}
-          />
-          <text x={w - padR + 4} y={Y(goal!) + 4} fontSize={10} fill="var(--km-gr)" fontWeight={600} textAnchor="start">
-            Goal
-          </text>
-        </>
-      )}
       <polyline
         points={pts} fill="none" stroke="var(--km-ac)"
         strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"
@@ -397,5 +377,44 @@ function WeightTrendChart({
         );
       })}
     </svg>
+  );
+}
+
+function BmiTrendChart({
+  points,
+  targetBmi,
+}: {
+  points: WeightData['points'];
+  targetBmi: number | null;
+}) {
+  const bmiPoints = points.filter((point) => point.bmi != null);
+  if (!bmiPoints.length) {
+    return <div style={{ padding: '8px 4px', fontSize: 12, color: 'var(--km-tm)' }}>BMI history unavailable until a server-computed BMI is recorded.</div>;
+  }
+  const values = bmiPoints.map((point) => Number(point.bmi));
+  const min = Math.min(...values, ...(targetBmi ? [targetBmi] : []));
+  const max = Math.max(...values, ...(targetBmi ? [targetBmi] : []));
+  const range = max - min || 1;
+  const low = min - range * 0.15;
+  const high = max + range * 0.15;
+  const width = 500;
+  const height = 130;
+  const left = 14;
+  const right = 44;
+  const top = 24;
+  const bottom = 22;
+  const n = Math.max(bmiPoints.length - 1, 1);
+  const x = (i: number) => left + i * ((width - left - right) / n);
+  const y = (value: number) => top + (1 - (value - low) / (high - low)) * (height - top - bottom);
+  const polyline = bmiPoints.map((point, i) => `${x(i)},${y(Number(point.bmi))}`).join(' ');
+  return (
+    <div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-t2)', margin: '4px 0' }}>BMI history</div>
+      <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', display: 'block' }}>
+        {targetBmi != null && <line x1={left} y1={y(targetBmi)} x2={width - right} y2={y(targetBmi)} stroke="var(--km-gr)" strokeDasharray="5 4" />}
+        <polyline points={polyline} fill="none" stroke="var(--km-ac)" strokeWidth={2} />
+        {bmiPoints.map((point, i) => <circle key={point.date + i} cx={x(i)} cy={y(Number(point.bmi))} r={3} fill="var(--km-ac)" />)}
+      </svg>
+    </div>
   );
 }

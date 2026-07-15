@@ -5,29 +5,29 @@
  * to YOUR backend; the backend holds the key and calls Junction.
  */
 import { apiClient } from '@/shared/api/client';
-import type { ConnectionResponse, DeviceDataResponse, LinkTokenResponse, VitalsEntry } from './types';
+import { DEVICE_ENDPOINTS } from './constants';
+import type { ConnectionResponse, DeviceDataResponse, HealthGoalResponse, LinkSessionResponse, VitalsEntry } from './types';
 
 /**
  * Fetch the permitted wearable providers for the patient client context.
  */
 export async function listWearableProviders(): Promise<{ success: boolean; sources: any[] }> {
   const response = await apiClient.get<{ success: boolean; sources: any[] }>(
-    '/wearables/providers/?client_view=true'
+    DEVICE_ENDPOINTS.providers
   );
-    console.log("PROVIDERS", response.data.sources)
   return response.data;
 }
 
 /**
  * Create a Link Token so the patient can authorize a device connection.
  */
-export async function getLinkToken(provider: string, patientId: string): Promise<LinkTokenResponse> {
+export async function createLinkSession(provider: string, patientId: string): Promise<LinkSessionResponse> {
   const response = await apiClient.post<{ success: boolean; demo?: boolean; session: any }>(
-    '/wearables/oauth-session/',
+    DEVICE_ENDPOINTS.oauthSession,
     { patient_id: patientId, provider }
   );
   return {
-    link_token: response.data.session.oauth_url || null,
+    authorization_url: response.data.session.oauth_url || null,
     expires_at: response.data.session.expires_at || null,
     demo: !!response.data.demo,
   };
@@ -38,7 +38,7 @@ export async function getLinkToken(provider: string, patientId: string): Promise
  */
 export async function getConnections(): Promise<ConnectionResponse[]> {
   const response = await apiClient.get<{ success: boolean; connections: any[] }>(
-    '/wearables/connections/'
+    DEVICE_ENDPOINTS.connections
   );
   const allConns = Array.isArray(response.data.connections) ? response.data.connections : [];
   return allConns.filter(c => c.status === 'connected' || c.status === 'error');
@@ -48,13 +48,8 @@ export async function getConnections(): Promise<ConnectionResponse[]> {
  * Get aggregated device data (weight, steps, sleep, etc.).
  */
 export async function getDeviceData(): Promise<DeviceDataResponse> {
-  try {
-    const response = await apiClient.get<DeviceDataResponse>('/wearables/device-data/');
-    return response.data;
-  } catch (err) {
-    console.error('Failed to fetch device data:', err);
-    return {};
-  }
+  const response = await apiClient.get<DeviceDataResponse>(DEVICE_ENDPOINTS.deviceData);
+  return response.data;
 }
 
 /**
@@ -62,16 +57,11 @@ export async function getDeviceData(): Promise<DeviceDataResponse> {
  * of truth for the dashboard graph (questionnaire baseline + manual + wearable).
  */
 export async function getVitalsHistory(days = 90): Promise<VitalsEntry[]> {
-  try {
-    const response = await apiClient.get<{ results?: VitalsEntry[] } | VitalsEntry[]>(
-      `/medical/vitals/?days=${days}`
-    );
-    const data = response.data as any;
-    return Array.isArray(data) ? data : data?.results ?? [];
-  } catch (err) {
-    console.error('Failed to fetch vitals history:', err);
-    return [];
-  }
+  const response = await apiClient.get<{ results?: VitalsEntry[] } | VitalsEntry[]>(
+    `${DEVICE_ENDPOINTS.vitals}?days=${days}`
+  );
+  const data = response.data as any;
+  return Array.isArray(data) ? data : data?.results ?? [];
 }
 
 /**
@@ -79,7 +69,7 @@ export async function getVitalsHistory(days = 90): Promise<VitalsEntry[]> {
  * and computed server-side.
  */
 export async function logWeight(weightLbs: number): Promise<VitalsEntry> {
-  const response = await apiClient.post<VitalsEntry>('/medical/vitals/', {
+  const response = await apiClient.post<VitalsEntry>(DEVICE_ENDPOINTS.vitals, {
     weight_lbs: weightLbs,
   });
   return response.data;
@@ -90,7 +80,7 @@ export async function logWeight(weightLbs: number): Promise<VitalsEntry> {
  */
 export async function deregisterProvider(connectionId: string): Promise<{ ok: boolean }> {
   const response = await apiClient.post<{ success: boolean }>(
-    `/wearables/connections/${connectionId}/disconnect/`
+    DEVICE_ENDPOINTS.disconnect(connectionId)
   );
   return { ok: response.data.success };
 }
@@ -100,7 +90,7 @@ export async function deregisterProvider(connectionId: string): Promise<{ ok: bo
  */
 export async function reconnectProvider(connectionId: string): Promise<{ success: boolean; demo?: boolean; session: any }> {
   const response = await apiClient.post<{ success: boolean; session: any }>(
-    `/wearables/connections/${connectionId}/reconnect/`
+    DEVICE_ENDPOINTS.reconnect(connectionId)
   );
   return response.data;
 }
@@ -110,9 +100,8 @@ export async function reconnectProvider(connectionId: string): Promise<{ success
  */
 export async function getConsent(): Promise<{ success: boolean; consent: any }> {
   const response = await apiClient.get<{ success: boolean; consent: any }>(
-    '/wearables/consent/'
+    DEVICE_ENDPOINTS.consent
   );
-  console.log("CONSENT", response)
   return response.data;
 }
 
@@ -125,7 +114,7 @@ export async function updateConsent(consentGranted: boolean, patientId?: string)
     payload.patient_id = patientId;
   }
   const response = await apiClient.post<{ success: boolean; consent: any }>(
-    '/wearables/consent/',
+    DEVICE_ENDPOINTS.consent,
     payload
   );
   return response.data;
@@ -140,9 +129,21 @@ export async function deleteHealthData(confirm: boolean, patientId?: string, rea
     payload.patient_id = patientId;
   }
   const response = await apiClient.post<{ success: boolean; result: any }>(
-    '/wearables/delete-health-data/',
+    DEVICE_ENDPOINTS.deleteHealthData,
     payload
   );
+  return response.data;
+}
+
+export async function getHealthGoal(): Promise<HealthGoalResponse> {
+  const response = await apiClient.get<HealthGoalResponse>(DEVICE_ENDPOINTS.healthGoal);
+  return response.data;
+}
+
+export async function saveHealthGoal(targetBmi: number): Promise<HealthGoalResponse> {
+  const response = await apiClient.put<HealthGoalResponse>(DEVICE_ENDPOINTS.healthGoal, {
+    target_bmi: targetBmi,
+  });
   return response.data;
 }
 
@@ -172,6 +173,6 @@ export function formatConnection(c: ConnectionResponse): {
     name: c.provider.charAt(0).toUpperCase() + c.provider.slice(1),
     lastSync: formattedSync,
     status: c.status as any,
-    errorType: c.last_error || undefined,
+    ...(c.last_error ? { errorType: c.last_error } : {}),
   };
 }

@@ -6,8 +6,6 @@ import { HEALTH_SECTIONS, HEALTH, TRENDS } from '../constants';
 
 function TrendChart({
   series,
-  label,
-  unit,
   dec = 0,
   step = 'day',
   color = 'var(--km-ac)',
@@ -15,8 +13,6 @@ function TrendChart({
   h = 160,
 }: {
   series: number[];
-  label: string;
-  unit: string;
   dec?: number;
   step?: string;
   color?: string;
@@ -47,19 +43,17 @@ function TrendChart({
   const stepDays = step === 'week' ? 7 : 1;
   const ti = [0, Math.round(n / 2), n].filter((v, ix, a) => a.indexOf(v) === ix);
 
-  const LABEL_OFFSET = 20; // px from point center to text baseline
-
   const labelSet = new Set<number>([0, n]);
   let minI = 0, maxI = 0;
   series.forEach((v, i) => {
-    if (v < series[minI]) minI = i;
-    if (v > series[maxI]) maxI = i;
+    if (v < series[minI]!) minI = i;
+    if (v > series[maxI]!) maxI = i;
   });
   labelSet.add(minI);
   labelSet.add(maxI);
 
   const labeledPoints = Array.from(labelSet).map((i) => {
-    const v = series[i];
+    const v = series[i]!;
     const cy = Y(v);
     const ty = Math.max(12, cy - 20);
     const anchor = i === 0 ? 'start' : i === n ? 'end' : 'middle';
@@ -136,8 +130,8 @@ function DataSection({
   title: string;
   subtitle: string;
   sectionId: string;
-  overrideTrend?: TrendData;
-  overrideMetrics?: MetricItem[];
+  overrideTrend?: TrendData | undefined;
+  overrideMetrics?: MetricItem[] | undefined;
 }) {
   const metrics = overrideMetrics ?? HEALTH[sectionId] ?? [];
   const trend = overrideTrend ?? TRENDS[sectionId];
@@ -226,8 +220,6 @@ function DataSection({
       </div>
       <TrendChart
         series={seriesArr}
-        label={trend.label}
-        unit={trend.unit}
         dec={trend.dec}
         step={trend.step ?? 'day'}
         color="var(--km-ac)"
@@ -315,12 +307,12 @@ interface HealthTabsProps {
 export default function HealthTabs({ weightData, deviceMetrics }: HealthTabsProps) {
   const [activeTab, setActiveTab] = useState('sleep');
 
-  const dynamicMetrics: Record<string, MetricItem[]> = {
-    sleep: [],
-    activity: [],
-    heart: [],
-    workouts: [],
-    glucose: [],
+  const dynamicMetrics = {
+    sleep: [] as MetricItem[],
+    activity: [] as MetricItem[],
+    heart: [] as MetricItem[],
+    workouts: [] as MetricItem[],
+    glucose: [] as MetricItem[],
   };
 
   if (deviceMetrics) {
@@ -478,7 +470,7 @@ export default function HealthTabs({ weightData, deviceMetrics }: HealthTabsProp
               subtitle={sec.subtitle}
               sectionId={sec.id}
               overrideTrend={overrideTrend}
-              overrideMetrics={dynamicMetrics[sec.id]}
+              overrideMetrics={dynamicMetrics[sec.id as keyof typeof dynamicMetrics] ?? []}
             />
           </div>
         );
