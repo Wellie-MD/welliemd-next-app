@@ -1,6 +1,13 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertTriangle } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export default function AnalyticsReports() {
   return (
@@ -11,9 +18,14 @@ export default function AnalyticsReports() {
           <span>8 / 6 / 2025</span>
           <span>8 / 13 / 2025</span>
           <button className="text-blue-600 hover:text-blue-800">📅</button>
-          <select className="border rounded px-2 py-1">
-            <option>Select Treatment</option>
-          </select>
+          <Select defaultValue="select">
+            <SelectTrigger className="h-8 text-xs font-semibold bg-background border border-input rounded-md px-2.5 min-w-[140px]">
+              <SelectValue placeholder="Select Treatment" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="select" className="text-xs">Select Treatment</SelectItem>
+            </SelectContent>
+          </Select>
           <button className="text-blue-600 hover:text-blue-800">📄</button>
         </div>
       </div>

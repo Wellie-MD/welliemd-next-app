@@ -48,6 +48,10 @@ const UsersPermissions = lazy(() => import("./pages/management/UsersPermissions"
 const MasterKeyAccess = lazy(() => import("./pages/MasterKeyAccess"));
 const CrossTenantAccessUsers = lazy(() => import("./pages/CrossTenantAccessUsers"));
 const ClientPerformance = lazy(() => import("./pages/ClientPerformance"));
+const LabOrders = lazy(() => import("./pages/LabOrders"));
+const Labs = lazy(() => import("./pages/Labs"));
+const LabSettings = lazy(() => import("./pages/LabSettings"));
+const TestCatalog = lazy(() => import("./pages/TestCatalog"));
 
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -134,7 +138,7 @@ const App = () => {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/register" element={<RegisterInvitation />} />
         <Route path="/admin/master-key/access/:token" element={<MasterKeyAccess />} />
-        
+
         {/* Dashboard routes */}
         <Route path="/dashboard/*" element={
           <SidebarProvider>
@@ -165,6 +169,7 @@ const App = () => {
                     <Route path="/treatments" element={<ProtectedRoute><Treatments /></ProtectedRoute>} />
                     <Route path="/treatments/configurations" element={<ProtectedRoute><TreatmentConfigurations /></ProtectedRoute>} />
                     <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+                    <Route path="/orders/labs" element={<ProtectedRoute><LabOrders /></ProtectedRoute>} />
                     <Route path="/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
                     {/* <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} /> // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-2 */}
                     {/* <Route path="/prescriptions" element={<ProtectedRoute><Prescriptions /></ProtectedRoute>} />  */} // Route disabled on request: https://telehealthknysys.atlassian.net/browse/KAN-3
@@ -173,6 +178,9 @@ const App = () => {
                     <Route path="/products/dose-mappings" element={<ProtectedRoute><ProductDoseMappings /></ProtectedRoute>} />
                     <Route path="/products/config" element={<ProtectedRoute><ProductConfig /></ProtectedRoute>} />
                     <Route path="/products/supplies" element={<ProtectedRoute><Supplies /></ProtectedRoute>} />
+                    <Route path="/products/labs" element={<ProtectedRoute><Labs /></ProtectedRoute>} />
+                    <Route path="/products/labs/settings" element={<ProtectedRoute><LabSettings /></ProtectedRoute>} />
+                    <Route path="/products/labs/catalog" element={<ProtectedRoute><TestCatalog /></ProtectedRoute>} />
                     <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
                     <Route path="/analytics/performance" element={<ProtectedRoute><ClientPerformance /></ProtectedRoute>} />
                     <Route path="/analytics/live" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />

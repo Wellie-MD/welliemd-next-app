@@ -59,13 +59,16 @@ const menuSections = [
       // },
       {
         title: "Orders",
-        url: "/dashboard/orders",
         icon: ShoppingBag,
+        children: [
+          { title: "Rx Orders", url: "/dashboard/orders" },
+          { title: "Lab Orders", url: "/dashboard/orders/labs" },
+        ],
       },
       { title: "Payments", url: "/dashboard/payments", icon: CreditCard },
       { title: "Messenger", url: "/dashboard/messages", icon: MessageSquare },
-      { 
-        title: "Analytics", 
+      {
+        title: "Analytics",
         icon: TrendingUp,
         children: [
           { title: "Client Performance", url: "/dashboard/analytics/performance" },
@@ -86,8 +89,11 @@ const menuSections = [
         title: "Products",
         icon: Package,
         children: [
-          { title: "Products", url: "/dashboard/products" },
+          { title: "Medicine", url: "/dashboard/products" },
           { title: "Supplies", url: "/dashboard/products/supplies" },
+          { title: "Labs", url: "/dashboard/products/labs" },
+          { title: "Test Catalog", url: "/dashboard/products/labs/catalog" },
+          { title: "Junction Settings", url: "/dashboard/products/labs/settings" },
           { title: "Configuration", url: "/dashboard/products/config" }
         ]
       },
@@ -309,8 +315,8 @@ export function AppSidebar() {
                             >
                               <item.icon
                                 className={`h-5 w-5 flex-shrink-0 ${currentPath === item.url
-                                    ? "text-[#12517A]"
-                                    : "text-gray-500 group-hover:text-[#12517A]"
+                                  ? "text-[#12517A]"
+                                  : "text-gray-500 group-hover:text-[#12517A]"
                                   }`}
                               />
                               {!collapsed && (

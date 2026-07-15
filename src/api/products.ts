@@ -82,6 +82,15 @@ export interface Product {
   generic_group?: string;
   service_states?: string[];
   admin_service_states?: string[];
+  is_lab_product?: boolean;
+  junction_lab_test_id?: string;
+  junction_lab_test_name_snapshot?: string;
+  junction_collection_method?:
+    | "testkit"
+    | "walk_in_test"
+    | "at_home_phlebotomy"
+    | "on_site_collection";
+  junction_last_catalog_sync_at?: string;
   onboarding_questionnaire?: string;
   onboarding_questionnaire_name?: string;
   followup_questionnaire?: string;
@@ -116,6 +125,14 @@ export interface CreateProductPayload {
   treatment: string;
   rx_or_otc: "rx" | "otc";
   service_states?: string[];
+  is_lab_product?: boolean;
+  junction_lab_test_id?: string;
+  junction_lab_test_name_snapshot?: string;
+  junction_collection_method?:
+    | "testkit"
+    | "walk_in_test"
+    | "at_home_phlebotomy"
+    | "on_site_collection";
   [key: string]: any;
 }
 
