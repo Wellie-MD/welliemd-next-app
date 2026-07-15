@@ -67,8 +67,7 @@ export default function ProgramsPage() {
   const [selectedTreatment, setSelectedTreatment] = useState<string>("all");
   const [editingProgram, setEditingProgram] = useState<Program | null>(null);
   const [previewProgram, setPreviewProgram] = useState<Program | null>(null);
-  const [duplicatingProgramId, setDuplicatingProgramId] = useState<string | null>(null);
-  const [archivingProgramId, setArchivingProgramId] = useState<string | null>(null);
+
 
   const questionnaireBaseUrl = useMemo(() => {
     const base = currentClient?.resolved_questionnaire_url || currentClient?.questionnaire_url;
@@ -343,10 +342,7 @@ export default function ProgramsPage() {
                 treatmentName={treatmentNameByKey.get(program.treatmentTypeKey)}
                 screeningQuestionCount={program.questionCount || 0}
                 onSaveSlug={handleSaveSlug} onPreview={handleOpenPreview}
-                onEdit={(p) => setEditingProgram(p)}
-                onDuplicate={(p) => { setDuplicatingProgramId(p.id); setTimeout(() => setDuplicatingProgramId(null), 1000); }}
-                onArchive={(p) => { setArchivingProgramId(p.id); setTimeout(() => setArchivingProgramId(null), 1000); }}
-                duplicatingProgramId={duplicatingProgramId} archivingProgramId={archivingProgramId} />
+                onToggleStatus={handleProgramStatusChange} />
             ))}
           </div>
         )}

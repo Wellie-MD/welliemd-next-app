@@ -1,17 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Archive, Copy, Eye, HelpCircle,
-  MoreHorizontal, Pencil, Check, X,
+  Eye, HelpCircle,
+  Pencil, Check, X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import type { Program } from "@/features/treatments/types";
+import { Switch } from "@/components/ui/switch";
+import type { Program, ProgramStatus } from "@/features/treatments/types";
 import { formatProgramStage } from "@/features/treatments/utils/labels";
 import { cn } from "@/lib/utils";
 
@@ -20,12 +15,8 @@ interface ProgramCardProps {
   treatmentName?: string;
   screeningQuestionCount: number;
   onPreview: (program: Program) => void;
-  onEdit: (program: Program) => void;
-  onDuplicate: (program: Program) => void;
-  onArchive: (program: Program) => void;
   onSaveSlug: (programId: string, newSlug: string) => void;
-  duplicatingProgramId?: string | null;
-  archivingProgramId?: string | null;
+  onToggleStatus?: (program: Program, status: ProgramStatus) => void | Promise<void>;
 }
 
 export function ProgramCard({
@@ -33,12 +24,8 @@ export function ProgramCard({
   treatmentName,
   screeningQuestionCount,
   onPreview,
-  onEdit,
-  onDuplicate,
-  onArchive,
   onSaveSlug,
-  duplicatingProgramId,
-  archivingProgramId,
+  onToggleStatus,
 }: ProgramCardProps) {
   const isPublished = program.status === "published";
   const [isEditingSlug, setIsEditingSlug] = useState(false);
@@ -89,40 +76,14 @@ export function ProgramCard({
             />
             {program.status}
           </span>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <MoreHorizontal className="h-4 w-4 text-slate-400" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuItem onClick={() => onEdit(program)}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onDuplicate(program)}
-                disabled={duplicatingProgramId === program.id}
-              >
-                <Copy className="h-4 w-4 mr-2" />
-                Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onArchive(program)}
-                disabled={
-                  program.status === "archived" ||
-                  archivingProgramId === program.id
-                }
-              >
-                <Archive className="h-4 w-4 mr-2" />
-                Archive
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Switch
+            checked={isPublished}
+            disabled={program.status === "archived"}
+            onCheckedChange={(checked) =>
+              onToggleStatus?.(program, checked ? "published" : "draft")
+            }
+            className="disabled:opacity-100 data-[state=checked]:bg-[#5b4dff] dark:data-[state=checked]:bg-[#7b83ff] data-[state=unchecked]:bg-slate-300 dark:data-[state=unchecked]:bg-slate-600"
+          />
         </div>
       </div>
 
