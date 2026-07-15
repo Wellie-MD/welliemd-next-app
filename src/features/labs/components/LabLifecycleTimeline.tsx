@@ -1,60 +1,31 @@
+import { AlertTriangle, Check, Circle } from 'lucide-react';
 import type { LabSubmission } from '../api/index';
 import { formatDate } from '../utils/index';
 
-type TimelineStep = { key: string; label: string; match: string[] };
-
-const KIT_STEPS: TimelineStep[] = [
-  { key: 'requisition_created', label: 'Requisition created', match: ['requisition'] },
-  { key: 'kit_shipped', label: 'Kit shipped', match: ['kit shipped', 'shipped'] },
-  { key: 'kit_delivered', label: 'Kit delivered', match: ['kit delivered', 'delivered'] },
-  { key: 'sample_collected', label: 'Sample collected', match: ['sample collected', 'collected'] },
-  { key: 'at_lab', label: 'At the lab', match: ['at lab'] },
-  { key: 'results_ready', label: 'Results ready', match: ['results', 'result'] },
-];
-
-const APPOINTMENT_STEPS: TimelineStep[] = [
-  { key: 'requisition_created', label: 'Requisition created', match: ['requisition'] },
-  { key: 'appointment', label: 'Appointment booked', match: ['appointment', 'booked', 'scheduled'] },
-  { key: 'sample_collected', label: 'Sample collected', match: ['sample collected', 'collected'] },
-  { key: 'at_lab', label: 'At the lab', match: ['at lab'] },
-  { key: 'results_ready', label: 'Results ready', match: ['results', 'result'] },
-];
-
-function currentRank(order: LabSubmission, steps: TimelineStep[], eventTexts: string[]) {
-  const value = String(order.stage || order.submission_status || '').toLowerCase();
-  if (order.results_status === 'partial_results' || order.results_status === 'results_ready' || order.results_status === 'critical') return steps.length - 1;
-  const stageIndex = steps.findIndex(step => value.includes(step.key) || (step.key === 'appointment' && value.includes('appointment')));
-  const eventIndex = steps.reduce((highest, step, index) => (
-    eventTexts.some(text => step.match.some(match => text.includes(match))) ? Math.max(highest, index) : highest
-  ), -1);
-  return Math.max(stageIndex, eventIndex, 0);
-}
+const eventText = (event: Record<string, unknown>) =>
+  `${event.status || ''} ${event.title || ''} ${event.event_type || ''}`.toLowerCase();
 
 export default function LabLifecycleTimeline({ order }: { order: LabSubmission }) {
-  const isKit = String(order.collection_method || '').toLowerCase().includes('kit');
-  const steps = isKit ? KIT_STEPS : APPOINTMENT_STEPS;
-  const events = [...(order.lifecycle_events || []), ...(order.events || []), ...(order.activity_events || [])].map(event => ({
-    text: String(event.title || event.event_type || '').toLowerCase(),
-    date: String(event.occurred_at || event.created_at || event.timestamp || ''),
-  }));
-  const rank = currentRank(order, steps, events.map(event => event.text));
+  const events = [...(order.lifecycle_events || []), ...(order.events || []), ...(order.activity_events || [])]
+    .filter((event, index, all) => all.findIndex(candidate => String(candidate.id || candidate.source_event_id) === String(event.id || event.source_event_id)) === index)
+    .sort((left, right) => String(left.occurred_at || left.created_at || '').localeCompare(String(right.occurred_at || right.created_at || '')));
 
-  return (
-    <div className="km-lab-timeline">
-      {steps.map((step, index) => {
-        const event = events.find(candidate => step.match.some(match => candidate.text.includes(match)));
-        const completed = index < rank;
-        const active = index === rank;
-        return (
-          <div key={step.key} className={`km-lab-timeline-item ${completed ? 'is-complete' : ''} ${active ? 'is-active' : ''}`}>
-            <div className="km-lab-timeline-marker">{completed ? '✓' : ''}</div>
-            <div className="km-lab-timeline-copy">
-              <div className="km-lab-timeline-label">{step.label}</div>
-              {event?.date && <div className="km-lab-timeline-date">{formatDate(event.date)}</div>}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
+  if (events.length === 0) return <p className="km-lab-timeline-empty">No provider lifecycle updates received yet.</p>;
+
+  return <div className="km-lab-timeline">
+    {events.map((event, index) => {
+      const text = eventText(event);
+      const attention = /failed|cancel|problem|blocked|lost|redraw/.test(text);
+      const terminal = /completed|results ready/.test(text);
+      const Icon = attention ? AlertTriangle : terminal ? Check : Circle;
+      return <div key={String(event.id || event.source_event_id || `${event.event_type}-${index}`)} className={`km-lab-timeline-item ${attention ? 'is-attention' : terminal ? 'is-complete' : 'is-active'}`}>
+        <div className="km-lab-timeline-marker"><Icon size={11} /></div>
+        <div className="km-lab-timeline-copy">
+          <div className="km-lab-timeline-label">{String(event.title || event.status || 'Lab update')}</div>
+          {Boolean(event.description) && <div className="km-lab-timeline-description">{String(event.description)}</div>}
+          {Boolean(event.occurred_at || event.created_at) && <div className="km-lab-timeline-date">{formatDate(String(event.occurred_at || event.created_at))}</div>}
+        </div>
+      </div>;
+    })}
+  </div>;
 }

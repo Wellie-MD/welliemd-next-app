@@ -67,6 +67,7 @@ export interface LabSubmission {
     requisition_available?: boolean;
     booking_link?: string | null;
     booking_url?: string | null;
+    appointment_details?: LabAppointmentDetails | null;
     lab_panel_name?: string;
     lab_provider?: string;
     collection_method?: string;
@@ -103,7 +104,8 @@ export interface StandaloneLabResultRow {
 
 export interface StandaloneLabResult {
     id: string;
-    order_id: string;
+  order_id: string;
+  display_id: string;
     lab_panel_id: string;
     lab_panel_name: string;
     lab_provider: string;
@@ -117,6 +119,7 @@ export interface StandaloneLabResult {
     pdf_available?: boolean;
     biomarkers: StandaloneLabResultRow[];
     lifecycle_events?: Array<Record<string, unknown>>;
+    appointment_details?: LabAppointmentDetails | null;
 }
 
 export interface StandaloneLabSubmission {
@@ -130,6 +133,7 @@ export interface StandaloneLabSubmission {
     requisition_available?: boolean;
     booking_link: string | null;
     booking_url?: string | null;
+    appointment_details?: LabAppointmentDetails | null;
     amount?: { amount: string; currency: string };
     results_status?: string;
     results_available?: boolean;
@@ -143,6 +147,17 @@ export interface StandaloneLabSubmission {
     stage_display?: string;
     bucket?: string;
     lifecycle_events: Array<Record<string, unknown>>;
+}
+
+export interface LabAppointmentDetails {
+    id: string;
+    status: string;
+    provider: string;
+    scheduled_start: string | null;
+    scheduled_end: string | null;
+    timezone: string;
+    view_url: string | null;
+    can_reschedule: boolean;
 }
 
 export interface PaginatedResponse<T> {

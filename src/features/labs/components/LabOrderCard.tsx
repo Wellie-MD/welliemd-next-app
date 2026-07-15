@@ -24,9 +24,10 @@ export default function LabOrderCard({
   const collection = order.collection_method_display || labCollectionMethodLabel(order.collection_method);
   const stage = order.stage_display || order.stage || 'Ordered';
   const hasResults = hasLabResults(order.results_status, order.results_available);
-  const hasBooking = Boolean(order.booking_link || order.booking_url);
+  const hasBooking = Boolean(order.booking_link || order.booking_url || order.appointment_details);
   const hasRequisition = Boolean(order.requisition_pdf_url || order.requisition_available);
-  const isScheduled = String(order.stage || '').toLowerCase().includes('scheduled');
+  const appointmentStatus = String(order.appointment_details?.status || order.stage || '').toLowerCase();
+  const isScheduled = ['scheduled', 'confirmed', 'completed'].includes(appointmentStatus) || appointmentStatus.includes('scheduled');
   const displayId = order.master_id || order.id;
 
   return (

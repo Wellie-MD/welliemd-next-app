@@ -14,6 +14,16 @@ export default function LabBookingModal({ submission, onClose, onDownloadRequisi
   const panelName = submission.lab_panel_name || submission.lab_results?.[0]?.test_name || 'your lab test';
   const lab = submission.lab_provider || 'the lab';
   const canDownloadRequisition = Boolean(submission.requisition_pdf_url || submission.requisition_available);
+  const appointment = submission.appointment_details;
+  const appointmentStatus = String(appointment?.status || '').toLowerCase();
+  const hasScheduledAppointment = ['scheduled', 'confirmed', 'completed'].includes(appointmentStatus);
+  const scheduledAt = appointment?.scheduled_start
+    ? new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: appointment.timezone || undefined,
+      }).format(new Date(appointment.scheduled_start))
+    : null;
 
   return (
     <div
@@ -59,11 +69,19 @@ export default function LabBookingModal({ submission, onClose, onDownloadRequisi
             <CalendarDays size={24} color="var(--km-ac)" />
           </div>
           <h2 style={{ fontSize: 16, fontWeight: 800, margin: '0 0 8px', color: 'var(--km-t)' }}>
-            Book your {lab} appointment
+            {hasScheduledAppointment ? `Your ${lab} appointment` : `Book your ${lab} appointment`}
           </h2>
           <p style={{ fontSize: 13, color: 'var(--km-tm)', lineHeight: 1.5, margin: '0 0 16px' }}>
-            Choose a time at a {lab} location near you for your {panelName}.
+            {hasScheduledAppointment
+              ? `${scheduledAt || 'Appointment scheduled'}${appointment?.timezone ? ` (${appointment.timezone})` : ''}`
+              : `Choose a time at a ${lab} location near you for your ${panelName}.`}
           </p>
+
+          {hasScheduledAppointment && appointment?.provider && (
+            <p style={{ fontSize: 12, color: 'var(--km-tm)', margin: '0 0 14px' }}>
+              Collection provider: {appointment.provider}
+            </p>
+          )}
 
           {bookingUrl && (
             <a
@@ -74,13 +92,15 @@ export default function LabBookingModal({ submission, onClose, onDownloadRequisi
               style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textDecoration: 'none', marginBottom: 12 }}
             >
               <ExternalLink size={15} />
-              Book appointment
+              {hasScheduledAppointment ? 'View appointment' : 'Book appointment'}
             </a>
           )}
 
-          <p style={{ fontSize: 11, color: 'var(--km-tm)', lineHeight: 1.5, margin: '0 0 14px', textAlign: 'left' }}>
-            This link may also be sent to your email or phone by Junction. Prefer to walk in? You can visit an eligible {lab} location with your requisition.
-          </p>
+          {!hasScheduledAppointment && (
+            <p style={{ fontSize: 11, color: 'var(--km-tm)', lineHeight: 1.5, margin: '0 0 14px', textAlign: 'left' }}>
+              This link may also be sent to your email or phone by Junction. Use your requisition for the scheduled collection.
+            </p>
+          )}
 
           {canDownloadRequisition && (
             <button

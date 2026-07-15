@@ -27,19 +27,11 @@ import {
 } from './utils/index';
 import LabResultModal from './components/LabResultModal';
 import LabBookingModal from './components/LabBookingModal';
-import LabOrderCard from './components/LabOrderCard';
 import LabOrderDetailModal from './components/LabOrderDetailModal';
 import LabResultCard from './components/LabResultCard';
-
-// ── sub-components ────────────────────────────────────────────────────────────
-
-function BucketLabel({ children }: { children: string }) {
-  return (
-    <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.6px', color: 'var(--km-tm)', fontWeight: 700, margin: '2px 0 9px' }}>
-      {children}
-    </div>
-  );
-}
+import LabStatusSummary from './components/LabStatusSummary';
+import LabResultsToolbar, { type ResultFilter, type ResultSort } from './components/LabResultsToolbar';
+import { panelFlaggedCount, panelReportedTimestamp } from './utils/resultPresentation';
 
 function EmptyBucket() {
   return <div style={{ fontSize: 12, color: 'var(--km-tm)', paddingBottom: 8 }}>None at the moment.</div>;
@@ -62,6 +54,8 @@ export default function LabsPage() {
   const [selectedPanel, setSelectedPanel] = useState<GroupedLabPanel | null>(null);
   const [bookingSubmission, setBookingSubmission] = useState<(LabSubmission & any) | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [resultFilter, setResultFilter] = useState<ResultFilter>('all');
+  const [resultSort, setResultSort] = useState<ResultSort>('newest');
 
   useEffect(() => { loadData(); }, []);
 
@@ -111,7 +105,7 @@ export default function LabsPage() {
   // Standalone results mapped to GroupedLabPanel shape
   const standalonePanels = useMemo<GroupedLabPanel[]>(() => {
     return standaloneResults.map(r => ({
-      orderId: r.order_id,
+      orderId: r.display_id || r.order_id,
       standaloneOrderId: r.order_id,
       name: r.lab_panel_name || 'Lab Panel',
       lab: r.lab_provider || '—',
@@ -121,11 +115,12 @@ export default function LabsPage() {
       status: r.status === 'critical' ? 'Critical' : String(r.status || '').toLowerCase().includes('partial') ? 'Partial Results' : 'Results Ready',
       amount: r.amount || { amount: '0.00', currency: 'USD' },
       pdfAvailable: r.pdf_available ?? false,
+      appointmentDetails: r.appointment_details,
       biomarkers: (r.biomarkers || []).map((bm, idx) => ({
         id: `${r.order_id}-${idx}`,
         patient: '', patient_name: '', visit: null,
         source_system: 'junction' as const,
-        external_order_id: r.order_id,
+        external_order_id: r.display_id || r.order_id,
         test_name: bm.biomarker,
         test_result: bm.result,
         test_result_units: bm.units || '',
@@ -160,7 +155,7 @@ export default function LabsPage() {
       patient_preferences: null,
       pharmacy_id: null,
       custom_questions: null,
-      master_id: s.id,
+      master_id: s.master_id || s.id,
       beluga_visit_id: null,
       submission_status: (s.submission_status as LabSubmission['submission_status']) || 'pending',
       submission_response: null,
@@ -173,6 +168,7 @@ export default function LabsPage() {
       requisition_available: s.requisition_available,
       booking_link: s.booking_link,
       booking_url: s.booking_url,
+      appointment_details: s.appointment_details,
       lab_panel_name: s.lab_panel_name,
       lab_provider: s.lab_provider,
       collection_method: s.collection_method,
@@ -223,6 +219,9 @@ export default function LabsPage() {
     const stage = (s.stage || '').toLowerCase();
     return bucket === 'in_progress' || (!bucket && !stage.includes('appointment_pending') && !stage.includes('kit_delivered') && s.submission_status !== 'failed');
   });
+  const visibleResults = useMemo(() => filteredPanels
+    .filter((panel) => resultFilter === 'all' || (resultFilter === 'flagged' ? panelFlaggedCount(panel) > 0 : panelFlaggedCount(panel) === 0))
+    .sort((left, right) => (panelReportedTimestamp(right) - panelReportedTimestamp(left)) * (resultSort === 'newest' ? 1 : -1)), [filteredPanels, resultFilter, resultSort]);
 
   // ── handlers ─────────────────────────────────────────────────────────────
 
@@ -265,22 +264,6 @@ export default function LabsPage() {
     }
   };
 
-  const handleDownloadResults = async (orderId: string) => {
-    try {
-      const blob = await downloadStandaloneLabResultPdf(orderId);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `lab-result-${orderId}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch {
-      alert('Failed to download the result PDF. Please try again or contact support.');
-    }
-  };
-
   // ── render ────────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -309,7 +292,7 @@ export default function LabsPage() {
   }
 
   return (
-    <div className="pg">
+    <div className="pg" id="pg-labs">
       <h1 className="km-page-title">Labs</h1>
       <p className="km-page-sub">View your lab results</p>
 
@@ -320,61 +303,16 @@ export default function LabsPage() {
       </div>
 
       <div id="labResultsPanel">
-        {/* Bucket 1: Needs your attention */}
-        <BucketLabel>Needs your attention</BucketLabel>
-        <div id="labAttn">
-          {needsAttention.length === 0 ? <EmptyBucket /> : (
-            <div className="km-lab-card-list">
-              {needsAttention.map(sub => (
-                <LabOrderCard
-                  key={sub.id}
-                  order={sub}
-                  onOpen={() => setSelectedOrder(sub)}
-                  onDownloadResults={() => handleDownloadResults(sub.id)}
-                  onDownloadRequisition={() => handleDownloadRequisition(sub.id)}
-                  onBookAppointment={() => {
-                    setSelectedOrder(null);
-                    setBookingSubmission(sub);
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Bucket 2: In progress */}
-        <BucketLabel>In progress</BucketLabel>
-        <div id="labProg">
-          {inProgress.length === 0 ? <EmptyBucket /> : (
-            <div className="km-lab-card-list">
-              {inProgress.map(sub => (
-                <LabOrderCard
-                  key={sub.id}
-                  order={sub}
-                  onOpen={() => setSelectedOrder(sub)}
-                  onDownloadResults={() => handleDownloadResults(sub.id)}
-                  onDownloadRequisition={() => handleDownloadRequisition(sub.id)}
-                  onBookAppointment={() => {
-                    setSelectedOrder(null);
-                    setBookingSubmission(sub);
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Bucket 3: Recent results */}
-        <BucketLabel>Recent results</BucketLabel>
+        <LabStatusSummary attention={needsAttention} inProgress={inProgress} onOpen={setSelectedOrder} />
+        <LabResultsToolbar count={visibleResults.length} filter={resultFilter} sort={resultSort} onFilter={setResultFilter} onSort={setResultSort} />
         <div id="labDone">
-          {filteredPanels.length === 0 ? <EmptyBucket /> : (
+          {visibleResults.length === 0 ? <EmptyBucket /> : (
             <div className="km-lab-card-list">
-              {filteredPanels.map(panel => (
+              {visibleResults.map(panel => (
                 <LabResultCard
                   key={panel.orderId}
                   panel={panel}
                   onOpen={() => setSelectedPanel(panel)}
-                  onDownload={() => handleDownloadPdf(panel)}
                 />
               ))}
             </div>

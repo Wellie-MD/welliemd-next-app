@@ -1424,6 +1424,34 @@ body.light .km-nbtn {
   margin-bottom: 18px;
 }
 
+.km-lab-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 18px 0 28px; }
+.km-lab-summary-card { min-height: 112px; padding: 15px 17px; background: var(--km-s1); border: 1px solid var(--km-b); border-radius: 13px; box-shadow: 0 2px 7px rgba(46, 39, 28, .05); }
+.km-lab-summary-card header { display: flex; align-items: center; gap: 7px; color: var(--km-t); font-size: 11px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
+.km-lab-summary-card.is-attention header { color: #b8553e; }
+.km-lab-summary-card.is-progress header { color: #9a721d; }
+.km-lab-summary-card > p { margin-top: 14px; color: var(--km-tm); font-size: 12px; }
+.km-lab-summary-items { margin-top: 8px; }
+.km-lab-summary-items button { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border: 0; border-bottom: 1px solid var(--km-b); background: transparent; color: var(--km-t); text-align: left; cursor: pointer; }
+.km-lab-summary-items button:last-child { border-bottom: 0; }
+.km-lab-summary-items strong, .km-lab-summary-items small { display: block; }
+.km-lab-summary-items strong { font-size: 12px; }
+.km-lab-summary-items small { margin-top: 2px; color: var(--km-tm); font-size: 10px; }
+.km-lab-results-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.km-lab-section-label { color: var(--km-tm); font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.km-lab-filter-pills { display: flex; gap: 7px; margin-top: 10px; }
+.km-lab-filter-pills button { padding: 5px 13px; border: 1px solid var(--km-b); border-radius: 999px; background: transparent; color: var(--km-tm); font: inherit; font-size: 11px; text-transform: capitalize; cursor: pointer; }
+.km-lab-filter-pills button.is-active { border-color: #4b795d; background: #edf7ee; color: #336a48; }
+.km-lab-results-toolbar > label { display: flex; align-items: center; gap: 9px; color: var(--km-tm); font-size: 11px; }
+.km-lab-results-toolbar select { padding: 7px 28px 7px 10px; border: 1px solid var(--km-b); border-radius: 8px; background: var(--km-s1); color: var(--km-t); font: inherit; font-size: 11px; }
+.km-lab-result-icon { background: #fff0dc; color: #d26822; }
+.km-lab-order-card .km-oichev { margin-left: auto; }
+
+@media (max-width: 700px) {
+  .km-lab-summary-grid { grid-template-columns: 1fr; }
+  .km-lab-results-toolbar { align-items: flex-start; flex-direction: column; }
+  .km-lab-results-toolbar > label { width: 100%; justify-content: space-between; }
+}
+
 .km-lab-order-card {
   display: flex;
   align-items: center;
@@ -1543,6 +1571,159 @@ body.light .km-nbtn {
 .km-lab-modal-close:hover {
   color: var(--km-t);
   background: var(--km-s2);
+}
+
+.km-lab-result-dialog {
+  width: min(720px, calc(100vw - 32px)) !important;
+  max-width: 720px !important;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  border-radius: 16px !important;
+}
+
+.km-lab-result-content {
+  padding: 28px;
+}
+
+.km-lab-result-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 0 34px 14px 0;
+  border-bottom: 1px solid var(--km-b);
+}
+
+.km-lab-result-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  background: var(--km-s2);
+  border: 1px solid var(--km-b);
+  border-radius: 12px;
+}
+
+.km-lab-result-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  border: 1px solid var(--km-b);
+  border-radius: 12px;
+  background: var(--km-s1);
+  font-size: 24px;
+}
+
+.km-lab-result-summary-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.km-lab-result-notice,
+.km-lab-result-appointment {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.km-lab-result-notice {
+  color: var(--km-am);
+  font-weight: 600;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.km-lab-result-appointment {
+  color: var(--km-tm);
+  background: var(--km-s2);
+  border: 1px solid var(--km-b);
+}
+
+.km-lab-result-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.km-lab-result-meta-card {
+  min-width: 0;
+  padding: 11px 13px;
+  background: var(--km-s2);
+  border: 1px solid var(--km-b);
+  border-radius: 10px;
+}
+
+.km-lab-result-table {
+  overflow: hidden;
+  background: var(--km-s2);
+  border: 1px solid var(--km-b);
+  border-radius: 12px;
+}
+
+.km-lab-result-table-header,
+.km-lab-result-table-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(110px, 1fr) minmax(90px, 1fr) minmax(70px, .7fr);
+  gap: 14px;
+  align-items: center;
+}
+
+.km-lab-result-table-header {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--km-b);
+  color: var(--km-tm);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+
+.km-lab-result-table-row {
+  min-height: 58px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--km-b);
+}
+
+.km-lab-result-table-row:last-child { border-bottom: 0; }
+.km-lab-result-name { min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
+.km-lab-result-value { font-size: 14px; font-weight: 700; }
+.km-lab-result-value span { font-size: 10px !important; color: var(--km-tm) !important; font-weight: 500 !important; }
+.km-lab-result-reference { color: var(--km-tm); font-size: 11px; }
+.km-lab-result-flag { text-align: right; }
+.km-lab-result-disclaimer { margin: 16px 0 0; color: var(--km-tm); font-size: 11.5px; line-height: 1.5; }
+
+@media (max-width: 640px) {
+  .km-lab-result-dialog {
+    width: calc(100vw - 20px) !important;
+    max-height: calc(100vh - 20px);
+    border-radius: 14px !important;
+  }
+
+  .km-lab-result-content { padding: 20px 16px 18px; }
+  .km-lab-result-summary { align-items: flex-start; gap: 11px; padding: 12px; }
+  .km-lab-result-icon-box { width: 44px; height: 44px; flex-basis: 44px; font-size: 20px; }
+  .km-lab-result-meta { gap: 7px; }
+  .km-lab-result-meta-card { padding: 9px 8px; }
+  .km-lab-result-table-header,
+  .km-lab-result-table-row {
+    grid-template-columns: minmax(0, 1.7fr) minmax(74px, 1fr) minmax(64px, .9fr) auto;
+    gap: 7px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .km-lab-result-table-row { min-height: 54px; }
+  .km-lab-result-name { font-size: 12px; }
+  .km-lab-result-value { font-size: 12px; }
+  .km-lab-result-reference { font-size: 10px; }
+  .km-lab-result-table-header { font-size: 8px; }
+  .km-lab-result-flag .km-badge { font-size: 8px !important; padding: 2px 5px !important; }
 }
 
 .km-lab-order-summary {
@@ -3060,6 +3241,13 @@ body.light .km-btn-large-grey:hover {
 }
 
 /* Treatments Page Scoped Overrides */
+#pg-labs .km-page-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.4px;
+}
+
 #pg-treatments .km-page-title {
   font-family: 'Playfair Display', serif;
   font-size: 32px;

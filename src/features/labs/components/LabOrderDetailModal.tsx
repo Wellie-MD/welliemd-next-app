@@ -17,9 +17,10 @@ export default function LabOrderDetailModal({ order, onClose, onBookAppointment,
 
   const panelName = order.lab_panel_name || order.lab_results?.[0]?.test_name || 'Lab Panel';
   const hasResults = hasLabResults(order.results_status, order.results_available);
-  const hasBooking = Boolean(order.booking_link || order.booking_url);
+  const hasBooking = Boolean(order.booking_link || order.booking_url || order.appointment_details);
   const hasRequisition = Boolean(order.requisition_pdf_url || order.requisition_available);
-  const scheduled = String(order.stage || '').toLowerCase().includes('scheduled');
+  const appointmentStatus = String(order.appointment_details?.status || order.stage || '').toLowerCase();
+  const scheduled = ['scheduled', 'confirmed', 'completed'].includes(appointmentStatus) || appointmentStatus.includes('scheduled');
 
   return (
     <div className="km-lab-modal-backdrop" role="dialog" aria-modal="true" aria-label="Lab order details" onClick={onClose}>

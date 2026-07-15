@@ -1,19 +1,26 @@
 import { ChevronRight, FlaskConical } from 'lucide-react';
 import type { GroupedLabPanel } from '../utils/index';
-import { formatDate, formatMoney } from '../utils/index';
+import { panelFlaggedCount } from '../utils/resultPresentation';
 
 interface Props {
   panel: GroupedLabPanel;
   onOpen: () => void;
-  onDownload: () => void;
 }
 
-export default function LabResultCard({ panel, onOpen, onDownload }: Props) {
-  const flagged = panel.biomarkers.filter(b => ['H', 'L'].includes(b.status_indicator || '')).length;
+export default function LabResultCard({ panel, onOpen }: Props) {
+  const flagged = panelFlaggedCount(panel);
   const status = panel.status === 'Partial Results' ? 'Partial results' : panel.status === 'Critical' ? 'Critical results' : 'Results ready';
   const statusTone = panel.status === 'Partial Results' || panel.status === 'Critical' || flagged > 0
     ? 'is-attention'
     : 'is-results';
+  const appointment = panel.appointmentDetails;
+  const appointmentLabel = appointment?.scheduled_start
+    ? `Collection ${appointment.status || 'scheduled'} · ${new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: appointment.timezone || undefined,
+      }).format(new Date(appointment.scheduled_start))}`
+    : null;
 
   return (
     <article className="km-lab-order-card" onClick={onOpen}>
@@ -24,17 +31,7 @@ export default function LabResultCard({ panel, onOpen, onDownload }: Props) {
         <div className={`km-oi-status ${statusTone}`}>
           {flagged ? `${flagged} result${flagged === 1 ? '' : 's'} to review` : `All ${panel.biomarkers.length} results normal`}
         </div>
-      </div>
-      <div className="km-lab-order-actions">
-        <div className="km-lab-order-action-row">
-          <button type="button" className="km-btn km-btn-outline" onClick={event => { event.stopPropagation(); onDownload(); }}>
-            Download results
-          </button>
-        </div>
-      </div>
-      <div className="km-lab-order-price-wrap">
-        <div className="km-lab-order-price">{formatMoney(panel.amount)}</div>
-        <div className="km-oidt">{formatDate(panel.collectedDate)}</div>
+        {appointmentLabel && <div className="km-oiph">{appointmentLabel}</div>}
       </div>
       <ChevronRight size={16} className="km-oichev" />
       <span className="sr-only">{status}</span>

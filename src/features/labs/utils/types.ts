@@ -3,6 +3,7 @@
  * Kept separate from API contracts so they can evolve independently.
  */
 import type { LabResult } from '../api/index';
+import type { LabAppointmentDetails } from '../api/types';
 
 export interface TimelineAction {
   label: string;
@@ -31,6 +32,7 @@ export interface GroupedLabPanel {
   amount?: { amount: string; currency: string };
   pdfAvailable?: boolean;
   standaloneOrderId?: string;
+  appointmentDetails?: LabAppointmentDetails | null;
 }
 
 export type LabOrderView = import('../api/index').LabSubmission & {
