@@ -34,8 +34,10 @@ import FlowBuilder from "@/pages/FlowBuilder";
 import ManageAccount from "@/pages/ManageAccount";
 import CouponCodes from "@/pages/CouponCodes";
 import CreateCouponPage from "@/pages/CreateCouponPage";
+import Wearables from "@/pages/Wearables";
 
 const LS_KEY = "msg_last_seen";
+
 
 function readSeen(): Record<string, string | number | undefined> {
   try {
@@ -203,6 +205,7 @@ export default function DashboardFrame() {
               <Route path="/templates/:templateId" element={<ProtectedRoute><TemplateQuestions /></ProtectedRoute>} />
               <Route path="/templates/:templateId/flow-builder" element={<ProtectedRoute><FlowBuilder /></ProtectedRoute>} />
               <Route path="/manage-account" element={<ProtectedRoute><ManageAccount /></ProtectedRoute>} />
+              <Route path="/wearables" element={<ProtectedRoute><Wearables /></ProtectedRoute>} />
             </Routes>
           </main>
         </div>
