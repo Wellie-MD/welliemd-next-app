@@ -1,6 +1,7 @@
 export const clientLabEndpoints = {
   tests: "client/labs/tests/",
   testDetail: (assignmentId: string) => `client/labs/tests/${assignmentId}/`,
+  testImage: (assignmentId: string) => `client/labs/tests/${assignmentId}/image/`,
   orders: "client/labs/orders/",
   orderDetail: (orderId: string) => `client/labs/orders/${orderId}/`,
   orderResultAccess: (orderId: string) => `client/labs/orders/${orderId}/result-access/`,

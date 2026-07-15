@@ -367,7 +367,7 @@ export const clientLabsApi = {
    */
   updateLabPanel: async (
     assignmentId: string,
-    updates: Partial<Pick<ClientLabPanel, "patient_price" | "discounted_patient_price" | "is_active" | "service_states" | "image_url">>
+    updates: Partial<Pick<ClientLabPanel, "patient_price" | "discounted_patient_price" | "is_active" | "service_states">>
   ): Promise<ClientLabPanel> => {
     const body: Record<string, unknown> = {};
     if (updates.patient_price !== undefined) {
@@ -380,8 +380,14 @@ export const clientLabsApi = {
     }
     if (updates.is_active !== undefined) body.is_active = updates.is_active;
     if (updates.service_states !== undefined) body.service_states = updates.service_states;
-    if (updates.image_url !== undefined) body.image_url = updates.image_url;
     const { data } = await axiosInstance.patch(clientLabEndpoints.testDetail(assignmentId), body);
+    return normalizePanel(data as Record<string, unknown>);
+  },
+
+  uploadLabPanelImage: async (assignmentId: string, image: File): Promise<ClientLabPanel> => {
+    const body = new FormData();
+    body.append("image", image);
+    const { data } = await axiosInstance.post(clientLabEndpoints.testImage(assignmentId), body);
     return normalizePanel(data as Record<string, unknown>);
   },
 

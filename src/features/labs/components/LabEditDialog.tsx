@@ -54,6 +54,8 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
   const [discountedPatientPrice, setDiscountedPatientPrice] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [serviceStates, setServiceStates] = useState<string[]>([]);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -62,7 +64,13 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
     setDiscountedPatientPrice(editingLab.discounted_patient_price?.toFixed(2) || "");
     setIsActive(editingLab.is_active);
     setServiceStates(editingLab.service_states);
+    setImageFile(null);
+    setImagePreview(editingLab.image_url || "");
   }, [editingLab]);
+
+  useEffect(() => () => {
+    if (imagePreview.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
+  }, [imagePreview]);
 
   const effectivePatientPrice = Number.parseFloat(patientPrice) || 0;
   const profit = effectivePatientPrice - (editingLab?.cost_to_client || 0);
@@ -81,7 +89,7 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
     if (!editingLab) return;
     try {
       setSaving(true);
-      const updated = await clientLabsApi.updateLabPanel(editingLab.assignment_id, {
+      let updated = await clientLabsApi.updateLabPanel(editingLab.assignment_id, {
         patient_price: effectivePatientPrice,
         discounted_patient_price: discountedPatientPrice.trim()
           ? Number.parseFloat(discountedPatientPrice)
@@ -89,6 +97,9 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
         is_active: isActive,
         service_states: serviceStates,
       });
+      if (imageFile) {
+        updated = await clientLabsApi.uploadLabPanelImage(editingLab.assignment_id, imageFile);
+      }
       onSaved?.(updated);
       toast({ title: "Lab test updated" });
       onClose();
@@ -102,6 +113,21 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleImageChange = (file?: File) => {
+    if (!file) return;
+    if (!["image/png", "image/jpeg"].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Invalid product image",
+        description: "Choose a PNG or JPEG image up to 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (imagePreview.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
   };
 
   return (
@@ -362,11 +388,20 @@ export default function LabEditDialog({ editingLab, onClose, onSaved }: Props) {
                   <span className="text-[10.5px] font-semibold bg-[#e3f6ec] text-[#1d8a52] rounded-full px-2 py-0.5">Editable</span>
                 </div>
                 <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-[12px] border-2 border-dashed border-[#e8ebee] bg-white p-6 text-center hover:bg-gray-50">
-                  <span className="w-11 h-11 rounded-full bg-[#e3f3fb] text-[#2b7da6] flex items-center justify-center"><ImageIcon className="w-5 h-5" /></span>
+                  {imagePreview ? (
+                    <img src={imagePreview} alt={`${editingLab.name} preview`} className="mb-2 h-24 w-40 rounded-lg object-cover" />
+                  ) : (
+                    <span className="w-11 h-11 rounded-full bg-[#e3f3fb] text-[#2b7da6] flex items-center justify-center"><ImageIcon className="w-5 h-5" /></span>
+                  )}
                   <span className="mt-2 text-[13.5px] font-semibold text-gray-900">Click to upload</span>
                   <span className="text-[13px] text-gray-500">or drag and drop an image here</span>
                   <span className="mt-2 text-[10.5px] font-semibold bg-[#eef1f4] text-[#6b7280] rounded-full px-2 py-0.5">PNG or JPG · up to 5MB</span>
-                  <input type="file" accept="image/png,image/jpeg" className="hidden" />
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg"
+                    className="hidden"
+                    onChange={(event) => handleImageChange(event.target.files?.[0])}
+                  />
                 </label>
               </div>
             </div>
