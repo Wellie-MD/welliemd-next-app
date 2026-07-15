@@ -1,5 +1,7 @@
 @import './blog.css';
-@custom-variant dark (&:is(.dark *));
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* ============================================ */
 /* Kinmeds3 Design System                       */
@@ -34,40 +36,40 @@
   --km-rs: 10px;
 
   /* --- shadcn/ui tokens (light default for :root) --- */
-  --background: #ffffff;
-  --foreground: oklch(0.145 0 0);
-  --card: #ffffff;
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: #030213;
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.95 0.0058 264.53);
-  --secondary-foreground: #030213;
-  --muted: #ececf0;
-  --muted-foreground: #717182;
-  --accent: #e9ebef;
-  --accent-foreground: #030213;
-  --destructive: #d4183d;
-  --destructive-foreground: #ffffff;
-  --border: rgba(0, 0, 0, 0.1);
-  --input: transparent;
+  --background: 0 0% 100%;
+  --foreground: 0 0% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 10%;
+  --primary: 245 81% 4%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 5% 96%;
+  --secondary-foreground: 245 81% 4%;
+  --muted: 240 16% 93%;
+  --muted-foreground: 240 9% 48%;
+  --accent: 220 14% 93%;
+  --accent-foreground: 245 81% 4%;
+  --destructive: 348 80% 46%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
   --input-background: #f3f3f5;
   --switch-background: #cbced4;
-  --ring: oklch(0.708 0 0);
+  --ring: 0 0% 70%;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: #030213;
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: 0 0% 98%;
+  --sidebar-foreground: 0 0% 10%;
+  --sidebar-primary: 245 81% 4%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 0 0% 97%;
+  --sidebar-accent-foreground: 0 0% 20%;
+  --sidebar-border: 0 0% 92%;
+  --sidebar-ring: 0 0% 70%;
 
   /* Custom Patient Portal Colors */
   --header-primary: #98C6DE;
@@ -92,27 +94,27 @@
 
 /* --- Dark mode: kinmeds3 dark palette --- */
 .dark {
-  --background: #0a0a0a;
-  --foreground: #f0f0f0;
-  --card: #111111;
-  --card-foreground: #f0f0f0;
-  --popover: #111111;
-  --popover-foreground: #f0f0f0;
-  --primary: #f0f0f0;
-  --primary-foreground: #0a0a0a;
-  --secondary: #181818;
-  --secondary-foreground: #f0f0f0;
-  --muted: #181818;
-  --muted-foreground: #666666;
-  --accent: #181818;
-  --accent-foreground: #f0f0f0;
-  --destructive: #ef4444;
-  --destructive-foreground: #f0f0f0;
-  --border: rgba(255, 255, 255, 0.07);
-  --input: #181818;
+  --background: 0 0% 4%;
+  --foreground: 0 0% 94%;
+  --card: 0 0% 7%;
+  --card-foreground: 0 0% 94%;
+  --popover: 0 0% 7%;
+  --popover-foreground: 0 0% 94%;
+  --primary: 0 0% 94%;
+  --primary-foreground: 0 0% 4%;
+  --secondary: 0 0% 10%;
+  --secondary-foreground: 0 0% 94%;
+  --muted: 0 0% 10%;
+  --muted-foreground: 0 0% 40%;
+  --accent: 0 0% 10%;
+  --accent-foreground: 0 0% 94%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 94%;
+  --border: 0 0% 15%;
+  --input: 0 0% 15%;
   --input-background: #181818;
   --switch-background: #222;
-  --ring: rgba(79, 142, 247, 0.5);
+  --ring: 217 91% 64%;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   --chart-1: oklch(0.488 0.243 264.376);
@@ -120,14 +122,14 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: #0d0d0d;
-  --sidebar-foreground: #f0f0f0;
-  --sidebar-primary: #4f8ef7;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(79, 142, 247, 0.12);
-  --sidebar-accent-foreground: #4f8ef7;
-  --sidebar-border: rgba(255, 255, 255, 0.07);
-  --sidebar-ring: rgba(79, 142, 247, 0.5);
+  --sidebar: 0 0% 5%;
+  --sidebar-foreground: 0 0% 94%;
+  --sidebar-primary: 217 91% 64%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 217 91% 10%;
+  --sidebar-accent-foreground: 217 91% 64%;
+  --sidebar-border: 0 0% 15%;
+  --sidebar-ring: 217 91% 64%;
 
   /* Kinmeds3 palette stays the same in dark */
   --km-bg: #0a0a0a;
@@ -154,64 +156,6 @@
   --km-td: #ccc;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-input-background: var(--input-background);
-  --color-switch-background: var(--switch-background);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-
-  --color-header-primary: var(--header-primary);
-  --color-header-secondary: var(--header-secondary);
-  --color-medical-blue: var(--medical-blue);
-  --color-medical-green: var(--medical-green);
-  --color-medical-orange: var(--medical-orange);
-  --color-medical-red: var(--medical-red);
-  --color-light-blue: var(--light-blue);
-  --color-soft-gray: var(--soft-gray);
-
-  --color-brand-primary: var(--brand-primary);
-  --color-brand-secondary: var(--brand-secondary);
-  --color-brand-accent: var(--brand-accent);
-  --color-brand-neutral: var(--brand-neutral);
-  --color-brand-primary-hsl: var(--brand-primary-hsl);
-  --color-brand-secondary-hsl: var(--brand-secondary-hsl);
-  --color-brand-accent-hsl: var(--brand-accent-hsl);
-  --color-brand-neutral-hsl: var(--brand-neutral-hsl);
-}
 
 @layer base {
   * {
@@ -1427,11 +1371,35 @@ body.light .km-nbtn {
   color: var(--km-tm);
 }
 
+.km-oi-status {
+  font-size: 11px;
+  color: var(--km-am);
+  margin-top: 3px;
+}
+
+.km-oi-status.is-progress {
+  color: var(--km-ac);
+}
+
+.km-oi-status.is-attention,
+.km-oi-status.has-flags {
+  color: var(--km-am);
+}
+
+.km-oi-status.is-results {
+  color: var(--km-gr);
+}
+
 .km-oiright {
   text-align: right;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 112px;
 }
 
+.km-oiamount,
 .km-oiamt {
   font-size: 14px;
   font-weight: 700;
@@ -1441,6 +1409,586 @@ body.light .km-nbtn {
 .km-oidt {
   font-size: 11px;
   color: var(--km-tm);
+}
+
+.km-oichev {
+  color: var(--km-tm);
+  margin-top: 4px;
+}
+
+/* --- Patient lab cards and detail modal --- */
+.km-lab-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.km-lab-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 18px 0 28px; }
+.km-lab-summary-card { min-height: 112px; padding: 15px 17px; background: var(--km-s1); border: 1px solid var(--km-b); border-radius: 13px; box-shadow: 0 2px 7px rgba(46, 39, 28, .05); }
+.km-lab-summary-card header { display: flex; align-items: center; gap: 7px; color: var(--km-t); font-size: 11px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
+.km-lab-summary-card.is-attention header { color: #b8553e; }
+.km-lab-summary-card.is-progress header { color: #9a721d; }
+.km-lab-summary-card > p { margin-top: 14px; color: var(--km-tm); font-size: 12px; }
+.km-lab-summary-items { margin-top: 8px; }
+.km-lab-summary-items button { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border: 0; border-bottom: 1px solid var(--km-b); background: transparent; color: var(--km-t); text-align: left; cursor: pointer; }
+.km-lab-summary-items button:last-child { border-bottom: 0; }
+.km-lab-summary-items strong, .km-lab-summary-items small { display: block; }
+.km-lab-summary-items strong { font-size: 12px; }
+.km-lab-summary-items small { margin-top: 2px; color: var(--km-tm); font-size: 10px; }
+.km-lab-results-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.km-lab-section-label { color: var(--km-tm); font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.km-lab-filter-pills { display: flex; gap: 7px; margin-top: 10px; }
+.km-lab-filter-pills button { padding: 5px 13px; border: 1px solid var(--km-b); border-radius: 999px; background: transparent; color: var(--km-tm); font: inherit; font-size: 11px; text-transform: capitalize; cursor: pointer; }
+.km-lab-filter-pills button.is-active { border-color: #4b795d; background: #edf7ee; color: #336a48; }
+.km-lab-results-toolbar > label { display: flex; align-items: center; gap: 9px; color: var(--km-tm); font-size: 11px; }
+.km-lab-results-toolbar select { padding: 7px 28px 7px 10px; border: 1px solid var(--km-b); border-radius: 8px; background: var(--km-s1); color: var(--km-t); font: inherit; font-size: 11px; }
+.km-lab-result-icon { background: #fff0dc; color: #d26822; }
+.km-lab-order-card .km-oichev { margin-left: auto; }
+
+@media (max-width: 700px) {
+  .km-lab-summary-grid { grid-template-columns: 1fr; }
+  .km-lab-results-toolbar { align-items: flex-start; flex-direction: column; }
+  .km-lab-results-toolbar > label { width: 100%; justify-content: space-between; }
+}
+
+.km-lab-order-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 74px;
+  padding: 14px 16px;
+  background: var(--km-s1);
+  border: 1px solid var(--km-b);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.km-lab-order-card:hover {
+  border-color: var(--km-bh);
+  box-shadow: 0 5px 16px rgba(15, 23, 42, 0.07);
+  transform: translateY(-1px);
+}
+
+.km-lab-order-icon,
+.km-lab-result-icon {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--km-am);
+}
+
+.km-lab-result-icon {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--km-gr);
+}
+
+.km-lab-result-card-container {
+  width: 100%;
+}
+
+.km-lab-result-card .km-oiph {
+  overflow-wrap: anywhere;
+}
+
+.km-lab-order-actions {
+  min-width: 220px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.km-lab-order-action-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.km-lab-order-action-row .km-btn {
+  padding: 5px 12px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.km-lab-action-primary {
+  border: 1px solid #171717;
+  background: #171717;
+  color: #fff;
+}
+
+.km-lab-action-primary:hover {
+  border-color: #2f2f2f;
+  background: #2f2f2f;
+}
+
+.km-lab-result-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.km-lab-result-actions .km-btn {
+  min-height: 40px;
+  justify-content: center;
+}
+
+.km-lab-result-actions .km-btn-primary {
+  flex: 1 1 210px;
+}
+
+.km-lab-result-actions .km-lab-action-primary {
+  flex: 1 1 210px;
+}
+
+/* Result cards keep their primary information readable at every card width. */
+.km-lab-result-card {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.km-lab-result-card .km-lab-order-actions {
+  order: 5;
+  flex: 0 0 calc(100% - 52px);
+  width: calc(100% - 52px);
+  min-width: 0;
+  margin-left: 52px;
+  margin-top: 2px;
+  text-align: left;
+}
+
+.km-lab-result-card .km-lab-order-action-row {
+  justify-content: flex-start;
+}
+
+.km-lab-result-card .km-lab-order-price-wrap {
+  margin-left: auto;
+}
+
+.km-lab-order-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--km-t);
+}
+
+.km-lab-order-price-wrap {
+  width: 72px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.km-lab-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.km-lab-order-modal {
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  background: var(--km-s1);
+  border: 1px solid var(--km-b);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.22);
+}
+
+.km-lab-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--km-b);
+}
+
+.km-lab-modal-id {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--km-tm);
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.km-lab-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--km-tm);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.km-lab-modal-close:hover {
+  color: var(--km-t);
+  background: var(--km-s2);
+}
+
+.km-lab-result-dialog {
+  width: min(720px, calc(100vw - 32px)) !important;
+  max-width: 720px !important;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  border-radius: 16px !important;
+}
+
+.km-lab-result-content {
+  padding: 28px;
+}
+
+.km-lab-result-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 0 34px 14px 0;
+  border-bottom: 1px solid var(--km-b);
+}
+
+.km-lab-result-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  background: var(--km-s2);
+  border: 1px solid var(--km-b);
+  border-radius: 12px;
+}
+
+.km-lab-result-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  border: 1px solid var(--km-b);
+  border-radius: 12px;
+  background: var(--km-s1);
+  font-size: 24px;
+}
+
+.km-lab-result-summary-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.km-lab-result-notice,
+.km-lab-result-appointment {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.km-lab-result-notice {
+  color: var(--km-am);
+  font-weight: 600;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.km-lab-result-appointment {
+  color: var(--km-tm);
+  background: var(--km-s2);
+  border: 1px solid var(--km-b);
+}
+
+.km-lab-result-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.km-lab-result-meta-card {
+  min-width: 0;
+  padding: 11px 13px;
+  background: var(--km-s2);
+  border: 1px solid var(--km-b);
+  border-radius: 10px;
+}
+
+.km-lab-result-table {
+  overflow: hidden;
+  background: var(--km-s2);
+  border: 1px solid var(--km-b);
+  border-radius: 12px;
+}
+
+.km-lab-result-table-header,
+.km-lab-result-table-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(110px, 1fr) minmax(90px, 1fr) minmax(70px, .7fr);
+  gap: 14px;
+  align-items: center;
+}
+
+.km-lab-result-table-header {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--km-b);
+  color: var(--km-tm);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+
+.km-lab-result-table-row {
+  min-height: 58px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--km-b);
+}
+
+.km-lab-result-table-row:last-child { border-bottom: 0; }
+.km-lab-result-name { min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
+.km-lab-result-value { font-size: 14px; font-weight: 700; }
+.km-lab-result-value span { font-size: 10px !important; color: var(--km-tm) !important; font-weight: 500 !important; }
+.km-lab-result-reference { color: var(--km-tm); font-size: 11px; }
+.km-lab-result-flag { text-align: right; }
+.km-lab-result-disclaimer { margin: 16px 0 0; color: var(--km-tm); font-size: 11.5px; line-height: 1.5; }
+
+@media (max-width: 640px) {
+  .km-lab-result-dialog {
+    width: calc(100vw - 20px) !important;
+    max-height: calc(100vh - 20px);
+    border-radius: 14px !important;
+  }
+
+  .km-lab-result-content { padding: 20px 16px 18px; }
+  .km-lab-result-summary { align-items: flex-start; gap: 11px; padding: 12px; }
+  .km-lab-result-icon-box { width: 44px; height: 44px; flex-basis: 44px; font-size: 20px; }
+  .km-lab-result-meta { gap: 7px; }
+  .km-lab-result-meta-card { padding: 9px 8px; }
+  .km-lab-result-table-header,
+  .km-lab-result-table-row {
+    grid-template-columns: minmax(0, 1.7fr) minmax(74px, 1fr) minmax(64px, .9fr) auto;
+    gap: 7px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .km-lab-result-table-row { min-height: 54px; }
+  .km-lab-result-name { font-size: 12px; }
+  .km-lab-result-value { font-size: 12px; }
+  .km-lab-result-reference { font-size: 10px; }
+  .km-lab-result-table-header { font-size: 8px; }
+  .km-lab-result-flag .km-badge { font-size: 8px !important; padding: 2px 5px !important; }
+}
+
+.km-lab-order-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 16px;
+  padding: 12px;
+  background: var(--km-s2);
+  border: 1px solid var(--km-b);
+  border-radius: 12px;
+}
+
+.km-lab-summary-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  color: var(--km-ac);
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 10px;
+}
+
+.km-lab-summary-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.km-lab-summary-copy strong {
+  overflow: hidden;
+  color: var(--km-t);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.km-lab-summary-copy span {
+  color: var(--km-tm);
+  font-size: 11px;
+}
+
+.km-lab-timeline {
+  margin: 0 16px 14px;
+  padding: 16px 14px 8px;
+  background: var(--km-s2);
+  border: 1px solid var(--km-b);
+  border-radius: 12px;
+}
+
+.km-lab-timeline-item {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  min-height: 42px;
+}
+
+.km-lab-timeline-item:not(:last-child)::after {
+  position: absolute;
+  top: 18px;
+  bottom: 0;
+  left: 8px;
+  width: 1px;
+  content: '';
+  background: var(--km-b);
+}
+
+.km-lab-timeline-marker {
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--km-s3);
+  border: 1px solid var(--km-b);
+  border-radius: 50%;
+}
+
+.km-lab-timeline-item.is-complete .km-lab-timeline-marker {
+  background: var(--km-gr);
+  border-color: var(--km-gr);
+}
+
+.km-lab-timeline-item.is-active .km-lab-timeline-marker {
+  background: var(--km-am);
+  border-color: var(--km-am);
+}
+
+.km-lab-timeline-copy {
+  padding-bottom: 11px;
+}
+
+.km-lab-timeline-label {
+  color: var(--km-t);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.km-lab-timeline-date {
+  margin-top: 2px;
+  color: var(--km-tm);
+  font-size: 10px;
+}
+
+.km-lab-panel-includes {
+  margin: 0 16px 14px;
+}
+
+.km-lab-panel-label {
+  margin-bottom: 7px;
+  color: var(--km-tm);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.km-lab-panel-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.km-lab-panel-chips span {
+  padding: 4px 8px;
+  color: var(--km-tm);
+  font-size: 11px;
+  background: var(--km-s2);
+  border: 1px solid var(--km-b);
+  border-radius: 999px;
+}
+
+.km-lab-order-modal-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
+.km-lab-order-modal-footer .km-btn {
+  justify-content: center;
+}
+
+.km-lab-order-modal-footer p {
+  margin: 0;
+  color: var(--km-tm);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .km-lab-order-card {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .km-lab-order-actions {
+    display: flex;
+    width: calc(100% - 52px);
+    min-width: 0;
+    margin-left: 52px;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .km-lab-order-price-wrap {
+    margin-left: auto;
+  }
+
+  .km-lab-order-action-row .km-btn {
+    padding: 5px 8px;
+  }
+
+  .km-lab-result-actions {
+    flex-direction: column;
+  }
+
+  .km-lab-result-actions .km-btn,
+  .km-lab-result-actions .km-btn-primary,
+  .km-lab-result-actions .km-lab-action-primary {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .km-lab-order-summary {
+    align-items: flex-start;
+  }
+
+  .km-lab-order-summary .km-badge {
+    display: none;
+  }
 }
 
 /* --- Visits (vitem) --- */
@@ -2768,6 +3316,13 @@ body.light .km-btn-large-grey:hover {
 }
 
 /* Treatments Page Scoped Overrides */
+#pg-labs .km-page-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.4px;
+}
+
 #pg-treatments .km-page-title {
   font-family: 'Playfair Display', serif;
   font-size: 32px;

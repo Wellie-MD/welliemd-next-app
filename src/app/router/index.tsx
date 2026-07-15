@@ -27,6 +27,7 @@ const Labs = React.lazy(() => import('@/features/labs/LabsPage'));
 const ExploreTreatments = React.lazy(() => import('@/components/ExploreTreatments'));
 const Help = React.lazy(() => import('@/components/Help'));
 
+
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center">
     <div className="space-y-4 text-center">
@@ -45,6 +46,9 @@ export const AppRouter: React.FC = () => {
           <Route path="/auth/signin" element={<SignIn />} />
           <Route path="/auth/forgot-password" element={<ForgotPassword />} />
           <Route path="/auth/reset-password" element={<ResetPassword />} />
+
+          {/* Public routes - Standalone Lab Checkout */}
+
           <Route
             path="/follow-up/:sessionId"
             element={
