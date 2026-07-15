@@ -189,6 +189,7 @@ export interface Order {
   consult_cost_to_client?: string | null
   consult_type?: 'async' | 'sync' | null
   shipping_fee_to_client?: string | null
+  billing_pending_reason?: string | null
   activity_events?: OrderActivityEvent[]
   episode_id?: string | null
 }
