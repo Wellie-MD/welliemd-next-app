@@ -4,6 +4,9 @@ import type { CustomProgram } from "@/features/treatments/types";
 import { isCustomProgramMulti } from "@/features/treatments/custom-programs/hooks/useCustomProgramsPage";
 import { cn } from "@/lib/utils";
 
+const uniqueNonEmptyValues = (values: Array<string | undefined>) =>
+  Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value))));
+
 interface CustomProgramCardProps {
   customProgram: CustomProgram;
   onEdit?: (program: CustomProgram) => void;
@@ -14,6 +17,18 @@ interface CustomProgramCardProps {
 
 export function CustomProgramCard({ customProgram, onEdit, onDelete, onPreview, onViewCatalog }: CustomProgramCardProps) {
   const isMulti = isCustomProgramMulti(customProgram);
+
+  // Prefer backend-provided names; fall back to local derivation for mock/legacy data
+  const routedTreatmentNames = (customProgram.routedTreatmentNames?.length ?? 0) > 0
+    ? customProgram.routedTreatmentNames!
+    : (() => {
+        const builder = uniqueNonEmptyValues(customProgram.builderTreatmentOptions?.map((i) => i.title) ?? []);
+        if (builder.length) return builder;
+        const flow = uniqueNonEmptyValues(customProgram.flowItems.filter((i) => i.kind === "program").map((i) => i.title));
+        if (flow.length) return flow;
+        return uniqueNonEmptyValues(customProgram.includedProgramIds);
+      })();
+  const routedTreatmentCount = routedTreatmentNames.length;
 
   const renderIcon = () => {
     const iconClass = "h-[17px] w-[17px]";
@@ -148,78 +163,32 @@ export function CustomProgramCard({ customProgram, onEdit, onDelete, onPreview, 
         </div>
       </div>
 
-      {/* Connected Catalog Footer */}
-      {!customProgram.visitType ? (
-        <div className="flex-1 flex items-center gap-1.5 bg-[#fafbfc] px-3.5 py-2.5 text-[11.5px] text-slate-400 italic rounded-b-xl">
-          <Info className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-          <span>Routes to multiple visit types — see destinations</span>
+      <div className="flex-1 bg-[#fafbfc] p-3.5 rounded-b-xl">
+        <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+          Routes into · {routedTreatmentCount} {routedTreatmentCount === 1 ? "treatment" : "treatments"}
         </div>
-      ) : (
-        <div className="flex-1 bg-[#fafbfc] p-3.5 rounded-b-xl">
-          <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-            Connected catalog
-          </div>
-          <div className="flex flex-wrap gap-1.5 items-center">
-            {/* Medicine Chip */}
-            <button
-              onClick={() => onViewCatalog?.(customProgram, "medicine")}
-              className="inline-flex items-center gap-1 px-2.5 py-1 border border-slate-200 rounded-md text-[11.5px] text-slate-600 bg-white hover:border-slate-300 hover:text-slate-900 transition-colors"
-              title="View medicine for this visit type"
-            >
-              <Pill className="h-3 w-3 text-slate-400" />
-              <span className="font-semibold text-slate-900 font-mono">{stats.medicine}</span>
-              <span>Medicine</span>
-            </button>
-
-            {/* Checkout Qs Chip */}
-            <button
-              onClick={() => onViewCatalog?.(customProgram, "checkout")}
-              className="inline-flex items-center gap-1 px-2.5 py-1 border border-slate-200 rounded-md text-[11.5px] text-slate-600 bg-white hover:border-slate-300 hover:text-slate-900 transition-colors"
-              title="Checkout questions"
-            >
-              <ShoppingCart className="h-3 w-3 text-slate-400" />
-              <span className="font-semibold text-slate-900 font-mono">{stats.checkout}</span>
-              <span>
-                Checkout Qs{" "}
-                {stats.checkout === 0 && (
-                  <span className="text-red-500 font-semibold">(none configured)</span>
-                )}
+        <div className="flex flex-wrap gap-1.5 items-center">
+          {routedTreatmentNames.length > 0 ? (
+            routedTreatmentNames.map((name) => (
+              <span
+                key={name}
+                className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11.5px] font-medium text-slate-700"
+              >
+                {name}
               </span>
-            </button>
-
-            {/* Labs Chip */}
-            <button
-              onClick={() => onViewCatalog?.(customProgram, "labs")}
-              className="inline-flex items-center gap-1 px-2.5 py-1 border border-slate-200 rounded-md text-[11.5px] text-slate-600 bg-white hover:border-slate-300 hover:text-slate-900 transition-colors"
-              title="View labs"
+            ))
+          ) : (
+            <span className="text-[11.5px] italic text-slate-400">No routed treatments configured</span>
+          )}
+          {customProgram.consentIds.length > 0 && (
+            <span
+              className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11.5px] font-semibold text-slate-700"
             >
-              <TestTube className="h-3 w-3 text-slate-400" />
-              <span className="font-semibold text-slate-900 font-mono">{stats.labs}</span>
-              <span>Labs</span>
-            </button>
-
-            {/* Supplies Chip */}
-            <button
-              onClick={() => onViewCatalog?.(customProgram, "supplies")}
-              className="inline-flex items-center gap-1 px-2.5 py-1 border border-slate-200 rounded-md text-[11.5px] text-slate-600 bg-white hover:border-slate-300 hover:text-slate-900 transition-colors"
-              title="View supplies"
-            >
-              <Package className="h-3 w-3 text-slate-400" />
-              <span className="font-semibold text-slate-900 font-mono">{stats.supplies}</span>
-              <span>Supplies</span>
-            </button>
-
-            {/* Open Hub Link */}
-            <button
-              onClick={() => onViewCatalog?.(customProgram, "hub")}
-              className="ml-auto inline-flex items-center gap-0.5 px-2 py-1 rounded text-[11px] font-semibold text-blue-600 hover:bg-blue-50 transition-colors"
-            >
-              <span>Open hub</span>
-              <ArrowRight className="h-3 w-3" />
-            </button>
-          </div>
+              {customProgram.consentIds.length} universal consents
+            </span>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

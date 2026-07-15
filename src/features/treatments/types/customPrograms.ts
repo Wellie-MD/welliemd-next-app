@@ -59,4 +59,9 @@ export interface CustomProgram {
   iconColor?: string;
   tags?: string[];
   isMulti?: boolean;
+  builderQuestions?: any[];
+  builderTreatmentOptions?: any[];
+  builderConsents?: any[];
+  routedTreatmentNames?: string[];
 }
+

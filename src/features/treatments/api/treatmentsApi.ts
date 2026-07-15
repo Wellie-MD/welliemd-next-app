@@ -462,9 +462,11 @@ type CustomProgramApiRecord = {
   icon_color?: string;
   tags?: string[];
   is_multi?: boolean;
+  routed_treatment_names?: string[];
   created_at?: string;
   updated_at?: string;
 };
+
 
 type ProgramApiRecord = {
   id: string;
@@ -696,7 +698,9 @@ const mapCustomProgramFromApi = (record: CustomProgramApiRecord): CustomProgram 
   iconColor: record.icon_color || undefined,
   tags: record.tags || [],
   isMulti: record.is_multi ?? false,
+  routedTreatmentNames: record.routed_treatment_names || [],
 });
+
 
 const mapCustomProgramToApi = (program: CustomProgram) => ({
   name: program.name.trim(),
