@@ -10,10 +10,31 @@ import { toast } from "sonner"
 import { junctionIntegrationApi } from "@/api/junctionIntegration"
 import {
   AUTH_LABEL,
-  WEAR_PRIORITY,
   type WearableProvider,
   type WearAuth,
 } from "./wearableCatalog"
+
+// Sense continuous-query metric domains the admin can set provider priority
+// for. Must match apps/integrations/junction_sense_constants.py's
+// SENSE_DOMAIN_QUERY_DEFINITIONS keys (minus "workouts", which isn't exposed
+// as a priority-configurable domain in this UI).
+const SENSE_DOMAINS: { id: string; label: string }[] = [
+  { id: "sleep", label: "Sleep" },
+  { id: "activity", label: "Activity" },
+  { id: "body", label: "Body / Weight" },
+  { id: "glucose", label: "Glucose" },
+]
+
+function seedPriorityFromConfigs(
+  providerConfigs: Record<string, any> | undefined
+): Record<string, string[]> {
+  const sensePriority = providerConfigs?.sense_priority ?? {}
+  const seeded: Record<string, string[]> = {}
+  SENSE_DOMAINS.forEach(({ id }) => {
+    seeded[id] = Array.isArray(sensePriority[id]) ? [...sensePriority[id]] : []
+  })
+  return seeded
+}
 
 const AUTH_CLASS: Record<string, string> = {
   oauth: "bg-blue-50 text-blue-700 border-blue-200",
@@ -75,15 +96,24 @@ type FilterKey = "all" | "wearables" | "cgm" | "apps"
 interface Props {
   clientId?: string
   initialEnabled?: boolean
+  providerConfigs?: Record<string, any>
   labAccountsCard: ReactNode
 }
 
-export function JunctionWearablesSection({ clientId, initialEnabled = false, labAccountsCard }: Props) {
+export function JunctionWearablesSection({
+  clientId,
+  initialEnabled = false,
+  providerConfigs,
+  labAccountsCard,
+}: Props) {
   const [enabled, setEnabled] = useState(initialEnabled)
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<FilterKey>("all")
   const [providers, setProviders] = useState<WearableProvider[]>([])
-  const [priority, setPriority] = useState<string[]>(() => [...WEAR_PRIORITY])
+  const [priority, setPriority] = useState<Record<string, string[]>>(() =>
+    seedPriorityFromConfigs(providerConfigs)
+  )
+  const [activeDomain, setActiveDomain] = useState<string>(SENSE_DOMAINS[0].id)
   const [loadingProviders, setLoadingProviders] = useState(true)
 
   // Keep local state in sync when the parent re-fetches and passes a new value.
@@ -91,6 +121,9 @@ export function JunctionWearablesSection({ clientId, initialEnabled = false, lab
     console.log('[WearablesSection] useEffect: initialEnabled changed ->', initialEnabled, '| current enabled state ->', enabled)
     setEnabled(initialEnabled)
   }, [initialEnabled])
+  useEffect(() => {
+    setPriority(seedPriorityFromConfigs(providerConfigs))
+  }, [providerConfigs])
   useEffect(() => {
     let active = true
     async function fetchProviders() {
@@ -111,11 +144,19 @@ export function JunctionWearablesSection({ clientId, initialEnabled = false, lab
             }
           })
           setProviders(mapped)
-          
+
           setPriority((current) => {
-            const fetchedIds = mapped.map(p => p.id)
-            const remaining = current.filter(id => !fetchedIds.includes(id))
-            return [...fetchedIds, ...remaining]
+            const fetchedIds = mapped.map((p) => p.id)
+            const next: Record<string, string[]> = { ...current }
+            SENSE_DOMAINS.forEach(({ id: metricDomain }) => {
+              const existing = current[metricDomain] ?? []
+              // Preserve the saved custom order for known providers; only
+              // append newly-seen catalog providers that aren't ordered yet.
+              const kept = existing.filter((id) => fetchedIds.includes(id))
+              const appended = fetchedIds.filter((id) => !existing.includes(id))
+              next[metricDomain] = [...kept, ...appended]
+            })
+            return next
           })
         }
       } catch (err) {
@@ -157,25 +198,50 @@ export function JunctionWearablesSection({ clientId, initialEnabled = false, lab
   }, [filter, providers, search])
 
   const visiblePriority = useMemo(
-    () => priority.filter((id) => providerMap.get(id)?.enabled),
-    [priority, providerMap]
+    () => (priority[activeDomain] ?? []).filter((id) => providerMap.get(id)?.enabled),
+    [priority, providerMap, activeDomain]
   )
 
-  const saveProviderConfigs = async (nextProviders: WearableProvider[]) => {
-    const configs: Record<string, { enabled: boolean; pull_window_days: number }> = {}
+  // `provider_configs` is a single JSON blob on the backend (see
+  // JunctionWearablesSettings.provider_configs) — PATCHing it replaces the
+  // whole value, it isn't deep-merged server-side. So every save from this
+  // component must send the full { providers, sense_priority } shape, not
+  // just the slice being edited, or it would silently wipe out the other
+  // half. (`sense_ready` is deliberately omitted — the backend recomputes and
+  // re-injects it after every save.)
+  const buildProviderConfigsPayload = (
+    nextProviders: WearableProvider[],
+    nextPriority: Record<string, string[]>
+  ) => {
+    const providersConfig: Record<string, { enabled: boolean; pull_window_days: number }> = {}
     nextProviders.forEach((p) => {
-      configs[p.id] = {
+      providersConfig[p.id] = {
         enabled: p.enabled,
         pull_window_days: p.pull,
       }
     })
+    return { providers: providersConfig, sense_priority: nextPriority }
+  }
+
+  const saveProviderConfigs = async (nextProviders: WearableProvider[]) => {
     try {
       await junctionIntegrationApi.updateWearablesSettings({
-        provider_configs: configs,
+        provider_configs: buildProviderConfigsPayload(nextProviders, priority),
       }, clientId)
     } catch (err) {
       console.error("Failed to save provider configs:", err)
       toast.error("Failed to save wearable provider configuration.")
+    }
+  }
+
+  const savePriority = async (nextPriority: Record<string, string[]>) => {
+    try {
+      await junctionIntegrationApi.updateWearablesSettings({
+        provider_configs: buildProviderConfigsPayload(providers, nextPriority),
+      }, clientId)
+    } catch (err) {
+      console.error("Failed to save Sense priority:", err)
+      toast.error("Failed to save data prioritization order.")
     }
   }
 
@@ -217,13 +283,16 @@ export function JunctionWearablesSection({ clientId, initialEnabled = false, lab
     })
   }
 
-  const movePriority = (id: string, direction: -1 | 1) => {
+  const movePriority = (domain: string, id: string, direction: -1 | 1) => {
     setPriority((current) => {
-      const index = current.indexOf(id)
+      const list = current[domain] ?? []
+      const index = list.indexOf(id)
       const nextIndex = index + direction
-      if (index < 0 || nextIndex < 0 || nextIndex >= current.length) return current
-      const next = [...current]
-      ;[next[index], next[nextIndex]] = [next[nextIndex], next[index]]
+      if (index < 0 || nextIndex < 0 || nextIndex >= list.length) return current
+      const nextList = [...list]
+      ;[nextList[index], nextList[nextIndex]] = [nextList[nextIndex], nextList[index]]
+      const next = { ...current, [domain]: nextList }
+      void savePriority(next)
       return next
     })
   }
@@ -416,11 +485,30 @@ export function JunctionWearablesSection({ clientId, initialEnabled = false, lab
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold">Data Prioritization</CardTitle>
             <p className="text-xs text-muted-foreground">
-              If patients map overlapping hardware, the top-most active entry in this queue wins
-              over other metric outputs. This ordering is local preview state only right now.
+              When a patient has overlapping hardware for a metric, the top-most active entry
+              here wins within that metric — set independently per Sense metric domain, since
+              you may want a different preferred device for sleep vs. glucose, for example.
             </p>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {SENSE_DOMAINS.map((domain) => (
+                <button
+                  key={domain.id}
+                  type="button"
+                  onClick={() => setActiveDomain(domain.id)}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                    activeDomain === domain.id
+                      ? "border-sky-200 bg-sky-50 text-sky-700"
+                      : "bg-background text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  {domain.label}
+                </button>
+              ))}
+            </div>
+
             {visiblePriority.map((id, index) => {
               const provider = providerMap.get(id)
               if (!provider) return null
@@ -443,7 +531,7 @@ export function JunctionWearablesSection({ clientId, initialEnabled = false, lab
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
-                      onClick={() => movePriority(id, -1)}
+                      onClick={() => movePriority(activeDomain, id, -1)}
                       disabled={index === 0}
                       className="flex h-7 w-7 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
                       aria-label={`Move ${provider.name} up`}
@@ -452,7 +540,7 @@ export function JunctionWearablesSection({ clientId, initialEnabled = false, lab
                     </button>
                     <button
                       type="button"
-                      onClick={() => movePriority(id, 1)}
+                      onClick={() => movePriority(activeDomain, id, 1)}
                       disabled={index === visiblePriority.length - 1}
                       className="flex h-7 w-7 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
                       aria-label={`Move ${provider.name} down`}
@@ -464,8 +552,16 @@ export function JunctionWearablesSection({ clientId, initialEnabled = false, lab
               )
             })}
 
+            {visiblePriority.length === 0 && (
+              <div className="rounded-xl border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">
+                No enabled providers contribute to this metric yet.
+              </div>
+            )}
+
             <div className="pt-2 text-[11px] text-muted-foreground">
-              Use the up and down controls to organize execution ranking.
+              Use the up and down controls to set provider priority for{" "}
+              {SENSE_DOMAINS.find((d) => d.id === activeDomain)?.label.toLowerCase()}. Saved
+              automatically to the database.
             </div>
           </CardContent>
         </Card>
