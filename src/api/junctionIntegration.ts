@@ -298,10 +298,25 @@ export const junctionIntegrationApi = {
     return data
   },
 
-  listWearableProviders: async (clientId?: string): Promise<{ success: boolean; sources: JunctionWearableProviderSource[] }> => {
+  listWearableProviders: async (
+    clientId?: string,
+    refresh = false
+  ): Promise<{ success: boolean; sources: JunctionWearableProviderSource[] }> => {
     const { data } = await axiosInstance.get(JUNCTION_ENDPOINTS.wearablesProviders, {
-      params: clientId ? { client_id: clientId } : undefined,
+      params: {
+        ...(clientId ? { client_id: clientId } : {}),
+        ...(refresh ? { refresh: Date.now() } : {}),
+      },
     })
+    return data
+  },
+
+  syncWearableProviders: async (): Promise<{
+    success: boolean
+    message: string
+    task_id: string
+  }> => {
+    const { data } = await axiosInstance.post(JUNCTION_ENDPOINTS.wearablesProvidersSync)
     return data
   },
 

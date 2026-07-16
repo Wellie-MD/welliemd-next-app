@@ -13,7 +13,8 @@ import {
   type WearableProvider,
   type WearAuth,
 } from "./wearableCatalog"
-import type { JunctionWearableProviderSource } from "@/api/junctionIntegration"
+import { useWearableProviderCatalog } from "./useWearableProviderCatalog"
+import { WearableProviderSyncButton } from "./WearableProviderSyncButton"
 
 const SENSE_DOMAINS: { id: string; label: string }[] = [
   { id: "sleep", label: "Sleep" },
@@ -82,18 +83,6 @@ function ProviderLogo({ name, logoFile }: { name: string; logoFile: string }) {
   )
 }
 
-function getCategoryFromSlugAndResources(slug: string, resources: string[]): string {
-  const s = slug.toLowerCase()
-  if (s.includes("libre") || s.includes("dexcom") || s.includes("accu")) return "CGM"
-  if (s.includes("scale") || s.includes("renpho") || s.includes("withings")) return "Smart scale"
-  if (s.includes("sleep")) return "Sleep"
-  if (s.includes("omron") || s.includes("beurer")) return "Blood pressure"
-  if (s.includes("kardia")) return "ECG"
-  if (s.includes("apple") || s.includes("healthconnect") || s.includes("samsung")) return "On-device"
-  if (s.includes("strava") || s.includes("wahoo") || s.includes("peloton") || s.includes("zwift") || s.includes("fit")) return "App"
-  return "Wearable"
-}
-
 type FilterKey = "all" | "wearables" | "cgm" | "apps"
 
 interface Props {
@@ -114,13 +103,14 @@ export function JunctionWearablesSection({
   const [enabled, setEnabled] = useState(initialEnabled)
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<FilterKey>("all")
-  const [providers, setProviders] = useState<WearableProvider[]>([])
   const [priority, setPriority] = useState<Record<string, string[]>>(() =>
     seedPriorityFromConfigs(providerConfigs)
   )
   const [activeDomain, setActiveDomain] = useState<string>(SENSE_DOMAINS[0].id)
-  const [loadingProviders, setLoadingProviders] = useState(true)
   const [applyingPriority, setApplyingPriority] = useState(false)
+  const domainIds = useMemo(() => SENSE_DOMAINS.map(({ id }) => id), [])
+  const { providers, setProviders, loadingProviders, refreshProviders } =
+    useWearableProviderCatalog({ clientId, domains: domainIds, setPriority })
 
   // Keep local state in sync when the parent re-fetches and passes a new value.
   useEffect(() => {
@@ -129,57 +119,6 @@ export function JunctionWearablesSection({
   useEffect(() => {
     setPriority(seedPriorityFromConfigs(providerConfigs))
   }, [providerConfigs])
-  useEffect(() => {
-    let active = true
-    async function fetchProviders() {
-      try {
-        const response = await junctionIntegrationApi.listWearableProviders(clientId)
-        if (response.success && active && response.sources?.length > 0) {
-          const mapped: WearableProvider[] = response.sources.map((src: JunctionWearableProviderSource) => {
-            const raw = src.raw_snapshot ?? {}
-            const resources = Array.isArray(raw.supported_resources)
-              ? raw.supported_resources.filter((value): value is string => typeof value === "string")
-              : []
-            const authType = typeof raw.auth_type === "string" ? raw.auth_type : "oauth"
-            return {
-              id: src.slug,
-              name: src.name,
-              cat: getCategoryFromSlugAndResources(src.slug, resources),
-              auth: authType as WearAuth,
-              pull: src.client_pull_window_days ?? 90,
-              enabled: src.client_enabled ?? false,
-              domain: `${src.slug}.com`,
-              logoFile: src.logo_url || `${src.slug}.png`,
-            }
-          })
-          setProviders(mapped)
-
-          setPriority((current) => {
-            const fetchedIds = mapped.map((p) => p.id)
-            const next: Record<string, string[]> = { ...current }
-            SENSE_DOMAINS.forEach(({ id: metricDomain }) => {
-              const existing = current[metricDomain] ?? []
-              // Preserve the saved custom order for known providers; only
-              // append newly-seen catalog providers that aren't ordered yet.
-              const kept = existing.filter((id) => fetchedIds.includes(id))
-              const appended = fetchedIds.filter((id) => !existing.includes(id))
-              next[metricDomain] = [...kept, ...appended]
-            })
-            return next
-          })
-        }
-      } catch {
-        toast.error("Failed to load wearable providers from the control plane.")
-      } finally {
-        if (active) setLoadingProviders(false)
-      }
-    }
-    void fetchProviders()
-    return () => {
-      active = false
-    }
-  }, [clientId])
-
   const providerMap = useMemo(() => {
     const map = new Map<string, WearableProvider>()
     providers.forEach((provider) => map.set(provider.id, provider))
@@ -362,9 +301,10 @@ export function JunctionWearablesSection({
                   limits. Changes here are dynamically saved to the database.
                 </p>
               </div>
-              <Badge variant="outline" className="self-start">
-                Max backfill limit: 365 days
-              </Badge>
+              <div className="flex flex-wrap items-center gap-2">
+                <WearableProviderSyncButton onQueued={refreshProviders} />
+                <Badge variant="outline">Max backfill limit: 365 days</Badge>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">

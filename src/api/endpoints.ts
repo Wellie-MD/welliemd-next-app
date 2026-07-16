@@ -1,6 +1,7 @@
 export const JUNCTION_ENDPOINTS = {
   base: (clientId: string) => `clients/${clientId}/integrations/junction`,
   wearablesProviders: 'wearables/providers/',
+  wearablesProvidersSync: 'wearables/providers/sync/',
   wearablesSettings: 'wearables/settings/current/',
   provision: (clientId: string) => `clients/${clientId}/integrations/junction/provision/`,
   syncTenant: (clientId: string) => `clients/${clientId}/integrations/junction/sync-tenant/`,
