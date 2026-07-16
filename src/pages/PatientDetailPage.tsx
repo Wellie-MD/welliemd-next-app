@@ -112,8 +112,8 @@ function buildWearableMetrics(data: WearableDeviceData | null) {
   if (data.steps && data.steps !== "--" && data.steps !== "0") activity.push({ l: "Steps", v: data.steps, u: "/day" });
   if (data.activeDays && data.activeDays !== "--" && data.activeDays !== "0") activity.push({ l: "Active days", v: data.activeDays, u: "of 7" });
   if (data.restingHr && data.restingHr !== "--" && data.restingHr !== "0") {
-    activity.push({ l: "Resting HR", v: data.restingHr });
-    heart.push({ l: "Resting HR", v: data.restingHr });
+    activity.push({ l: "Resting HR", v: data.restingHr, u: "bpm" });
+    heart.push({ l: "Resting HR", v: data.restingHr, u: "bpm" });
   }
 
   const recentWorkouts = data.recentWorkouts || [];
@@ -841,7 +841,7 @@ export default function PatientDetailPage() {
                                     {[
                                       { label: "Recovery", val: wearableData.recovery != null ? `${wearableData.recovery}%` : "—" },
                                       { label: "Sleep score", val: wearableData.sleepScore != null ? `${wearableData.sleepScore}/100` : "—" },
-                                      { label: "Resting HR", val: wearableData.restingHr || "—" },
+                                      { label: "Resting HR", val: wearableData.restingHr ? `${wearableData.restingHr} bpm` : "—" },
                                     ].map((m) => (
                                       <div key={m.label} className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
                                         <div className="text-[11px] uppercase tracking-wide text-slate-500">{m.label}</div>
