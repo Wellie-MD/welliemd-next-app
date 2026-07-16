@@ -1,10 +1,8 @@
 /**
  * Available Treatments API service for patient portal.
  *
- * Explore Treatments now lists eligibility-filtered Custom Programs (the "wrapper" catalog
- * unit - see apps.treatments.services.eligibility_service on the backend). Starting a
- * treatment from here is not wired yet (see startNewTreatment below); it stays a
- * network-free stub until the Program/CustomProgram intake-start flow lands.
+ * Explore Treatments lists eligibility-filtered Custom Programs and launches their
+ * immutable published releases.
  */
 import { apiClient } from '@/shared/api/client';
 
@@ -14,6 +12,7 @@ export interface AvailableTreatment {
     description: string;
     slug: string;
     category: string;
+    categories: string[];
     program_count: number;
     sex_requirement: 'male' | 'female' | null;
     min_age: number | null;
@@ -23,6 +22,7 @@ export interface AvailableTreatment {
     can_start: boolean;
     blocked_until: string | null;
     days_remaining: number | null;
+    launch: { custom_program_id: string; release_token: string; release_version: number; path: string } | null;
 }
 
 export interface AvailableTreatmentsResponse {
@@ -47,35 +47,30 @@ export interface StartTreatmentResponse {
  * authenticated patient.
  */
 export async function getAvailableTreatments(): Promise<AvailableTreatment[]> {
-    try {
-        const response = await apiClient.get<AvailableTreatmentsResponse>(
-            '/treatments/available/'
-        );
+    const response = await apiClient.get<AvailableTreatmentsResponse>(
+        '/treatments/available/'
+    );
 
-        if (response.data.success && response.data.treatments) {
-            return response.data.treatments;
-        }
-
-        return [];
-    } catch (error) {
-        console.error('Error fetching available treatments:', error);
-        return [];
+    if (response.data.success && response.data.treatments) {
+        return response.data.treatments;
     }
+
+    throw new Error(response.data.error || 'Available treatments could not be loaded.');
 }
 
 /**
  * Start a new treatment.
  *
- * ponytail: stub. There is no intake-start endpoint yet that accepts a Custom Program /
- * Program id (the legacy endpoint only accepts a QuestionnaireTemplate id, which these
- * are not). Resolves without a network call rather than firing a request guaranteed to
- * 404. Replace with a real call once the slug-intake-url workstream lands.
+ * Build a release-bound questionnaire URL from backend-issued launch metadata.
  */
-export async function startNewTreatment(_treatmentId: string): Promise<StartTreatmentResponse> {
-    return {
-        success: false,
-        message: "Starting this treatment isn't available yet. Please check back soon.",
-    };
+export async function startNewTreatment(treatment: AvailableTreatment): Promise<StartTreatmentResponse> {
+    if (!treatment.can_start || !treatment.launch) return { success: false, message: 'This treatment has no published release.' };
+    const base = (import.meta.env.VITE_QUESTIONNAIRE_BASE_URL || window.location.origin).replace(/\/$/, '');
+    const url = new URL(treatment.launch.path, `${base}/`);
+    url.searchParams.set('custom_program_id', treatment.launch.custom_program_id);
+    url.searchParams.set('release_token', treatment.launch.release_token);
+    url.searchParams.set('release_version', String(treatment.launch.release_version));
+    return { success: true, questionnaire_url: url.toString() };
 }
 
 export default {

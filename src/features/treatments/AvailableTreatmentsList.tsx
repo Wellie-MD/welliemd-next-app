@@ -1,22 +1,6 @@
-/**
- * AvailableTreatmentsList - Component displaying treatments the patient can start.
- *
- * Each item is an eligibility-filtered Custom Program (the catalog "wrapper" unit - see
- * apps.treatments.services.eligibility_service on the backend). Only the treatments the
- * patient's profile (sex/age/BMI) qualifies for are ever returned, so there is no
- * blocked/ineligible state to render here - the list is already the eligible set.
- *
- * Category tabs and the age/BMI/sex chips mirror the Patient_Portal.html prototype's
- * `pg-explore` design exactly (same tab/chip visual language), driven by the real,
- * per-patient composed eligibility rule the backend now returns per treatment instead of
- * a static client-side config table.
- *
- * "Get Started" is a stub for now: no Program/CustomProgram intake-start endpoint exists
- * yet (see apps.questionnaires.views.start_treatment_views.StartNewTreatmentView, which
- * only accepts a QuestionnaireTemplate id). Shown disabled until that lands.
- */
+/** Displays eligibility-filtered treatment releases available to the patient. */
 import { useEffect, useMemo, useState } from 'react';
-import { getAvailableTreatments, AvailableTreatment } from './api';
+import { getAvailableTreatments, startNewTreatment, AvailableTreatment } from './api';
 
 function ageRangeLabel(minAge: number | null, maxAge: number | null): string {
   if (minAge != null && maxAge != null) return `Ages ${minAge}–${maxAge}`;
@@ -73,10 +57,7 @@ export function AvailableTreatmentsList({
   };
 
   const categories = useMemo(() => {
-    // Task 2.5: predictable category ordering, not incidental first-appearance order -
-    // alphabetical (matching TreatmentType's own Meta.ordering), with the Uncategorized
-    // fallback bucket always last rather than wherever it happens to sort.
-    const distinct = Array.from(new Set(treatments.map((t) => t.category)));
+    const distinct = Array.from(new Set(treatments.flatMap((t) => t.categories?.length ? t.categories : [t.category])));
     const named = distinct.filter((c) => c !== 'Uncategorized').sort((a, b) => a.localeCompare(b));
     return distinct.includes('Uncategorized') ? [...named, 'Uncategorized'] : named;
   }, [treatments]);
@@ -135,7 +116,7 @@ export function AvailableTreatmentsList({
   }
 
   const visibleTreatments =
-    selectedCategory === 'all' ? treatments : treatments.filter((t) => t.category === selectedCategory);
+    selectedCategory === 'all' ? treatments : treatments.filter((t) => (t.categories || [t.category]).includes(selectedCategory));
 
   return (
     <div>
@@ -239,6 +220,14 @@ const SEX_ICON = (
 function TreatmentCard({ treatment }: { treatment: AvailableTreatment }) {
   const bmiLabel = bmiRangeLabel(treatment.min_bmi, treatment.max_bmi);
   const sexLabel = sexRequirementLabel(treatment.sex_requirement);
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
+  const start = async () => {
+    setStarting(true); setStartError(null);
+    const result = await startNewTreatment(treatment);
+    if (result.success && result.questionnaire_url) window.location.assign(result.questionnaire_url);
+    else { setStartError(result.message || result.error || 'Unable to start treatment.'); setStarting(false); }
+  };
 
   return (
     <div className="km-etx-card km-fade">
@@ -271,12 +260,13 @@ function TreatmentCard({ treatment }: { treatment: AvailableTreatment }) {
       </div>
       <button
         className="km-etx-btn"
-        disabled
-        title="Starting this treatment isn't available yet. Please check back soon."
-        style={{ opacity: 0.5, cursor: 'not-allowed' }}
+        disabled={!treatment.can_start || starting}
+        title={treatment.can_start ? 'Start treatment screening' : 'No published treatment release is available'}
+        onClick={start}
       >
-        Coming Soon
+        {starting ? 'Starting…' : 'Get Started'}
       </button>
+      {startError && <div role="alert" style={{ color: '#b91c1c', fontSize: 11, marginTop: 8 }}>{startError}</div>}
     </div>
   );
 }
