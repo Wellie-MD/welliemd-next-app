@@ -424,6 +424,7 @@ type SectionFieldApiRecord = {
   kind: CommonSectionField["kind"];
   required: boolean;
   mapped_field?: string;
+  configuration?: Record<string, unknown>;
   created_at?: string;
   updated_at?: string;
 };
@@ -643,6 +644,7 @@ const mapSectionFieldFromApi = (record: SectionFieldApiRecord): CommonSectionFie
   kind: record.kind,
   required: record.required,
   mappedField: record.mapped_field || undefined,
+  configuration: record.configuration || {},
 });
 
 const mapSectionFieldToApi = (field: CommonSectionField) => ({
@@ -652,6 +654,7 @@ const mapSectionFieldToApi = (field: CommonSectionField) => ({
   kind: field.kind,
   required: field.required,
   mapped_field: field.mappedField || "",
+  configuration: field.configuration || {},
 });
 
 const mapConsentFromApi = (record: ConsentApiRecord): ConsentForm => ({

@@ -54,6 +54,10 @@ export function ProgramQuestionsListRow({
         return "Checkout";
       case "personal_details":
         return "Patient Authentication";
+      case "state_routing":
+        return "Service Area Check";
+      case "section":
+        return "Common Section";
       default:
         return kind.charAt(0).toUpperCase() + kind.slice(1);
     }

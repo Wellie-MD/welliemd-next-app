@@ -25,6 +25,7 @@ export type QuestionKind =
   | "allergies"
   | "labs_preference"
   | "checkout"
+  | "section"
   | "bmi";
 
 export type VisibilityRuleOperator =
@@ -78,4 +79,5 @@ export interface ProgramQuestion {
   includeInQa?: boolean;
   hiddenFromPatient?: boolean;
   prefillFromPrevious?: boolean;
+  elementConfig?: Record<string, unknown>;
 }

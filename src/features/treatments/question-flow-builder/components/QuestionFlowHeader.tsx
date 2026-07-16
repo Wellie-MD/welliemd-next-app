@@ -1,4 +1,4 @@
-import { Eye, Plus, Save } from "lucide-react";
+import { Eye, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BuilderHeaderToggle, type BuilderMode } from "@/features/treatments/common/components/builder/BuilderHeaderToggle";
 import { AddElementDropdown } from "@/features/treatments/common/components/AddElementDropdown";
@@ -19,12 +19,10 @@ interface QuestionFlowHeaderProps {
 }
 
 export function QuestionFlowHeader({
-  entityType,
   title,
   subtitle,
   viewMode,
   onViewModeChange,
-  onAddElementClick,
   onAddItemRequest,
   onOpenPreview,
   onSave,
@@ -49,20 +47,14 @@ export function QuestionFlowHeader({
 
         <div className="flex flex-wrap items-center gap-3 md:justify-end">
           <BuilderHeaderToggle viewMode={viewMode} onViewModeChange={onViewModeChange} />
-          {entityType === "program" ? (
-            <AddElementDropdown
-              onAddQuestion={() => onAddItemRequest("question", "")}
-              onAddAuth={() => onAddItemRequest("auth", "")}
-              onAddSection={() => onAddItemRequest("section", "")}
-              onAddConsent={() => onAddItemRequest("consent", "")}
-              onAddCheckout={() => onAddItemRequest("checkout", "")}
-            />
-          ) : (
-            <Button variant="secondary" className="bg-[#12517A] text-white hover:bg-[#12517A]/90" onClick={onAddElementClick} data-testid="open-add-to-flow-menu">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Field
-            </Button>
-          )}
+          <AddElementDropdown
+            onAddQuestion={() => onAddItemRequest("question", "")}
+            onAddAuth={() => onAddItemRequest("auth", "")}
+            onAddServiceArea={() => onAddItemRequest("service_area", "")}
+            onAddSection={() => onAddItemRequest("section", "")}
+            onAddConsent={() => onAddItemRequest("consent", "")}
+            onAddCheckout={() => onAddItemRequest("checkout", "")}
+          />
           <Button variant="outline" onClick={onOpenPreview} data-testid="open-flow-preview">
             <Eye className="mr-2 h-4 w-4" />
             Preview

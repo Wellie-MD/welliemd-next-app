@@ -152,6 +152,7 @@ export function SharedQuestionsList({
           includeInQa: existing?.includeInQa,
           hiddenFromPatient: existing?.hiddenFromPatient,
           prefillFromPrevious: existing?.prefillFromPrevious,
+          elementConfig: existing?.elementConfig,
           id: item.id,
           order: index + 1,
           text: item.text,
@@ -170,6 +171,7 @@ export function SharedQuestionsList({
             label: question.text,
             kind: question.kind,
             required: question.required,
+            configuration: question.elementConfig || {},
           }))
         );
         queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.sectionFields(entityId) });
@@ -320,6 +322,15 @@ export function SharedQuestionsList({
           label: updatedQuestion.text,
           kind: updatedQuestion.kind,
           required: updatedQuestion.required,
+          configuration: {
+            choices: updatedQuestion.choices || [],
+            dqChoices: updatedQuestion.dqChoices || [],
+            visibilityRuleGroup: updatedQuestion.visibilityRuleGroup || {},
+            includeInQa: updatedQuestion.includeInQa,
+            hiddenFromPatient: updatedQuestion.hiddenFromPatient,
+            prefillFromPrevious: updatedQuestion.prefillFromPrevious,
+            ...(updatedQuestion.elementConfig || {}),
+          },
         }
       : updatedQuestion;
 
@@ -337,6 +348,61 @@ export function SharedQuestionsList({
     setActiveEditingQuestion(null);
   };
 
+  const saveElement = (element: ProgramQuestion, successTitle: string) => {
+    const isEditing = questions.some((question) => question.id === element.id);
+    const mutation = entityType === "section" ? saveSectionFieldMutation : saveQuestionMutation;
+    const payload = entityType === "section"
+      ? {
+          id: element.id,
+          sectionId: entityId,
+          order: element.order,
+          label: element.text,
+          kind: element.kind,
+          required: element.required,
+          configuration: {
+            choices: element.choices || [],
+            dqChoices: element.dqChoices || [],
+            consentText: element.consentText,
+            checkoutProductIds: element.checkoutProductIds || [],
+            checkoutProducts: element.checkoutProducts || [],
+            visibilityRuleGroup: element.visibilityRuleGroup || {},
+            includeInQa: element.includeInQa,
+            hiddenFromPatient: element.hiddenFromPatient,
+            prefillFromPrevious: element.prefillFromPrevious,
+            ...(element.elementConfig || {}),
+          },
+        }
+      : element;
+
+    mutation.mutate(payload as never, {
+      onSuccess: () => {
+        setQuestions((previous) => isEditing
+          ? previous.map((question) => question.id === element.id ? element : question)
+          : [...previous, element]);
+        toast({ title: successTitle });
+      },
+    });
+  };
+
+  const handleAddServiceArea = () => {
+    if (questions.some((question) => question.kind === "state_routing")) {
+      toast({
+        title: "Service Area Check Already Added",
+        description: "This flow already contains a service area check.",
+      });
+      return;
+    }
+
+    saveElement({
+      id: createMockId("q-state"),
+      order: questions.length + 1,
+      text: "Service Area Check",
+      kind: "state_routing",
+      section: entityName,
+      required: true,
+    }, "Service Area Check Added");
+  };
+
   const handleAddCheckoutSave = (data: Omit<ProgramCheckoutQuestion, "id">) => {
     const isEditing = !!activeEditingQuestion;
     const newQuestion: ProgramQuestion = {
@@ -346,19 +412,21 @@ export function SharedQuestionsList({
       kind: "checkout",
       section: "Checkout",
       required: true,
+      checkoutProductIds: data.products
+        .map((product) => product.productId)
+        .filter((productId): productId is string => Boolean(productId)),
+      checkoutProducts: data.products,
+      visibilityRuleGroup: data.visibilityRules,
+      elementConfig: {
+        checkoutProducts: data.products,
+        checkoutProductIds: data.products
+          .map((product) => product.productId)
+          .filter((productId): productId is string => Boolean(productId)),
+        visibilityRuleGroup: data.visibilityRules,
+      },
     };
 
-    saveQuestionMutation.mutate(newQuestion, {
-      onSuccess: () => {
-        setQuestions((prev) => {
-          if (isEditing) {
-            return prev.map((q) => (q.id === newQuestion.id ? newQuestion : q));
-          }
-          return [...prev, newQuestion];
-        });
-        toast({ title: isEditing ? "Checkout Options Saved" : "Checkout Options Added" });
-      },
-    });
+    saveElement(newQuestion, isEditing ? "Checkout Options Saved" : "Checkout Options Added");
     setActiveEditingQuestion(null);
   };
 
@@ -381,9 +449,13 @@ export function SharedQuestionsList({
           onAddItemRequest={(kind) => {
             if (kind === "question") setIsQuestionOpen(true);
             if (kind === "auth") setIsAuthOpen(true);
+            if (kind === "service_area") handleAddServiceArea();
             if (kind === "section") setIsSectionOpen(true);
             if (kind === "consent") setIsConsentOpen(true);
             if (kind === "checkout") setIsCheckoutOpen(true);
+            if (!["question", "auth", "service_area", "section", "consent", "checkout"].includes(kind)) {
+              setIsQuestionOpen(true);
+            }
           }}
           onOpenPreview={onOpenPreview || (() => {})}
         />
@@ -416,31 +488,26 @@ export function SharedQuestionsList({
               kind: "personal_details",
               section: "Authentication",
               required: true,
+              elementConfig: { authConfig: config },
             };
-            saveQuestionMutation.mutate(authQuestion, {
-              onSuccess: () => {
-                setQuestions((prev) => [...prev, authQuestion]);
-              },
-            });
+            saveElement(authQuestion, "Authentication Settings Saved");
           }}
         />
         <SectionSelectorModal
           open={isSectionOpen}
           onOpenChange={setIsSectionOpen}
+          excludeSectionId={entityType === "section" ? entityId : undefined}
           onSelect={(section) => {
             const sectionQuestion: ProgramQuestion = {
               id: createMockId("q-section"),
               order: questions.length + 1,
-              text: `${section.name} Section`,
-              kind: "multiple_choice",
+              text: section.name,
+              kind: entityType === "section" ? "section" : "multiple_choice",
               section: section.name,
               required: true,
+              elementConfig: { sourceId: section.id },
             };
-            saveQuestionMutation.mutate(sectionQuestion, {
-              onSuccess: () => {
-                setQuestions((prev) => [...prev, sectionQuestion]);
-              },
-            });
+            saveElement(sectionQuestion, "Common Section Attached");
           }}
         />
         <ConsentSelectorModal
@@ -455,12 +522,9 @@ export function SharedQuestionsList({
               section: "Consents",
               required: true,
               consentText: `Patient must accept: ${consent.name}`,
+              elementConfig: { sourceId: consent.id },
             };
-            saveQuestionMutation.mutate(consentQuestion, {
-              onSuccess: () => {
-                setQuestions((prev) => [...prev, consentQuestion]);
-              },
-            });
+            saveElement(consentQuestion, "Consent Form Attached");
           }}
         />
       </div>
@@ -524,6 +588,7 @@ export function SharedQuestionsList({
               setActiveEditingQuestion(null);
               setIsAuthOpen(true);
             }}
+            onAddServiceArea={handleAddServiceArea}
             onAddSection={() => {
               setActiveEditingQuestion(null);
               setIsSectionOpen(true);
@@ -703,8 +768,11 @@ export function SharedQuestionsList({
             ? {
                 id: activeEditingQuestion.id,
                 text: activeEditingQuestion.text,
-                products: [],
-                visibilityRules: { mode: "simple", rules: [] },
+                products: activeEditingQuestion.checkoutProducts || [],
+                visibilityRules: activeEditingQuestion.visibilityRuleGroup || {
+                  mode: "simple",
+                  rules: [],
+                },
               }
             : null
         }
@@ -724,39 +792,27 @@ export function SharedQuestionsList({
             kind: "personal_details",
             section: "Authentication",
             required: true,
+            elementConfig: { authConfig: config },
           };
-          saveQuestionMutation.mutate(authQuestion, {
-            onSuccess: () => {
-              setQuestions((prev) => {
-                if (activeEditingQuestion) {
-                  return prev.map((q) => (q.id === authQuestion.id ? authQuestion : q));
-                }
-                return [...prev, authQuestion];
-              });
-              toast({ title: "Authentication Settings Saved" });
-            },
-          });
+          saveElement(authQuestion, "Authentication Settings Saved");
         }}
       />
 
       <SectionSelectorModal
         open={isSectionOpen}
         onOpenChange={setIsSectionOpen}
+        excludeSectionId={entityType === "section" ? entityId : undefined}
         onSelect={(section) => {
           const sectionQuestion: ProgramQuestion = {
             id: createMockId("q-section"),
             order: questions.length + 1,
-            text: `${section.name} Section`,
-            kind: "multiple_choice",
+            text: section.name,
+            kind: entityType === "section" ? "section" : "multiple_choice",
             section: section.name,
             required: true,
+            elementConfig: { sourceId: section.id },
           };
-          saveQuestionMutation.mutate(sectionQuestion, {
-            onSuccess: () => {
-              setQuestions((prev) => [...prev, sectionQuestion]);
-              toast({ title: "Common Section Attached" });
-            },
-          });
+          saveElement(sectionQuestion, "Common Section Attached");
         }}
       />
 
@@ -772,13 +828,9 @@ export function SharedQuestionsList({
             section: "Consents",
             required: true,
             consentText: `Patient must accept: ${consent.name}`,
+            elementConfig: { sourceId: consent.id },
           };
-          saveQuestionMutation.mutate(consentQuestion, {
-            onSuccess: () => {
-              setQuestions((prev) => [...prev, consentQuestion]);
-              toast({ title: "Consent Form Attached" });
-            },
-          });
+          saveElement(consentQuestion, "Consent Form Attached");
         }}
       />
 

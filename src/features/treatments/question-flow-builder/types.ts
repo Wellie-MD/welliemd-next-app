@@ -4,6 +4,7 @@ export type QuestionFlowEntityType = "program" | "section";
 export type ProgramFlowPaletteAction =
   | "question"
   | "auth"
+  | "service_area"
   | "section"
   | "consent"
   | "checkout";

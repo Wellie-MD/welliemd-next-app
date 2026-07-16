@@ -9,14 +9,21 @@ interface SectionSelectorModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect: (section: CommonSection) => void;
+  excludeSectionId?: string;
 }
 
-export function SectionSelectorModal({ open, onOpenChange, onSelect }: SectionSelectorModalProps) {
+export function SectionSelectorModal({
+  open,
+  onOpenChange,
+  onSelect,
+  excludeSectionId,
+}: SectionSelectorModalProps) {
   const { data: sections = [], isLoading } = useSections();
   const [selectedSectionId, setSelectedSectionId] = useState<string>("");
+  const selectableSections = sections.filter((section) => section.id !== excludeSectionId);
 
   const handleSelect = () => {
-    const selected = sections.find((s) => s.id === selectedSectionId);
+    const selected = selectableSections.find((s) => s.id === selectedSectionId);
     if (selected) {
       onSelect(selected);
       onOpenChange(false);
@@ -43,11 +50,11 @@ export function SectionSelectorModal({ open, onOpenChange, onSelect }: SectionSe
             <div className="flex items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
             </div>
-          ) : sections.length === 0 ? (
+          ) : selectableSections.length === 0 ? (
             <div className="text-center text-xs text-slate-400 italic">No common sections available.</div>
           ) : (
             <div className="space-y-2">
-              {sections.map((section) => (
+              {selectableSections.map((section) => (
                 <div
                   key={section.id}
                   onClick={() => setSelectedSectionId(section.id)}

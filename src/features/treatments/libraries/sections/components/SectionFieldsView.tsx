@@ -19,14 +19,34 @@ export function SectionFieldsView({ section, onBack }: SectionFieldsViewProps) {
   const viewMode = searchParams.get("view") === "flow" ? "flow" : "list";
   const [isSimulateOpen, setIsSimulateOpen] = useState(false);
 
-  const initialQuestions: ProgramQuestion[] = sectionFields.map((field) => ({
-    id: field.id,
-    order: field.order,
-    text: field.label,
-    kind: field.kind,
-    section: section.name,
-    required: field.required,
-  }));
+  const initialQuestions: ProgramQuestion[] = sectionFields.map((field) => {
+    const configuration = field.configuration || {};
+    return {
+      id: field.id,
+      order: field.order,
+      text: field.label,
+      kind: field.kind,
+      section: section.name,
+      required: field.required,
+      choices: Array.isArray(configuration.choices) ? configuration.choices as string[] : undefined,
+      dqChoices: Array.isArray(configuration.dqChoices) ? configuration.dqChoices as string[] : undefined,
+      consentText: typeof configuration.consentText === "string" ? configuration.consentText : undefined,
+      checkoutProductIds: Array.isArray(configuration.checkoutProductIds)
+        ? configuration.checkoutProductIds as string[]
+        : undefined,
+      checkoutProducts: Array.isArray(configuration.checkoutProducts)
+        ? configuration.checkoutProducts as ProgramQuestion["checkoutProducts"]
+        : undefined,
+      visibilityRuleGroup:
+        configuration.visibilityRuleGroup as ProgramQuestion["visibilityRuleGroup"],
+      includeInQa: typeof configuration.includeInQa === "boolean" ? configuration.includeInQa : undefined,
+      hiddenFromPatient:
+        typeof configuration.hiddenFromPatient === "boolean" ? configuration.hiddenFromPatient : undefined,
+      prefillFromPrevious:
+        typeof configuration.prefillFromPrevious === "boolean" ? configuration.prefillFromPrevious : undefined,
+      elementConfig: configuration,
+    };
+  });
 
   const setViewMode = (mode: "list" | "flow") => {
     setSearchParams({ sectionId: section.id, view: mode }, { replace: true });

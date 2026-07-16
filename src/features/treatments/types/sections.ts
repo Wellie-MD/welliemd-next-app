@@ -18,4 +18,5 @@ export interface CommonSectionField {
   kind: QuestionKind;
   required: boolean;
   mappedField?: string;
+  configuration?: Record<string, unknown>;
 }
