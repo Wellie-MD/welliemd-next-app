@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 
 import {
   junctionCatalogSettingsApi,
@@ -8,6 +8,7 @@ import {
 } from "@/api/junctionCatalogSettings"
 
 export function JunctionCatalogSyncProgressAlert() {
+  const location = useLocation()
   const navigate = useNavigate()
   const [job, setJob] = useState<SyncStatusResponse | null>(null)
 
@@ -33,7 +34,7 @@ export function JunctionCatalogSyncProgressAlert() {
     }
   }, [])
 
-  if (!job) return null
+  if (!job || location.pathname === "/dashboard/settings/junction-labs") return null
 
   const percentage = job.total_pages
     ? Math.min(100, Math.round((job.current_page / job.total_pages) * 100))
