@@ -493,6 +493,7 @@ type ProgramApiRecord = {
   max_age?: number | null;
   min_bmi?: number | null;
   max_bmi?: number | null;
+  service_states?: string[];
   publish_version?: number;
   created_at?: string;
   updated_at?: string;
@@ -753,6 +754,7 @@ const mapProgramFromApi = (record: ProgramApiRecord): Program => ({
   maxAge: record.max_age ?? null,
   minBmi: record.min_bmi ?? null,
   maxBmi: record.max_bmi ?? null,
+  serviceStates: record.service_states ?? [],
 });
 
 const mapProgramToApi = (
@@ -797,6 +799,7 @@ const mapProgramToApi = (
     max_age: program.maxAge ?? null,
     min_bmi: program.minBmi ?? null,
     max_bmi: program.maxBmi ?? null,
+    service_states: program.serviceStates ?? [],
     phase: program.stage === "follow_up" ? "follow_up" : "onboarding",
   };
 };

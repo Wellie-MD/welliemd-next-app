@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, ChevronDown } from "lucide-react";
 import type { TreatmentType, ProgramStage, Program } from "@/features/treatments/types";
+import { ServiceStatesSelector } from "@/components/shared/ServiceStatesSelector";
 
 interface CreateProgramModalProps {
   open: boolean;
@@ -35,6 +36,7 @@ export function CreateProgramModal({
   const [maxAge, setMaxAge] = useState<string>("");
   const [minBmi, setMinBmi] = useState<string>("");
   const [maxBmi, setMaxBmi] = useState<string>("");
+  const [serviceStates, setServiceStates] = useState<string[]>([]);
 
   // Determine pre-filled values
   useEffect(() => {
@@ -49,6 +51,7 @@ export function CreateProgramModal({
         setMaxAge(initialProgram.maxAge != null ? String(initialProgram.maxAge) : "");
         setMinBmi(initialProgram.minBmi != null ? String(initialProgram.minBmi) : "");
         setMaxBmi(initialProgram.maxBmi != null ? String(initialProgram.maxBmi) : "");
+        setServiceStates(initialProgram.serviceStates || []);
       } else if (prefillTreatmentTypeKey) {
         setTreatmentTypeKey(prefillTreatmentTypeKey);
         const treatment = treatmentTypes.find((t) => t.key === prefillTreatmentTypeKey);
@@ -70,6 +73,7 @@ export function CreateProgramModal({
         setMaxAge("");
         setMinBmi("");
         setMaxBmi("");
+        setServiceStates([]);
       }
     }
   }, [open, prefillTreatmentTypeKey, prefillStage, treatmentTypes, initialProgram, mode]);
@@ -109,6 +113,7 @@ export function CreateProgramModal({
       maxAge: maxAge ? parseInt(maxAge, 10) : null,
       minBmi: minBmi ? parseFloat(minBmi) : null,
       maxBmi: maxBmi ? parseFloat(maxBmi) : null,
+      serviceStates,
     });
     onOpenChange(false);
   };
@@ -360,6 +365,17 @@ export function CreateProgramModal({
                 Optional. Used for weight-related treatments. E.g., 27+ for GLP-1 weight loss, under 26 for GLP microdose. Leave both blank if BMI doesn't apply.
               </p>
             </div>
+          </div>
+
+          {/* Service States */}
+          <div className="pt-2 border-t border-slate-100 space-y-4">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block">
+              SERVICE STATES
+            </span>
+            <ServiceStatesSelector
+              value={serviceStates}
+              onChange={setServiceStates}
+            />
           </div>
 
           {/* Dialog Footer Actions */}
