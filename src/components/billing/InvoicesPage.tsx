@@ -262,12 +262,6 @@ function RevisionInvoiceModal({
   const adjustments = invoice.revision_adjustments || [];
   const summary = invoice.adjustment_summary;
   const netAdjustment = Number(summary?.net_adjustment || 0);
-  const hasZeroBasedRevisionNumbers = adjustments.some(
-    (adjustment) => Number(adjustment.revision_number) === 0
-  );
-  const hasExplicitBaseRevision = adjustments.some(
-    (adjustment) => Number(adjustment.revision_number) === 0
-  );
   const requestedProductName = requested?.product_name || "";
   const requestedProductTotal = requested?.product_total || 0;
   const splitCaptureAdjustmentMirrorsBase = Boolean(
@@ -283,7 +277,7 @@ function RevisionInvoiceModal({
     })
   );
   const showImplicitBaseRevision = Boolean(
-    requested?.prescribed_differs && !splitCaptureAdjustmentMirrorsBase && !hasExplicitBaseRevision
+    requested?.prescribed_differs && adjustments.length === 0 && !splitCaptureAdjustmentMirrorsBase
   );
 
   return (
@@ -408,10 +402,7 @@ function RevisionInvoiceModal({
               const isCredit = adjustment.kind === "credit_note";
               const isNoCharge = adjustment.kind === "no_charge_revision";
               const revOffset = showImplicitBaseRevision ? 1 : 0;
-              const rawRevisionNumber = Number(adjustment.revision_number);
-              const displayRevisionNumber = Number.isFinite(rawRevisionNumber)
-                ? rawRevisionNumber + (hasZeroBasedRevisionNumbers ? 1 : 0) + revOffset
-                : index + 1 + revOffset;
+              const displayRevisionNumber = index + 1 + revOffset;
               return (
                 <section key={adjustment.id} className="border-b border-slate-200 p-5 dark:border-slate-800">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
