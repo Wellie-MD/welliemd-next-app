@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pill, RefreshCw, CheckCircle, Search } from "lucide-react";
+import { getOrders, PatientOrder } from "@/shared/api/ordersApi";
 
 interface Prescription {
   id: number;
@@ -20,18 +21,48 @@ interface Prescription {
 }
 
 export default function Prescriptions() {
-  const [prescriptions] = useState<Prescription[]>([]);
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const activePrescriptions = prescriptions.filter(p => 
+  useEffect(() => {
+    let cancelled = false;
+    getOrders(1, 50).then((response) => {
+      if (cancelled) return;
+      const derived = response.results.flatMap((order: PatientOrder) =>
+        (order.line_items || []).filter((line) => line.prescription_status === 'prescribed' || line.prescribed_at).map((line, index) => ({
+          id: Number.parseInt(`${String(order.id).replace(/\\D/g, '').slice(-6) || '0'}${index}`, 10) || index,
+          medication: line.product_name || order.product_name,
+          dosage: 'See treatment instructions',
+          frequency: 'As prescribed',
+          quantity: Number(line.quantity || 1),
+          refillsRemaining: 0,
+          prescribedBy: order.doctor_name || 'Healthcare professional',
+          prescribedDate: line.prescribed_at || order.prescribed_at || order.created_at,
+          expiryDate: '—',
+          instructions: 'Follow the instructions provided by your clinician and pharmacy.',
+          status: 'active' as const,
+          category: 'acute' as const,
+        }))
+      );
+      setPrescriptions(derived);
+    }).catch(() => {
+      if (!cancelled) setPrescriptions([]);
+    }).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const activePrescriptions = useMemo(() => prescriptions.filter(p =>
     p.status === 'active' && 
     p.medication.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  const expiredPrescriptions = prescriptions.filter(p => 
+  ), [prescriptions, searchTerm]);
+  const expiredPrescriptions = useMemo(() => prescriptions.filter(p =>
     (p.status === 'expired' || p.status === 'discontinued') &&
     p.medication.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ), [prescriptions, searchTerm]);
   
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -158,7 +189,9 @@ export default function Prescriptions() {
         </button>
       </div>
 
-      {activeTab === 'active' && (
+      {loading ? (
+        <div className="km-sc"><div className="km-empty"><div className="km-es">Loading prescriptions…</div></div></div>
+      ) : activeTab === 'active' && (
         <div className="km-fade">
           {activePrescriptions.length > 0 ? (
             activePrescriptions.map((p) => <PrescriptionCard key={p.id} prescription={p} />)

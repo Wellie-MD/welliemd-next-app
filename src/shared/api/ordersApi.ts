@@ -38,6 +38,40 @@ export interface OrderActivityEvent {
     payload?: Record<string, unknown>;
 }
 
+export interface PatientOrderLineItem {
+    id: string;
+    product_id?: number | null;
+    product_name?: string | null;
+    item_type?: string;
+    quantity?: string | number;
+    unit_patient_price?: string | number;
+    unit_shipping_fee?: string | number;
+    line_total?: string | number;
+    prescription_status?: string;
+    fulfilment_status?: string;
+    shipment_status?: string;
+    duration_days?: number | null;
+    tracking_number?: string | null;
+    tracking_url?: string | null;
+    shipment_provider?: string | null;
+    prescription_event_id?: string | null;
+    prescribed_at?: string | null;
+    fulfilled_at?: string | null;
+    shipped_at?: string | null;
+    cancelled_at?: string | null;
+    refunded_amount?: string | number;
+}
+
+export interface PatientTreatmentCaseSummary {
+    id: string;
+    treatment_type_key?: string | null;
+    status?: string;
+    lifecycle_status?: string;
+    visit_status?: string | null;
+    treatment_total?: string;
+    reimbursement_total?: string;
+}
+
 /**
  * Order data returned from patient orders API
  */
@@ -68,6 +102,27 @@ export interface PatientOrder {
     shipped_at: string | null;
     updated_at: string;
     activity_events?: OrderActivityEvent[];
+    line_items?: PatientOrderLineItem[];
+    treatment_case_summary?: PatientTreatmentCaseSummary | null;
+    combined_payment_summary?: {
+        status?: string;
+        currency?: string;
+        authorized_amount?: string;
+        captured_amount?: string;
+        refunded_amount?: string;
+    } | null;
+    combined_submission_summary?: {
+        id: string;
+        status?: string;
+        release_version?: number | null;
+        checkout_total?: Record<string, unknown>;
+        orders?: Array<{
+            treatment_case_id: string;
+            treatment_type_key?: string | null;
+            status?: string;
+            treatment_total?: string;
+        }>;
+    } | null;
 }
 
 /**

@@ -2,7 +2,7 @@
  * Patient Orders Page — kinmeds3 design system
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Package, RefreshCw, AlertCircle, Truck,
@@ -75,6 +75,7 @@ function OrderListItem({ order, onClick }: { order: PatientOrder; onClick: () =>
   const icon = getProductIcon(order.product_name);
   const displayAmount = order.chargeable_amount || order.amount;
   const hasProductImage = Boolean(order.product_image);
+  const treatmentCount = order.combined_submission_summary?.orders?.length || 0;
 
   return (
     <div onClick={onClick} style={{ cursor: "pointer" }}>
@@ -93,7 +94,7 @@ function OrderListItem({ order, onClick }: { order: PatientOrder; onClick: () =>
             <span className="km-oiid" style={{ marginBottom: 0 }}>{ref}</span>
             <OrderStatusBadge status={order.status} />
           </div>
-          <div className="km-oinm">{order.product_name}</div>
+          <div className="km-oinm">{treatmentCount > 1 ? `${treatmentCount} treatments` : order.product_name}</div>
           <div className="km-oiph">{order.pharmacy_name || '—'}</div>
         </div>
         <div className="km-oiright">
@@ -101,6 +102,12 @@ function OrderListItem({ order, onClick }: { order: PatientOrder; onClick: () =>
           <div className="km-oidt">{new Date(order.created_at).toLocaleDateString()}</div>
         </div>
       </div>
+
+      {order.line_items && order.line_items.length > 1 && (
+        <div style={{ padding: '0 14px 12px', color: 'var(--km-tm)', fontSize: 11 }}>
+          {order.line_items.length} products · {order.line_items.filter((item) => item.prescription_status === 'prescribed').length} prescribed
+        </div>
+      )}
 
       {order.status === 'shipped' && order.tracking_number && (
         <div style={{ padding: '0 14px 14px' }}>
@@ -124,6 +131,34 @@ function OrderListItem({ order, onClick }: { order: PatientOrder; onClick: () =>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function CombinedOrderGroup({ orders, onClick }: { orders: PatientOrder[]; onClick: (order: PatientOrder) => void }) {
+  const summary = orders[0]?.combined_submission_summary;
+  const payment = orders[0]?.combined_payment_summary;
+  const checkoutTotal = summary?.checkout_total?.grand_total;
+  const total = typeof checkoutTotal === 'string' || typeof checkoutTotal === 'number'
+    ? checkoutTotal
+    : payment?.authorized_amount || '0.00';
+
+  return (
+    <div className="km-combined-order-group" style={{ borderBottom: '1px solid var(--km-b)' }}>
+      <div style={{ padding: '14px 14px 8px', display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'baseline' }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--km-t)' }}>Combined checkout</div>
+          <div style={{ fontSize: 11, color: 'var(--km-tm)', marginTop: 2 }}>
+            {orders.length} treatment orders · one payment · {payment?.status || summary?.status || 'pending'}
+          </div>
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--km-t)' }}>${total}</div>
+      </div>
+      {orders.map((order) => (
+        <div key={order.id} style={{ borderTop: '1px solid var(--km-b)' }}>
+          <OrderListItem order={order} onClick={() => onClick(order)} />
+        </div>
+      ))}
     </div>
   );
 }
@@ -219,6 +254,17 @@ export default function Orders() {
     if (hasMore && !loading) fetchOrders(page + 1, true);
   };
 
+  const orderGroups = useMemo(() => {
+    const groups = new Map<string, PatientOrder[]>();
+    for (const order of orders) {
+      const key = order.combined_submission_summary?.id || order.id;
+      const group = groups.get(key) || [];
+      group.push(order);
+      groups.set(key, group);
+    }
+    return Array.from(groups.entries());
+  }, [orders]);
+
   return (
     <div id="pg-orders">
       {/* Header */}
@@ -270,9 +316,15 @@ export default function Orders() {
       ) : (
         <>
           <div className="km-sc km-fade fd">
-            {orders.map((order) => (
-              <OrderListItem key={order.id} order={order} onClick={() => handleOrderClick(order)} />
-            ))}
+            {orderGroups.map(([groupKey, group]) => {
+              if (group.length > 1) {
+                return <CombinedOrderGroup key={groupKey} orders={group} onClick={handleOrderClick} />;
+              }
+              const order = group[0];
+              return order ? (
+                <OrderListItem key={groupKey} order={order} onClick={() => handleOrderClick(order)} />
+              ) : null;
+            })}
           </div>
 
           {hasMore && (

@@ -360,6 +360,7 @@ export default function OrderDetail() {
     prescribedBy = '';
   }
   const canContinueCheckout = order.status === 'payment_pending' && Boolean(order.checkout_url);
+  const lineItems = order.line_items || [];
 
   return (
     <div className="pg" id="pg-orderdetail">
@@ -487,6 +488,51 @@ export default function OrderDetail() {
             <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 1 }}>{order.pharmacy_name}</div>
             <div style={{ fontSize: 11, color: 'var(--km-tm)' }}>Fulfilling pharmacy</div>
           </div>
+        </div>
+      )}
+
+      {lineItems.length > 0 && (
+        <div className="km-fade" style={{ background: 'var(--km-s1)', borderRadius: 10, border: '1px solid var(--km-b)', padding: 14, marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--km-tm)', marginBottom: 10 }}>
+                Treatment products
+              </div>
+              {lineItems.map((item, index) => (
+                <div key={item.id} style={{ padding: '9px 0', borderTop: index ? '1px solid var(--km-b)' : undefined }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>{item.product_name || 'Product'}</span>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>${item.line_total || '0.00'}</span>
+              </div>
+              <div style={{ marginTop: 3, color: 'var(--km-tm)', fontSize: 11 }}>
+                Qty {item.quantity || 1} · Prescription {item.prescription_status || 'pending'} · Fulfilment {item.fulfilment_status || 'pending'}
+                {item.duration_days ? ` · ${item.duration_days} day supply` : ''}
+              </div>
+              {item.tracking_number && (
+                <div style={{ marginTop: 5, fontSize: 11, color: 'var(--km-t)' }}>
+                  {item.shipment_provider ? `${item.shipment_provider}: ` : 'Tracking: '}
+                  <span style={{ fontFamily: 'monospace' }}>{item.tracking_number}</span>
+                  {item.tracking_url && (
+                    <a href={item.tracking_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--km-ac)', marginLeft: 8, fontWeight: 600 }}>
+                      Track package →
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {order.combined_submission_summary?.orders && order.combined_submission_summary.orders.length > 1 && (
+        <div className="km-fade" style={{ background: 'var(--km-s1)', borderRadius: 10, border: '1px solid var(--km-b)', padding: 14, marginBottom: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--km-tm)', marginBottom: 8 }}>
+            Combined checkout · {order.combined_payment_summary?.status || 'pending'}
+          </div>
+          {order.combined_submission_summary.orders.map((sibling) => (
+            <div key={sibling.treatment_case_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '5px 0', fontSize: 12 }}>
+              <span>{sibling.treatment_type_key || 'Treatment'}</span>
+              <span>{sibling.status || 'pending'} · ${sibling.treatment_total || '0.00'}</span>
+            </div>
+          ))}
         </div>
       )}
 
