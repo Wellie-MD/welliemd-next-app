@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Pill, RefreshCw, CheckCircle, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertCircle, Pill, RefreshCw, CheckCircle, Search } from "lucide-react";
 import { getOrders, PatientOrder } from "@/shared/api/ordersApi";
 
 interface Prescription {
@@ -23,13 +23,17 @@ interface Prescription {
 export default function Prescriptions() {
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const [searchTerm, setSearchTerm] = useState('');
+  const loadAttemptRef = useRef(0);
 
-  useEffect(() => {
-    let cancelled = false;
-    getOrders(1, 50).then((response) => {
-      if (cancelled) return;
+  const loadPrescriptions = useCallback(async () => {
+    const attempt = ++loadAttemptRef.current;
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await getOrders(1, 50);
       const derived = response.results.flatMap((order: PatientOrder) =>
         (order.line_items || []).filter((line) => line.prescription_status === 'prescribed' || line.prescribed_at).map((line, index) => ({
           id: Number.parseInt(`${String(order.id).replace(/\\D/g, '').slice(-6) || '0'}${index}`, 10) || index,
@@ -46,14 +50,19 @@ export default function Prescriptions() {
           category: 'acute' as const,
         }))
       );
-      setPrescriptions(derived);
-    }).catch(() => {
-      if (!cancelled) setPrescriptions([]);
-    }).finally(() => {
-      if (!cancelled) setLoading(false);
-    });
-    return () => { cancelled = true; };
+      if (attempt === loadAttemptRef.current) setPrescriptions(derived);
+    } catch (loadError) {
+      console.error('Failed to load prescriptions:', loadError);
+      if (attempt === loadAttemptRef.current) setError('Failed to load prescriptions. Please try again.');
+    } finally {
+      if (attempt === loadAttemptRef.current) setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadPrescriptions();
+    return () => { loadAttemptRef.current += 1; };
+  }, [loadPrescriptions]);
 
   const activePrescriptions = useMemo(() => prescriptions.filter(p =>
     p.status === 'active' && 
@@ -189,8 +198,29 @@ export default function Prescriptions() {
         </button>
       </div>
 
+      {error && (
+        <div className="km-vbox km-vbox-red km-fade" style={{ marginBottom: 14 }}>
+          <AlertCircle size={14} style={{ color: 'var(--km-re)', flexShrink: 0, marginTop: 1 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ color: 'var(--km-t)', fontWeight: 600, marginBottom: 2 }}>Unable to load prescriptions</div>
+            <div style={{ color: 'var(--km-tm)', fontSize: 12 }}>{error}</div>
+          </div>
+          <button className="km-btn km-btn-ghost" style={{ fontSize: 11, padding: '2px 0' }} onClick={() => void loadPrescriptions()} disabled={loading}>
+            Retry
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div className="km-sc"><div className="km-empty"><div className="km-es">Loading prescriptions…</div></div></div>
+      ) : error && prescriptions.length === 0 ? (
+        <div className="km-sc">
+          <div className="km-empty">
+            <div className="km-eic"><AlertCircle size={20} /></div>
+            <div className="km-et">Prescriptions unavailable</div>
+            <div className="km-es">We could not retrieve your prescriptions. Use Retry above to try again.</div>
+          </div>
+        </div>
       ) : activeTab === 'active' && (
         <div className="km-fade">
           {activePrescriptions.length > 0 ? (
