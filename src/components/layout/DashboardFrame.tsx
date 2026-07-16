@@ -17,6 +17,9 @@ import Patients from "@/pages/Patients";
 import PatientDetailPage from "@/pages/PatientDetailPage";
 import Products from "@/pages/Products";
 import ProductsRouting from "@/pages/ProductsRouting";
+import Labs from "@/features/labs/pages/Labs";
+import LabOrders from "@/features/labs/pages/LabOrders";
+import LabOrderDetail from "@/features/labs/pages/LabOrderDetail";
 import Messages from "@/pages/Messages";
 import Analytics from "@/pages/Analytics";
 import Affiliates from "@/pages/Affiliates";
@@ -34,8 +37,10 @@ import FlowBuilder from "@/pages/FlowBuilder";
 import ManageAccount from "@/pages/ManageAccount";
 import CouponCodes from "@/pages/CouponCodes";
 import CreateCouponPage from "@/pages/CreateCouponPage";
+import Wearables from "@/pages/Wearables";
 
 const LS_KEY = "msg_last_seen";
+
 
 function readSeen(): Record<string, string | number | undefined> {
   try {
@@ -177,9 +182,13 @@ export default function DashboardFrame() {
               <Route path="/patients" element={<ProtectedRoute><Patients /></ProtectedRoute>} />
               <Route path="/patients/:patientId" element={<ProtectedRoute><PatientDetailPage /></ProtectedRoute>} />
               <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+              <Route path="/orders/labs" element={<ProtectedRoute><LabOrders /></ProtectedRoute>} />
+              <Route path="/orders/labs/:orderId" element={<ProtectedRoute><LabOrderDetail /></ProtectedRoute>} />
               <Route path="/orders/details/:orderId" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
               <Route path="/orders/payments" element={<ProtectedRoute><Payments /></ProtectedRoute>} />
               <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
+              <Route path="/products/labs" element={<ProtectedRoute><Labs /></ProtectedRoute>} />
+              <Route path="/products/supplies" element={<ProtectedRoute><Products /></ProtectedRoute>} />
               <Route path="/products/routing" element={<ProtectedRoute><ProductsRouting /></ProtectedRoute>} />
               <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
               <Route
@@ -204,6 +213,7 @@ export default function DashboardFrame() {
               <Route path="/templates/:templateId" element={<ProtectedRoute><TemplateQuestions /></ProtectedRoute>} />
               <Route path="/templates/:templateId/flow-builder" element={<ProtectedRoute><FlowBuilder /></ProtectedRoute>} />
               <Route path="/manage-account" element={<ProtectedRoute><ManageAccount /></ProtectedRoute>} />
+              <Route path="/wearables" element={<ProtectedRoute><Wearables /></ProtectedRoute>} />
             </Routes>
           </main>
         </div>

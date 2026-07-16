@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingCart, Eye, DollarSign, MoreHorizontal, ChevronLeft, ChevronRight, CalendarIcon, RefreshCw } from "lucide-react";
+import { UserCheck, Clock3, History, UserPlus, MoreHorizontal, ChevronLeft, ChevronRight, CalendarIcon, RefreshCw } from "lucide-react";
 import mockData from "@/data/mockData.json";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { SalesChart } from "@/components/dashboard/SalesChart";
@@ -475,11 +475,11 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between rounded-2xl border bg-white/70 dark:bg-slate-900/70 px-4 py-3">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
-                      <ShoppingCart className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      <UserCheck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-gray-800 dark:text-slate-100">Number of Active Patients</p>
-                      <p className="text-xs text-muted-foreground">Patients that are prescribed</p>
+                      <p className="text-xs text-muted-foreground">Active in one or more treatments</p>
                     </div>
                   </div>
                   <div className="text-2xl font-bold text-gray-900 dark:text-slate-100">{patientSummary.active_patients}</div>
@@ -487,28 +487,41 @@ export default function Dashboard() {
 
                 <div className="flex items-center justify-between rounded-2xl border bg-white/70 dark:bg-slate-900/70 px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                      <Eye className="h-5 w-5 text-slate-500 dark:text-slate-300" />
+                    <div className="h-10 w-10 rounded-xl bg-cyan-100 dark:bg-cyan-900/40 flex items-center justify-center">
+                      <Clock3 className="h-5 w-5 text-cyan-600 dark:text-cyan-300" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-gray-800 dark:text-slate-100">Number of Inactive Patients</p>
-                      <p className="text-xs text-muted-foreground">Patients who have missed their follow up by 20 days and more</p>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-slate-100">Number of In Review Patients</p>
+                      <p className="text-xs text-muted-foreground">Awaiting provider decision</p>
                     </div>
                   </div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-slate-100">{patientSummary.inactive_patients}</div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-slate-100">{patientSummary.in_review_patients ?? patientSummary.inactive_patients}</div>
+                </div>
+
+                <div className="flex items-center justify-between rounded-2xl border bg-white/70 dark:bg-slate-900/70 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                      <History className="h-5 w-5 text-amber-600 dark:text-amber-300" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-slate-100">Number of Lapsed Patients</p>
+                      <p className="text-xs text-muted-foreground">Previously active, none current</p>
+                    </div>
+                  </div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-slate-100">{patientSummary.lapsed_patients ?? patientSummary.inactive_patients}</div>
                 </div>
 
                 <div className="flex items-center justify-between rounded-2xl border bg-white/70 dark:bg-slate-900/70 px-4 py-3">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-rose-100 dark:bg-rose-900/40 flex items-center justify-center">
-                      <DollarSign className="h-5 w-5 text-rose-500 dark:text-rose-400" />
+                      <UserPlus className="h-5 w-5 text-rose-500 dark:text-rose-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-gray-800 dark:text-slate-100">Number of drop-off Patients</p>
-                      <p className="text-xs text-muted-foreground">Patients who completed the questionnaire but didn't complete checkout</p>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-slate-100">Number of Registered Patients</p>
+                      <p className="text-xs text-muted-foreground">Never had an active treatment</p>
                     </div>
                   </div>
-                  <div className="text-2xl font-bold text-gray-900 dark:text-slate-100">{patientSummary.dropoff_patients}</div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-slate-100">{patientSummary.registered_patients ?? patientSummary.dropoff_patients}</div>
                 </div>
               </div>
             </CardContent>
