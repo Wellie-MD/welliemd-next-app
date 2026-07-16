@@ -171,6 +171,7 @@ export interface PatientOrder {
             treatment_type_id?: string;
             treatment_type_key?: string | null;
             status?: string;
+            beluga_dispatch_status?: string | null;
             treatment_total?: string;
             payment_allocation?: {
                 id: string;

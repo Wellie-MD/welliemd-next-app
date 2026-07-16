@@ -96,6 +96,19 @@ const STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {
   refunded: { label: 'Refunded', badgeClass: 'km-badge km-badge-purple' },
 };
 
+function formatProviderReviewStatus(status?: string | null): string {
+  switch (status) {
+    case 'provider_review_submitted':
+      return 'Provider review submitted';
+    case 'provider_review_pending':
+      return 'Provider review pending';
+    case 'provider_review_unavailable':
+      return 'Provider review unavailable';
+    default:
+      return 'Provider review pending';
+  }
+}
+
 function formatDate(d: string | null) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -605,6 +618,17 @@ export default function OrderDetail() {
         </div>
       )}
 
+      {order.treatment_case_summary && (
+        <div className="km-fade" style={{ background: 'var(--km-s1)', borderRadius: 10, border: '1px solid var(--km-b)', padding: 14, marginBottom: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--km-tm)', marginBottom: 5 }}>
+            Provider review
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--km-t)' }}>
+            {formatProviderReviewStatus(order.treatment_case_summary.beluga_dispatch_status)}
+          </div>
+        </div>
+      )}
+
       {order.combined_submission_summary?.orders && order.combined_submission_summary.orders.length > 1 && (
         <div className="km-fade" style={{ background: 'var(--km-s1)', borderRadius: 10, border: '1px solid var(--km-b)', padding: 14, marginBottom: 10 }}>
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--km-tm)', marginBottom: 8 }}>
@@ -613,7 +637,7 @@ export default function OrderDetail() {
           {order.combined_submission_summary.orders.map((sibling) => (
             <div key={sibling.treatment_case_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '5px 0', fontSize: 12 }}>
               <span>{sibling.treatment_type_key || 'Treatment'}</span>
-              <span>{sibling.payment_allocation?.status || sibling.status || 'pending'} · ${sibling.payment_allocation?.allocated_amount || sibling.treatment_total || '0.00'}</span>
+              <span>{sibling.payment_allocation?.status || sibling.status || 'pending'} · ${sibling.payment_allocation?.allocated_amount || sibling.treatment_total || '0.00'} · {formatProviderReviewStatus(sibling.beluga_dispatch_status)}</span>
             </div>
           ))}
         </div>
