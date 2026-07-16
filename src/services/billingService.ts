@@ -77,7 +77,7 @@ export interface Invoice {
   revision_adjustments?: Array<{
     id: string;
     invoice_number: string;
-    kind: "supplemental_charge" | "credit_note";
+    kind: "supplemental_charge" | "credit_note" | "no_charge_revision";
     status: string;
     revision_number?: number | string | null;
     product_name?: string;
@@ -86,6 +86,7 @@ export interface Invoice {
     product_total: string;
     adjustment_amount: string;
     created_at?: string | null;
+    source?: string;
   }>;
   adjustment_summary?: {
     invoice_total: string;

@@ -123,12 +123,14 @@ function AdjustmentPill({
   kind,
   status,
 }: {
-  kind: "supplemental_charge" | "credit_note";
+  kind: "supplemental_charge" | "credit_note" | "no_charge_revision";
   status: string;
 }) {
   const normalized = status.toLowerCase();
   const label =
-    kind === "supplemental_charge"
+    kind === "no_charge_revision"
+      ? "No charge"
+      : kind === "supplemental_charge"
       ? normalized === "paid" ? "Charged" : formatLabel(status)
       : normalized === "refunded"
         ? "Refunded"
@@ -136,7 +138,9 @@ function AdjustmentPill({
           ? "Pending"
           : formatLabel(status);
   const classes =
-    label === "Charged"
+    label === "No charge"
+      ? "border-slate-200 bg-slate-50 text-slate-600"
+      : label === "Charged"
       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
       : label === "Refunded"
         ? "border-slate-200 bg-slate-100 text-slate-600"
@@ -258,6 +262,12 @@ function RevisionInvoiceModal({
   const adjustments = invoice.revision_adjustments || [];
   const summary = invoice.adjustment_summary;
   const netAdjustment = Number(summary?.net_adjustment || 0);
+  const hasZeroBasedRevisionNumbers = adjustments.some(
+    (adjustment) => Number(adjustment.revision_number) === 0
+  );
+  const hasExplicitBaseRevision = adjustments.some(
+    (adjustment) => Number(adjustment.revision_number) === 0
+  );
   const requestedProductName = requested?.product_name || "";
   const requestedProductTotal = requested?.product_total || 0;
   const splitCaptureAdjustmentMirrorsBase = Boolean(
@@ -273,7 +283,7 @@ function RevisionInvoiceModal({
     })
   );
   const showImplicitBaseRevision = Boolean(
-    requested?.prescribed_differs && !splitCaptureAdjustmentMirrorsBase
+    requested?.prescribed_differs && !splitCaptureAdjustmentMirrorsBase && !hasExplicitBaseRevision
   );
 
   return (
@@ -396,22 +406,27 @@ function RevisionInvoiceModal({
             )}
             {adjustments.map((adjustment, index) => {
               const isCredit = adjustment.kind === "credit_note";
+              const isNoCharge = adjustment.kind === "no_charge_revision";
               const revOffset = showImplicitBaseRevision ? 1 : 0;
+              const rawRevisionNumber = Number(adjustment.revision_number);
+              const displayRevisionNumber = Number.isFinite(rawRevisionNumber)
+                ? rawRevisionNumber + (hasZeroBasedRevisionNumbers ? 1 : 0) + revOffset
+                : index + 1 + revOffset;
               return (
                 <section key={adjustment.id} className="border-b border-slate-200 p-5 dark:border-slate-800">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Revision {(Number(adjustment.revision_number) || index + 1) + revOffset} · {adjustment.product_name || "Revised prescription"}
+                    Revision {displayRevisionNumber} · {adjustment.product_name || "Revised prescription"}
                   </h4>
                   <div className="mt-2">
                     {renderCostTable(adjustment.medication_amount, adjustment.shipping_amount, adjustment.product_total)}
                   </div>
                   <div className="mt-2 flex items-center justify-between text-xs font-semibold">
-                    <span className={`flex items-center gap-2 ${isCredit ? "text-emerald-600" : "text-red-600"}`}>
-                      {isCredit ? "Credit note" : "Supplemental charge"}
+                    <span className={`flex items-center gap-2 ${isNoCharge ? "text-slate-500" : isCredit ? "text-emerald-600" : "text-red-600"}`}>
+                      {isNoCharge ? "No reimbursement change" : isCredit ? "Credit note" : "Supplemental charge"}
                       <AdjustmentPill kind={adjustment.kind} status={adjustment.status} />
                     </span>
-                    <span className={isCredit ? "text-emerald-600" : "text-red-600"}>
-                      {isCredit ? "−" : "+"}{formatMoney(adjustment.adjustment_amount)}
+                    <span className={isNoCharge ? "text-slate-500" : isCredit ? "text-emerald-600" : "text-red-600"}>
+                      {isNoCharge ? "" : isCredit ? "−" : "+"}{formatMoney(adjustment.adjustment_amount)}
                     </span>
                   </div>
                 </section>
