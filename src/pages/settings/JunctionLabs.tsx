@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react"
 import { AlertCircle, CheckCircle2, KeyRound, RefreshCw, ShieldCheck, TestTube2 } from "lucide-react"
-import { junctionCatalogSettingsApi, type JunctionCatalogSettings, type SyncResult } from "@/api/junctionCatalogSettings"
+import {
+  junctionCatalogSettingsApi,
+  type JunctionCatalogSettings,
+  type SyncStatusResponse,
+} from "@/api/junctionCatalogSettings"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -15,6 +19,17 @@ interface JunctionLabsProps {
   embedded?: boolean
 }
 
+function toProgress(status: SyncStatusResponse) {
+  return {
+    current_page: status.current_page,
+    total_pages: status.total_pages,
+    total_seen: status.total_seen,
+    created_count: status.created_count,
+    updated_count: status.updated_count,
+    status: status.status,
+  }
+}
+
 export default function JunctionLabs({ embedded = false }: JunctionLabsProps) {
   const [enabled, setEnabled] = useState(true)
   const [environment, setEnvironment] = useState("sandbox-us")
@@ -27,6 +42,7 @@ export default function JunctionLabs({ embedded = false }: JunctionLabsProps) {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
   const [lastSyncStatus, setLastSyncStatus] = useState<string | null>(null)
   const [lastSyncError, setLastSyncError] = useState<string | null>(null)
+  const [activeJobId, setActiveJobId] = useState<string | null>(null)
 
   // Polling state
   const [progress, setProgress] = useState<{
@@ -56,6 +72,12 @@ export default function JunctionLabs({ embedded = false }: JunctionLabsProps) {
         setLastSyncedAt(data.last_synced_at ?? null)
         setLastSyncStatus(data.last_sync_status ?? null)
         setLastSyncError(data.last_sync_error ?? null)
+        const latestJob = await junctionCatalogSettingsApi.getReferenceCatalogSyncStatus()
+        if (["queued", "running"].includes(latestJob.status)) {
+          setActiveJobId(latestJob.job_id)
+          setSyncing(true)
+          setProgress(toProgress(latestJob))
+        }
       } catch (error: unknown) {
         const err = error as { response?: { data?: { detail?: string } } }
         toast({
@@ -69,6 +91,52 @@ export default function JunctionLabs({ embedded = false }: JunctionLabsProps) {
     }
     loadSettings()
   }, [])
+
+  useEffect(() => {
+    if (!activeJobId) return
+    let active = true
+
+    const poll = async () => {
+      try {
+        const statusRes = await junctionCatalogSettingsApi.getReferenceCatalogSyncStatus(activeJobId)
+        if (!active) return
+        setProgress(toProgress(statusRes))
+
+        if (statusRes.status === "success") {
+          setActiveJobId(null)
+          setSyncing(false)
+          setProgress(null)
+          setLastSyncedAt(statusRes.last_successful_sync_at)
+          setLastSyncStatus("success")
+          setLastSyncError(null)
+          toast({
+            title: "Reference catalog synced",
+            description: `Created ${statusRes.created_count}, updated ${statusRes.updated_count}, total ${statusRes.total_seen} items.`,
+          })
+        } else if (statusRes.status === "failed") {
+          setActiveJobId(null)
+          setSyncing(false)
+          setProgress(null)
+          setLastSyncStatus("failed")
+          setLastSyncError(statusRes.error_message)
+          toast({
+            title: "Sync failed",
+            description: statusRes.error_message || "Reference catalog sync failed.",
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        console.error("Error polling reference catalog sync status:", error)
+      }
+    }
+
+    void poll()
+    const pollInterval = window.setInterval(poll, 3000)
+    return () => {
+      active = false
+      window.clearInterval(pollInterval)
+    }
+  }, [activeJobId])
 
   const saveSettings = async () => {
     setSaving(true)
@@ -117,50 +185,7 @@ export default function JunctionLabs({ embedded = false }: JunctionLabsProps) {
 
     try {
       const response = await junctionCatalogSettingsApi.syncReferenceCatalog()
-      const jobId = response.job_id
-
-      // Start polling
-      const pollInterval = setInterval(async () => {
-        try {
-          const statusRes = await junctionCatalogSettingsApi.getReferenceCatalogSyncStatus(jobId)
-          setProgress({
-            current_page: statusRes.current_page,
-            total_pages: statusRes.total_pages,
-            total_seen: statusRes.total_seen,
-            created_count: statusRes.created_count,
-            updated_count: statusRes.updated_count,
-            status: statusRes.status,
-          })
-
-          if (statusRes.status === "success") {
-            clearInterval(pollInterval)
-            setSyncing(false)
-            setProgress(null)
-            setLastSyncedAt(statusRes.last_successful_sync_at)
-            setLastSyncStatus("success")
-            setLastSyncError(null)
-
-            toast({
-              title: "Reference catalog synced",
-              description: `Created ${statusRes.created_count}, updated ${statusRes.updated_count}, total ${statusRes.total_seen} items.`,
-            })
-          } else if (statusRes.status === "failed") {
-            clearInterval(pollInterval)
-            setSyncing(false)
-            setProgress(null)
-            setLastSyncStatus("failed")
-            setLastSyncError(statusRes.error_message)
-
-            toast({
-              title: "Sync failed",
-              description: statusRes.error_message || "Reference catalog sync failed.",
-              variant: "destructive",
-            })
-          }
-        } catch (pollErr) {
-          console.error("Error polling sync status:", pollErr)
-        }
-      }, 3000)
+      setActiveJobId(response.job_id)
     } catch (error: unknown) {
       setSyncing(false)
       setProgress(null)
