@@ -112,6 +112,7 @@ export interface OrderLineItem {
   prescription_status?: string
   fulfilment_status?: string
   shipment_status?: string
+  refund_status?: string
   duration_days?: number | null
   provider_product_id?: string | null
   tracking_number?: string | null
@@ -132,6 +133,9 @@ export interface TreatmentCaseSummary {
   treatment_type_key?: string | null
   beluga_dispatch_status?: string | null
   program_id?: string | null
+  release_id?: string | null
+  release_version?: number | null
+  release_checksum?: string | null
   status?: string
   lifecycle_status?: string
   visit_id?: string | null
@@ -150,8 +154,27 @@ export interface CombinedSubmissionSummary {
   release_id?: string | null
   release_version?: number | null
   release_checksum?: string
+  runtime_session_id?: string
+  pricing_snapshot?: Record<string, unknown>
   checkout_total?: Record<string, unknown>
   combined_payment_id?: string | null
+  combined_payment?: {
+    id: string
+    status?: string
+    currency?: string
+    authorized_amount?: string
+    captured_amount?: string
+    refunded_amount?: string
+    allocations?: Array<{
+      id: string
+      order_id: string
+      treatment_case_id: string
+      status?: string
+      allocated_amount?: string
+      captured_amount?: string
+      refunded_amount?: string
+    }>
+  } | null
   orders?: Array<{
     order_id: string
     order_display_id?: string | null
@@ -160,6 +183,13 @@ export interface CombinedSubmissionSummary {
     treatment_type_key?: string | null
     status?: string
     treatment_total?: string
+    payment_allocation?: {
+      id: string
+      status?: string
+      allocated_amount?: string
+      captured_amount?: string
+      refunded_amount?: string
+    } | null
   }>
 }
 
@@ -266,7 +296,9 @@ export interface Order {
     authorized_amount?: string
     captured_amount?: string
     refunded_amount?: string
+    allocation_total?: string
     allocation?: { id: string; status?: string; allocated_amount?: string; captured_amount?: string; refunded_amount?: string }
+    allocations?: Array<{ id: string; order_id: string; treatment_case_id: string; status?: string; allocated_amount?: string; captured_amount?: string; refunded_amount?: string }>
   } | null
   combined_submission_summary?: CombinedSubmissionSummary | null
   beluga_dispatch_status?: string | null

@@ -400,9 +400,14 @@ export function OrderDetailsSheet({
                           <span>${item.line_total || "0.00"}</span>
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">
-                          Qty {item.quantity || 1} · Prescription {item.prescription_status || "pending"} · Fulfilment {item.fulfilment_status || "pending"}
+                          Qty {item.quantity || 1} · Prescription {item.prescription_status || "pending"} · Fulfilment {item.fulfilment_status || "pending"} · Refund {item.refund_status || "none"}
                           {item.duration_days ? ` · ${item.duration_days} day supply` : ""}
                         </div>
+                        {item.provider_product_id && (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            Provider product: <span className="font-mono">{item.provider_product_id}</span>
+                          </div>
+                        )}
                         {item.tracking_number && (
                           <div className="mt-1 text-xs text-muted-foreground">
                             {item.shipment_provider ? `${item.shipment_provider}: ` : "Tracking: "}
@@ -444,7 +449,7 @@ export function OrderDetailsSheet({
                     {order.combined_submission_summary.orders.map((sibling) => (
                       <div key={sibling.treatment_case_id} className="flex justify-between gap-3">
                         <span>{sibling.treatment_type_key || "Treatment"}</span>
-                        <span>{sibling.status || "pending"} · ${sibling.treatment_total || "0.00"}</span>
+                        <span>{sibling.payment_allocation?.status || sibling.status || "pending"} · ${sibling.payment_allocation?.allocated_amount || sibling.treatment_total || "0.00"}</span>
                       </div>
                     ))}
                   </div>

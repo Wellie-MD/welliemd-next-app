@@ -1763,7 +1763,7 @@ function OrderDetailInner() {
                     <div>
                       <div className="font-medium text-slate-900 dark:text-white">{item.product_name || "Product"}</div>
                       <div className="text-xs text-slate-500">
-                        Qty {item.quantity || 1} · Prescription {item.prescription_status || "pending"} · Fulfilment {item.fulfilment_status || "pending"}
+                        Qty {item.quantity || 1} · Prescription {item.prescription_status || "pending"} · Fulfilment {item.fulfilment_status || "pending"} · Refund {item.refund_status || "none"}
                         {item.duration_days ? ` · ${item.duration_days} day supply` : ""}
                       </div>
                       {item.tracking_number && (
@@ -1815,7 +1815,7 @@ function OrderDetailInner() {
                 {order.combined_submission_summary.orders.map((sibling) => (
                   <div key={sibling.treatment_case_id} className="px-6 py-3 flex justify-between gap-3 text-sm">
                     <span>{sibling.treatment_type_key || "Treatment"}</span>
-                    <span className="text-slate-500">{sibling.status || "pending"} · ${sibling.treatment_total || "0.00"}</span>
+                    <span className="text-slate-500">{sibling.payment_allocation?.status || sibling.status || "pending"} · ${sibling.payment_allocation?.allocated_amount || sibling.treatment_total || "0.00"}</span>
                   </div>
                 ))}
               </div>
