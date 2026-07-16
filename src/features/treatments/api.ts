@@ -5,6 +5,7 @@
  * immutable published releases.
  */
 import { apiClient } from '@/shared/api/client';
+import { API_ENDPOINTS } from '@/config/constants';
 
 export interface AvailableTreatment {
     id: string;
@@ -48,7 +49,7 @@ export interface StartTreatmentResponse {
  */
 export async function getAvailableTreatments(): Promise<AvailableTreatment[]> {
     const response = await apiClient.get<AvailableTreatmentsResponse>(
-        '/treatments/available/'
+        API_ENDPOINTS.TREATMENTS.AVAILABLE
     );
 
     if (response.data.success && response.data.treatments) {
