@@ -9,8 +9,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Truck, CheckCircle2, Clock,
-  XCircle, AlertCircle, ExternalLink,
+  ArrowLeft, Truck, AlertCircle, ExternalLink,
   MessageSquare, CreditCard,
 } from 'lucide-react';
 
