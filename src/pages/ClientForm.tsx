@@ -475,47 +475,52 @@ export default function ClientForm() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-2 sm:gap-4">
           <Button
             variant="ghost"
             size="sm"
+            className="shrink-0 mt-1 sm:mt-0 px-2 sm:px-3"
             onClick={() => navigate("/dashboard/clients")}
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+            <ArrowLeft className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Back</span>
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">
+            <h1 className="text-xl sm:text-2xl font-bold">
               {isEditMode ? "Edit Client" : "Create New Client"}
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               {isEditMode
                 ? "Update client information and settings"
                 : "Set up a new client with admin user account"}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           {isEditMode ? (
             <Button
               type="button"
               variant="outline"
+              className="flex-1 sm:flex-none"
               onClick={() => navigate(`/dashboard/clients/${id}/lifecycle`)}
             >
-              View Lifecycle
+              <span className="hidden sm:inline">View Lifecycle</span>
+              <span className="sm:hidden">Lifecycle</span>
             </Button>
           ) : null}
-          <Button onClick={handleSubmit} disabled={isLoading}>
+          <Button onClick={handleSubmit} disabled={isLoading} className="flex-1 sm:flex-none">
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                {isEditMode ? "Updating..." : "Creating..."}
+                <span className="hidden sm:inline">{isEditMode ? "Updating..." : "Creating..."}</span>
+                <span className="sm:hidden">{isEditMode ? "Updating" : "Creating"}</span>
               </>
             ) : (
               <>
                 <Save className="h-4 w-4 mr-2" />
-                {isEditMode ? "Update Client" : "Create Client"}
+                <span className="hidden sm:inline">{isEditMode ? "Update Client" : "Create Client"}</span>
+                <span className="sm:hidden">{isEditMode ? "Update" : "Create"}</span>
               </>
             )}
           </Button>
