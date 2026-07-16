@@ -3,6 +3,7 @@ import { useEffect, useState, lazy, Suspense } from 'react';
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { Header } from "@/components/layout/Header";
+import { JunctionCatalogSyncProgressAlert } from "@/components/junction/JunctionCatalogSyncProgressAlert";
 import { SettingsLayout } from "./components/layout/SettingsLayout";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { authService } from './services/authService';
@@ -147,6 +148,7 @@ const App = () => {
               <AppSidebar />
               <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden">
                 <Header />
+                <JunctionCatalogSyncProgressAlert />
                 <main className="flex-1 bg-background min-w-0 overflow-x-hidden">
                   <Suspense fallback={<PageLoader />}>
                   <Routes>
@@ -217,6 +219,7 @@ const App = () => {
               <div className="min-h-screen flex w-full">
                 <div className="flex-1 flex flex-col">
                   <Header />
+                  <JunctionCatalogSyncProgressAlert />
                   <div className="flex flex-1">
                     <SettingsLayout />
                   </div>
