@@ -11,6 +11,7 @@ export const DEVICE_ENDPOINTS = {
   providers: '/wearables/providers/?client_view=true',
   oauthSession: '/wearables/oauth-session/',
   connections: '/wearables/connections/',
+  syncConnections: '/wearables/connections/sync/',
   consent: '/wearables/consent/',
   deleteHealthData: '/wearables/delete-health-data/',
   deviceData: '/wearables/device-data/',
