@@ -13,9 +13,14 @@ import { apiClient, withRetry } from './client';
 export type OrderStatus =
     | 'created'
     | 'payment_pending'
+    | 'payment_authorized'
+    | 'payment_captured'
+    | 'payment_failed'
     | 'processing'
     | 'visit_failed'
     | 'visit_pending'
+    | 'visit_scheduled'
+    | 'visit_rescheduled'
     | 'consult_scheduled'
     | 'consult_rescheduled'
     | 'consult_canceled'
@@ -25,7 +30,15 @@ export type OrderStatus =
     | 'billing_pending'
     | 'rx_sent'
     | 'shipped'
-    | 'canceled';
+    | 'in_transit'
+    | 'out_for_delivery'
+    | 'delivered'
+    | 'delivery_failed'
+    | 'completed'
+    | 'refunded'
+    | 'canceled'
+    | 'cancelled'
+    | 'failed';
 
 export interface OrderActivityEvent {
     id: string;
@@ -62,18 +75,21 @@ export interface PatientOrderLineItem {
     shipped_at?: string | null;
     cancelled_at?: string | null;
     refunded_amount?: string | number;
+    created_at?: string;
+    updated_at?: string;
 }
 
 export interface PatientTreatmentCaseSummary {
     id: string;
+    treatment_type_id?: string;
     treatment_type_key?: string | null;
     status?: string;
     lifecycle_status?: string;
+    visit_id?: string | null;
     visit_status?: string | null;
+    beluga_dispatch_status?: string | null;
     treatment_total?: string;
     reimbursement_total?: string;
-    release_id?: string | null;
-    release_version?: number | null;
 }
 
 /**
@@ -143,12 +159,16 @@ export interface PatientOrder {
         combined_payment?: {
             id: string;
             status?: string;
+            currency?: string;
             authorized_amount?: string;
             captured_amount?: string;
             refunded_amount?: string;
         } | null;
         orders?: Array<{
+            order_id?: string;
+            order_display_id?: string | null;
             treatment_case_id: string;
+            treatment_type_id?: string;
             treatment_type_key?: string | null;
             status?: string;
             treatment_total?: string;
