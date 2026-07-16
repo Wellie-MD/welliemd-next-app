@@ -316,7 +316,7 @@ export default function SenseInsights() {
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col md:flex-row gap-2">
             <Button
               variant="outline"
               className="gap-2"
