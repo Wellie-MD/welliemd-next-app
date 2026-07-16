@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { checkoutProductFactory } from "@/features/treatments/common/data/factories";
 import type { ProgramCheckoutProduct, ProgramCheckoutQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
 
@@ -13,13 +13,16 @@ interface UseCheckoutQuestionFormArgs {
 }
 
 export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenChange }: UseCheckoutQuestionFormArgs) {
+  const prevOpenRef = useRef(open);
   const [products, setProducts] = useState<ProductForm[]>([checkoutProductFactory({ category: "", regimen: "", doseLabel: "" })]);
   const [visibilityRuleGroup, setVisibilityRuleGroup] = useState<VisibilityRuleGroupForm | undefined>(undefined);
   const [selectedPreviewIdx, setSelectedPreviewIdx] = useState(0);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) return;
+    const justOpened = open && !prevOpenRef.current;
+    prevOpenRef.current = open;
+    if (!justOpened) return;
     if (initialQuestion) {
       setProducts(
         (initialQuestion.products || []).map((product) => ({
@@ -89,16 +92,6 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     );
   };
 
-  const handleProductPriceChange = (index: number, value: string) => {
-    setProducts((current) =>
-      current.map((product, itemIndex) => {
-        if (itemIndex !== index) return product;
-        const parsed = value.trim() === "" ? undefined : Number(value);
-        return { ...product, price: parsed !== undefined && Number.isFinite(parsed) ? parsed : undefined };
-      })
-    );
-  };
-
   const handleProductVisibilityChange = (index: number, group: VisibilityRuleGroupForm | undefined) => {
     setProducts((current) =>
       current.map((product, itemIndex) => (itemIndex === index ? { ...product, visibilityRules: group } : product))
@@ -152,7 +145,6 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     handleAddProduct,
     handleRemoveProduct,
     handleProductFieldChange,
-    handleProductPriceChange,
     handleProductVisibilityChange,
     handleVisibilityRuleGroupChange,
     handleSaveModal,

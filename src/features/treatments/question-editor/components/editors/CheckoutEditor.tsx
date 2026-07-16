@@ -102,7 +102,6 @@ export function CheckoutEditor({
               onAddProduct={form.handleAddProduct}
               onRemoveProduct={form.handleRemoveProduct}
               onProductFieldChange={form.handleProductFieldChange}
-              onProductPriceChange={form.handleProductPriceChange}
               onProductVisibilityChange={form.handleProductVisibilityChange}
             />
             <QuestionVisibilityTab

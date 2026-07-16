@@ -17,7 +17,6 @@ interface CheckoutProductsSectionProps {
     field: keyof ProgramCheckoutProduct,
     value: ProgramCheckoutProduct[keyof ProgramCheckoutProduct]
   ) => void;
-  onProductPriceChange: (index: number, value: string) => void;
   onProductVisibilityChange: (index: number, group: VisibilityRuleGroup | undefined) => void;
 }
 
@@ -27,7 +26,6 @@ export function CheckoutProductsSection({
   onAddProduct,
   onRemoveProduct,
   onProductFieldChange,
-  onProductPriceChange,
   onProductVisibilityChange,
 }: CheckoutProductsSectionProps) {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
@@ -98,7 +96,7 @@ export function CheckoutProductsSection({
       <div className="space-y-4">
         {products.map((product, index) => (
           <CheckoutProductRow
-            key={product.id}
+            key={product.id ?? `product-${index}`}
             product={product}
             index={index}
             productCount={products.length}
@@ -108,7 +106,6 @@ export function CheckoutProductsSection({
             doseMappings={doseMappings}
             onRemoveProduct={onRemoveProduct}
             onProductFieldChange={onProductFieldChange}
-            onProductPriceChange={onProductPriceChange}
             onProductVisibilityChange={onProductVisibilityChange}
           />
         ))}

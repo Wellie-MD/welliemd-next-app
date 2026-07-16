@@ -29,7 +29,6 @@ interface CheckoutProductRowProps {
     field: keyof ProgramCheckoutProduct,
     value: ProgramCheckoutProduct[keyof ProgramCheckoutProduct]
   ) => void;
-  onProductPriceChange: (index: number, value: string) => void;
   onProductVisibilityChange: (index: number, group: VisibilityRuleGroup | undefined) => void;
 }
 
@@ -49,7 +48,6 @@ export function CheckoutProductRow({
   doseMappings,
   onRemoveProduct,
   onProductFieldChange,
-  onProductPriceChange,
   onProductVisibilityChange,
 }: CheckoutProductRowProps) {
   const selectedCategoryId =
@@ -140,24 +138,6 @@ export function CheckoutProductRow({
           disabled={!selectedCategoryId}
           testId={`checkout-product-dose-${index}`}
         />
-
-        <div className="space-y-1.5">
-          <label className="text-[11.5px] font-bold text-slate-600" htmlFor={`checkout-product-price-${index}`}>
-            Monthly Price (USD)
-          </label>
-          <input
-            id={`checkout-product-price-${index}`}
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step="1"
-            value={product.price ?? ""}
-            onChange={(event) => onProductPriceChange(index, event.target.value)}
-            placeholder="Auto from price list"
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12px] text-slate-700 shadow-sm outline-none focus:border-blue-500"
-            data-testid={`checkout-product-price-${index}`}
-          />
-        </div>
       </div>
 
       {product.category && product.regimen && product.doseLabel && (
