@@ -50,7 +50,9 @@ export interface PatientOrderLineItem {
     prescription_status?: string;
     fulfilment_status?: string;
     shipment_status?: string;
+    refund_status?: string;
     duration_days?: number | null;
+    provider_product_id?: string | null;
     tracking_number?: string | null;
     tracking_url?: string | null;
     shipment_provider?: string | null;
@@ -70,6 +72,8 @@ export interface PatientTreatmentCaseSummary {
     visit_status?: string | null;
     treatment_total?: string;
     reimbursement_total?: string;
+    release_id?: string | null;
+    release_version?: number | null;
 }
 
 /**
@@ -105,22 +109,56 @@ export interface PatientOrder {
     line_items?: PatientOrderLineItem[];
     treatment_case_summary?: PatientTreatmentCaseSummary | null;
     combined_payment_summary?: {
+        id?: string;
         status?: string;
         currency?: string;
         authorized_amount?: string;
         captured_amount?: string;
         refunded_amount?: string;
+        allocation_total?: string;
+        allocation?: {
+            id: string;
+            status?: string;
+            allocated_amount?: string;
+            captured_amount?: string;
+            refunded_amount?: string;
+        };
+        allocations?: Array<{
+            id: string;
+            order_id: string;
+            treatment_case_id: string;
+            status?: string;
+            allocated_amount?: string;
+            captured_amount?: string;
+            refunded_amount?: string;
+        }>;
     } | null;
     combined_submission_summary?: {
         id: string;
         status?: string;
         release_version?: number | null;
+        runtime_session_id?: string;
+        pricing_snapshot?: Record<string, unknown>;
         checkout_total?: Record<string, unknown>;
+        combined_payment?: {
+            id: string;
+            status?: string;
+            authorized_amount?: string;
+            captured_amount?: string;
+            refunded_amount?: string;
+        } | null;
         orders?: Array<{
             treatment_case_id: string;
             treatment_type_key?: string | null;
             status?: string;
             treatment_total?: string;
+            payment_allocation?: {
+                id: string;
+                status?: string;
+                allocated_amount?: string;
+                captured_amount?: string;
+                refunded_amount?: string;
+            } | null;
         }>;
     } | null;
 }

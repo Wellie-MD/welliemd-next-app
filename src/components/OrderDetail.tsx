@@ -503,9 +503,14 @@ export default function OrderDetail() {
                 <span style={{ fontSize: 13, fontWeight: 700 }}>${item.line_total || '0.00'}</span>
               </div>
               <div style={{ marginTop: 3, color: 'var(--km-tm)', fontSize: 11 }}>
-                Qty {item.quantity || 1} · Prescription {item.prescription_status || 'pending'} · Fulfilment {item.fulfilment_status || 'pending'}
+                Qty {item.quantity || 1} · Prescription {item.prescription_status || 'pending'} · Fulfilment {item.fulfilment_status || 'pending'} · Refund {item.refund_status || 'none'}
                 {item.duration_days ? ` · ${item.duration_days} day supply` : ''}
               </div>
+              {item.provider_product_id && (
+                <div style={{ marginTop: 5, fontSize: 11, color: 'var(--km-t)' }}>
+                  Provider product: <span style={{ fontFamily: 'monospace' }}>{item.provider_product_id}</span>
+                </div>
+              )}
               {item.tracking_number && (
                 <div style={{ marginTop: 5, fontSize: 11, color: 'var(--km-t)' }}>
                   {item.shipment_provider ? `${item.shipment_provider}: ` : 'Tracking: '}
@@ -530,7 +535,7 @@ export default function OrderDetail() {
           {order.combined_submission_summary.orders.map((sibling) => (
             <div key={sibling.treatment_case_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '5px 0', fontSize: 12 }}>
               <span>{sibling.treatment_type_key || 'Treatment'}</span>
-              <span>{sibling.status || 'pending'} · ${sibling.treatment_total || '0.00'}</span>
+              <span>{sibling.payment_allocation?.status || sibling.status || 'pending'} · ${sibling.payment_allocation?.allocated_amount || sibling.treatment_total || '0.00'}</span>
             </div>
           ))}
         </div>
