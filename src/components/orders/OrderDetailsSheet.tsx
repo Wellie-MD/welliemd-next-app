@@ -478,7 +478,7 @@ export function OrderDetailsSheet({
                     {order.combined_submission_summary.orders.map((sibling) => (
                       <div key={sibling.treatment_case_id} className="flex justify-between gap-3">
                         <span>{sibling.treatment_type_key || "Treatment"}</span>
-                        <span>{sibling.payment_allocation?.status || sibling.status || "pending"} · ${sibling.payment_allocation?.allocated_amount || sibling.treatment_total || "0.00"}</span>
+                        <span>{sibling.payment_allocation?.status || sibling.status || "pending"} · ${sibling.payment_allocation?.allocated_amount || sibling.treatment_total || "0.00"} · Beluga {sibling.beluga_dispatch_status || "pending"}</span>
                       </div>
                     ))}
                   </div>

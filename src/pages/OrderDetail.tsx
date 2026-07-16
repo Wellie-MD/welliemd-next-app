@@ -1820,7 +1820,7 @@ function OrderDetailInner() {
                 {order.combined_submission_summary.orders.map((sibling) => (
                   <div key={sibling.treatment_case_id} className="px-6 py-3 flex justify-between gap-3 text-sm">
                     <span>{sibling.treatment_type_key || "Treatment"}</span>
-                    <span className="text-slate-500">{sibling.payment_allocation?.status || sibling.status || "pending"} · ${sibling.payment_allocation?.allocated_amount || sibling.treatment_total || "0.00"}</span>
+                    <span className="text-slate-500">{sibling.payment_allocation?.status || sibling.status || "pending"} · ${sibling.payment_allocation?.allocated_amount || sibling.treatment_total || "0.00"} · Beluga {sibling.beluga_dispatch_status || "pending"}</span>
                   </div>
                 ))}
               </div>
