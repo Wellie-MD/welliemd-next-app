@@ -408,6 +408,11 @@ export function OrderDetailsSheet({
                             Provider product: <span className="font-mono">{item.provider_product_id}</span>
                           </div>
                         )}
+                        {item.reimbursement_amount_snapshot && (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            Reimbursement: ${String((item.reimbursement_amount_snapshot as { total_reimbursement_amount?: string }).total_reimbursement_amount || "0.00")}
+                          </div>
+                        )}
                         {item.tracking_number && (
                           <div className="mt-1 text-xs text-muted-foreground">
                             {item.shipment_provider ? `${item.shipment_provider}: ` : "Tracking: "}

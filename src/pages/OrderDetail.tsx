@@ -2158,6 +2158,11 @@ function OrderDetailInner() {
                     {item.provider_product_id && (
                       <div className="text-xs text-slate-500">Provider product: <span className="font-mono">{item.provider_product_id}</span></div>
                     )}
+                    {item.reimbursement_amount_snapshot && (
+                      <div className="text-xs text-slate-500">
+                        Reimbursement: ${String((item.reimbursement_amount_snapshot as { total_reimbursement_amount?: string }).total_reimbursement_amount || "0.00")}
+                      </div>
+                    )}
                     {item.tracking_number && (
                       <div className="text-xs text-slate-500">
                         {item.shipment_provider ? `${item.shipment_provider}: ` : "Tracking: "}
