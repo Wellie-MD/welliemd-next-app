@@ -68,7 +68,6 @@ export interface PatientOrderLineItem {
     tracking_number?: string | null;
     tracking_url?: string | null;
     shipment_provider?: string | null;
-    prescription_event_id?: string | null;
     prescribed_at?: string | null;
     fulfilled_at?: string | null;
     shipped_at?: string | null;
