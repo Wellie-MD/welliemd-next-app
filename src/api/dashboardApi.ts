@@ -201,17 +201,25 @@ export interface OrdersQueryParams {
  * @returns Promise<OrdersListResponse> - Paginated orders data
  * @throws Error if request fails
  */
-export async function getAdminOrders(params: OrdersQueryParams = {}): Promise<OrdersListResponse> {
+export async function getAdminOrders(
+  params: OrdersQueryParams = {},
+  signal?: AbortSignal
+): Promise<OrdersListResponse> {
   const start = performance.now();
   try {
     const { data } = await axiosInstance.get<OrdersListResponse>('/admin/dashboard/orders/', {
-      params
+      params,
+      signal,
     });
     const duration = performance.now() - start;
     const existing = (window as any).__perfMetrics || {};
     (window as any).__perfMetrics = { ...existing, orders_api_ms: duration };
     return data;
   } catch (error: any) {
+    // Re-throw cancellation errors without wrapping or recording perf
+    if (error.name === 'CanceledError') {
+      throw error;
+    }
     const duration = performance.now() - start;
     const existing = (window as any).__perfMetrics || {};
     (window as any).__perfMetrics = { ...existing, orders_api_ms: duration };

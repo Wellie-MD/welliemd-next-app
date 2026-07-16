@@ -328,7 +328,7 @@ export function DataTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? (
+              {loading && visibleData.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={columns.length}
@@ -351,6 +351,8 @@ export function DataTable({
                   <TableRow
                     key={index}
                     className={`border-b border-gray-100 dark:border-gray-800 hover:bg-gradient-to-r hover:from-gray-50 hover:to-transparent dark:hover:from-gray-800/50 dark:hover:to-transparent transition-all duration-200 group ${
+                      loading ? "opacity-60" : ""
+                    } ${
                       getRowClassName ? getRowClassName(row) : ""
                     }`}
                   >
