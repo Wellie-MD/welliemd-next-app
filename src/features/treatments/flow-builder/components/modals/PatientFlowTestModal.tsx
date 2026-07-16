@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ExternalLink, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +11,7 @@ import {
   buildQuestionnairePreviewUrl,
 } from "@/features/treatments/utils/previewUrl";
 import type { PreviewContext } from "@/features/treatments/types";
+import { createRuntimePreviewSession } from "@/features/treatments/api/runtimePreviewApi";
 
 interface PatientFlowTestModalProps {
   open: boolean;
@@ -24,10 +25,20 @@ export function PatientFlowTestModal({
   previewContext,
 }: PatientFlowTestModalProps) {
   const [refreshKey, setRefreshKey] = useState(0);
-  const previewUrl = useMemo(
-    () => buildQuestionnairePreviewUrl(previewContext),
-    [previewContext]
-  );
+  const [runtimeToken, setRuntimeToken] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open || previewContext.type !== "custom_program") return;
+    setPreviewError(null); setRuntimeToken(null);
+    createRuntimePreviewSession(previewContext.id)
+      .then((result) => setRuntimeToken(result.session_token))
+      .catch((error) => setPreviewError(error?.response?.data?.error || "Unable to create an authenticated preview session."));
+  }, [open, previewContext.id, previewContext.type, refreshKey]);
+  const previewUrl = useMemo(() => {
+    const url = new URL(buildQuestionnairePreviewUrl(previewContext));
+    if (runtimeToken) url.searchParams.set("runtime_session", runtimeToken);
+    return url.toString();
+  }, [previewContext, runtimeToken]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -39,7 +50,7 @@ export function PatientFlowTestModal({
                 Real Questionnaire Preview
               </DialogTitle>
               <p className="mt-1 text-sm text-slate-500">
-                Opens the questionnaire runtime with preview parameters. Backend side-effect blocking is still pending.
+                Runs the published release through the same server-authoritative state machine as the patient flow.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -64,9 +75,8 @@ export function PatientFlowTestModal({
           <div className="flex gap-2">
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
-              <span className="font-semibold">Preview contract ready:</span>{" "}
-              this URL includes <code>preview=true</code>, <code>source=admin</code>, and{" "}
-              <code>disable_side_effects=true</code>. Final no-patient/no-order/no-payment enforcement must be completed in backend.
+              <span className="font-semibold">Preview is side-effect blocked:</span>{" "}
+              authenticated creation issues a <code>mode=preview</code> session that cannot bind a Patient and never calls checkout/order/payment/dispatch services.
             </div>
           </div>
         </div>
@@ -81,10 +91,11 @@ export function PatientFlowTestModal({
         </div>
 
         <div className="min-h-0 flex-1 bg-slate-100">
+          {previewError && <div className="m-6 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{previewError}</div>}
           <iframe
             key={refreshKey}
             title={`Questionnaire preview`}
-            src={previewUrl}
+            src={previewContext.type === "custom_program" && !runtimeToken ? "about:blank" : previewUrl}
             className="h-full w-full border-0 bg-white"
             sandbox="allow-forms allow-scripts allow-same-origin allow-popups"
           />

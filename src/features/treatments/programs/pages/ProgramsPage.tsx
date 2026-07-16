@@ -2,27 +2,10 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
-  Search,
-  ArrowDownAZ,
-  Clock,
-  List as ListIcon,
-  LayoutGrid,
   Users,
   History,
-  Filter,
-  Check,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/use-toast";
 import { TreatmentPageHeader } from "@/features/treatments/common/components";
 import { ProgramCard } from "@/features/treatments/programs/components/ProgramCard";
@@ -46,9 +29,8 @@ import type { PreviewContext } from "@/features/treatments/types";
 import { AssignToClientsModal } from "@/components/shared/AssignToClientsModal";
 import { programAssignmentApi } from "@/api/programAssignmentApi";
 import { useClients } from "@/hooks/useClients";
+import { ProgramsFilters, type ProgramsViewMode, type ProgramTabFilter } from "@/features/treatments/programs/components/ProgramsFilters";
 
-type ProgramsViewMode = "cards" | "list";
-type TabFilter = "all" | "intake" | "follow_up";
 
 type ApiErrorData = {
   detail?: string;
@@ -88,7 +70,7 @@ export default function ProgramsPage() {
   const [viewMode, setViewMode] = useState<ProgramsViewMode>("cards");
 
   // Tab filter (reference layout)
-  const [activeTab, setActiveTab] = useState<TabFilter>("all");
+  const [activeTab, setActiveTab] = useState<ProgramTabFilter>("all");
 
   // Filter dropdown state (reference layout)
   const [selectedStatus, setSelectedStatus] = useState<"all" | "draft" | "published">("all");
@@ -262,13 +244,6 @@ export default function ProgramsPage() {
     await updateProgramStatusMutation.mutateAsync({ programId: program.id, status });
   };
 
-  const openCreateProgram = () => {
-    setEditingProgram(null);
-    setPrefillTreatmentTypeKey(undefined);
-    setPrefillStage(undefined);
-    setIsCreateOpen(true);
-  };
-
   const handleEditProgram = (program: Program) => {
     setEditingProgram(program);
     setPrefillTreatmentTypeKey(undefined);
@@ -377,35 +352,6 @@ export default function ProgramsPage() {
     return result;
   }, [activePrograms, activeTab, searchQuery, selectedStatus, selectedTreatment, sortBy]);
 
-  // Derived filtered & sorted data for list view
-  const processedTreatments = useMemo(() => {
-    let result = [...treatmentTypes];
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (t) =>
-          t.name.toLowerCase().includes(q) ||
-          (t.description && t.description.toLowerCase().includes(q)) ||
-          t.key.toLowerCase().includes(q)
-      );
-    }
-
-    if (sortBy === "alpha") {
-      result.sort((a, b) => a.name.localeCompare(b.name));
-    } else {
-      result.sort((a, b) => {
-        const aProgs = activePrograms.filter(p => p.treatmentTypeKey === a.key);
-        const bProgs = activePrograms.filter(p => p.treatmentTypeKey === b.key);
-        const aMax = aProgs.reduce((max, p) => p.updatedAt > max ? p.updatedAt : max, "");
-        const bMax = bProgs.reduce((max, p) => p.updatedAt > max ? p.updatedAt : max, "");
-        return bMax.localeCompare(aMax);
-      });
-    }
-
-    return result;
-  }, [treatmentTypes, activePrograms, searchQuery, sortBy]);
-
   // Flat program list for the list view (search-filtered, sorted)
   const listViewPrograms = useMemo(() => {
     let result = [...activePrograms];
@@ -475,9 +421,6 @@ export default function ProgramsPage() {
     return res;
   };
 
-  const hasActiveFilters = selectedStatus !== "all" || selectedTreatment !== "all";
-  const activeFilterCount = (selectedStatus !== "all" ? 1 : 0) + (selectedTreatment !== "all" ? 1 : 0);
-
   return (
     <div className="p-6 max-w-[1600px] mx-auto min-h-screen">
       <TreatmentPageHeader
@@ -541,210 +484,21 @@ export default function ProgramsPage() {
         </div>
       </div>
 
-      {/* Tab Bar (matching reference layout) */}
-      <div className="flex bg-slate-100/70 p-1 rounded-xl self-start mb-4 border border-slate-100">
-        <button
-          onClick={() => setActiveTab("all")}
-          className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === "all"
-              ? "bg-white text-slate-900 shadow-sm"
-              : "text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          All Programs
-        </button>
-        <button
-          onClick={() => setActiveTab("intake")}
-          className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === "intake"
-              ? "bg-white text-slate-900 shadow-sm"
-              : "text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          Intake Programs
-        </button>
-        <button
-          onClick={() => setActiveTab("follow_up")}
-          className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === "follow_up"
-              ? "bg-white text-slate-900 shadow-sm"
-              : "text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          Follow-up Programs
-        </button>
-      </div>
-
-      {/* Filter Toolbar Row */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <Input
-              placeholder="Search programs..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 w-[260px] h-9 text-xs bg-white border-slate-200 rounded-lg shadow-sm"
-            />
-          </div>
-
-          <Button
-            variant="outline"
-            onClick={() => setSortBy("alpha")}
-            className={`h-9 px-3 text-xs font-semibold rounded-lg shadow-sm ${
-              sortBy === "alpha"
-                ? "bg-blue-50 text-blue-700 border-blue-200"
-                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            <ArrowDownAZ className="mr-1.5 h-4 w-4" />
-            Sort A&rarr;Z
-          </Button>
-
-          <Button
-            variant="outline"
-            onClick={() => setSortBy("recent")}
-            className={`h-9 px-3 text-xs font-semibold rounded-lg shadow-sm ${
-              sortBy === "recent"
-                ? "bg-blue-50 text-blue-600 border-blue-200"
-                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            <Clock className="mr-1.5 h-4 w-4" />
-            Recently updated
-          </Button>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Filters Dropdown (matching reference layout) */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className={`h-9 px-3 text-xs font-semibold rounded-lg shadow-sm ${
-                  hasActiveFilters
-                    ? "bg-blue-50 text-blue-700 border-blue-200"
-                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                <Filter className="mr-1.5 h-4 w-4" />
-                Filters
-                {hasActiveFilters && (
-                  <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center rounded-full bg-blue-600 text-[10px] text-white">
-                    {activeFilterCount}
-                  </Badge>
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64 p-3">
-              <div className="mb-2">
-                <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5 px-1">
-                  STATUS
-                </div>
-                <div className="space-y-0.5">
-                  {[
-                    { value: "all" as const, label: "All Statuses" },
-                    { value: "published" as const, label: "Published" },
-                    { value: "draft" as const, label: "Draft" },
-                  ].map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setSelectedStatus(opt.value)}
-                      className={`w-full text-left px-3 py-1.5 rounded-md text-xs flex items-center justify-between transition-colors ${
-                        selectedStatus === opt.value
-                          ? "bg-blue-50 text-blue-700 font-medium"
-                          : "text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      <span>{opt.label}</span>
-                      {selectedStatus === opt.value && (
-                        <Check className="h-3.5 w-3.5 text-blue-600" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="h-px bg-slate-100 my-2" />
-
-              <div>
-                <div className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5 px-1">
-                  TREATMENT TYPE
-                </div>
-                <div className="space-y-0.5 max-h-48 overflow-y-auto">
-                  <button
-                    onClick={() => setSelectedTreatment("all")}
-                    className={`w-full text-left px-3 py-1.5 rounded-md text-xs flex items-center justify-between transition-colors ${
-                      selectedTreatment === "all"
-                        ? "bg-blue-50 text-blue-700 font-medium"
-                        : "text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    <span>All Treatment Types</span>
-                    {selectedTreatment === "all" && (
-                      <Check className="h-3.5 w-3.5 text-blue-600" />
-                    )}
-                  </button>
-                  {treatmentTypes.map((tt) => (
-                    <button
-                      key={tt.key}
-                      onClick={() => setSelectedTreatment(tt.key)}
-                      className={`w-full text-left px-3 py-1.5 rounded-md text-xs flex items-center justify-between transition-colors ${
-                        selectedTreatment === tt.key
-                          ? "bg-blue-50 text-blue-700 font-medium"
-                          : "text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      <span>{tt.name}</span>
-                      {selectedTreatment === tt.key && (
-                        <Check className="h-3.5 w-3.5 text-blue-600" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {hasActiveFilters && (
-                <>
-                  <div className="h-px bg-slate-100 my-2" />
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => {
-                        setSelectedStatus("all");
-                        setSelectedTreatment("all");
-                      }}
-                      className="text-[10px] font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
-                    >
-                      Reset Filters
-                    </button>
-                  </div>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <Button
-            variant="outline"
-            onClick={() => setViewMode((mode) => (mode === "cards" ? "list" : "cards"))}
-            className="h-9 px-3 text-xs font-semibold bg-white text-slate-600 border-slate-200 hover:bg-slate-50 rounded-lg shadow-sm"
-            data-testid="programs-view-toggle"
-            aria-pressed={viewMode === "list"}
-          >
-            {viewMode === "cards" ? (
-              <>
-                <ListIcon className="mr-1.5 h-4 w-4" />
-                List view
-              </>
-            ) : (
-              <>
-                <LayoutGrid className="mr-1.5 h-4 w-4" />
-                Card view
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-
+      <ProgramsFilters
+        activeTab={activeTab}
+        searchQuery={searchQuery}
+        sortBy={sortBy}
+        selectedStatus={selectedStatus}
+        selectedTreatment={selectedTreatment}
+        treatmentTypes={treatmentTypes}
+        viewMode={viewMode}
+        onActiveTabChange={setActiveTab}
+        onSearchChange={setSearchQuery}
+        onSortChange={setSortBy}
+        onStatusChange={setSelectedStatus}
+        onTreatmentChange={setSelectedTreatment}
+        onViewModeChange={setViewMode}
+      />
       {/* Content: Card view or List view */}
       {viewMode === "list" ? (
         listViewPrograms.length === 0 ? (

@@ -35,4 +35,6 @@ export interface Program {
   maxAge?: number | null;
   minBmi?: number | null;
   maxBmi?: number | null;
+  serviceStatesAll?: boolean;
+  serviceStates?: string[];
 }

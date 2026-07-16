@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { treatmentsApi } from "@/features/treatments/api/treatmentsApi";
+import { treatmentConfigurationApi as treatmentsApi } from "@/features/treatments/api/configurationApi";
 import type {
   CommonSection,
   CommonSectionField,

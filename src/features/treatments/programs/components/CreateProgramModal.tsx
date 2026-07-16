@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { X, ChevronDown } from "lucide-react";
 import type { TreatmentType, ProgramStage, Program } from "@/features/treatments/types";
 
+const STATE_CODES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC"];
+
 interface CreateProgramModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -35,6 +37,9 @@ export function CreateProgramModal({
   const [maxAge, setMaxAge] = useState<string>("");
   const [minBmi, setMinBmi] = useState<string>("");
   const [maxBmi, setMaxBmi] = useState<string>("");
+  const [serviceStatesAll, setServiceStatesAll] = useState(true);
+  const [serviceStates, setServiceStates] = useState<string[]>([]);
+  const [stateSearch, setStateSearch] = useState("");
 
   // Determine pre-filled values
   useEffect(() => {
@@ -49,6 +54,8 @@ export function CreateProgramModal({
         setMaxAge(initialProgram.maxAge != null ? String(initialProgram.maxAge) : "");
         setMinBmi(initialProgram.minBmi != null ? String(initialProgram.minBmi) : "");
         setMaxBmi(initialProgram.maxBmi != null ? String(initialProgram.maxBmi) : "");
+        setServiceStatesAll(initialProgram.serviceStatesAll ?? true);
+        setServiceStates(initialProgram.serviceStates || []);
       } else if (prefillTreatmentTypeKey) {
         setTreatmentTypeKey(prefillTreatmentTypeKey);
         const treatment = treatmentTypes.find((t) => t.key === prefillTreatmentTypeKey);
@@ -70,6 +77,8 @@ export function CreateProgramModal({
         setMaxAge("");
         setMinBmi("");
         setMaxBmi("");
+        setServiceStatesAll(true);
+        setServiceStates([]);
       }
     }
   }, [open, prefillTreatmentTypeKey, prefillStage, treatmentTypes, initialProgram, mode]);
@@ -94,7 +103,7 @@ export function CreateProgramModal({
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !treatmentTypeKey || !slug.trim()) {
+    if (!name.trim() || !treatmentTypeKey || !slug.trim() || (!serviceStatesAll && serviceStates.length === 0)) {
       return;
     }
 
@@ -109,6 +118,8 @@ export function CreateProgramModal({
       maxAge: maxAge ? parseInt(maxAge, 10) : null,
       minBmi: minBmi ? parseFloat(minBmi) : null,
       maxBmi: maxBmi ? parseFloat(maxBmi) : null,
+      serviceStatesAll,
+      serviceStates: serviceStatesAll ? [] : serviceStates,
     });
     onOpenChange(false);
   };
@@ -210,6 +221,26 @@ export function CreateProgramModal({
             <p className="text-[10px] text-slate-400 leading-normal">
               Auto-derived from the selected treatment type. Uses IntakeVisitType when the stage is Intake and FollowupVisitType when it's Follow-up — both fields live on the Treatment Type record.
             </p>
+          </div>
+
+          {/* URL Slug */}
+          <div className="space-y-2 rounded-lg border border-slate-200 p-3">
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-800">
+              <input type="checkbox" checked={serviceStatesAll} onChange={(event) => setServiceStatesAll(event.target.checked)} />
+              Offered in all states
+            </label>
+            {!serviceStatesAll && (
+              <>
+                <Input value={stateSearch} onChange={(event) => setStateSearch(event.target.value.toUpperCase())} placeholder="Search state code" className="h-8 text-xs" />
+                <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">
+                  {STATE_CODES.filter((code) => code.includes(stateSearch)).map((code) => (
+                    <button key={code} type="button" onClick={() => setServiceStates((current) => current.includes(code) ? current.filter((item) => item !== code) : [...current, code])} className={`rounded border px-2 py-1 text-[11px] font-semibold ${serviceStates.includes(code) ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600"}`}>{code}</button>
+                  ))}
+                </div>
+                {!serviceStates.length && <p className="text-[10px] text-red-600">Select at least one state before saving or publishing.</p>}
+              </>
+            )}
+            <p className="text-[10px] text-slate-400">At checkout, Program states are intersected with the selected Product's effective service states.</p>
           </div>
 
           {/* URL Slug */}

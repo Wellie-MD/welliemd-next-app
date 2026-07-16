@@ -9,10 +9,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { VisitTypeProduct } from "@/features/treatments/libraries/data/visitTypeProducts.mock";
+import type { Product } from "@/api/products";
 
 interface VisitTypeProductsTableProps {
-  products: VisitTypeProduct[];
+  products: Product[];
   onEditProduct?: (productId: string) => void;
 }
 
@@ -40,12 +40,12 @@ export function VisitTypeProductsTable({ products, onEditProduct }: VisitTypePro
           {products.map((product) => (
             <TableRow key={product.id} className="group hover:bg-slate-50/50">
               <TableCell className="font-semibold text-slate-800">{product.name}</TableCell>
-              <TableCell className="text-slate-600">{product.dose}</TableCell>
-              <TableCell className="text-slate-600">{product.titration}</TableCell>
+              <TableCell className="text-slate-600">{product.dose_mapping_label || product.dose || "—"}</TableCell>
+              <TableCell className="text-slate-600">{product.rx_days_supply ? `${product.rx_days_supply} day supply` : "—"}</TableCell>
               <TableCell>
                 <div className="flex items-center justify-end gap-2">
-                  <StatusPill tone={product.status === "active" ? "green" : "yellow"}>
-                    {product.status === "active" ? "Active" : "Draft"}
+                  <StatusPill tone={product.is_active ? "green" : "yellow"}>
+                    {product.is_active ? "Active" : "Inactive"}
                   </StatusPill>
                   <Button
                     variant="ghost"

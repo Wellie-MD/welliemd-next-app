@@ -1,32 +1,14 @@
 import { useState, useMemo, useEffect } from "react";
-import { ArrowUpDown, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import {
   DndContext,
-  closestCenter,
   KeyboardSensor,
   PointerSensor,
   type DragEndEvent,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  arrayMove,
-} from "@dnd-kit/sortable";
+import { sortableKeyboardCoordinates, arrayMove } from "@dnd-kit/sortable";
 import type { ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
 import { createMockId } from "@/features/treatments/common/data/factories";
 import { useQueryClient } from "@tanstack/react-query";
@@ -49,8 +31,11 @@ import { SectionSelectorModal } from "@/features/treatments/programs/components/
 import { ConsentSelectorModal } from "@/features/treatments/programs/components/ConsentSelectorModal";
 import { CheckoutQuestionModal } from "@/features/treatments/programs/components/CheckoutQuestionModal";
 import { QuestionEditorDialog } from "@/features/treatments/question-editor/components/shell/QuestionEditorDialog";
-import { ProgramQuestionsListRow } from "@/features/treatments/programs/components/ProgramQuestionsListRow";
-import { AddElementDropdown } from "@/features/treatments/common/components/AddElementDropdown";
+import { QuestionListFilters } from "@/features/treatments/common/components/QuestionListFilters";
+import { QuestionListHeader } from "@/features/treatments/common/components/QuestionListHeader";
+import { QuestionListTable } from "@/features/treatments/common/components/QuestionListTable";
+import { DeleteElementDialog } from "@/features/treatments/common/components/DeleteElementDialog";
+import { countQuestionTypes, filterQuestions } from "@/features/treatments/common/utils/questionList";
 
 import { QuestionFlowBuilder } from "@/features/treatments/question-flow-builder/components/QuestionFlowBuilder";
 
@@ -223,58 +208,11 @@ export function SharedQuestionsList({
     }
   };
 
-  // Processed list for search and type filter
-  const processedQuestions = useMemo(() => {
-    let result = [...questions].sort((a, b) => a.order - b.order);
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (question) =>
-          question.text.toLowerCase().includes(q) || question.kind.toLowerCase().includes(q)
-      );
-    }
-
-    if (typeFilter !== "all") {
-      result = result.filter((q) => {
-        if (typeFilter === "single") {
-          return q.kind === "single_choice" || q.kind === "yes_no";
-        }
-        return q.kind === typeFilter;
-      });
-    }
-
-    return result;
-  }, [questions, searchQuery, typeFilter]);
-
-  // Dynamic counts for pill buttons
-  const typeCounts = useMemo(() => {
-    const counts = {
-      all: questions.length,
-      single: 0,
-      checkout: 0,
-      multiple: 0,
-      consent: 0,
-      number: 0,
-      date: 0,
-    };
-    questions.forEach((q) => {
-      if (q.kind === "single_choice" || q.kind === "yes_no") {
-        counts.single++;
-      } else if (q.kind === "multiple_choice") {
-        counts.multiple++;
-      } else if (q.kind === "checkout") {
-        counts.checkout++;
-      } else if (q.kind === "consent") {
-        counts.consent++;
-      } else if (q.kind === "number") {
-        counts.number++;
-      } else if (q.kind === "date") {
-        counts.date++;
-      }
-    });
-    return counts;
-  }, [questions]);
+  const processedQuestions = useMemo(
+    () => filterQuestions(questions, searchQuery, typeFilter),
+    [questions, searchQuery, typeFilter]
+  );
+  const typeCounts = useMemo(() => countQuestionTypes(questions), [questions]);
 
   // Editing dispatch
   const handleEditClick = (q: ProgramQuestion) => {
@@ -533,219 +471,39 @@ export function SharedQuestionsList({
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 w-full">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onBack}
-            className="h-8 w-8 text-slate-500 border-slate-200 hover:bg-slate-50 rounded-lg"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="lucide lucide-arrow-left h-4 w-4"
-            >
-              <path d="m12 19-7-7 7-7" />
-              <path d="M19 12H5" />
-            </svg>
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900 leading-tight">{headerTitle}</h1>
-            <p className="text-[13px] text-slate-500 mt-0.5">{headerSubtitle}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {headerExtraActions}
-          <Button
-            variant={isReorderActive ? "secondary" : "outline"}
-            onClick={() => setIsReorderActive(!isReorderActive)}
-            className={`h-9 px-4 text-[13px] font-semibold shadow-sm rounded-lg ${
-              isReorderActive
-                ? "bg-slate-100 text-slate-900 border-slate-300"
-                : "text-slate-600 border-slate-200 hover:bg-slate-50"
-            }`}
-          >
-            <ArrowUpDown className="h-4 w-4 mr-2 text-slate-400" />
-            {isReorderActive ? "Done Reordering" : "Reorder"}
-          </Button>
-
-          <AddElementDropdown
-            onAddQuestion={() => {
-              setActiveEditingQuestion(null);
-              setIsQuestionOpen(true);
-            }}
-            onAddAuth={() => {
-              setActiveEditingQuestion(null);
-              setIsAuthOpen(true);
-            }}
-            onAddServiceArea={handleAddServiceArea}
-            onAddSection={() => {
-              setActiveEditingQuestion(null);
-              setIsSectionOpen(true);
-            }}
-            onAddConsent={() => {
-              setActiveEditingQuestion(null);
-              setIsConsentOpen(true);
-            }}
-            onAddCheckout={() => {
-              setActiveEditingQuestion(null);
-              setIsCheckoutOpen(true);
-            }}
-          />
-        </div>
-      </header>
+      <QuestionListHeader
+        title={headerTitle}
+        subtitle={headerSubtitle}
+        extraActions={headerExtraActions}
+        reorderActive={isReorderActive}
+        onBack={onBack}
+        onToggleReorder={() => setIsReorderActive((active) => !active)}
+        onAddQuestion={() => { setActiveEditingQuestion(null); setIsQuestionOpen(true); }}
+        onAddAuth={() => { setActiveEditingQuestion(null); setIsAuthOpen(true); }}
+        onAddServiceArea={handleAddServiceArea}
+        onAddSection={() => { setActiveEditingQuestion(null); setIsSectionOpen(true); }}
+        onAddConsent={() => { setActiveEditingQuestion(null); setIsConsentOpen(true); }}
+        onAddCheckout={() => { setActiveEditingQuestion(null); setIsCheckoutOpen(true); }}
+      />
 
       <main className="flex-1 p-6 w-full">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-          {/* Filters Bar */}
-          <div className="p-4 border-b border-slate-200 flex flex-wrap items-center gap-4 justify-between bg-white">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mr-2">
-                TYPE
-              </span>
+          <QuestionListFilters
+            counts={typeCounts}
+            selectedType={typeFilter}
+            searchQuery={searchQuery}
+            onSelectType={setTypeFilter}
+            onSearchChange={setSearchQuery}
+          />
 
-              <button
-                onClick={() => setTypeFilter("all")}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all shadow-sm ${
-                  typeFilter === "all"
-                    ? "bg-slate-900 text-white"
-                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                All {typeCounts.all}
-              </button>
-
-              <button
-                onClick={() => setTypeFilter("single")}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all shadow-sm ${
-                  typeFilter === "single"
-                    ? "bg-slate-900 text-white"
-                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                single {typeCounts.single}
-              </button>
-
-              <button
-                onClick={() => setTypeFilter("checkout")}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all shadow-sm ${
-                  typeFilter === "checkout"
-                    ? "bg-slate-900 text-white"
-                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                Checkout {typeCounts.checkout}
-              </button>
-
-              <button
-                onClick={() => setTypeFilter("multiple_choice")}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all shadow-sm ${
-                  typeFilter === "multiple_choice"
-                    ? "bg-slate-900 text-white"
-                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                multiple {typeCounts.multiple}
-              </button>
-
-              <button
-                onClick={() => setTypeFilter("consent")}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all shadow-sm ${
-                  typeFilter === "consent"
-                    ? "bg-slate-900 text-white"
-                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                consent {typeCounts.consent}
-              </button>
-
-              <button
-                onClick={() => setTypeFilter("number")}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all shadow-sm ${
-                  typeFilter === "number"
-                    ? "bg-slate-900 text-white"
-                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                number {typeCounts.number}
-              </button>
-
-              <button
-                onClick={() => setTypeFilter("date")}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all shadow-sm ${
-                  typeFilter === "date"
-                    ? "bg-slate-900 text-white"
-                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                date {typeCounts.date}
-              </button>
-
-              <button className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all bg-white text-slate-400 border border-dashed border-slate-250 hover:bg-slate-50/50">
-                + 23 more types
-              </button>
-            </div>
-
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <Input
-                placeholder="Search questions, answers, or mapped field"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 w-[320px] h-9 text-[13px] bg-white border-slate-200 rounded-lg shadow-sm"
-              />
-            </div>
-          </div>
-
-          {/* Table Header */}
-          <div className="grid grid-cols-[80px_1fr_120px_160px_100px] gap-6 px-6 py-3 bg-slate-50 border-b border-slate-200 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-            <div>{isReorderActive ? "DRAG / #" : "#"}</div>
-            <div>QUESTION OR ELEMENT</div>
-            <div>REQUIRED</div>
-            <div>TYPE</div>
-            <div className="text-right">ACTIONS</div>
-          </div>
-
-          {/* Table Body (DndContext enabled if isReorderActive) */}
-          <DndContext
+          <QuestionListTable
+            questions={processedQuestions}
+            reorderActive={isReorderActive}
             sensors={sensors}
-            collisionDetection={closestCenter}
             onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={processedQuestions.map((q) => q.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="divide-y divide-slate-100 min-h-[160px] bg-white">
-                {processedQuestions.length === 0 ? (
-                  <div className="p-12 text-center text-[13px] text-slate-400 italic">
-                    No questions match your criteria.
-                  </div>
-                ) : (
-                  processedQuestions.map((q, index) => (
-                    <ProgramQuestionsListRow
-                      key={q.id}
-                      question={q}
-                      index={index}
-                      isReorderActive={isReorderActive}
-                      onEdit={handleEditClick}
-                      onDelete={handleDeleteClick}
-                    />
-                  ))
-                )}
-              </div>
-            </SortableContext>
-          </DndContext>
+            onEdit={handleEditClick}
+            onDelete={handleDeleteClick}
+          />
         </div>
       </main>
 
@@ -834,30 +592,7 @@ export function SharedQuestionsList({
         }}
       />
 
-      {/* Delete Confirmation AlertDialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent className="bg-white border border-slate-200 rounded-2xl shadow-xl p-6">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base font-bold text-slate-900">
-              Are you absolutely sure?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-slate-500 mt-2">
-              This action cannot be undone. This element will be permanently removed.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="mt-4 flex gap-2 justify-end">
-            <AlertDialogCancel className="h-8 text-xs font-semibold border-slate-200">
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="h-8 text-xs font-bold bg-red-600 hover:bg-red-700 text-white"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteElementDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen} onConfirm={confirmDelete} />
     </div>
   );
 }

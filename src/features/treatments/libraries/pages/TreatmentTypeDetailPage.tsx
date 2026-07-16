@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,10 +7,12 @@ import { StatusPill } from "@/features/treatments/common/components";
 import {
   useConsents,
   usePrograms,
+  useSections,
   useTreatmentTypes,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
-import { getVisitTypeProducts } from "@/features/treatments/libraries/data/visitTypeProducts.mock";
+import { productApi } from "@/api/products";
 import { TreatmentTypeModal } from "@/features/treatments/libraries/treatment-types/components/TreatmentTypeModal";
+import { TreatmentTypeProductDialog } from "@/features/treatments/libraries/treatment-types/components/TreatmentTypeProductDialog";
 import { VisitTypeProductsTable } from "@/features/treatments/libraries/treatment-types/components/VisitTypeProductsTable";
 
 const LIBRARY_LINKS = {
@@ -25,25 +28,33 @@ export default function TreatmentTypeDetailPage() {
   const { data: treatmentTypes = [] } = useTreatmentTypes();
   const { data: programs = [] } = usePrograms();
   const { data: consents = [] } = useConsents();
+  const { data: sections = [] } = useSections();
+  const treatmentType = treatmentTypes.find((item) => item.key === treatmentTypeKey) ?? treatmentTypes[0];
+  const { data: allProducts = [], isLoading: productsLoading, isError: productsError, refetch: refetchProducts } = useQuery({
+    queryKey: ["products", "treatment-type", treatmentType?.id],
+    queryFn: () => productApi.listProducts({ treatment_type: treatmentType?.id, page_size: 250 }),
+    enabled: Boolean(treatmentType?.id),
+  });
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-
-  const treatmentType = treatmentTypes.find((item) => item.key === treatmentTypeKey) ?? treatmentTypes[0];
+  const [isProductDialogOpen, setIsProductDialogOpen] = useState(false);
 
   const intakeVisitType = treatmentType?.intakeVisitType ?? "";
   const followupVisitType = treatmentType?.followupVisitType;
 
-  const { intakeProgram, followupProgram, products, scopedConsents } = useMemo(() => {
+  const { intakeProgram, followupProgram, products, scopedSections, scopedConsents } = useMemo(() => {
     const own = programs.filter((program) => program.treatmentTypeKey === treatmentType?.key);
+    const scopeKeys = new Set([treatmentType?.key, intakeVisitType].filter(Boolean));
     return {
       intakeProgram: own.find((program) => program.stage === "intake"),
       followupProgram: own.find((program) => program.stage === "follow_up"),
-      products: getVisitTypeProducts(intakeVisitType),
+      products: allProducts.filter((product) => product.treatment_type_key === treatmentType?.key),
+      scopedSections: sections.filter((section) => section.scope === "treatment" && section.visitTypeKeys.some((key) => scopeKeys.has(key))),
       scopedConsents: consents.filter(
-        (consent) => consent.scope === "treatment" && consent.visitTypeKeys.includes(intakeVisitType)
+        (consent) => consent.scope === "treatment" && consent.visitTypeKeys.some((key) => scopeKeys.has(key))
       ),
     };
-  }, [programs, consents, treatmentType?.key, intakeVisitType]);
+  }, [programs, sections, consents, allProducts, treatmentType?.key, intakeVisitType]);
 
   const eligibilityModuleCount = (intakeProgram ? 1 : 0) + (followupProgram ? 1 : 0);
 
@@ -89,7 +100,7 @@ export default function TreatmentTypeDetailPage() {
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard label="Eligibility modules" value={eligibilityModuleCount} />
         <StatCard label="Products" value={products.length} />
-        <StatCard label="Scoped sections" value={0} />
+        <StatCard label="Scoped sections" value={scopedSections.length} />
         <StatCard label="Scoped consents" value={scopedConsents.length} />
       </div>
 
@@ -147,13 +158,13 @@ export default function TreatmentTypeDetailPage() {
         title="Products"
         subtitle="Medications and offerings prescribed within this visit type. Routing config decides which product a patient gets matched to based on their answers."
         action={
-          <Button size="sm" className="bg-[#2563eb] text-white hover:bg-blue-700" onClick={() => navigate(LIBRARY_LINKS.products)} data-testid="visit-type-add-product">
+          <Button size="sm" className="bg-[#2563eb] text-white hover:bg-blue-700" onClick={() => setIsProductDialogOpen(true)} data-testid="visit-type-add-product">
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             Add product
           </Button>
         }
       >
-        <VisitTypeProductsTable products={products} onEditProduct={() => navigate(LIBRARY_LINKS.products)} />
+        {productsLoading ? <p className="text-sm text-slate-500">Loading products…</p> : productsError ? <div className="space-y-2"><p className="text-sm text-red-600">Products could not be loaded.</p><Button size="sm" variant="outline" onClick={() => refetchProducts()}>Retry</Button></div> : <VisitTypeProductsTable products={products} onEditProduct={() => setIsProductDialogOpen(true)} />}
       </Section>
 
       {/* Scoped sections */}
@@ -162,9 +173,7 @@ export default function TreatmentTypeDetailPage() {
         subtitle="Sections that only appear during this visit type's flow (in addition to any universal sections)."
         action={<LibraryLink to={LIBRARY_LINKS.sections}>View in Sections library</LibraryLink>}
       >
-        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/60 px-4 py-10 text-center text-sm text-slate-400">
-          No sections scoped to this visit type. Sections appear here when their visit type matches.
-        </div>
+        {scopedSections.length === 0 ? <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/60 px-4 py-10 text-center text-sm text-slate-400">No sections scoped to this visit type.</div> : <div className="space-y-2">{scopedSections.map((section) => <div key={section.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3"><span className="text-sm font-medium text-slate-700">{section.name}</span><span className="text-xs text-slate-500">{section.fieldCount} fields</span></div>)}</div>}
       </Section>
 
       {/* Scoped consents */}
@@ -190,6 +199,13 @@ export default function TreatmentTypeDetailPage() {
       </Section>
 
       <TreatmentTypeModal open={isEditModalOpen} onOpenChange={setIsEditModalOpen} treatmentTypeKey={treatmentType.key} />
+      <TreatmentTypeProductDialog
+        open={isProductDialogOpen}
+        onOpenChange={setIsProductDialogOpen}
+        treatmentTypeId={treatmentType.id}
+        treatmentTypeName={treatmentType.name}
+        onSaved={refetchProducts}
+      />
     </div>
   );
 }

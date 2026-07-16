@@ -68,6 +68,9 @@ export interface Product {
   rx_days_supply?: number;
   lifefile_product_id?: string;
   treatment: string;
+  treatment_type_id?: string | null;
+  treatment_type_key?: string | null;
+  treatment_type_name?: string | null;
   rx_or_otc?: "rx" | "otc";
   followup_days_after?: number;
   requires_video_visit?: boolean;
@@ -118,6 +121,7 @@ export interface CreateProductPayload {
   purchase_type: "one_time" | "subscription";
   base_price: string | number;
   treatment: string;
+  treatment_type_id: string;
   rx_or_otc: "rx" | "otc";
   service_states?: string[];
   [key: string]: any;
