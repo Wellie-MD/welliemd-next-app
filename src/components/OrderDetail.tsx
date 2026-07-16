@@ -65,6 +65,10 @@ function getProductIconBg(productName: string): string {
 // ---------- Status badge mapping (full kinmeds3 set) ----------
 const STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {
   created: { label: 'Order Created', badgeClass: 'km-badge km-badge-gray' },
+  payment_pending: { label: 'Payment Pending', badgeClass: 'km-badge km-badge-amber' },
+  payment_authorized: { label: 'Payment Authorized', badgeClass: 'km-badge km-badge-blue' },
+  payment_captured: { label: 'Payment Captured', badgeClass: 'km-badge km-badge-blue' },
+  payment_failed: { label: 'Payment Failed', badgeClass: 'km-badge km-badge-red' },
   processing: { label: 'Processing', badgeClass: 'km-badge km-badge-gray' },
   visit_pending: { label: 'Visit Pending', badgeClass: 'km-badge km-badge-amber' },
   visit_scheduled: { label: 'Visit Scheduled', badgeClass: 'km-badge km-badge-blue' },
@@ -83,7 +87,12 @@ const STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {
   out_for_delivery: { label: 'Out for Delivery', badgeClass: 'km-badge km-badge-amber' },
   delivered: { label: 'Delivered', badgeClass: 'km-badge km-badge-green' },
   delivery_failed: { label: 'Delivery Failed', badgeClass: 'km-badge km-badge-red' },
+  partial: { label: 'Partially Complete', badgeClass: 'km-badge km-badge-amber' },
+  completed: { label: 'Completed', badgeClass: 'km-badge km-badge-green' },
+  failed: { label: 'Order Failed', badgeClass: 'km-badge km-badge-red' },
+  declined: { label: 'Declined', badgeClass: 'km-badge km-badge-red' },
   canceled: { label: 'Cancelled', badgeClass: 'km-badge km-badge-red' },
+  cancelled: { label: 'Cancelled', badgeClass: 'km-badge km-badge-red' },
   refunded: { label: 'Refunded', badgeClass: 'km-badge km-badge-purple' },
 };
 
@@ -108,6 +117,10 @@ function buildTimeline(order: PatientOrder): TimelineStep[] {
   const statusMap: Record<string, string> = {
     created: 'Order Created',
     processing: 'Order Created',
+    payment_pending: 'Payment Pending',
+    payment_authorized: 'Payment Authorized',
+    payment_captured: 'Payment Captured',
+    payment_failed: 'Payment Failed',
     visit_pending: 'Visit Pending',
     visit_scheduled: 'Visit Scheduled',
     visit_rescheduled: 'Visit Rescheduled',
@@ -121,7 +134,16 @@ function buildTimeline(order: PatientOrder): TimelineStep[] {
     billing_pending: 'Prescribed',
     rx_sent: 'Prescribed',
     shipped: 'Shipped',
+    in_transit: 'In Transit',
+    out_for_delivery: 'Out for Delivery',
+    delivered: 'Delivered',
+    delivery_failed: 'Delivery Failed',
+    partial: 'Partially Complete',
+    completed: 'Completed',
+    failed: 'Order Failed',
+    declined: 'Declined',
     canceled: 'Cancelled',
+    cancelled: 'Cancelled',
     refunded: 'Refunded',
   };
 
@@ -131,6 +153,22 @@ function buildTimeline(order: PatientOrder): TimelineStep[] {
     'Order Created': [
       { type: 'done', label: 'Order placed', sub: ordered },
       { type: 'pending', label: 'Payment pending', sub: 'No charge until prescription is issued' },
+    ],
+    'Payment Pending': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'pending', label: 'Payment pending', sub: 'Payment has not been completed' },
+    ],
+    'Payment Authorized': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' },
+    ],
+    'Payment Captured': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'money', label: 'Payment captured', sub: `${amount} charged to card on file` },
+    ],
+    'Payment Failed': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'bad', label: 'Payment failed', sub: 'No successful payment was recorded' },
     ],
     'Visit Pending': [
       { type: 'done', label: 'Order placed', sub: ordered },
@@ -171,6 +209,45 @@ function buildTimeline(order: PatientOrder): TimelineStep[] {
       { type: 'money', label: 'Payment captured', sub: `${amount} charged to card on file` },
       { type: 'done', label: 'Rx sent to pharmacy', sub: 'Prescription received by pharmacy' },
       { type: 'done', label: 'Shipped', sub: 'Order dispatched to pharmacy' },
+    ],
+    'In Transit': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'done', label: 'Prescribed', sub: 'Prescription issued' },
+      { type: 'done', label: 'Shipped', sub: 'Order dispatched to pharmacy' },
+      { type: 'pending', label: 'In transit', sub: 'Package is on its way' },
+    ],
+    'Out for Delivery': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'done', label: 'Prescribed', sub: 'Prescription issued' },
+      { type: 'done', label: 'Shipped', sub: 'Order dispatched to pharmacy' },
+      { type: 'warn', label: 'Out for delivery', sub: 'Package is scheduled for delivery' },
+    ],
+    'Delivered': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'done', label: 'Prescribed', sub: 'Prescription issued' },
+      { type: 'done', label: 'Shipped', sub: 'Order dispatched to pharmacy' },
+      { type: 'done', label: 'Delivered', sub: 'Package was delivered' },
+    ],
+    'Delivery Failed': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'done', label: 'Shipped', sub: 'Order dispatched to pharmacy' },
+      { type: 'bad', label: 'Delivery failed', sub: 'Please contact support for help' },
+    ],
+    'Partially Complete': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'warn', label: 'Treatment update', sub: 'Some treatment products are still pending' },
+    ],
+    'Completed': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'done', label: 'Treatment completed', sub: 'Your order is complete' },
+    ],
+    'Order Failed': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'bad', label: 'Order failed', sub: 'This order could not be completed' },
+    ],
+    'Declined': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'bad', label: 'Treatment declined', sub: 'Your provider did not approve this treatment' },
     ],
     'Referred': [
       { type: 'done', label: 'Order placed', sub: ordered },

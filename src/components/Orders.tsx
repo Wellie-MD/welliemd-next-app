@@ -109,7 +109,7 @@ function OrderListItem({ order, onClick }: { order: PatientOrder; onClick: () =>
         </div>
       )}
 
-      {order.status === 'shipped' && order.tracking_number && (
+      {['shipped', 'in_transit', 'out_for_delivery', 'delivered'].includes(order.status) && order.tracking_number && (
         <div style={{ padding: '0 14px 14px' }}>
           <div className="km-vbox km-vbox-amber" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Truck size={14} style={{ color: 'var(--km-am)', flexShrink: 0 }} />
