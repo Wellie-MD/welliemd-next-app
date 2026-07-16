@@ -9,6 +9,7 @@ interface ConnectedStateProps {
   onDisconnect: (provider: string) => void;
   onReconnect: (provider: string) => void;
   onConnectAnother: () => void;
+  onRefreshStatus?: () => void;
 }
 
 const CARD: React.CSSProperties = {
@@ -25,6 +26,7 @@ export default function ConnectedState({
   onDisconnect,
   onReconnect,
   onConnectAnother,
+  onRefreshStatus,
 }: ConnectedStateProps) {
 
   return (
@@ -40,6 +42,7 @@ export default function ConnectedState({
         };
         const logoUrl = 'logoUrl' in p ? p.logoUrl : undefined;
         const broken = c.status === 'error';
+        const pending = c.status === 'pending';
 
         return (
           <div key={c.provider} style={CARD}>
@@ -57,8 +60,8 @@ export default function ConnectedState({
                 size={36}
                 radius={10}
                 fontSize={18}
-                background={broken ? 'var(--km-amp)' : 'var(--km-s2)'}
-                border={`1px solid ${broken ? 'var(--km-am)' : 'var(--km-b)'}`}
+                background={broken ? 'var(--km-amp)' : pending ? 'var(--km-acp)' : 'var(--km-s2)'}
+                border={`1px solid ${broken ? 'var(--km-am)' : pending ? 'var(--km-ac)' : 'var(--km-b)'}`}
               />
 
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -76,6 +79,19 @@ export default function ConnectedState({
                       }}
                     >
                       Needs attention
+                    </span>
+                  ) : pending ? (
+                    <span
+                      style={{
+                        fontSize: 10,
+                        padding: '2px 8px',
+                        borderRadius: 20,
+                        background: 'var(--km-acp)',
+                        color: 'var(--km-ac)',
+                        fontWeight: 700,
+                      }}
+                    >
+                      Connecting…
                     </span>
                   ) : (
                     <span
@@ -95,12 +111,14 @@ export default function ConnectedState({
                 <div
                   style={{
                     fontSize: 11.5,
-                    color: broken ? 'var(--km-am)' : 'var(--km-tm)',
+                    color: broken ? 'var(--km-am)' : pending ? 'var(--km-ac)' : 'var(--km-tm)',
                     marginTop: 1,
                   }}
                 >
                   {broken
                     ? reconnectReason(c.errorType)
+                    : pending
+                    ? 'Waiting to confirm the connection — this can take a few seconds.'
                     : `${p.gives} · last synced ${c.lastSync || 'recently'}`}
                 </div>
               </div>
@@ -136,6 +154,39 @@ export default function ConnectedState({
                     onClick={() => onDisconnect(c.provider)}
                   >
                     Remove
+                  </button>
+                </div>
+              ) : pending ? (
+                <div style={{ display: 'flex', gap: 7, flexShrink: 0 }}>
+                  <button
+                    style={{
+                      fontSize: 12,
+                      padding: '7px 14px',
+                      background: 'transparent',
+                      color: 'var(--km-ac)',
+                      border: '1px solid var(--km-ac)',
+                      borderRadius: 10,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => onRefreshStatus?.()}
+                  >
+                    Check status
+                  </button>
+                  <button
+                    style={{
+                      fontSize: 12,
+                      padding: '7px 14px',
+                      background: 'transparent',
+                      color: 'var(--km-t)',
+                      border: '1px solid var(--km-b)',
+                      borderRadius: 10,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => onDisconnect(c.provider)}
+                  >
+                    Cancel
                   </button>
                 </div>
               ) : (
