@@ -929,6 +929,12 @@ export default function SmtpDomainSettings() {
                 value={emailStats?.failed ?? 0}
                 colorClass="bg-purple-500/20 dark:bg-purple-900/30"
               />
+              <StatCard
+                title="Skipped / Other"
+                value={emailStats?.other ?? 0}
+                subtext={`${emailStats?.skipped ?? 0} skipped`}
+                colorClass="bg-slate-500/20 dark:bg-slate-900/30"
+              />
               <div className="rounded-lg p-4">
                 <p className="text-xs text-muted-foreground mb-1">Success Rate</p>
                 <p className="text-2xl font-bold">{formatPercent(emailStats?.success_rate)}</p>

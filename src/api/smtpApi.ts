@@ -27,6 +27,8 @@ export interface MailgunDomainStats {
   total_emails: number;
   sent_successfully: number;
   failed: number;
+  skipped: number;
+  other: number;
   opened: number;
   clicked: number;
   success_rate: number;
