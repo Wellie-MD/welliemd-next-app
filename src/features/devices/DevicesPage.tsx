@@ -112,16 +112,16 @@ export default function DevicesPage() {
   const fetchConnectionsList = useCallback(async () => {
     setLoading(true);
     try {
-      const [conns, vitalsHistory, goalResponse] = await Promise.all([
+      const [conns, vitalsHistory, goalResponse, data] = await Promise.all([
         getConnections(),
         getVitalsHistory(),
         getHealthGoal(),
+        getDeviceData(),
       ]);
       const formatted = conns.map((c) => formatConnection(c));
       setConnections(formatted);
       const isConnected = formatted.length > 0;
 
-      const data = await getDeviceData();
       if (data) {
         setDeviceMetrics(prev => ({
           ...prev,
