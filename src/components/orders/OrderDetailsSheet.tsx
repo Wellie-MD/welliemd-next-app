@@ -66,38 +66,62 @@ interface OrderDetailsSheetProps {
 const statusColors: Record<string, string> = {
   created: "bg-gray-100 text-gray-800",
   processing: "bg-blue-100 text-blue-800",
+  payment_authorized: "bg-blue-100 text-blue-800",
+  payment_captured: "bg-blue-100 text-blue-800",
   visit_failed: "bg-red-100 text-red-800",
   payment_pending: "bg-amber-100 text-amber-800",
+  payment_failed: "bg-red-100 text-red-800",
   visit_pending: "bg-yellow-100 text-yellow-800",
   consult_scheduled: "bg-sky-100 text-sky-800",
   consult_rescheduled: "bg-indigo-100 text-indigo-800",
   consult_canceled: "bg-red-100 text-red-800",
   no_show: "bg-rose-100 text-rose-800",
   referred: "bg-purple-100 text-purple-800",
+  declined: "bg-red-100 text-red-800",
+  partial: "bg-amber-100 text-amber-800",
   prescribed: "bg-green-100 text-green-800",
   billing_pending: "bg-orange-100 text-orange-800",
   rx_sent: "bg-indigo-100 text-indigo-800",
   shipped: "bg-emerald-100 text-emerald-800",
+  in_transit: "bg-blue-100 text-blue-800",
+  out_for_delivery: "bg-amber-100 text-amber-800",
+  delivered: "bg-green-100 text-green-800",
+  delivery_failed: "bg-red-100 text-red-800",
+  completed: "bg-green-100 text-green-800",
+  refunded: "bg-purple-100 text-purple-800",
   canceled: "bg-red-100 text-red-800",
+  cancelled: "bg-red-100 text-red-800",
 }
 
 // Status labels
 const statusLabels: Record<string, string> = {
   created: "Created",
   processing: "Processing",
+  payment_authorized: "Payment Authorized",
+  payment_captured: "Payment Captured",
   visit_failed: "Visit Failed",
   payment_pending: "Payment Pending",
+  payment_failed: "Payment Failed",
   visit_pending: "Visit Pending",
   consult_scheduled: "Consult Scheduled",
   consult_rescheduled: "Consult Rescheduled",
   consult_canceled: "Consult Canceled",
   no_show: "No Show",
   referred: "Referred",
+  declined: "Declined",
+  partial: "Partially Complete",
   prescribed: "Prescribed",
   billing_pending: "Billing Pending",
   rx_sent: "Rx Sent",
   shipped: "Shipped",
+  in_transit: "In Transit",
+  out_for_delivery: "Out for Delivery",
+  delivered: "Delivered",
+  delivery_failed: "Delivery Failed",
+  completed: "Completed",
+  refunded: "Refunded",
   canceled: "Canceled",
+  cancelled: "Cancelled",
 }
 
 function AnswerSnapshot({ label, values }: { label: string; values?: Record<string, unknown> | null }) {
@@ -172,9 +196,9 @@ export function OrderDetailsSheet({
   const isPhase2Order = Boolean(order?.treatment_case_summary || order?.combined_submission_summary?.id)
   const phase2Total = Number.parseFloat(
     String(
-      order?.combined_submission_summary?.checkout_total?.grand_total ||
-      order?.combined_payment_summary?.authorized_amount ||
       order?.combined_payment_summary?.allocation?.allocated_amount ||
+      order?.treatment_case_summary?.treatment_total ||
+      order?.amount ||
       "0"
     )
   )
