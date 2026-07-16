@@ -132,6 +132,8 @@ export interface TreatmentCaseSummary {
   treatment_type_id?: string
   treatment_type_key?: string | null
   beluga_dispatch_status?: string | null
+  beluga_dispatch_reason?: string | null
+  beluga_dispatch_attempt_count?: number | null
   program_id?: string | null
   release_id?: string | null
   release_version?: number | null
@@ -183,6 +185,8 @@ export interface CombinedSubmissionSummary {
     treatment_type_key?: string | null
     status?: string
     beluga_dispatch_status?: string | null
+    beluga_dispatch_reason?: string | null
+    beluga_dispatch_attempt_count?: number | null
     treatment_total?: string
     payment_allocation?: {
       id: string
@@ -303,6 +307,8 @@ export interface Order {
   } | null
   combined_submission_summary?: CombinedSubmissionSummary | null
   beluga_dispatch_status?: string | null
+  beluga_dispatch_reason?: string | null
+  beluga_dispatch_attempt_count?: number | null
 }
 
 export interface PaginatedOrdersResponse {

@@ -460,6 +460,9 @@ export function OrderDetailsSheet({
                   <div className="rounded-lg border bg-muted/30 p-3 space-y-2 text-xs">
                     <div className="flex justify-between gap-3"><span className="text-muted-foreground">Treatment</span><span className="font-semibold">{order.treatment_case_summary.treatment_type_key || "—"}</span></div>
                     <div className="flex justify-between gap-3"><span className="text-muted-foreground">Beluga review</span><span className="font-semibold">{order.treatment_case_summary.beluga_dispatch_status || order.beluga_dispatch_status || "pending"}</span></div>
+                    {order.treatment_case_summary.beluga_dispatch_reason && (
+                      <div className="rounded-md border bg-background/60 p-2 text-xs"><span className="font-semibold">Beluga dispatch detail:</span> {order.treatment_case_summary.beluga_dispatch_reason}</div>
+                    )}
                     <div className="flex justify-between gap-3"><span className="text-muted-foreground">Reimbursement total</span><span className="font-semibold">${order.treatment_case_summary.reimbursement_total || "0.00"}</span></div>
                     <AnswerSnapshot label="Common answers" values={order.treatment_case_summary.common_answers} />
                     <AnswerSnapshot label="Treatment-scoped answers" values={order.treatment_case_summary.scoped_answers} />
@@ -478,7 +481,7 @@ export function OrderDetailsSheet({
                     {order.combined_submission_summary.orders.map((sibling) => (
                       <div key={sibling.treatment_case_id} className="flex justify-between gap-3">
                         <span>{sibling.treatment_type_key || "Treatment"}</span>
-                        <span>{sibling.payment_allocation?.status || sibling.status || "pending"} · ${sibling.payment_allocation?.allocated_amount || sibling.treatment_total || "0.00"} · Beluga {sibling.beluga_dispatch_status || "pending"}</span>
+                        <span>{sibling.payment_allocation?.status || sibling.status || "pending"} · ${sibling.payment_allocation?.allocated_amount || sibling.treatment_total || "0.00"} · Beluga {sibling.beluga_dispatch_status || "pending"}{sibling.beluga_dispatch_attempt_count ? ` · ${sibling.beluga_dispatch_attempt_count} attempt${sibling.beluga_dispatch_attempt_count === 1 ? "" : "s"}` : ""}</span>
                       </div>
                     ))}
                   </div>
