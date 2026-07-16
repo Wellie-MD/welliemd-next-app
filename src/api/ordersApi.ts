@@ -78,6 +78,7 @@ export interface OrderPricing {
   shipping_total?: string
   subtotal_before_discount?: string
   discount_total?: string
+  discount_amount?: string
   gross_total?: string
   grand_total?: string
   payable_amount?: string
@@ -232,6 +233,7 @@ export interface Order {
   supplemental_delta_amount?: string | null
   base_captured_amount?: string | null
   supplemental_captured_amount?: string | null
+  base_authorization_amount?: string | null
   payment_settlement_transactions?: OrderSettlementTransaction[]
   totalRefunded?: string | null
   netCollected?: string | null
@@ -242,6 +244,7 @@ export interface Order {
   rx_revision_refund_required_amount?: string | null
   created_at?: string
   updated_at?: string
+  updatedAt?: string
   name?: string
   email?: string
   phone?: string
@@ -492,13 +495,16 @@ export const changeProduct = async (
   newProductId: number | string,
   quantity?: number | string,
   dryRun?: boolean
-): Promise<any> => {
-  const { data } = await api.post(`/orders/${orderId}/change-product/`, {
+): Promise<Record<string, unknown>> => {
+  const { data } = await api.post<Record<string, unknown>>(`/orders/${orderId}/change-product/`, {
     new_product_id: newProductId,
     ...(quantity !== undefined ? { quantity } : {}),
     ...(dryRun ? { dry_run: true } : {}),
   })
-  return (data?.data || data)
+  const nested = data.data
+  return nested && typeof nested === 'object' && !Array.isArray(nested)
+    ? nested as Record<string, unknown>
+    : data
 }
 
 export const updateOrderQuestionnaireImages = async (
@@ -524,7 +530,10 @@ export interface FilterOption {
 
 const extractResults = (data: unknown): FilterOption[] => {
   if (Array.isArray(data)) return data
-  if (data && typeof data === 'object' && 'results' in data && Array.isArray((data as any).results)) return (data as any).results
+  if (data && typeof data === 'object' && 'results' in data) {
+    const results = (data as { results?: unknown }).results
+    if (Array.isArray(results)) return results as FilterOption[]
+  }
   return []
 }
 

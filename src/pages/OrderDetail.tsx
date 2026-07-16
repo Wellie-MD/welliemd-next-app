@@ -538,7 +538,7 @@ function OrderDetailInner() {
   const canChangeProduct = isAllowedStatus && !isLocked
   const canRefundOrVoid = isAuthorized || isRefundable
 
-  const parseAmt = (val: any) => val != null && val !== "" && Number.isFinite(parseFloat(String(val))) ? parseFloat(String(val)) : null;
+  const parseAmt = (val: unknown) => val != null && val !== "" && Number.isFinite(parseFloat(String(val))) ? parseFloat(String(val)) : null;
   const combinedAuthorizedAmount = parseAmt(order.combined_payment_summary?.authorized_amount)
   const combinedAllocatedAmount = parseAmt(order.combined_payment_summary?.allocation?.allocated_amount)
   const combinedCheckoutTotal = parseAmt(order.combined_submission_summary?.checkout_total?.grand_total)
@@ -551,12 +551,12 @@ function OrderDetailInner() {
     ? (phase2OrderAmount ?? 0)
     : parseAmt(order?.requested_medicines?.[0]?.price) ?? parseAmt(order?.pricing?.subtotal_before_discount ?? order?.original_price) ?? 0;
   const initialReqShipping = isPhase2Order ? 0 : parseAmt(order?.requested_medicines?.[0]?.shipping_fee) ?? 0;
-  const initialReqDiscount = parseAmt(order?.pricing?.discount_total ?? (order?.pricing as any)?.discount_amount ?? order?.discount_amount) ?? 0;
-  let trueAuthAmount = parseAmt((order as any)?.base_authorization_amount);
+  const initialReqDiscount = parseAmt(order?.pricing?.discount_total ?? order?.pricing?.discount_amount ?? order?.discount_amount) ?? 0;
+  let trueAuthAmount = parseAmt(order.base_authorization_amount);
   if (trueAuthAmount == null) {
     trueAuthAmount = Math.max(0, initialReqPrice - initialReqDiscount) + initialReqShipping;
   }
-  const trueCapAmount = parseAmt((order as any)?.base_captured_amount) ?? parseAmt(order?.pricing?.grand_total) ?? 0;
+  const trueCapAmount = parseAmt(order.base_captured_amount) ?? parseAmt(order?.pricing?.grand_total) ?? 0;
   const trueHoldReleasedAmt = Math.max(0, trueAuthAmount - trueCapAmount);
   const timelineCapturedStatuses = new Set(["captured", "approved", "succeeded"])
   const timelineSettlementTransactions = Array.isArray(order.payment_settlement_transactions)
@@ -568,8 +568,8 @@ function OrderDetailInner() {
     return total + (parseAmt(tx.amount) ?? 0)
   }, 0)
   const timelineCapturedFromFields =
-    (parseAmt((order as any)?.base_captured_amount) ?? 0) +
-    (parseAmt((order as any)?.supplemental_captured_amount) ?? 0)
+    (parseAmt(order.base_captured_amount) ?? 0) +
+    (parseAmt(order.supplemental_captured_amount) ?? 0)
   const timelineCapturedAmount = Math.max(timelineCapturedFromTransactions, timelineCapturedFromFields)
   const hasActualCapturedTimelineAmount = timelineCapturedAmount > 0
   const changeProductTooltip =
@@ -888,10 +888,10 @@ function OrderDetailInner() {
   if (order.status === "shipped" || order.tracking_number || (isPhase2Order && phase2TrackingSummary)) {
     timelineItems.push({
       title: "Shipped",
-      date: formatDateTime(order.updated_at || (order as any).updatedAt || order.orderDate),
+      date: formatDateTime(order.updated_at || order.updatedAt || order.orderDate),
       description: isPhase2Order
         ? (phase2TrackingSummary || "Treatment shipment marked shipped.")
-        : order.tracking_number ? `Tracking ${order.tracking_number} - ${(order as any).pharmacy_name || (order as any).pharmacy_display || (order as any).pharmacy || "Pharmacy"}` : undefined,
+        : order.tracking_number ? `Tracking ${order.tracking_number} - ${order.pharmacy_name || order.pharmacy_display || "Pharmacy"}` : undefined,
       icon: "local_shipping",
       iconBg: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-4 border-white dark:border-slate-800",
     })
@@ -1082,7 +1082,7 @@ function OrderDetailInner() {
         return evt.description || "Lab update received."
       })()
 
-      const cleanDescription = (evt: any, baseDesc?: string) => {
+      const cleanDescription = (evt: NonNullable<Order["activity_events"]>[number], baseDesc?: string) => {
         let desc = baseDesc || evt.description || ""
         const transitionMatch = desc.match(/^([^\n]+? -> [^\n]+?)(?:\n|$)/);
         if (transitionMatch) {
@@ -1124,7 +1124,7 @@ function OrderDetailInner() {
             // If there are revisions, the CURRENT product name might not be the INITIAL one.
             // We can find the initial product from the FIRST rx_revision event.
             const firstRxRevision = Array.isArray(order.activity_events)
-              ? order.activity_events.find((e: any) => e.event_type === "rx_revision")
+              ? order.activity_events.find((e) => e.event_type === "rx_revision")
               : null;
 
             if (!isPhase2Order && firstRxRevision && firstRxRevision.description) {
@@ -1250,7 +1250,7 @@ function OrderDetailInner() {
   if (normalizedOrderStatus === "canceled" && !hasCanceledEvent) {
     renderedTimelineItems.push({
       title: "Canceled",
-      date: formatDateTime(order.updated_at || (order as any).updatedAt || order.orderDate),
+      date: formatDateTime(order.updated_at || order.updatedAt || order.orderDate),
       description: "Order was canceled.",
       icon: "schedule",
       iconBg: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-4 border-white dark:border-slate-800",
@@ -2305,7 +2305,7 @@ function OrderDetailInner() {
                   {hasSplitSettlement ? "SPLIT CAPTURE TRANSACTIONS" : "CAPTURE"}
                 </div>
                 <div className="space-y-2">
-                  {settlementTransactions.map((tx: any) => {
+                  {settlementTransactions.map((tx) => {
                     const role = tx.settlement_role || "base_capture"
                     const ref = tx.processor_transaction_id || "—"
                     const amt = parseMoney(tx.amount) ?? 0
