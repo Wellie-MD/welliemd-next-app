@@ -542,8 +542,13 @@ function OrderDetailInner() {
   const combinedAuthorizedAmount = parseAmt(order.combined_payment_summary?.authorized_amount)
   const combinedAllocatedAmount = parseAmt(order.combined_payment_summary?.allocation?.allocated_amount)
   const combinedCheckoutTotal = parseAmt(order.combined_submission_summary?.checkout_total?.grand_total)
+  const phase2OrderAmount = combinedAllocatedAmount
+    ?? parseAmt(order.treatment_case_summary?.treatment_total)
+    ?? parseAmt(order.amount)
+    ?? combinedAuthorizedAmount
+    ?? combinedCheckoutTotal
   const initialReqPrice = isPhase2Order
-    ? (combinedCheckoutTotal ?? combinedAuthorizedAmount ?? combinedAllocatedAmount ?? 0)
+    ? (phase2OrderAmount ?? 0)
     : parseAmt(order?.requested_medicines?.[0]?.price) ?? parseAmt(order?.pricing?.subtotal_before_discount ?? order?.original_price) ?? 0;
   const initialReqShipping = isPhase2Order ? 0 : parseAmt(order?.requested_medicines?.[0]?.shipping_fee) ?? 0;
   const initialReqDiscount = parseAmt(order?.pricing?.discount_total ?? (order?.pricing as any)?.discount_amount ?? order?.discount_amount) ?? 0;
@@ -1313,7 +1318,7 @@ function OrderDetailInner() {
   const shippingFee = parseMoney(order.pricing?.shipping_total ?? order.shipping_fee)
   const discountAmount = parseMoney(order.pricing?.discount_total ?? order.discount_amount) ?? 0
   const totalAmount = isPhase2Order
-    ? (combinedCheckoutTotal ?? combinedAuthorizedAmount ?? combinedAllocatedAmount)
+    ? phase2OrderAmount
     : parseMoney(
       order.pricing?.grand_total ??
       order.grand_total ??
