@@ -65,7 +65,6 @@ export interface PatientOrderLineItem {
     shipment_status?: string;
     refund_status?: string;
     duration_days?: number | null;
-    provider_product_id?: string | null;
     tracking_number?: string | null;
     tracking_url?: string | null;
     shipment_provider?: string | null;

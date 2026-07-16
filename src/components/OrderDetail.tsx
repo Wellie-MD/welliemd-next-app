@@ -6,7 +6,7 @@
  * Matches the kinmeds3.html reference exactly.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Truck, CheckCircle2, Clock,
@@ -283,22 +283,24 @@ export default function OrderDetail() {
   const [error, setError] = useState<string | null>(null);
   const [productImageFailed, setProductImageFailed] = useState(false);
 
-  useEffect(() => {
+  const loadOrder = useCallback(async () => {
     if (!orderId) return;
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getOrder(orderId);
-        setOrder(data);
-      } catch (err) {
-        console.error('Failed to fetch order:', err);
-        setError('Order not found or failed to load.');
-      } finally {
-        setLoading(false);
-      }
-    })();
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await getOrder(orderId);
+      setOrder(data);
+    } catch (err) {
+      console.error('Failed to fetch order:', err);
+      setError('Order not found or failed to load.');
+    } finally {
+      setLoading(false);
+    }
   }, [orderId]);
+
+  useEffect(() => {
+    void loadOrder();
+  }, [loadOrder]);
 
   if (loading) {
     return (
@@ -328,9 +330,14 @@ export default function OrderDetail() {
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--km-t)', marginBottom: 4 }}>
               {error || 'Order not found'}
             </div>
-            <button className="km-btn km-btn-outline" style={{ marginTop: 8 }} onClick={() => navigate('/dashboard/orders')}>
-              Back to Orders
-            </button>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 8 }}>
+              <button className="km-btn km-btn-outline" onClick={() => void loadOrder()}>
+                Retry
+              </button>
+              <button className="km-btn km-btn-outline" onClick={() => navigate('/dashboard/orders')}>
+                Back to Orders
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -506,11 +513,6 @@ export default function OrderDetail() {
                 Qty {item.quantity || 1} · Prescription {item.prescription_status || 'pending'} · Fulfilment {item.fulfilment_status || 'pending'} · Refund {item.refund_status || 'none'}
                 {item.duration_days ? ` · ${item.duration_days} day supply` : ''}
               </div>
-              {item.provider_product_id && (
-                <div style={{ marginTop: 5, fontSize: 11, color: 'var(--km-t)' }}>
-                  Provider product: <span style={{ fontFamily: 'monospace' }}>{item.provider_product_id}</span>
-                </div>
-              )}
               {item.tracking_number && (
                 <div style={{ marginTop: 5, fontSize: 11, color: 'var(--km-t)' }}>
                   {item.shipment_provider ? `${item.shipment_provider}: ` : 'Tracking: '}
