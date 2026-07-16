@@ -137,6 +137,24 @@ const recoveryStatusLabels: Record<string, string> = {
   recovery_pending: "Recovery Pending",
 }
 
+function AnswerSnapshot({ label, values }: { label: string; values?: Record<string, unknown> | null }) {
+  const entries = Object.entries(values || {})
+  if (!entries.length) return null
+  return (
+    <div className="rounded-md border bg-muted/30 p-2">
+      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{label}</div>
+      <div className="space-y-1 text-xs">
+        {entries.map(([key, value]) => (
+          <div key={key} className="flex justify-between gap-3">
+            <span className="text-slate-500">{key}</span>
+            <span className="max-w-[65%] text-right font-medium break-words">{typeof value === "string" ? value : JSON.stringify(value)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 type TimelineItem = {
   title: string
   date: string
@@ -475,6 +493,21 @@ function OrderDetailInner() {
     : null
 
   const paymentStatus = (order.paymentStatus || "").toLowerCase()
+  const phase2LineItems = order.line_items || []
+  const isPhase2Order = Boolean(order.treatment_case_summary || order.combined_submission_summary?.id)
+  const phase2LineNames = phase2LineItems
+    .map((item) => item.product_name || "Product")
+    .filter(Boolean)
+    .join(", ")
+  const phase2PrescribedNames = phase2LineItems
+    .filter((item) => item.prescription_status === "prescribed")
+    .map((item) => item.product_name || "Product")
+    .filter(Boolean)
+    .join(", ")
+  const phase2TrackingSummary = phase2LineItems
+    .filter((item) => item.tracking_number)
+    .map((item) => `${item.product_name || "Product"}: ${item.tracking_number}`)
+    .join(" · ")
   const terminalPaymentDateStatuses = new Set(["voided", "refunded", "canceled", "cancelled"])
   const paymentDisplayDate = terminalPaymentDateStatuses.has(paymentStatus)
     ? (order.paymentUpdatedAt || order.paymentDate)
@@ -506,8 +539,13 @@ function OrderDetailInner() {
   const canRefundOrVoid = isAuthorized || isRefundable
 
   const parseAmt = (val: any) => val != null && val !== "" && Number.isFinite(parseFloat(String(val))) ? parseFloat(String(val)) : null;
-  const initialReqPrice = parseAmt(order?.requested_medicines?.[0]?.price) ?? parseAmt(order?.pricing?.subtotal_before_discount ?? order?.original_price) ?? 0;
-  const initialReqShipping = parseAmt(order?.requested_medicines?.[0]?.shipping_fee) ?? 0;
+  const combinedAuthorizedAmount = parseAmt(order.combined_payment_summary?.authorized_amount)
+  const combinedAllocatedAmount = parseAmt(order.combined_payment_summary?.allocation?.allocated_amount)
+  const combinedCheckoutTotal = parseAmt(order.combined_submission_summary?.checkout_total?.grand_total)
+  const initialReqPrice = isPhase2Order
+    ? (combinedCheckoutTotal ?? combinedAuthorizedAmount ?? combinedAllocatedAmount ?? 0)
+    : parseAmt(order?.requested_medicines?.[0]?.price) ?? parseAmt(order?.pricing?.subtotal_before_discount ?? order?.original_price) ?? 0;
+  const initialReqShipping = isPhase2Order ? 0 : parseAmt(order?.requested_medicines?.[0]?.shipping_fee) ?? 0;
   const initialReqDiscount = parseAmt(order?.pricing?.discount_total ?? (order?.pricing as any)?.discount_amount ?? order?.discount_amount) ?? 0;
   let trueAuthAmount = parseAmt((order as any)?.base_authorization_amount);
   if (trueAuthAmount == null) {
@@ -771,8 +809,10 @@ function OrderDetailInner() {
     timelineItems.push({
       title: "Rx Sent",
       date: formatDateTime(order.datePrintedShipped),
-      description: order.product_name
-        ? `Prescription Sent to ${order.pharmacy_display || "Pharmacy"} (${order.product_name}).${order.prescription_medications?.[0]?.rxId ? ` Rx ID: ${order.prescription_medications[0].rxId}.` : ""}`
+      description: isPhase2Order
+        ? `Prescription sent to ${order.pharmacy_display || "Pharmacy"} for ${phase2LineNames || "treatment products"}.`
+        : order.product_name
+          ? `Prescription Sent to ${order.pharmacy_display || "Pharmacy"} (${order.product_name}).${order.prescription_medications?.[0]?.rxId ? ` Rx ID: ${order.prescription_medications[0].rxId}.` : ""}`
         : undefined,
       icon: "schedule",
       iconBg: "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 border-4 border-white dark:border-slate-800",
@@ -780,7 +820,13 @@ function OrderDetailInner() {
   }
   if (order.paymentDate || order.paymentUpdatedAt) {
     const normalizedPaymentStatus = paymentStatus
-    const authorizedDescription = (trueAuthAmount != null && trueAuthAmount > 0)
+    const phase2PaymentAmount = combinedCheckoutTotal ?? combinedAuthorizedAmount ?? combinedAllocatedAmount
+    const phase2AuthorizedDescription = phase2PaymentAmount != null
+      ? `Authorized $${phase2PaymentAmount.toFixed(2)} across treatment allocations.`
+      : undefined
+    const authorizedDescription = isPhase2Order
+      ? phase2AuthorizedDescription
+      : (trueAuthAmount != null && trueAuthAmount > 0)
       ? `Authorized $${trueAuthAmount.toFixed(2)}.`
       : (order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount)
         ? `Authorized $${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount}.`
@@ -806,9 +852,13 @@ function OrderDetailInner() {
       date: formatDateTime(paymentDisplayDate),
       description: normalizedPaymentStatus === "voided"
         ? authorizedDescription
-        : (order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount)
-          ? `${normalizedPaymentStatus === "refunded" ? "Refunded" : "Authorized"} $${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount}.`
-          : undefined,
+        : isPhase2Order
+          ? (phase2PaymentAmount != null
+            ? `${normalizedPaymentStatus === "refunded" ? "Refunded" : "Authorized"} $${phase2PaymentAmount.toFixed(2)} across treatment allocations.`
+            : undefined)
+          : (order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount)
+            ? `${normalizedPaymentStatus === "refunded" ? "Refunded" : "Authorized"} $${order.pricing?.grand_total || order.grand_total || order.payable_amount || order.orderTotal || order.amount}.`
+            : undefined,
       icon: "payments",
       iconBg: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-4 border-white dark:border-slate-800",
     })
@@ -830,20 +880,22 @@ function OrderDetailInner() {
       iconBg: "bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 border-4 border-white dark:border-slate-800",
     })
   }
-  if (order.status === "shipped" || order.tracking_number) {
+  if (order.status === "shipped" || order.tracking_number || (isPhase2Order && phase2TrackingSummary)) {
     timelineItems.push({
       title: "Shipped",
       date: formatDateTime(order.updated_at || (order as any).updatedAt || order.orderDate),
-      description: order.tracking_number ? `Tracking ${order.tracking_number} - ${(order as any).pharmacy_name || (order as any).pharmacy_display || (order as any).pharmacy || "Pharmacy"}` : undefined,
+      description: isPhase2Order
+        ? (phase2TrackingSummary || "Treatment shipment marked shipped.")
+        : order.tracking_number ? `Tracking ${order.tracking_number} - ${(order as any).pharmacy_name || (order as any).pharmacy_display || (order as any).pharmacy || "Pharmacy"}` : undefined,
       icon: "local_shipping",
       iconBg: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-4 border-white dark:border-slate-800",
     })
   }
-  if (order.datePrescribed || isPrescribedStatus) {
+  if (order.datePrescribed || isPrescribedStatus || (isPhase2Order && phase2PrescribedNames)) {
     timelineItems.push({
       title: "Prescribed",
       date: formatDateTime(order.datePrescribed),
-      description: order.product_name || undefined,
+      description: isPhase2Order ? phase2PrescribedNames : order.product_name || undefined,
       icon: "prescriptions",
       iconBg: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 border-4 border-white dark:border-slate-800",
     })
@@ -1035,7 +1087,9 @@ function OrderDetailInner() {
           }
         }
         if (evt.event_type === "rx_revision" && desc.includes("Unknown Product")) {
-          const pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
+          const pName = isPhase2Order
+            ? (phase2PrescribedNames || phase2LineNames)
+            : order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
           if (pName) desc = desc.replace("Unknown Product", pName);
         }
         if (evt.event_type === "rx_revision" && desc.includes("Newly prescribed: ")) {
@@ -1058,7 +1112,9 @@ function OrderDetailInner() {
         // Inject prescribed product into initial Prescribed event if missing
         if (evt.event_type === "status.prescribed") {
           if (!desc.includes("Prescribed: ")) {
-            let pName = order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
+            let pName = isPhase2Order
+              ? (phase2PrescribedNames || phase2LineNames)
+              : order.prescribed_medicines?.[0]?.name || order.prescription_medications?.[0]?.name;
 
             // If there are revisions, the CURRENT product name might not be the INITIAL one.
             // We can find the initial product from the FIRST rx_revision event.
@@ -1066,7 +1122,7 @@ function OrderDetailInner() {
               ? order.activity_events.find((e: any) => e.event_type === "rx_revision")
               : null;
 
-            if (firstRxRevision && firstRxRevision.description) {
+            if (!isPhase2Order && firstRxRevision && firstRxRevision.description) {
               const rxDesc = firstRxRevision.description;
               const prevMatch = rxDesc.match(/Previously prescribed:\s*(.*?)(?=\s+at\s+\$|\.|$)/);
               if (prevMatch && prevMatch[1]) {
@@ -1222,7 +1278,9 @@ function OrderDetailInner() {
   }
 
   const selectedMedicines = (order as Order & { selected_medicines?: Array<{ quantity?: unknown }> }).selected_medicines
-  const qty = selectedMedicines?.[0]?.quantity ?? order.prescription_medications?.[0]?.quantity ?? "1"
+  const qty = isPhase2Order
+    ? phase2LineItems.reduce((total, item) => total + (Number(item.quantity) || 1), 0)
+    : selectedMedicines?.[0]?.quantity ?? order.prescription_medications?.[0]?.quantity ?? "1"
   const parseMoney = (value?: string | number | null): number | null => {
     if (value === null || value === undefined || value === "") return null
     const parsed = Number.parseFloat(String(value))
@@ -1254,13 +1312,15 @@ function OrderDetailInner() {
   const originalPrice = parseMoney(order.pricing?.subtotal_before_discount ?? order.original_price)
   const shippingFee = parseMoney(order.pricing?.shipping_total ?? order.shipping_fee)
   const discountAmount = parseMoney(order.pricing?.discount_total ?? order.discount_amount) ?? 0
-  const totalAmount = parseMoney(
-    order.pricing?.grand_total ??
-    order.grand_total ??
-    order.payable_amount ??
-    order.orderTotal ??
-    order.amount
-  )
+  const totalAmount = isPhase2Order
+    ? (combinedCheckoutTotal ?? combinedAuthorizedAmount ?? combinedAllocatedAmount)
+    : parseMoney(
+      order.pricing?.grand_total ??
+      order.grand_total ??
+      order.payable_amount ??
+      order.orderTotal ??
+      order.amount
+    )
   const settlementAmount = parseMoney((order as Order & { payment_settlement_amount?: string | number | null }).payment_settlement_amount)
   const chargeableAmount = parseMoney((order as Order & { chargeable_amount?: string | number | null }).chargeable_amount)
   const refundedAmount = parseMoney(order.totalRefunded) ?? 0
@@ -1340,13 +1400,15 @@ function OrderDetailInner() {
     ? pendingProductChange.shippingFee
     : shippingFee
 
-  const calculatedTotal = hasBreakdown
-    ? ((productSubtotalAfterDiscount ?? 0) + (shippingFee ?? 0))
-    : totalAmount
+  const calculatedTotal = isPhase2Order
+    ? totalAmount
+    : hasBreakdown
+      ? ((productSubtotalAfterDiscount ?? 0) + (shippingFee ?? 0))
+      : totalAmount
 
   const previewTotal = pendingProductChange != null
     ? pendingProductChange.newAmount
-    : (shouldPreferPrescribedDisplay ? prescribedDisplayTotal : calculatedTotal)
+    : (isPhase2Order ? totalAmount : (shouldPreferPrescribedDisplay ? prescribedDisplayTotal : calculatedTotal))
 
   const previewNetTotal = previewTotal != null
     ? (shouldPreferPrescribedDisplay ? previewTotal : Math.max(0, previewTotal - refundedAmount))
@@ -1689,6 +1751,79 @@ function OrderDetailInner() {
               </div>
             </div>
           </div>
+
+          {order?.line_items && order.line_items.length > 0 && (
+            <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
+              <div className="px-6 py-4 border-b bg-muted/50">
+                <h3 className="font-semibold text-slate-900 dark:text-white">Treatment Products</h3>
+              </div>
+              <div className="divide-y">
+                {order.line_items.map((item) => (
+                  <div key={item.id} className="px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div>
+                      <div className="font-medium text-slate-900 dark:text-white">{item.product_name || "Product"}</div>
+                      <div className="text-xs text-slate-500">
+                        Qty {item.quantity || 1} · Prescription {item.prescription_status || "pending"} · Fulfilment {item.fulfilment_status || "pending"}
+                        {item.duration_days ? ` · ${item.duration_days} day supply` : ""}
+                      </div>
+                      {item.tracking_number && (
+                        <div className="mt-1 text-xs text-slate-500">
+                          {item.shipment_provider ? `${item.shipment_provider}: ` : "Tracking: "}
+                          <span className="font-mono">{item.tracking_number}</span>
+                          {item.tracking_url && (
+                            <a href={item.tracking_url} target="_blank" rel="noopener noreferrer" className="ml-2 font-semibold text-primary">
+                              Track package →
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="font-semibold tabular-nums">${item.line_total || "0.00"}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {order?.treatment_case_summary && (
+            <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
+              <div className="px-6 py-4 border-b bg-muted/50">
+                <h3 className="font-semibold text-slate-900 dark:text-white">Phase II Clinical Routing</h3>
+              </div>
+              <div className="p-4 space-y-2 text-xs">
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Treatment</span><span className="font-semibold">{order.treatment_case_summary.treatment_type_key || "—"}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Beluga review</span><span className="font-semibold">{order.treatment_case_summary.beluga_dispatch_status || order.beluga_dispatch_status || "pending"}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-slate-500">Reimbursement total</span><span className="font-semibold">${order.treatment_case_summary.reimbursement_total || "0.00"}</span></div>
+                <AnswerSnapshot label="Common answers" values={order.treatment_case_summary.common_answers} />
+                <AnswerSnapshot label="Treatment-scoped answers" values={order.treatment_case_summary.scoped_answers} />
+                {order.treatment_case_summary.consents && order.treatment_case_summary.consents.length > 0 && (
+                  <div className="rounded-md border bg-muted/30 p-2"><div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Scoped consents</div><div>{order.treatment_case_summary.consents.map((consent) => typeof consent === "string" ? consent : JSON.stringify(consent)).join(" · ")}</div></div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {order?.combined_submission_summary?.orders && order.combined_submission_summary.orders.length > 1 && (
+            <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
+              <div className="px-6 py-4 border-b bg-muted/50 flex items-center justify-between gap-3">
+                <h3 className="font-semibold text-slate-900 dark:text-white">Combined Checkout</h3>
+                <span className="text-xs text-slate-500">
+                  {order.combined_payment_summary?.status || "pending"} · ${order.combined_payment_summary?.authorized_amount || "0.00"}
+                </span>
+              </div>
+              <div className="divide-y">
+                {order.combined_submission_summary.orders.map((sibling) => (
+                  <div key={sibling.treatment_case_id} className="px-6 py-3 flex justify-between gap-3 text-sm">
+                    <span>{sibling.treatment_type_key || "Treatment"}</span>
+                    <span className="text-slate-500">{sibling.status || "pending"} · ${sibling.treatment_total || "0.00"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!isPhase2Order && (
+            <>
           {/* Product Details */}
           <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
             <div className="px-6 py-4 border-b bg-muted/50 flex justify-between items-center">
@@ -1850,6 +1985,8 @@ function OrderDetailInner() {
               </div>
             </div>
           </div>
+            </>
+          )}
 
           {/* Order Status */}
           <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
@@ -1904,7 +2041,7 @@ function OrderDetailInner() {
 
         {/* Right column */}
         <div className="lg:col-span-4 space-y-6">
-          {/* Prescription & Fulfillment */}
+          {!isPhase2Order && (
           <div className="bg-card rounded-xl shadow-sm border p-6">
             <h3 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
               <FileText className="h-4 w-4 text-slate-400" />
@@ -1999,6 +2136,44 @@ function OrderDetailInner() {
               )}
             </div>
           </div>
+          )}
+
+          {isPhase2Order && (
+            <div className="bg-card rounded-xl shadow-sm border p-6">
+              <h3 className="font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                <Package className="h-4 w-4 text-slate-400" />
+                Products & Fulfillment
+              </h3>
+              <div className="space-y-3">
+                {phase2LineItems.map((item) => (
+                  <div key={item.id} className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="font-medium text-slate-900 dark:text-white">{item.product_name || "Product"}</span>
+                      <span className="text-xs text-slate-500">Qty {item.quantity || 1}</span>
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      Prescription: {item.prescription_status || "pending"} · Fulfilment: {item.fulfilment_status || "pending"} · Shipment: {item.shipment_status || "pending"}
+                      {item.duration_days ? ` · ${item.duration_days} day supply` : ""}
+                    </div>
+                    {item.provider_product_id && (
+                      <div className="text-xs text-slate-500">Provider product: <span className="font-mono">{item.provider_product_id}</span></div>
+                    )}
+                    {item.tracking_number && (
+                      <div className="text-xs text-slate-500">
+                        {item.shipment_provider ? `${item.shipment_provider}: ` : "Tracking: "}
+                        <span className="font-mono">{item.tracking_number}</span>
+                        {item.tracking_url && (
+                          <a href={item.tracking_url} target="_blank" rel="noopener noreferrer" className="ml-2 font-semibold text-primary">
+                            Track package →
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Assigned Provider */}
           <div className="bg-card rounded-xl shadow-sm border p-6">

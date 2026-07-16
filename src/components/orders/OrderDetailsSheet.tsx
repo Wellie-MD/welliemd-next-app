@@ -100,6 +100,24 @@ const statusLabels: Record<string, string> = {
   canceled: "Canceled",
 }
 
+function AnswerSnapshot({ label, values }: { label: string; values?: Record<string, unknown> | null }) {
+  const entries = Object.entries(values || {})
+  if (!entries.length) return null
+  return (
+    <div className="rounded-md border bg-background/60 p-2">
+      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="space-y-1 text-xs">
+        {entries.map(([key, value]) => (
+          <div key={key} className="flex justify-between gap-3">
+            <span className="text-muted-foreground">{key}</span>
+            <span className="max-w-[65%] text-right font-medium break-words">{typeof value === "string" ? value : JSON.stringify(value)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function OrderDetailsSheet({
   open,
   onOpenChange,
@@ -150,25 +168,41 @@ export function OrderDetailsSheet({
     const amount = order?.totalRefunded ? parseFloat(order.totalRefunded) : 0
     return Number.isNaN(amount) ? 0 : amount
   }, [order?.totalRefunded])
-  const orderTotal = useMemo(() => {
-    const amount = parseFloat(
-      order?.pricing?.grand_total ||
-      order?.grand_total ||
-      order?.payable_amount ||
-      order?.orderTotal ||
-      order?.amount ||
+  const phase2LineItems = order?.line_items || []
+  const isPhase2Order = Boolean(order?.treatment_case_summary || order?.combined_submission_summary?.id)
+  const phase2Total = Number.parseFloat(
+    String(
+      order?.combined_submission_summary?.checkout_total?.grand_total ||
+      order?.combined_payment_summary?.authorized_amount ||
+      order?.combined_payment_summary?.allocation?.allocated_amount ||
       "0"
     )
+  )
+  const orderTotal = useMemo(() => {
+    const amount = parseFloat(
+      String(isPhase2Order && Number.isFinite(phase2Total)
+        ? phase2Total
+        : order?.pricing?.grand_total ||
+          order?.grand_total ||
+          order?.payable_amount ||
+          order?.orderTotal ||
+          order?.amount ||
+          "0")
+    )
     return Number.isNaN(amount) ? 0 : amount
-  }, [order?.pricing?.grand_total, order?.grand_total, order?.payable_amount, order?.orderTotal, order?.amount])
+  }, [isPhase2Order, phase2Total, order?.pricing?.grand_total, order?.grand_total, order?.payable_amount, order?.orderTotal, order?.amount])
   const requestedMedicineName =
-    order?.requested_medicines?.[0]?.name ||
-    order?.product_name ||
-    "—"
+    isPhase2Order
+      ? phase2LineItems.map((item) => item.product_name || "Product").filter(Boolean).join(", ") || "—"
+      : order?.requested_medicines?.[0]?.name ||
+        order?.product_name ||
+        "—"
   const rawPrescribedMedicineName =
-    order?.prescribed_medicines?.[0]?.name ||
-    order?.prescription_medications?.[0]?.name ||
-    null
+    isPhase2Order
+      ? phase2LineItems.filter((item) => item.prescription_status === "prescribed").map((item) => item.product_name || "Product").filter(Boolean).join(", ") || null
+      : order?.prescribed_medicines?.[0]?.name ||
+        order?.prescription_medications?.[0]?.name ||
+        null
   const prescribedNameNormalized = rawPrescribedMedicineName?.trim().toLowerCase()
   const prescribedMedicineName =
     prescribedNameNormalized === "same med" ||
@@ -351,6 +385,71 @@ export function OrderDetailsSheet({
                   )}
                 </div>
               </section>
+
+              {order.line_items && order.line_items.length > 0 && (
+                <section>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Treatment Products
+                  </h3>
+                  <div className="space-y-2">
+                    {order.line_items.map((item) => (
+                      <div key={item.id} className="rounded-lg border bg-muted/30 p-3">
+                        <div className="flex justify-between gap-3">
+                          <span className="font-medium">{item.product_name || "Product"}</span>
+                          <span>${item.line_total || "0.00"}</span>
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Qty {item.quantity || 1} · Prescription {item.prescription_status || "pending"} · Fulfilment {item.fulfilment_status || "pending"}
+                          {item.duration_days ? ` · ${item.duration_days} day supply` : ""}
+                        </div>
+                        {item.tracking_number && (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {item.shipment_provider ? `${item.shipment_provider}: ` : "Tracking: "}
+                            <span className="font-mono">{item.tracking_number}</span>
+                            {item.tracking_url && (
+                              <a href={item.tracking_url} target="_blank" rel="noopener noreferrer" className="ml-2 font-semibold text-primary">
+                                Track package →
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {order.treatment_case_summary && (
+                <section>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Phase II clinical routing</h3>
+                  <div className="rounded-lg border bg-muted/30 p-3 space-y-2 text-xs">
+                    <div className="flex justify-between gap-3"><span className="text-muted-foreground">Treatment</span><span className="font-semibold">{order.treatment_case_summary.treatment_type_key || "—"}</span></div>
+                    <div className="flex justify-between gap-3"><span className="text-muted-foreground">Beluga review</span><span className="font-semibold">{order.treatment_case_summary.beluga_dispatch_status || order.beluga_dispatch_status || "pending"}</span></div>
+                    <div className="flex justify-between gap-3"><span className="text-muted-foreground">Reimbursement total</span><span className="font-semibold">${order.treatment_case_summary.reimbursement_total || "0.00"}</span></div>
+                    <AnswerSnapshot label="Common answers" values={order.treatment_case_summary.common_answers} />
+                    <AnswerSnapshot label="Treatment-scoped answers" values={order.treatment_case_summary.scoped_answers} />
+                    {order.treatment_case_summary.consents && order.treatment_case_summary.consents.length > 0 && (
+                      <div className="rounded-md border bg-background/60 p-2"><div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Scoped consents</div><div className="text-xs">{order.treatment_case_summary.consents.map((consent) => typeof consent === "string" ? consent : JSON.stringify(consent)).join(" · ")}</div></div>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {order.combined_submission_summary?.orders && order.combined_submission_summary.orders.length > 1 && (
+                <section>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Combined checkout</h3>
+                  <div className="rounded-lg border bg-muted/30 p-3 space-y-2 text-sm">
+                    <div>Payment: {order.combined_payment_summary?.status || "pending"} · ${order.combined_payment_summary?.authorized_amount || "0.00"}</div>
+                    {order.combined_submission_summary.orders.map((sibling) => (
+                      <div key={sibling.treatment_case_id} className="flex justify-between gap-3">
+                        <span>{sibling.treatment_type_key || "Treatment"}</span>
+                        <span>{sibling.status || "pending"} · ${sibling.treatment_total || "0.00"}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               <Separator />
 

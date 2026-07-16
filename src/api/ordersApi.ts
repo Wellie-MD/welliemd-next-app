@@ -96,6 +96,73 @@ export interface OrderActivityEvent {
   payload?: Record<string, unknown>
 }
 
+export interface OrderLineItem {
+  id: string
+  product_id?: number | null
+  product_name?: string | null
+  item_type?: string
+  quantity?: string | number
+  unit_patient_price?: string | number
+  unit_shipping_fee?: string | number
+  line_total?: string | number
+  status?: string
+  source_supply_relation_id?: number | null
+  patient_price_snapshot?: Record<string, unknown>
+  reimbursement_amount_snapshot?: Record<string, unknown> | null
+  prescription_status?: string
+  fulfilment_status?: string
+  shipment_status?: string
+  duration_days?: number | null
+  provider_product_id?: string | null
+  tracking_number?: string | null
+  tracking_url?: string | null
+  shipment_provider?: string | null
+  prescription_event_id?: string | null
+  prescribed_at?: string | null
+  fulfilled_at?: string | null
+  shipped_at?: string | null
+  cancelled_at?: string | null
+  refunded_amount?: string | number
+  lifecycle_snapshot?: Record<string, unknown>
+}
+
+export interface TreatmentCaseSummary {
+  id: string
+  treatment_type_id?: string
+  treatment_type_key?: string | null
+  beluga_dispatch_status?: string | null
+  program_id?: string | null
+  status?: string
+  lifecycle_status?: string
+  visit_id?: string | null
+  visit_status?: string | null
+  beluga_dispatch_status?: string | null
+  treatment_total?: string
+  reimbursement_total?: string
+  common_answers?: Record<string, unknown>
+  scoped_answers?: Record<string, unknown>
+  consents?: unknown[]
+}
+
+export interface CombinedSubmissionSummary {
+  id: string
+  status?: string
+  release_id?: string | null
+  release_version?: number | null
+  release_checksum?: string
+  checkout_total?: Record<string, unknown>
+  combined_payment_id?: string | null
+  orders?: Array<{
+    order_id: string
+    order_display_id?: string | null
+    treatment_case_id: string
+    treatment_type_id?: string
+    treatment_type_key?: string | null
+    status?: string
+    treatment_total?: string
+  }>
+}
+
 export interface OrderSettlementTransaction {
   id: string
   processor?: string
@@ -190,6 +257,19 @@ export interface Order {
   consult_type?: 'async' | 'sync' | null
   shipping_fee_to_client?: string | null
   activity_events?: OrderActivityEvent[]
+  line_items?: OrderLineItem[]
+  treatment_case_summary?: TreatmentCaseSummary | null
+  combined_payment_summary?: {
+    id: string
+    status?: string
+    currency?: string
+    authorized_amount?: string
+    captured_amount?: string
+    refunded_amount?: string
+    allocation?: { id: string; status?: string; allocated_amount?: string; captured_amount?: string; refunded_amount?: string }
+  } | null
+  combined_submission_summary?: CombinedSubmissionSummary | null
+  beluga_dispatch_status?: string | null
 }
 
 export interface PaginatedOrdersResponse {
