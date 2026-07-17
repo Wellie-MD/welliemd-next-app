@@ -258,7 +258,7 @@ export function JunctionWearablesSection({
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {labAccountsCard}
 
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl min-w-0">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Watch className="w-4 h-4 text-sky-500" />
@@ -291,7 +291,7 @@ export function JunctionWearablesSection({
       </div>
 
       <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1.8fr)_minmax(320px,0.82fr)] gap-6 items-start">
-        <Card className="rounded-2xl overflow-hidden">
+        <Card className="rounded-2xl overflow-hidden min-w-0">
           <CardHeader className="pb-3">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div>
@@ -344,8 +344,8 @@ export function JunctionWearablesSection({
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-xl border">
-              <table className="w-full">
+            <div className="w-full min-w-0 overflow-x-auto rounded-xl border">
+              <table className="w-full min-w-[600px]">
                 <thead className="bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3 text-left">Provider</th>
@@ -438,7 +438,7 @@ export function JunctionWearablesSection({
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl min-w-0">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold">Data Prioritization</CardTitle>
             <p className="text-xs text-muted-foreground">
@@ -466,48 +466,52 @@ export function JunctionWearablesSection({
               ))}
             </div>
 
-            {visiblePriority.map((id, index) => {
-              const provider = providerMap.get(id)
-              if (!provider) return null
+            <div className="-mx-1 w-full min-w-0 overflow-x-auto px-1 pb-1">
+              <div className="flex min-w-[300px] flex-col gap-3">
+                {visiblePriority.map((id, index) => {
+                  const provider = providerMap.get(id)
+                  if (!provider) return null
 
-              return (
-                <div
-                  key={id}
-                  className="flex items-center gap-3 rounded-xl border bg-card px-3 py-3"
-                >
-                  <span className="flex h-6 w-6 items-center justify-center rounded-md border bg-muted text-xs font-bold text-muted-foreground">
-                    {index + 1}
-                  </span>
-                  <ProviderLogo name={provider.name} logoFile={provider.logoFile} />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{provider.name}</div>
-                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                      {provider.cat}
+                  return (
+                    <div
+                      key={id}
+                      className="flex items-center gap-3 rounded-xl border bg-card px-3 py-3"
+                    >
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-muted text-xs font-bold text-muted-foreground">
+                        {index + 1}
+                      </span>
+                      <ProviderLogo name={provider.name} logoFile={provider.logoFile} />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium">{provider.name}</div>
+                        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                          {provider.cat}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => movePriority(activeDomain, id, -1)}
+                          disabled={index === 0}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                          aria-label={`Move ${provider.name} up`}
+                        >
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => movePriority(activeDomain, id, 1)}
+                          disabled={index === visiblePriority.length - 1}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
+                          aria-label={`Move ${provider.name} down`}
+                        >
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => movePriority(activeDomain, id, -1)}
-                      disabled={index === 0}
-                      className="flex h-7 w-7 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
-                      aria-label={`Move ${provider.name} up`}
-                    >
-                      <ArrowUp className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => movePriority(activeDomain, id, 1)}
-                      disabled={index === visiblePriority.length - 1}
-                      className="flex h-7 w-7 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
-                      aria-label={`Move ${provider.name} down`}
-                    >
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
+                  )
+                })}
+              </div>
+            </div>
 
             {visiblePriority.length === 0 && (
               <div className="rounded-xl border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">

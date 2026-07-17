@@ -26,9 +26,19 @@ export function WearableProviderSyncButton({ onQueued }: Props) {
   }
 
   return (
-    <Button variant="outline" size="sm" onClick={queueSync} disabled={syncing}>
-      <RefreshCw className={syncing ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
-      {syncing ? "Starting sync" : "Sync providers"}
+    <Button
+      variant="outline"
+      className="h-auto gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+      onClick={queueSync}
+      disabled={syncing}
+    >
+      <RefreshCw className={syncing ? "h-3 w-3 animate-spin" : "h-3 w-3"} />
+      <span className="hidden sm:inline-block">
+        {syncing ? "Starting sync" : "Sync providers"}
+      </span>
+      <span className="sm:hidden">
+        {syncing ? "Syncing..." : "Sync"}
+      </span>
     </Button>
   )
 }
