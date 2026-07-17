@@ -8,7 +8,7 @@ type VisibilityRuleGroupForm = VisibilityRuleGroup;
 interface UseCheckoutQuestionFormArgs {
   open: boolean;
   initialQuestion?: ProgramCheckoutQuestion | null;
-  onSave: (data: Omit<ProgramCheckoutQuestion, "id">) => void;
+  onSave: (data: Omit<ProgramCheckoutQuestion, "id">) => Promise<void>;
   onOpenChange: (open: boolean) => void;
 }
 
@@ -17,6 +17,7 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
   const [visibilityRuleGroup, setVisibilityRuleGroup] = useState<VisibilityRuleGroupForm | undefined>(undefined);
   const [selectedPreviewIdx, setSelectedPreviewIdx] = useState(0);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -57,7 +58,10 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     setFormError(null);
   }, [open, initialQuestion]);
 
-  const validProducts = useMemo(() => products.filter((product) => product.category && product.regimen && product.doseLabel), [products]);
+  const validProducts = useMemo(
+    () => products.filter((product) => product.category && product.regimen && product.doseLabel && product.productId),
+    [products]
+  );
 
   const handleAddProduct = () => setProducts((current) => [...current, checkoutProductFactory({ category: "", regimen: "", doseLabel: "" })]);
 
@@ -109,9 +113,9 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     setVisibilityRuleGroup(group);
   };
 
-  const handleSaveModal = () => {
+  const handleSaveModal = async () => {
     if (validProducts.length === 0) {
-      setFormError("Configure at least one complete product with Category, Regimen, and Dose Level.");
+      setFormError("Configure at least one complete option with Category, Regimen, Dose Level, and Catalog Product.");
       return;
     }
 
@@ -125,21 +129,44 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
       return { mode: group.mode, rules, subgroups };
     };
 
-    onSave({
-      text: validProducts.map((product) => product.doseLabel).join(" & ") || "Checkout Options",
-      products: validProducts.map((product) => ({
-        ...product,
-        visibilityRules: normalizeGroup(product.visibilityRules),
-      })),
-      visibilityRules: visibilityRuleGroup
-        ? {
-            mode: visibilityRuleGroup.mode,
-            rules: visibilityRuleGroup.rules.filter((rule) => rule.questionId && rule.operator && rule.value),
-            subgroups: visibilityRuleGroup.subgroups,
+    setIsSaving(true);
+    setFormError(null);
+    try {
+      await onSave({
+        text: validProducts.map((product) => product.doseLabel).join(" & ") || "Checkout Options",
+        products: validProducts.map((product) => ({
+          ...product,
+          visibilityRules: normalizeGroup(product.visibilityRules),
+        })),
+        visibilityRules: normalizeGroup(visibilityRuleGroup) || { mode: "simple", rules: [] },
+      });
+      onOpenChange(false);
+    } catch (error) {
+      const responseData = (error as { response?: { data?: unknown } })?.response?.data;
+      const extractMessage = (value: unknown): string | null => {
+        if (typeof value === "string") return value;
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            const message = extractMessage(item);
+            if (message) return message;
           }
-        : { mode: "simple", rules: [] },
-    });
-    onOpenChange(false);
+        }
+        if (value && typeof value === "object") {
+          for (const item of Object.values(value)) {
+            const message = extractMessage(item);
+            if (message) return message;
+          }
+        }
+        return null;
+      };
+      setFormError(
+        extractMessage(responseData) ||
+          (error instanceof Error ? error.message : null) ||
+          "Unable to save this checkout question. Review the Product selections and try again."
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return {
@@ -148,6 +175,7 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     selectedPreviewIdx,
     setSelectedPreviewIdx,
     formError,
+    isSaving,
     validProducts,
     handleAddProduct,
     handleRemoveProduct,

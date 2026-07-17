@@ -4,6 +4,8 @@ import type {
   ConsentForm,
   CustomProgram,
   Program,
+  ProgramCheckoutProduct,
+  ProgramCheckoutQuestion,
   ProgramQuestion,
   TreatmentType,
 } from "@/features/treatments/types";
@@ -34,6 +36,39 @@ const visibilityGroup = (record: ProgramQuestionRecord): ProgramQuestion["visibi
   const candidate = raw as NonNullable<ProgramQuestion["visibilityRuleGroup"]>;
   if ((candidate.mode !== "simple" && candidate.mode !== "nested") || !Array.isArray(candidate.rules)) return undefined;
   return { mode: candidate.mode, rules: candidate.rules, subgroups: candidate.subgroups || [] };
+};
+
+type CheckoutRecord = Record<string, unknown>;
+
+const checkoutProductFromRecord = (record: CheckoutRecord, index: number): ProgramCheckoutProduct => ({
+  id: String(record.id ?? record.option_id ?? `product-option-${index + 1}`),
+  categoryId: Number(record.categoryId ?? record.category_id) || undefined,
+  category: String(record.category ?? record.category_name ?? record.treatment ?? ""),
+  regimenId: Number(record.regimenId ?? record.regimen_id ?? record.titration_category_id) || undefined,
+  regimen: String(record.regimen ?? record.titration_category ?? ""),
+  doseMappingId: Number(record.doseMappingId ?? record.dose_mapping_id) || undefined,
+  doseLabel: String(record.doseLabel ?? record.dose_label ?? record.dose ?? ""),
+  productId: record.productId || record.product_id || record.value
+    ? String(record.productId ?? record.product_id ?? record.value)
+    : undefined,
+  price: Number(record.price ?? record.final_price ?? record.unit_price) || undefined,
+  visibilityRules: (record.visibilityRules ?? record.visibility_rules) as ProgramCheckoutProduct["visibilityRules"],
+});
+
+export const checkoutQuestionFromRecord = (raw: unknown, index: number): ProgramCheckoutQuestion => {
+  const record = raw as CheckoutRecord;
+  const checkoutConfig = (record.checkout_config ?? record.checkoutConfig) as CheckoutRecord | undefined;
+  const rawProducts = (
+    record.products ?? record.answer_choices ?? record.options ?? checkoutConfig?.products ?? []
+  ) as CheckoutRecord[];
+  return {
+    id: String(record.id ?? record.source_id ?? `checkout-question-${index + 1}`),
+    text: String(record.text ?? record.question_text ?? record.prompt ?? "Checkout Options"),
+    products: rawProducts.map(checkoutProductFromRecord),
+    visibilityRules: (
+      record.visibilityRules ?? record.visibility_rules ?? record.conditional_logic ?? { mode: "simple", rules: [] }
+    ) as ProgramCheckoutQuestion["visibilityRules"],
+  };
 };
 
 export const questionFromRecord = (record: ProgramQuestionRecord, index = 0): ProgramQuestion => ({
@@ -210,7 +245,7 @@ export const programFromRecord = (record: ProgramRecord): Program => ({
   description: record.description || "",
   authConfig: record.auth_config || { email: true, phone: false, identity: false, account: true },
   screeningQuestions: (record.screening_questions || []).map(questionFromRecord),
-  checkoutQuestions: record.checkout_questions || [],
+  checkoutQuestions: (record.checkout_questions || []).map(checkoutQuestionFromRecord),
   consentIds: record.consent_ids || [],
   assignedClientsCount: record.assigned_clients_count ?? 0,
   sexRequirement: record.sex_requirement || "any",

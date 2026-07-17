@@ -107,9 +107,11 @@ export const useSaveProgram = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (program: Program) => treatmentsApi.saveProgram(program),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
-      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() }),
+        queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.stats() }),
+      ]);
     },
   });
 };

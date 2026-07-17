@@ -55,6 +55,8 @@ export interface Product {
   dose_mapping?: number;
   dose_mapping_name?: string;
   dose_mapping_label?: string;
+  titration_category?: number;
+  titration_category_name?: string;
 
   // Deprecated fields (use dose_mapping instead)
   /** @deprecated Use dose_mapping instead */
@@ -136,6 +138,7 @@ export interface ProductListParams {
   is_active?: boolean;
   product_type?: "single" | "bundle" | "supply";
   treatment?: string;
+  treatment_type?: string;
   rx_or_otc?: "rx" | "otc";
   purchase_type?: "one_time" | "subscription";
   search?: string;
@@ -250,11 +253,25 @@ export const productApi = {
   /**
    * List all products (admin sees all products)
       */
-  listProducts: async (params?: any): Promise<any[]> => {
+  listProducts: async (params?: ProductListParams): Promise<Product[]> => {
     const { data } = await axiosInstance.get("products/", { params });
-    // Handle paginated response
     if (data && typeof data === "object" && "results" in data) {
-      return data.results || [];
+      const firstPage = data.results || [];
+      if (!data.next) return firstPage;
+      const totalCount = Number(data.count || firstPage.length);
+      const pageSize = firstPage.length || Number(params?.page_size) || 100;
+      const pageCount = Math.ceil(totalCount / pageSize);
+      const remainingPages = await Promise.all(
+        Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) =>
+          axiosInstance.get("products/", {
+            params: { ...params, page: index + 2, page_size: pageSize },
+          })
+        )
+      );
+      return [
+        ...firstPage,
+        ...remainingPages.flatMap((response) => response.data?.results || []),
+      ];
     }
     // Handle array response
     if (Array.isArray(data)) {

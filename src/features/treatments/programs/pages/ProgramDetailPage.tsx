@@ -437,7 +437,7 @@ export default function ProgramDetailPage() {
             ? (foundProgram.checkoutQuestions || []).find(cq => cq.id === editingCheckoutId)
             : null
         }
-        onSave={(data) => {
+        onSave={async (data) => {
           let updatedCheckout = [...(foundProgram.checkoutQuestions || [])];
           if (editingCheckoutId) {
             updatedCheckout = updatedCheckout.map((cq) =>
@@ -451,10 +451,13 @@ export default function ProgramDetailPage() {
               ...data,
             });
           }
-          saveProgramMutation.mutate({
+          await saveProgramMutation.mutateAsync({
             ...foundProgram,
             checkoutQuestions: updatedCheckout,
             checkoutQuestionCount: updatedCheckout.length,
+          });
+          toast({
+            title: editingCheckoutId ? "Checkout question updated" : "Checkout question added",
           });
         }}
       />

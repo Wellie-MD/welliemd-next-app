@@ -4,6 +4,7 @@ import { VisibilityRuleBuilder } from "@/components/questionnaires/VisibilityRul
 import type { ProductCategory } from "@/api/productCategories";
 import type { ProductDoseMapping } from "@/api/productDoseMappings";
 import type { TitrationCategory } from "@/api/titrationCategories";
+import type { Product } from "@/api/products";
 import {
   fromBuilderGroup,
   toBuilderGroup,
@@ -14,6 +15,14 @@ import type {
   ProgramQuestion,
   VisibilityRuleGroup,
 } from "@/features/treatments/types";
+import {
+  categoriesWithProducts,
+  dosesForProducts,
+  productsForCategory,
+  productsForDose,
+  productsForRegimen,
+  regimensForProducts,
+} from "../utils/catalogOptions";
 
 interface CheckoutProductRowProps {
   product: ProgramCheckoutProduct;
@@ -23,6 +32,7 @@ interface CheckoutProductRowProps {
   categories: ProductCategory[];
   titrationCategories: TitrationCategory[];
   doseMappings: ProductDoseMapping[];
+  catalogProducts: Product[];
   onRemoveProduct: (index: number) => void;
   onProductFieldChange: (
     index: number,
@@ -47,6 +57,7 @@ export function CheckoutProductRow({
   categories,
   titrationCategories,
   doseMappings,
+  catalogProducts,
   onRemoveProduct,
   onProductFieldChange,
   onProductPriceChange,
@@ -65,33 +76,62 @@ export function CheckoutProductRow({
         mapping.patient_label === product.doseLabel &&
         (!selectedCategoryId || mapping.category === selectedCategoryId)
     )?.id;
-  const categoryDoses = selectedCategoryId
-    ? doseMappings.filter((dose) => dose.category === selectedCategoryId)
-    : [];
+  const categoryProducts = productsForCategory(catalogProducts, selectedCategoryId);
+  const availableCategories = categoriesWithProducts(categories, catalogProducts);
+  const availableRegimens = regimensForProducts(titrationCategories, categoryProducts);
+  const regimenProducts = productsForRegimen(categoryProducts, selectedRegimenId);
+  const categoryDoses = dosesForProducts(doseMappings, regimenProducts, selectedCategoryId);
+  const matchingProducts = productsForDose(regimenProducts, selectedDoseMappingId);
   const hasRules = hasActiveVisibilityRules(product.visibilityRules);
 
   const handleCategoryChange = (value: string) => {
     const category = categories.find((item) => String(item.id) === value);
     onProductFieldChange(index, "categoryId", category?.id);
     onProductFieldChange(index, "category", category?.name || "");
+    onProductFieldChange(index, "regimenId", undefined);
+    onProductFieldChange(index, "regimen", "");
     onProductFieldChange(index, "doseMappingId", undefined);
     onProductFieldChange(index, "doseLabel", "");
+    onProductFieldChange(index, "productId", undefined);
+    onProductFieldChange(index, "price", undefined);
   };
 
   const handleRegimenChange = (value: string) => {
     const regimen = titrationCategories.find((item) => String(item.id) === value);
     onProductFieldChange(index, "regimenId", regimen?.id);
     onProductFieldChange(index, "regimen", regimen?.name || "");
+    onProductFieldChange(index, "doseMappingId", undefined);
+    onProductFieldChange(index, "doseLabel", "");
+    onProductFieldChange(index, "productId", undefined);
+    onProductFieldChange(index, "price", undefined);
   };
 
   const handleDoseChange = (value: string) => {
     const doseMapping = doseMappings.find((item) => String(item.id) === value);
     onProductFieldChange(index, "doseMappingId", doseMapping?.id);
     onProductFieldChange(index, "doseLabel", doseMapping?.patient_label || doseMapping?.name || "");
+    const candidates = productsForDose(regimenProducts, doseMapping?.id);
+    const onlyProduct = candidates.length === 1 ? candidates[0] : undefined;
+    onProductFieldChange(index, "productId", onlyProduct ? String(onlyProduct.id) : undefined);
+    onProductFieldChange(
+      index,
+      "price",
+      onlyProduct?.base_price !== undefined ? Number(onlyProduct.base_price) : undefined
+    );
     if (doseMapping && !product.categoryId) {
       onProductFieldChange(index, "categoryId", doseMapping.category);
       onProductFieldChange(index, "category", doseMapping.category_name);
     }
+  };
+
+  const handleCatalogProductChange = (value: string) => {
+    const selectedProduct = matchingProducts.find((item) => String(item.id) === value);
+    onProductFieldChange(index, "productId", selectedProduct ? String(selectedProduct.id) : undefined);
+    onProductFieldChange(
+      index,
+      "price",
+      selectedProduct?.base_price !== undefined ? Number(selectedProduct.base_price) : undefined
+    );
   };
 
   return (
@@ -116,7 +156,7 @@ export function CheckoutProductRow({
           label="Category"
           value={selectedCategoryId ? String(selectedCategoryId) : ""}
           onChange={handleCategoryChange}
-          options={categories.map((category) => ({ value: String(category.id), label: category.name }))}
+          options={availableCategories.map((category) => ({ value: String(category.id), label: category.name }))}
           placeholder="— Select category —"
           testId={`checkout-product-category-${index}`}
         />
@@ -124,8 +164,9 @@ export function CheckoutProductRow({
           label="Titration / Regimen"
           value={selectedRegimenId ? String(selectedRegimenId) : ""}
           onChange={handleRegimenChange}
-          options={titrationCategories.map((category) => ({ value: String(category.id), label: category.name }))}
+          options={availableRegimens.map((category) => ({ value: String(category.id), label: category.name }))}
           placeholder="— Select regimen —"
+          disabled={!selectedCategoryId}
           testId={`checkout-product-regimen-${index}`}
         />
         <SelectField
@@ -136,9 +177,18 @@ export function CheckoutProductRow({
             value: String(dose.id),
             label: dose.patient_label || dose.name,
           }))}
-          placeholder={product.category ? "— Select dose level —" : "— Select category first —"}
-          disabled={!selectedCategoryId}
+          placeholder={selectedRegimenId ? "— Select dose level —" : "— Select regimen first —"}
+          disabled={!selectedRegimenId}
           testId={`checkout-product-dose-${index}`}
+        />
+        <SelectField
+          label="Catalog Product"
+          value={product.productId ? String(product.productId) : ""}
+          onChange={handleCatalogProductChange}
+          options={matchingProducts.map((item) => ({ value: String(item.id), label: item.name }))}
+          placeholder={selectedDoseMappingId ? "— Select product —" : "— Select dose level first —"}
+          disabled={!selectedDoseMappingId}
+          testId={`checkout-product-catalog-product-${index}`}
         />
 
         <div className="space-y-1.5">
@@ -160,7 +210,7 @@ export function CheckoutProductRow({
         </div>
       </div>
 
-      {product.category && product.regimen && product.doseLabel && (
+      {product.category && product.regimen && product.doseLabel && product.productId && (
         <div className="mt-3 rounded-lg border border-[#b2ebd5] bg-[#d1f4e0]/40 px-3 py-2 text-[11.5px] font-medium leading-relaxed text-[#1e8a4a]">
           {product.doseLabel} · {product.category} · {product.regimen} regimen
         </div>

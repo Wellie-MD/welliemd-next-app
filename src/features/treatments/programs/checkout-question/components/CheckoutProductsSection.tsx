@@ -3,8 +3,10 @@ import { Info, Plus } from "lucide-react";
 import { productCategoryApi, type ProductCategory } from "@/api/productCategories";
 import { titrationCategoryApi, type TitrationCategory } from "@/api/titrationCategories";
 import { listDoseMappings, type ProductDoseMapping } from "@/api/productDoseMappings";
+import { productApi, type Product } from "@/api/products";
 import type { ProgramCheckoutProduct, ProgramQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
 import { CheckoutProductRow } from "./CheckoutProductRow";
+import { selectableCatalogProducts } from "../utils/catalogOptions";
 
 interface CheckoutProductsSectionProps {
   products: ProgramCheckoutProduct[];
@@ -33,6 +35,7 @@ export function CheckoutProductsSection({
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [titrationCategories, setTitrationCategories] = useState<TitrationCategory[]>([]);
   const [doseMappings, setDoseMappings] = useState<ProductDoseMapping[]>([]);
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([]);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,16 +43,18 @@ export function CheckoutProductsSection({
 
     const fetchCatalogMetadata = async () => {
       try {
-        const [nextCategories, nextTitrationCategories, nextDoseMappings] = await Promise.all([
+        const [nextCategories, nextTitrationCategories, nextDoseMappings, nextProducts] = await Promise.all([
           productCategoryApi.listCategories(),
           titrationCategoryApi.listCategories({ is_active: true, page_size: 100 }),
           listDoseMappings({ page_size: 1000 }),
+          productApi.listProducts({ is_admin_product: true, is_active: true, page_size: 250 }),
         ]);
 
         if (cancelled) return;
         setCategories(nextCategories || []);
         setTitrationCategories(nextTitrationCategories || []);
         setDoseMappings(nextDoseMappings?.results || []);
+        setCatalogProducts(selectableCatalogProducts(nextProducts || []));
         setCatalogError(null);
       } catch (error) {
         if (cancelled) return;
@@ -66,8 +71,8 @@ export function CheckoutProductsSection({
   }, []);
 
   const hasCatalogData = useMemo(
-    () => categories.length > 0 || titrationCategories.length > 0 || doseMappings.length > 0,
-    [categories.length, titrationCategories.length, doseMappings.length]
+    () => categories.length > 0 && titrationCategories.length > 0 && doseMappings.length > 0 && catalogProducts.length > 0,
+    [categories.length, titrationCategories.length, doseMappings.length, catalogProducts.length]
   );
 
   return (
@@ -106,6 +111,7 @@ export function CheckoutProductsSection({
             categories={categories}
             titrationCategories={titrationCategories}
             doseMappings={doseMappings}
+            catalogProducts={catalogProducts}
             onRemoveProduct={onRemoveProduct}
             onProductFieldChange={onProductFieldChange}
             onProductPriceChange={onProductPriceChange}
