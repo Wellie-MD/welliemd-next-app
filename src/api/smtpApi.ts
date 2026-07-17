@@ -17,7 +17,12 @@ export interface MailgunDomainResponse {
   [key: string]: any;
 }
 
-export type MailgunStatsRange = "today" | "week" | "month" | "all";
+export type MailgunStatsRange = "today" | "week" | "month" | "year" | "all";
+
+export interface MailgunStatsReason {
+  reason: string;
+  count: number;
+}
 
 export interface MailgunDomainStats {
   domain: string;
@@ -27,13 +32,53 @@ export interface MailgunDomainStats {
   total_emails: number;
   sent_successfully: number;
   failed: number;
+  skipped: number;
+  other: number;
+  skipped_reasons: MailgunStatsReason[];
+  other_reasons: MailgunStatsReason[];
   opened: number;
   clicked: number;
+  unsubscribed: number;
   success_rate: number;
   open_rate: number;
   click_rate: number;
+  unsubscribe_rate: number;
   last_used: string | null;
   source: "mailgun" | "local";
+}
+
+export type EmailAudience = "all" | "patient" | "admin";
+
+export interface EmailLogRow {
+  id: string;
+  sent_at: string | null;
+  event_at: string | null;
+  recipient_name: string;
+  recipient_email: string;
+  template_type: string;
+  template_label: string;
+  subject: string;
+  status: string;
+  provider_event: string;
+  reason: string;
+  audience: EmailAudience;
+  mailgun_message_id: string;
+  retry_count: number;
+  can_retry: boolean;
+}
+
+export interface EmailAnalyticsResponse {
+  stats: MailgunDomainStats;
+  results: EmailLogRow[];
+  count: number;
+  page: number;
+  page_size: number;
+  has_next: boolean;
+  has_previous: boolean;
+}
+
+export interface EmailLogDetail extends EmailLogRow {
+  preview_html: string;
 }
 
 export const createMailgunDomain = async (domain: MailgunDomain): Promise<MailgunDomainResponse> => {
@@ -73,6 +118,39 @@ export const getMailgunDomainStats = async (
   const { data } = await api.get(`${apiBaseUrl}mailgun-domains/${domainName}/stats/`, {
     params: { range },
   });
+  return data;
+};
+
+export const getMailgunEmailAnalytics = async (
+  domainName: string,
+  params: {
+    range?: MailgunStatsRange;
+    audience?: EmailAudience;
+    status?: string;
+    search?: string;
+    page?: number;
+    page_size?: number;
+  }
+): Promise<EmailAnalyticsResponse> => {
+  const { data } = await api.get(`${apiBaseUrl}mailgun-domains/${domainName}/email-analytics/`, {
+    params,
+  });
+  return data;
+};
+
+export const getMailgunEmailLogDetail = async (
+  domainName: string,
+  logId: string
+): Promise<EmailLogDetail> => {
+  const { data } = await api.get(`${apiBaseUrl}mailgun-domains/${domainName}/email-logs/${logId}/`);
+  return data;
+};
+
+export const retryMailgunEmailLog = async (
+  domainName: string,
+  logId: string
+): Promise<{ status: string; event_id: string }> => {
+  const { data } = await api.post(`${apiBaseUrl}mailgun-domains/${domainName}/email-logs/${logId}/retry/`);
   return data;
 };
 
@@ -227,5 +305,8 @@ export const smtpApi = {
   deleteMailgunDomain,
   createMailgunCredentials,
   deleteMailgunCredentials,
-  getMailgunDomainStats
+  getMailgunDomainStats,
+  getMailgunEmailAnalytics,
+  getMailgunEmailLogDetail,
+  retryMailgunEmailLog
 };
