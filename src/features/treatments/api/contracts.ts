@@ -79,6 +79,7 @@ export type CustomProgramRecord = {
   icon_color?: string;
   tags?: string[];
   is_multi?: boolean;
+  program_matching_rules?: CustomProgram["programMatchingRules"];
   updated_at?: string;
 };
 
@@ -113,6 +114,7 @@ export type ProgramRecord = {
 };
 
 export type ProgramQuestionRecord = Partial<ProgramQuestion> & {
+  scope?: "routing" | "program";
   question_text?: string;
   question_type?: ProgramQuestion["kind"];
   order_index?: number;

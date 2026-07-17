@@ -46,6 +46,7 @@ export const mockCustomPrograms: CustomProgram[] = [
         visibilitySummary: "Shown when ED is recommended.",
       },
     ],
+    programMatchingRules: {},
     flowItems: [
       {
         id: "flow-auth",
@@ -113,6 +114,7 @@ export const mockCustomPrograms: CustomProgram[] = [
     tags: ["Men's Health", "Multi-treatment"],
     isMulti: true,
     checkoutOptions: [],
+    programMatchingRules: {},
     flowItems: [
       {
         id: "flow-auth",

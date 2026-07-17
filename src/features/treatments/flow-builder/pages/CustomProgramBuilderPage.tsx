@@ -22,7 +22,8 @@ export default function CustomProgramBuilderPage() {
   const { data: sections = [] } = useSections();
   const { data: consents = [] } = useConsents();
 
-  const { mutate: saveCustomProgram } = useSaveCustomProgram();
+  const saveCustomProgramMutation = useSaveCustomProgram();
+  const { mutate: saveCustomProgram } = saveCustomProgramMutation;
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
@@ -129,6 +130,11 @@ export default function CustomProgramBuilderPage() {
           onOpenDrawer={() => setIsDrawerOpen(true)}
           onUpdateFlow={handleUpdateFlow}
           onSave={handleSavePlan}
+          programs={programs}
+          onSaveMatching={async (programMatchingRules) => {
+            await saveCustomProgramMutation.mutateAsync({ ...customProgram, programMatchingRules });
+            toast({ title: "Matching Rules Saved", description: "Program matching rules are ready for preview and publishing." });
+          }}
         />
       </div>
 

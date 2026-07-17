@@ -47,7 +47,7 @@ export function buildFlowGraph({ flowItems, getConsentScope, getConsentVisitType
     { id: "sys-start", kind: "start", title: "Start", subtitle: "Patient enters", isStart: true },
     { id: "sys-auth", kind: "authentication", title: "Sign in / Sign up", subtitle: "Authentication", isSystem: true },
     ...routingItems,
-    { id: "sys-matched", kind: "matched_summary", title: "Matched Summary", subtitle: "Multi-select", isSystem: true },
+    { id: "sys-matched", kind: "matched_summary", title: "Matched Programs", subtitle: "Based on what you shared · Multi-select", isSystem: true },
     ...sectionItems,
   ];
 

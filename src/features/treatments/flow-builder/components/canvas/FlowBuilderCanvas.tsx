@@ -23,6 +23,7 @@ interface FlowBuilderCanvasProps {
   onCanvasDrop: (event: React.DragEvent) => void;
   onInsertItem: (rawData: string, targetIndex: number) => void;
   getTargetIndexForId: (itemId: string) => number;
+  onEditSystemItem?: (item: FlowCanvasItem) => void;
 }
 
 function ArrowDropTarget({ afterItemId, onDropOnArrow }: { afterItemId: string; onDropOnArrow: (event: React.DragEvent, afterItemId: string) => void }) {
@@ -46,6 +47,7 @@ function FlowChipChain({
   onDropOnArrow,
   onInsertItem,
   getTargetIndexForId,
+  onEditSystemItem,
 }: {
   items: FlowCanvasItem[];
   flowItems: CustomProgramFlowItem[];
@@ -68,6 +70,7 @@ function FlowChipChain({
             onDragEnd={onDragEnd}
             onInsertItem={onInsertItem}
             getTargetIndexForId={getTargetIndexForId}
+            onEditSystemItem={onEditSystemItem}
           />
         </div>
       ))}
@@ -89,6 +92,7 @@ export function FlowBuilderCanvas({
   onCanvasDrop,
   onInsertItem,
   getTargetIndexForId,
+  onEditSystemItem,
 }: FlowBuilderCanvasProps) {
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm">
@@ -123,6 +127,7 @@ export function FlowBuilderCanvas({
             onDropOnArrow={onDropOnArrow}
             onInsertItem={onInsertItem}
             getTargetIndexForId={getTargetIndexForId}
+            onEditSystemItem={onEditSystemItem}
           />
 
           {tracks.length > 0 && (
@@ -153,6 +158,7 @@ export function FlowBuilderCanvas({
                       onDropOnArrow={onDropOnArrow}
                       onInsertItem={onInsertItem}
                       getTargetIndexForId={getTargetIndexForId}
+                      onEditSystemItem={onEditSystemItem}
                     />
 
                     <div className="h-[2px] w-4 shrink-0 bg-slate-300" />
@@ -178,6 +184,7 @@ export function FlowBuilderCanvas({
             onDropOnArrow={onDropOnArrow}
             onInsertItem={onInsertItem}
             getTargetIndexForId={getTargetIndexForId}
+            onEditSystemItem={onEditSystemItem}
           />
         </div>
       </div>

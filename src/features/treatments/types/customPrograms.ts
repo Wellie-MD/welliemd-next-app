@@ -30,6 +30,24 @@ export interface CustomProgramFlowItem {
   prefillFromPrevious?: boolean;
 }
 
+export type ProgramMatchingOperator = "eq" | "neq" | "contains" | "not_contains" | "gt" | "gte" | "lt" | "lte" | "between" | "exists";
+
+export interface ProgramMatchingCondition {
+  field: string;
+  operator: ProgramMatchingOperator;
+  value?: string | number | string[] | boolean;
+}
+
+export interface ProgramMatchingRule {
+  combinator: "and" | "or";
+  rules: ProgramMatchingCondition[];
+}
+
+export interface ProgramMatchingConfig {
+  enabled: boolean;
+  rule: ProgramMatchingRule | Record<string, never>;
+}
+
 export type CustomProgramFlowItemInput = Omit<CustomProgramFlowItem, "id">;
 
 export interface CustomProgramBuilderAddItem extends CustomProgramFlowItemInput {
@@ -59,4 +77,5 @@ export interface CustomProgram {
   iconColor?: string;
   tags?: string[];
   isMulti?: boolean;
+  programMatchingRules: Record<string, ProgramMatchingConfig>;
 }

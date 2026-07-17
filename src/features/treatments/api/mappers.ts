@@ -40,6 +40,26 @@ const visibilityGroup = (record: ProgramQuestionRecord): ProgramQuestion["visibi
 
 type CheckoutRecord = Record<string, unknown>;
 
+const checkoutVisibilityGroup = (raw: unknown): ProgramCheckoutProduct["visibilityRules"] => {
+  if (!raw || typeof raw !== "object") {
+    return undefined;
+  }
+
+  const candidate = raw as Partial<ProgramCheckoutQuestion["visibilityRules"]>;
+  const subgroups = Array.isArray(candidate.subgroups)
+    ? candidate.subgroups
+        .map(checkoutVisibilityGroup)
+        .filter((group): group is NonNullable<ProgramCheckoutProduct["visibilityRules"]> => Boolean(group))
+    : [];
+  const rules = Array.isArray(candidate.rules) ? candidate.rules : [];
+  if (rules.length === 0 && subgroups.length === 0) return undefined;
+  return {
+    mode: candidate.mode === "nested" ? "nested" : "simple",
+    rules,
+    subgroups,
+  };
+};
+
 const checkoutProductFromRecord = (record: CheckoutRecord, index: number): ProgramCheckoutProduct => ({
   id: String(record.id ?? record.option_id ?? `product-option-${index + 1}`),
   categoryId: Number(record.categoryId ?? record.category_id) || undefined,
@@ -52,7 +72,9 @@ const checkoutProductFromRecord = (record: CheckoutRecord, index: number): Progr
     ? String(record.productId ?? record.product_id ?? record.value)
     : undefined,
   price: Number(record.price ?? record.final_price ?? record.unit_price) || undefined,
-  visibilityRules: (record.visibilityRules ?? record.visibility_rules) as ProgramCheckoutProduct["visibilityRules"],
+  visibilityRules: checkoutVisibilityGroup(
+    record.visibilityRules ?? record.visibility_rules ?? record.visibility_rule,
+  ),
 });
 
 export const checkoutQuestionFromRecord = (raw: unknown, index: number): ProgramCheckoutQuestion => {
@@ -65,9 +87,9 @@ export const checkoutQuestionFromRecord = (raw: unknown, index: number): Program
     id: String(record.id ?? record.source_id ?? `checkout-question-${index + 1}`),
     text: String(record.text ?? record.question_text ?? record.prompt ?? "Checkout Options"),
     products: rawProducts.map(checkoutProductFromRecord),
-    visibilityRules: (
-      record.visibilityRules ?? record.visibility_rules ?? record.conditional_logic ?? { mode: "simple", rules: [] }
-    ) as ProgramCheckoutQuestion["visibilityRules"],
+    visibilityRules: checkoutVisibilityGroup(
+      record.visibilityRules ?? record.visibility_rules ?? record.visibility_rule ?? record.conditional_logic,
+    ) ?? { mode: "simple", rules: [], subgroups: [] },
   };
 };
 
@@ -205,6 +227,7 @@ export const customProgramFromRecord = (record: CustomProgramRecord): CustomProg
   iconColor: record.icon_color || undefined,
   tags: record.tags || [],
   isMulti: record.is_multi ?? false,
+  programMatchingRules: record.program_matching_rules || {},
 });
 
 export const customProgramToRecord = (program: CustomProgram) => ({
@@ -228,6 +251,7 @@ export const customProgramToRecord = (program: CustomProgram) => ({
   icon_color: program.iconColor || "",
   tags: program.tags || [],
   is_multi: program.isMulti ?? false,
+  program_matching_rules: program.programMatchingRules || {},
 });
 
 export const programFromRecord = (record: ProgramRecord): Program => ({

@@ -1,4 +1,5 @@
-import type { CustomProgram, CustomProgramFlowItem } from "@/features/treatments/types";
+import { useState } from "react";
+import type { CustomProgram, CustomProgramFlowItem, Program, ProgramQuestion } from "@/features/treatments/types";
 import { useCustomProgramFlowBuilder } from "@/features/treatments/flow-builder/hooks/useCustomProgramFlowBuilder";
 import { getQuestionnairePreviewApiBaseUrl } from "@/features/treatments/utils/previewUrl";
 import { PatientFlowTestModal } from "./modals/PatientFlowTestModal";
@@ -6,16 +7,35 @@ import { FlowBuilderCanvas } from "./canvas/FlowBuilderCanvas";
 import { FlowBuilderHeader } from "./canvas/FlowBuilderHeader";
 import { FlowBuilderListView } from "./canvas/FlowBuilderListView";
 import { FlowBuilderSidebar } from "./canvas/FlowBuilderSidebar";
+import { MatchedProgramsEditor } from "./modals/MatchedProgramsEditor";
+import { QuestionEditorDialog } from "@/features/treatments/question-editor/components/shell/QuestionEditorDialog";
 
 interface CustomProgramFlowBuilderProps {
   customProgram: CustomProgram;
   onOpenDrawer?: () => void;
   onSave?: (updated: CustomProgram) => void;
   onUpdateFlow?: (updatedItems: CustomProgramFlowItem[]) => void;
+  programs: Program[];
+  onSaveMatching: (rules: CustomProgram["programMatchingRules"]) => Promise<void>;
 }
 
-export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, onUpdateFlow }: CustomProgramFlowBuilderProps) {
+export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, onUpdateFlow, programs, onSaveMatching }: CustomProgramFlowBuilderProps) {
   const builder = useCustomProgramFlowBuilder({ customProgram, onSave, onUpdateFlow });
+  const [matchingOpen, setMatchingOpen] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState<CustomProgramFlowItem | null>(null);
+  const editorQuestion: ProgramQuestion | null = editingQuestion ? {
+    id: editingQuestion.sourceId || editingQuestion.id,
+    order: customProgram.flowItems.findIndex((item) => item.id === editingQuestion.id) + 1,
+    text: editingQuestion.title,
+    kind: (editingQuestion.questionKind || "text") as ProgramQuestion["kind"],
+    section: "Program Matching",
+    required: editingQuestion.required ?? true,
+    choices: editingQuestion.choices || editingQuestion.answerOptions || [],
+    visibilityRuleGroup: editingQuestion.visibilityRules as ProgramQuestion["visibilityRuleGroup"],
+    includeInQa: editingQuestion.includeInQa,
+    hiddenFromPatient: editingQuestion.hiddenFromPatient,
+    prefillFromPrevious: editingQuestion.prefillFromPrevious,
+  } : null;
 
   return (
     <div className="flex h-full flex-col space-y-4">
@@ -43,6 +63,31 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
           id: customProgram.id,
           slug: customProgram.slug,
           apiBaseUrl: getQuestionnairePreviewApiBaseUrl(),
+        }}
+      />
+      <MatchedProgramsEditor open={matchingOpen} onOpenChange={setMatchingOpen} customProgram={customProgram} programs={programs} onSave={onSaveMatching} />
+      <QuestionEditorDialog
+        open={Boolean(editingQuestion)}
+        onOpenChange={(open) => { if (!open) setEditingQuestion(null); }}
+        questions={editorQuestion ? [editorQuestion] : []}
+        initialQuestionId={editorQuestion?.id || null}
+        onSave={(question) => {
+          if (!editingQuestion || !onUpdateFlow) return;
+          onUpdateFlow(customProgram.flowItems.map((item) => item.id === editingQuestion.id ? {
+            ...item,
+            title: question.text,
+            subtitle: `Matching input (${question.kind})`,
+            sourceId: question.id,
+            questionKind: question.kind,
+            choices: question.choices || [],
+            answerOptions: question.choices || [],
+            required: question.required,
+            visibilityRules: question.visibilityRuleGroup,
+            includeInQa: question.includeInQa,
+            hiddenFromPatient: question.hiddenFromPatient,
+            prefillFromPrevious: question.prefillFromPrevious,
+          } : item));
+          setEditingQuestion(null);
         }}
       />
 
@@ -85,6 +130,7 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
             onCanvasDrop={builder.handleCanvasContainerDrop}
             onInsertItem={builder.handleInsertItem}
             getTargetIndexForId={builder.getTargetIndexForId}
+            onEditSystemItem={(item) => { if (item.id === "sys-matched") setMatchingOpen(true); else if (item.kind === "routing_question") setEditingQuestion(customProgram.flowItems.find((flowItem) => flowItem.id === item.id) || null); }}
           />
         </div>
       )}

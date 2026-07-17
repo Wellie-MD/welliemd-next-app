@@ -9,7 +9,7 @@ interface ProgramCheckoutQuestionsProps {
   onDelete: (id: string) => void;
 }
 
-const renderProductSummary = (products: ProgramCheckoutProduct[]) => {
+const renderProductSummary = (products: ProgramCheckoutProduct[] = []) => {
   if (!products.length) {
     return <span className="text-slate-400 italic">No products configured</span>;
   }
@@ -29,13 +29,13 @@ const renderProductSummary = (products: ProgramCheckoutProduct[]) => {
   );
 };
 
-const renderVisibilitySummary = (visibilityRules: VisibilityRuleGroup) => {
-  const ruleCount = visibilityRules.rules.length;
+const renderVisibilitySummary = (visibilityRules?: VisibilityRuleGroup) => {
+  const ruleCount = visibilityRules?.rules?.length ?? 0;
   if (ruleCount === 0) {
     return "Always visible";
   }
 
-  return `${visibilityRules.mode === "nested" ? "Nested" : "Simple"} visibility · ${ruleCount} rule${
+  return `${visibilityRules?.mode === "nested" ? "Nested" : "Simple"} visibility · ${ruleCount} rule${
     ruleCount === 1 ? "" : "s"
   }`;
 };
