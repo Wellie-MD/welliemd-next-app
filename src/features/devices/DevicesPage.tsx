@@ -108,21 +108,26 @@ export default function DevicesPage() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [allowedProviders, setAllowedProviders] = useState<Provider[]>([]);
+  const [connectionSyncError, setConnectionSyncError] = useState('');
 
   const fetchConnectionsList = useCallback(async () => {
     setLoading(true);
     try {
-      const [conns, vitalsHistory, goalResponse, data] = await Promise.all([
+      const [connectionsResult, vitalsResult, goalResult, dataResult] = await Promise.allSettled([
         getConnections(),
         getVitalsHistory(),
         getHealthGoal(),
         getDeviceData(),
       ]);
-      const formatted = conns.map((c) => formatConnection(c));
-      setConnections(formatted);
-      const isConnected = formatted.length > 0;
 
-      if (data) {
+      if (connectionsResult.status === 'fulfilled') {
+        const formatted = connectionsResult.value.map(formatConnection);
+        setConnections(formatted);
+        setDeviceConnected(formatted.length > 0);
+      }
+
+      if (dataResult.status === 'fulfilled' && dataResult.value) {
+        const data = dataResult.value;
         setDeviceMetrics(prev => ({
           ...prev,
           ...(data.steps && { steps: data.steps }),
@@ -143,12 +148,17 @@ export default function DevicesPage() {
         }));
       }
 
-      setWeight(prev => ({
-        ...buildWeightData(vitalsHistory, prev),
-        targetBmi: goalResponse.goal ? Number(goalResponse.goal.target_bmi) : null,
-      }));
-      setDeviceConnected(isConnected);
-    } catch {
+      setWeight(prev => {
+        const next = vitalsResult.status === 'fulfilled'
+          ? buildWeightData(vitalsResult.value, prev)
+          : prev;
+        return {
+          ...next,
+          targetBmi: goalResult.status === 'fulfilled' && goalResult.value.goal
+            ? Number(goalResult.value.goal.target_bmi)
+            : next.targetBmi,
+        };
+      });
     } finally {
       setLoading(false);
     }
@@ -168,6 +178,7 @@ export default function DevicesPage() {
   // directly instead of waiting. Reused by both the bounded auto-poll below
   // and the manual "Check status" button on a pending connection card.
   const handleRefreshStatus = useCallback(async () => {
+    setConnectionSyncError('');
     try {
       const conns = await syncConnections();
       const formatted = conns.map((c) => formatConnection(c));
@@ -175,6 +186,7 @@ export default function DevicesPage() {
       setDeviceConnected(formatted.length > 0);
       return formatted;
     } catch {
+      setConnectionSyncError('Unable to check the connection right now. Please try again.');
       return null;
     }
   }, []);
@@ -218,6 +230,7 @@ export default function DevicesPage() {
 
     return () => {
       cancelled = true;
+      pollingRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, handleRefreshStatus]);
@@ -521,6 +534,7 @@ export default function DevicesPage() {
             onReconnect={handleReconnect}
             onConnectAnother={() => { setPickerCat('all'); setPickerQuery(''); setPickerOpen(true); }}
             onRefreshStatus={handleRefreshStatus}
+            syncError={connectionSyncError}
           />
         ) : (
           <ConnectState

@@ -1,0 +1,42 @@
+.km-device-sync-error {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--km-am);
+  border-radius: 10px;
+  background: var(--km-amp);
+  color: var(--km-am);
+  font-size: 12px;
+}
+
+.km-device-card-content,
+.km-device-card-actions {
+  min-width: 0;
+}
+
+.km-device-card-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 7px;
+}
+
+@media (max-width: 640px) {
+  .km-device-card-content {
+    align-items: flex-start !important;
+    flex-wrap: wrap;
+  }
+
+  .km-device-card-actions {
+    width: 100%;
+    padding-left: 48px;
+  }
+
+  .km-device-card-actions button {
+    flex: 1;
+  }
+}
+
+@media (max-width: 420px) {
+  .km-device-card-actions {
+    padding-left: 0;
+  }
+}

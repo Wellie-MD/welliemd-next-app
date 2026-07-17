@@ -2,6 +2,7 @@ import React from 'react';
 import { PROVIDERS } from '../constants';
 import type { Connection, Provider } from '../types';
 import ProviderIcon from './ProviderIcon';
+import '../devices.css';
 
 interface ConnectedStateProps {
   connections: Connection[];
@@ -9,7 +10,8 @@ interface ConnectedStateProps {
   onDisconnect: (provider: string) => void;
   onReconnect: (provider: string) => void;
   onConnectAnother: () => void;
-  onRefreshStatus?: () => void;
+  onRefreshStatus?: () => Promise<Connection[] | null>;
+  syncError?: string;
 }
 
 const CARD: React.CSSProperties = {
@@ -27,10 +29,16 @@ export default function ConnectedState({
   onReconnect,
   onConnectAnother,
   onRefreshStatus,
+  syncError,
 }: ConnectedStateProps) {
 
   return (
     <>
+      {syncError ? (
+        <div className="km-device-sync-error" role="alert">
+          {syncError}
+        </div>
+      ) : null}
       {/* ─── Each device = its own card ─── */}
       {connections.map((c) => {
         const p = allowedProviders.find((x) => x.id === c.provider) ||
@@ -45,8 +53,9 @@ export default function ConnectedState({
         const pending = c.status === 'pending';
 
         return (
-          <div key={c.provider} style={CARD}>
+          <div key={c.provider} className="km-device-card" style={CARD}>
             <div
+              className="km-device-card-content"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -124,7 +133,7 @@ export default function ConnectedState({
               </div>
 
               {broken ? (
-                <div style={{ display: 'flex', gap: 7, flexShrink: 0 }}>
+                <div className="km-device-card-actions">
                   <button
                     style={{
                       fontSize: 12,
@@ -157,7 +166,7 @@ export default function ConnectedState({
                   </button>
                 </div>
               ) : pending ? (
-                <div style={{ display: 'flex', gap: 7, flexShrink: 0 }}>
+                <div className="km-device-card-actions">
                   <button
                     style={{
                       fontSize: 12,
