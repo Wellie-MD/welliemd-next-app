@@ -2,36 +2,64 @@ import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { DataTable } from "@/components/ui/data-table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CalendarDays, RotateCcw, TrendingUp, Download, RefreshCw, Grid3X3 } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import { CalendarDays, RotateCcw, TrendingUp, Download, RefreshCw, Grid3X3, Check, ChevronsUpDown } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 import { useAdminOrders } from "@/hooks/useAdminOrders"
 import { exportToCSV } from "@/utils/exportUtils"
-import { AdminOrder } from "@/api/dashboardApi"
+import { AdminOrder, FilterOption, getOrderFilterOptions } from "@/api/dashboardApi"
+import { clientApi, Client } from "@/api/clientApi"
 import { OrderDetailDrawer } from "@/components/orders/OrderDetailDrawer"
 
-// Status filters based on Order model
-const orderStatusFilters = [
-  "All",
-  "Created",
-  "Payment Pending",
-  "Processing",
-  "Visit Failed",
-  "Visit Pending",
-  "Consult Canceled",
-  "Referred",
-  "Prescribed",
-  "Billing Pending",
-  "Rx Sent",
-  "Shipped",
-  "In Transit",
-  "Out for Delivery",
-  "Delivered",
-  "Delivery Failed",
-  "Canceled"
+// Order status options (display labels mapped to backend values)
+const ORDER_STATUSES = [
+  { label: "All", value: "all" },
+  { label: "Created", value: "created" },
+  { label: "Payment Pending", value: "payment_pending" },
+  { label: "Processing", value: "processing" },
+  { label: "Visit Failed", value: "visit_failed" },
+  { label: "Visit Pending", value: "visit_pending" },
+  { label: "Consult Canceled", value: "consult_canceled" },
+  { label: "Referred", value: "referred" },
+  { label: "Prescribed", value: "prescribed" },
+  { label: "Billing Pending", value: "billing_pending" },
+  { label: "Rx Sent", value: "rx_sent" },
+  { label: "Shipped", value: "shipped" },
+  { label: "In Transit", value: "in_transit" },
+  { label: "Out for Delivery", value: "out_for_delivery" },
+  { label: "Delivered", value: "delivered" },
+  { label: "Delivery Failed", value: "delivery_failed" },
+  { label: "Canceled", value: "canceled" },
 ]
 
-const paymentStatusFilters = ["All", "Paid", "Pending", "Failed"]
+const PAYMENT_STATUSES = [
+  { label: "All", value: "all" },
+  { label: "Paid", value: "paid" },
+  { label: "Pending", value: "pending" },
+  { label: "Failed", value: "failed" },
+  { label: "Refunded", value: "refunded" },
+]
 
 const formatPaymentStatusLabel = (status: string): string => {
   const value = String(status || "").trim().toLowerCase()
@@ -53,12 +81,23 @@ const formatVisitStatusLabel = (status?: string | null): string => {
 
 export default function Orders() {
   const [searchTerm, setSearchTerm] = useState("")
-  const [activeOrderStatusFilter, setActiveOrderStatusFilter] = useState("All")
-  const [activePaymentStatusFilter, setActivePaymentStatusFilter] = useState("All")
+  const [activeOrderStatusFilter, setActiveOrderStatusFilter] = useState("all")
+  const [activePaymentStatusFilter, setActivePaymentStatusFilter] = useState("all")
+  const [categoryId, setCategoryId] = useState("all")
+  const [pharmacyId, setPharmacyId] = useState("all")
+  const [clientId, setClientId] = useState("")
+  const [clientSearchQuery, setClientSearchQuery] = useState("")
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false)
   const [date, setDate] = useState<DateRange | undefined>()
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  
+
+  // Filter options loaded from backend
+  const [categories, setCategories] = useState<FilterOption[]>([])
+  const [pharmacies, setPharmacies] = useState<FilterOption[]>([])
+  const [clients, setClients] = useState<Client[]>([])
+  const [filterOptionsLoading, setFilterOptionsLoading] = useState(true)
+
   const {
     orders,
     loading,
@@ -69,8 +108,33 @@ export default function Orders() {
     refetch
   } = useAdminOrders()
 
+  // Load filter options (categories, pharmacies, clients) on mount
+  useEffect(() => {
+    let mounted = true
+    async function loadFilterOptions() {
+      setFilterOptionsLoading(true)
+      const [optionsData, clientsData] = await Promise.all([
+        getOrderFilterOptions(),
+        clientApi.list().catch(() => [] as Client[]),
+      ])
+      if (!mounted) return
+      setCategories(optionsData.categories ?? [])
+      setPharmacies(optionsData.pharmacies ?? [])
+      setClients(clientsData)
+      setFilterOptionsLoading(false)
+    }
+    loadFilterOptions()
+    return () => { mounted = false }
+  }, [])
+
+  // Resolve selected client name for the combobox trigger
+  const selectedClientName = useMemo(() => {
+    if (!clientId) return "All Clients"
+    const found = clients.find(c => c.id === clientId)
+    return found?.name ?? "All Clients"
+  }, [clientId, clients])
+
   const handleOrderClick = useCallback((row: any) => {
-    // Reconstruct raw AdminOrder from the formatted row
     const rawOrder: AdminOrder = {
       id: row.id,
       display_id: row._raw_display_id ?? row.display_id,
@@ -180,98 +244,63 @@ export default function Orders() {
   // Use ref to track previous filter values to prevent unnecessary updates
   const prevFiltersRef = useRef({
     searchTerm: "",
-    activeOrderStatusFilter: "All",
+    activeOrderStatusFilter: "",
+    activePaymentStatusFilter: "",
+    categoryId: "",
+    pharmacyId: "",
+    clientId: "",
     date: undefined as DateRange | undefined
   });
 
   // Apply filters when they change (with debouncing for search)
   useEffect(() => {
     const prev = prevFiltersRef.current;
-    
-    // Check if filters actually changed
-    const filtersChanged = 
+
+    const filtersChanged =
       prev.searchTerm !== searchTerm ||
       prev.activeOrderStatusFilter !== activeOrderStatusFilter ||
+      prev.activePaymentStatusFilter !== activePaymentStatusFilter ||
+      prev.categoryId !== categoryId ||
+      prev.pharmacyId !== pharmacyId ||
+      prev.clientId !== clientId ||
       prev.date !== date;
-    
-    if (!filtersChanged) {
-      return;
-    }
-    
-    // Update ref
+
+    if (!filtersChanged) return;
+
     prevFiltersRef.current = {
       searchTerm,
       activeOrderStatusFilter,
+      activePaymentStatusFilter,
+      categoryId,
+      pharmacyId,
+      clientId,
       date
     };
-    
-    // Debounce search input
+
     const timeoutId = setTimeout(() => {
-      const filters: any = {}
-      
-      if (searchTerm) {
-        filters.search = searchTerm
-      }
-      
-      if (activeOrderStatusFilter !== "All") {
-        // Map display names to backend status values
-        const statusMap: Record<string, string> = {
-          "Created": "created",
-          "Payment Pending": "payment_pending",
-          "Processing": "processing",
-          "Visit Failed": "visit_failed",
-          "Visit Pending": "visit_pending",
-          "Consult Canceled": "consult_canceled",
-          "Referred": "referred",
-          "Prescribed": "prescribed",
-          "Billing Pending": "billing_pending",
-          "Rx Sent": "rx_sent",
-          "Shipped": "shipped",
-          "In Transit": "in_transit",
-          "Out for Delivery": "out_for_delivery",
-          "Delivered": "delivered",
-          "Delivery Failed": "delivery_failed",
-          "Canceled": "canceled"
-        }
-        filters.status = statusMap[activeOrderStatusFilter]
-      }
-      
-      if (date?.from) {
-        filters.date_from = format(date.from, 'yyyy-MM-dd')
-      }
-      
-      if (date?.to) {
-        filters.date_to = format(date.to, 'yyyy-MM-dd')
-      }
-      
-      setFilters(filters)
-    }, searchTerm !== prev.searchTerm ? 500 : 0) // Debounce search by 500ms
-    
+      setFilters({
+        status: activeOrderStatusFilter !== "all" ? activeOrderStatusFilter : undefined,
+        payment_status: activePaymentStatusFilter !== "all" ? activePaymentStatusFilter : undefined,
+        product__category__id: categoryId !== "all" ? categoryId : undefined,
+        pharmacy__id: pharmacyId !== "all" ? pharmacyId : undefined,
+        client_id: clientId || undefined,
+        search: searchTerm || undefined,
+        date_from: date?.from ? format(date.from, 'yyyy-MM-dd') : undefined,
+        date_to: date?.to ? format(date.to, 'yyyy-MM-dd') : undefined,
+      })
+    }, searchTerm !== prev.searchTerm ? 500 : 0)
+
     return () => clearTimeout(timeoutId)
-  }, [searchTerm, activeOrderStatusFilter, date, setFilters])
+  }, [searchTerm, activeOrderStatusFilter, activePaymentStatusFilter, categoryId, pharmacyId, clientId, date, setFilters])
 
   // Format orders for display while preserving raw data for the detail drawer
   const formattedOrders = useMemo(() => {
-    return orders
-      .filter(order => {
-        // Client-side payment status filter
-        if (activePaymentStatusFilter !== "All") {
-          const current = String(order.payment_status || "").toLowerCase()
-          const wanted = activePaymentStatusFilter.toLowerCase()
-          if (wanted === "paid") {
-            return current === "paid" || current === "partially_paid"
-          }
-          return current === wanted
-        }
-        return true
-      })
-      .map(order => {
-        const canonicalOrderNumber = order.order_id || order.display_id
-        return {
+    return orders.map(order => {
+      const canonicalOrderNumber = order.order_id || order.display_id
+      return {
         ...order,
         display_id: canonicalOrderNumber,
         order_id: order.order_id ?? null,
-        // Keep raw values under _raw prefix for the drawer
         _raw_display_id: order.display_id,
         _raw_amount: order.amount,
         _raw_created_at: order.created_at,
@@ -279,7 +308,6 @@ export default function Orders() {
         _raw_shipped_at: order.shipped_at,
         _raw_payment_status: order.payment_status,
         _raw_visit_status: order.visit_status || null,
-        // Formatted display values
         amount: `$${order.amount.toFixed(2)}`,
         created_at: order.created_at ? format(new Date(order.created_at), 'MM/dd/yyyy') : '',
         prescribed_at: order.prescribed_at ? format(new Date(order.prescribed_at), 'MM/dd/yyyy') : '',
@@ -288,35 +316,19 @@ export default function Orders() {
         visit_status: formatVisitStatusLabel(order.visit_status),
         payment_recovery_state: order.payment_recovery_state || null,
         remaining_supplemental_amount: order.remaining_supplemental_amount || null,
-      }})
-  }, [orders, activePaymentStatusFilter])
-
-  // Create filter configuration
-  const filters = [
-    // Order Status filters
-    ...orderStatusFilters.map(status => ({
-      key: `order-${status}`,
-      label: status === "All" ? "Order Status" : status,
-      type: 'button' as const,
-      value: activeOrderStatusFilter === status ? status : undefined,
-      onClick: () => setActiveOrderStatusFilter(status)
-    })),
-    // Payment Status filters
-    ...paymentStatusFilters.map(status => ({
-      key: `payment-${status}`,
-      label: status === "All" ? "Payment Status" : status,
-      type: 'button' as const,
-      value: activePaymentStatusFilter === status ? status : undefined,
-      onClick: () => setActivePaymentStatusFilter(status)
-    })),
-  ]
+      }
+    })
+  }, [orders])
 
   const handleResetFilters = useCallback(() => {
-    setActiveOrderStatusFilter("All")
-    setActivePaymentStatusFilter("All")
+    setActiveOrderStatusFilter("all")
+    setActivePaymentStatusFilter("all")
+    setCategoryId("all")
+    setPharmacyId("all")
+    setClientId("")
+    setClientSearchQuery("")
     setDate(undefined)
     setSearchTerm("")
-    // Reset will trigger the useEffect which will call setFilters
   }, [])
 
   const handleRefresh = useCallback(() => {
@@ -334,6 +346,16 @@ export default function Orders() {
   const handleGridView = () => {
     console.log("Grid view clicked")
   }
+
+  const hasActiveFilters = (activeOrderStatusFilter !== "all") || (activePaymentStatusFilter !== "all") ||
+    (categoryId !== "all") || (pharmacyId !== "all") || clientId || searchTerm || date?.from
+
+  // Filter clients by search query for the combobox
+  const filteredClients = useMemo(() => {
+    if (!clientSearchQuery) return clients
+    const q = clientSearchQuery.toLowerCase()
+    return clients.filter(c => c.name?.toLowerCase().includes(q))
+  }, [clients, clientSearchQuery])
 
   if (error) {
     return (
@@ -366,14 +388,176 @@ export default function Orders() {
         </div>
       </div>
 
+      {/* Filter Bar */}
+      <div className="space-y-4">
+        {/* Row 1: Dropdown filters */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Order Status */}
+          <div className="flex flex-col gap-1.5 min-w-[150px]">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Order Status</label>
+            <Select
+              value={activeOrderStatusFilter}
+              onValueChange={(v) => { setActiveOrderStatusFilter(v); setClientSearchQuery("") }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                {ORDER_STATUSES.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Product Category */}
+          <div className="flex flex-col gap-1.5 min-w-[150px]">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Product Category</label>
+            <Select
+              value={categoryId}
+              onValueChange={setCategoryId}
+              disabled={filterOptionsLoading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={String(c.id)} value={String(c.id)}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Pharmacy */}
+          <div className="flex flex-col gap-1.5 min-w-[150px]">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Pharmacy</label>
+            <Select
+              value={pharmacyId}
+              onValueChange={setPharmacyId}
+              disabled={filterOptionsLoading}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Pharmacies" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Pharmacies</SelectItem>
+                {pharmacies.map((p) => (
+                  <SelectItem key={String(p.id)} value={String(p.id)}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Payment Status */}
+          <div className="flex flex-col gap-1.5 min-w-[150px]">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Payment Status</label>
+            <Select
+              value={activePaymentStatusFilter}
+              onValueChange={setActivePaymentStatusFilter}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Payment Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                {PAYMENT_STATUSES.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Client Filter (Searchable Combobox) */}
+          <div className="flex flex-col gap-1.5 min-w-[150px]">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Client</label>
+            <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={clientPopoverOpen}
+                className="w-[220px] justify-between font-normal"
+                disabled={filterOptionsLoading}
+              >
+                <span className="truncate">{selectedClientName}</span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[220px] p-0">
+              <Command>
+                <CommandInput
+                  placeholder="Search clients..."
+                  value={clientSearchQuery}
+                  onValueChange={setClientSearchQuery}
+                />
+                <CommandList>
+                  <CommandEmpty>No clients found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="all-clients"
+                      onSelect={() => {
+                        setClientId("")
+                        setClientPopoverOpen(false)
+                        setClientSearchQuery("")
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          !clientId ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      All Clients
+                    </CommandItem>
+                    {filteredClients.map((c) => (
+                      <CommandItem
+                        key={c.id}
+                        value={c.name || c.id}
+                        onSelect={() => {
+                          setClientId(c.id)
+                          setClientPopoverOpen(false)
+                          setClientSearchQuery("")
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            clientId === c.id ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {c.name}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          </div>
+
+          {/* Reset Filters */}
+          {hasActiveFilters && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleResetFilters}
+              className="gap-1"
+            >
+              <RotateCcw className="h-3 w-3" />
+              Reset Filters
+            </Button>
+          )}
+        </div>
+      </div>
+
       <DataTable
         data={formattedOrders}
         columns={orderColumns}
+        hideFilters={true}
         searchPlaceholder="Search by Order#, patient name, phone number, email"
         showDatePicker={true}
         showExport={true}
-        showResetFilters={true}
-        filters={filters}
         dateRange={date}
         onDateRangeChange={setDate}
         onSearch={setSearchTerm}
@@ -391,7 +575,7 @@ export default function Orders() {
           onPageSizeChange: (newPageSize) => setFilters({ page_size: newPageSize }),
         }}
       />
-      
+
       {/* Pagination Info */}
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <div>

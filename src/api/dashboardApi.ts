@@ -190,8 +190,22 @@ export interface OrdersQueryParams {
   page_size?: number;
   search?: string;
   status?: string;
+  product__category__id?: string | number;
+  pharmacy__id?: string;
+  payment_status?: string;
+  client_id?: string;
   date_from?: string;
   date_to?: string;
+}
+
+export interface FilterOption {
+  id: string | number;
+  name: string;
+}
+
+export interface OrderFilterOptions {
+  categories: FilterOption[];
+  pharmacies: FilterOption[];
 }
 
 /**
@@ -228,6 +242,22 @@ export async function getAdminOrders(
       error.response?.data?.error ||
       'Failed to load orders. Please try again.'
     );
+  }
+}
+
+/**
+ * Fetch aggregated filter options (categories and pharmacies) from all tenants.
+ * Used to populate filter dropdowns in the admin orders page.
+ * 
+ * @returns Promise<OrderFilterOptions> - Aggregated categories and pharmacies
+ */
+export async function getOrderFilterOptions(): Promise<OrderFilterOptions> {
+  try {
+    const { data } = await axiosInstance.get<OrderFilterOptions>('/admin/dashboard/order-filter-options/');
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch order filter options:', error);
+    return { categories: [], pharmacies: [] };
   }
 }
 
