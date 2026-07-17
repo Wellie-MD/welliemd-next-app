@@ -464,6 +464,10 @@ export default function OrderDetail() {
     : null
 
   const paymentStatus = (order.paymentStatus || "").toLowerCase()
+  const treatmentLineItems = order.line_items || []
+  const hasTreatmentRuntime = Boolean(
+    order.treatment_case_summary || order.combined_submission_summary?.id,
+  )
   const settlementState = (order.payment_settlement_state || "").toLowerCase()
   const isAuthorized = paymentStatus === "authorized"
   const isRefundable = remainingRefundable > 0
@@ -1312,6 +1316,101 @@ export default function OrderDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left column */}
         <div className="lg:col-span-8 space-y-6">
+          {hasTreatmentRuntime && treatmentLineItems.length > 0 && (
+            <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
+              <div className="px-6 py-4 border-b bg-muted/50">
+                <h3 className="font-semibold text-slate-900 dark:text-white">
+                  Treatment Products
+                </h3>
+              </div>
+              <div className="divide-y">
+                {treatmentLineItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="px-6 py-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-medium text-slate-900 dark:text-white">
+                        {item.product_name || "Product"}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        Qty {item.quantity || 1} · Prescription{" "}
+                        {item.prescription_status || "pending"} · Fulfilment{" "}
+                        {item.fulfilment_status || "pending"} · Shipment{" "}
+                        {item.shipment_status || "pending"}
+                        {item.duration_days
+                          ? ` · ${item.duration_days} day supply`
+                          : ""}
+                      </div>
+                      {item.tracking_number && (
+                        <div className="mt-2 text-xs text-slate-500">
+                          {item.shipment_provider
+                            ? `${item.shipment_provider}: `
+                            : "Tracking: "}
+                          <span className="font-mono">
+                            {item.tracking_number}
+                          </span>
+                          {item.tracking_url && (
+                            <a
+                              href={item.tracking_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="ml-2 font-semibold text-primary"
+                            >
+                              Track package
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="font-semibold tabular-nums">
+                      ${item.line_total || "0.00"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {hasTreatmentRuntime && order.treatment_case_summary && (
+            <div className="bg-card rounded-xl shadow-sm border p-6">
+              <h3 className="font-semibold text-slate-900 dark:text-white mb-4">
+                Treatment Routing
+              </h3>
+              <div className="grid gap-3 text-sm sm:grid-cols-2">
+                <div>
+                  <span className="text-slate-500">Treatment</span>
+                  <div className="font-medium">
+                    {order.treatment_case_summary.treatment_type_key || "—"}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-500">Clinical dispatch</span>
+                  <div className="font-medium">
+                    {order.treatment_case_summary.beluga_dispatch_status ||
+                      order.beluga_dispatch_status ||
+                      "pending"}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-500">Reimbursement total</span>
+                  <div className="font-medium">
+                    $
+                    {order.treatment_case_summary.reimbursement_total ||
+                      "0.00"}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-slate-500">Payment allocation</span>
+                  <div className="font-medium">
+                    {order.combined_payment_summary?.allocation?.status ||
+                      order.combined_payment_summary?.status ||
+                      "pending"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           {/* Product Details */}
           <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
             <div className="px-6 py-4 border-b bg-muted/50 flex justify-between items-center">

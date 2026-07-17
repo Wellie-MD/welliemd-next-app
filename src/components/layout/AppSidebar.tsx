@@ -95,6 +95,14 @@ const menuSections = [
     label: "TOOLS & SERVICES",
     items: [
       {
+        title: "Treatments",
+        icon: Stethoscope,
+        children: [
+          { title: "Custom Programs", url: "/dashboard/treatments/custom-programs" },
+          { title: "Programs", url: "/dashboard/treatments/programs" },
+        ],
+      },
+      {
         title: "Questionnaires",
         url: "/dashboard/questionnaires",
         icon: FileText,

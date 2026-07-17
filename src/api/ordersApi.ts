@@ -78,6 +78,7 @@ export interface OrderPricing {
   shipping_total?: string
   subtotal_before_discount?: string
   discount_total?: string
+  discount_amount?: string
   gross_total?: string
   grand_total?: string
   payable_amount?: string
@@ -94,6 +95,108 @@ export interface OrderActivityEvent {
   source: string
   occurred_at: string
   payload?: Record<string, unknown>
+}
+
+export interface OrderLineItem {
+  id: string
+  product_id?: number | null
+  product_name?: string | null
+  item_type?: string
+  quantity?: string | number
+  unit_patient_price?: string | number
+  unit_shipping_fee?: string | number
+  line_total?: string | number
+  status?: string
+  source_supply_relation_id?: number | null
+  patient_price_snapshot?: Record<string, unknown>
+  reimbursement_amount_snapshot?: Record<string, unknown> | null
+  prescription_status?: string
+  fulfilment_status?: string
+  shipment_status?: string
+  refund_status?: string
+  duration_days?: number | null
+  provider_product_id?: string | null
+  tracking_number?: string | null
+  tracking_url?: string | null
+  shipment_provider?: string | null
+  prescription_event_id?: string | null
+  prescribed_at?: string | null
+  fulfilled_at?: string | null
+  shipped_at?: string | null
+  cancelled_at?: string | null
+  refunded_amount?: string | number
+  lifecycle_snapshot?: Record<string, unknown>
+}
+
+export interface TreatmentCaseSummary {
+  id: string
+  treatment_type_id?: string
+  treatment_type_key?: string | null
+  beluga_dispatch_status?: string | null
+  beluga_dispatch_reason?: string | null
+  beluga_dispatch_attempt_count?: number | null
+  program_id?: string | null
+  release_id?: string | null
+  release_version?: number | null
+  release_checksum?: string | null
+  status?: string
+  lifecycle_status?: string
+  visit_id?: string | null
+  visit_status?: string | null
+  beluga_dispatch_status?: string | null
+  treatment_total?: string
+  reimbursement_total?: string
+  common_answers?: Record<string, unknown>
+  scoped_answers?: Record<string, unknown>
+  consents?: unknown[]
+}
+
+export interface CombinedSubmissionSummary {
+  id: string
+  status?: string
+  release_id?: string | null
+  release_version?: number | null
+  release_checksum?: string
+  runtime_session_id?: string
+  pricing_snapshot?: Record<string, unknown>
+  checkout_total?: Record<string, unknown>
+  combined_payment_id?: string | null
+  combined_payment?: {
+    id: string
+    status?: string
+    currency?: string
+    authorized_amount?: string
+    captured_amount?: string
+    refunded_amount?: string
+    allocations?: Array<{
+      id: string
+      order_id: string
+      treatment_case_id: string
+      status?: string
+      allocated_amount?: string
+      captured_amount?: string
+      refunded_amount?: string
+    }>
+  } | null
+  orders?: Array<{
+    order_id: string
+    order_display_id?: string | null
+    treatment_case_id: string
+    treatment_type_id?: string
+    treatment_type_key?: string | null
+    status?: string
+    beluga_dispatch_status?: string | null
+    beluga_dispatch_reason?: string | null
+    beluga_dispatch_attempt_count?: number | null
+    treatment_total?: string
+    payment_allocation?: {
+      id: string
+      status?: string
+      allocated_amount?: string
+      captured_amount?: string
+      refunded_amount?: string
+    } | null
+  }>
 }
 
 export interface OrderSettlementTransaction {
@@ -130,6 +233,7 @@ export interface Order {
   supplemental_delta_amount?: string | null
   base_captured_amount?: string | null
   supplemental_captured_amount?: string | null
+  base_authorization_amount?: string | null
   payment_settlement_transactions?: OrderSettlementTransaction[]
   totalRefunded?: string | null
   netCollected?: string | null
@@ -140,6 +244,7 @@ export interface Order {
   rx_revision_refund_required_amount?: string | null
   created_at?: string
   updated_at?: string
+  updatedAt?: string
   name?: string
   email?: string
   phone?: string
@@ -192,6 +297,23 @@ export interface Order {
   shipping_fee_to_client?: string | null
   activity_events?: OrderActivityEvent[]
   episode_id?: string | null
+  line_items?: OrderLineItem[]
+  treatment_case_summary?: TreatmentCaseSummary | null
+  combined_payment_summary?: {
+    id: string
+    status?: string
+    currency?: string
+    authorized_amount?: string
+    captured_amount?: string
+    refunded_amount?: string
+    allocation_total?: string
+    allocation?: { id: string; status?: string; allocated_amount?: string; captured_amount?: string; refunded_amount?: string }
+    allocations?: Array<{ id: string; order_id: string; treatment_case_id: string; status?: string; allocated_amount?: string; captured_amount?: string; refunded_amount?: string }>
+  } | null
+  combined_submission_summary?: CombinedSubmissionSummary | null
+  beluga_dispatch_status?: string | null
+  beluga_dispatch_reason?: string | null
+  beluga_dispatch_attempt_count?: number | null
 }
 
 export interface PaginatedOrdersResponse {
@@ -375,13 +497,16 @@ export const changeProduct = async (
   newProductId: number | string,
   quantity?: number | string,
   dryRun?: boolean
-): Promise<any> => {
-  const { data } = await api.post(`/orders/${orderId}/change-product/`, {
+): Promise<Record<string, unknown>> => {
+  const { data } = await api.post<Record<string, unknown>>(`/orders/${orderId}/change-product/`, {
     new_product_id: newProductId,
     ...(quantity !== undefined ? { quantity } : {}),
     ...(dryRun ? { dry_run: true } : {}),
   })
-  return (data?.data || data)
+  const nested = data.data
+  return nested && typeof nested === 'object' && !Array.isArray(nested)
+    ? nested as Record<string, unknown>
+    : data
 }
 
 export const updateOrderQuestionnaireImages = async (
@@ -407,7 +532,10 @@ export interface FilterOption {
 
 const extractResults = (data: unknown): FilterOption[] => {
   if (Array.isArray(data)) return data
-  if (data && typeof data === 'object' && 'results' in data && Array.isArray((data as any).results)) return (data as any).results
+  if (data && typeof data === 'object' && 'results' in data) {
+    const results = (data as { results?: unknown }).results
+    if (Array.isArray(results)) return results as FilterOption[]
+  }
   return []
 }
 
