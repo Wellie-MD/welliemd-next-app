@@ -344,7 +344,7 @@ export function JunctionWearablesSection({
               </div>
             </div>
 
-            <div className="w-full max-w-[calc(100vw-3rem)] md:max-w-full overflow-x-auto rounded-xl border">
+            <div className="w-full min-w-0 overflow-x-auto rounded-xl border">
               <table className="w-full min-w-[600px]">
                 <thead className="bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
                   <tr>
@@ -466,8 +466,8 @@ export function JunctionWearablesSection({
               ))}
             </div>
 
-            <div className="w-full max-w-[calc(100vw-3rem)] md:max-w-full overflow-x-auto -mx-1 px-1 pb-1">
-              <div className="flex flex-col gap-3 min-w-[300px]">
+            <div className="-mx-1 w-full min-w-0 overflow-x-auto px-1 pb-1">
+              <div className="flex min-w-[300px] flex-col gap-3">
                 {visiblePriority.map((id, index) => {
                   const provider = providerMap.get(id)
                   if (!provider) return null
