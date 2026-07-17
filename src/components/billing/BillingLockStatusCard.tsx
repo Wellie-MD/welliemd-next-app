@@ -19,10 +19,10 @@ interface BillingLockStatusCardProps {
 
 /**
  * BillingLockStatusCard
- * 
+ *
  * Admin component showing billing lock state, blocking invoices,
  * and actions to resolve account suspensions.
- * 
+ *
  * Styled as a colored banner matching billing_tab.html Section 2.
  */
 export function BillingLockStatusCard({ clientId }: BillingLockStatusCardProps) {
@@ -39,6 +39,7 @@ export function BillingLockStatusCard({ clientId }: BillingLockStatusCardProps) 
         queryKey: ["billingLockStatus", clientId],
         queryFn: () => clientApi.getBillingLockStatus(clientId),
         enabled: !!clientId,
+        refetchInterval: 30000,
     });
 
     const payAllMutation = useMutation({

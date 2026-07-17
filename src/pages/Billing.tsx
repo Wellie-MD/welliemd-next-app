@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { clientApi } from "@/api/clientApi";
 import type { B2BInvoice } from "@/types/b2bBilling";
-import { GitBranch, Search, X } from "lucide-react";
+import { GitBranch, Search, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 type DisplayInvoice = B2BInvoice & {
@@ -685,6 +685,7 @@ export default function Billing() {
 
   return (
     <div className="p-6 space-y-6">
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Invoices</h1>
       </div>

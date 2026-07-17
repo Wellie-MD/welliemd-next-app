@@ -33,6 +33,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { ProductFormModal } from "@/components/products/ProductFormModal";
+import { useTreatmentTypes } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import {
   AssignmentBatch,
   AssignmentPair,
@@ -282,8 +283,31 @@ export default function Products() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [pharmacyFilter, setPharmacyFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [visitTypeFilter, setVisitTypeFilter] = useState<string>("all");
   const [productSearch, setProductSearch] = useState("");
   const [clientSearch, setClientSearch] = useState("");
+
+  const { data: treatmentTypes = [] } = useTreatmentTypes();
+  const visitTypeOptions = useMemo(() => {
+    const options = new Set<string>();
+    treatmentTypes.forEach((t) => {
+      if (t.intakeVisitType) options.add(t.intakeVisitType);
+      if (t.followupVisitType) options.add(t.followupVisitType);
+    });
+    if (options.size === 0) {
+      return ["weightloss", "weightlossFollowup", "ED", "EDFollowup", "TRT", "TRTFollowup"];
+    }
+    return Array.from(options);
+  }, [treatmentTypes]);
+
+  const displayedProducts = useMemo(() => {
+    if (visitTypeFilter === "all") return products;
+    return products.filter((p) => {
+      const allowed = p.allowed_visit_types || [];
+      const restricted = p.restrict_visit_types || false;
+      return !restricted || allowed.includes(visitTypeFilter);
+    });
+  }, [products, visitTypeFilter]);
 
   // Modals open state
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -728,12 +752,17 @@ export default function Products() {
           description: `${successCount} assignment pair(s) completed successfully.`,
         });
         clearAllSelections();
+        // Refresh so "needs re-assignment" badges and assignment state reflect the server.
+        await fetchProducts(1, true);
       } else {
         toast({
           title: "Bulk Assignment Completed With Failures",
           description: `${successCount} succeeded, ${failureCount} failed. Review the result dialog for retry options.`,
           variant: "destructive",
         });
+        if (successCount > 0) {
+          await fetchProducts(1, true);
+        }
       }
     } catch (error) {
       console.error("Bulk assignment stopped:", error);
@@ -1004,6 +1033,20 @@ export default function Products() {
 
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Visit Type
+          </label>
+          <FilterSelect
+            label="All Visit Types"
+            value={visitTypeFilter === "all" ? "all" : visitTypeFilter}
+            options={visitTypeOptions}
+            onChange={(val) => {
+              setVisitTypeFilter(val);
+            }}
+          />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
             Search
           </label>
           <div className="relative">
@@ -1079,18 +1122,21 @@ export default function Products() {
                 Purchase Type
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Restrictions
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Created At
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 w-[100px]">
-                
+
               </th>
             </tr>
           </thead>
           <tbody className="bg-white">
-            {products.length === 0 ? (
+            {displayedProducts.length === 0 ? (
               <tr>
                 <td
-                  colSpan={9}
+                  colSpan={10}
                   className="px-4 py-12 text-center text-sm text-slate-400"
                 >
                   {loading ? (
@@ -1104,7 +1150,7 @@ export default function Products() {
                 </td>
               </tr>
             ) : (
-              products.map((product) => {
+              displayedProducts.map((product) => {
                 const isSelected = selectedProducts.has(product.id);
                 return (
                   <tr
@@ -1178,6 +1224,22 @@ export default function Products() {
                         <Pill>{product.purchase_type === "subscription" ? "Subscription" : "One Time"}</Pill>
                       ) : (
                         "-"
+                      )}
+                    </td>
+                    <td className="px-4 py-4">
+                      {product.restrict_visit_types ? (
+                        <div className="flex flex-wrap gap-1">
+                          {(product.allowed_visit_types || []).map((vt: string) => (
+                            <Badge key={vt} variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">
+                              {vt}
+                            </Badge>
+                          ))}
+                          {(product.allowed_visit_types || []).length === 0 && (
+                            <span className="text-xs text-amber-600 font-medium">None</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 text-xs">Unrestricted</span>
                       )}
                     </td>
                     <td className="px-4 py-4 text-slate-500">

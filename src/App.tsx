@@ -16,7 +16,6 @@ const Clients = lazy(() => import("./pages/Clients"));
 const Patients = lazy(() => import("./pages/Patients"));
 const ClientForm = lazy(() => import("./pages/ClientForm"));
 const ClientLifecycle = lazy(() => import("./pages/ClientLifecycle"));
-const Treatments = lazy(() => import("./pages/Treatments"));
 const Products = lazy(() => import("./pages/Products"));
 const Messages = lazy(() => import("./pages/Messages"));
 const Analytics = lazy(() => import("./pages/Analytics"));
@@ -55,6 +54,19 @@ const Labs = lazy(() => import("./pages/Labs"));
 const LabSettings = lazy(() => import("./pages/LabSettings"));
 const TestCatalog = lazy(() => import("./pages/TestCatalog"));
 const SenseInsights = lazy(() => import("./pages/SenseInsights"));
+const ConsentsPage = lazy(() => import("./features/treatments/libraries/pages/ConsentsPage"));
+const ContentLibrariesPage = lazy(() => import("./features/treatments/libraries/pages/ContentLibrariesPage"));
+const CustomProgramBuilderPage = lazy(() => import("./features/treatments/flow-builder/pages/CustomProgramBuilderPage"));
+const CustomProgramsPage = lazy(() => import("./features/treatments/custom-programs/pages/CustomProgramsPage"));
+const ArchivePage = lazy(() => import("./pages/ArchivePage"));
+const ProgramDetailPage = lazy(() => import("./features/treatments/programs/pages/ProgramDetailPage"));
+const ProgramQuestionsListPage = lazy(() => import("./features/treatments/programs/pages/ProgramQuestionsListPage"));
+const ProgramsPage = lazy(() => import("./features/treatments/programs/pages/ProgramsPage"));
+const ProgramAssignmentHistory = lazy(() => import("./pages/ProgramAssignmentHistory"));
+const CustomProgramAssignmentHistory = lazy(() => import("./pages/CustomProgramAssignmentHistory"));
+const SectionsPage = lazy(() => import("./features/treatments/libraries/pages/SectionsPage"));
+const TreatmentTypeDetailPage = lazy(() => import("./features/treatments/libraries/pages/TreatmentTypeDetailPage"));
+const TreatmentTypesPage = lazy(() => import("./features/treatments/libraries/pages/TreatmentTypesPage"));
 
 const App = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -171,7 +183,20 @@ const App = () => {
                         </ProtectedRoute>
                       }
                     />
-                    <Route path="/treatments" element={<ProtectedRoute><Treatments /></ProtectedRoute>} />
+                    <Route path="/treatments" element={<ProtectedRoute><ContentLibrariesPage /></ProtectedRoute>} />
+                    <Route path="/treatments/custom-programs" element={<ProtectedRoute><CustomProgramsPage /></ProtectedRoute>} />
+                    <Route path="/treatments/custom-programs/:customProgramId/builder" element={<ProtectedRoute><CustomProgramBuilderPage /></ProtectedRoute>} />
+                    <Route path="/treatments/custom-programs/assignment-history" element={<ProtectedRoute><CustomProgramAssignmentHistory /></ProtectedRoute>} />
+                    <Route path="/treatments/programs" element={<ProtectedRoute><ProgramsPage /></ProtectedRoute>} />
+                    <Route path="/archive" element={<ProtectedRoute><ArchivePage /></ProtectedRoute>} />
+                    <Route path="/treatments/programs/:programId/flow-builder" element={<ProtectedRoute><ProgramDetailPage /></ProtectedRoute>} />
+                    <Route path="/treatments/programs/:programId" element={<ProtectedRoute><ProgramDetailPage /></ProtectedRoute>} />
+                    <Route path="/treatments/programs/:programId/questions" element={<ProtectedRoute><ProgramQuestionsListPage /></ProtectedRoute>} />
+                    <Route path="/treatments/programs/assignment-history" element={<ProtectedRoute><ProgramAssignmentHistory /></ProtectedRoute>} />
+                    <Route path="/treatments/sections" element={<ProtectedRoute><SectionsPage /></ProtectedRoute>} />
+                    <Route path="/treatments/consents" element={<ProtectedRoute><ConsentsPage /></ProtectedRoute>} />
+                    <Route path="/treatments/treatment-types" element={<ProtectedRoute><TreatmentTypesPage /></ProtectedRoute>} />
+                    <Route path="/treatments/treatment-types/:treatmentTypeKey" element={<ProtectedRoute><TreatmentTypeDetailPage /></ProtectedRoute>} />
                     <Route path="/treatments/configurations" element={<ProtectedRoute><TreatmentConfigurations /></ProtectedRoute>} />
                     <Route path="/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
                     <Route path="/orders/labs" element={<ProtectedRoute><LabOrders /></ProtectedRoute>} />

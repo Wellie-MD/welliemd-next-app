@@ -2,7 +2,7 @@ import axios from "axios";
 import { useAuthStore } from "../store/useAuthStore";
 
 // const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://adminapi.welliemd.com/api/v1";
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api/v1";
 
 let isHydrating = false;
 
@@ -45,12 +45,12 @@ axiosInstance.interceptors.response.use(
 
     const originalRequest = error.config;
     const authStore = useAuthStore.getState();
-    
+
     // Skip token refresh for auth-related endpoints
     const isAuthEndpoint = originalRequest?.url?.includes('/auth/');
     const isTokenRefresh = originalRequest?.url?.includes('/auth/token/refresh/');
     const isMeEndpoint = originalRequest?.url?.includes('/auth/me/');
-    
+
     // If this is a 401 from the refresh token endpoint, log the user out
     if (error.response?.status === 401 && isTokenRefresh) {
       console.error('Refresh token failed, logging out');
@@ -59,7 +59,7 @@ axiosInstance.interceptors.response.use(
       window.location.href = '/auth/signin';
       return Promise.reject(error);
     }
-    
+
     // Handle 401 errors for non-auth endpoints when we have an active session
     if (error.response?.status === 401 && !isAuthEndpoint && authStore.isAuthenticated) {
       // If this is a retry that failed, log out
@@ -70,22 +70,22 @@ axiosInstance.interceptors.response.use(
         window.location.href = '/auth/signin';
         return Promise.reject(error);
       }
-      
+
       // Mark this request to prevent infinite retry loops
       originalRequest._retry = true;
-      
+
       try {
         console.log('Attempting to refresh access token...');
         const { authService } = await import('../services/authService');
         const newAccessToken = await authService.refreshAccessToken();
-        
+
         if (newAccessToken) {
           // Update the authorization header for the original request
           originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-          
+
           // Update the default authorization header for future requests
           axiosInstance.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
-          
+
           // For /me endpoint, we need to handle it specially
           if (isMeEndpoint) {
             try {
@@ -98,7 +98,7 @@ axiosInstance.interceptors.response.use(
               throw meError;
             }
           }
-          
+
           // For other endpoints, retry the original request with the new token
           return axiosInstance(originalRequest);
         }
@@ -110,7 +110,7 @@ axiosInstance.interceptors.response.use(
         return Promise.reject(refreshError);
       }
     }
-    
+
     return Promise.reject(error);
   }
 );

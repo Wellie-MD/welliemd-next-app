@@ -30,9 +30,23 @@ export const titrationCategoryApi = {
         const { data } = await axiosInstance.get("products/titration-categories/", {
             params: { is_active: true, page_size: 100, ...params },
         });
-        // Handle paginated response
         if (data && typeof data === "object" && "results" in data) {
-            return data.results || [];
+            const firstPage = data.results || [];
+            if (!data.next) return firstPage;
+            const totalCount = Number(data.count || firstPage.length);
+            const pageSize = firstPage.length || Number(params?.page_size) || 100;
+            const pageCount = Math.ceil(totalCount / pageSize);
+            const remainingPages = await Promise.all(
+                Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) =>
+                    axiosInstance.get("products/titration-categories/", {
+                        params: { is_active: true, ...params, page: index + 2, page_size: pageSize },
+                    })
+                )
+            );
+            return [
+                ...firstPage,
+                ...remainingPages.flatMap((response) => response.data?.results || []),
+            ];
         }
         // Handle array response
         if (Array.isArray(data)) {
@@ -40,7 +54,7 @@ export const titrationCategoryApi = {
         }
         return [];
     },
-    
+
     /**
      * Get a single titration category by ID
      */
