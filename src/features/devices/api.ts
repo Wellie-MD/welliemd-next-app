@@ -41,7 +41,20 @@ export async function getConnections(): Promise<ConnectionResponse[]> {
     DEVICE_ENDPOINTS.connections
   );
   const allConns = Array.isArray(response.data.connections) ? response.data.connections : [];
-  return allConns.filter(c => c.status === 'connected' || c.status === 'error');
+  return allConns.filter(c => c.status === 'connected' || c.status === 'error' || c.status === 'pending');
+}
+
+/**
+ * Ask the backend to check Junction directly for this patient's pending
+ * connections instead of waiting on the webhook (which can't reach a local
+ * dev backend, and has no periodic fallback in production either).
+ */
+export async function syncConnections(): Promise<ConnectionResponse[]> {
+  const response = await apiClient.post<{ success: boolean; connections: any[] }>(
+    DEVICE_ENDPOINTS.syncConnections
+  );
+  const allConns = Array.isArray(response.data.connections) ? response.data.connections : [];
+  return allConns.filter(c => c.status === 'connected' || c.status === 'error' || c.status === 'pending');
 }
 
 /**

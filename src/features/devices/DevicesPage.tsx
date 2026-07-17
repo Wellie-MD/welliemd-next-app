@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import ConnectState from './components/ConnectState';
 import ConnectedState from './components/ConnectedState';
 import TelemetryDashboard from './components/TelemetryDashboard';
@@ -17,6 +18,7 @@ import {
   listWearableProviders,
   deregisterProvider,
   reconnectProvider,
+  syncConnections,
   formatConnection,
   getConsent,
   updateConsent,
@@ -95,6 +97,7 @@ function DevicesSkeleton() {
 
 export default function DevicesPage() {
   const { patientProfile } = useProfile();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   /* State */
   const [deviceConnected, setDeviceConnected] = useState(false);
@@ -105,21 +108,26 @@ export default function DevicesPage() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [allowedProviders, setAllowedProviders] = useState<Provider[]>([]);
+  const [connectionSyncError, setConnectionSyncError] = useState('');
 
   const fetchConnectionsList = useCallback(async () => {
     setLoading(true);
     try {
-      const [conns, vitalsHistory, goalResponse] = await Promise.all([
+      const [connectionsResult, vitalsResult, goalResult, dataResult] = await Promise.allSettled([
         getConnections(),
         getVitalsHistory(),
         getHealthGoal(),
+        getDeviceData(),
       ]);
-      const formatted = conns.map((c) => formatConnection(c));
-      setConnections(formatted);
-      const isConnected = formatted.length > 0;
 
-      const data = await getDeviceData();
-      if (data) {
+      if (connectionsResult.status === 'fulfilled') {
+        const formatted = connectionsResult.value.map(formatConnection);
+        setConnections(formatted);
+        setDeviceConnected(formatted.length > 0);
+      }
+
+      if (dataResult.status === 'fulfilled' && dataResult.value) {
+        const data = dataResult.value;
         setDeviceMetrics(prev => ({
           ...prev,
           ...(data.steps && { steps: data.steps }),
@@ -140,12 +148,17 @@ export default function DevicesPage() {
         }));
       }
 
-      setWeight(prev => ({
-        ...buildWeightData(vitalsHistory, prev),
-        targetBmi: goalResponse.goal ? Number(goalResponse.goal.target_bmi) : null,
-      }));
-      setDeviceConnected(isConnected);
-    } catch {
+      setWeight(prev => {
+        const next = vitalsResult.status === 'fulfilled'
+          ? buildWeightData(vitalsResult.value, prev)
+          : prev;
+        return {
+          ...next,
+          targetBmi: goalResult.status === 'fulfilled' && goalResult.value.goal
+            ? Number(goalResult.value.goal.target_bmi)
+            : next.targetBmi,
+        };
+      });
     } finally {
       setLoading(false);
     }
@@ -158,6 +171,69 @@ export default function DevicesPage() {
   useEffect(() => {
     fetchConnectionsList().finally(() => setInitialLoading(false));
   }, [fetchConnectionsList]);
+
+  // The webhook that normally flips a connection from "pending" to
+  // "connected" can't reach a local dev backend, and even in production
+  // there's no fallback if it's ever dropped — so this asks Junction
+  // directly instead of waiting. Reused by both the bounded auto-poll below
+  // and the manual "Check status" button on a pending connection card.
+  const handleRefreshStatus = useCallback(async () => {
+    setConnectionSyncError('');
+    try {
+      const conns = await syncConnections();
+      const formatted = conns.map((c) => formatConnection(c));
+      setConnections(formatted);
+      setDeviceConnected(formatted.length > 0);
+      return formatted;
+    } catch {
+      setConnectionSyncError('Unable to check the connection right now. Please try again.');
+      return null;
+    }
+  }, []);
+
+  // Right after the OAuth redirect we land back with `wearable_connect=pending`
+  // — that's the one moment we know it's worth actively polling, since OAuth
+  // completion latency is usually just a few seconds. Bounded so this never
+  // runs forever if the connection genuinely stays pending.
+  const pollingRef = useRef(false);
+  useEffect(() => {
+    const wearableConnect = searchParams.get('wearable_connect');
+    const provider = searchParams.get('provider');
+    if (wearableConnect !== 'pending' || pollingRef.current) return;
+    pollingRef.current = true;
+
+    let cancelled = false;
+    const maxAttempts = 10;
+    const intervalMs = 4000;
+
+    const clearParams = () => {
+      const next = new URLSearchParams(searchParams);
+      next.delete('wearable_connect');
+      next.delete('provider');
+      setSearchParams(next, { replace: true });
+    };
+
+    (async function poll() {
+      for (let attempt = 0; attempt < maxAttempts && !cancelled; attempt++) {
+        const formatted = await handleRefreshStatus();
+        const stillPending = formatted?.some(
+          (c) => c.provider === provider && c.status === 'pending'
+        );
+        if (!stillPending) break;
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      }
+      if (!cancelled) {
+        clearParams();
+        pollingRef.current = false;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      pollingRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, handleRefreshStatus]);
 
   useEffect(() => {
     async function loadConsent() {
@@ -457,6 +533,8 @@ export default function DevicesPage() {
             onDisconnect={handleDisconnect}
             onReconnect={handleReconnect}
             onConnectAnother={() => { setPickerCat('all'); setPickerQuery(''); setPickerOpen(true); }}
+            onRefreshStatus={handleRefreshStatus}
+            syncError={connectionSyncError}
           />
         ) : (
           <ConnectState

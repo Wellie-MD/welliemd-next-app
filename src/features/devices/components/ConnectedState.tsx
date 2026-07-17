@@ -2,6 +2,7 @@ import React from 'react';
 import { PROVIDERS } from '../constants';
 import type { Connection, Provider } from '../types';
 import ProviderIcon from './ProviderIcon';
+import '../devices.css';
 
 interface ConnectedStateProps {
   connections: Connection[];
@@ -9,6 +10,8 @@ interface ConnectedStateProps {
   onDisconnect: (provider: string) => void;
   onReconnect: (provider: string) => void;
   onConnectAnother: () => void;
+  onRefreshStatus?: () => Promise<Connection[] | null>;
+  syncError?: string;
 }
 
 const CARD: React.CSSProperties = {
@@ -25,10 +28,17 @@ export default function ConnectedState({
   onDisconnect,
   onReconnect,
   onConnectAnother,
+  onRefreshStatus,
+  syncError,
 }: ConnectedStateProps) {
 
   return (
     <>
+      {syncError ? (
+        <div className="km-device-sync-error" role="alert">
+          {syncError}
+        </div>
+      ) : null}
       {/* ─── Each device = its own card ─── */}
       {connections.map((c) => {
         const p = allowedProviders.find((x) => x.id === c.provider) ||
@@ -40,10 +50,12 @@ export default function ConnectedState({
         };
         const logoUrl = 'logoUrl' in p ? p.logoUrl : undefined;
         const broken = c.status === 'error';
+        const pending = c.status === 'pending';
 
         return (
-          <div key={c.provider} style={CARD}>
+          <div key={c.provider} className="km-device-card" style={CARD}>
             <div
+              className="km-device-card-content"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -57,8 +69,8 @@ export default function ConnectedState({
                 size={36}
                 radius={10}
                 fontSize={18}
-                background={broken ? 'var(--km-amp)' : 'var(--km-s2)'}
-                border={`1px solid ${broken ? 'var(--km-am)' : 'var(--km-b)'}`}
+                background={broken ? 'var(--km-amp)' : pending ? 'var(--km-acp)' : 'var(--km-s2)'}
+                border={`1px solid ${broken ? 'var(--km-am)' : pending ? 'var(--km-ac)' : 'var(--km-b)'}`}
               />
 
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -76,6 +88,19 @@ export default function ConnectedState({
                       }}
                     >
                       Needs attention
+                    </span>
+                  ) : pending ? (
+                    <span
+                      style={{
+                        fontSize: 10,
+                        padding: '2px 8px',
+                        borderRadius: 20,
+                        background: 'var(--km-acp)',
+                        color: 'var(--km-ac)',
+                        fontWeight: 700,
+                      }}
+                    >
+                      Connecting…
                     </span>
                   ) : (
                     <span
@@ -95,18 +120,20 @@ export default function ConnectedState({
                 <div
                   style={{
                     fontSize: 11.5,
-                    color: broken ? 'var(--km-am)' : 'var(--km-tm)',
+                    color: broken ? 'var(--km-am)' : pending ? 'var(--km-ac)' : 'var(--km-tm)',
                     marginTop: 1,
                   }}
                 >
                   {broken
                     ? reconnectReason(c.errorType)
+                    : pending
+                    ? 'Waiting to confirm the connection — this can take a few seconds.'
                     : `${p.gives} · last synced ${c.lastSync || 'recently'}`}
                 </div>
               </div>
 
               {broken ? (
-                <div style={{ display: 'flex', gap: 7, flexShrink: 0 }}>
+                <div className="km-device-card-actions">
                   <button
                     style={{
                       fontSize: 12,
@@ -136,6 +163,39 @@ export default function ConnectedState({
                     onClick={() => onDisconnect(c.provider)}
                   >
                     Remove
+                  </button>
+                </div>
+              ) : pending ? (
+                <div className="km-device-card-actions">
+                  <button
+                    style={{
+                      fontSize: 12,
+                      padding: '7px 14px',
+                      background: 'transparent',
+                      color: 'var(--km-ac)',
+                      border: '1px solid var(--km-ac)',
+                      borderRadius: 10,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => onRefreshStatus?.()}
+                  >
+                    Check status
+                  </button>
+                  <button
+                    style={{
+                      fontSize: 12,
+                      padding: '7px 14px',
+                      background: 'transparent',
+                      color: 'var(--km-t)',
+                      border: '1px solid var(--km-b)',
+                      borderRadius: 10,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => onDisconnect(c.provider)}
+                  >
+                    Cancel
                   </button>
                 </div>
               ) : (
