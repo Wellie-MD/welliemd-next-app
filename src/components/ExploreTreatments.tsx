@@ -1,23 +1,25 @@
 /**
  * Explore Treatments Page — kinmeds3 design system
- * 
- * Standalone page showing all available treatments a patient can start.
+ *
+ * Fully dynamic page - all copy (title, subtitle, sections) comes from
+ * EXPLORE_PAGE_CONTENT, not hardcoded here. Only the "Get Started" button stub is static.
  * Matches kinmeds3 reference `pg-explore` exactly.
  */
 
 import { AvailableTreatmentsList } from "@/features/treatments";
+import { EXPLORE_PAGE_CONTENT as content } from "@/features/treatments/config/pageContent";
 import { Shield } from "lucide-react";
 
 export default function ExploreTreatments() {
   return (
-    <div>
-      {/* Header */}
+    <div id="pg-explore">
+      {/* Header - Dynamic title and subtitle */}
       <div className="km-fade" style={{ marginBottom: 18 }}>
-        <p className="km-page-title">Explore Treatments</p>
-        <p className="km-page-sub">Browse available options and get started</p>
+        <p className="km-page-title">{content.title}</p>
+        <p className="km-page-sub">{content.subtitle}</p>
       </div>
 
-      {/* How it works banner */}
+      {/* How it works banner - Dynamic content */}
       <div
         className="km-card km-fade"
         style={{
@@ -44,19 +46,22 @@ export default function ExploreTreatments() {
           </div>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: "var(--km-t)", marginBottom: 2 }}>
-              How it works
+              {content.howItWorks.title}
             </div>
             <div style={{ fontSize: 12, fontWeight: 500, color: "var(--km-tm)", lineHeight: 1.5 }}>
-              Select a treatment, complete a short intake questionnaire, and a licensed provider
-              will review your case. Visit type may vary based on your state.
+              {content.howItWorks.description}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Treatments list */}
+      {/* Treatments list - Dynamic from API */}
       <div className="km-fade">
-        <AvailableTreatmentsList />
+        <AvailableTreatmentsList
+          browseLabel={content.browseLabel}
+          emptyStateTitle={content.emptyState.title}
+          emptyStateDescription={content.emptyState.description}
+        />
       </div>
     </div>
   );

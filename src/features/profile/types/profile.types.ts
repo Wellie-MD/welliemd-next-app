@@ -8,6 +8,9 @@ export const UserProfileSchema = z.object({
   last_name: z.string(),
   phone: z.string().optional(),
   auth_user: z.number(),
+  // Defaults to "" server-side until an upload UI exists - not a strict url() so parsing
+  // doesn't throw on the common (blank) case.
+  avatar_url: z.string().optional(),
 });
 
 export type UserProfile = z.infer<typeof UserProfileSchema>;

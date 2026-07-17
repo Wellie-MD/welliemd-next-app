@@ -5,6 +5,7 @@ import { MEDICAL, SUCCESS_MESSAGES, ERROR_MESSAGES, LOADING_MESSAGES } from '@/c
 import { Eye, EyeOff, ShieldOff } from 'lucide-react';
 import { useAuth } from '@/features/auth';
 import { useAuthStore } from '@/features/auth/store/auth.store';
+import { toast } from 'sonner';
 
 export default function Profile() {
   const { isImpersonated } = useAuth();

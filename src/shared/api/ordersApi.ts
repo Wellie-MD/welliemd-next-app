@@ -13,9 +13,15 @@ import { apiClient, withRetry } from './client';
 export type OrderStatus =
     | 'created'
     | 'payment_pending'
+    | 'payment_authorized'
+    | 'payment_captured'
+    | 'payment_failed'
+    | 'partial'
     | 'processing'
     | 'visit_failed'
     | 'visit_pending'
+    | 'visit_scheduled'
+    | 'visit_rescheduled'
     | 'consult_scheduled'
     | 'consult_rescheduled'
     | 'consult_canceled'
@@ -26,8 +32,16 @@ export type OrderStatus =
     | 'rx_sent'
     | 'in_fulfillment'
     | 'shipped'
+    | 'in_transit'
+    | 'out_for_delivery'
     | 'delivered'
-    | 'canceled';
+    | 'delivery_failed'
+    | 'declined'
+    | 'completed'
+    | 'refunded'
+    | 'canceled'
+    | 'cancelled'
+    | 'failed';
 
 export interface OrderActivityEvent {
     id: string;
@@ -38,6 +52,45 @@ export interface OrderActivityEvent {
     source: string;
     occurred_at: string;
     payload?: Record<string, unknown>;
+}
+
+export interface PatientOrderLineItem {
+    id: string;
+    product_id?: number | null;
+    product_name?: string | null;
+    item_type?: string;
+    quantity?: string | number;
+    unit_patient_price?: string | number;
+    unit_shipping_fee?: string | number;
+    line_total?: string | number;
+    prescription_status?: string;
+    fulfilment_status?: string;
+    shipment_status?: string;
+    refund_status?: string;
+    duration_days?: number | null;
+    tracking_number?: string | null;
+    tracking_url?: string | null;
+    shipment_provider?: string | null;
+    prescribed_at?: string | null;
+    fulfilled_at?: string | null;
+    shipped_at?: string | null;
+    cancelled_at?: string | null;
+    refunded_amount?: string | number;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface PatientTreatmentCaseSummary {
+    id: string;
+    treatment_type_id?: string;
+    treatment_type_key?: string | null;
+    status?: string;
+    lifecycle_status?: string;
+    visit_id?: string | null;
+    visit_status?: string | null;
+    beluga_dispatch_status?: string | null;
+    treatment_total?: string;
+    reimbursement_total?: string;
 }
 
 /**
@@ -71,6 +124,66 @@ export interface PatientOrder {
     shipped_at: string | null;
     updated_at: string;
     activity_events?: OrderActivityEvent[];
+    line_items?: PatientOrderLineItem[];
+    treatment_case_summary?: PatientTreatmentCaseSummary | null;
+    combined_payment_summary?: {
+        id?: string;
+        status?: string;
+        currency?: string;
+        authorized_amount?: string;
+        captured_amount?: string;
+        refunded_amount?: string;
+        allocation_total?: string;
+        allocation?: {
+            id: string;
+            status?: string;
+            allocated_amount?: string;
+            captured_amount?: string;
+            refunded_amount?: string;
+        };
+        allocations?: Array<{
+            id: string;
+            order_id: string;
+            treatment_case_id: string;
+            status?: string;
+            allocated_amount?: string;
+            captured_amount?: string;
+            refunded_amount?: string;
+        }>;
+    } | null;
+    combined_submission_summary?: {
+        id: string;
+        status?: string;
+        release_version?: number | null;
+        runtime_session_id?: string;
+        pricing_snapshot?: Record<string, unknown>;
+        checkout_total?: Record<string, unknown>;
+        combined_payment?: {
+            id: string;
+            status?: string;
+            currency?: string;
+            authorized_amount?: string;
+            captured_amount?: string;
+            refunded_amount?: string;
+        } | null;
+        orders?: Array<{
+            order_id?: string;
+            order_display_id?: string | null;
+            treatment_case_id: string;
+            treatment_type_id?: string;
+            treatment_type_key?: string | null;
+            status?: string;
+            beluga_dispatch_status?: string | null;
+            treatment_total?: string;
+            payment_allocation?: {
+                id: string;
+                status?: string;
+                allocated_amount?: string;
+                captured_amount?: string;
+                refunded_amount?: string;
+            } | null;
+        }>;
+    } | null;
 }
 
 /**

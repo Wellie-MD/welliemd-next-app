@@ -6,12 +6,11 @@
  * Matches the kinmeds3.html reference exactly.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Truck, CheckCircle2, Clock,
-  XCircle, AlertCircle, ExternalLink,
-  MessageSquare, CreditCard, Calendar, Stethoscope,
+  ArrowLeft, Truck, AlertCircle, ExternalLink,
+  MessageSquare, CreditCard,
 } from 'lucide-react';
 
 import { getOrder, PatientOrder, OrderActivityEvent } from '@/shared/api/ordersApi';
@@ -65,29 +64,51 @@ function getProductIconBg(productName: string): string {
 
 // ---------- Status badge mapping (full kinmeds3 set) ----------
 const STATUS_CONFIG: Record<string, { label: string; badgeClass: string }> = {
-  created:            { label: 'Order Created',      badgeClass: 'km-badge km-badge-gray' },
-  processing:         { label: 'Processing',         badgeClass: 'km-badge km-badge-gray' },
-  visit_pending:      { label: 'Visit Pending',      badgeClass: 'km-badge km-badge-amber' },
-  visit_scheduled:    { label: 'Visit Scheduled',    badgeClass: 'km-badge km-badge-blue' },
-  visit_rescheduled:  { label: 'Visit Rescheduled',  badgeClass: 'km-badge km-badge-amber' },
-  consult_scheduled:  { label: 'Consult Scheduled',  badgeClass: 'km-badge km-badge-blue' },
-  consult_rescheduled:{ label: 'Consult Rescheduled',badgeClass: 'km-badge km-badge-amber' },
-  visit_failed:       { label: 'Visit Cancelled',    badgeClass: 'km-badge km-badge-red' },
-  consult_canceled:   { label: 'Visit Cancelled',    badgeClass: 'km-badge km-badge-red' },
-  no_show:            { label: 'No Show',            badgeClass: 'km-badge km-badge-red' },
-  referred:           { label: 'Referred',           badgeClass: 'km-badge km-badge-amber' },
-  prescribed:         { label: 'Prescribed',         badgeClass: 'km-badge km-badge-green' },
-  billing_pending:    { label: 'Billing Pending',    badgeClass: 'km-badge km-badge-amber' },
-  rx_sent:            { label: 'Rx Sent',            badgeClass: 'km-badge km-badge-green' },
-  in_fulfillment:     { label: 'In Fulfillment',     badgeClass: 'km-badge km-badge-blue' },
-  shipped:            { label: 'Shipped',            badgeClass: 'km-badge km-badge-green' },
-  in_transit:         { label: 'In Transit',         badgeClass: 'km-badge km-badge-blue' },
-  out_for_delivery:   { label: 'Out for Delivery',   badgeClass: 'km-badge km-badge-amber' },
-  delivered:          { label: 'Delivered',          badgeClass: 'km-badge km-badge-green' },
-  delivery_failed:    { label: 'Delivery Failed',    badgeClass: 'km-badge km-badge-red' },
-  canceled:           { label: 'Cancelled',          badgeClass: 'km-badge km-badge-red' },
-  refunded:           { label: 'Refunded',           badgeClass: 'km-badge km-badge-purple' },
+  created: { label: 'Order Created', badgeClass: 'km-badge km-badge-gray' },
+  payment_pending: { label: 'Payment Pending', badgeClass: 'km-badge km-badge-amber' },
+  payment_authorized: { label: 'Payment Authorized', badgeClass: 'km-badge km-badge-blue' },
+  payment_captured: { label: 'Payment Captured', badgeClass: 'km-badge km-badge-blue' },
+  payment_failed: { label: 'Payment Failed', badgeClass: 'km-badge km-badge-red' },
+  processing: { label: 'Processing', badgeClass: 'km-badge km-badge-gray' },
+  visit_pending: { label: 'Visit Pending', badgeClass: 'km-badge km-badge-amber' },
+  visit_scheduled: { label: 'Visit Scheduled', badgeClass: 'km-badge km-badge-blue' },
+  visit_rescheduled: { label: 'Visit Rescheduled', badgeClass: 'km-badge km-badge-amber' },
+  consult_scheduled: { label: 'Consult Scheduled', badgeClass: 'km-badge km-badge-blue' },
+  consult_rescheduled: { label: 'Consult Rescheduled', badgeClass: 'km-badge km-badge-amber' },
+  visit_failed: { label: 'Visit Cancelled', badgeClass: 'km-badge km-badge-red' },
+  consult_canceled: { label: 'Visit Cancelled', badgeClass: 'km-badge km-badge-red' },
+  no_show: { label: 'No Show', badgeClass: 'km-badge km-badge-red' },
+  referred: { label: 'Referred', badgeClass: 'km-badge km-badge-amber' },
+  prescribed: { label: 'Prescribed', badgeClass: 'km-badge km-badge-green' },
+  billing_pending: { label: 'Billing Pending', badgeClass: 'km-badge km-badge-amber' },
+  rx_sent: { label: 'Rx Sent', badgeClass: 'km-badge km-badge-green' },
+  in_fulfillment: { label: 'In Fulfillment', badgeClass: 'km-badge km-badge-blue' },
+  shipped: { label: 'Shipped', badgeClass: 'km-badge km-badge-green' },
+  in_transit: { label: 'In Transit', badgeClass: 'km-badge km-badge-blue' },
+  out_for_delivery: { label: 'Out for Delivery', badgeClass: 'km-badge km-badge-amber' },
+  delivered: { label: 'Delivered', badgeClass: 'km-badge km-badge-green' },
+  delivery_failed: { label: 'Delivery Failed', badgeClass: 'km-badge km-badge-red' },
+  partial: { label: 'Partially Complete', badgeClass: 'km-badge km-badge-amber' },
+  completed: { label: 'Completed', badgeClass: 'km-badge km-badge-green' },
+  failed: { label: 'Order Failed', badgeClass: 'km-badge km-badge-red' },
+  declined: { label: 'Declined', badgeClass: 'km-badge km-badge-red' },
+  canceled: { label: 'Cancelled', badgeClass: 'km-badge km-badge-red' },
+  cancelled: { label: 'Cancelled', badgeClass: 'km-badge km-badge-red' },
+  refunded: { label: 'Refunded', badgeClass: 'km-badge km-badge-purple' },
 };
+
+function formatProviderReviewStatus(status?: string | null): string {
+  switch (status) {
+    case 'provider_review_submitted':
+      return 'Provider review submitted';
+    case 'provider_review_pending':
+      return 'Provider review pending';
+    case 'provider_review_unavailable':
+      return 'Provider review unavailable';
+    default:
+      return 'Provider review pending';
+  }
+}
 
 function formatDate(d: string | null) {
   if (!d) return '—';
@@ -99,7 +120,6 @@ type TimelineStep = {
   type: 'done' | 'money' | 'warn' | 'pending' | 'bad' | 'voided';
   label: string;
   sub: string;
-  iconKind?: 'shipping' | 'clinical' | 'schedule' | 'payment' | 'error' | 'pending' | 'success';
 };
 
 function buildTimeline(order: PatientOrder): TimelineStep[] {
@@ -111,6 +131,10 @@ function buildTimeline(order: PatientOrder): TimelineStep[] {
   const statusMap: Record<string, string> = {
     created: 'Order Created',
     processing: 'Order Created',
+    payment_pending: 'Payment Pending',
+    payment_authorized: 'Payment Authorized',
+    payment_captured: 'Payment Captured',
+    payment_failed: 'Payment Failed',
     visit_pending: 'Visit Pending',
     visit_scheduled: 'Visit Scheduled',
     visit_rescheduled: 'Visit Rescheduled',
@@ -125,8 +149,16 @@ function buildTimeline(order: PatientOrder): TimelineStep[] {
     rx_sent: 'Prescribed',
     in_fulfillment: 'In Fulfillment',
     shipped: 'Shipped',
+    in_transit: 'In Transit',
+    out_for_delivery: 'Out for Delivery',
     delivered: 'Delivered',
+    delivery_failed: 'Delivery Failed',
+    partial: 'Partially Complete',
+    completed: 'Completed',
+    failed: 'Order Failed',
+    declined: 'Declined',
     canceled: 'Cancelled',
+    cancelled: 'Cancelled',
     refunded: 'Refunded',
   };
 
@@ -136,6 +168,22 @@ function buildTimeline(order: PatientOrder): TimelineStep[] {
     'Order Created': [
       { type: 'done', label: 'Order placed', sub: ordered },
       { type: 'pending', label: 'Payment pending', sub: 'No charge until prescription is issued' },
+    ],
+    'Payment Pending': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'pending', label: 'Payment pending', sub: 'Payment has not been completed' },
+    ],
+    'Payment Authorized': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' },
+    ],
+    'Payment Captured': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'money', label: 'Payment captured', sub: `${amount} charged to card on file` },
+    ],
+    'Payment Failed': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'bad', label: 'Payment failed', sub: 'No successful payment was recorded' },
     ],
     'Visit Pending': [
       { type: 'done', label: 'Order placed', sub: ordered },
@@ -177,6 +225,45 @@ function buildTimeline(order: PatientOrder): TimelineStep[] {
       { type: 'done', label: 'Rx sent to pharmacy', sub: 'Prescription received by pharmacy' },
       { type: 'done', label: 'Shipped', sub: 'Order dispatched to pharmacy' },
     ],
+    'In Transit': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'done', label: 'Prescribed', sub: 'Prescription issued' },
+      { type: 'done', label: 'Shipped', sub: 'Order dispatched to pharmacy' },
+      { type: 'pending', label: 'In transit', sub: 'Package is on its way' },
+    ],
+    'Out for Delivery': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'done', label: 'Prescribed', sub: 'Prescription issued' },
+      { type: 'done', label: 'Shipped', sub: 'Order dispatched to pharmacy' },
+      { type: 'warn', label: 'Out for delivery', sub: 'Package is scheduled for delivery' },
+    ],
+    'Delivered': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'done', label: 'Prescribed', sub: 'Prescription issued' },
+      { type: 'done', label: 'Shipped', sub: 'Order dispatched to pharmacy' },
+      { type: 'done', label: 'Delivered', sub: 'Package was delivered' },
+    ],
+    'Delivery Failed': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'done', label: 'Shipped', sub: 'Order dispatched to pharmacy' },
+      { type: 'bad', label: 'Delivery failed', sub: 'Please contact support for help' },
+    ],
+    'Partially Complete': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'warn', label: 'Treatment update', sub: 'Some treatment products are still pending' },
+    ],
+    'Completed': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'done', label: 'Treatment completed', sub: 'Your order is complete' },
+    ],
+    'Order Failed': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'bad', label: 'Order failed', sub: 'This order could not be completed' },
+    ],
+    'Declined': [
+      { type: 'done', label: 'Order placed', sub: ordered },
+      { type: 'bad', label: 'Treatment declined', sub: 'Your provider did not approve this treatment' },
+    ],
     'Referred': [
       { type: 'done', label: 'Order placed', sub: ordered },
       { type: 'money', label: 'Payment authorized', sub: 'Amount held, not yet captured' },
@@ -210,99 +297,22 @@ function buildTimeline(order: PatientOrder): TimelineStep[] {
 
 function buildTimelineFromEvents(events?: OrderActivityEvent[]): TimelineStep[] {
   if (!Array.isArray(events) || events.length === 0) return [];
-  const getSortOrder = (evt: OrderActivityEvent): number => {
-    const normalized = (evt.payload?._normalized || {}) as Record<string, unknown>;
-    const explicit = normalized.sort_order;
-    if (typeof explicit === 'number') return explicit;
-
-    const title = (evt.title || '').toLowerCase();
-    const eventType = (evt.event_type || '').toLowerCase();
+  return events.map((evt) => {
     const status = (evt.status || '').toLowerCase();
-    if (title.includes('lab order created') || eventType.endsWith('labtest.order.created')) return 0;
-    if (title.includes('requisition') || title.includes('lab order updated') || eventType.endsWith('labtest.order.updated')) return 1;
-    if (title.includes('appointment') || eventType.includes('appointment')) return 2;
-    if (title.includes('parsing started') || eventType.includes('parsing_job.created')) return 3;
-    if (title.includes('parsing updated') || eventType.includes('parsing_job.updated')) return 4;
-    if (title.includes('critical') || status.includes('critical') || eventType.endsWith('labtest.result.critical')) return 5;
-    return 99;
-  };
-
-  return [...events]
-    .sort((a, b) => {
-      const aTime = Date.parse(a.occurred_at || '');
-      const bTime = Date.parse(b.occurred_at || '');
-      if (aTime !== bTime) return aTime - bTime;
-      const aSort = getSortOrder(a);
-      const bSort = getSortOrder(b);
-      if (aSort !== bSort) return aSort - bSort;
-      return (a.id || '').localeCompare(b.id || '');
-    })
-    .map((evt) => {
-    const status = (evt.status || '').toLowerCase();
-    const eventType = (evt.event_type || '').toLowerCase();
     let type: TimelineStep['type'] = 'done';
-    let iconKind: TimelineStep['iconKind'] = 'success';
     if (status.includes('pending')) type = 'pending';
     if (status.includes('failed') || status.includes('canceled') || status.includes('no_show')) type = 'bad';
-    if (status.includes('payment') || eventType.includes('payment')) type = 'money';
-
-    if (status.includes('shipped') || status.includes('delivered') || status.includes('fulfillment') || eventType.includes('pharmacy')) {
-      iconKind = 'shipping';
-    } else if (status.includes('prescribed') || status.includes('rx_sent') || status.includes('referred')) {
-      iconKind = 'clinical';
-    } else if (status.includes('scheduled') || status.includes('rescheduled') || status.includes('visit')) {
-      iconKind = 'schedule';
-    } else if (status.includes('payment') || eventType.includes('payment')) {
-      iconKind = 'payment';
-    } else if (status.includes('failed') || status.includes('canceled') || status.includes('no_show')) {
-      iconKind = 'error';
-    } else if (status.includes('pending') || status.includes('billing')) {
-      iconKind = 'pending';
-    }
-
+    if (status.includes('payment') || evt.event_type.includes('payment')) type = 'money';
     return {
       type,
       label: evt.title || evt.event_type.replace(/\./g, ' '),
       sub: new Date(evt.occurred_at).toLocaleString(),
-      iconKind,
     };
-    });
-}
-
-function StatusIcon({ status }: { status: string }) {
-  const s = (status || '').toLowerCase();
-  if (s.includes('shipped') || s.includes('delivered') || s.includes('fulfillment')) {
-    return <Truck size={12} />;
-  }
-  if (s.includes('prescribed') || s.includes('rx_sent') || s.includes('referred')) {
-    return <Stethoscope size={12} />;
-  }
-  if (s.includes('scheduled') || s.includes('rescheduled')) {
-    return <Calendar size={12} />;
-  }
-  if (s.includes('failed') || s.includes('cancel') || s.includes('no_show')) {
-    return <XCircle size={12} />;
-  }
-  if (s.includes('pending') || s.includes('billing')) {
-    return <AlertCircle size={12} />;
-  }
-  if (s.includes('captured') || s.includes('completed') || s.includes('refunded')) {
-    return <CheckCircle2 size={12} />;
-  }
-  return <Clock size={12} />;
+  });
 }
 
 // ---------- Timeline step icon ----------
-function StepIcon({ step }: { step: TimelineStep }) {
-  if (step.iconKind === 'shipping') return <Truck size={12} />;
-  if (step.iconKind === 'clinical') return <Stethoscope size={12} />;
-  if (step.iconKind === 'schedule') return <Calendar size={12} />;
-  if (step.iconKind === 'payment') return <CreditCard size={12} />;
-  if (step.iconKind === 'error') return <XCircle size={12} />;
-  if (step.iconKind === 'pending') return <AlertCircle size={12} />;
-  if (step.iconKind === 'success') return <CheckCircle2 size={12} />;
-
-  const { type } = step;
+function StepIcon({ type }: { type: TimelineStep['type'] }) {
   if (type === 'done' || type === 'money') {
     return (
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -364,22 +374,24 @@ export default function OrderDetail() {
   const [error, setError] = useState<string | null>(null);
   const [productImageFailed, setProductImageFailed] = useState(false);
 
-  useEffect(() => {
+  const loadOrder = useCallback(async () => {
     if (!orderId) return;
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getOrder(orderId);
-        setOrder(data);
-      } catch (err) {
-        console.error('Failed to fetch order:', err);
-        setError('Order not found or failed to load.');
-      } finally {
-        setLoading(false);
-      }
-    })();
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await getOrder(orderId);
+      setOrder(data);
+    } catch (err) {
+      console.error('Failed to fetch order:', err);
+      setError('Order not found or failed to load.');
+    } finally {
+      setLoading(false);
+    }
   }, [orderId]);
+
+  useEffect(() => {
+    void loadOrder();
+  }, [loadOrder]);
 
   if (loading) {
     return (
@@ -409,9 +421,14 @@ export default function OrderDetail() {
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--km-t)', marginBottom: 4 }}>
               {error || 'Order not found'}
             </div>
-            <button className="km-btn km-btn-outline" style={{ marginTop: 8 }} onClick={() => navigate('/dashboard/orders')}>
-              Back to Orders
-            </button>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 8 }}>
+              <button className="km-btn km-btn-outline" onClick={() => void loadOrder()}>
+                Retry
+              </button>
+              <button className="km-btn km-btn-outline" onClick={() => navigate('/dashboard/orders')}>
+                Back to Orders
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -441,6 +458,7 @@ export default function OrderDetail() {
     prescribedBy = '';
   }
   const canContinueCheckout = order.status === 'payment_pending' && Boolean(order.checkout_url);
+  const lineItems = order.line_items || [];
 
   return (
     <div className="pg" id="pg-orderdetail">
@@ -465,10 +483,7 @@ export default function OrderDetail() {
           </div>
           <div style={{ marginTop: 3 }}>
             <span className={statusConfig.badgeClass} style={{ fontSize: 11 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                <StatusIcon status={order.status} />
               {statusConfig.label}
-              </span>
             </span>
           </div>
         </div>
@@ -574,6 +589,62 @@ export default function OrderDetail() {
         </div>
       )}
 
+      {lineItems.length > 0 && (
+        <div className="km-fade" style={{ background: 'var(--km-s1)', borderRadius: 10, border: '1px solid var(--km-b)', padding: 14, marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--km-tm)', marginBottom: 10 }}>
+                Treatment products
+              </div>
+              {lineItems.map((item, index) => (
+                <div key={item.id} style={{ padding: '9px 0', borderTop: index ? '1px solid var(--km-b)' : undefined }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>{item.product_name || 'Product'}</span>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>${item.line_total || '0.00'}</span>
+              </div>
+              <div style={{ marginTop: 3, color: 'var(--km-tm)', fontSize: 11 }}>
+                Qty {item.quantity || 1} · Prescription {item.prescription_status || 'pending'} · Fulfilment {item.fulfilment_status || 'pending'} · Refund {item.refund_status || 'none'}
+                {item.duration_days ? ` · ${item.duration_days} day supply` : ''}
+              </div>
+              {item.tracking_number && (
+                <div style={{ marginTop: 5, fontSize: 11, color: 'var(--km-t)' }}>
+                  {item.shipment_provider ? `${item.shipment_provider}: ` : 'Tracking: '}
+                  <span style={{ fontFamily: 'monospace' }}>{item.tracking_number}</span>
+                  {item.tracking_url && (
+                    <a href={item.tracking_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--km-ac)', marginLeft: 8, fontWeight: 600 }}>
+                      Track package →
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {order.treatment_case_summary && (
+        <div className="km-fade" style={{ background: 'var(--km-s1)', borderRadius: 10, border: '1px solid var(--km-b)', padding: 14, marginBottom: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--km-tm)', marginBottom: 5 }}>
+            Provider review
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--km-t)' }}>
+            {formatProviderReviewStatus(order.treatment_case_summary.beluga_dispatch_status)}
+          </div>
+        </div>
+      )}
+
+      {order.combined_submission_summary?.orders && order.combined_submission_summary.orders.length > 1 && (
+        <div className="km-fade" style={{ background: 'var(--km-s1)', borderRadius: 10, border: '1px solid var(--km-b)', padding: 14, marginBottom: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--km-tm)', marginBottom: 8 }}>
+            Combined checkout · {order.combined_payment_summary?.status || 'pending'}
+          </div>
+          {order.combined_submission_summary.orders.map((sibling) => (
+            <div key={sibling.treatment_case_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '5px 0', fontSize: 12 }}>
+              <span>{sibling.treatment_type_key || 'Treatment'}</span>
+              <span>{sibling.payment_allocation?.status || sibling.status || 'pending'} · ${sibling.payment_allocation?.allocated_amount || sibling.treatment_total || '0.00'} · {formatProviderReviewStatus(sibling.beluga_dispatch_status)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Tracking Info */}
       {order.tracking_number && (
         <div className="km-fade km-vbox km-vbox-green" style={{ marginBottom: 10 }}>
@@ -582,11 +653,6 @@ export default function OrderDetail() {
             <div style={{ fontWeight: 600, color: 'var(--km-t)', marginBottom: 2, fontSize: 13 }}>
               Tracking: {order.tracking_number}
             </div>
-            {order.shipping_carrier && (
-              <div style={{ fontSize: 11, color: 'var(--km-tm)' }}>
-                Carrier: {order.shipping_carrier}
-              </div>
-            )}
             {order.tracking_url && (
               <a
                 href={order.tracking_url}
@@ -612,7 +678,7 @@ export default function OrderDetail() {
           {timeline.map((step, i) => (
             <div key={i} className="km-alog-item">
               <div className="km-alog-dot" style={stepDotStyle(step.type)}>
-                <StepIcon step={step} />
+                <StepIcon type={step.type} />
               </div>
               <div className="km-alog-body">
                 <div className="km-alog-title">{step.label}</div>
