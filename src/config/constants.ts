@@ -48,6 +48,7 @@ export const API_ENDPOINTS = {
       MY_PROFILE: '/medical/patients/my_profile/',
       CREATE_PROFILE: '/medical/patients/create_profile/',
       UPDATE_PROFILE: '/medical/patients/update_profile/',
+      SAVE_VITALS: '/medical/patients/save_vitals/',
     },
   },
   MESSAGES: {

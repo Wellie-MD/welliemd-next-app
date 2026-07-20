@@ -138,6 +138,13 @@ export class ProfileService {
     const validatedData = PatientProfileSchema.parse(response.data);
     return validatedData;
   }
+
+  async saveVitals(data: { height_inches: number; weight_lbs: number }): Promise<void> {
+    debugLog('ProfileService.saveVitals:', data);
+    await apiClient.post(API_ENDPOINTS.MEDICAL.PATIENTS.SAVE_VITALS, data);
+    // Allow the completed write to settle before callers continue with profile refresh/UI work.
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
 }
 
 // Export singleton instance

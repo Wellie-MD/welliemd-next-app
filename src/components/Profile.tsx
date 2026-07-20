@@ -14,6 +14,7 @@ export default function Profile() {
     error,
     updateUserProfile,
     updatePatientProfile,
+    fetchPatientProfile,
     clearError,
   } = useProfile();
 
@@ -444,7 +445,7 @@ export default function Profile() {
         </div>
       </div>
 
-      <VitalsCard latestVitals={patientProfile?.latest_vitals} />
+      <VitalsCard latestVitals={patientProfile?.latest_vitals} onSaved={fetchPatientProfile} />
     </div>
   );
 }
@@ -461,6 +462,7 @@ interface VitalsCardProps {
     height_inches?: number | null;
     weight_lbs?: string | null;
   } | null;
+  onSaved: () => Promise<void>;
 }
 
 // Bounds match the input's own min/max (ft 3-8, in 0-11, weight >= 50lb) - HTML
@@ -475,7 +477,7 @@ function inRange(n: number | null, min: number, max = Infinity): boolean {
   return n == null || (Number.isFinite(n) && n >= min && n <= max);
 }
 
-function VitalsCard({ latestVitals }: VitalsCardProps) {
+function VitalsCard({ latestVitals, onSaved }: VitalsCardProps) {
   const [heightFt, setHeightFt] = useState('');
   const [heightIn, setHeightIn] = useState('');
   const [weight, setWeight] = useState('');
@@ -498,7 +500,9 @@ function VitalsCard({ latestVitals }: VitalsCardProps) {
   const heightFtValid = inRange(heightFtNum, HEIGHT_FT_MIN, HEIGHT_FT_MAX);
   const heightInValid = inRange(heightInNum, HEIGHT_IN_MIN, HEIGHT_IN_MAX);
   const weightValid = inRange(weightNum, WEIGHT_MIN);
-  const allValid = heightFtValid && heightInValid && weightValid;
+  const allValid =
+    heightFtNum != null && heightInNum != null && weightNum != null &&
+    heightFtValid && heightInValid && weightValid;
 
   const totalHeightIn = (heightFtNum || 0) * 12 + (heightInNum || 0);
   const bmi =
@@ -508,11 +512,27 @@ function VitalsCard({ latestVitals }: VitalsCardProps) {
       ? (703 * weightNum) / (totalHeightIn * totalHeightIn)
       : null;
 
-  const handleSaveVitals = () => {
-    // ponytail: no PatientVitals write endpoint exists yet (latest_vitals is read-only,
-    // see apps.medical.serializers.patient_serializers.PatientSerializer.get_latest_vitals).
-    // Same honest-stub pattern as "Get Started" until that endpoint lands.
-    toast.info("Saving vitals isn't available yet. Please check back soon.");
+  const [saving, setSaving] = useState(false);
+
+  const handleSaveVitals = async () => {
+    if (!allValid || heightFtNum == null || heightInNum == null || weightNum == null) return;
+    setSaving(true);
+    try {
+      await profileService.saveVitals({
+        height_inches: Math.round(totalHeightIn),
+        weight_lbs: weightNum,
+      });
+      // The write response is authoritative. Refresh separately so a profile-read
+      // problem cannot turn a successful vitals write into a false error toast.
+      void onSaved().catch(error => {
+        console.error('Vitals saved, but profile refresh failed:', error);
+      });
+      toast.success('Vitals saved successfully.');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail || error?.response?.data?.error || 'Failed to save vitals.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -576,8 +596,8 @@ function VitalsCard({ latestVitals }: VitalsCardProps) {
         <div style={{ fontSize: 13, color: 'var(--km-tm)' }}>
           BMI <b style={{ color: 'var(--km-t)' }}>{bmi != null ? `${bmi.toFixed(1)} · ${bmiCategory(bmi)}` : '—'}</b>
         </div>
-        <button className="km-save-btn" onClick={handleSaveVitals} disabled={!allValid}>
-          Save vitals
+        <button className="km-save-btn" onClick={() => void handleSaveVitals()} disabled={!allValid || saving}>
+          {saving ? 'Saving…' : 'Save vitals'}
         </button>
       </div>
     </div>
