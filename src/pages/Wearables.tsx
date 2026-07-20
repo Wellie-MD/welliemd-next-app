@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Send, Download } from 'lucide-react';
+import { Search, Send, Download, Loader2, AlertCircle } from 'lucide-react';
 import WearablesInsights from './WearablesInsights';
 import { PROV_CP, givesReadiness, pdScoreColor, pdScoreLabel, useWearablesData } from './useWearablesData';
 
