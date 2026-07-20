@@ -106,6 +106,7 @@ export function ProductFormModal({
     product_type: defaultProductType,
     purchase_type: "one_time",
     treatment: "weight_loss",
+    treatment_type_id: null as string | null,
     rx_or_otc: "rx",
     base_price: "0.00",
     cost_to_client: "0.00",
@@ -149,6 +150,9 @@ export function ProductFormModal({
       label,
     }));
   })();
+  const selectedTreatmentType = treatmentTypes.find(
+    (type) => String(type.id) === String(formData.treatment_type_id),
+  );
 
   // Fetch pharmacies on mount
   useEffect(() => {
@@ -353,6 +357,9 @@ export function ProductFormModal({
         product_type: product.product_type || "single",
         purchase_type: product.purchase_type || "one_time",
         treatment: product.treatment || "weight_loss",
+        treatment_type_id: product.treatment_type_id
+          ? String(product.treatment_type_id)
+          : null,
         rx_or_otc: product.rx_or_otc || "rx",
         base_price: product.base_price?.toString() || "0.00",
         cost_to_client: product.cost_to_client?.toString() || "0.00",
@@ -401,6 +408,7 @@ export function ProductFormModal({
         product_type: defaultProductType,
         purchase_type: "one_time",
         treatment: "weight_loss",
+        treatment_type_id: null,
         rx_or_otc: "rx",
         base_price: "0.00",
         cost_to_client: "0.00",
@@ -631,6 +639,76 @@ export function ProductFormModal({
                 />
               </div>
 
+              <div className="col-span-2 space-y-2">
+                <Label htmlFor="product_treatment_type">
+                  Treatment Type{" "}
+                  <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-sky-700">
+                    New
+                  </span>
+                </Label>
+                <Select
+                  value={
+                    formData.product_type === "supply"
+                      ? "none"
+                      : formData.treatment_type_id || "none"
+                  }
+                  onValueChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      treatment_type_id: value === "none" ? null : value,
+                    })
+                  }
+                  disabled={loading || formData.product_type === "supply"}
+                >
+                  <SelectTrigger id="product_treatment_type">
+                    <SelectValue
+                      placeholder={
+                        formData.product_type === "supply"
+                          ? "Supplies do not have a clinical Treatment Type"
+                          : "Select Treatment Type"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      {formData.product_type === "supply"
+                        ? "Not applicable"
+                        : "Select Treatment Type"}
+                    </SelectItem>
+                    {treatmentTypes.map((type) => (
+                      <SelectItem key={type.id} value={String(type.id)}>
+                        {type.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  New clinical relationship used by Programs and derived
+                  routing. It is separate from the legacy controls below and is
+                  optional while existing Products are migrated.
+                </p>
+                {formData.product_type !== "supply" && selectedTreatmentType && (
+                  <div className="grid gap-3 rounded-lg border border-sky-200 bg-sky-50 p-3 sm:grid-cols-2">
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-sky-700">
+                        Derived intake Visit Type
+                      </div>
+                      <code className="mt-1 block text-sm text-slate-800">
+                        {selectedTreatmentType.intakeVisitType || "Not configured"}
+                      </code>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-sky-700">
+                        Derived follow-up Visit Type
+                      </div>
+                      <code className="mt-1 block text-sm text-slate-800">
+                        {selectedTreatmentType.followupVisitType || "Not configured"}
+                      </code>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="col-span-2">
                 <Label htmlFor="pharmacy">Pharmacy</Label>
                 <Select
@@ -750,7 +828,12 @@ export function ProductFormModal({
 
               {formData.product_type !== "supply" && (
               <div>
-                <Label htmlFor="treatment">Treatment</Label>
+                <Label htmlFor="treatment">
+                  Treatment{" "}
+                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-600">
+                    Legacy
+                  </span>
+                </Label>
                 <Select
                   value={formData.treatment}
                   onValueChange={(value) => setFormData({ ...formData, treatment: value })}
@@ -780,6 +863,10 @@ export function ProductFormModal({
                     )}
                   </SelectContent>
                 </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Existing questionnaire classification retained unchanged for
+                  compatibility.
+                </p>
               </div>
               )}
 
@@ -1200,14 +1287,20 @@ export function ProductFormModal({
             </div>
           )}
 
-          {/* Visit Type Restrictions */}
+          {/* Legacy availability filter; never clinical Treatment Type routing. */}
           <div className="space-y-4 border-t pt-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold">Visit Type Restrictions</h3>
+                <h3 className="text-lg font-semibold">
+                  Visit Type Restrictions{" "}
+                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-600">
+                    Legacy
+                  </span>
+                </h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Restrict checkout recommendation visibility of this product to
-                  specific visit types.
+                  Existing checkout recommendation availability behavior is
+                  retained unchanged. This does not define the new Product
+                  Treatment Type relationship.
                 </p>
               </div>
               <Switch

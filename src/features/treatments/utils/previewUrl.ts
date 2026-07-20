@@ -1,5 +1,8 @@
 import type { PreviewContext } from "@/features/treatments/types";
-import { QUESTIONNAIRE_PREVIEW_DEFAULTS } from "@/features/treatments/preview/constants";
+import {
+  QUESTIONNAIRE_PREVIEW_DEFAULTS,
+  QUESTIONNAIRE_PREVIEW_FRAGMENT,
+} from "@/features/treatments/preview/constants";
 
 const normalizeBaseUrl = (baseUrl: string) => baseUrl.replace(/\/+$/, "");
 
@@ -7,6 +10,13 @@ export interface QuestionnairePreviewTarget {
   url: string;
   supported: boolean;
   reason?: string;
+}
+
+interface CapabilityPreviewContext {
+  capabilityToken: string;
+  apiBaseUrl?: string;
+  snapshotChecksum: string;
+  snapshotId: string;
 }
 
 export const getQuestionnairePreviewBaseUrl = () => {
@@ -64,3 +74,20 @@ export const buildQuestionnairePreviewTarget = (
 
 export const buildQuestionnairePreviewUrl = (context: PreviewContext) =>
   buildQuestionnairePreviewTarget(context).url;
+
+export const buildCapabilityQuestionnairePreviewUrl = ({
+  capabilityToken,
+  apiBaseUrl,
+  snapshotChecksum,
+  snapshotId,
+}: CapabilityPreviewContext) => {
+  const query = new URLSearchParams({
+    api_base_url: apiBaseUrl || getQuestionnairePreviewApiBaseUrl(),
+  });
+  const fragment = new URLSearchParams({
+    [QUESTIONNAIRE_PREVIEW_FRAGMENT.capability]: capabilityToken,
+    [QUESTIONNAIRE_PREVIEW_FRAGMENT.snapshotChecksum]: snapshotChecksum,
+    [QUESTIONNAIRE_PREVIEW_FRAGMENT.snapshotId]: snapshotId,
+  });
+  return `${getQuestionnairePreviewBaseUrl()}/preview?${query.toString()}#${fragment.toString()}`;
+};

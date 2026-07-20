@@ -283,6 +283,7 @@ export default function Products() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [pharmacyFilter, setPharmacyFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [treatmentTypeFilter, setTreatmentTypeFilter] = useState<string>("all");
   const [visitTypeFilter, setVisitTypeFilter] = useState<string>("all");
   const [productSearch, setProductSearch] = useState("");
   const [clientSearch, setClientSearch] = useState("");
@@ -344,6 +345,9 @@ export default function Products() {
       if (statusFilter !== "all") {
         params.is_active = statusFilter === "active";
       }
+      if (treatmentTypeFilter !== "all") {
+        params.treatment_type = treatmentTypeFilter;
+      }
       if (productSearch.trim()) {
         params.search = productSearch.trim();
       }
@@ -370,7 +374,7 @@ export default function Products() {
         variant: "destructive",
       });
     }
-  }, [categoryFilter, typeFilter, pharmacyFilter, statusFilter, productSearch]);
+  }, [categoryFilter, typeFilter, pharmacyFilter, statusFilter, treatmentTypeFilter, productSearch]);
 
   // Initial load
   useEffect(() => {
@@ -552,6 +556,7 @@ export default function Products() {
     setTypeFilter("all");
     setPharmacyFilter("all");
     setStatusFilter("all");
+    setTreatmentTypeFilter("all");
     setProductSearch("");
   };
 
@@ -1033,7 +1038,34 @@ export default function Products() {
 
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Visit Type
+            Treatment Type (New)
+          </label>
+          <FilterSelect
+            label="All Treatment Types"
+            value={
+              treatmentTypeFilter === "all"
+                ? "all"
+                : treatmentTypes.find(
+                    (type) => String(type.id) === treatmentTypeFilter,
+                  )?.name || treatmentTypeFilter
+            }
+            options={treatmentTypes.map((type) => type.name)}
+            onChange={(value) => {
+              if (value === "all") {
+                setTreatmentTypeFilter("all");
+                return;
+              }
+              const selected = treatmentTypes.find(
+                (type) => type.name === value,
+              );
+              setTreatmentTypeFilter(selected ? String(selected.id) : "all");
+            }}
+          />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Visit Type (Legacy)
           </label>
           <FilterSelect
             label="All Visit Types"
@@ -1077,6 +1109,7 @@ export default function Products() {
           typeFilter !== "all" ||
           pharmacyFilter !== "all" ||
           statusFilter !== "all" ||
+          treatmentTypeFilter !== "all" ||
           productSearch !== "") && (
           <button
             onClick={resetFilters}
@@ -1122,7 +1155,10 @@ export default function Products() {
                 Purchase Type
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Restrictions
+                Treatment Type / Derived Routing (New)
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Restrictions (Legacy)
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Created At
@@ -1136,7 +1172,7 @@ export default function Products() {
             {displayedProducts.length === 0 ? (
               <tr>
                 <td
-                  colSpan={10}
+                  colSpan={11}
                   className="px-4 py-12 text-center text-sm text-slate-400"
                 >
                   {loading ? (
@@ -1224,6 +1260,27 @@ export default function Products() {
                         <Pill>{product.purchase_type === "subscription" ? "Subscription" : "One Time"}</Pill>
                       ) : (
                         "-"
+                      )}
+                    </td>
+                    <td className="px-4 py-4">
+                      {product.product_type === "supply" ? (
+                        <span className="text-xs text-slate-400">Not applicable</span>
+                      ) : product.treatment_type_name ? (
+                        <div className="space-y-1">
+                          <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">
+                            {product.treatment_type_name}
+                          </Badge>
+                          <div className="text-[10px] text-slate-500">
+                            Intake: {product.derived_intake_visit_type || "Not configured"}
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            Follow-up: {product.derived_followup_visit_type || "Not configured"}
+                          </div>
+                        </div>
+                      ) : (
+                        <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">
+                          Unassigned
+                        </Badge>
                       )}
                     </td>
                     <td className="px-4 py-4">

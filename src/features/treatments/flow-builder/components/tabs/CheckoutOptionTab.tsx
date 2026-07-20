@@ -103,12 +103,7 @@ export function CheckoutOptionTab({ onAddItem }: CheckoutOptionTabProps) {
   // Determine active visit types for chosen treatment mapping
   const targetVisitTypes = useMemo(() => {
     const tx = treatmentTypes.find((t) => t.key === checkoutTxType);
-    if (!tx) {
-      if (checkoutTxType === "glp_weight_loss") return ["weightloss", "weightlossFollowup"];
-      if (checkoutTxType === "ed") return ["ED", "EDFollowup"];
-      if (checkoutTxType === "trt") return ["TRT", "TRTFollowup"];
-      return [];
-    }
+    if (!tx) return [];
     const types = [];
     if (tx.intakeVisitType) types.push(tx.intakeVisitType);
     if (tx.followupVisitType) types.push(tx.followupVisitType);

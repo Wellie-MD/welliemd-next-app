@@ -14,7 +14,14 @@ import {
   QUESTIONNAIRE_PREVIEW_MESSAGE,
   type QuestionnairePreviewIdentity,
 } from "@/features/treatments/preview/constants";
-import { buildQuestionnairePreviewUrl } from "@/features/treatments/utils/previewUrl";
+import {
+  buildCapabilityQuestionnairePreviewUrl,
+  getQuestionnairePreviewApiBaseUrl,
+} from "@/features/treatments/utils/previewUrl";
+import {
+  issuePreviewCapability,
+  type PreviewCapability,
+} from "@/features/treatments/preview/api";
 import type { PreviewContext } from "@/features/treatments/types";
 
 interface QuestionnairePreviewDialogProps {
@@ -28,6 +35,7 @@ interface PreviewMessage {
   type?: string;
   version?: number;
   height?: number;
+  pathname?: string;
   message?: string;
 }
 
@@ -54,15 +62,70 @@ export function QuestionnairePreviewDialog({
   const [refreshKey, setRefreshKey] = useState(0);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState("");
+  const [reportedHeight, setReportedHeight] = useState<number | undefined>();
+  const [reportedPath, setReportedPath] = useState<string | undefined>();
+  const [capability, setCapability] = useState<PreviewCapability | null>(null);
+  const previewApiBaseUrl =
+    "apiBaseUrl" in previewContext
+      ? previewContext.apiBaseUrl
+      : getQuestionnairePreviewApiBaseUrl();
 
-  const previewUrl = useMemo(
-    () => withShellContext(buildQuestionnairePreviewUrl(previewContext), identity),
-    [identity, previewContext],
+  const capabilityUrl = useMemo(
+    () => capability
+      ? buildCapabilityQuestionnairePreviewUrl({
+          capabilityToken: capability.capabilityToken,
+          apiBaseUrl: previewApiBaseUrl,
+          snapshotChecksum: capability.snapshotChecksum,
+          snapshotId: capability.snapshotId,
+        })
+      : null,
+    [capability, previewApiBaseUrl],
   );
-  const previewOrigin = useMemo(() => new URL(previewUrl).origin, [previewUrl]);
+  const previewUrl = useMemo(
+    () => capabilityUrl ? withShellContext(capabilityUrl, identity) : null,
+    [capabilityUrl, identity],
+  );
+  const iframeUrl = useMemo(
+    () => capabilityUrl
+      ? withShellContext(capabilityUrl, QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient)
+      : null,
+    [capabilityUrl],
+  );
+  const previewOrigin = useMemo(
+    () => previewUrl ? new URL(previewUrl).origin : null,
+    [previewUrl],
+  );
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setCapability(null);
+      return;
+    }
+    let active = true;
+    setStatus("loading");
+    setErrorMessage("");
+    issuePreviewCapability(previewContext)
+      .then((issued) => {
+        if (active) setCapability(issued);
+      })
+      .catch((error) => {
+        if (!active) return;
+        const details = error?.response?.data?.details;
+        setStatus("error");
+        setErrorMessage(
+          (typeof details === "string" ? details : null) ||
+          error?.response?.data?.detail ||
+          error?.message ||
+          "The questionnaire preview could not be prepared.",
+        );
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, previewContext.id, previewContext.type]);
+
+  useEffect(() => {
+    if (!open || !previewOrigin) return;
     setStatus("loading");
     setErrorMessage("");
 
@@ -77,6 +140,13 @@ export function QuestionnairePreviewDialog({
 
       if (event.data.type === QUESTIONNAIRE_PREVIEW_MESSAGE.ready) {
         setStatus("ready");
+      } else if (
+        event.data.type === QUESTIONNAIRE_PREVIEW_MESSAGE.resize &&
+        Number.isFinite(event.data.height)
+      ) {
+        setReportedHeight(event.data.height);
+      } else if (event.data.type === QUESTIONNAIRE_PREVIEW_MESSAGE.navigation) {
+        setReportedPath(event.data.pathname);
       } else if (event.data.type === QUESTIONNAIRE_PREVIEW_MESSAGE.close) {
         onOpenChange(false);
       } else if (event.data.type === QUESTIONNAIRE_PREVIEW_MESSAGE.error) {
@@ -90,6 +160,7 @@ export function QuestionnairePreviewDialog({
   }, [onOpenChange, open, previewOrigin]);
 
   const refresh = () => {
+    if (!previewOrigin) return;
     setStatus("loading");
     setErrorMessage("");
     iframeRef.current?.contentWindow?.postMessage(
@@ -102,22 +173,34 @@ export function QuestionnairePreviewDialog({
     setRefreshKey((value) => value + 1);
   };
 
+  useEffect(() => {
+    if (!previewOrigin || status !== "ready") return;
+    iframeRef.current?.contentWindow?.postMessage(
+      {
+        type: QUESTIONNAIRE_PREVIEW_MESSAGE.identity,
+        version: QUESTIONNAIRE_PREVIEW_DEFAULTS.protocolVersion,
+        identity,
+      },
+      previewOrigin,
+    );
+  }, [identity, previewOrigin, status]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[min(600px,calc(100dvh-32px))] w-[min(512px,calc(100vw-32px))] max-w-none flex-col gap-0 overflow-hidden rounded-xl border border-border bg-card p-0 shadow-2xl [&>button]:hidden">
-        <DialogHeader className="shrink-0 border-b border-border-light px-5 py-4 text-left">
+      <DialogContent className="flex h-[calc(100dvh-24px)] max-h-[720px] w-[calc(100vw-24px)] max-w-[640px] flex-col gap-0 overflow-hidden rounded-xl border border-border bg-card p-0 shadow-2xl sm:max-w-[640px] [&>button]:hidden">
+        <DialogHeader className="shrink-0 border-b border-border px-5 py-4 text-left">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <DialogTitle className="text-base font-semibold text-foreground">
                 Patient Preview
               </DialogTitle>
-              <DialogDescription className="mt-1 truncate text-xs text-text-tertiary">
+              <DialogDescription className="mt-1 truncate text-xs text-muted-foreground">
                 {subtitle}
               </DialogDescription>
             </div>
             <button
               type="button"
-              className="rounded-md p-1 text-text-tertiary outline-none transition hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-md p-1 text-muted-foreground outline-none transition hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
               onClick={() => onOpenChange(false)}
               aria-label="Close patient preview"
             >
@@ -126,8 +209,8 @@ export function QuestionnairePreviewDialog({
           </div>
         </DialogHeader>
 
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border-light px-5 py-2.5">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-tertiary">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-2.5">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
             Test as
           </span>
           <div className="flex rounded-md border border-border bg-card p-0.5" role="group" aria-label="Preview patient type">
@@ -161,10 +244,13 @@ export function QuestionnairePreviewDialog({
         </div>
 
         <div className="min-h-0 flex-1 bg-background p-3">
-          <div className="relative h-full overflow-hidden rounded-lg border border-border-light bg-white">
+          <div className="relative h-full overflow-hidden rounded-lg border border-border bg-white">
             {status === "loading" ? (
-              <div className="absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden bg-muted">
-                <div className="h-full w-1/3 animate-pulse bg-warning" />
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
+                <div className="flex flex-col items-center gap-3 text-xs text-muted-foreground">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-warning" />
+                  Loading patient preview…
+                </div>
               </div>
             ) : null}
             {status === "error" ? (
@@ -172,24 +258,30 @@ export function QuestionnairePreviewDialog({
                 {errorMessage}
               </div>
             ) : null}
-            <iframe
-              ref={iframeRef}
-              key={`${refreshKey}-${identity}`}
-              title="Patient questionnaire preview"
-              src={previewUrl}
-              className="h-full w-full border-0 bg-white"
-              sandbox="allow-forms allow-scripts allow-same-origin allow-popups"
-            />
+            {iframeUrl ? (
+              <iframe
+                ref={iframeRef}
+                key={refreshKey}
+                title="Patient questionnaire preview"
+                src={iframeUrl}
+                data-content-height={reportedHeight}
+                data-preview-path={reportedPath}
+                className={`h-full w-full border-0 bg-white transition-opacity ${
+                  status === "ready" ? "opacity-100" : "opacity-0"
+                }`}
+                sandbox="allow-forms allow-scripts allow-same-origin allow-popups"
+              />
+            ) : null}
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center justify-between border-t border-border-light px-5 py-3">
+        <div className="flex shrink-0 items-center justify-between border-t border-border px-5 py-3">
           <div className="flex items-center gap-1">
             <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={refresh} aria-label="Refresh preview">
               <RefreshCw className="h-3.5 w-3.5" />
             </Button>
             <Button type="button" size="icon" variant="ghost" className="h-8 w-8" asChild>
-              <a href={previewUrl} target="_blank" rel="noreferrer" aria-label="Open preview in new tab">
+              <a href={previewUrl || undefined} target="_blank" rel="noreferrer" aria-label="Open preview in new tab">
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
             </Button>

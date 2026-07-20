@@ -23,6 +23,7 @@ import {
   productsForRegimen,
   regimensForProducts,
 } from "../utils/catalogOptions";
+import { PROGRAM_PRODUCT_ROLE_OPTIONS } from "../constants";
 
 interface CheckoutProductRowProps {
   product: ProgramCheckoutProduct;
@@ -152,6 +153,41 @@ export function CheckoutProductRow({
       </div>
 
       <div className="space-y-3">
+        <SelectField
+          label="Patient selection role"
+          value={product.productRole}
+          onChange={(value) =>
+            onProductFieldChange(
+              index,
+              "productRole",
+              value as ProgramCheckoutProduct["productRole"],
+            )
+          }
+          options={PROGRAM_PRODUCT_ROLE_OPTIONS.map(({ value, label }) => ({
+            value,
+            label,
+          }))}
+          placeholder="— Select role —"
+          testId={`checkout-product-role-${index}`}
+        />
+        <div className="space-y-1.5">
+          <label className="text-[11.5px] font-bold text-slate-600" htmlFor={`checkout-product-choice-group-${index}`}>
+            Choice group
+          </label>
+          <input
+            id={`checkout-product-choice-group-${index}`}
+            value={product.choiceGroup || ""}
+            onChange={(event) =>
+              onProductFieldChange(index, "choiceGroup", event.target.value)
+            }
+            placeholder="e.g. nad-primary"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12px] text-slate-700 shadow-sm outline-none focus:border-blue-500"
+            data-testid={`checkout-product-choice-group-${index}`}
+          />
+          <p className="text-[10.5px] leading-normal text-slate-400">
+            Use the same stable key for alternatives and their required companions.
+          </p>
+        </div>
         <SelectField
           label="Category"
           value={selectedCategoryId ? String(selectedCategoryId) : ""}

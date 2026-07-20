@@ -1,5 +1,12 @@
 import type { VisibilityRuleGroup } from "./questions";
 
+export type ProgramProductRole =
+  | "primary_choice"
+  | "required_companion"
+  | "optional_addon"
+  | "clinician_only"
+  | "informational";
+
 export interface ProgramCheckoutProduct {
   id: string;
   /** Backend product category identifier; label is retained for display/backward compatibility. */
@@ -14,6 +21,8 @@ export interface ProgramCheckoutProduct {
   productId?: string;
   /** Monthly price in USD. When omitted, falls back to the structured price map. */
   price?: number;
+  productRole: ProgramProductRole;
+  choiceGroup?: string;
   /**
    * Per-product conditional visibility. When omitted or empty, the product is
    * always shown (subject to the parent checkout question's own visibility).

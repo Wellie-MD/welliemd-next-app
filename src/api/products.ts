@@ -73,6 +73,8 @@ export interface Product {
   treatment_type_id?: string | null;
   treatment_type_key?: string | null;
   treatment_type_name?: string | null;
+  derived_intake_visit_type?: string | null;
+  derived_followup_visit_type?: string | null;
   rx_or_otc?: "rx" | "otc";
   followup_days_after?: number;
   requires_video_visit?: boolean;
