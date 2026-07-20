@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 
 import { getOrders, PatientOrder } from '@/shared/api/ordersApi';
+import { PatientTreatmentAggregate } from '@/features/treatments/orders/PatientTreatmentAggregate';
 
 const getOrderReference = (order: PatientOrder) => order.order_id || order.display_id;
 
@@ -124,7 +125,9 @@ function OrderListItem({ order, onClick }: { order: PatientOrder; onClick: () =>
         </div>
       </div>
 
-      {order.line_items && order.line_items.length > 1 && (
+      {order.treatment_aggregate && <PatientTreatmentAggregate aggregate={order.treatment_aggregate} compact />}
+
+      {!order.treatment_aggregate && order.line_items && order.line_items.length > 1 && (
         <div style={{ padding: '0 14px 12px', color: 'var(--km-tm)', fontSize: 11 }}>
           {order.line_items.length} products · {order.line_items.filter((item) => item.prescription_status === 'prescribed').length} prescribed
         </div>

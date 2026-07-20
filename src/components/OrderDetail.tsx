@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 import { getOrder, PatientOrder, OrderActivityEvent } from '@/shared/api/ordersApi';
+import { PatientTreatmentAggregate } from '@/features/treatments/orders/PatientTreatmentAggregate';
 
 // ---------- Product icon (SVG-based per kinmeds3) ----------
 function ProductIcon({ productName }: { productName: string }) {
@@ -489,8 +490,10 @@ export default function OrderDetail() {
         </div>
       </div>
 
-      {/* Product hero */}
-      <div className="km-fade" style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: 16, background: 'var(--km-s1)', borderRadius: 12, marginBottom: 10, border: '1px solid var(--km-b)' }}>
+      {order.treatment_aggregate && <PatientTreatmentAggregate aggregate={order.treatment_aggregate} />}
+
+      {/* Legacy non-Program Product hero */}
+      {!order.treatment_aggregate && <div className="km-fade" style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: 16, background: 'var(--km-s1)', borderRadius: 12, marginBottom: 10, border: '1px solid var(--km-b)' }}>
         {showProductImage ? (
           <div style={{
             width: 56, height: 56, borderRadius: 12,
@@ -571,7 +574,7 @@ export default function OrderDetail() {
             </span>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* Pharmacy row */}
       {order.pharmacy_name && (
@@ -601,7 +604,7 @@ export default function OrderDetail() {
                 <span style={{ fontSize: 13, fontWeight: 700 }}>${item.line_total || '0.00'}</span>
               </div>
               <div style={{ marginTop: 3, color: 'var(--km-tm)', fontSize: 11 }}>
-                Qty {item.quantity || 1} · Prescription {item.prescription_status || 'pending'} · Fulfilment {item.fulfilment_status || 'pending'} · Refund {item.refund_status || 'none'}
+                Qty {item.quantity || 1}{!order.treatment_aggregate ? ` · Prescription ${item.prescription_status || 'pending'}` : ''} · Fulfilment {item.fulfilment_status || 'pending'} · Refund {item.refund_status || 'none'}
                 {item.duration_days ? ` · ${item.duration_days} day supply` : ''}
               </div>
               {item.tracking_number && (
