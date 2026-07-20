@@ -32,6 +32,7 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           doseMappingId: product.doseMappingId,
           doseLabel: product.doseLabel,
           productId: product.productId,
+          sourceProductId: product.sourceProductId,
           price: product.price,
           visibilityRules: product.visibilityRules,
         }))

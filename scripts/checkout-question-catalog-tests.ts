@@ -97,8 +97,29 @@ assert.deepEqual(persistedQuestion.products[0], {
   doseMappingId: undefined,
   doseLabel: "2.5 mg",
   productId: "3",
+  sourceProductId: undefined,
   price: 79,
   visibilityRules: undefined,
 });
+
+const persistedQuestionWithSourceProduct = checkoutQuestionFromRecord(
+  {
+    id: "checkout-2",
+    question_text: "Choose source treatment",
+    answer_choices: [
+      {
+        option_id: "option-2",
+        category_name: "Weight",
+        titration_category: "Starter",
+        dose_label: "0.25 mg",
+        product_id: 33,
+        source_product_id: 1,
+      },
+    ],
+  },
+  1
+);
+assert.equal(persistedQuestionWithSourceProduct.products[0].productId, "33");
+assert.equal(persistedQuestionWithSourceProduct.products[0].sourceProductId, "1");
 
 console.log("checkout question catalog dependency tests passed");
