@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import type { Program, ProgramStatus } from "@/features/treatments/types";
 import { formatProgramStage } from "@/features/treatments/utils/labels";
 import { cn } from "@/lib/utils";
+import { CLIENT_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 
 interface ProgramCardProps {
   program: Program;
@@ -164,7 +165,7 @@ export function ProgramCard({
           asChild
           className="h-8 px-4 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded"
         >
-          <Link to={`/dashboard/treatments/programs/${program.slug || program.id}`}>
+          <Link to={CLIENT_TREATMENT_ROUTES.programQuestions(program.id)}>
             Open
           </Link>
         </Button>

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import type { Program } from "@/features/treatments/types";
+import { CLIENT_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 
 export interface ProgramTreatmentGroup {
   treatmentTypeKey: string;
@@ -129,7 +130,7 @@ function StagePanel({
   }
 
   const isPublished = program.status === "published";
-  const detailUrl = `/dashboard/treatments/programs/${program.id}`;
+  const detailUrl = CLIENT_TREATMENT_ROUTES.programQuestions(program.id);
 
   return (
     <div

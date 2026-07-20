@@ -1,5 +1,6 @@
 import axios, { AxiosError } from "axios";
 import { useAuthStore } from "../store/useAuthStore";
+import { API_REQUEST_TIMEOUT_MS } from "./constants";
 
 // const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://knysysapi.welliemd.com/api/v1";
@@ -28,6 +29,7 @@ const axiosInstance = axios.create({
     "Content-Type": "application/json",
   },
   withCredentials: true,
+  timeout: API_REQUEST_TIMEOUT_MS,
 });
 
 export const setHydratingState = (state: boolean) => {

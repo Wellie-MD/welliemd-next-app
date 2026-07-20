@@ -35,6 +35,7 @@ import type { Program, ProgramQuestion, QuestionKind } from "@/features/treatmen
 import { formatProgramStage } from "@/features/treatments/utils/labels";
 import { buildQuestionnairePreviewUrl } from "@/features/treatments/utils/previewUrl";
 import { cn } from "@/lib/utils";
+import { CLIENT_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 
 type TypeFilter = "all" | QuestionKind | "auth";
 
@@ -695,7 +696,7 @@ export default function ProgramDetailPage() {
 	              type="button"
 	              variant="outline"
 	              size="icon"
-	              onClick={() => navigate("/dashboard/treatments/programs")}
+	              onClick={() => navigate(CLIENT_TREATMENT_ROUTES.programs)}
 	              className="mt-0.5 h-10 w-10 shrink-0 rounded-xl border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-[#171b27] dark:text-slate-300 dark:hover:bg-slate-800"
 	            >
 	              <ArrowLeft className="h-5 w-5" />

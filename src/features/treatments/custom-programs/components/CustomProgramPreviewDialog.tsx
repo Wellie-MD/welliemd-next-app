@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { PatientPreviewDialog } from "@/features/treatments/common/components";
+import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
 import { getCustomProgramEffectiveSlug } from "@/features/treatments/custom-programs/utils/customProgramSlug";
 import {
   buildQuestionnairePreviewUrl,
@@ -32,7 +32,7 @@ export function CustomProgramPreviewDialog({
   const previewName = customProgram.onboardingName || customProgram.name;
 
   return (
-    <PatientPreviewDialog
+    <QuestionnairePreviewDialog
       open={open}
       onOpenChange={onOpenChange}
       previewUrl={previewUrl}

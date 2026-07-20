@@ -470,31 +470,14 @@ export default function Orders() {
               ...col,
               render: (_: any, row: any) => {
                 const originalStatus = row.orderStatus ?? 'created'
-                const editedStatus = editedStatuses[row.id]
                 const isShipmentFinalized = originalStatus === 'shipped' || originalStatus === 'delivered' // Tracking should stay visible for delivered orders
-                const isChangingToShipped = editedStatus === 'shipped' && !isShipmentFinalized // User is changing TO shipped
-                const showTrackingInput = isShipmentFinalized || isChangingToShipped
 
-                if (!showTrackingInput) {
+                if (!isShipmentFinalized) {
                   return <span className="text-sm text-muted-foreground italic">N/A</span>
                 }
 
-                // Already shipped/delivered - show as read-only
-                if (isShipmentFinalized) {
-                  return (
-                    <span className="text-sm font-medium">{row.tracking_number || '-'}</span>
-                  )
-                }
-
-                // Changing to shipped - show editable input
                 return (
-                  <input
-                    type="text"
-                    className="w-32 px-2 py-1 text-sm border rounded"
-                    placeholder="Tracking # (required)"
-                    value={editedTrackingNumbers[row.id] ?? (row.tracking_number ?? '')}
-                    onChange={(e) => handleTrackingNumberChange(row.id, e.target.value)}
-                  />
+                  <span className="text-sm font-medium">{row.tracking_number || '-'}</span>
                 )
               }
             }

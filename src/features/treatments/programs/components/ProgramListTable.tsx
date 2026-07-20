@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import type { Program, ProgramStatus } from "@/features/treatments/types";
 import { formatProgramStage } from "@/features/treatments/utils/labels";
 import { cn } from "@/lib/utils";
+import { CLIENT_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -81,7 +82,7 @@ export function ProgramListTable({
             <TableRow key={program.id} className="group transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
               <TableCell className="font-medium">
                 <Link
-                  to={`/dashboard/treatments/programs/${program.id}`}
+                  to={CLIENT_TREATMENT_ROUTES.programQuestions(program.id)}
                   className="font-semibold text-[#4f00ff] transition-colors hover:text-[#3f00cc] hover:underline dark:text-blue-300 dark:hover:text-blue-200"
                 >
                   {program.name}
@@ -165,7 +166,7 @@ export function ProgramListTable({
                     <Eye className="h-4 w-4" />
                   </Button>
                   <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-blue-600 dark:text-slate-500 dark:hover:text-blue-300" title="Open">
-                    <Link to={`/dashboard/treatments/programs/${program.id}`} aria-label={`Open ${program.name}`}>
+                    <Link to={CLIENT_TREATMENT_ROUTES.programQuestions(program.id)} aria-label={`Open ${program.name}`}>
                       <Pencil className="h-4 w-4" />
                     </Link>
                   </Button>

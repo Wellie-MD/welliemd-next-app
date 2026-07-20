@@ -9,7 +9,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { showFloatingToast } from "@/components/ui/floating-toast";
-import { EmptyStateCard, PatientPreviewDialog, SlugEditorModal } from "@/features/treatments/common/components";
+import { EmptyStateCard, SlugEditorModal } from "@/features/treatments/common/components";
+import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
 import { useClients } from "@/hooks/useClients";
 import { getTreatmentApiErrorMessage } from "@/features/treatments/common/utils/apiError";
 import { normalizeTreatmentSlug } from "@/features/treatments/common/utils/slug";
@@ -364,7 +365,7 @@ export default function ProgramsPage() {
       />
 
       {previewProgram ? (
-        <PatientPreviewDialog open={Boolean(previewProgram)} onOpenChange={handlePreviewOpenChange}
+        <QuestionnairePreviewDialog open={Boolean(previewProgram)} onOpenChange={handlePreviewOpenChange}
           previewUrl={buildQuestionnairePreviewUrl({ type: "program", id: previewProgram.id, slug: previewProgram.slug, visitType: previewProgram.visitType, templateId: previewProgram.sourceQuestionnaireTemplateId, apiBaseUrl: clientApiBaseUrl })}
           subtitle={`${previewProgram.name} · how patients see this ${previewProgram.stage === "follow_up" ? "follow-up" : "intake"}`}
           iframeTitle={`${previewProgram.name} questionnaire preview`} />

@@ -209,6 +209,66 @@ export interface OrderSettlementTransaction {
   created_at?: string | null
 }
 
+export interface TreatmentAggregateProduct {
+  product_id?: string | number | null
+  source_product_id?: string | number | null
+  med_id?: string | null
+  name?: string | null
+  quantity?: string | number | null
+}
+
+export interface TreatmentOrderAggregate {
+  clinical_status: string
+  patient_message?: string | null
+  treatment_case_id: string
+  treatment_type: {
+    id: string
+    key?: string | null
+    name?: string | null
+  }
+  visit: {
+    id?: string | null
+    status?: string | null
+    master_id?: string | null
+  }
+  reconciliation: {
+    version?: number | null
+    status: string
+    requested_set: TreatmentAggregateProduct[]
+    prescribed_set: TreatmentAggregateProduct[]
+    factual_differences: {
+      unchanged_product_ids?: Array<string | number>
+      prescribed_addition_product_ids?: Array<string | number>
+      requested_absence_product_ids?: Array<string | number>
+      absence_is_authoritative?: boolean
+    }
+    unresolved_facts?: Array<Record<string, unknown>>
+    created_at?: string | null
+    revision_id?: string
+    source_event_id?: string
+    is_complete_snapshot?: boolean
+  }
+  settlement: {
+    status: string
+    patient_settled_at?: string | null
+    reimbursement_settled_at?: string | null
+    settled_at?: string | null
+    patient_action_required: false
+    operation_id?: string
+    patient_attempts?: number
+    reimbursement_attempts?: number
+    last_error_code?: string
+  }
+  siblings: Array<{
+    order_id: string
+    order_display_id?: string | null
+    treatment_case_id: string
+    treatment_type_id: string
+    treatment_type_key?: string | null
+    status?: string | null
+  }>
+}
+
 export interface Order {
   id: string
   product?: number | string | null
@@ -314,6 +374,7 @@ export interface Order {
   beluga_dispatch_status?: string | null
   beluga_dispatch_reason?: string | null
   beluga_dispatch_attempt_count?: number | null
+  treatment_aggregate?: TreatmentOrderAggregate | null
 }
 
 export interface PaginatedOrdersResponse {

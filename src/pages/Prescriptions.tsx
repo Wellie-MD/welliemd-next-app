@@ -7,10 +7,12 @@ import { isWithinInterval } from "date-fns"
 import { exportToCSV } from "@/utils/exportUtils"
 import { ordersApi } from "@/api/ordersApi"
 import type { Order } from "@/api/ordersApi"
+import { TREATMENT_CLINICAL_STATUS_LABELS } from "@/features/treatments/orders/constants"
 
 const prescriptionColumns = [
   { key: "user", label: "User" },
   { key: "prescriptionNumber", label: "Prescription #" },
+  { key: "products", label: "Products" },
   { key: "date", label: "Date" },
   { key: "prescriptionStatus", label: "Prescription Status" },
   { key: "refillStatus", label: "Refill Status" },
@@ -23,7 +25,10 @@ const prescriptionColumns = [
 ]
 
 // Adjusted filters based on the actual data values shown in your table
-const prescriptionStatusFilters = ["All", "Active", "Pending", "Completed", "On Hold"]
+const prescriptionStatusFilters = [
+  "All", "Active", "Pending", "Completed", "On Hold",
+  ...Object.values(TREATMENT_CLINICAL_STATUS_LABELS),
+]
 const refillStatusFilters = ["All", "Eligible", "Pending", "Not Eligible"]
 
 // Helper function to parse date in DD/MM/YYYY format
@@ -38,6 +43,7 @@ const parseDate = (dateString: string) => {
 type PrescriptionRow = {
   user: string
   prescriptionNumber: string
+  products: string
   date: string
   prescriptionStatus: string
   refillStatus: string
@@ -53,6 +59,30 @@ type PrescriptionRow = {
 
 function derivePrescriptionRows(orders: Order[]): PrescriptionRow[] {
   return orders.flatMap((order) => {
+    const aggregate = order.treatment_aggregate
+    if (aggregate) {
+      const products = aggregate.reconciliation.prescribed_set.length
+        ? aggregate.reconciliation.prescribed_set
+        : aggregate.reconciliation.requested_set
+      const clinicalStatus = TREATMENT_CLINICAL_STATUS_LABELS[aggregate.clinical_status] || aggregate.clinical_status.split("_").join(" ")
+      const orderReference = order.order_id || order.display_id || order.id
+      return [{
+        user: order.patient?.full_name || order.name || order.email || "-",
+        prescriptionNumber: String(orderReference),
+        products: products.map((product) => product.name || product.med_id || `Product ${product.product_id || ""}`.trim()).join(", ") || "Awaiting provider decision",
+        date: order.prescribed_at || order.created_at || "",
+        prescriptionStatus: clinicalStatus,
+        refillStatus: "Not Eligible",
+        remainingRefills: 0,
+        nextRefillDate: "—",
+        expirationDate: "—",
+        sentToGoGoMeds: order.status === "shipped" ? "Yes" : "No",
+        sentAt: order.shipped_at || "—",
+        pharmacyName: order.pharmacy_name || order.pharmacy_display || "—",
+        orderId: String(order.id),
+        lineItemId: aggregate.treatment_case_id,
+      }]
+    }
     const lines = Array.isArray(order.line_items) ? order.line_items : []
     return lines
       .filter((line) => line.item_type !== "supply" && line.item_type !== "shipping_adjustment")
@@ -69,6 +99,7 @@ function derivePrescriptionRows(orders: Order[]): PrescriptionRow[] {
         return {
           user: order.patient?.full_name || order.name || order.email || "-",
           prescriptionNumber: line.prescription_event_id || `${orderReference}-${line.id.slice(0, 8)}`,
+          products: line.product_name || order.product_name || "Product",
           date: line.prescribed_at || order.prescribed_at || order.created_at || "",
           prescriptionStatus,
           refillStatus: "Not Eligible",

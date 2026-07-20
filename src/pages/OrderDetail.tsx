@@ -60,6 +60,7 @@ import { Permissions } from "@/constants/permissions"
 import { cn } from "@/lib/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useClientMessages } from "@/contexts/MessagesContext"
+import { TreatmentOrderAggregate } from "@/features/treatments/orders/components/TreatmentOrderAggregate"
 
 const statusColors: Record<string, string> = {
   created: "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600",
@@ -1316,7 +1317,14 @@ export default function OrderDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left column */}
         <div className="lg:col-span-8 space-y-6">
-          {hasTreatmentRuntime && treatmentLineItems.length > 0 && (
+          {order.treatment_aggregate && (
+            <TreatmentOrderAggregate
+              aggregate={order.treatment_aggregate}
+              currentOrderId={order.id}
+            />
+          )}
+
+          {hasTreatmentRuntime && !order.treatment_aggregate && treatmentLineItems.length > 0 && (
             <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
               <div className="px-6 py-4 border-b bg-muted/50">
                 <h3 className="font-semibold text-slate-900 dark:text-white">
@@ -1517,16 +1525,20 @@ export default function OrderDetail() {
                               ? `${order.prescription_medications[0].strength}`
                               : order.treatment_type || ""}
                           </p>
-                          <p className="text-xs text-slate-500 mt-1">
-                            Requested (Original):{" "}
-                            <span className={requestedPillClass}>{requestedMedicineName}</span>
-                          </p>
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            Prescribed (Doctor Final):{" "}
-                            <span className={prescribedPillClass}>
-                              {prescribedMedicineDisplayName}
-                            </span>
-                          </p>
+                          {!order.treatment_aggregate && (
+                            <>
+                              <p className="text-xs text-slate-500 mt-1">
+                                Requested (Original):{" "}
+                                <span className={requestedPillClass}>{requestedMedicineName}</span>
+                              </p>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                Prescribed (Doctor Final):{" "}
+                                <span className={prescribedPillClass}>
+                                  {prescribedMedicineDisplayName}
+                                </span>
+                              </p>
+                            </>
+                          )}
                           <p className="text-xs text-slate-500 mt-0.5">
                             Doctor: <span className="text-slate-700 dark:text-slate-300">{order.doctor_name || "—"}</span>
                           </p>
@@ -1952,26 +1964,36 @@ export default function OrderDetail() {
               <TabsContent value="product" className="space-y-4 mt-0">
                 <div className="p-3 bg-muted/40 rounded-lg border">
                   <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Product</p>
-                  <p className="text-sm font-medium text-slate-900 dark:text-white">{displayProductName}</p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Requested (Original):{" "}
-                    <span className={requestedPillClass}>{requestedMedicineName}</span>
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">
+                    {order.treatment_aggregate
+                      ? "See the treatment prescription set above"
+                      : displayProductName}
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Prescribed (Doctor Final):{" "}
-                    <span className={prescribedPillClass}>
-                      {prescribedMedicineDisplayName}
-                    </span>
-                  </p>
+                  {!order.treatment_aggregate && (
+                    <>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Requested (Original):{" "}
+                        <span className={requestedPillClass}>{requestedMedicineName}</span>
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Prescribed (Doctor Final):{" "}
+                        <span className={prescribedPillClass}>
+                          {prescribedMedicineDisplayName}
+                        </span>
+                      </p>
+                    </>
+                  )}
                   <p className="text-xs text-slate-500 mt-1">
                     Doctor: <span className="text-slate-700 dark:text-slate-300">{order.doctor_name || "—"}</span>
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Amount Source:{" "}
-                    <span className={amountSourcePillClass}>
-                      {amountSourceLabel}
-                    </span>
-                  </p>
+                  {!order.treatment_aggregate && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      Amount Source:{" "}
+                      <span className={amountSourcePillClass}>
+                        {amountSourceLabel}
+                      </span>
+                    </p>
+                  )}
                 </div>
                 <div className="p-3 bg-muted/40 rounded-lg border">
                   <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Pricing</p>
