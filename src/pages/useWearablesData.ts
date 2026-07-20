@@ -93,10 +93,11 @@ interface UseWearablesDataParams {
   page: number;
   pageSize: number;
   search: string;
+  loadInsights?: boolean;
 }
 
 export function useWearablesData(params: UseWearablesDataParams) {
-  const { page, pageSize, search } = params;
+  const { page, pageSize, search, loadInsights = false } = params;
   const [patients, setPatients] = useState<Patient[]>([]);
   const [connections, setConnections] = useState<WearableConnection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,8 +109,9 @@ export function useWearablesData(params: UseWearablesDataParams) {
   // Global data states for Stats and Insights calculations (unaffected by paging/search)
   const [allPatients, setAllPatients] = useState<Patient[]>([]);
   const [allTelemetry, setAllTelemetry] = useState<Record<string, PatientTelemetry>>({});
+  const [insightsLoading, setInsightsLoading] = useState(false);
 
-  // 1. Fetch global roster and connections once on mount to calculate stats & insights
+  // 1. Fetch global roster and connections once on mount to calculate stats
   useEffect(() => {
     let active = true;
     async function loadGlobalStats() {
@@ -156,24 +158,6 @@ export function useWearablesData(params: UseWearablesDataParams) {
         if (active) {
           setAllPatients(transformedAll);
           setConnections(fetchedConnections);
-
-          // Asynchronously fetch telemetry for all connected patients in the background (for Insights tab)
-          const connectedPatients = transformedAll.filter((p) =>
-            fetchedConnections.some((c) => c.patient_id === p.mrn && c.status === 'connected')
-          );
-          const telemetryEntries = await Promise.all(
-            connectedPatients.map(async (p) => {
-              try {
-                const response = await api.get<PatientTelemetry>(WEARABLE_ENDPOINTS.deviceData, {
-                  params: { patient_id: p.mrn, days: 7 },
-                });
-                return [p.mrn, response.data] as const;
-              } catch {
-                return [p.mrn, {}] as const;
-              }
-            })
-          );
-          if (active) setAllTelemetry(Object.fromEntries(telemetryEntries));
         }
       } catch (caught) {
         console.error('Failed to load global wearables data:', caught);
@@ -185,7 +169,43 @@ export function useWearablesData(params: UseWearablesDataParams) {
     };
   }, []);
 
-  // 2. Fetch paginated patient page whenever page, pageSize, or search changes
+  // 2. Fetch global telemetry lazily when loadInsights is triggered
+  useEffect(() => {
+    if (!loadInsights || allPatients.length === 0 || connections.length === 0) return;
+
+    let active = true;
+    async function loadGlobalTelemetry() {
+      try {
+        setInsightsLoading(true);
+        const connectedPatients = allPatients.filter((p) =>
+          connections.some((c) => c.patient_id === p.mrn && c.status === 'connected')
+        );
+        const telemetryEntries = await Promise.all(
+          connectedPatients.map(async (p) => {
+            try {
+              const response = await api.get<PatientTelemetry>(WEARABLE_ENDPOINTS.deviceData, {
+                params: { patient_id: p.mrn, days: 7 },
+              });
+              return [p.mrn, response.data] as const;
+            } catch {
+              return [p.mrn, {}] as const;
+            }
+          })
+        );
+        if (active) setAllTelemetry(Object.fromEntries(telemetryEntries));
+      } catch (caught) {
+        console.error('Failed to load global telemetry:', caught);
+      } finally {
+        if (active) setInsightsLoading(false);
+      }
+    }
+    loadGlobalTelemetry();
+    return () => {
+      active = false;
+    };
+  }, [loadInsights, allPatients, connections]);
+
+  // 3. Fetch paginated patient page whenever page, pageSize, or search changes
   useEffect(() => {
     let active = true;
     async function loadPaginatedData() {
@@ -334,5 +354,5 @@ export function useWearablesData(params: UseWearablesDataParams) {
     };
   }, [globalComputed]);
 
-  return { clientId, patients, connections, loading, error, allComputed, stats, insightsData, totalCount };
+  return { clientId, patients, connections, loading, error, allComputed, stats, insightsData, totalCount, insightsLoading };
 }

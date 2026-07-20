@@ -39,10 +39,11 @@ export default function Wearables() {
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  const { patients, loading, error, allComputed, stats, insightsData, totalCount } = useWearablesData({
+  const { patients, loading, error, allComputed, stats, insightsData, totalCount, insightsLoading } = useWearablesData({
     page: currentPage,
     pageSize,
     search: debouncedSearch,
+    loadInsights: view === 'insights',
   });
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
@@ -551,7 +552,27 @@ export default function Wearables() {
               </div>
             </div>
           ) : (
-            <WearablesInsights data={insightsData} connectedCount={stats.connected} onPatientClick={(patientId) => navigate(`/dashboard/patients/${patientId}`)} />
+            insightsLoading ? (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: '300px',
+                background: 'var(--km-s1)',
+                border: '1px solid var(--km-b)',
+                borderRadius: '12px',
+                gap: 12,
+                padding: 24
+              }}>
+                <Loader2 className="animate-spin" size={32} style={{ color: 'var(--km-ac)' }} />
+                <p style={{ fontSize: 14, color: 'var(--km-tm)', fontWeight: 500 }}>
+                  Analyzing telemetry & computing insights...
+                </p>
+              </div>
+            ) : (
+              <WearablesInsights data={insightsData} connectedCount={stats.connected} onPatientClick={(patientId) => navigate(`/dashboard/patients/${patientId}`)} />
+            )
           )}
         </>
       )}
