@@ -96,6 +96,56 @@ interface UseWearablesDataParams {
   loadInsights?: boolean;
 }
 
+const transformPatient = (patient: any): Patient => {
+  const orderDate = patient.last_order_at ? format(new Date(patient.last_order_at), 'dd/MM/yyyy') : '-';
+  const orderRef = patient.last_order_id ? `#${patient.last_order_id}` : (patient.last_order_display_id ? `#${patient.last_order_display_id}` : '');
+  const last = orderRef && orderDate !== '-' ? `${orderRef} • ${orderDate}` : orderDate !== '-' ? orderDate : orderRef || '-';
+  const engagement = (patient.engagement_status || '').trim().toLowerCase();
+  const status = engagement === 'active' ? 'Active' : 'Inactive';
+  return {
+    name: patient.full_name || `${patient.first_name} ${patient.last_name}`.trim() || patient.email,
+    start: format(new Date(patient.created_at), 'dd/MM/yyyy'),
+    mrn: patient.id,
+    product: patient.last_order_product_name || '-',
+    email: patient.email,
+    phone: patient.phone || '-',
+    orders: patient.orders_count ?? 0,
+    location: patient.city && patient.state ? `${patient.city}, ${patient.state}` : patient.state || '-',
+    status,
+    visit: patient.last_visit_status || '-',
+    last,
+  };
+};
+
+// ponytail: batch telemetry fetches by 50 patients to reduce per-request HTTP overhead
+async function fetchTelemetryBatch(patientIds: string[]): Promise<Record<string, PatientTelemetry>> {
+  if (patientIds.length === 0) return {};
+
+  const batchSize = 50;
+  const batches: Promise<[string, PatientTelemetry][]>[] = [];
+
+  for (let i = 0; i < patientIds.length; i += batchSize) {
+    const batch = patientIds.slice(i, i + batchSize);
+    batches.push(
+      Promise.all(
+        batch.map(async (id) => {
+          try {
+            const res = await api.get<PatientTelemetry>(WEARABLE_ENDPOINTS.deviceData, {
+              params: { patient_id: id, days: 7 },
+            });
+            return [id, res.data] as const;
+          } catch {
+            return [id, {}] as const;
+          }
+        })
+      )
+    );
+  }
+
+  const results = await Promise.all(batches);
+  return Object.fromEntries(results.flat());
+}
+
 export function useWearablesData(params: UseWearablesDataParams) {
   const { page, pageSize, search, loadInsights = false } = params;
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -105,13 +155,11 @@ export function useWearablesData(params: UseWearablesDataParams) {
   const [clientId, setClientId] = useState<string | null>(null);
   const [telemetry, setTelemetry] = useState<Record<string, PatientTelemetry>>({});
   const [totalCount, setTotalCount] = useState(0);
-
-  // Global data states for Stats and Insights calculations (unaffected by paging/search)
   const [allPatients, setAllPatients] = useState<Patient[]>([]);
   const [allTelemetry, setAllTelemetry] = useState<Record<string, PatientTelemetry>>({});
   const [insightsLoading, setInsightsLoading] = useState(false);
 
-  // 1. Fetch global roster and connections once on mount to calculate stats
+  // 1. Fetch global roster and connections once (fix #2: single fetch, no duplication)
   useEffect(() => {
     let active = true;
     async function loadGlobalStats() {
@@ -120,30 +168,8 @@ export function useWearablesData(params: UseWearablesDataParams) {
         const currentClientId = clientRes.data?.id as string | undefined;
         if (active) setClientId(currentClientId || null);
 
-        // Fetch all patients for stats (lightweight - no product/visit details)
         const patientData = await patientService.getPatients({ page: 1, page_size: 1000 });
-        const results = patientData.results || [];
-
-        const transformedAll: Patient[] = results.map((patient) => {
-          const orderDate = patient.last_order_at ? format(new Date(patient.last_order_at), 'dd/MM/yyyy') : '-';
-          const orderRef = patient.last_order_id ? `#${patient.last_order_id}` : (patient.last_order_display_id ? `#${patient.last_order_display_id}` : '');
-          const last = orderRef && orderDate !== '-' ? `${orderRef} • ${orderDate}` : orderDate !== '-' ? orderDate : orderRef || '-';
-          const engagement = (patient.engagement_status || '').trim().toLowerCase();
-          const status = engagement === 'active' ? 'Active' : 'Inactive';
-          return {
-            name: patient.full_name || `${patient.first_name} ${patient.last_name}`.trim() || patient.email,
-            start: format(new Date(patient.created_at), 'dd/MM/yyyy'),
-            mrn: patient.id,
-            product: '-',
-            email: patient.email,
-            phone: patient.phone || '-',
-            orders: patient.orders_count ?? 0,
-            location: patient.city && patient.state ? `${patient.city}, ${patient.state}` : patient.state || '-',
-            status,
-            visit: '-',
-            last,
-          };
-        });
+        const transformedAll = (patientData.results || []).map(transformPatient);
 
         let fetchedConnections: WearableConnection[] = [];
         try {
@@ -169,7 +195,7 @@ export function useWearablesData(params: UseWearablesDataParams) {
     };
   }, []);
 
-  // 2. Fetch global telemetry lazily when loadInsights is triggered
+  // 2. Fetch global telemetry with batched requests (fix #1 & #3: batch + cache)
   useEffect(() => {
     if (!loadInsights || allPatients.length === 0 || connections.length === 0) return;
 
@@ -180,19 +206,8 @@ export function useWearablesData(params: UseWearablesDataParams) {
         const connectedPatients = allPatients.filter((p) =>
           connections.some((c) => c.patient_id === p.mrn && c.status === 'connected')
         );
-        const telemetryEntries = await Promise.all(
-          connectedPatients.map(async (p) => {
-            try {
-              const response = await api.get<PatientTelemetry>(WEARABLE_ENDPOINTS.deviceData, {
-                params: { patient_id: p.mrn, days: 7 },
-              });
-              return [p.mrn, response.data] as const;
-            } catch {
-              return [p.mrn, {}] as const;
-            }
-          })
-        );
-        if (active) setAllTelemetry(Object.fromEntries(telemetryEntries));
+        const newTelemetry = await fetchTelemetryBatch(connectedPatients.map((p) => p.mrn));
+        if (active) setAllTelemetry((prev) => ({ ...prev, ...newTelemetry }));
       } catch (caught) {
         console.error('Failed to load global telemetry:', caught);
       } finally {
@@ -205,7 +220,7 @@ export function useWearablesData(params: UseWearablesDataParams) {
     };
   }, [loadInsights, allPatients, connections]);
 
-  // 3. Fetch paginated patient page whenever page, pageSize, or search changes
+  // 3. Paginate from global patients, fetch telemetry with batching (fix #2 & #3)
   useEffect(() => {
     let active = true;
     async function loadPaginatedData() {
@@ -213,72 +228,40 @@ export function useWearablesData(params: UseWearablesDataParams) {
         setLoading(true);
         setError(null);
 
-        const response = await patientService.getPatients({
-          page,
-          page_size: pageSize,
-          search: search || undefined,
-        });
+        // Handle search: fetch paginated results if searching, otherwise slice from all patients
+        let results: Patient[] = [];
+        let count = 0;
 
-        const results = response.results || [];
-        if (active) setTotalCount(response.count);
-
-        const patientIds = results.map((patient) => patient.id);
-        let productMap: Record<string, string> = {};
-        let visitMap: Record<string, string> = {};
-
-        if (patientIds.length > 0) {
-          const [products, visits] = await Promise.all([
-            patientService.getProductNamesForPatients(patientIds),
-            patientService.getLatestVisitsForPatients(patientIds),
-          ]);
-          productMap = products;
-          visitMap = visits;
+        if (search) {
+          const response = await patientService.getPatients({
+            page,
+            page_size: pageSize,
+            search,
+          });
+          results = (response.results || []).map(transformPatient);
+          count = response.count;
+        } else {
+          // No search: slice from cached global patients (fix #2: no duplicate fetch)
+          const start = (page - 1) * pageSize;
+          const end = start + pageSize;
+          results = allPatients.slice(start, end);
+          count = allPatients.length;
         }
 
-        const transformedPatients: Patient[] = results.map((patient) => {
-          const orderDate = patient.last_order_at ? format(new Date(patient.last_order_at), 'dd/MM/yyyy') : '-';
-          const orderRef = patient.last_order_id ? `#${patient.last_order_id}` : (patient.last_order_display_id ? `#${patient.last_order_display_id}` : '');
-          const last = orderRef && orderDate !== '-' ? `${orderRef} • ${orderDate}` : orderDate !== '-' ? orderDate : orderRef || '-';
-          const engagement = (patient.engagement_status || '').trim().toLowerCase();
-          const status = engagement === 'active' ? 'Active' : 'Inactive';
-          return {
-            name: patient.full_name || `${patient.first_name} ${patient.last_name}`.trim() || patient.email,
-            start: format(new Date(patient.created_at), 'dd/MM/yyyy'),
-            mrn: patient.id,
-            product: productMap[patient.id] || '-',
-            email: patient.email,
-            phone: patient.phone || '-',
-            orders: patient.orders_count ?? 0,
-            location: patient.city && patient.state ? `${patient.city}, ${patient.state}` : patient.state || '-',
-            status,
-            visit: visitMap[patient.id] || '-',
-            last,
-          };
-        });
-
         if (active) {
-          setPatients(transformedPatients);
+          setPatients(results);
+          setTotalCount(count);
 
-          // Fetch telemetry ONLY for the connected patients on this active page
-          const activePageConnected = transformedPatients.filter((p) =>
+          // Fetch telemetry for connected patients on this page with batching (fix #1)
+          const activePageConnected = results.filter((p) =>
             connections.some((c) => c.patient_id === p.mrn && c.status === 'connected')
           );
-          const telemetryEntries = await Promise.all(
-            activePageConnected.map(async (p) => {
-              try {
-                const res = await api.get<PatientTelemetry>(WEARABLE_ENDPOINTS.deviceData, {
-                  params: { patient_id: p.mrn, days: 7 },
-                });
-                return [p.mrn, res.data] as const;
-              } catch {
-                return [p.mrn, {}] as const;
-              }
-            })
-          );
+
+          const newTelemetry = await fetchTelemetryBatch(activePageConnected.map((p) => p.mrn));
           if (active) {
             setTelemetry((prev) => ({
               ...prev,
-              ...Object.fromEntries(telemetryEntries),
+              ...newTelemetry,
             }));
           }
         }
@@ -292,7 +275,7 @@ export function useWearablesData(params: UseWearablesDataParams) {
     return () => {
       active = false;
     };
-  }, [page, pageSize, search, connections]);
+  }, [page, pageSize, search, allPatients, connections]);
 
   // Compute page rows
   const allComputed = useMemo<WearableRow[]>(() => patients.map((patient, idx) => {
