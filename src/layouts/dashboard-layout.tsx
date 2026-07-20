@@ -1,11 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type FC } from 'react';
+
 import { Outlet, useLocation } from 'react-router-dom';
+
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
 
-const DashboardLayout: React.FC = () => {
+const DashboardLayout: FC = () => {
   const location = useLocation();
+  const isMessagesPage = location.pathname.includes('/messages');
+  const isExplorePage = location.pathname === '/dashboard/explore';
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const closeMobileSidebar = useCallback(() => setIsMobileSidebarOpen(false), []);
@@ -74,15 +78,15 @@ const DashboardLayout: React.FC = () => {
           >
             {/* kinmeds3: pg padding 24px 20px → 28px 28px → 32px 36px, max-width 680→800→900 */}
             <div
-              className={location.pathname.includes('/messages') ? '' : 'km-pg'}
-              style={location.pathname.includes('/messages') ? {
+              className={isMessagesPage ? '' : 'km-pg'}
+              style={isMessagesPage ? {
                 padding: 0,
                 maxWidth: '100%',
                 margin: 0,
                 height: 'calc((var(--app-vh, 1vh) * 100) - 60px)'
               } : {
                 padding: isMobile ? "24px 20px 60px" : "32px 36px 60px",
-                maxWidth: isMobile ? 680 : 800,
+                maxWidth: isMobile ? 680 : isExplorePage ? 1200 : 800,
                 margin: "0 auto",
               }}
             >

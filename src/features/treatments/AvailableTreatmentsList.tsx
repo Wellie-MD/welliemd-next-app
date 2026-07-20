@@ -1,6 +1,42 @@
-/** Displays eligibility-filtered treatment releases available to the patient. */
-import { useEffect, useMemo, useState } from 'react';
-import { getAvailableTreatments, startNewTreatment, AvailableTreatment } from './api';
+/** Displays server-filtered treatment releases available to the signed-in patient. */
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+
+import {
+  ArrowRight,
+  HeartPulse,
+  LoaderCircle,
+  PackageOpen,
+  RefreshCw,
+  Search,
+  Sparkles,
+  Stethoscope,
+  Weight,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
+
+import { getAvailableTreatments, startNewTreatment, type AvailableTreatment } from './api';
+
+interface AvailableTreatmentsListProps {
+  browseLabel?: string;
+  searchLabel?: string;
+  searchPlaceholder?: string;
+  emptyStateTitle?: string;
+  emptyStateDescription?: string;
+}
+
+function treatmentCategories(treatment: AvailableTreatment): string[] {
+  const categories = treatment.categories.filter(category => category.trim().length > 0);
+  if (categories.length > 0) return categories;
+  if (treatment.category.trim().length > 0) return [treatment.category];
+  return ['Uncategorized'];
+}
+
+function normalizedSearchValue(treatment: AvailableTreatment): string {
+  return [treatment.name, treatment.description, ...treatmentCategories(treatment)]
+    .join(' ')
+    .toLocaleLowerCase();
+}
 
 function ageRangeLabel(minAge: number | null, maxAge: number | null): string {
   if (minAge != null && maxAge != null) return `Ages ${minAge}–${maxAge}`;
@@ -22,14 +58,10 @@ function sexRequirementLabel(sex: 'male' | 'female' | null): string | null {
   return null;
 }
 
-interface AvailableTreatmentsListProps {
-  browseLabel?: string;
-  emptyStateTitle?: string;
-  emptyStateDescription?: string;
-}
-
 export function AvailableTreatmentsList({
   browseLabel = 'Browse by category',
+  searchLabel = 'Search treatments',
+  searchPlaceholder = 'Search treatments…',
   emptyStateTitle = 'No treatments available',
   emptyStateDescription = 'This can happen if your profile is missing information a treatment depends on (like age, biological sex, or a recent weight/BMI reading). Complete your profile or contact your provider for more information.',
 }: AvailableTreatmentsListProps = {}) {
@@ -37,28 +69,31 @@ export function AvailableTreatmentsList({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    loadTreatments();
-  }, []);
-
-  const loadTreatments = async () => {
+  const loadTreatments = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await getAvailableTreatments();
       setTreatments(data);
-    } catch (err) {
-      console.error('Failed to load treatments:', err);
-      setError('Failed to load available treatments. Please try again.');
+    } catch (loadError) {
+      console.error('Failed to load treatments:', loadError);
+      setError('We could not load available treatments. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    void loadTreatments();
+  }, [loadTreatments]);
 
   const categories = useMemo(() => {
-    const distinct = Array.from(new Set(treatments.flatMap((t) => t.categories?.length ? t.categories : [t.category])));
-    const named = distinct.filter((c) => c !== 'Uncategorized').sort((a, b) => a.localeCompare(b));
+    const distinct = Array.from(new Set(treatments.flatMap(treatmentCategories)));
+    const named = distinct
+      .filter(category => category !== 'Uncategorized')
+      .sort((left, right) => left.localeCompare(right));
     return distinct.includes('Uncategorized') ? [...named, 'Uncategorized'] : named;
   }, [treatments]);
 
@@ -68,138 +103,204 @@ export function AvailableTreatmentsList({
     }
   }, [categories, selectedCategory]);
 
-  if (loading) {
-    return (
-      <div className="km-sc km-fade" style={{ padding: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div className="km-skel" style={{ width: 32, height: 32, borderRadius: 8 }} />
-          <div style={{ flex: 1 }}>
-            <div className="km-skel" style={{ width: '40%', height: 14, marginBottom: 4 }} />
-            <div className="km-skel" style={{ width: '60%', height: 11 }} />
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const visibleTreatments = useMemo(() => {
+    const query = searchTerm.trim().toLocaleLowerCase();
+    return treatments.filter(treatment => {
+      const matchesCategory =
+        selectedCategory === 'all' || treatmentCategories(treatment).includes(selectedCategory);
+      const matchesSearch = query.length === 0 || normalizedSearchValue(treatment).includes(query);
+      return matchesCategory && matchesSearch;
+    });
+  }, [searchTerm, selectedCategory, treatments]);
+
+  const clearFilters = () => {
+    setSelectedCategory('all');
+    setSearchTerm('');
+  };
+
+  if (loading) return <TreatmentsLoadingState />;
 
   if (error) {
     return (
-      <div className="km-vbox km-vbox-red km-fade">
-        <div style={{ flex: 1 }}>
-          <div style={{ color: 'var(--km-t)', fontWeight: 600, marginBottom: 2 }}>{error}</div>
-          <button
-            onClick={loadTreatments}
-            className="km-btn km-btn-ghost"
-            style={{ padding: '2px 0', fontSize: 11 }}
-          >
-            Try again
-          </button>
+      <section
+        className="explore-state explore-state--error"
+        role="alert"
+        aria-label="Treatments unavailable"
+      >
+        <div className="explore-state__icon" aria-hidden="true">
+          <RefreshCw size={20} />
         </div>
-      </div>
+        <div className="explore-state__body">
+          <h2>Unable to load treatments</h2>
+          <p>{error}</p>
+        </div>
+        <button
+          type="button"
+          className="explore-secondary-button"
+          onClick={() => void loadTreatments()}
+        >
+          <RefreshCw aria-hidden="true" size={15} />
+          Try again
+        </button>
+      </section>
     );
   }
 
   if (treatments.length === 0) {
     return (
-      <div className="km-sc km-fade">
-        <div className="km-empty" style={{ padding: '36px 18px' }}>
-          <div className="km-eic">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-            </svg>
-          </div>
-          <div className="km-et">{emptyStateTitle}</div>
-          <div className="km-es">{emptyStateDescription}</div>
+      <section className="explore-state" aria-labelledby="explore-empty-title">
+        <div className="explore-state__icon" aria-hidden="true">
+          <PackageOpen size={21} />
         </div>
-      </div>
+        <div className="explore-state__body">
+          <h2 id="explore-empty-title">{emptyStateTitle}</h2>
+          <p>{emptyStateDescription}</p>
+        </div>
+      </section>
     );
   }
 
-  const visibleTreatments =
-    selectedCategory === 'all' ? treatments : treatments.filter((t) => (t.categories || [t.category]).includes(selectedCategory));
-
   return (
-    <div>
-      <div
-        className="fd"
-        style={{
-          fontSize: 11,
-          fontWeight: 700,
-          color: 'var(--km-tm)',
-          marginBottom: 10,
-          textTransform: 'uppercase',
-          letterSpacing: '.5px',
-        }}
-      >
-        {browseLabel}
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-        <CategoryTab
-          label="All"
-          active={selectedCategory === 'all'}
-          onClick={() => setSelectedCategory('all')}
-        />
-        {categories.map((category) => (
-          <CategoryTab
-            key={category}
-            label={category}
-            active={selectedCategory === category}
-            onClick={() => setSelectedCategory(category)}
+    <section className="explore-browser" aria-labelledby="explore-browser-title">
+      <div className="explore-toolbar">
+        <div className="explore-toolbar__categories">
+          <h2 id="explore-browser-title">{browseLabel}</h2>
+          <div className="explore-category-list" role="group" aria-label={browseLabel}>
+            <CategoryButton
+              label="All"
+              active={selectedCategory === 'all'}
+              onClick={() => setSelectedCategory('all')}
+            />
+            {categories.map(category => (
+              <CategoryButton
+                key={category}
+                label={category}
+                active={selectedCategory === category}
+                onClick={() => setSelectedCategory(category)}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="explore-search">
+          <label htmlFor="treatment-search" className="explore-sr-only">
+            {searchLabel}
+          </label>
+          <Search className="explore-search__icon" aria-hidden="true" size={16} />
+          <input
+            id="treatment-search"
+            type="search"
+            value={searchTerm}
+            placeholder={searchPlaceholder}
+            onChange={event => setSearchTerm(event.target.value)}
           />
-        ))}
+          {searchTerm.length > 0 && (
+            <button
+              type="button"
+              className="explore-search__clear"
+              aria-label="Clear treatment search"
+              onClick={() => setSearchTerm('')}
+            >
+              <X aria-hidden="true" size={15} />
+            </button>
+          )}
+        </div>
       </div>
-      <div className="fd" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {visibleTreatments.map((treatment) => (
-          <TreatmentCard key={treatment.id} treatment={treatment} />
-        ))}
+
+      <div className="explore-results-meta" role="status" aria-live="polite">
+        {visibleTreatments.length === 1
+          ? '1 treatment option'
+          : `${visibleTreatments.length} treatment options`}
       </div>
-    </div>
+
+      {visibleTreatments.length > 0 ? (
+        <div id="treatment-results" className="explore-treatment-grid">
+          {visibleTreatments.map(treatment => (
+            <TreatmentCard key={treatment.id} treatment={treatment} />
+          ))}
+        </div>
+      ) : (
+        <section
+          className="explore-state explore-state--filtered"
+          aria-labelledby="explore-filtered-title"
+        >
+          <div className="explore-state__icon" aria-hidden="true">
+            <Search size={20} />
+          </div>
+          <div className="explore-state__body">
+            <h2 id="explore-filtered-title">No matching treatments</h2>
+            <p>Try another search or clear your selected category.</p>
+          </div>
+          <button type="button" className="explore-secondary-button" onClick={clearFilters}>
+            Clear filters
+          </button>
+        </section>
+      )}
+    </section>
   );
 }
 
-function CategoryTab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function CategoryButton({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
+      type="button"
+      className={`explore-category-button${active ? ' is-active' : ''}`}
+      aria-pressed={active}
       onClick={onClick}
-      style={{
-        flex: '0 0 auto',
-        cursor: 'pointer',
-        fontFamily: 'inherit',
-        fontSize: 12.5,
-        fontWeight: 600,
-        whiteSpace: 'nowrap',
-        padding: '7px 14px',
-        borderRadius: 999,
-        border: `1px solid ${active ? 'var(--km-ac)' : 'var(--km-b)'}`,
-        background: active ? 'var(--km-ac)' : 'var(--km-s2)',
-        color: active ? '#fff' : 'var(--km-tm)',
-        transition: 'all .12s',
-      }}
     >
       {label}
     </button>
   );
 }
 
-function Chip({ icon, label }: { icon: React.ReactNode; label: string }) {
+function TreatmentsLoadingState() {
   return (
-    <span
-      style={{
-        fontSize: 11,
-        color: 'var(--km-tm)',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-        background: 'var(--km-s2)',
-        border: '1px solid var(--km-b)',
-        borderRadius: 999,
-        padding: '3px 9px',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2">{icon}</svg>
+    <div className="explore-loading" role="status" aria-live="polite">
+      <span className="explore-sr-only">Loading available treatments…</span>
+      <div className="explore-loading__toolbar" aria-hidden="true">
+        <div className="explore-skeleton explore-skeleton--wide" />
+        <div className="explore-skeleton explore-skeleton--search" />
+      </div>
+      <div className="explore-treatment-grid" aria-hidden="true">
+        {Array.from({ length: 6 }, (_, index) => (
+          <div className="explore-treatment-card explore-treatment-card--skeleton" key={index}>
+            <div className="explore-skeleton explore-skeleton--icon" />
+            <div className="explore-skeleton explore-skeleton--title" />
+            <div className="explore-skeleton explore-skeleton--copy" />
+            <div className="explore-skeleton explore-skeleton--copy-short" />
+            <div className="explore-skeleton explore-skeleton--button" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EligibilityChip({ icon, label }: { icon: ReactNode; label: string }) {
+  return (
+    <li>
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        viewBox="0 0 24 24"
+        width="13"
+        height="13"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        {icon}
+      </svg>
       {label}
-    </span>
+    </li>
   );
 }
 
@@ -217,57 +318,127 @@ const SEX_ICON = (
   </>
 );
 
+interface TreatmentAppearance {
+  icon: LucideIcon;
+  tone: 'blue' | 'green' | 'purple';
+}
+
+function treatmentAppearance(treatment: AvailableTreatment): TreatmentAppearance {
+  const categoryText = treatmentCategories(treatment).join(' ').toLocaleLowerCase();
+  if (/(weight|metabolic)/.test(categoryText)) return { icon: Weight, tone: 'green' };
+  if (/(men|hormone|testosterone|sexual)/.test(categoryText))
+    return { icon: HeartPulse, tone: 'blue' };
+  if (/(wellness|longevity|energy|recovery)/.test(categoryText))
+    return { icon: Sparkles, tone: 'purple' };
+  return { icon: Stethoscope, tone: 'blue' };
+}
+
 function TreatmentCard({ treatment }: { treatment: AvailableTreatment }) {
-  const bmiLabel = bmiRangeLabel(treatment.min_bmi, treatment.max_bmi);
-  const sexLabel = sexRequirementLabel(treatment.sex_requirement);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  const bmiLabel = bmiRangeLabel(treatment.min_bmi, treatment.max_bmi);
+  const sexLabel = sexRequirementLabel(treatment.sex_requirement);
+  const categories = treatmentCategories(treatment);
+  const canLaunch = treatment.can_start && treatment.launch !== null;
+  const appearance = treatmentAppearance(treatment);
+  const TreatmentIcon = appearance.icon;
+  const titleId = `treatment-title-${treatment.id}`;
+  const descriptionId = `treatment-description-${treatment.id}`;
+
   const start = async () => {
-    setStarting(true); setStartError(null);
-    const result = await startNewTreatment(treatment);
-    if (result.success && result.questionnaire_url) window.location.assign(result.questionnaire_url);
-    else { setStartError(result.message || result.error || 'Unable to start treatment.'); setStarting(false); }
+    if (!canLaunch || starting) return;
+    setStarting(true);
+    setStartError(null);
+
+    try {
+      const result = await startNewTreatment(treatment);
+      if (result.success && result.questionnaire_url) {
+        window.location.assign(result.questionnaire_url);
+        return;
+      }
+      setStartError(
+        result.message ?? result.error ?? 'Unable to start this treatment intake.'
+      );
+    } catch (startRequestError) {
+      console.error('Failed to start treatment:', startRequestError);
+      setStartError('Unable to start this treatment intake. Please try again.');
+    } finally {
+      setStarting(false);
+    }
   };
 
   return (
-    <div className="km-etx-card km-fade">
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
-        <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--km-s2)', border: '1px solid var(--km-b)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--km-tm)' }}>
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path d="M9 3v11.5a3.5 3.5 0 0 0 7 0V3" />
-            <line x1="6" y1="3" x2="18" y2="3" />
-          </svg>
+    <article
+      className="explore-treatment-card"
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
+    >
+      <div className="explore-treatment-card__topline">
+        <div className={`explore-treatment-card__icon is-${appearance.tone}`} aria-hidden="true">
+          <TreatmentIcon size={20} />
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.25, color: 'var(--km-t)' }}>{treatment.name}</div>
-            <span className="km-badge km-badge-blue" style={{ fontSize: 10, flexShrink: 0 }}>Available</span>
-          </div>
-          <div style={{ fontSize: 12.5, color: 'var(--km-tm)', marginTop: 3, lineHeight: 1.45 }}>
-            {treatment.description || 'Start your journey with a short intake questionnaire.'}
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 9 }}>
-            {sexLabel && <Chip icon={SEX_ICON} label={sexLabel} />}
-            <Chip icon={AGE_ICON} label={ageRangeLabel(treatment.min_age, treatment.max_age)} />
-            {bmiLabel && <Chip icon={BMI_ICON} label={bmiLabel} />}
-            {treatment.program_count > 1 && (
-              <span style={{ fontSize: 10.5, color: 'var(--km-tm)', display: 'inline-flex', alignItems: 'center', padding: '3px 2px' }}>
-                {treatment.program_count} treatments included
-              </span>
-            )}
-          </div>
-        </div>
+        <span className={`explore-status-badge${canLaunch ? ' is-available' : ' is-unavailable'}`}>
+          {canLaunch ? 'Available' : 'Not available'}
+        </span>
       </div>
-      <button
-        className="km-etx-btn"
-        disabled={!treatment.can_start || starting}
-        title={treatment.can_start ? 'Start treatment screening' : 'No published treatment release is available'}
-        onClick={start}
-      >
-        {starting ? 'Starting…' : 'Get Started'}
-      </button>
-      {startError && <div role="alert" style={{ color: '#b91c1c', fontSize: 11, marginTop: 8 }}>{startError}</div>}
-    </div>
+
+      <div className="explore-treatment-card__content">
+        <h3 id={titleId}>{treatment.name}</h3>
+        <p id={descriptionId}>
+          {treatment.description ||
+            'Start with a short intake so a licensed provider can review your request.'}
+        </p>
+        <ul className="explore-treatment-card__eligibility" aria-label="Program eligibility">
+          {sexLabel && <EligibilityChip icon={SEX_ICON} label={sexLabel} />}
+          <EligibilityChip
+            icon={AGE_ICON}
+            label={ageRangeLabel(treatment.min_age, treatment.max_age)}
+          />
+          {bmiLabel && <EligibilityChip icon={BMI_ICON} label={bmiLabel} />}
+        </ul>
+      </div>
+
+      <div className="explore-treatment-card__footer">
+        <div className="explore-treatment-card__categories" aria-label="Treatment categories">
+          {categories.map(category => (
+            <span key={category}>{category}</span>
+          ))}
+        </div>
+
+        {treatment.program_count > 1 && (
+          <p className="explore-treatment-card__program-count">
+            Includes {treatment.program_count} treatment options
+          </p>
+        )}
+
+        <button
+          type="button"
+          className="explore-primary-button"
+          disabled={!canLaunch || starting}
+          onClick={() => void start()}
+        >
+          {starting ? (
+            <>
+              <LoaderCircle className="explore-spin" aria-hidden="true" size={16} />
+              Starting intake…
+            </>
+          ) : canLaunch ? (
+            <>
+              Get started
+              <ArrowRight aria-hidden="true" size={16} />
+            </>
+          ) : (
+            'Currently unavailable'
+          )}
+        </button>
+
+        {startError && (
+          <p className="explore-treatment-card__error" role="alert">
+            {startError}
+          </p>
+        )}
+      </div>
+    </article>
   );
 }
 
