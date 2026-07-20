@@ -32,6 +32,7 @@ import {
   EmailAudience,
   EmailLogDetail,
   EmailLogRow,
+  MailgunDomainStats,
   MailgunStatsRange,
   smtpApi,
 } from "@/api/smtpApi";
@@ -58,9 +59,12 @@ const statusOptions = [
 
 const undeliveredStatuses = new Set(["Bounced", "Failed", "Deferred", "Skipped"]);
 
-function normalizeConfigResponse(configs: any) {
+function normalizeConfigResponse(configs: unknown) {
   if (Array.isArray(configs)) return configs[0] || null;
-  if (Array.isArray(configs?.results)) return configs.results[0] || null;
+  if (configs && typeof configs === "object" && "results" in configs) {
+    const results = (configs as { results?: unknown }).results;
+    if (Array.isArray(results)) return results[0] || null;
+  }
   return null;
 }
 
@@ -134,18 +138,11 @@ function StatCard({
   );
 }
 
-function failureBreakdown(stats: any) {
-  const failed = Number(stats?.failed || 0);
-  const skipped = Number(stats?.skipped || 0);
-  const otherReasons = stats?.other_reasons || [];
-  const reasonText = otherReasons
-    .filter((item: { count: number }) => item.count > 0)
-    .slice(0, 2)
-    .map((item: { reason: string; count: number }) => `${item.count} ${item.reason}`)
-    .join(" · ");
-
-  if (reasonText) return reasonText;
-  return `${failed} failed · ${skipped} skipped`;
+function permanentFailureDetail(stats?: MailgunDomainStats) {
+  const permanentFailed = Number(stats?.permanent_failed ?? stats?.failed ?? 0);
+  const bounced = Number(stats?.bounced || 0);
+  const other = Math.max(permanentFailed - bounced, 0);
+  return `${bounced} bounced · ${other} other`;
 }
 
 export default function EmailAnalytics() {
@@ -201,7 +198,9 @@ export default function EmailAnalytics() {
   const rows = analyticsQuery.data?.results || [];
   const selectedRange = ranges.find((item) => item.value === range) || ranges[2];
   const delivered = Number(stats?.sent_successfully || 0);
-  const undelivered = Number(stats?.failed || 0) + Number(stats?.skipped || 0);
+  const permanentFailed = Number(stats?.permanent_failed ?? stats?.failed ?? 0);
+  const temporaryFailed = Number(stats?.temporary_failed || 0);
+  const deliveredAfterRetry = Number(stats?.delivered_after_retry || 0);
 
   const resetFilters = () => {
     setRange("month");
@@ -274,14 +273,22 @@ export default function EmailAnalytics() {
         </Alert>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-        <StatCard label="Emails Sent" value={stats?.total_emails ?? 0} detail={selectedRange.sublabel} />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Emails Accepted" value={stats?.total_emails ?? 0} detail={selectedRange.sublabel} />
         <StatCard label="Delivered" value={delivered} detail={formatPercent(stats?.success_rate)} valueClassName="text-slate-950" />
-        <StatCard label="Undelivered / Failed" value={undelivered} detail={failureBreakdown(stats)} valueClassName="text-red-600" />
+        <StatCard label="Permanent Failures" value={permanentFailed} detail={permanentFailureDetail(stats)} valueClassName="text-red-600" />
+        <StatCard label="Temporary Failure Events" value={temporaryFailed} detail="Retry attempts, not unique emails" valueClassName="text-amber-600" />
+        <StatCard label="Delivered After Retry" value={deliveredAfterRetry} detail="Delivered on attempt 2+" valueClassName="text-emerald-600" />
         <StatCard label="Opened" value={stats?.opened ?? 0} detail={`${formatPercent(stats?.open_rate)} of delivered`} />
         <StatCard label="Clicked" value={stats?.clicked ?? 0} detail={`${formatPercent(stats?.click_rate)} of delivered`} />
         <StatCard label="Unsubscribed" value={stats?.unsubscribed ?? 0} detail={`${formatPercent(stats?.unsubscribe_rate)} of delivered`} />
       </div>
+
+      <Alert>
+        <AlertDescription>
+          Temporary failures count Mailgun delivery attempts that may later succeed. Status filters show each message&apos;s latest detailed event available within Mailgun&apos;s retention window.
+        </AlertDescription>
+      </Alert>
 
       <div>
         <h2 className="text-lg font-bold text-slate-950">Email Log</h2>

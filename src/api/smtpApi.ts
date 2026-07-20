@@ -7,14 +7,14 @@ const apiBaseUrl = rawApiBaseUrl.endsWith("/") ? rawApiBaseUrl : `${rawApiBaseUr
 export interface MailgunDomain {
   name: string;
   smtp_password?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface MailgunDomainResponse {
-  domain: any;
-  receiving_dns_records: any[];
-  sending_dns_records: any[];
-  [key: string]: any;
+  domain: Record<string, unknown>;
+  receiving_dns_records: Array<Record<string, unknown>>;
+  sending_dns_records: Array<Record<string, unknown>>;
+  [key: string]: unknown;
 }
 
 export type MailgunStatsRange = "today" | "week" | "month" | "year" | "all";
@@ -32,6 +32,10 @@ export interface MailgunDomainStats {
   total_emails: number;
   sent_successfully: number;
   failed: number;
+  permanent_failed: number;
+  temporary_failed: number;
+  bounced: number;
+  delivered_after_retry: number;
   skipped: number;
   other: number;
   skipped_reasons: MailgunStatsReason[];
@@ -44,7 +48,7 @@ export interface MailgunDomainStats {
   click_rate: number;
   unsubscribe_rate: number;
   last_used: string | null;
-  source: "mailgun" | "local";
+  source: "mailgun_metrics" | "mailgun_events" | "local";
 }
 
 export type EmailAudience = "all" | "patient" | "admin";
@@ -96,7 +100,7 @@ export const verifyMailgunDomain = async (domainName: string): Promise<MailgunDo
   return data;
 };
 
-export const deleteMailgunDomain = async (domainName: string): Promise<any> => {
+export const deleteMailgunDomain = async (domainName: string): Promise<unknown> => {
   const { data } = await api.delete(`${apiBaseUrl}mailgun-domains/${domainName}/`);
   return data;
 };
