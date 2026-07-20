@@ -62,7 +62,7 @@ export default function Wearables() {
   };
 
   return (
-    <div className="p-6 space-y-6" style={{ position: 'relative' }}>
+    <div className="p-6 pb-24 space-y-6" style={{ position: 'relative' }}>
       {/* Toast Notification */}
       <div
         className={`pd-toast ${toastMsg ? 'show' : ''}`}
