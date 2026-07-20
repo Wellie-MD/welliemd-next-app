@@ -24,11 +24,14 @@ import { AuthSetupModal } from "@/features/treatments/programs/components/AuthSe
 import { SectionSelectorModal } from "@/features/treatments/programs/components/SectionSelectorModal";
 import { QuestionEditorDialog } from "@/features/treatments/question-editor/components/shell/QuestionEditorDialog";
 import { AddConsentModal } from "@/features/treatments/programs/components/AddConsentModal";
-import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
+import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
 import { createMockId } from "@/features/treatments/common/data/factories";
 import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
 import type { CommonSection, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
 import { DeleteConfirmDialog } from "@/features/treatments/common/components";
+import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
+import { TreatmentAssignmentModal } from "@/features/treatments/assignment/components/TreatmentAssignmentModal";
+import { ASSIGNMENT_SOURCE } from "@/features/treatments/assignment/constants";
 
 
 
@@ -96,14 +99,19 @@ export default function ProgramDetailPage() {
   const updateProgramSlugMutation = useUpdateProgramSlug();
   const saveProgramQuestionsMutation = useSaveProgramQuestions(foundProgram?.id || "");
 
-  const isFlowBuilderRoute = location.pathname.endsWith("/flow-builder");
+  const isFlowBuilderRoute =
+    new URLSearchParams(location.search).get("view") === "flow";
   const viewMode = isFlowBuilderRoute ? "flow" : "list";
 
   const setViewMode = (mode: "list" | "flow") => {
     navigate(
       mode === "flow"
-        ? `/dashboard/treatments/programs/${foundProgram?.id || activeProgramId}/flow-builder`
-        : `/dashboard/treatments/programs/${foundProgram?.id || activeProgramId}`,
+        ? ADMIN_TREATMENT_ROUTES.programQuestionsFlow(
+            foundProgram?.id || activeProgramId
+          )
+        : ADMIN_TREATMENT_ROUTES.programQuestions(
+            foundProgram?.id || activeProgramId
+          ),
       { replace: true }
     );
   };
@@ -115,6 +123,7 @@ export default function ProgramDetailPage() {
   const [isSectionOpen, setIsSectionOpen] = useState(false);
   const [isConsentOpen, setIsConsentOpen] = useState(false);
   const [isSimulateOpen, setIsSimulateOpen] = useState(false);
+  const [isAssignOpen, setIsAssignOpen] = useState(false);
 
   // Edit target states
   const [editingCheckoutId, setEditingCheckoutId] = useState<string | null>(null);
@@ -326,8 +335,9 @@ export default function ProgramDetailPage() {
         onViewModeChange={setViewMode}
         onPublishToggle={handlePublish}
         onSimulate={() => setIsSimulateOpen(true)}
+        onAssign={() => setIsAssignOpen(true)}
         onQuestions={() => setViewMode("list")}
-        onReorder={() => navigate(`/dashboard/treatments/programs/${foundProgram.id}/questions`)}
+        onReorder={() => navigate(ADMIN_TREATMENT_ROUTES.programQuestions(foundProgram.id))}
         onAddElement={handleOpenAddScreening}
         onAddQuestion={handleOpenAddScreening}
         onAddAuth={() => setIsAuthOpen(true)}
@@ -381,7 +391,7 @@ export default function ProgramDetailPage() {
           <ProgramScreeningQuestions
             questions={screeningQuestionsForUI}
             onAdd={handleOpenAddScreening}
-            onViewAll={() => navigate(`/dashboard/treatments/programs/${foundProgram.id}/questions`)}
+            onViewAll={() => navigate(ADMIN_TREATMENT_ROUTES.programQuestions(foundProgram.id))}
           />
           <ProgramConsents
             consents={consentsForUI}
@@ -502,16 +512,32 @@ export default function ProgramDetailPage() {
         onSelect={handleAttachSection}
       />
 
-      <PatientFlowTestModal
+      <QuestionnairePreviewDialog
         open={isSimulateOpen}
         onOpenChange={setIsSimulateOpen}
         previewContext={{
           type: "program",
           id: foundProgram.id,
           slug: foundProgram.slug,
+          name: foundProgram.name,
           visitType: foundProgram.visitType,
           templateId: foundProgram.sourceQuestionnaireTemplateId,
         }}
+        subtitle={`Patient view of "${foundProgram.name}"`}
+      />
+
+      <TreatmentAssignmentModal
+        open={isAssignOpen}
+        onOpenChange={setIsAssignOpen}
+        items={[
+          {
+            id: foundProgram.id,
+            name: foundProgram.name,
+            subtitle: foundProgram.treatmentTypeKey,
+          },
+        ]}
+        sourceKind={ASSIGNMENT_SOURCE.program}
+        itemLabel="program"
       />
 
       <DeleteConfirmDialog

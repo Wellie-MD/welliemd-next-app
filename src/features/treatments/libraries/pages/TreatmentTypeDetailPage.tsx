@@ -14,6 +14,7 @@ import { productApi } from "@/api/products";
 import { TreatmentTypeModal } from "@/features/treatments/libraries/treatment-types/components/TreatmentTypeModal";
 import { TreatmentTypeProductDialog } from "@/features/treatments/libraries/treatment-types/components/TreatmentTypeProductDialog";
 import { VisitTypeProductsTable } from "@/features/treatments/libraries/treatment-types/components/VisitTypeProductsTable";
+import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 
 const LIBRARY_LINKS = {
   eligibility: "/dashboard/treatments/programs",
@@ -114,7 +115,7 @@ export default function TreatmentTypeDetailPage() {
           <div className="rounded-lg border border-slate-200 p-4">
             <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Onboarding</div>
             {intakeProgram ? (
-              <ProgramRow name={intakeProgram.name} status={intakeProgram.status} to={`/dashboard/treatments/programs/${intakeProgram.id}`} />
+              <ProgramRow name={intakeProgram.name} status={intakeProgram.status} to={ADMIN_TREATMENT_ROUTES.programQuestions(intakeProgram.id)} />
             ) : (
               <div className="space-y-3">
                 <p className="text-sm text-slate-500">No onboarding module created yet</p>
@@ -131,7 +132,7 @@ export default function TreatmentTypeDetailPage() {
           <div className="rounded-lg border border-slate-200 p-4">
             <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Follow-up</div>
             {followupProgram ? (
-              <ProgramRow name={followupProgram.name} status={followupProgram.status} to={`/dashboard/treatments/programs/${followupProgram.id}`} />
+              <ProgramRow name={followupProgram.name} status={followupProgram.status} to={ADMIN_TREATMENT_ROUTES.programQuestions(followupProgram.id)} />
             ) : followupVisitType ? (
               <div className="space-y-3">
                 <p className="text-sm text-slate-500">No follow-up module created yet</p>
@@ -204,6 +205,8 @@ export default function TreatmentTypeDetailPage() {
         onOpenChange={setIsProductDialogOpen}
         treatmentTypeId={treatmentType.id}
         treatmentTypeName={treatmentType.name}
+        intakeVisitType={intakeVisitType}
+        followupVisitType={followupVisitType}
         onSaved={refetchProducts}
       />
     </div>

@@ -1,7 +1,5 @@
 import type { PreviewContext } from "@/features/treatments/types";
-
-const DEFAULT_LOCAL_QUESTIONNAIRE_URL = "http://localhost:3001";
-const DEFAULT_LOCAL_API_BASE_URL = "http://localhost:8000/api/v1";
+import { QUESTIONNAIRE_PREVIEW_DEFAULTS } from "@/features/treatments/preview/constants";
 
 const normalizeBaseUrl = (baseUrl: string) => baseUrl.replace(/\/+$/, "");
 
@@ -13,12 +11,12 @@ export interface QuestionnairePreviewTarget {
 
 export const getQuestionnairePreviewBaseUrl = () => {
   return normalizeBaseUrl(
-    import.meta.env.VITE_QUESTIONNAIRE_PREVIEW_BASE_URL || DEFAULT_LOCAL_QUESTIONNAIRE_URL
+    import.meta.env.VITE_QUESTIONNAIRE_PREVIEW_BASE_URL || QUESTIONNAIRE_PREVIEW_DEFAULTS.appBaseUrl
   );
 };
 
 export const getQuestionnairePreviewApiBaseUrl = () => {
-  return normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL || DEFAULT_LOCAL_API_BASE_URL);
+  return normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL || QUESTIONNAIRE_PREVIEW_DEFAULTS.apiBaseUrl);
 };
 
 export const buildQuestionnairePreviewTarget = (

@@ -14,6 +14,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import type { Program, ProgramStatus, TreatmentType } from "@/features/treatments/types";
 import { formatProgramStage } from "@/features/treatments/utils/labels";
+import { RuntimeReadinessBadge } from "@/features/treatments/assignment/components/RuntimeReadinessBadge";
+import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 
 interface ProgramCardProps {
   program: Program;
@@ -76,6 +78,7 @@ export function ProgramCard({
               {treatmentType.name}
             </span>
           )}
+          <RuntimeReadinessBadge state={program.assignmentRuntimeState} />
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <span
@@ -235,7 +238,7 @@ export function ProgramCard({
             asChild
             className="h-8 px-4 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded"
           >
-            <Link to={`/dashboard/treatments/programs/${program.slug}`}>
+            <Link to={ADMIN_TREATMENT_ROUTES.programQuestions(program.id)}>
               Open
             </Link>
           </Button>

@@ -17,6 +17,8 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   treatmentTypeId: string;
   treatmentTypeName: string;
+  intakeVisitType: string;
+  followupVisitType?: string;
   onSaved: () => Promise<unknown> | unknown;
 };
 
@@ -25,6 +27,8 @@ export function TreatmentTypeProductDialog({
   onOpenChange,
   treatmentTypeId,
   treatmentTypeName,
+  intakeVisitType,
+  followupVisitType,
   onSaved,
 }: Props) {
   const [productId, setProductId] = useState("");
@@ -36,7 +40,9 @@ export function TreatmentTypeProductDialog({
     enabled: open,
   });
   const selectableProducts = useMemo(
-    () => products.filter((product) => product.product_type !== "supply"),
+    () => products.filter((product) =>
+      product.product_type !== "supply"
+    ),
     [products],
   );
 
@@ -72,6 +78,16 @@ export function TreatmentTypeProductDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          <div className="grid gap-3 rounded-lg border border-sky-200 bg-sky-50 p-3 sm:grid-cols-2">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-sky-700">Derived intake Visit Type</div>
+              <code className="mt-1 block text-sm text-slate-800">{intakeVisitType}</code>
+            </div>
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-sky-700">Derived follow-up Visit Type</div>
+              <code className="mt-1 block text-sm text-slate-800">{followupVisitType || "Not configured"}</code>
+            </div>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="treatment-type-product">Product</Label>
             <Select value={productId} onValueChange={setProductId} disabled={isLoading || saving}>

@@ -228,29 +228,29 @@ export function AppSidebar() {
 
     return (
       <img
-        src="/welliemd_logo.png"
+        src="/welliemd_dark_logo_transparent.png"
         alt="Welliemd"
-        className="h-8 w-auto"
+        className="h-7 w-auto"
       />
     )
   }
 
   return (
-    <Sidebar collapsible="icon" className="border-r">
-      <div className="flex w-full justify-between p-4">
+    <Sidebar collapsible="icon" className="border-r border-white/[0.06]">
+      <div className="flex w-full justify-between border-b border-white/[0.06] px-5 pb-3.5 pt-[18px]">
         <SidebarLogo />
-        <SidebarTrigger className="text-gray-600 hover:bg-white/50 rounded-md p-1" />
+        <SidebarTrigger className="rounded-md p-1 text-slate-400 hover:bg-white/5 hover:text-slate-200" />
       </div>
       <SidebarContent className="overflow-y-auto overflow-x-hidden scrollbar-hide pb-4">
         {menuSections.map((section, sectionIndex) => (
           <SidebarGroup key={section.label} className={collapsed ? "mb-2" : "mb-6"}>
             {!collapsed && (
-              <SidebarGroupLabel className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              <SidebarGroupLabel className="text-[10px] font-semibold text-white/25 uppercase tracking-[0.08em]">
                 {section.label}
               </SidebarGroupLabel>
             )}
             {collapsed && sectionIndex > 0 && (
-              <div className="w-full h-px bg-gray-200 my-2 mx-2"></div>
+              <div className="w-full h-px bg-white/[0.08] my-2 mx-2"></div>
             )}
             <SidebarGroupContent>
               <SidebarMenu className="space-y-1">
@@ -269,13 +269,13 @@ export function AppSidebar() {
                                   group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
                                   ${collapsed ? "p-2 justify-center" : "px-3 py-2.5 justify-between"}
                                   ${isActive
-                                    ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm"
-                                    : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
+                                    ? "bg-blue-600/[0.18] text-blue-400 font-semibold"
+                                    : "text-slate-400 hover:text-slate-300 hover:bg-white/5"
                                   }
                                 `}
                               >
                                 <div className="flex items-center min-w-0">
-                                  <item.icon className={`h-5 w-5 flex-shrink-0 ${isActive ? "text-[#12517A]" : "text-gray-500 group-hover:text-[#12517A]"
+                                  <item.icon className={`h-[15px] w-[15px] flex-shrink-0 ${isActive ? "text-blue-400" : "text-slate-400 group-hover:text-slate-300"
                                     }`} />
                                   {!collapsed && (
                                     <span className="ml-3 font-medium truncate">
@@ -288,7 +288,7 @@ export function AppSidebar() {
                                     className={`
                                       h-4 w-4 transition-all duration-200 ease-in-out flex-shrink-0
                                       ${isOpen ? "transform rotate-0" : "transform -rotate-90"}
-                                      ${isActive ? "text-[#12517A]" : "text-gray-400 group-hover:text-[#12517A]"}
+                                      ${isActive ? "text-blue-400" : "text-slate-500 group-hover:text-slate-300"}
                                     `}
                                   />
                                 )}
@@ -296,7 +296,7 @@ export function AppSidebar() {
                             </CollapsibleTrigger>
                             {!collapsed && (
                               <CollapsibleContent className="transition-all duration-300 ease-in-out">
-                                <div className="ml-6 mt-2 space-y-1 border-l border-gray-200 pl-4">
+                                <div className="ml-6 mt-2 space-y-1 border-l border-white/[0.08] pl-4">
                                   {item.children.map((child) => (
                                     <SidebarMenuButton key={child.title} asChild>
                                       <NavLink
@@ -304,8 +304,8 @@ export function AppSidebar() {
                                         className={`
                                           flex items-center w-full px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
                                           ${currentPath === child.url || currentPath.startsWith(`${child.url}/`)
-                                            ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm border-l-2 border-[#12517A] -ml-[1px]"
-                                            : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
+                                            ? "bg-blue-600/[0.18] text-blue-400 font-semibold"
+                                            : "text-slate-400 hover:text-slate-300 hover:bg-white/5"
                                           }
                                         `}
                                       >
@@ -328,15 +328,15 @@ export function AppSidebar() {
                                 group flex items-center w-full text-sm rounded-lg transition-all duration-200 ease-in-out
                                 ${collapsed ? "p-2 justify-center" : "px-3 py-2.5"}
                                 ${currentPath === item.url
-                                  ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm"
-                                  : "text-gray-600 hover:text-[#12517A] hover:bg-[#F8FBFC]"
+                                  ? "bg-blue-600/[0.18] text-blue-400 font-semibold"
+                                  : "text-slate-400 hover:text-slate-300 hover:bg-white/5"
                                 }
                               `}
                             >
                               <item.icon
                                 className={`h-5 w-5 flex-shrink-0 ${currentPath === item.url
-                                  ? "text-[#12517A]"
-                                  : "text-gray-500 group-hover:text-[#12517A]"
+                                  ? "text-blue-400"
+                                  : "text-slate-400 group-hover:text-slate-300"
                                   }`}
                               />
                               {!collapsed && (

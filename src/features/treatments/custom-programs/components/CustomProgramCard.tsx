@@ -3,6 +3,7 @@ import { Sparkles, Pill, ShoppingCart, TestTube, Package, Pencil, Trash2, ArrowR
 import type { CustomProgram } from "@/features/treatments/types";
 import { isCustomProgramMulti } from "@/features/treatments/custom-programs/hooks/useCustomProgramsPage";
 import { cn } from "@/lib/utils";
+import { RuntimeReadinessBadge } from "@/features/treatments/assignment/components/RuntimeReadinessBadge";
 
 interface CustomProgramCardProps {
   customProgram: CustomProgram;
@@ -94,6 +95,7 @@ export function CustomProgramCard({ customProgram, onEdit, onDelete, onPreview, 
                 Multi
               </span>
             )}
+            <RuntimeReadinessBadge state={customProgram.assignmentRuntimeState} />
           </div>
           <div className="mt-1 truncate text-[11.5px] text-slate-400 leading-none">
             {customProgram.description}

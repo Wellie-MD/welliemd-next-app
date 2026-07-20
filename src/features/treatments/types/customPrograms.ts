@@ -78,4 +78,7 @@ export interface CustomProgram {
   tags?: string[];
   isMulti?: boolean;
   programMatchingRules: Record<string, ProgramMatchingConfig>;
+  assignmentRuntimeState?: string;
+  runtimeReadyAt?: string | null;
+  sourceAssignmentChecksum?: string;
 }

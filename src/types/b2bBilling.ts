@@ -49,6 +49,20 @@ export interface B2BInvoiceItem {
   created_at: string;
 }
 
+export interface InvoiceTreatmentPrescription {
+  contract_version?: string;
+  treatment_case_id?: string;
+  requested_set: Array<{ product_id?: string | number; source_product_id?: string | number; med_id?: string; name?: string; quantity?: number }>;
+  prescribed_set: Array<{ product_id?: string | number; source_product_id?: string | number; med_id?: string; name?: string; quantity?: number }>;
+  settlement_flow?: string;
+  requested_authorized_amount?: string;
+  prescribed_final_amount?: string;
+  base_capture_amount?: string;
+  supplemental_delta_amount?: string;
+  trace_id?: string;
+  invoice_status?: string;
+}
+
 export interface B2BInvoice {
   id: string;
   invoice_number: string;
@@ -118,6 +132,7 @@ export interface B2BInvoice {
     net_adjustment: string;
     adjusted_total: string;
   } | null;
+  treatment_prescription?: InvoiceTreatmentPrescription | null;
 
   // Source tracking
   source_tenant_order_display_id?: string;

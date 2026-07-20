@@ -228,6 +228,9 @@ export const customProgramFromRecord = (record: CustomProgramRecord): CustomProg
   tags: record.tags || [],
   isMulti: record.is_multi ?? false,
   programMatchingRules: record.program_matching_rules || {},
+  assignmentRuntimeState: record.assignment_runtime_state,
+  runtimeReadyAt: record.runtime_ready_at ?? null,
+  sourceAssignmentChecksum: record.source_assignment_checksum,
 });
 
 export const customProgramToRecord = (program: CustomProgram) => ({
@@ -279,6 +282,18 @@ export const programFromRecord = (record: ProgramRecord): Program => ({
   maxBmi: record.max_bmi ?? null,
   serviceStatesAll: record.service_states_all ?? true,
   serviceStates: record.service_states || [],
+  labRequirements: (record.lab_requirements || []).map((requirement) => ({
+    id: requirement.id,
+    panelId: requirement.panel_id,
+    panelName: requirement.panel_name,
+    displayOrder: requirement.display_order,
+    isRequired: requirement.is_required,
+    isActive: requirement.is_active,
+    instructions: requirement.instructions || "",
+  })),
+  assignmentRuntimeState: record.assignment_runtime_state,
+  runtimeReadyAt: record.runtime_ready_at ?? null,
+  sourceAssignmentChecksum: record.source_assignment_checksum,
 });
 
 export const programToRecord = (program: Program, treatmentTypes: TreatmentType[]) => {
@@ -305,6 +320,13 @@ export const programToRecord = (program: Program, treatmentTypes: TreatmentType[
     max_bmi: program.maxBmi ?? null,
     service_states_all: program.serviceStatesAll ?? true,
     service_states: program.serviceStatesAll === false ? (program.serviceStates || []) : [],
+    lab_requirements: (program.labRequirements || []).map((requirement, index) => ({
+      panel_id: requirement.panelId,
+      display_order: requirement.displayOrder || index + 1,
+      is_required: requirement.isRequired,
+      is_active: requirement.isActive,
+      instructions: requirement.instructions || "",
+    })),
     phase: program.stage === "follow_up" ? "follow_up" : "onboarding",
   };
 };
