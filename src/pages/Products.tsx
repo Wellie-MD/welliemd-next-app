@@ -334,13 +334,14 @@ export default function Products() {
                   <ProductTableHead>Drug Form</ProductTableHead>
                   <ProductTableHead>Status</ProductTableHead>
                   <ProductTableHead>Purchase Type</ProductTableHead>
+                  <ProductTableHead>Treatment Type / Routing (New)</ProductTableHead>
                   <ProductTableHead>Created At</ProductTableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-40 text-center">
+                    <TableCell colSpan={8} className="h-40 text-center">
                       <div className="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
                         <Loader2 className="h-5 w-5 animate-spin" />
                         <span>Loading products...</span>
@@ -375,12 +376,29 @@ export default function Products() {
                       <ProductTableCell>
                         <Pill tone="blue">{getPurchaseTypeLabel(product.purchase_type)}</Pill>
                       </ProductTableCell>
+                      <ProductTableCell>
+                        {product.product_type === "supply" ? (
+                          <span className="text-xs text-slate-400">Not applicable</span>
+                        ) : (
+                          <div className="space-y-1">
+                            <Pill tone={product.treatment_type_name ? "blue" : "red"}>
+                              {product.treatment_type_name || "Unassigned"}
+                            </Pill>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                              Intake: {product.derived_intake_visit_type || "Not configured"}
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                              Follow-up: {product.derived_followup_visit_type || "Not configured"}
+                            </div>
+                          </div>
+                        )}
+                      </ProductTableCell>
                       <ProductTableCell>{formatDate(product.created_at)}</ProductTableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-40 text-center text-sm text-slate-500 dark:text-slate-400">
+                    <TableCell colSpan={8} className="h-40 text-center text-sm text-slate-500 dark:text-slate-400">
                       No products found.
                     </TableCell>
                   </TableRow>

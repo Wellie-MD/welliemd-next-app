@@ -11,6 +11,7 @@ import {
 import { showFloatingToast } from "@/components/ui/floating-toast";
 import { EmptyStateCard, SlugEditorModal } from "@/features/treatments/common/components";
 import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
+import { useBranding } from "@/contexts/BrandingContext";
 import { useClients } from "@/hooks/useClients";
 import { getTreatmentApiErrorMessage } from "@/features/treatments/common/utils/apiError";
 import { normalizeTreatmentSlug } from "@/features/treatments/common/utils/slug";
@@ -23,7 +24,6 @@ import {
 import { ProgramListTable } from "@/features/treatments/programs/components/ProgramListTable";
 import { ProgramCard } from "@/features/treatments/programs/components/ProgramCard";
 import type { Program, ProgramStatus } from "@/features/treatments/types";
-import { buildQuestionnairePreviewUrl } from "@/features/treatments/utils/previewUrl";
 import { cn } from "@/lib/utils";
 
 type ProgramsFilter = "all" | "missing_follow_up";
@@ -54,6 +54,7 @@ const statusSegmentClassName = (active: boolean) =>
 const clientApiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://knysysapi.welliemd.com/api/v1";
 
 export default function ProgramsPage() {
+  const { brandSettings } = useBranding();
   const { data: programs = [] } = usePrograms();
   const { currentClient } = useClients();
   const updateProgramSlug = useUpdateProgramSlug();
@@ -366,7 +367,7 @@ export default function ProgramsPage() {
 
       {previewProgram ? (
         <QuestionnairePreviewDialog open={Boolean(previewProgram)} onOpenChange={handlePreviewOpenChange}
-          previewUrl={buildQuestionnairePreviewUrl({ type: "program", id: previewProgram.id, slug: previewProgram.slug, visitType: previewProgram.visitType, templateId: previewProgram.sourceQuestionnaireTemplateId, apiBaseUrl: clientApiBaseUrl })}
+          previewContext={{ type: "program", id: previewProgram.id, slug: previewProgram.slug, visitType: previewProgram.visitType, templateId: previewProgram.sourceQuestionnaireTemplateId, apiBaseUrl: clientApiBaseUrl, clientId: brandSettings?.clientId, clientName: brandSettings?.clientName }}
           subtitle={`${previewProgram.name} · how patients see this ${previewProgram.stage === "follow_up" ? "follow-up" : "intake"}`}
           iframeTitle={`${previewProgram.name} questionnaire preview`} />
       ) : null}

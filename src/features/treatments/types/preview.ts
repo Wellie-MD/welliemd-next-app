@@ -1,5 +1,10 @@
+interface TenantPreviewIdentity {
+  clientId?: string;
+  clientName?: string;
+}
+
 export type PreviewContext =
-  | { type: "custom_program"; id: string; slug: string; apiBaseUrl?: string }
+  | ({ type: "custom_program"; id: string; slug: string; apiBaseUrl?: string } & TenantPreviewIdentity)
   | {
       type: "program";
       id: string;
@@ -7,5 +12,5 @@ export type PreviewContext =
       visitType?: string;
       templateId?: string | null;
       apiBaseUrl?: string;
-    }
+    } & TenantPreviewIdentity
   | { type: "section"; id: string; slug?: string; apiBaseUrl?: string };
