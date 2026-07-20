@@ -76,7 +76,7 @@ export function FlowBuilderHeader({
             )}
           </div>
           <p className="mt-3 max-w-2xl text-xs text-slate-500">
-            Drag any item to reorder. Add new items anywhere from the side panel. Authentication and Checkout are locked in place.
+            Drag items to reorder them within a stage. New items are placed in their matching stage. Authentication and Checkout are locked in place.
           </p>
         </div>
 

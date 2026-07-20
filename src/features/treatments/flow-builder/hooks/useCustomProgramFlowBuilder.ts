@@ -25,7 +25,7 @@ export function useCustomProgramFlowBuilder({
   onSave,
   onUpdateFlow,
 }: UseCustomProgramFlowBuilderArgs) {
-  const [viewMode, setViewMode] = useState<FlowBuilderViewMode>("flow");
+  const [viewMode, setViewMode] = useState<FlowBuilderViewMode>("list");
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const [isEditingSlug, setIsEditingSlug] = useState(false);
   const [slugInput, setSlugInput] = useState(customProgram.slug);
