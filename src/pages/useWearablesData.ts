@@ -117,11 +117,12 @@ const transformPatient = (patient: any): Patient => {
   };
 };
 
-// ponytail: batch telemetry fetches by 50 patients to reduce per-request HTTP overhead
+// ponytail: batch telemetry fetches by 100 patients to reduce HTTP overhead
+// 500 patients = 5 requests instead of 50
 async function fetchTelemetryBatch(patientIds: string[]): Promise<Record<string, PatientTelemetry>> {
   if (patientIds.length === 0) return {};
 
-  const batchSize = 50;
+  const batchSize = 100;
   const batches: Promise<[string, PatientTelemetry][]>[] = [];
 
   for (let i = 0; i < patientIds.length; i += batchSize) {
@@ -146,11 +147,19 @@ async function fetchTelemetryBatch(patientIds: string[]): Promise<Record<string,
   return Object.fromEntries(results.flat());
 }
 
+// ponytail: module-level cache for patient/connection data (fetched once per session, reused across mounts)
+let globalDataCache: {
+  allPatients: Patient[];
+  connections: WearableConnection[];
+  clientId: string | null;
+} | null = null;
+
 export function useWearablesData(params: UseWearablesDataParams) {
   const { page, pageSize, search, loadInsights = false } = params;
   const [patients, setPatients] = useState<Patient[]>([]);
   const [connections, setConnections] = useState<WearableConnection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
   const [telemetry, setTelemetry] = useState<Record<string, PatientTelemetry>>({});
@@ -158,9 +167,21 @@ export function useWearablesData(params: UseWearablesDataParams) {
   const [allPatients, setAllPatients] = useState<Patient[]>([]);
   const [allTelemetry, setAllTelemetry] = useState<Record<string, PatientTelemetry>>({});
   const [insightsLoading, setInsightsLoading] = useState(false);
+  // ponytail: tracks whether the global roster fetch (effect #1) has resolved,
+  // so effect #3 doesn't slice an empty allPatients and flip `loading` off early
+  const [globalLoaded, setGlobalLoaded] = useState(false);
 
-  // 1. Fetch global roster and connections once (fix #2: single fetch, no duplication)
+  // 1. Fetch global roster and connections once with caching (fix #2 + cache optimization)
   useEffect(() => {
+    // If already cached (e.g. revisiting the page this session), use it immediately
+    if (globalDataCache) {
+      setAllPatients(globalDataCache.allPatients);
+      setConnections(globalDataCache.connections);
+      setClientId(globalDataCache.clientId);
+      setGlobalLoaded(true);
+      return;
+    }
+
     let active = true;
     async function loadGlobalStats() {
       try {
@@ -182,11 +203,18 @@ export function useWearablesData(params: UseWearablesDataParams) {
         }
 
         if (active) {
+          globalDataCache = {
+            allPatients: transformedAll,
+            connections: fetchedConnections,
+            clientId: currentClientId || null,
+          };
           setAllPatients(transformedAll);
           setConnections(fetchedConnections);
+          setGlobalLoaded(true);
         }
       } catch (caught) {
         console.error('Failed to load global wearables data:', caught);
+        if (active) setGlobalLoaded(true);
       }
     }
     loadGlobalStats();
@@ -221,11 +249,17 @@ export function useWearablesData(params: UseWearablesDataParams) {
   }, [loadInsights, allPatients, connections]);
 
   // 3. Paginate from global patients, fetch telemetry with batching (fix #2 & #3)
+  // ponytail: use `refreshing` (not `loading`) here so search/page changes don't
+  // unmount the whole roster view — only the initial mount shows the full spinner.
+  // Waits for `globalLoaded` (unless searching) so it doesn't slice an empty
+  // allPatients before effect #1 has resolved.
   useEffect(() => {
+    if (!search && !globalLoaded) return;
+
     let active = true;
     async function loadPaginatedData() {
       try {
-        setLoading(true);
+        setRefreshing(true);
         setError(null);
 
         // Handle search: fetch paginated results if searching, otherwise slice from all patients
@@ -268,14 +302,17 @@ export function useWearablesData(params: UseWearablesDataParams) {
       } catch (caught) {
         if (active) setError(caught instanceof Error ? caught.message : 'Failed to load page data.');
       } finally {
-        if (active) setLoading(false);
+        if (active) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     }
     loadPaginatedData();
     return () => {
       active = false;
     };
-  }, [page, pageSize, search, allPatients, connections]);
+  }, [page, pageSize, search, allPatients, connections, globalLoaded]);
 
   // Compute page rows
   const allComputed = useMemo<WearableRow[]>(() => patients.map((patient, idx) => {
@@ -337,5 +374,5 @@ export function useWearablesData(params: UseWearablesDataParams) {
     };
   }, [globalComputed]);
 
-  return { clientId, patients, connections, loading, error, allComputed, stats, insightsData, totalCount, insightsLoading };
+  return { clientId, patients, connections, loading, refreshing, error, allComputed, stats, insightsData, totalCount, insightsLoading };
 }

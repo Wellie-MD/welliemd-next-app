@@ -39,7 +39,7 @@ export default function Wearables() {
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  const { patients, loading, error, allComputed, stats, insightsData, totalCount, insightsLoading } = useWearablesData({
+  const { patients, loading, refreshing, error, allComputed, stats, insightsData, totalCount, insightsLoading } = useWearablesData({
     page: currentPage,
     pageSize,
     search: debouncedSearch,
@@ -335,7 +335,7 @@ export default function Wearables() {
                         background: 'var(--km-s2)',
                         border: '1px solid var(--km-b)',
                         borderRadius: 8,
-                        padding: '8px 12px 8px 34px',
+                        padding: '8px 34px 8px 34px',
                         fontSize: 12.5,
                         color: 'var(--km-t)',
                         outline: 'none'
@@ -344,6 +344,13 @@ export default function Wearables() {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
+                    {refreshing && (
+                      <Loader2
+                        className="animate-spin"
+                        size={14}
+                        style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--km-tm)' }}
+                      />
+                    )}
                   </div>
                   <button
                     onClick={() => triggerToast('Telemetry nudge & connection invite pushed to patient device.')}
@@ -387,7 +394,7 @@ export default function Wearables() {
                 </div>
 
                 {/* Table */}
-                <div style={{ overflowX: 'auto' }}>
+                <div style={{ overflowX: 'auto', opacity: refreshing ? 0.6 : 1, transition: 'opacity 0.15s' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--km-b)' }}>
@@ -532,7 +539,7 @@ export default function Wearables() {
                         variant="outline"
                         size="icon"
                         className="h-9 w-9 rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 disabled:bg-slate-50 dark:disabled:bg-slate-950 disabled:text-slate-300 dark:disabled:text-slate-700"
-                        disabled={currentPage <= 1 || loading}
+                        disabled={currentPage <= 1 || loading || refreshing}
                         onClick={() => setCurrentPage(currentPage - 1)}
                       >
                         <ChevronLeft className="h-4 w-4" />
@@ -541,7 +548,7 @@ export default function Wearables() {
                         variant="outline"
                         size="icon"
                         className="h-9 w-9 rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-955 dark:text-slate-200 disabled:bg-slate-50 dark:disabled:bg-slate-950 disabled:text-slate-300 dark:disabled:text-slate-700"
-                        disabled={currentPage >= totalPages || loading}
+                        disabled={currentPage >= totalPages || loading || refreshing}
                         onClick={() => setCurrentPage(currentPage + 1)}
                       >
                         <ChevronRight className="h-4 w-4" />
