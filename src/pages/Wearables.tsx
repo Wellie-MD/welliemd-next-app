@@ -1,8 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Send, Download, Loader2, AlertCircle } from 'lucide-react';
+import { Search, Send, Download, Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import WearablesInsights from './WearablesInsights';
 import { PROV_CP, givesReadiness, pdScoreColor, pdScoreLabel, useWearablesData } from './useWearablesData';
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const FILTER_TABS: Array<{ id: 'all' | 'connected' | 'not' | 'attention'; label: string }> = [
   { id: 'all', label: 'All' },
@@ -16,20 +24,33 @@ export default function Wearables() {
   const [view, setView] = useState<'roster' | 'insights'>('roster');
   const [filter, setFilter] = useState<'all' | 'connected' | 'not' | 'attention'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [toastTimeoutId, setToastTimeoutId] = useState<NodeJS.Timeout | null>(null);
 
-  const { patients, loading, error, allComputed, stats, insightsData } = useWearablesData();
+  // Debouncing search query input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  const { patients, loading, error, allComputed, stats, insightsData, totalCount } = useWearablesData({
+    page: currentPage,
+    pageSize,
+    search: debouncedSearch,
+  });
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   const filteredRows = allComputed.filter((row) => {
-    const query = searchQuery.trim().toLowerCase();
     if (filter === 'connected' && !row.connected) return false;
     if (filter === 'not' && row.connected) return false;
     if (filter === 'attention' && !row.needs) return false;
-    if (query) {
-      const providerName = row.provider ? (PROV_CP[row.provider]?.name || row.provider) : '';
-      if (!(row.p.name + ' ' + (row.p.email || '') + ' ' + providerName).toLowerCase().includes(query)) return false;
-    }
     return true;
   });
 
@@ -39,6 +60,7 @@ export default function Wearables() {
     const id = setTimeout(() => setToastMsg(null), 2600);
     setToastTimeoutId(id);
   };
+
   return (
     <div className="p-6 space-y-6" style={{ position: 'relative' }}>
       {/* Toast Notification */}
@@ -234,7 +256,7 @@ export default function Wearables() {
                 }}
               >
                 {[
-                  { label: 'Connected', val: stats.connected, sub: `of ${patients.length} patients` },
+                  { label: 'Connected', val: stats.connected, sub: `of ${allComputed.length + (totalCount - allComputed.length)} patients` },
                   { label: 'On Treatment', val: stats.onTx, sub: 'active roster' },
                   { label: 'Coverage', val: `${stats.cov}%`, sub: 'on-treatment connected' },
                   { label: 'Needs Attention', val: stats.needs, sub: 'on treatment, no device' }
@@ -271,7 +293,10 @@ export default function Wearables() {
                 {FILTER_TABS.map(t => (
                   <button
                     key={t.id}
-                    onClick={() => setFilter(t.id)}
+                    onClick={() => {
+                      setFilter(t.id);
+                      setCurrentPage(1);
+                    }}
                     style={{
                       fontSize: 12,
                       fontWeight: filter === t.id ? 700 : 500,
@@ -367,17 +392,17 @@ export default function Wearables() {
                       <tr style={{ borderBottom: '1px solid var(--km-b)' }}>
                         {['Name', 'Treatment', 'Connection', 'Device(s)', 'Last Sync', 'Latest Weight', 'Readiness', ''].map((h, i) => (
                           <th
-                            key={i}
-                            style={{
-                              textAlign: i === 6 ? 'right' : 'left',
-                              fontSize: 10,
-                              fontWeight: 700,
-                              letterSpacing: '.04em',
-                              textTransform: 'uppercase',
-                              color: 'var(--km-tm)',
-                              padding: '10px 12px',
-                              whiteSpace: 'nowrap'
-                            }}
+                             key={i}
+                             style={{
+                               textAlign: i === 6 ? 'right' : 'left',
+                               fontSize: 10,
+                               fontWeight: 700,
+                               letterSpacing: '.04em',
+                               textTransform: 'uppercase',
+                               color: 'var(--km-tm)',
+                               padding: '10px 12px',
+                               whiteSpace: 'nowrap'
+                             }}
                           >
                             {h}
                           </th>
@@ -477,6 +502,51 @@ export default function Wearables() {
                       )}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Pagination footer */}
+                <div className="flex flex-col gap-4 border-t border-slate-200 dark:border-slate-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between" style={{ borderTop: '1px solid var(--km-b)', marginTop: 14, paddingTop: 14 }}>
+                  <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+                    <span>Rows per page</span>
+                    <Select value={String(pageSize)} onValueChange={(val) => { setPageSize(Number(val)); setCurrentPage(1); }}>
+                      <SelectTrigger className="h-9 w-[72px] rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-755 dark:text-slate-200">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[5, 10, 20, 50].map((size) => (
+                          <SelectItem key={size} value={String(size)}>
+                            {size}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
+                    <span>
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 disabled:bg-slate-50 dark:disabled:bg-slate-950 disabled:text-slate-300 dark:disabled:text-slate-700"
+                        disabled={currentPage <= 1 || loading}
+                        onClick={() => setCurrentPage(currentPage - 1)}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 rounded-md border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-955 dark:text-slate-200 disabled:bg-slate-50 dark:disabled:bg-slate-950 disabled:text-slate-300 dark:disabled:text-slate-700"
+                        disabled={currentPage >= totalPages || loading}
+                        onClick={() => setCurrentPage(currentPage + 1)}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
