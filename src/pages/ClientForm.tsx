@@ -1137,6 +1137,30 @@ export default function ClientForm() {
             {/* B2B Billing - Only show in edit mode */}
             {isEditMode && id && (
               <>
+                <Card className="border shadow-sm">
+                  <CardContent className="flex items-center justify-between gap-4 p-4">
+                    <div>
+                      <p className="font-semibold">Product billing configuration</p>
+                      <p className="text-sm text-muted-foreground">
+                        Configure medication and shipping reimbursement per product.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        navigate(
+                          `/dashboard/billing/product-billing/${id}?name=${encodeURIComponent(
+                            clientName || existingClient?.name || formData.name || "Client",
+                          )}`,
+                        )
+                      }
+                    >
+                      Configure products
+                    </Button>
+                  </CardContent>
+                </Card>
+
                 {/* Section 2: Billing Status - Lock state indicator */}
                 <BillingLockStatusCard clientId={id} />
 

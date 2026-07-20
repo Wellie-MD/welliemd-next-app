@@ -40,6 +40,7 @@ const AnalyticsCohorts = lazy(() => import("./pages/AnalyticsCohorts"));
 const AnalyticsReports = lazy(() => import("./pages/AnalyticsReports"));
 const CouponInsights = lazy(() => import("./pages/CouponInsights"));
 const Billing = lazy(() => import("./pages/Billing"));
+const ProductBillingConfig = lazy(() => import("./pages/ProductBillingConfig"));
 const ProductDoseMappings = lazy(() => import("./pages/ProductDoseMappings"));
 const ProductConfig = lazy(() => import("./pages/ProductConfig"));
 const Supplies = lazy(() => import("./pages/Supplies"));
@@ -220,6 +221,7 @@ const App = () => {
                     {/* <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} /> */}
                     <Route path="/coupon-insights" element={<ProtectedRoute><CouponInsights /></ProtectedRoute>} />
                     <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
+                    <Route path="/billing/product-billing/:clientId" element={<ProtectedRoute><ProductBillingConfig /></ProtectedRoute>} />
                     <Route path="/affiliates" element={<ProtectedRoute><Affiliates /></ProtectedRoute>} />
                     <Route path="/questionnaires" element={<ProtectedRoute><Questionnaires /></ProtectedRoute>} />
                     <Route path="/questionnaires/assign" element={<ProtectedRoute><TemplateAssignment /></ProtectedRoute>} />
