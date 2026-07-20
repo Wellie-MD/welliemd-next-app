@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Send, Download, Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import WearablesInsights from './WearablesInsights';
 import { PROV_CP, givesReadiness, pdScoreColor, pdScoreLabel, useWearablesData } from './useWearablesData';
+import { exportToCSV } from '@/utils/exportUtils';
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -54,6 +55,33 @@ export default function Wearables() {
     if (filter === 'attention' && !row.needs) return false;
     return true;
   });
+
+  const handleExport = () => {
+    const rows = filteredRows.map((r) => {
+      const pr = r.provider ? PROV_CP[r.provider] : null;
+      const hasReadiness = r.connected && givesReadiness(r.provider || '') && typeof r.d.readiness === 'number';
+      return {
+        name: r.p.name,
+        treatment: r.p.product !== '-' ? r.p.product : '',
+        connection: r.connected ? 'Connected' : (r.needs ? 'No device' : 'Not connected'),
+        device: pr ? pr.name : '',
+        lastSync: r.lastSync || '',
+        latestWeight: r.cur != null ? `${r.cur} lb` : '',
+        weightChange: r.chg != null ? r.chg : '',
+        readiness: hasReadiness ? r.d.readiness : '',
+      };
+    });
+    exportToCSV(rows, [
+      { key: 'name', label: 'Name' },
+      { key: 'treatment', label: 'Treatment' },
+      { key: 'connection', label: 'Connection' },
+      { key: 'device', label: 'Device(s)' },
+      { key: 'lastSync', label: 'Last Sync' },
+      { key: 'latestWeight', label: 'Latest Weight' },
+      { key: 'weightChange', label: 'Weight Change' },
+      { key: 'readiness', label: 'Readiness' },
+    ], 'wearables_export');
+  };
 
   const triggerToast = (msg: string) => {
     if (toastTimeoutId) clearTimeout(toastTimeoutId);
@@ -374,6 +402,8 @@ export default function Wearables() {
                   </button>
                   <button
                     className="btn"
+                    onClick={handleExport}
+                    disabled={filteredRows.length === 0}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -385,7 +415,8 @@ export default function Wearables() {
                       border: '1px solid var(--km-b)',
                       background: 'var(--km-s2)',
                       color: 'var(--km-t)',
-                      cursor: 'pointer'
+                      cursor: filteredRows.length === 0 ? 'not-allowed' : 'pointer',
+                      opacity: filteredRows.length === 0 ? 0.5 : 1
                     }}
                   >
                     <Download size={13} />

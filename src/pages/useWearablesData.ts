@@ -117,12 +117,19 @@ const transformPatient = (patient: any): Patient => {
   };
 };
 
-// ponytail: batch telemetry fetches by 100 patients to reduce HTTP overhead
-// 500 patients = 5 requests instead of 50
+// ponytail: the device-data endpoint only takes one patient_id per call (no
+// bulk variant server-side, see JunctionWearablesDeviceDataView), so this is
+// still one HTTP request per patient — batching here only caps how many run
+// concurrently, it does not reduce the request count. Kept at 20 in-flight so
+// Insights (which can pass hundreds of connected patients) doesn't fire
+// hundreds of parallel requests at once. Real fix is a bulk endpoint
+// server-side, but that touches per-patient Junction Sense fan-out
+// (lifecycle_data_service.py) which is unconfirmed against a live sandbox —
+// not something to change blind.
 async function fetchTelemetryBatch(patientIds: string[]): Promise<Record<string, PatientTelemetry>> {
   if (patientIds.length === 0) return {};
 
-  const batchSize = 100;
+  const batchSize = 20;
   const batches: Promise<[string, PatientTelemetry][]>[] = [];
 
   for (let i = 0; i < patientIds.length; i += batchSize) {
