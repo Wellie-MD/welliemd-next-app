@@ -147,11 +147,16 @@ async function fetchTelemetryBatch(patientIds: string[]): Promise<Record<string,
   return Object.fromEntries(results.flat());
 }
 
-// ponytail: module-level cache for patient/connection data (fetched once per session, reused across mounts)
+// ponytail: module-level cache for patient/connection data, reused across quick
+// remounts (e.g. switching tabs and back). 30s TTL keeps it honest with the
+// page's "Live data" badge — a stale connection status shouldn't outlive a
+// short nav round-trip.
+const GLOBAL_CACHE_TTL_MS = 30_000;
 let globalDataCache: {
   allPatients: Patient[];
   connections: WearableConnection[];
   clientId: string | null;
+  fetchedAt: number;
 } | null = null;
 
 export function useWearablesData(params: UseWearablesDataParams) {
@@ -173,8 +178,8 @@ export function useWearablesData(params: UseWearablesDataParams) {
 
   // 1. Fetch global roster and connections once with caching (fix #2 + cache optimization)
   useEffect(() => {
-    // If already cached (e.g. revisiting the page this session), use it immediately
-    if (globalDataCache) {
+    // If cached within the TTL (e.g. quick tab switch back), use it immediately
+    if (globalDataCache && Date.now() - globalDataCache.fetchedAt < GLOBAL_CACHE_TTL_MS) {
       setAllPatients(globalDataCache.allPatients);
       setConnections(globalDataCache.connections);
       setClientId(globalDataCache.clientId);
@@ -207,6 +212,7 @@ export function useWearablesData(params: UseWearablesDataParams) {
             allPatients: transformedAll,
             connections: fetchedConnections,
             clientId: currentClientId || null,
+            fetchedAt: Date.now(),
           };
           setAllPatients(transformedAll);
           setConnections(fetchedConnections);
