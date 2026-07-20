@@ -47,6 +47,7 @@ export const PatientProfileSchema = z.object({
     })
     .nullable()
     .optional(),
+  vitals_source_priority: z.array(z.string()).nullable().optional(),
 });
 
 export type PatientProfile = z.infer<typeof PatientProfileSchema>;
@@ -72,6 +73,7 @@ export const UpdatePatientRequestSchema = z.object({
   allergies: z.string().optional(),
   medical_conditions: z.string().optional(),
   self_reported_meds: z.string().optional(),
+  vitals_source_priority: z.array(z.string()).nullable().optional(),
 });
 
 export type UpdatePatientRequest = z.infer<typeof UpdatePatientRequestSchema>;
