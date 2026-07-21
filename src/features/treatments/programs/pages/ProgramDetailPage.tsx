@@ -33,7 +33,6 @@ import type { ProgramQuestion } from "@/features/treatments/types";
 import { formatProgramStage } from "@/features/treatments/utils/labels";
 import { cn } from "@/lib/utils";
 import { CLIENT_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
-import { ProgramConfigurationAccess } from "@/features/treatments/programs/components/ProgramConfigurationAccess";
 import {
   AuthRow,
   HIDDEN_SYSTEM_QUESTION_KINDS,
@@ -457,16 +456,6 @@ export default function ProgramDetailPage() {
             </Button>
           </div>
         </header>
-
-        <ProgramConfigurationAccess
-          programId={foundProgram.id}
-          treatmentTypeKey={foundProgram.treatmentTypeKey}
-          serviceStatesAll={foundProgram.serviceStatesAll ?? true}
-          serviceStates={foundProgram.serviceStates || []}
-          consentCount={(foundProgram.consentIds || []).length}
-          productLaneCount={(foundProgram.checkoutQuestions || []).length}
-          labCount={(foundProgram.labRequirements || []).length}
-        />
 
 		        <section className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-700 dark:bg-[#171b27] dark:shadow-none">
 		          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_325px] lg:items-start">
