@@ -598,7 +598,9 @@ function RevisionInvoiceModal({
                 : firstFallbackIsInitialPrescription ? index : index + 1;
               const sectionLabel = isInitialFallback ? "Initial prescription" : `Revision ${displayRevisionNumber}`;
               const productName = adjustment.product_name || "Revised prescription";
-              const summaryText = prescriptionSummaryText(productName, adjustment.product_total);
+              const summaryText = isInitialFallback
+                ? prescriptionSummaryText(productName, adjustment.product_total, adjustment.shipping_amount)
+                : null;
               return (
                 <section key={adjustment.id} className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
