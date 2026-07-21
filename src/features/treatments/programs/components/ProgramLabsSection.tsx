@@ -4,7 +4,7 @@ import { labsApi, type LabPanel } from "@/api/labs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Program, ProgramLabRequirement } from "@/features/treatments/types";
-import { useSaveProgram } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
+import { useSaveProgramLabRequirements } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { toast } from "@/components/ui/use-toast";
 
 interface Props {
@@ -17,7 +17,7 @@ export function ProgramLabsSection({ program }: Props) {
     program.labRequirements || [],
   );
   const [loading, setLoading] = useState(true);
-  const saveProgram = useSaveProgram();
+  const saveProgramLabs = useSaveProgramLabRequirements();
 
   useEffect(() => {
     setRequirements(program.labRequirements || []);
@@ -47,7 +47,7 @@ export function ProgramLabsSection({ program }: Props) {
   const persist = async (next: ProgramLabRequirement[]) => {
     setRequirements(next);
     try {
-      await saveProgram.mutateAsync({ ...program, labRequirements: next });
+      await saveProgramLabs.mutateAsync({ programId: program.id, requirements: next });
       toast({
         title: "Program labs saved",
         description: "Required labs will be resolved during tenant assignment.",
@@ -98,7 +98,7 @@ export function ProgramLabsSection({ program }: Props) {
               className="h-9 min-w-52 rounded-lg border border-slate-200 bg-white px-3 pr-8 text-xs font-semibold text-slate-700"
               value=""
               onChange={(event) => addPanel(event.target.value)}
-              disabled={saveProgram.isPending || available.length === 0}
+              disabled={saveProgramLabs.isPending || available.length === 0}
             >
               <option value="">{available.length ? "Add lab panel…" : "No panels available"}</option>
               {available.map((panel) => (
@@ -130,7 +130,7 @@ export function ProgramLabsSection({ program }: Props) {
                 variant="ghost"
                 size="icon"
                 aria-label={`Remove ${requirement.panelName || "lab panel"}`}
-                disabled={saveProgram.isPending}
+                disabled={saveProgramLabs.isPending}
                 onClick={() => void persist(
                   requirements
                     .filter((item) => item.panelId !== requirement.panelId)

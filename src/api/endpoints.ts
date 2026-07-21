@@ -29,3 +29,14 @@ export const TREATMENT_ASSIGNMENT_ENDPOINTS = {
   cancel: (operationId: string) =>
     `/treatments/assignment/operations/${operationId}/cancel/`,
 } as const;
+
+export const TREATMENT_PROGRAM_ENDPOINTS = {
+  collection: "treatments/programs/",
+  detail: (programId: string) => `treatments/programs/${programId}/`,
+  slug: (programId: string) => `treatments/programs/${programId}/slug/`,
+  live: (programId: string) => `treatments/programs/${programId}/live/`,
+  archive: (programId: string) => `treatments/programs/${programId}/archive/`,
+  restore: (programId: string) => `treatments/programs/${programId}/restore/`,
+  duplicate: (programId: string) => `treatments/programs/${programId}/duplicate/`,
+  questions: (programId: string) => `treatments/programs/${programId}/questions/`,
+} as const;

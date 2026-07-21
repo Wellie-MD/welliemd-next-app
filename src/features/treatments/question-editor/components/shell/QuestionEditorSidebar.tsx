@@ -1,9 +1,10 @@
-import { Search } from "lucide-react";
+import { FileCheck, Layers3, LockKeyhole, Search, ShoppingCart } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type { ProgramQuestion } from "@/features/treatments/types";
 import { QuestionTags } from "@/features/treatments/common/components/QuestionTags";
 import { getQuestionTags } from "@/features/treatments/utils/questionTags";
+import { PROGRAM_ELEMENT_TONES } from "@/features/treatments/programs/programAuthoringConstants";
 
 interface QuestionEditorSidebarProps {
   questions: ProgramQuestion[];
@@ -23,7 +24,7 @@ export function QuestionEditorSidebar({
   const filteredQuestions = questions.filter((q) => q.text.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
-    <aside className="border-r border-slate-200 bg-white flex flex-col overflow-hidden h-full z-10 w-[300px] shrink-0">
+    <aside className="z-10 flex h-full w-[280px] shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-slate-50">
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
         <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">FLOW</span>
         <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-600">
@@ -46,28 +47,39 @@ export function QuestionEditorSidebar({
       <div className="flex-1 overflow-y-auto p-3 space-y-1">
         {filteredQuestions.map((question) => {
           const isActive = question.id === activeQuestionId;
+          const isAuth = question.kind === "personal_details";
+          const isCheckout = question.kind === "checkout";
+          const isConsent = question.kind === "consent";
+          const isSection = question.kind === "section";
+          const tone = isAuth ? PROGRAM_ELEMENT_TONES.auth : isCheckout ? PROGRAM_ELEMENT_TONES.checkout : isConsent ? PROGRAM_ELEMENT_TONES.consent : isSection ? PROGRAM_ELEMENT_TONES.section : PROGRAM_ELEMENT_TONES.question;
+          const Icon = isAuth ? LockKeyhole : isCheckout ? ShoppingCart : isConsent ? FileCheck : isSection ? Layers3 : null;
 
           return (
             <button
               key={question.id}
               onClick={() => onSelectQuestion(question.id)}
-              className={`w-full text-left flex items-start gap-3 rounded-lg p-3 transition-all ${
+              className={`flex w-full items-start gap-2 rounded-md border-l-[3px] px-2 py-2 text-left transition-all ${
                 isActive
-                  ? "bg-[#eff6ff] border-l-[3px] border-l-[#3b82f6] shadow-[0_1px_2px_rgba(0,0,0,0.02)]"
-                  : "border-l-[3px] border-l-transparent hover:bg-slate-50 text-slate-600"
+                  ? tone.active
+                  : "border-l-transparent text-slate-600 hover:bg-slate-100"
               }`}
             >
               <div
-                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold mt-0.5 ${
-                  isActive ? "bg-[#3b82f6] text-white" : "bg-slate-100 text-slate-500"
+                className={`mt-0.5 flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${
+                  isActive ? "bg-slate-600 text-white" : "border border-slate-200 bg-white text-slate-500"
                 }`}
               >
                 {question.order}
               </div>
               <div className="min-w-0 flex-1">
+                {Icon && (
+                  <span className={`mb-1 inline-flex h-4 w-4 items-center justify-center rounded border ${tone.icon}`}>
+                    <Icon className="h-2.5 w-2.5" />
+                  </span>
+                )}
                 <div
-                  className={`line-clamp-2 leading-tight text-xs mb-2 ${
-                    isActive ? "font-bold text-[#1e3a8a]" : "font-semibold text-slate-700"
+                  className={`line-clamp-2 text-[10.5px] leading-[1.3] ${
+                    isActive ? "font-semibold text-slate-900" : "font-medium text-slate-700"
                   }`}
                 >
                   {question.text || "(untitled question)"}

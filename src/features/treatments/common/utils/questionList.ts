@@ -1,30 +1,39 @@
 import type { ProgramQuestion } from "@/features/treatments/types";
+import { PROGRAM_QUESTION_KIND_ORDER } from "@/features/treatments/programs/programAuthoringConstants";
+
+const searchableQuestionText = (question: ProgramQuestion) => [
+  question.text,
+  question.kind,
+  question.section,
+  question.consentText,
+  ...(question.choices || []),
+  ...(question.dqChoices || []),
+  ...(question.checkoutProductIds || []),
+  ...(question.checkoutProducts || []).flatMap((product) => [
+    product.category,
+    product.regimen,
+    product.doseLabel,
+  ]),
+  ...Object.values(question.elementConfig || {}).filter((value): value is string => typeof value === "string"),
+].filter(Boolean).join(" ").toLowerCase();
 
 export function filterQuestions(questions: ProgramQuestion[], searchQuery: string, typeFilter: string) {
   let result = [...questions].sort((a, b) => a.order - b.order);
   if (searchQuery.trim()) {
     const query = searchQuery.toLowerCase();
-    result = result.filter((question) =>
-      question.text.toLowerCase().includes(query) || question.kind.toLowerCase().includes(query)
-    );
+    result = result.filter((question) => searchableQuestionText(question).includes(query));
   }
   if (typeFilter !== "all") {
-    result = result.filter((question) => typeFilter === "single"
-      ? question.kind === "single_choice" || question.kind === "yes_no"
-      : question.kind === typeFilter);
+    result = result.filter((question) => question.kind === typeFilter);
   }
   return result;
 }
 
 export function countQuestionTypes(questions: ProgramQuestion[]) {
-  const counts = { all: questions.length, single: 0, checkout: 0, multiple: 0, consent: 0, number: 0, date: 0 };
+  const counts: Record<string, number> = { all: questions.length };
+  PROGRAM_QUESTION_KIND_ORDER.forEach((kind) => { counts[kind] = 0; });
   for (const question of questions) {
-    if (question.kind === "single_choice" || question.kind === "yes_no") counts.single++;
-    else if (question.kind === "multiple_choice") counts.multiple++;
-    else if (question.kind === "checkout") counts.checkout++;
-    else if (question.kind === "consent") counts.consent++;
-    else if (question.kind === "number") counts.number++;
-    else if (question.kind === "date") counts.date++;
+    counts[question.kind] = (counts[question.kind] || 0) + 1;
   }
   return counts;
 }

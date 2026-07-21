@@ -153,7 +153,7 @@ export function StandardEditor({
         onSave={handleSaveClick}
         onTestFlow={onTestFlow}
       />
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)_340px] overflow-hidden">
+      <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)_380px]">
         {sidebar}
         <main className="overflow-y-auto p-8 bg-white relative">
           <div className="max-w-2xl mx-auto space-y-10 pb-12">

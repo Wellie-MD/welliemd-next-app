@@ -1,6 +1,6 @@
 import { QuestionEditorHeader } from "@/features/treatments/question-editor/components/shell/QuestionEditorHeader";
 import { AuthPatientPreview } from "../previews/AuthPatientPreview";
-import { ShieldCheck, Info } from "lucide-react";
+import { Info, LockKeyhole } from "lucide-react";
 import type { ProgramQuestion } from "@/features/treatments/types";
 
 interface AuthEditorProps {
@@ -38,27 +38,42 @@ export function AuthEditor({
         onTestFlow={onTestFlow}
       />
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)_340px] overflow-hidden">
+      <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)_380px]">
         {sidebar}
 
-        <main className="overflow-y-auto p-8 bg-white border-r border-slate-150 relative">
-          <div className="max-w-xl mx-auto mt-12 text-center">
-            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-blue-100 shadow-sm">
-              <ShieldCheck className="w-8 h-8 text-blue-600" />
+        <main className="relative overflow-y-auto border-r border-slate-200 bg-white px-7 py-5">
+          <div className="mx-auto max-w-3xl">
+            <div className="mb-4 flex items-center gap-2 border-b border-slate-200 pb-3">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-amber-100 text-amber-700">
+                <LockKeyhole className="h-3 w-3" />
+              </span>
+              <h2 className="text-[11px] font-extrabold uppercase tracking-[0.04em] text-slate-800">Patient Authentication</h2>
             </div>
-            <h2 className="text-xl font-bold text-slate-900 mb-3">Authentication Required</h2>
-            <p className="text-[14px] text-slate-600 mb-8 leading-relaxed max-w-md mx-auto">
-              This step forces the patient to log in or create an account before continuing their flow.
-            </p>
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-4">
+              <div className="text-[12px] font-bold text-slate-900">Email — login if existing, create account if new</div>
+              <p className="mt-1 text-[11px] leading-5 text-slate-600">
+                The patient enters their email address. The system checks for an existing account and routes accordingly — no further configuration is required.
+              </p>
+            </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 text-left flex items-start gap-3 shadow-sm">
-              <Info className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-[13px] font-bold text-slate-900 mb-1">Globally Managed Settings</h4>
-                <p className="text-[13px] text-slate-500 leading-relaxed">
-                  Authentication settings (such as requiring Phone Verification or Identity Check) are managed at the <strong>Program Level</strong> via the main program settings page. There is nothing to configure on this specific step.
-                </p>
+            <div className="mb-3 mt-6 text-[10px] font-bold uppercase tracking-[0.05em] text-slate-400">How it works</div>
+            <div className="space-y-2">
+              <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[11px] font-bold text-blue-700">1</span>
+                <div><div className="text-[11px] font-semibold text-slate-900">Patient enters email</div><div className="mt-0.5 text-[10px] text-slate-500">Single field. We use the email as the lookup key against the patient database.</div></div>
               </div>
+              <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-700">2a</span>
+                <div><div className="text-[11px] font-semibold text-slate-900">Existing account → Log in</div><div className="mt-0.5 text-[10px] text-slate-500">If the email matches an existing patient, they're prompted to log in with their password.</div></div>
+              </div>
+              <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-violet-100 text-[10px] font-bold text-violet-700">2b</span>
+                <div><div className="text-[11px] font-semibold text-slate-900">New email → Create account</div><div className="mt-0.5 text-[10px] text-slate-500">If the email isn't recognized, the patient is routed to a quick account creation step.</div></div>
+              </div>
+            </div>
+            <div className="mt-4 flex items-start gap-2 rounded-md border border-blue-300 bg-blue-50 px-3 py-2.5 text-[10px] leading-4 text-blue-700">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>This step appears at position #{questionOrder} of the patient's intake flow. Use Reorder on the Program page to move it.</span>
             </div>
           </div>
         </main>

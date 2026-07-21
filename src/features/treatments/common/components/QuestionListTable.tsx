@@ -16,7 +16,7 @@ interface QuestionListTableProps {
 export function QuestionListTable(props: QuestionListTableProps) {
   return (
     <>
-      <div className="grid grid-cols-[80px_1fr_120px_160px_100px] gap-6 px-6 py-3 bg-slate-50 border-b border-slate-200 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+      <div className="grid grid-cols-[44px_minmax(0,1fr)_100px_120px_72px] gap-4 border-b border-slate-200 bg-slate-50 px-7 py-2.5 text-[9px] font-extrabold uppercase tracking-[0.08em] text-slate-400">
         <div>{props.reorderActive ? "DRAG / #" : "#"}</div>
         <div>QUESTION OR ELEMENT</div>
         <div>REQUIRED</div>

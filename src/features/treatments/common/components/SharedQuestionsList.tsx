@@ -190,18 +190,48 @@ export function SharedQuestionsList({
     if (over && active.id !== over.id) {
       const oldIndex = questions.findIndex((q) => q.id === active.id);
       const newIndex = questions.findIndex((q) => q.id === over.id);
+      const sourceQuestion = questions[oldIndex];
+      const targetQuestion = questions[newIndex];
+      if (!sourceQuestion || !targetQuestion || sourceQuestion.elementConfig?.system === true) return;
+      if (entityType === "program" && sourceQuestion.kind !== targetQuestion.kind &&
+          (sourceQuestion.kind === "checkout" || targetQuestion.kind === "checkout")) {
+        toast({
+          title: "Checkout stays at the end of the intake",
+          description: "Reorder screening questions and checkout options within their own groups.",
+        });
+        return;
+      }
       const updated = arrayMove(questions, oldIndex, newIndex).map((q, idx) => ({
         ...q,
         order: idx + 1,
       }));
 
       setQuestions(updated);
+      if (entityType === "program" && program && sourceQuestion.kind === "checkout") {
+        const checkoutQuestions = updated
+          .filter((question) => question.kind === "checkout")
+          .map(listItemToCheckoutQuestion);
+        treatmentsApi.saveProgram({
+          ...program,
+          checkoutQuestions,
+          checkoutQuestionCount: checkoutQuestions.length,
+        }).then(() => {
+          queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
+          toast({ title: "Checkout Order Saved" });
+        }).catch(() => {
+          setQuestions(questions);
+          toast({ title: "Error", description: "Failed to save checkout order.", variant: "destructive" });
+        });
+        return;
+      }
       const reorderMutation = entityType === "section"
         ? reorderSectionFieldsMutation
         : reorderQuestionsMutation;
 
       reorderMutation.mutate(
-        updated.map((q) => q.id),
+        updated
+          .filter((question) => question.kind !== "checkout" && question.elementConfig?.system !== true)
+          .map((q) => q.id),
         {
           onSuccess: () => {
             toast({ title: "Order Saved", description: "The list order has been successfully saved." });
@@ -224,6 +254,10 @@ export function SharedQuestionsList({
   // Editing dispatch
   const handleEditClick = (q: ProgramQuestion) => {
     setActiveEditingQuestion(q);
+    if (entityType === "program") {
+      setIsQuestionOpen(true);
+      return;
+    }
     if (q.kind === "checkout") {
       setIsCheckoutOpen(true);
     } else if (q.kind === "personal_details") {
@@ -231,6 +265,16 @@ export function SharedQuestionsList({
     } else {
       setIsQuestionOpen(true);
     }
+  };
+
+  const handleOpenAuthentication = () => {
+    const authentication = questions.find((question) => question.kind === "personal_details") || null;
+    setActiveEditingQuestion(authentication);
+    if (entityType === "program") {
+      setIsQuestionOpen(true);
+      return;
+    }
+    setIsAuthOpen(true);
   };
 
   // Deleting confirmation
@@ -473,10 +517,7 @@ export function SharedQuestionsList({
               setActiveEditingQuestion(null);
               setIsQuestionOpen(true);
             }}
-            onAddAuth={() => {
-              setActiveEditingQuestion(null);
-              setIsAuthOpen(true);
-            }}
+            onAddAuth={handleOpenAuthentication}
             onAddServiceArea={handleAddServiceArea}
             onAddSection={() => {
               setActiveEditingQuestion(null);
@@ -531,6 +572,7 @@ export function SharedQuestionsList({
             initialQuestionId={activeEditingQuestion?.id || null}
             questions={questions}
             programId={entityId}
+            programName={entityName}
           />
           <CheckoutQuestionModal
             open={isCheckoutOpen}
@@ -631,6 +673,7 @@ export function SharedQuestionsList({
           initialQuestionId={activeEditingQuestion?.id || null}
           questions={questions}
           programId={entityId}
+          programName={entityName}
         />
         <CheckoutQuestionModal
           open={isCheckoutOpen}
@@ -697,7 +740,7 @@ export function SharedQuestionsList({
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 w-full">
+    <div className="flex min-h-screen w-full flex-col bg-slate-50 p-6">
       <QuestionListHeader
         title={headerTitle}
         subtitle={headerSubtitle}
@@ -706,23 +749,22 @@ export function SharedQuestionsList({
         onBack={onBack}
         onToggleReorder={() => setIsReorderActive((active) => !active)}
         onAddQuestion={() => { setActiveEditingQuestion(null); setIsQuestionOpen(true); }}
-        onAddAuth={() => { setActiveEditingQuestion(null); setIsAuthOpen(true); }}
+        onAddAuth={handleOpenAuthentication}
         onAddServiceArea={handleAddServiceArea}
         onAddSection={() => { setActiveEditingQuestion(null); setIsSectionOpen(true); }}
         onAddConsent={() => { setActiveEditingQuestion(null); setIsConsentOpen(true); }}
         onAddCheckout={() => { setActiveEditingQuestion(null); setIsCheckoutOpen(true); }}
       />
 
-      <main className="flex-1 p-6 w-full">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-          <QuestionListFilters
-            counts={typeCounts}
-            selectedType={typeFilter}
-            searchQuery={searchQuery}
-            onSelectType={setTypeFilter}
-            onSearchChange={setSearchQuery}
-          />
-
+      <main className="mt-7 w-full flex-1">
+        <QuestionListFilters
+          counts={typeCounts}
+          selectedType={typeFilter}
+          searchQuery={searchQuery}
+          onSelectType={setTypeFilter}
+          onSearchChange={setSearchQuery}
+        />
+        <div className="flex flex-col overflow-hidden rounded-[10px] border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.02)]">
           <QuestionListTable
             questions={processedQuestions}
             reorderActive={isReorderActive}
@@ -742,6 +784,7 @@ export function SharedQuestionsList({
         initialQuestionId={activeEditingQuestion?.id || null}
         questions={questions}
         programId={entityId}
+        programName={entityName}
       />
 
       <CheckoutQuestionModal

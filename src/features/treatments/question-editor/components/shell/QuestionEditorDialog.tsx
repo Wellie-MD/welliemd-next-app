@@ -59,7 +59,7 @@ export function QuestionEditorDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[98vw] w-[1500px] h-[95vh] p-0 flex flex-col overflow-hidden bg-slate-50 border border-slate-200 shadow-2xl">
+        <DialogContent className="flex h-[94vh] max-h-[880px] w-[96vw] max-w-[1440px] flex-col overflow-hidden rounded-[10px] border border-slate-200 bg-slate-50 p-0 shadow-2xl">
           {activeQuestion?.kind === "checkout" ? (
             <CheckoutEditor
               activeQuestion={activeQuestion}
@@ -70,7 +70,7 @@ export function QuestionEditorDialog({
               onClose={() => onOpenChange(false)}
               onTestFlow={handleTestFlow}
             />
-          ) : activeQuestion?.kind === "auth" || activeQuestion?.kind === "personal_details" ? (
+          ) : activeQuestion?.kind === "personal_details" ? (
             <AuthEditor
               activeQuestion={activeQuestion}
               questions={questions}

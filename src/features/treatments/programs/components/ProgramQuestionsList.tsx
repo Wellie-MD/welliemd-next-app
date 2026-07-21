@@ -7,6 +7,10 @@ import { SharedQuestionsList } from "@/features/treatments/common/components/Sha
 import { useConsents } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
 import { ProgramLabsSection } from "./ProgramLabsSection";
+import {
+  PROGRAM_AUTHORING_COPY,
+  programAuthenticationId,
+} from "@/features/treatments/programs/programAuthoringConstants";
 
 interface ProgramQuestionsListProps {
   program: Program;
@@ -17,14 +21,32 @@ export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuest
   const navigate = useNavigate();
   const { data: allConsents = [] } = useConsents();
   const displayQuestions = useMemo(
-    () => [
-      ...initialQuestions,
-      ...(program.checkoutQuestions || []).map((checkout, index): ProgramQuestion => ({
+    () => {
+      const authoredQuestions = initialQuestions.filter((question) => question.kind !== "checkout");
+      const hasAuthentication = authoredQuestions.some((question) => question.kind === "personal_details");
+      const authentication: ProgramQuestion[] = hasAuthentication ? [] : [{
+        id: programAuthenticationId(program.id),
+        order: 0,
+        text: PROGRAM_AUTHORING_COPY.authTitle,
+        kind: "personal_details",
+        section: "Authentication",
+        required: true,
+        elementConfig: {
+          system: true,
+          locked: true,
+          description: PROGRAM_AUTHORING_COPY.authDescription,
+          authConfig: program.authConfig || {},
+        },
+      }];
+      const flowQuestions = [...authentication, ...authoredQuestions]
+        .sort((left, right) => left.order - right.order)
+        .map((question, index) => ({ ...question, order: index + 1 }));
+      const checkoutQuestions = (program.checkoutQuestions || []).map((checkout, index): ProgramQuestion => ({
         id: checkout.id,
-        order: initialQuestions.length + index + 1,
+        order: flowQuestions.length + index + 1,
         text: checkout.text,
         kind: "checkout",
-        section: "Checkout",
+        section: PROGRAM_AUTHORING_COPY.checkoutSection,
         required: true,
         checkoutProductIds: checkout.products
           .map((product) => product.productId)
@@ -38,9 +60,10 @@ export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuest
             .filter((productId): productId is string => Boolean(productId)),
           visibilityRuleGroup: checkout.visibilityRules,
         },
-      })),
-    ],
-    [initialQuestions, program.checkoutQuestions]
+      }));
+      return [...flowQuestions, ...checkoutQuestions];
+    },
+    [initialQuestions, program]
   );
 
   const handleBack = () => {
@@ -59,8 +82,8 @@ export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuest
     <div className="flex items-center gap-2">
       <Button
         onClick={() => setIsSimulateOpen(true)}
-        variant="outline"
-        className="h-9 px-4 text-[13px] font-semibold text-slate-600 border-slate-200 hover:bg-slate-50 rounded-lg shadow-sm"
+        variant="ghost"
+        className="h-9 rounded-md px-3 text-[11px] font-medium text-slate-700 shadow-none hover:bg-slate-100"
       >
         <Eye className="h-4 w-4 mr-2" />
         Preview
@@ -68,8 +91,8 @@ export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuest
       {viewMode === "list" && (
         <Button
           onClick={() => setViewMode("flow")}
-          variant="outline"
-          className="h-9 px-4 text-[13px] font-semibold text-slate-600 border-slate-200 hover:bg-slate-50 rounded-lg shadow-sm"
+          variant="ghost"
+          className="h-9 rounded-md px-3 text-[11px] font-medium text-slate-700 shadow-none hover:bg-slate-100"
         >
           <Grid3X3 className="h-4 w-4 mr-2" />
           Flow Builder
@@ -78,8 +101,8 @@ export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuest
       {viewMode === "flow" && (
         <Button
           onClick={() => setViewMode("list")}
-          variant="outline"
-          className="h-9 px-4 text-[13px] font-semibold text-slate-600 border-slate-200 hover:bg-slate-50 rounded-lg shadow-sm"
+          variant="ghost"
+          className="h-9 rounded-md px-3 text-[11px] font-medium text-slate-700 shadow-none hover:bg-slate-100"
         >
           <List className="h-4 w-4 mr-2" />
           Questions
@@ -97,7 +120,7 @@ export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuest
         program={program}
         initialQuestions={displayQuestions}
         headerTitle={program.name}
-        headerSubtitle="Manage questions for this template"
+        headerSubtitle={PROGRAM_AUTHORING_COPY.subtitle}
         onBack={handleBack}
         headerExtraActions={headerExtraActions}
         authConfig={program.authConfig}
