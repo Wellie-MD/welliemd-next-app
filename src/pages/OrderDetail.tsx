@@ -2189,7 +2189,7 @@ function OrderDetailInner() {
                 <span className="text-slate-900 dark:text-white font-medium">{formatDate(paymentDisplayDate) || "—"}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Provider</span>
+                <span className="text-slate-500">Gateway</span>
                 <span className="text-slate-900 dark:text-white font-medium">{order.paymentProcessor || "—"}</span>
               </div>
               <div className="flex justify-between">
