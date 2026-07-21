@@ -225,7 +225,7 @@ export default function CouponLinksModal({ open, onOpenChange, coupon, coupons =
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Links for Coupon{selectedCoupon ? `: ${selectedCoupon.code}` : ""}</DialogTitle>
         </DialogHeader>
