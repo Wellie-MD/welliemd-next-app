@@ -19,6 +19,7 @@ export interface ProgramCheckoutProduct {
   doseMappingId?: number;
   doseLabel: string;
   productId?: string;
+  sourceProductId?: string;
   /** Monthly price in USD. When omitted, falls back to the structured price map. */
   price?: number;
   productRole: ProgramProductRole;

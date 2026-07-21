@@ -454,7 +454,7 @@ export default function ProgramDetailPage() {
         open={isCheckoutOpen}
         onOpenChange={setIsCheckoutOpen}
         programName={foundProgram.name}
-        screeningQuestions={allQuestions.map(q => ({ id: q.id, text: q.text }))}
+        screeningQuestions={allQuestions}
         initialQuestion={
           editingCheckoutId
             ? (foundProgram.checkoutQuestions || []).find(cq => cq.id === editingCheckoutId)

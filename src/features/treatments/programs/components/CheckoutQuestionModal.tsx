@@ -7,13 +7,15 @@ import { CheckoutProductsSection } from "@/features/treatments/programs/checkout
 import { useCheckoutQuestionForm } from "@/features/treatments/programs/checkout-question/hooks/useCheckoutQuestionForm";
 import { QuestionVisibilityTab } from "@/features/treatments/question-editor/components/tabs/QuestionVisibilityTab";
 
+type CheckoutVisibilityQuestion = Pick<ProgramQuestion, "id" | "text"> & Partial<ProgramQuestion>;
+
 interface CheckoutQuestionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (data: Omit<ProgramCheckoutQuestion, "id">) => Promise<void>;
   initialQuestion?: ProgramCheckoutQuestion | null;
   programName?: string;
-  screeningQuestions?: ProgramQuestion[];
+  screeningQuestions?: CheckoutVisibilityQuestion[];
 }
 
 export function CheckoutQuestionModal({
@@ -25,10 +27,29 @@ export function CheckoutQuestionModal({
   screeningQuestions = [],
 }: CheckoutQuestionModalProps) {
   const form = useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenChange });
+  const visibilityQuestions: ProgramQuestion[] = screeningQuestions.map((question, index) => ({
+    id: question.id,
+    order: question.order ?? index + 1,
+    text: question.text,
+    kind: question.kind ?? "text",
+    section: question.section ?? "Screening",
+    required: question.required ?? false,
+    choices: question.choices,
+    dqChoices: question.dqChoices,
+    consentText: question.consentText,
+    checkoutProductIds: question.checkoutProductIds,
+    checkoutProducts: question.checkoutProducts,
+    visibilityRule: question.visibilityRule,
+    visibilityRuleGroup: question.visibilityRuleGroup,
+    includeInQa: question.includeInQa,
+    hiddenFromPatient: question.hiddenFromPatient,
+    prefillFromPrevious: question.prefillFromPrevious,
+    elementConfig: question.elementConfig,
+  }));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-w-[980px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl">
+      <DialogContent className="flex h-[min(760px,calc(100vh-2rem))] max-h-[calc(100vh-2rem)] max-w-[980px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 shadow-2xl">
         <div className="z-20 flex shrink-0 items-start justify-between border-b border-slate-200 bg-white px-6 py-4">
           <div>
             <h2 className="text-[16px] font-bold leading-tight text-slate-900">
@@ -43,11 +64,11 @@ export function CheckoutQuestionModal({
           </button>
         </div>
 
-        <div className="grid max-h-[72vh] flex-1 grid-cols-[1fr,340px] overflow-hidden">
-          <div className="space-y-5 overflow-y-auto border-r border-slate-150 p-6">
+        <div className="grid min-h-0 flex-1 grid-cols-[1fr,340px] overflow-hidden">
+          <div className="min-h-0 space-y-5 overflow-y-auto border-r border-slate-150 p-6">
             <CheckoutProductsSection
               products={form.products}
-              eligibleQuestions={screeningQuestions}
+              eligibleQuestions={visibilityQuestions}
               onAddProduct={form.handleAddProduct}
               onRemoveProduct={form.handleRemoveProduct}
               onProductFieldChange={form.handleProductFieldChange}
@@ -57,7 +78,7 @@ export function CheckoutQuestionModal({
             <QuestionVisibilityTab
               visibilityRuleGroup={form.visibilityRuleGroup}
               setVisibilityRuleGroup={form.handleVisibilityRuleGroupChange}
-              questions={screeningQuestions}
+              questions={visibilityQuestions}
               currentQuestionId=""
             />
           </div>

@@ -68,8 +68,11 @@ const checkoutProductFromRecord = (record: CheckoutRecord, index: number): Progr
   regimen: String(record.regimen ?? record.titration_category ?? ""),
   doseMappingId: Number(record.doseMappingId ?? record.dose_mapping_id) || undefined,
   doseLabel: String(record.doseLabel ?? record.dose_label ?? record.dose ?? ""),
-  productId: record.productId || record.product_id || record.value
-    ? String(record.productId ?? record.product_id ?? record.value)
+  productId: record.productId || record.product_id || record.value || record.sourceProductId || record.source_product_id
+    ? String(record.productId ?? record.product_id ?? record.value ?? record.sourceProductId ?? record.source_product_id)
+    : undefined,
+  sourceProductId: record.sourceProductId || record.source_product_id
+    ? String(record.sourceProductId ?? record.source_product_id)
     : undefined,
   price: Number(record.price ?? record.final_price ?? record.unit_price) || undefined,
   visibilityRules: checkoutVisibilityGroup(

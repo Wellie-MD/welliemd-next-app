@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { CustomProgram, CustomProgramFlowItem, Program, ProgramQuestion } from "@/features/treatments/types";
+import type { CommonSection, ConsentForm, CustomProgram, CustomProgramFlowItem, Program, ProgramQuestion } from "@/features/treatments/types";
 import { useCustomProgramFlowBuilder } from "@/features/treatments/flow-builder/hooks/useCustomProgramFlowBuilder";
 import { getQuestionnairePreviewApiBaseUrl } from "@/features/treatments/utils/previewUrl";
 import { PatientFlowTestModal } from "./modals/PatientFlowTestModal";
@@ -16,10 +16,14 @@ interface CustomProgramFlowBuilderProps {
   onSave?: (updated: CustomProgram) => void;
   onUpdateFlow?: (updatedItems: CustomProgramFlowItem[]) => void;
   programs: Program[];
+  sections: CommonSection[];
+  consents: ConsentForm[];
+  onEditCheckoutOverride: (item: CustomProgramFlowItem) => void;
+  onDeleteCheckoutOverride: (item: CustomProgramFlowItem) => void;
   onSaveMatching: (rules: CustomProgram["programMatchingRules"]) => Promise<void>;
 }
 
-export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, onUpdateFlow, programs, onSaveMatching }: CustomProgramFlowBuilderProps) {
+export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, onUpdateFlow, programs, sections, consents, onEditCheckoutOverride, onDeleteCheckoutOverride, onSaveMatching }: CustomProgramFlowBuilderProps) {
   const builder = useCustomProgramFlowBuilder({ customProgram, onSave, onUpdateFlow });
   const [matchingOpen, setMatchingOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<CustomProgramFlowItem | null>(null);
@@ -93,13 +97,16 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
 
       {builder.viewMode === "list" && (
         <FlowBuilderListView
-          flowItems={customProgram.flowItems}
-          onDeleteItem={builder.handleDeleteItem}
-          onMoveItem={builder.handleMoveItem}
-          onDragStart={builder.handleDragStart}
-          onDragOver={builder.handleDragOver}
-          onDragEnd={builder.handleDragEnd}
-          onDrop={builder.handleDrop}
+          customProgram={customProgram}
+          programs={programs}
+          sections={sections}
+          consents={consents}
+          onUpdateFlow={onUpdateFlow}
+          onEditQuestion={setEditingQuestion}
+          onOpenPreview={() => builder.setIsTestModalOpen(true)}
+          onConfigureMatching={() => setMatchingOpen(true)}
+          onEditCheckoutOverride={onEditCheckoutOverride}
+          onDeleteCheckoutOverride={onDeleteCheckoutOverride}
         />
       )}
 
