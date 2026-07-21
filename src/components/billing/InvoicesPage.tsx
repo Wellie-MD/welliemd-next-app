@@ -222,12 +222,17 @@ const renderCostTable = (
   medication?: string,
   shipping?: string,
   total?: string,
-  showHeaders: boolean = false
+  showHeaders: boolean = false,
+  medicationLabel: string = "Medication",
+  totalLabel: string = "Total",
+  adjustment?: Invoice["revision_adjustments"] extends Array<infer T> ? T : never
 ) => {
   const rows = [
-    ["Medication", medication],
+    [medicationLabel || "Medication", medication],
     ["Shipping", shipping],
   ].filter(([_, amt]) => amt && amt !== "0.00" && amt !== "0");
+  const isCredit = adjustment?.kind === "credit_note";
+  const isNoCharge = adjustment?.kind === "no_charge_revision";
 
   return (
     <table className="mt-2 w-full table-fixed text-xs">
@@ -243,9 +248,24 @@ const renderCostTable = (
           </tr>
         ))}
         <tr className="border-t border-slate-200 dark:border-slate-700">
-          <td className="pt-2 font-bold" colSpan={3}>Total</td>
+          <td className="pt-2 font-bold" colSpan={3}>{totalLabel}</td>
           <td className="pt-2 text-right font-bold">{formatMoney(total)}</td>
         </tr>
+        {adjustment && !isNoCharge && (
+          <tr>
+            <td className={`py-1.5 font-semibold ${isCredit ? "text-emerald-600" : "text-red-600"}`}>
+              <span className="inline-flex items-center gap-2">
+                {isCredit ? "Credit note" : "Supplemental charge"}
+                <AdjustmentPill kind={adjustment.kind} status={adjustment.status} />
+              </span>
+            </td>
+            <td />
+            <td />
+            <td className={`py-1.5 text-right font-bold ${isCredit ? "text-emerald-600" : "text-red-600"}`}>
+              {isCredit ? "−" : "+"}{formatMoney(adjustment.adjustment_amount)}
+            </td>
+          </tr>
+        )}
       </tbody>
     </table>
   );
@@ -257,12 +277,23 @@ const renderProductCostTable = (
     medication?: string;
     shipping?: string;
     total?: string;
+    medicationLabel?: string;
+    totalLabel?: string;
+    adjustment?: Invoice["revision_adjustments"] extends Array<infer T> ? T : never;
   },
   showHeaders: boolean = false
 ) => {
   const productRows = (items || []).filter((item) => item?.name);
   if (productRows.length === 0) {
-    return renderCostTable(fallback.medication, fallback.shipping, fallback.total, showHeaders);
+    return renderCostTable(
+      fallback.medication,
+      fallback.shipping,
+      fallback.total,
+      showHeaders,
+      fallback.medicationLabel,
+      fallback.totalLabel,
+      fallback.adjustment
+    );
   }
 
   const medicationTotal = productRows.reduce((sum, item) => {
@@ -277,6 +308,9 @@ const renderProductCostTable = (
   const computedTotal = Number.isFinite(explicitTotal)
     ? explicitTotal
     : medicationTotal + shippingTotal;
+  const adjustment = fallback.adjustment;
+  const isCredit = adjustment?.kind === "credit_note";
+  const isNoCharge = adjustment?.kind === "no_charge_revision";
 
   return (
     <table className="mt-2 w-full table-fixed text-xs">
@@ -303,12 +337,41 @@ const renderProductCostTable = (
           </tr>
         )}
         <tr className="border-t border-slate-200 dark:border-slate-700">
-          <td className="pt-2 font-bold" colSpan={3}>Total</td>
+          <td className="pt-2 font-bold" colSpan={3}>{fallback.totalLabel || "Total"}</td>
           <td className="pt-2 text-right font-bold">{formatMoney(computedTotal)}</td>
         </tr>
+        {adjustment && !isNoCharge && (
+          <tr>
+            <td className={`py-1.5 font-semibold ${isCredit ? "text-emerald-600" : "text-red-600"}`}>
+              <span className="inline-flex items-center gap-2">
+                {isCredit ? "Credit note" : "Supplemental charge"}
+                <AdjustmentPill kind={adjustment.kind} status={adjustment.status} />
+              </span>
+            </td>
+            <td />
+            <td />
+            <td className={`py-1.5 text-right font-bold ${isCredit ? "text-emerald-600" : "text-red-600"}`}>
+              {isCredit ? "−" : "+"}{formatMoney(adjustment.adjustment_amount)}
+            </td>
+          </tr>
+        )}
       </tbody>
     </table>
   );
+};
+
+const prescriptionSummaryText = (
+  name?: string,
+  total?: string | number,
+  shipping?: string | number
+) => {
+  const cleanName = (name || "").trim();
+  if (!cleanName) return null;
+  const shippingAmount = Number(shipping || 0);
+  const shippingText = Number.isFinite(shippingAmount) && shippingAmount > 0
+    ? ` + Shipping at ${formatMoney(shippingAmount)}`
+    : "";
+  return `${cleanName} at ${formatMoney(total)}${shippingText}.`;
 };
 
 function RevisionInvoiceModal({
@@ -325,6 +388,18 @@ function RevisionInvoiceModal({
   const netAdjustment = Number(summary?.net_adjustment || 0);
   const requestedProductName = requested?.product_name || "";
   const requestedProductTotal = requested?.product_total || 0;
+  const requestedLabel = requested?.prescribed_differs
+    ? (requested?.original_requested_product_name || "Original request")
+    : (requested?.product_name || "Original prescription");
+  const requestedMedicationAmount = requested?.prescribed_differs
+    ? requested?.original_requested_medication_amount
+    : requested?.medication_amount;
+  const requestedShippingAmount = requested?.prescribed_differs
+    ? requested?.original_requested_shipping_amount
+    : requested?.shipping_amount;
+  const requestedTotalAmount = requested?.prescribed_differs
+    ? requested?.original_requested_product_total
+    : requested?.product_total;
   const splitCaptureAdjustmentMirrorsBase = Boolean(
     requested?.prescribed_differs &&
     adjustments.some((adjustment) => {
@@ -350,10 +425,21 @@ function RevisionInvoiceModal({
   const fallbackAdjustments = prescriptionEvents.length > 0
     ? adjustments.filter((adjustment) => !prescriptionEventAdjustmentIds.has(adjustment.id))
     : adjustments;
+  const firstFallbackIsInitialPrescription = Boolean(
+    prescriptionEvents.length === 0 &&
+    fallbackAdjustments.length > 0 &&
+    fallbackAdjustments[0]?.kind === "no_charge_revision" &&
+    Math.abs(Number(fallbackAdjustments[0]?.adjustment_amount || 0)) < 0.005 &&
+    (
+      !requestedProductName ||
+      !fallbackAdjustments[0]?.product_name ||
+      fallbackAdjustments[0].product_name.trim().toLowerCase() === requestedProductName.trim().toLowerCase()
+    )
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-8">
-      <div className="w-full max-w-5xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-950">
+      <div className="w-full max-w-[880px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-950">
         <header className="border-b border-slate-200 px-5 py-5 dark:border-slate-800">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -385,14 +471,14 @@ function RevisionInvoiceModal({
 
         <div className="grid md:grid-cols-[320px_1fr]">
           <aside className="border-b border-slate-200 md:border-b-0 md:border-r dark:border-slate-800">
-            <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+            <section className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Summary</h4>
               <InvoiceInfoRow label="Type" value="Reimbursement" />
               <InvoiceInfoRow label="Client order #" value={invoice.client_order_number || "-"} />
               <InvoiceInfoRow label="Issued" value={formatDate(invoice.issued_at || invoice.created_at)} />
               <InvoiceInfoRow label="Due" value={invoice.due_date ? formatDate(invoice.due_date) : "N/A"} />
             </section>
-            <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+            <section className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Amounts</h4>
               <InvoiceMoneyRow label="Invoice total" value={summary?.invoice_total} />
               {Number(summary?.supplemental_charges || 0) > 0 && (
@@ -403,7 +489,7 @@ function RevisionInvoiceModal({
               )}
               <InvoiceMoneyRow label="Adjusted total" value={summary?.adjusted_total} strong />
             </section>
-            <section className="p-5">
+            <section className="px-5 py-4">
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Payment diagnostics</h4>
               <details className="mt-3">
                 <summary className="cursor-pointer text-xs font-medium text-sky-600">Show auth &amp; capture details</summary>
@@ -421,7 +507,7 @@ function RevisionInvoiceModal({
 
           <main>
             {Number(requested?.consultation_amount || 0) > 0 && (
-              <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+              <section className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Consultation</h4>
                 <table className="mt-2 w-full text-xs">
                   {sharedColgroup}
@@ -437,67 +523,65 @@ function RevisionInvoiceModal({
                 </table>
               </section>
             )}
-            <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+            <section className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Requested · {requested?.prescribed_differs
-                  ? (requested?.original_requested_product_name || "Original request")
-                  : (requested?.product_name || "Original prescription")}
+                Requested · {requestedLabel}
               </h4>
-                {requested?.prescribed_differs
-                  ? renderCostTable(
-                      requested?.original_requested_medication_amount,
-                      requested?.original_requested_shipping_amount,
-                      requested?.original_requested_product_total,
-                      Number(requested?.consultation_amount || 0) === 0
-                    )
-                  : renderCostTable(
-                      requested?.medication_amount,
-                      requested?.shipping_amount,
-                      requested?.product_total,
-                      Number(requested?.consultation_amount || 0) === 0
-                    )
-                }
+              <p className="mt-2 text-xs text-slate-400">
+                Amount authorized at checkout — captured after prescription
+              </p>
+              {renderCostTable(
+                requestedMedicationAmount,
+                requestedShippingAmount,
+                requestedTotalAmount,
+                Number(requested?.consultation_amount || 0) === 0,
+                requestedLabel,
+                "Authorized total"
+              )}
             </section>
-            {/* When prescribed differs, insert the base prescribed product as Revision 1 */}
             {prescriptionEvents.map((event, index) => {
               const revisionNumber = index;
               const adjustment = index === 0 ? undefined : adjustmentForRevision(revisionNumber);
-              const isCredit = adjustment?.kind === "credit_note";
-              const isNoCharge = adjustment?.kind === "no_charge_revision" || !adjustment;
               const sectionLabel = index === 0 ? "Initial prescription" : `Revision ${revisionNumber}`;
+              const summaryText = index === 0
+                ? prescriptionSummaryText(event.name, event.patient_total || event.product_total, event.shipping_amount)
+                : null;
               return (
-                <section key={event.webhook_event_id || `${sectionLabel}-${index}`} className="border-b border-slate-200 p-5 dark:border-slate-800">
+                <section key={event.webhook_event_id || `${sectionLabel}-${index}`} className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                     {sectionLabel} · {event.name || "Prescribed product"}
                   </h4>
+                  {summaryText && <p className="mt-2 text-xs text-slate-400">{summaryText}</p>}
                   <div className="mt-2">
                     {renderProductCostTable(event.items, {
                       medication: event.medication_amount,
                       shipping: event.shipping_amount,
                       total: event.product_total,
+                      medicationLabel: event.name || "Prescribed product",
+                      adjustment,
                     })}
                   </div>
-                  {index > 0 && (
-                    <div className="mt-2 flex items-center justify-between text-xs font-semibold">
-                      <span className={`flex items-center gap-2 ${isNoCharge ? "text-slate-500" : isCredit ? "text-emerald-600" : "text-red-600"}`}>
-                        {isNoCharge ? "No reimbursement change" : isCredit ? "Credit note" : "Supplemental charge"}
-                        {adjustment ? <AdjustmentPill kind={adjustment.kind} status={adjustment.status} /> : null}
-                      </span>
-                      <span className={isNoCharge ? "text-slate-500" : isCredit ? "text-emerald-600" : "text-red-600"}>
-                        {adjustment ? `${isCredit ? "−" : "+"}${formatMoney(adjustment.adjustment_amount)}` : ""}
-                      </span>
-                    </div>
-                  )}
                 </section>
               );
             })}
             {prescriptionEvents.length === 0 && showImplicitBaseRevision && (
-              <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+              <section className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Initial prescription · {requested?.product_name || "Prescribed product"}
                 </h4>
+                {prescriptionSummaryText(requested?.product_name, requested?.product_total, requested?.shipping_amount) && (
+                  <p className="mt-2 text-xs text-slate-400">
+                    {prescriptionSummaryText(requested?.product_name, requested?.product_total, requested?.shipping_amount)}
+                  </p>
+                )}
                 <div className="mt-2">
-                  {renderCostTable(requested?.medication_amount, requested?.shipping_amount, requested?.product_total)}
+                  {renderCostTable(
+                    requested?.medication_amount,
+                    requested?.shipping_amount,
+                    requested?.product_total,
+                    false,
+                    requested?.product_name || "Prescribed product"
+                  )}
                 </div>
               </section>
             )}
@@ -505,25 +589,32 @@ function RevisionInvoiceModal({
               const isCredit = adjustment.kind === "credit_note";
               const isNoCharge = adjustment.kind === "no_charge_revision";
               const explicitRevisionNumber = Number(adjustment.revision_number);
-              const displayRevisionNumber = Number.isFinite(explicitRevisionNumber) && explicitRevisionNumber > 0
-                ? explicitRevisionNumber
-                : index + 1;
+              const isInitialFallback = firstFallbackIsInitialPrescription && index === 0;
+              const normalizedRevisionNumber = firstFallbackIsInitialPrescription && Number.isFinite(explicitRevisionNumber) && explicitRevisionNumber > 0
+                ? explicitRevisionNumber - 1
+                : explicitRevisionNumber;
+              const displayRevisionNumber = Number.isFinite(normalizedRevisionNumber) && normalizedRevisionNumber > 0
+                ? normalizedRevisionNumber
+                : firstFallbackIsInitialPrescription ? index : index + 1;
+              const sectionLabel = isInitialFallback ? "Initial prescription" : `Revision ${displayRevisionNumber}`;
+              const productName = adjustment.product_name || "Revised prescription";
+              const summaryText = prescriptionSummaryText(productName, adjustment.product_total);
               return (
-                <section key={adjustment.id} className="border-b border-slate-200 p-5 dark:border-slate-800">
+                <section key={adjustment.id} className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Revision {displayRevisionNumber} · {adjustment.product_name || "Revised prescription"}
+                    {sectionLabel} · {productName}
                   </h4>
+                  {summaryText && <p className="mt-2 text-xs text-slate-400">{summaryText}</p>}
                   <div className="mt-2">
-                    {renderCostTable(adjustment.medication_amount, adjustment.shipping_amount, adjustment.product_total)}
-                  </div>
-                  <div className="mt-2 flex items-center justify-between text-xs font-semibold">
-                    <span className={`flex items-center gap-2 ${isNoCharge ? "text-slate-500" : isCredit ? "text-emerald-600" : "text-red-600"}`}>
-                      {isNoCharge ? "No reimbursement change" : isCredit ? "Credit note" : "Supplemental charge"}
-                      <AdjustmentPill kind={adjustment.kind} status={adjustment.status} />
-                    </span>
-                    <span className={isNoCharge ? "text-slate-500" : isCredit ? "text-emerald-600" : "text-red-600"}>
-                      {isNoCharge ? "" : isCredit ? "−" : "+"}{formatMoney(adjustment.adjustment_amount)}
-                    </span>
+                    {renderCostTable(
+                      adjustment.medication_amount,
+                      adjustment.shipping_amount,
+                      adjustment.product_total,
+                      false,
+                      productName,
+                      "Total",
+                      isInitialFallback ? undefined : adjustment
+                    )}
                   </div>
                 </section>
               );

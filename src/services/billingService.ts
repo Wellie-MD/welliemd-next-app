@@ -48,6 +48,7 @@ export interface InvoicePrescriptionItem {
   medication_amount?: string;
   shipping_amount?: string;
   product_total?: string;
+  patient_amount?: string;
 }
 
 export interface InvoicePrescriptionEvent {
@@ -59,6 +60,7 @@ export interface InvoicePrescriptionEvent {
   medication_amount?: string;
   shipping_amount?: string;
   product_total?: string;
+  patient_total?: string;
   items?: InvoicePrescriptionItem[];
 }
 
