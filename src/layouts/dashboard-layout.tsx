@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type FC } from 'react';
+
 import { Outlet, useLocation } from 'react-router-dom';
+
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
@@ -9,8 +11,10 @@ import { IntercomWidget } from '@/features/integrations/IntercomWidget';
 import { IntercomBannersProvider } from '@/features/announcements/IntercomBannersContext';
 import { IntercomCardBanner } from '@/features/announcements/IntercomBanners';
 
-const DashboardLayout: React.FC = () => {
+const DashboardLayout: FC = () => {
   const location = useLocation();
+  const isMessagesPage = location.pathname.includes('/messages');
+  const isExplorePage = location.pathname === '/dashboard/explore';
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const isImpersonated = useAuthStore((state) => state.isImpersonated);
@@ -79,12 +83,26 @@ const DashboardLayout: React.FC = () => {
               onMobileClose={closeMobileSidebar}
             />
 
-            <main
-              style={{
-                flex: 1,
-                minWidth: 0,
-                marginLeft: isMobile ? 0 : 240,
-                transition: "margin-left 0.3s",
+          <main
+            style={{
+              flex: 1,
+              minWidth: 0,
+              marginLeft: isMobile ? 0 : 240,
+              transition: "margin-left 0.3s",
+            }}
+          >
+            {/* kinmeds3: pg padding 24px 20px → 28px 28px → 32px 36px, max-width 680→800→900 */}
+            <div
+              className={isMessagesPage ? '' : 'km-pg'}
+              style={isMessagesPage ? {
+                padding: 0,
+                maxWidth: '100%',
+                margin: 0,
+                height: 'calc((var(--app-vh, 1vh) * 100) - 60px)'
+              } : {
+                padding: isMobile ? "24px 20px 60px" : "32px 36px 60px",
+                maxWidth: isMobile ? 680 : isExplorePage ? 1200 : 800,
+                margin: "0 auto",
               }}
             >
               {/* kinmeds3: pg padding 24px 20px → 28px 28px → 32px 36px, max-width 680→800→900 */}
