@@ -9,7 +9,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates, arrayMove } from "@dnd-kit/sortable";
-import type { Program, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
+import type { ConsentForm, Program, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
 import { createMockId } from "@/features/treatments/common/data/factories";
 import { useQueryClient } from "@tanstack/react-query";
 import { treatmentsApi } from "@/features/treatments/api/treatmentsApi";
@@ -20,6 +20,7 @@ import {
   useDeleteProgramQuestion,
   useReorderSectionFields,
   useReorderProgramQuestions,
+  useSaveProgram,
   treatmentQueryKeys,
 } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import type { QuestionFlowAdapter, QuestionFlowItem } from "@/features/treatments/question-flow-builder/types";
@@ -38,6 +39,7 @@ import { DeleteElementDialog } from "@/features/treatments/common/components/Del
 import { countQuestionTypes, filterQuestions } from "@/features/treatments/common/utils/questionList";
 
 import { QuestionFlowBuilder } from "@/features/treatments/question-flow-builder/components/QuestionFlowBuilder";
+import { ProgramFlowBuilder } from "@/features/treatments/programs/flow-builder/ProgramFlowBuilder";
 
 export interface SharedQuestionsListProps {
   entityId: string;
@@ -53,6 +55,7 @@ export interface SharedQuestionsListProps {
   viewMode?: "list" | "flow";
   onViewModeChange?: (mode: "list" | "flow") => void;
   onOpenPreview?: () => void;
+  allConsents?: ConsentForm[];
 }
 
 export function SharedQuestionsList({
@@ -69,6 +72,7 @@ export function SharedQuestionsList({
   viewMode = "list",
   onViewModeChange,
   onOpenPreview,
+  allConsents = [],
 }: SharedQuestionsListProps) {
   const [questions, setQuestions] = useState<ProgramQuestion[]>(initialQuestions);
   const [searchQuery, setSearchQuery] = useState("");
@@ -95,6 +99,7 @@ export function SharedQuestionsList({
   // Mutations
   const queryClient = useQueryClient();
   const saveQuestionMutation = useSaveProgramQuestion(entityId);
+  const saveProgramMutation = useSaveProgram();
   const deleteQuestionMutation = useDeleteProgramQuestion(entityId);
   const reorderQuestionsMutation = useReorderProgramQuestions(entityId);
   const saveSectionFieldMutation = useSaveSectionField(entityId);
@@ -467,6 +472,144 @@ export function SharedQuestionsList({
 
   if (viewMode === "flow") {
     const subtitle = flowSubtitle;
+
+    if (entityType === "program" && program) {
+      return (
+        <div className="flex min-h-screen w-full flex-col bg-slate-50 p-6">
+          <QuestionListHeader
+            title={headerTitle}
+            subtitle={headerSubtitle}
+            extraActions={headerExtraActions}
+            reorderActive={false}
+            onBack={onBack}
+            onToggleReorder={() => onViewModeChange?.("list")}
+            onAddQuestion={() => {
+              setActiveEditingQuestion(null);
+              setIsQuestionOpen(true);
+            }}
+            onAddAuth={() => {
+              setActiveEditingQuestion(null);
+              setIsAuthOpen(true);
+            }}
+            onAddServiceArea={handleAddServiceArea}
+            onAddSection={() => {
+              setActiveEditingQuestion(null);
+              setIsSectionOpen(true);
+            }}
+            onAddConsent={() => {
+              setActiveEditingQuestion(null);
+              setIsConsentOpen(true);
+            }}
+            onAddCheckout={() => {
+              setActiveEditingQuestion(null);
+              setIsCheckoutOpen(true);
+            }}
+          />
+          <ProgramFlowBuilder
+            program={program}
+            questions={questions}
+            allConsents={allConsents}
+            onAddQuestion={() => {
+              setActiveEditingQuestion(null);
+              setIsQuestionOpen(true);
+            }}
+            onEditQuestion={(questionId) => {
+              const question = questions.find((item) => item.id === questionId) || null;
+              setActiveEditingQuestion(question);
+              setIsQuestionOpen(Boolean(question));
+            }}
+            onAddCheckoutQuestion={() => {
+              setActiveEditingQuestion(null);
+              setIsCheckoutOpen(true);
+            }}
+            onEditCheckoutQuestion={(checkoutQuestion) => {
+              setActiveEditingQuestion({
+                id: checkoutQuestion.id,
+                order: questions.length + 1,
+                text: checkoutQuestion.text,
+                kind: "checkout",
+                section: "Checkout",
+                required: true,
+                checkoutProducts: checkoutQuestion.products,
+                visibilityRuleGroup: checkoutQuestion.visibilityRules,
+              });
+              setIsCheckoutOpen(true);
+            }}
+            onSaveProgram={(updatedProgram) => saveProgramMutation.mutate(updatedProgram)}
+          />
+
+          <QuestionEditorDialog
+            open={isQuestionOpen}
+            onOpenChange={setIsQuestionOpen}
+            onSave={handleAddQuestionSave}
+            initialQuestionId={activeEditingQuestion?.id || null}
+            questions={questions}
+            programId={entityId}
+          />
+          <CheckoutQuestionModal
+            open={isCheckoutOpen}
+            onOpenChange={setIsCheckoutOpen}
+            onSave={handleAddCheckoutSave}
+            initialQuestion={activeEditingQuestion?.kind === "checkout" ? {
+              id: activeEditingQuestion.id,
+              text: activeEditingQuestion.text,
+              products: activeEditingQuestion.checkoutProducts || [],
+              visibilityRules: activeEditingQuestion.visibilityRuleGroup || { mode: "simple", rules: [] },
+            } : null}
+            programName={entityName}
+            screeningQuestions={questions}
+          />
+          <AuthSetupModal
+            open={isAuthOpen}
+            onOpenChange={setIsAuthOpen}
+            initialConfig={authConfig}
+            onSave={(config) => {
+              const authQuestion: ProgramQuestion = {
+                id: activeEditingQuestion?.id || createMockId("q-auth"),
+                order: activeEditingQuestion?.order || questions.length + 1,
+                text: "Patient Authentication (Email, Phone, Identity, Account)",
+                kind: "personal_details",
+                section: "Authentication",
+                required: true,
+                elementConfig: { authConfig: config },
+              };
+              saveElement(authQuestion, "Authentication Settings Saved");
+            }}
+          />
+          <SectionSelectorModal
+            open={isSectionOpen}
+            onOpenChange={setIsSectionOpen}
+            onSelect={(section) => {
+              saveElement({
+                id: createMockId("q-section"),
+                order: questions.length + 1,
+                text: section.name,
+                kind: "multiple_choice",
+                section: section.name,
+                required: true,
+                elementConfig: { sourceId: section.id },
+              }, "Common Section Attached");
+            }}
+          />
+          <ConsentSelectorModal
+            open={isConsentOpen}
+            onOpenChange={setIsConsentOpen}
+            onSelect={(consent) => {
+              saveElement({
+                id: createMockId("q-consent"),
+                order: questions.length + 1,
+                text: consent.name,
+                kind: "consent",
+                section: "Consents",
+                required: true,
+                consentText: `Patient must accept: ${consent.name}`,
+                elementConfig: { sourceId: consent.id },
+              }, "Consent Form Attached");
+            }}
+          />
+        </div>
+      );
+    }
 
     return (
       <div className="flex flex-col min-h-screen bg-slate-50 w-full p-6">
