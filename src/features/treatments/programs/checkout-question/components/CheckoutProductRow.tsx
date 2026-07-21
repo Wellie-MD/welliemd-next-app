@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { ChevronDown, Eye, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VisibilityRuleBuilder } from "@/components/questionnaires/VisibilityRuleBuilder";
@@ -129,6 +130,76 @@ export function CheckoutProductRow({
   const categoryDoses = dosesForProducts(doseMappings, regimenProducts, selectedCategoryId);
   const matchingProducts = productsForDose(regimenProducts, selectedDoseMappingId);
   const hasRules = hasActiveVisibilityRules(product.visibilityRules);
+  const selectedCategory = categories.find((item) => Number(item.id) === Number(selectedCategoryId));
+  const selectedRegimen = titrationCategories.find((item) => Number(item.id) === Number(selectedRegimenId));
+  const selectedDoseMapping = doseMappings.find((item) => Number(item.id) === Number(selectedDoseMappingId));
+
+  useEffect(() => {
+    if (!linkedCatalogProduct) return;
+
+    const nextCategory = selectedCategory?.name || linkedCatalogProduct.category_name || linkedCatalogProduct.treatment || product.category;
+    const nextRegimen = selectedRegimen?.name || linkedCatalogProduct.titration_category_name || product.regimen;
+    const nextDose =
+      selectedDoseMapping?.patient_label ||
+      selectedDoseMapping?.name ||
+      linkedCatalogProduct.dose_mapping_label ||
+      linkedCatalogProduct.dose_mapping_name ||
+      linkedCatalogProduct.dose ||
+      product.doseLabel;
+    const nextProductId = String(linkedCatalogProduct.id);
+    const nextSourceProductId = linkedCatalogProduct.source_product_id
+      ? String(linkedCatalogProduct.source_product_id)
+      : undefined;
+    const nextPrice = linkedCatalogProduct.base_price !== undefined ? Number(linkedCatalogProduct.base_price) : product.price;
+
+    if (selectedCategoryId && product.categoryId !== selectedCategoryId) {
+      onProductFieldChange(index, "categoryId", selectedCategoryId);
+    }
+    if (nextCategory && product.category !== nextCategory) {
+      onProductFieldChange(index, "category", nextCategory);
+    }
+    if (selectedRegimenId && product.regimenId !== selectedRegimenId) {
+      onProductFieldChange(index, "regimenId", selectedRegimenId);
+    }
+    if (nextRegimen && product.regimen !== nextRegimen) {
+      onProductFieldChange(index, "regimen", nextRegimen);
+    }
+    if (selectedDoseMappingId && product.doseMappingId !== selectedDoseMappingId) {
+      onProductFieldChange(index, "doseMappingId", selectedDoseMappingId);
+    }
+    if (nextDose && product.doseLabel !== nextDose) {
+      onProductFieldChange(index, "doseLabel", nextDose);
+    }
+    if (product.productId !== nextProductId) {
+      onProductFieldChange(index, "productId", nextProductId);
+    }
+    if (product.sourceProductId !== nextSourceProductId) {
+      onProductFieldChange(index, "sourceProductId", nextSourceProductId);
+    }
+    if (nextPrice !== undefined && product.price !== nextPrice) {
+      onProductFieldChange(index, "price", nextPrice);
+    }
+  }, [
+    index,
+    linkedCatalogProduct,
+    onProductFieldChange,
+    product.category,
+    product.categoryId,
+    product.doseLabel,
+    product.doseMappingId,
+    product.price,
+    product.productId,
+    product.regimen,
+    product.regimenId,
+    product.sourceProductId,
+    selectedCategory?.name,
+    selectedCategoryId,
+    selectedDoseMapping?.name,
+    selectedDoseMapping?.patient_label,
+    selectedDoseMappingId,
+    selectedRegimen?.name,
+    selectedRegimenId,
+  ]);
 
   const handleCategoryChange = (value: string) => {
     const category = categories.find((item) => String(item.id) === value);
@@ -160,11 +231,12 @@ export function CheckoutProductRow({
     onProductFieldChange(index, "doseLabel", doseMapping?.patient_label || doseMapping?.name || "");
     const candidates = productsForDose(regimenProducts, doseMapping?.id);
     const onlyProduct = candidates.length === 1 ? candidates[0] : undefined;
+    const nextCategory = categoryProducts.find((item) => Number(item.category) === Number(doseMapping?.category));
     onProductFieldChange(index, "productId", onlyProduct ? String(onlyProduct.id) : undefined);
     onProductFieldChange(
       index,
       "sourceProductId",
-      onlyProduct ? String(onlyProduct.source_product_id ?? onlyProduct.id) : undefined
+      onlyProduct?.source_product_id ? String(onlyProduct.source_product_id) : undefined
     );
     onProductFieldChange(
       index,
@@ -175,6 +247,12 @@ export function CheckoutProductRow({
       onProductFieldChange(index, "categoryId", doseMapping.category);
       onProductFieldChange(index, "category", doseMapping.category_name);
     }
+    if (onlyProduct) {
+      onProductFieldChange(index, "categoryId", onlyProduct.category);
+      onProductFieldChange(index, "category", onlyProduct.category_name || onlyProduct.treatment || nextCategory?.category_name || product.category);
+      onProductFieldChange(index, "regimenId", onlyProduct.titration_category);
+      onProductFieldChange(index, "regimen", onlyProduct.titration_category_name || product.regimen);
+    }
   };
 
   const handleCatalogProductChange = (value: string) => {
@@ -183,13 +261,25 @@ export function CheckoutProductRow({
     onProductFieldChange(
       index,
       "sourceProductId",
-      selectedProduct ? String(selectedProduct.source_product_id ?? selectedProduct.id) : undefined
+      selectedProduct?.source_product_id ? String(selectedProduct.source_product_id) : undefined
     );
     onProductFieldChange(
       index,
       "price",
       selectedProduct?.base_price !== undefined ? Number(selectedProduct.base_price) : undefined
     );
+    if (selectedProduct) {
+      onProductFieldChange(index, "categoryId", selectedProduct.category);
+      onProductFieldChange(index, "category", selectedProduct.category_name || selectedProduct.treatment || product.category);
+      onProductFieldChange(index, "regimenId", selectedProduct.titration_category);
+      onProductFieldChange(index, "regimen", selectedProduct.titration_category_name || product.regimen);
+      onProductFieldChange(index, "doseMappingId", selectedProduct.dose_mapping);
+      onProductFieldChange(
+        index,
+        "doseLabel",
+        selectedProduct.dose_mapping_label || selectedProduct.dose_mapping_name || selectedProduct.dose || product.doseLabel
+      );
+    }
   };
 
   return (

@@ -23,14 +23,22 @@ const product = (overrides: Partial<Product>): Product => ({
 });
 
 const products = selectableCatalogProducts([
-  product({ id: 1, name: "Weight Starter", category: 10, titration_category: 100, dose_mapping: 1000 }),
-  product({ id: 2, name: "Weight Maintenance", category: 10, titration_category: 101, dose_mapping: 1001 }),
-  product({ id: 3, name: "Hair Daily", category: 20, titration_category: 200, dose_mapping: 2000 }),
-  product({ id: 4, name: "Inactive", category: 20, titration_category: 200, dose_mapping: 2000, is_active: false }),
-  product({ id: 5, name: "Incomplete", category: 30, titration_category: undefined, dose_mapping: 3000 }),
+  product({ id: 1, name: "Weight Starter", category: 10, titration_category: 100, dose_mapping: 1000, treatment_type_id: "tt-weight", treatment_type_key: "weight" }),
+  product({ id: 2, name: "Weight Maintenance", category: 10, titration_category: 101, dose_mapping: 1001, treatment_type_id: "tt-weight", treatment_type_key: "weight" }),
+  product({ id: 3, name: "Hair Daily", category: 20, titration_category: 200, dose_mapping: 2000, treatment_type_id: "tt-hair", treatment_type_key: "hair" }),
+  product({ id: 4, name: "Inactive", category: 20, titration_category: 200, dose_mapping: 2000, is_active: false, treatment_type_id: "tt-hair", treatment_type_key: "hair" }),
+  product({ id: 5, name: "Incomplete", category: 30, titration_category: undefined, dose_mapping: 3000, treatment_type_id: "tt-other", treatment_type_key: "other" }),
 ]);
 
 assert.deepEqual(products.map((item) => item.id), [1, 2, 3]);
+assert.deepEqual(
+  selectableCatalogProducts([
+    product({ id: 1, name: "Weight Starter", category: 10, titration_category: 100, dose_mapping: 1000, treatment_type_id: "tt-weight", treatment_type_key: "weight" }),
+    product({ id: 2, name: "Missing Treatment Type", category: 10, titration_category: 100, dose_mapping: 1000 }),
+    product({ id: 3, name: "Hair Daily", category: 20, titration_category: 200, dose_mapping: 2000, treatment_type_id: "tt-hair", treatment_type_key: "hair" }),
+  ], "weight").map((item) => item.id),
+  [1]
+);
 assert.deepEqual(
   categoriesWithProducts(
     [

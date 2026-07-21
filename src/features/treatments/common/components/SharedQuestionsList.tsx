@@ -9,7 +9,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates, arrayMove } from "@dnd-kit/sortable";
-import type { ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
+import type { Program, ProgramAuthConfig, ProgramCheckoutQuestion, ProgramQuestion } from "@/features/treatments/types";
 import { createMockId } from "@/features/treatments/common/data/factories";
 import { useQueryClient } from "@tanstack/react-query";
 import { treatmentsApi } from "@/features/treatments/api/treatmentsApi";
@@ -43,6 +43,7 @@ export interface SharedQuestionsListProps {
   entityId: string;
   entityName: string;
   entityType?: "program" | "section";
+  program?: Program;
   initialQuestions: ProgramQuestion[];
   headerTitle: string;
   headerSubtitle: string;
@@ -58,6 +59,7 @@ export function SharedQuestionsList({
   entityId,
   entityName,
   entityType = "program",
+  program,
   initialQuestions,
   headerTitle,
   headerSubtitle,
@@ -341,30 +343,111 @@ export function SharedQuestionsList({
     }, "Service Area Check Added");
   };
 
-  const handleAddCheckoutSave = (data: Omit<ProgramCheckoutQuestion, "id">) => {
-    const isEditing = !!activeEditingQuestion;
-    const newQuestion: ProgramQuestion = {
-      id: isEditing ? activeEditingQuestion!.id : createMockId("q-checkout"),
-      order: isEditing ? activeEditingQuestion!.order : questions.length + 1,
-      text: data.text,
-      kind: "checkout",
-      section: "Checkout",
-      required: true,
-      checkoutProductIds: data.products
+  const checkoutQuestionToListItem = (
+    checkout: ProgramCheckoutQuestion,
+    order: number
+  ): ProgramQuestion => ({
+    id: checkout.id,
+    order,
+    text: checkout.text,
+    kind: "checkout",
+    section: "Checkout",
+    required: true,
+    checkoutProductIds: checkout.products
+      .map((product) => product.productId)
+      .filter((productId): productId is string => Boolean(productId)),
+    checkoutProducts: checkout.products,
+    visibilityRuleGroup: checkout.visibilityRules,
+    elementConfig: {
+      checkoutProducts: checkout.products,
+      checkoutProductIds: checkout.products
         .map((product) => product.productId)
         .filter((productId): productId is string => Boolean(productId)),
-      checkoutProducts: data.products,
-      visibilityRuleGroup: data.visibilityRules,
-      elementConfig: {
-        checkoutProducts: data.products,
-        checkoutProductIds: data.products
-          .map((product) => product.productId)
-          .filter((productId): productId is string => Boolean(productId)),
-        visibilityRuleGroup: data.visibilityRules,
-      },
+      visibilityRuleGroup: checkout.visibilityRules,
+    },
+  });
+
+  const listItemToCheckoutQuestion = (question: ProgramQuestion): ProgramCheckoutQuestion => ({
+    id: question.id,
+    text: question.text,
+    products: question.checkoutProducts || [],
+    visibilityRules: question.visibilityRuleGroup || { mode: "simple", rules: [] },
+  });
+
+  const handleAddCheckoutSave = async (data: Omit<ProgramCheckoutQuestion, "id">) => {
+    const isEditing = !!activeEditingQuestion;
+    const checkoutId = isEditing ? activeEditingQuestion!.id : createMockId("cq");
+    const checkoutQuestion: ProgramCheckoutQuestion = {
+      id: checkoutId,
+      ...data,
     };
 
-    saveElement(newQuestion, isEditing ? "Checkout Options Saved" : "Checkout Options Added");
+    if (entityType === "program" && program) {
+      const localCheckout = questions
+        .filter((question) => question.kind === "checkout")
+        .map(listItemToCheckoutQuestion);
+      const currentCheckout = localCheckout.length > 0
+        ? localCheckout
+        : program.checkoutQuestions || [];
+      const updatedCheckout = isEditing
+        ? currentCheckout.map((checkout) =>
+            checkout.id === checkoutId ? checkoutQuestion : checkout
+          )
+        : [...currentCheckout, checkoutQuestion];
+
+      const savedProgram = await treatmentsApi.saveProgram({
+        ...program,
+        checkoutQuestions: updatedCheckout,
+        checkoutQuestionCount: updatedCheckout.length,
+      });
+
+      queryClient.setQueryData<Program[]>(treatmentQueryKeys.programs(), (current) =>
+        current?.map((item) => item.id === savedProgram.id ? savedProgram : item)
+      );
+      queryClient.invalidateQueries({ queryKey: treatmentQueryKeys.programs() });
+
+      const listItem = checkoutQuestionToListItem(
+        checkoutQuestion,
+        isEditing ? activeEditingQuestion!.order : questions.length + 1
+      );
+      setQuestions((previous) =>
+        isEditing
+          ? previous.map((question) => question.id === checkoutId ? listItem : question)
+          : [...previous, listItem]
+      );
+      toast({ title: isEditing ? "Checkout Options Saved" : "Checkout Options Added" });
+      setActiveEditingQuestion(null);
+      return;
+    }
+
+    const newQuestion = checkoutQuestionToListItem(
+      checkoutQuestion,
+      isEditing ? activeEditingQuestion!.order : questions.length + 1
+    );
+    await new Promise<void>((resolve, reject) => {
+      const mutation = entityType === "section" ? saveSectionFieldMutation : saveQuestionMutation;
+      const payload = entityType === "section"
+        ? {
+            id: newQuestion.id,
+            sectionId: entityId,
+            order: newQuestion.order,
+            label: newQuestion.text,
+            kind: newQuestion.kind,
+            required: newQuestion.required,
+            configuration: newQuestion.elementConfig || {},
+          }
+        : newQuestion;
+      mutation.mutate(payload as never, {
+        onSuccess: () => {
+          setQuestions((previous) => isEditing
+            ? previous.map((question) => question.id === newQuestion.id ? newQuestion : question)
+            : [...previous, newQuestion]);
+          toast({ title: isEditing ? "Checkout Options Saved" : "Checkout Options Added" });
+          resolve();
+        },
+        onError: (error) => reject(error),
+      });
+    });
     setActiveEditingQuestion(null);
   };
 
@@ -412,6 +495,7 @@ export function SharedQuestionsList({
           onSave={handleAddCheckoutSave}
           initialQuestion={null}
           programName={entityName}
+          programTreatmentTypeKey={program?.treatmentTypeKey}
           screeningQuestions={questions}
         />
         <AuthSetupModal
@@ -535,6 +619,7 @@ export function SharedQuestionsList({
             : null
         }
         programName={entityName}
+        programTreatmentTypeKey={program?.treatmentTypeKey}
         screeningQuestions={questions}
       />
 

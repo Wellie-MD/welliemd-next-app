@@ -3,9 +3,18 @@ import type { ProductCategory } from "@/api/productCategories";
 import type { ProductDoseMapping } from "@/api/productDoseMappings";
 import type { TitrationCategory } from "@/api/titrationCategories";
 
-export const selectableCatalogProducts = (products: Product[]): Product[] =>
+export const selectableCatalogProducts = (
+  products: Product[],
+  treatmentTypeKey?: string | null
+): Product[] =>
   products.filter(
-    (product) => product.is_active && product.category && product.titration_category && product.dose_mapping
+    (product) =>
+      product.is_active &&
+      product.category &&
+      product.titration_category &&
+      product.dose_mapping &&
+      product.treatment_type_id &&
+      (!treatmentTypeKey || product.treatment_type_key === treatmentTypeKey)
   );
 
 export const categoriesWithProducts = (

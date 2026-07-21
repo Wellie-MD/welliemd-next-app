@@ -12,6 +12,7 @@ interface CheckoutProductsSectionProps {
   products: ProgramCheckoutProduct[];
   /** Earlier questions in the program, used as conditions for per-product visibility. */
   eligibleQuestions: ProgramQuestion[];
+  programTreatmentTypeKey?: string | null;
   onAddProduct: () => void;
   onRemoveProduct: (index: number) => void;
   onProductFieldChange: (
@@ -26,6 +27,7 @@ interface CheckoutProductsSectionProps {
 export function CheckoutProductsSection({
   products,
   eligibleQuestions,
+  programTreatmentTypeKey,
   onAddProduct,
   onRemoveProduct,
   onProductFieldChange,
@@ -54,7 +56,7 @@ export function CheckoutProductsSection({
         setCategories(nextCategories || []);
         setTitrationCategories(nextTitrationCategories || []);
         setDoseMappings(nextDoseMappings?.results || []);
-        setCatalogProducts(selectableCatalogProducts(nextProducts || []));
+        setCatalogProducts(selectableCatalogProducts(nextProducts || [], programTreatmentTypeKey));
         setCatalogError(null);
       } catch (error) {
         if (cancelled) return;
@@ -68,7 +70,7 @@ export function CheckoutProductsSection({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [programTreatmentTypeKey]);
 
   const hasCatalogData = useMemo(
     () => categories.length > 0 && titrationCategories.length > 0 && doseMappings.length > 0 && catalogProducts.length > 0,

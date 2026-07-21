@@ -454,6 +454,7 @@ export default function ProgramDetailPage() {
         open={isCheckoutOpen}
         onOpenChange={setIsCheckoutOpen}
         programName={foundProgram.name}
+        programTreatmentTypeKey={foundProgram.treatmentTypeKey}
         screeningQuestions={allQuestions}
         initialQuestion={
           editingCheckoutId
