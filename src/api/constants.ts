@@ -1,0 +1,1 @@
+export const API_REQUEST_TIMEOUT_MS = 15_000;

@@ -1,11 +1,8 @@
-import { useMemo } from "react";
-import { PatientPreviewDialog } from "@/features/treatments/common/components";
+import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
 import { getCustomProgramEffectiveSlug } from "@/features/treatments/custom-programs/utils/customProgramSlug";
-import {
-  buildQuestionnairePreviewUrl,
-  getQuestionnairePreviewApiBaseUrl,
-} from "@/features/treatments/utils/previewUrl";
+import { getQuestionnairePreviewApiBaseUrl } from "@/features/treatments/utils/previewUrl";
 import type { CustomProgram } from "@/features/treatments/types";
+import { useBranding } from "@/contexts/BrandingContext";
 
 interface CustomProgramPreviewDialogProps {
   open: boolean;
@@ -18,24 +15,21 @@ export function CustomProgramPreviewDialog({
   onOpenChange,
   customProgram,
 }: CustomProgramPreviewDialogProps) {
-  const previewUrl = useMemo(
-    () =>
-      buildQuestionnairePreviewUrl({
+  const { brandSettings } = useBranding();
+  const previewName = customProgram.onboardingName || customProgram.name;
+
+  return (
+    <QuestionnairePreviewDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      previewContext={{
         type: "custom_program",
         id: customProgram.id,
         slug: getCustomProgramEffectiveSlug(customProgram),
         apiBaseUrl: getQuestionnairePreviewApiBaseUrl(),
-      }),
-    [customProgram]
-  );
-
-  const previewName = customProgram.onboardingName || customProgram.name;
-
-  return (
-    <PatientPreviewDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      previewUrl={previewUrl}
+        clientId: brandSettings?.clientId,
+        clientName: brandSettings?.clientName,
+      }}
       subtitle={`${previewName} · how patients see this intake`}
       iframeTitle={`${previewName} questionnaire preview`}
     />

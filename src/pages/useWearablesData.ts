@@ -89,37 +89,120 @@ function relativeTime(iso: string | null): string {
   return `${Math.round(hours / 24)}d ago`;
 }
 
-export function useWearablesData() {
+interface UseWearablesDataParams {
+  page: number;
+  pageSize: number;
+  search: string;
+  loadInsights?: boolean;
+}
+
+const transformPatient = (patient: any): Patient => {
+  const orderDate = patient.last_order_at ? format(new Date(patient.last_order_at), 'dd/MM/yyyy') : '-';
+  const orderRef = patient.last_order_id ? `#${patient.last_order_id}` : (patient.last_order_display_id ? `#${patient.last_order_display_id}` : '');
+  const last = orderRef && orderDate !== '-' ? `${orderRef} • ${orderDate}` : orderDate !== '-' ? orderDate : orderRef || '-';
+  const engagement = (patient.engagement_status || '').trim().toLowerCase();
+  const status = engagement === 'active' ? 'Active' : 'Inactive';
+  return {
+    name: patient.full_name || `${patient.first_name} ${patient.last_name}`.trim() || patient.email,
+    start: format(new Date(patient.created_at), 'dd/MM/yyyy'),
+    mrn: patient.id,
+    product: patient.last_order_product_name || '-',
+    email: patient.email,
+    phone: patient.phone || '-',
+    orders: patient.orders_count ?? 0,
+    location: patient.city && patient.state ? `${patient.city}, ${patient.state}` : patient.state || '-',
+    status,
+    visit: patient.last_visit_status || '-',
+    last,
+  };
+};
+
+// ponytail: the device-data endpoint only takes one patient_id per call (no
+// bulk variant server-side, see JunctionWearablesDeviceDataView), so this is
+// still one HTTP request per patient — batching here only caps how many run
+// concurrently, it does not reduce the request count. Kept at 20 in-flight so
+// Insights (which can pass hundreds of connected patients) doesn't fire
+// hundreds of parallel requests at once. Real fix is a bulk endpoint
+// server-side, but that touches per-patient Junction Sense fan-out
+// (lifecycle_data_service.py) which is unconfirmed against a live sandbox —
+// not something to change blind.
+async function fetchTelemetryBatch(patientIds: string[]): Promise<Record<string, PatientTelemetry>> {
+  if (patientIds.length === 0) return {};
+
+  const batchSize = 20;
+  const batches: Promise<[string, PatientTelemetry][]>[] = [];
+
+  for (let i = 0; i < patientIds.length; i += batchSize) {
+    const batch = patientIds.slice(i, i + batchSize);
+    batches.push(
+      Promise.all(
+        batch.map(async (id) => {
+          try {
+            const res = await api.get<PatientTelemetry>(WEARABLE_ENDPOINTS.deviceData, {
+              params: { patient_id: id, days: 7 },
+            });
+            return [id, res.data] as const;
+          } catch {
+            return [id, {}] as const;
+          }
+        })
+      )
+    );
+  }
+
+  const results = await Promise.all(batches);
+  return Object.fromEntries(results.flat());
+}
+
+// ponytail: module-level cache for patient/connection data, reused across quick
+// remounts (e.g. switching tabs and back). 30s TTL keeps it honest with the
+// page's "Live data" badge — a stale connection status shouldn't outlive a
+// short nav round-trip.
+const GLOBAL_CACHE_TTL_MS = 30_000;
+let globalDataCache: {
+  allPatients: Patient[];
+  connections: WearableConnection[];
+  clientId: string | null;
+  fetchedAt: number;
+} | null = null;
+
+export function useWearablesData(params: UseWearablesDataParams) {
+  const { page, pageSize, search, loadInsights = false } = params;
   const [patients, setPatients] = useState<Patient[]>([]);
   const [connections, setConnections] = useState<WearableConnection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
   const [telemetry, setTelemetry] = useState<Record<string, PatientTelemetry>>({});
+  const [totalCount, setTotalCount] = useState(0);
+  const [allPatients, setAllPatients] = useState<Patient[]>([]);
+  const [allTelemetry, setAllTelemetry] = useState<Record<string, PatientTelemetry>>({});
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  // ponytail: tracks whether the global roster fetch (effect #1) has resolved,
+  // so effect #3 doesn't slice an empty allPatients and flip `loading` off early
+  const [globalLoaded, setGlobalLoaded] = useState(false);
 
+  // 1. Fetch global roster and connections once with caching (fix #2 + cache optimization)
   useEffect(() => {
+    // If cached within the TTL (e.g. quick tab switch back), use it immediately
+    if (globalDataCache && Date.now() - globalDataCache.fetchedAt < GLOBAL_CACHE_TTL_MS) {
+      setAllPatients(globalDataCache.allPatients);
+      setConnections(globalDataCache.connections);
+      setClientId(globalDataCache.clientId);
+      setGlobalLoaded(true);
+      return;
+    }
+
     let active = true;
-    async function loadData() {
+    async function loadGlobalStats() {
       try {
-        setLoading(true);
-        setError(null);
         const clientRes = await adminApi.get(WEARABLE_ENDPOINTS.currentClient);
         const currentClientId = clientRes.data?.id as string | undefined;
         if (active) setClientId(currentClientId || null);
 
-        const patientData = await patientService.getPatients({ page: 1, page_size: 500 });
-        const results = patientData.results || [];
-        const patientIds = results.map((patient) => patient.id);
-        let productMap: Record<string, string> = {};
-        let visitMap: Record<string, string> = {};
-        if (patientIds.length > 0) {
-          const [products, visits] = await Promise.all([
-            patientService.getProductNamesForPatients(patientIds),
-            patientService.getLatestVisitsForPatients(patientIds),
-          ]);
-          productMap = products;
-          visitMap = visits;
-        }
+        const patientData = await patientService.getPatients({ page: 1, page_size: 1000 });
+        const transformedAll = (patientData.results || []).map(transformPatient);
 
         let fetchedConnections: WearableConnection[] = [];
         try {
@@ -128,65 +211,123 @@ export function useWearablesData() {
           });
           fetchedConnections = (response.data?.connections || []) as WearableConnection[];
         } catch {
-          if (active) setError('Wearable connections are currently unavailable.');
+          // ignore error
         }
-
-        const transformedPatients: Patient[] = results.map((patient) => {
-          const orderDate = patient.last_order_at ? format(new Date(patient.last_order_at), 'dd/MM/yyyy') : '-';
-          const orderRef = patient.last_order_id
-            ? `#${patient.last_order_id}`
-            : patient.last_order_display_id
-              ? `#${patient.last_order_display_id}`
-              : '';
-          const last = orderRef && orderDate !== '-' ? `${orderRef} • ${orderDate}` : orderDate !== '-' ? orderDate : orderRef || '-';
-          const engagement = (patient.engagement_status || '').trim().toLowerCase();
-          const status = engagement === 'active' ? 'Active' : 'Inactive';
-          return {
-            name: patient.full_name || `${patient.first_name} ${patient.last_name}`.trim() || patient.email,
-            start: format(new Date(patient.created_at), 'dd/MM/yyyy'),
-            mrn: patient.id,
-            product: productMap[patient.id] || '-',
-            email: patient.email,
-            phone: patient.phone || '-',
-            orders: patient.orders_count ?? 0,
-            location: patient.city && patient.state ? `${patient.city}, ${patient.state}` : patient.state || '-',
-            status,
-            visit: visitMap[patient.id] || '-',
-            last,
-          };
-        });
 
         if (active) {
-          setPatients(transformedPatients);
+          globalDataCache = {
+            allPatients: transformedAll,
+            connections: fetchedConnections,
+            clientId: currentClientId || null,
+            fetchedAt: Date.now(),
+          };
+          setAllPatients(transformedAll);
           setConnections(fetchedConnections);
-          const telemetryEntries = await Promise.all(
-            transformedPatients
-              .filter((patient) => fetchedConnections.some((connection) => connection.patient_id === patient.mrn && connection.status === 'connected'))
-              .map(async (patient) => {
-                try {
-                  const response = await api.get<PatientTelemetry>(WEARABLE_ENDPOINTS.deviceData, {
-                    params: { patient_id: patient.mrn, days: 7 },
-                  });
-                  return [patient.mrn, response.data] as const;
-                } catch {
-                  return [patient.mrn, {}] as const;
-                }
-              }),
-          );
-          setTelemetry(Object.fromEntries(telemetryEntries));
+          setGlobalLoaded(true);
         }
       } catch (caught) {
-        if (active) setError(caught instanceof Error ? caught.message : 'Failed to load wearables dashboard data. Please try again.');
-      } finally {
-        if (active) setLoading(false);
+        console.error('Failed to load global wearables data:', caught);
+        if (active) setGlobalLoaded(true);
       }
     }
-    loadData();
+    loadGlobalStats();
     return () => {
       active = false;
     };
   }, []);
 
+  // 2. Fetch global telemetry with batched requests (fix #1 & #3: batch + cache)
+  useEffect(() => {
+    if (!loadInsights || allPatients.length === 0 || connections.length === 0) return;
+
+    let active = true;
+    async function loadGlobalTelemetry() {
+      try {
+        setInsightsLoading(true);
+        const connectedPatients = allPatients.filter((p) =>
+          connections.some((c) => c.patient_id === p.mrn && c.status === 'connected')
+        );
+        const newTelemetry = await fetchTelemetryBatch(connectedPatients.map((p) => p.mrn));
+        if (active) setAllTelemetry((prev) => ({ ...prev, ...newTelemetry }));
+      } catch (caught) {
+        console.error('Failed to load global telemetry:', caught);
+      } finally {
+        if (active) setInsightsLoading(false);
+      }
+    }
+    loadGlobalTelemetry();
+    return () => {
+      active = false;
+    };
+  }, [loadInsights, allPatients, connections]);
+
+  // 3. Paginate from global patients, fetch telemetry with batching (fix #2 & #3)
+  // ponytail: use `refreshing` (not `loading`) here so search/page changes don't
+  // unmount the whole roster view — only the initial mount shows the full spinner.
+  // Waits for `globalLoaded` (unless searching) so it doesn't slice an empty
+  // allPatients before effect #1 has resolved.
+  useEffect(() => {
+    if (!search && !globalLoaded) return;
+
+    let active = true;
+    async function loadPaginatedData() {
+      try {
+        setRefreshing(true);
+        setError(null);
+
+        // Handle search: fetch paginated results if searching, otherwise slice from all patients
+        let results: Patient[] = [];
+        let count = 0;
+
+        if (search) {
+          const response = await patientService.getPatients({
+            page,
+            page_size: pageSize,
+            search,
+          });
+          results = (response.results || []).map(transformPatient);
+          count = response.count;
+        } else {
+          // No search: slice from cached global patients (fix #2: no duplicate fetch)
+          const start = (page - 1) * pageSize;
+          const end = start + pageSize;
+          results = allPatients.slice(start, end);
+          count = allPatients.length;
+        }
+
+        if (active) {
+          setPatients(results);
+          setTotalCount(count);
+
+          // Fetch telemetry for connected patients on this page with batching (fix #1)
+          const activePageConnected = results.filter((p) =>
+            connections.some((c) => c.patient_id === p.mrn && c.status === 'connected')
+          );
+
+          const newTelemetry = await fetchTelemetryBatch(activePageConnected.map((p) => p.mrn));
+          if (active) {
+            setTelemetry((prev) => ({
+              ...prev,
+              ...newTelemetry,
+            }));
+          }
+        }
+      } catch (caught) {
+        if (active) setError(caught instanceof Error ? caught.message : 'Failed to load page data.');
+      } finally {
+        if (active) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      }
+    }
+    loadPaginatedData();
+    return () => {
+      active = false;
+    };
+  }, [page, pageSize, search, allPatients, connections, globalLoaded]);
+
+  // Compute page rows
   const allComputed = useMemo<WearableRow[]>(() => patients.map((patient, idx) => {
     const patientConnections = connections.filter(
       (connection) => connection.patient_id === patient.mrn && (connection.status === 'connected' || connection.status === 'authorized'),
@@ -203,15 +344,32 @@ export function useWearablesData() {
     return { idx, p: patient, d: data, onTx, connected, provider, lastSync: primary?.last_sync_at ? relativeTime(primary.last_sync_at) : null, cur, chg, needs: onTx && !connected };
   }), [patients, connections, telemetry]);
 
+  // Compute global computed rows for stats and insights
+  const globalComputed = useMemo<WearableRow[]>(() => allPatients.map((patient, idx) => {
+    const patientConnections = connections.filter(
+      (connection) => connection.patient_id === patient.mrn && (connection.status === 'connected' || connection.status === 'authorized'),
+    );
+    const connected = patientConnections.length > 0;
+    const primary = patientConnections[0];
+    const provider = primary?.provider || null;
+    const data = allTelemetry[patient.mrn] || {};
+    const series = data.weightSeries || [];
+    const cur = series.length ? series[series.length - 1] : null;
+    const start = series.length ? series[0] : null;
+    const chg = cur != null && start != null ? Number((cur - start).toFixed(1)) : null;
+    const onTx = patient.status === 'Active' || patient.orders > 0;
+    return { idx, p: patient, d: data, onTx, connected, provider, lastSync: primary?.last_sync_at ? relativeTime(primary.last_sync_at) : null, cur, chg, needs: onTx && !connected };
+  }), [allPatients, connections, allTelemetry]);
+
   const stats = useMemo(() => {
-    const onTx = allComputed.filter((row) => row.onTx).length;
-    const connected = allComputed.filter((row) => row.connected).length;
-    const needs = allComputed.filter((row) => row.needs).length;
-    return { connected, onTx, needs, cov: onTx ? Math.round(100 * allComputed.filter((row) => row.onTx && row.connected).length / onTx) : 0 };
-  }, [allComputed]);
+    const onTx = globalComputed.filter((row) => row.onTx).length;
+    const connected = globalComputed.filter((row) => row.connected).length;
+    const needs = globalComputed.filter((row) => row.needs).length;
+    return { connected, onTx, needs, cov: onTx ? Math.round(100 * globalComputed.filter((row) => row.onTx && row.connected).length / onTx) : 0 };
+  }, [globalComputed]);
 
   const insightsData = useMemo<InsightsData>(() => {
-    const pool = allComputed.filter((row) => row.connected && givesReadiness(row.provider || '') && typeof row.d.readiness === 'number');
+    const pool = globalComputed.filter((row) => row.connected && givesReadiness(row.provider || '') && typeof row.d.readiness === 'number');
     const average = (values: number[]) => values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0;
     const readiness = pool.map((row) => row.d.readiness as number);
     const recovery = pool.map((row) => row.d.recovery).filter((value): value is number => typeof value === 'number');
@@ -227,7 +385,7 @@ export function useWearablesData() {
       b4: pool.filter((row) => (row.d.readiness as number) < 55).length,
       attn: pool.filter((row) => (row.d.readiness as number) < 55).sort((a, b) => (a.d.readiness as number) - (b.d.readiness as number)),
     };
-  }, [allComputed]);
+  }, [globalComputed]);
 
-  return { clientId, patients, connections, loading, error, allComputed, stats, insightsData };
+  return { clientId, patients, connections, loading, refreshing, error, allComputed, stats, insightsData, totalCount, insightsLoading };
 }

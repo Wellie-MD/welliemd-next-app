@@ -209,6 +209,120 @@ export interface OrderSettlementTransaction {
   created_at?: string | null
 }
 
+export interface TreatmentAggregateProduct {
+  product_id?: string | number | null
+  source_product_id?: string | number | null
+  med_id?: string | null
+  name?: string | null
+  quantity?: string | number | null
+  days_supply?: number | null
+  product_role?: string | null
+  choice_group?: string | null
+}
+
+export interface TreatmentOrderAggregate {
+  clinical_status: string
+  patient_message?: string | null
+  treatment_case_id: string
+  lifecycle: {
+    status: string
+    can_withdraw: boolean
+    reauthorization_required: boolean
+    support_recovery_required: boolean
+  }
+  authority: {
+    state: string
+    version: number
+    fingerprint?: string | null
+    updated_at?: string | null
+  }
+  treatment_type: {
+    id: string
+    key?: string | null
+    name?: string | null
+  }
+  visit: {
+    id?: string | null
+    status?: string | null
+    master_id?: string | null
+  }
+  lab_gate: {
+    required: boolean
+    ready_for_provider_review: boolean
+    has_partial_results: boolean
+    recollection_required: boolean
+    provider_review_state: string
+    items: Array<{
+      lab_order_id: string
+      display_id?: string | null
+      panel_name?: string | null
+      required: boolean
+      status: string
+      results_status: string
+      result_count: number
+      results_complete: boolean
+      partial_results: boolean
+      recollection_required: boolean
+      result_pdf_url?: string | null
+      junction_order_id?: string | null
+      failure_reason?: string | null
+      recollection?: {
+        status: string
+        patient_charge_amount: string
+        patient_action?: string | null
+        replacement_lab_order_id?: string | null
+      } | null
+    }>
+  }
+  reconciliation: {
+    version?: number | null
+    status: string
+    requested_set: TreatmentAggregateProduct[]
+    prescribed_set: TreatmentAggregateProduct[]
+    factual_differences: {
+      unchanged_product_ids?: Array<string | number>
+      prescribed_addition_product_ids?: Array<string | number>
+      requested_absence_product_ids?: Array<string | number>
+      absence_is_authoritative?: boolean
+    }
+    unresolved_facts?: Array<Record<string, unknown>>
+    created_at?: string | null
+    revision_id?: string
+    source_event_id?: string
+    is_complete_snapshot?: boolean
+  }
+  settlement: {
+    status: string
+    patient_settled_at?: string | null
+    reimbursement_settled_at?: string | null
+    settled_at?: string | null
+    patient_action_required: boolean
+    refund_pending: boolean
+    refund_required_amount: string
+    operation_id?: string
+    patient_attempts?: number
+    reimbursement_attempts?: number
+    last_error_code?: string
+  }
+  support?: {
+    owner?: string | null
+    pending_reason?: string | null
+    retry_allowed: boolean
+    last_error_code?: string
+    last_error_detail?: string
+  }
+  siblings: Array<{
+    order_id: string
+    order_display_id?: string | null
+    treatment_case_id: string
+    treatment_type_id: string
+    treatment_type_key?: string | null
+    treatment_type_name?: string | null
+    status?: string | null
+    lifecycle_status?: string | null
+  }>
+}
+
 export interface Order {
   id: string
   product?: number | string | null
@@ -314,6 +428,7 @@ export interface Order {
   beluga_dispatch_status?: string | null
   beluga_dispatch_reason?: string | null
   beluga_dispatch_attempt_count?: number | null
+  treatment_aggregate?: TreatmentOrderAggregate | null
 }
 
 export interface PaginatedOrdersResponse {

@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Loader2, Search, Eye, GitBranch } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { TreatmentPrescriptionInvoiceSets } from "@/features/treatments/orders/components/TreatmentPrescriptionInvoiceSets";
 
 type DisplayInvoice = Invoice & {
   supplementalInvoices?: Invoice[];
@@ -255,6 +256,7 @@ function RevisionInvoiceModal({
   onClose: () => void;
 }) {
   const requested = invoice.requested_breakdown;
+  const treatmentPrescription = invoice.treatment_prescription;
   const adjustments = invoice.revision_adjustments || [];
   const summary = invoice.adjustment_summary;
   const netAdjustment = Number(summary?.net_adjustment || 0);
@@ -345,6 +347,9 @@ function RevisionInvoiceModal({
           </aside>
 
           <main>
+            {treatmentPrescription && (
+              <TreatmentPrescriptionInvoiceSets contract={treatmentPrescription} />
+            )}
             {Number(requested?.consultation_amount || 0) > 0 && (
               <section className="border-b border-slate-200 p-5 dark:border-slate-800">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Consultation</h4>
@@ -362,7 +367,7 @@ function RevisionInvoiceModal({
                 </table>
               </section>
             )}
-            <section className="border-b border-slate-200 p-5 dark:border-slate-800">
+            {!treatmentPrescription && <section className="border-b border-slate-200 p-5 dark:border-slate-800">
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 Requested · {requested?.prescribed_differs
                   ? (requested?.original_requested_product_name || "Original request")
@@ -382,9 +387,9 @@ function RevisionInvoiceModal({
                       Number(requested?.consultation_amount || 0) === 0
                     )
                 }
-            </section>
+            </section>}
             {/* When prescribed differs, insert the base prescribed product as Revision 1 */}
-            {showImplicitBaseRevision && (
+            {!treatmentPrescription && showImplicitBaseRevision && (
               <section className="border-b border-slate-200 p-5 dark:border-slate-800">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Revision 1 · {requested?.product_name || "Initial prescription"}
@@ -394,7 +399,7 @@ function RevisionInvoiceModal({
                 </div>
               </section>
             )}
-            {adjustments.map((adjustment, index) => {
+            {!treatmentPrescription && adjustments.map((adjustment, index) => {
               const isCredit = adjustment.kind === "credit_note";
               const revOffset = showImplicitBaseRevision ? 1 : 0;
               return (

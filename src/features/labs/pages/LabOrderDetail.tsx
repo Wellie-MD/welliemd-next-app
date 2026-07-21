@@ -44,6 +44,13 @@ export default function LabOrderDetail() {
   const [error, setError] = useState<string | null>(null)
   const [downloadingPdf, setDownloadingPdf] = useState(false)
   const [downloadingRequisition, setDownloadingRequisition] = useState(false)
+  const [retryingRecollection, setRetryingRecollection] = useState(false)
+  const [recollection, setRecollection] = useState<{
+    status: string
+    patient_charge_amount: string
+    can_retry: boolean
+    requires_support_reconciliation: boolean
+  } | null>(null)
 
   useEffect(() => {
     if (!orderId) {
@@ -63,6 +70,7 @@ export default function LabOrderDetail() {
         const events = detail.lifecycle_events || []
         const resultRows = extractLabResultRows(detail.result)
         if (!cancelled) {
+          setRecollection(detail.recollection ?? null)
           setOrder({
             ...detail.order,
             product_name: detail.order.lab_panel_name,
@@ -158,6 +166,27 @@ export default function LabOrderDetail() {
       })
     } finally {
       setDownloadingRequisition(false)
+    }
+  }
+
+  const handleRetryRecollection = async () => {
+    if (!orderId) return
+    setRetryingRecollection(true)
+    try {
+      await clientLabsApi.retryRecollection(orderId)
+      toast({
+        title: "Redraw retry queued",
+        description: "The no-charge replacement collection will be reconciled and submitted.",
+      })
+    } catch (err: unknown) {
+      const failure = err as { response?: { data?: { detail?: string } } }
+      toast({
+        title: "Retry unavailable",
+        description: failure.response?.data?.detail ?? "The redraw could not be retried.",
+        variant: "destructive",
+      })
+    } finally {
+      setRetryingRecollection(false)
     }
   }
 
@@ -275,6 +304,16 @@ export default function LabOrderDetail() {
               <span className={`rounded border px-2.5 py-1 text-xs font-semibold ${labPillTone(order.ui_lab_event_label || statusLabel)}`}>
                 {order.ui_lab_event_label || statusLabel}
               </span>
+              {recollection?.can_retry && (
+                <Button size="sm" variant="outline" disabled={retryingRecollection} onClick={handleRetryRecollection}>
+                  {retryingRecollection ? "Queuing…" : "Retry no-charge redraw"}
+                </Button>
+              )}
+              {recollection?.requires_support_reconciliation && (
+                <span className="text-xs font-semibold text-amber-700">
+                  Provider response uncertain — support reconciliation required
+                </span>
+              )}
             </div>
             <div className="p-4">
               <LabOrderTimeline

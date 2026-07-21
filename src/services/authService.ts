@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import api from '../api/axiosInstance';
 import { useAuthStore } from '../store/useAuthStore';
+import { API_REQUEST_TIMEOUT_MS } from '../api/constants';
 
 interface LoginCredentials {
   email: string;
@@ -155,6 +156,7 @@ export const authService = {
         const refreshAxios = axios.create({
           baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
           withCredentials: true,
+          timeout: API_REQUEST_TIMEOUT_MS,
           headers: {
             'Content-Type': 'application/json',
           },
@@ -267,6 +269,7 @@ export const authService = {
           const directAxios = axios.create({
             baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
             withCredentials: true,
+            timeout: API_REQUEST_TIMEOUT_MS,
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${authStore.accessToken}`
@@ -307,6 +310,7 @@ export const authService = {
         const directAxios = axios.create({
           baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
           withCredentials: true,
+          timeout: API_REQUEST_TIMEOUT_MS,
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${newAccessToken}`

@@ -1,7 +1,8 @@
 import type { PreviewContext } from "@/features/treatments/types";
-
-const DEFAULT_LOCAL_QUESTIONNAIRE_URL = "http://localhost:3001";
-const DEFAULT_LOCAL_API_BASE_URL = "http://localhost:8000/api/v1";
+import {
+  QUESTIONNAIRE_PREVIEW_DEFAULTS,
+  QUESTIONNAIRE_PREVIEW_FRAGMENT,
+} from "@/features/treatments/preview/constants";
 
 const normalizeBaseUrl = (baseUrl: string) => baseUrl.replace(/\/+$/, "");
 
@@ -11,14 +12,21 @@ export interface QuestionnairePreviewTarget {
   reason?: string;
 }
 
+interface CapabilityPreviewContext {
+  capabilityToken: string;
+  apiBaseUrl?: string;
+  snapshotChecksum: string;
+  snapshotId: string;
+}
+
 export const getQuestionnairePreviewBaseUrl = () => {
   return normalizeBaseUrl(
-    import.meta.env.VITE_QUESTIONNAIRE_PREVIEW_BASE_URL || DEFAULT_LOCAL_QUESTIONNAIRE_URL
+    import.meta.env.VITE_QUESTIONNAIRE_PREVIEW_BASE_URL || QUESTIONNAIRE_PREVIEW_DEFAULTS.appBaseUrl
   );
 };
 
 export const getQuestionnairePreviewApiBaseUrl = () => {
-  return normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL || DEFAULT_LOCAL_API_BASE_URL);
+  return normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL || QUESTIONNAIRE_PREVIEW_DEFAULTS.apiBaseUrl);
 };
 
 export const buildQuestionnairePreviewTarget = (
@@ -27,7 +35,7 @@ export const buildQuestionnairePreviewTarget = (
   const baseUrl = getQuestionnairePreviewBaseUrl();
   const params = new URLSearchParams({
     preview: "true",
-    source: "admin",
+    source: "client",
     disable_side_effects: "true",
     mode: context.type,
   });
@@ -39,6 +47,8 @@ export const buildQuestionnairePreviewTarget = (
 
   if (context.slug) params.set("slug", context.slug);
   if (context.apiBaseUrl) params.set("api_base_url", context.apiBaseUrl);
+  if (context.type !== "section" && context.clientId) params.set("client_id", context.clientId);
+  if (context.type !== "section" && context.clientName) params.set("client_name", context.clientName);
 
   if (context.type === "program") {
     if (context.visitType) params.set("visit_type", context.visitType);
@@ -62,3 +72,20 @@ export const buildQuestionnairePreviewTarget = (
 
 export const buildQuestionnairePreviewUrl = (context: PreviewContext) =>
   buildQuestionnairePreviewTarget(context).url;
+
+export const buildCapabilityQuestionnairePreviewUrl = ({
+  capabilityToken,
+  apiBaseUrl,
+  snapshotChecksum,
+  snapshotId,
+}: CapabilityPreviewContext) => {
+  const query = new URLSearchParams({
+    api_base_url: apiBaseUrl || getQuestionnairePreviewApiBaseUrl(),
+  });
+  const fragment = new URLSearchParams({
+    [QUESTIONNAIRE_PREVIEW_FRAGMENT.capability]: capabilityToken,
+    [QUESTIONNAIRE_PREVIEW_FRAGMENT.snapshotChecksum]: snapshotChecksum,
+    [QUESTIONNAIRE_PREVIEW_FRAGMENT.snapshotId]: snapshotId,
+  });
+  return `${getQuestionnairePreviewBaseUrl()}/preview?${query.toString()}#${fragment.toString()}`;
+};

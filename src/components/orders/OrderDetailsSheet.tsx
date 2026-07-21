@@ -58,6 +58,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { TreatmentOrderAggregate } from "@/features/treatments/orders/components/TreatmentOrderAggregate"
 
 interface OrderDetailsSheetProps {
   open: boolean
@@ -428,7 +429,15 @@ export function OrderDetailsSheet({
                 </div>
               </section>
 
-              {order.line_items && order.line_items.length > 0 && (
+              {order.treatment_aggregate && (
+                <TreatmentOrderAggregate
+                  aggregate={order.treatment_aggregate}
+                  currentOrderId={order.id}
+                  compact
+                />
+              )}
+
+              {!order.treatment_aggregate && order.line_items && order.line_items.length > 0 && (
                 <section>
                   <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
                     <Package className="h-4 w-4" />
@@ -535,29 +544,35 @@ export function OrderDetailsSheet({
                     label="Order Total" 
                     value={`$${netCollected.toFixed(2)}`}
                   />
-                  <InfoItem
-                    icon={<Package className="h-4 w-4" />}
-                    label="Requested (Original)"
-                    value={requestedMedicineName}
-                    tone="requested"
-                  />
-                  <InfoItem
-                    icon={<Package className="h-4 w-4" />}
-                    label="Prescribed (Doctor Final)"
-                    value={prescribedMedicineDisplayName}
-                    tone="prescribed"
-                  />
+                  {!order.treatment_aggregate && (
+                    <>
+                      <InfoItem
+                        icon={<Package className="h-4 w-4" />}
+                        label="Requested (Original)"
+                        value={requestedMedicineName}
+                        tone="requested"
+                      />
+                      <InfoItem
+                        icon={<Package className="h-4 w-4" />}
+                        label="Prescribed (Doctor Final)"
+                        value={prescribedMedicineDisplayName}
+                        tone="prescribed"
+                      />
+                    </>
+                  )}
                   <InfoItem
                     icon={<ClipboardList className="h-4 w-4" />}
                     label="Doctor"
                     value={order.doctor_name || "—"}
                   />
-                  <InfoItem
-                    icon={<CreditCard className="h-4 w-4" />}
-                    label="Amount Source"
-                    value={chargeableSourceLabel}
-                    tone="source"
-                  />
+                  {!order.treatment_aggregate && (
+                    <InfoItem
+                      icon={<CreditCard className="h-4 w-4" />}
+                      label="Amount Source"
+                      value={chargeableSourceLabel}
+                      tone="source"
+                    />
+                  )}
                   <InfoItem
                     icon={<CreditCard className="h-4 w-4" />}
                     label="Subtotal (Before Discount)"

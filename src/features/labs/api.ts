@@ -189,6 +189,14 @@ export interface LabOrderDetail {
     requisition_available: boolean;
     result_pdf_available: boolean;
   };
+  recollection?: {
+    status: string;
+    original_lab_order_id: string;
+    replacement_lab_order_id: string | null;
+    patient_charge_amount: string;
+    can_retry: boolean;
+    requires_support_reconciliation: boolean;
+  } | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -435,6 +443,18 @@ export const clientLabsApi = {
         requisition_available: Boolean(data.artifacts?.requisition_available),
         result_pdf_available: Boolean(data.artifacts?.result_pdf_available),
       },
+      recollection: data.recollection
+        ? {
+            status: String(data.recollection.status ?? ""),
+            original_lab_order_id: String(data.recollection.original_lab_order_id ?? ""),
+            replacement_lab_order_id: data.recollection.replacement_lab_order_id
+              ? String(data.recollection.replacement_lab_order_id)
+              : null,
+            patient_charge_amount: String(data.recollection.patient_charge_amount ?? "0.00"),
+            can_retry: Boolean(data.recollection.can_retry),
+            requires_support_reconciliation: Boolean(data.recollection.requires_support_reconciliation),
+          }
+        : null,
     };
   },
 
@@ -450,6 +470,10 @@ export const clientLabsApi = {
     // We need to load the order detail first to get the assignment_id, then PATCH the assignment.
     const detail = await axiosInstance.patch(clientLabEndpoints.orderResultAccess(orderId), { result_access_allowed: allow });
     return detail.data;
+  },
+
+  retryRecollection: async (orderId: string): Promise<void> => {
+    await axiosInstance.post(clientLabEndpoints.orderRecollectionRetry(orderId));
   },
 
   getLabOrderResultPdf: async (orderId: string): Promise<Blob> => {

@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,56 +10,56 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 220 23.1% 97.5%;
+    --foreground: 222 47.4% 11.2%;
 
     /* --- Kinmeds3 palette (light default) --- */
-    --km-bg: #f4f2ee;
+    --km-bg: #f7f8fa;
     --km-s1: #fff;
-    --km-s2: #f0ece6;
-    --km-s3: #e8e4de;
-    --km-b: rgba(0, 0, 0, 0.08);
-    --km-bh: rgba(0, 0, 0, 0.15);
-    --km-t: #1a1a1a;
-    --km-tm: #888;
-    --km-td: #ccc;
-    --km-ac: #4f8ef7;
-    --km-acp: rgba(79, 142, 247, 0.12);
-    --km-gr: #22c55e;
-    --km-grp: rgba(34, 197, 94, 0.12);
-    --km-am: #c2772a;
-    --km-amp: rgba(194, 119, 42, 0.14);
+    --km-s2: #eef1f4;
+    --km-s3: #e8ebef;
+    --km-b: #e8ebef;
+    --km-bh: #dbe7fd;
+    --km-t: #0f172a;
+    --km-tm: #475569;
+    --km-td: #94a3b8;
+    --km-ac: #2563eb;
+    --km-acp: #eff4ff;
+    --km-gr: #16a34a;
+    --km-grp: #dcfce7;
+    --km-am: #b45309;
+    --km-amp: #fef3c7;
     --km-pu: #a78bfa;
     --km-pup: rgba(167, 139, 250, 0.12);
     --km-re: #ef4444;
     --km-rep: rgba(239, 68, 68, 0.1);
-    --km-r: 14px;
-    --km-rs: 10px;
+    --km-r: 11px;
+    --km-rs: 8px;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 47.4% 11.2%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 222 47.4% 11.2%;
 
-    --primary: 199 95% 74%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 221 83.2% 53.3%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 210 21.4% 94.5%;
+    --secondary-foreground: 215 19.3% 34.5%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 210 21.4% 94.5%;
+    --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 221 100% 96.9%;
+    --accent-foreground: 221 83.2% 53.3%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 199 95% 74%;
+    --border: 214 17.9% 92.4%;
+    --input: 214 17.9% 92.4%;
+    --ring: 221 83.2% 53.3%;
 
     --success: 142 71% 45%;
     --success-foreground: 210 40% 98%;
@@ -65,24 +67,30 @@ All colors MUST be HSL.
     --warning: 38 92% 50%;
     --warning-foreground: 222.2 47.4% 11.2%;
 
-    --healthcare-header: 199 95% 74%;
-    --healthcare-sidebar: 0 0% 98%;
+    --healthcare-header: 215 68% 95.1%;
+    --healthcare-sidebar: 0 0% 100%;
 
-    --radius: 0.5rem;
+    --radius: 0.6875rem;
+    --surface: 0 0% 100%;
+    --border-light: 210 21.4% 94.5%;
+    --text-secondary: 215 19.3% 34.5%;
+    --text-tertiary: 215 20.2% 65.1%;
+    --primary-soft: 221 100% 96.9%;
+    --topband: 215 68% 95.1%;
 
-    --sidebar-background: 0 0% 98%;
+    --sidebar-background: 0 0% 100%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-foreground: 215 19.3% 34.5%;
 
-    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary: 221 83.2% 53.3%;
 
     --sidebar-primary-foreground: 0 0% 98%;
 
-    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent: 221 100% 96.9%;
 
-    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-accent-foreground: 221 83.2% 53.3%;
 
-    --sidebar-border: 220 13% 91%;
+    --sidebar-border: 214 17.9% 92.4%;
 
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
@@ -144,6 +152,21 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+
+  @media (pointer: coarse) {
+    .treatment-preview-identity {
+      min-height: 44px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .treatment-preview-identity {
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 

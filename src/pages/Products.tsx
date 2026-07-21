@@ -81,6 +81,7 @@ export default function Products() {
   const [purchaseType, setPurchaseType] = useState(ALL_VALUE)
   const [pharmacy, setPharmacy] = useState(ALL_VALUE)
   const [status, setStatus] = useState(ALL_VALUE)
+  const [treatmentType, setTreatmentType] = useState(ALL_VALUE)
   const [editing, setEditing] = useState<Product | null>(null)
   const [loading, setLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
@@ -103,6 +104,7 @@ export default function Products() {
       if (purchaseType !== ALL_VALUE) params.purchase_type = purchaseType as ProductListParams["purchase_type"]
       if (pharmacy !== ALL_VALUE) params.pharmacy = pharmacy
       if (status !== ALL_VALUE) params.is_active = status === "active"
+      if (treatmentType !== ALL_VALUE) params.treatment_type = treatmentType
 
       const response = await productApi.listProducts(params)
 
@@ -132,7 +134,7 @@ export default function Products() {
     } finally {
       setLoading(false)
     }
-  }, [category, pageSize, pharmacy, purchaseType, search, status, toast])
+  }, [category, pageSize, pharmacy, purchaseType, search, status, toast, treatmentType])
 
   useEffect(() => {
     fetchProducts(1, pageSize)
@@ -202,11 +204,25 @@ export default function Products() {
       .sort((a, b) => a.label.localeCompare(b.label))
   }, [allKnownProducts])
 
+  const treatmentTypeOptions = useMemo(
+    () =>
+      dedupeOptions(
+        allKnownProducts
+          .filter((product) => product.treatment_type_id && product.treatment_type_name)
+          .map((product) => ({
+            value: String(product.treatment_type_id),
+            label: String(product.treatment_type_name),
+          })),
+      ).sort((a, b) => a.label.localeCompare(b.label)),
+    [allKnownProducts],
+  )
+
   const hasActiveFilters =
     category !== ALL_VALUE ||
     purchaseType !== ALL_VALUE ||
     pharmacy !== ALL_VALUE ||
     status !== ALL_VALUE ||
+    treatmentType !== ALL_VALUE ||
     Boolean(search.trim())
 
   const showingStart = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1
@@ -217,6 +233,7 @@ export default function Products() {
     setPurchaseType(ALL_VALUE)
     setPharmacy(ALL_VALUE)
     setStatus(ALL_VALUE)
+    setTreatmentType(ALL_VALUE)
     setSearch("")
     setCurrentPage(1)
   }
@@ -242,7 +259,7 @@ export default function Products() {
         </div>
 
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
             <FilterSelect
               label="Category"
               value={category}
@@ -270,6 +287,16 @@ export default function Products() {
               options={pharmacyOptions}
               onValueChange={(value) => {
                 setPharmacy(value)
+                setCurrentPage(1)
+              }}
+            />
+            <FilterSelect
+              label="Treatment Type (New)"
+              value={treatmentType}
+              placeholder="All Treatment Types"
+              options={treatmentTypeOptions}
+              onValueChange={(value) => {
+                setTreatmentType(value)
                 setCurrentPage(1)
               }}
             />
@@ -334,13 +361,14 @@ export default function Products() {
                   <ProductTableHead>Drug Form</ProductTableHead>
                   <ProductTableHead>Status</ProductTableHead>
                   <ProductTableHead>Purchase Type</ProductTableHead>
+                  <ProductTableHead>Treatment Type / Routing (New)</ProductTableHead>
                   <ProductTableHead>Created At</ProductTableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-40 text-center">
+                    <TableCell colSpan={8} className="h-40 text-center">
                       <div className="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
                         <Loader2 className="h-5 w-5 animate-spin" />
                         <span>Loading products...</span>
@@ -375,12 +403,32 @@ export default function Products() {
                       <ProductTableCell>
                         <Pill tone="blue">{getPurchaseTypeLabel(product.purchase_type)}</Pill>
                       </ProductTableCell>
+                      <ProductTableCell>
+                        {product.product_type === "supply" ? (
+                          <span className="text-xs text-slate-400">Not applicable</span>
+                        ) : (
+                          <div className="space-y-1">
+                            <Pill tone={product.treatment_type_name ? "blue" : "red"}>
+                              {product.treatment_type_name || "Unassigned"}
+                            </Pill>
+                            {product.treatment_type_is_active === false && (
+                              <Pill tone="red">Inactive Treatment Type</Pill>
+                            )}
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                              Intake: {product.derived_intake_visit_type || "Not configured"}
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                              Follow-up: {product.derived_followup_visit_type || "Not configured"}
+                            </div>
+                          </div>
+                        )}
+                      </ProductTableCell>
                       <ProductTableCell>{formatDate(product.created_at)}</ProductTableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-40 text-center text-sm text-slate-500 dark:text-slate-400">
+                    <TableCell colSpan={8} className="h-40 text-center text-sm text-slate-500 dark:text-slate-400">
                       No products found.
                     </TableCell>
                   </TableRow>

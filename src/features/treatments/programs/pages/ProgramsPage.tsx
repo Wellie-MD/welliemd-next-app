@@ -9,7 +9,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { showFloatingToast } from "@/components/ui/floating-toast";
-import { EmptyStateCard, PatientPreviewDialog, SlugEditorModal } from "@/features/treatments/common/components";
+import { EmptyStateCard, SlugEditorModal } from "@/features/treatments/common/components";
+import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
+import { useBranding } from "@/contexts/BrandingContext";
 import { useClients } from "@/hooks/useClients";
 import { getTreatmentApiErrorMessage } from "@/features/treatments/common/utils/apiError";
 import { normalizeTreatmentSlug } from "@/features/treatments/common/utils/slug";
@@ -22,8 +24,8 @@ import {
 import { ProgramListTable } from "@/features/treatments/programs/components/ProgramListTable";
 import { ProgramCard } from "@/features/treatments/programs/components/ProgramCard";
 import type { Program, ProgramStatus } from "@/features/treatments/types";
-import { buildQuestionnairePreviewUrl } from "@/features/treatments/utils/previewUrl";
 import { cn } from "@/lib/utils";
+import { getQuestionnairePreviewApiBaseUrl } from "@/features/treatments/utils/previewUrl";
 
 type ProgramsFilter = "all" | "missing_follow_up";
 type ProgramsSort = "recent" | "alpha";
@@ -50,9 +52,8 @@ const statusSegmentClassName = (active: boolean) =>
       : "bg-transparent text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-[#1b2030]"
   );
 
-const clientApiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://knysysapi.welliemd.com/api/v1";
-
 export default function ProgramsPage() {
+  const { brandSettings } = useBranding();
   const { data: programs = [] } = usePrograms();
   const { currentClient } = useClients();
   const updateProgramSlug = useUpdateProgramSlug();
@@ -364,8 +365,8 @@ export default function ProgramsPage() {
       />
 
       {previewProgram ? (
-        <PatientPreviewDialog open={Boolean(previewProgram)} onOpenChange={handlePreviewOpenChange}
-          previewUrl={buildQuestionnairePreviewUrl({ type: "program", id: previewProgram.id, slug: previewProgram.slug, visitType: previewProgram.visitType, templateId: previewProgram.sourceQuestionnaireTemplateId, apiBaseUrl: clientApiBaseUrl })}
+        <QuestionnairePreviewDialog open={Boolean(previewProgram)} onOpenChange={handlePreviewOpenChange}
+          previewContext={{ type: "program", id: previewProgram.id, slug: previewProgram.slug, visitType: previewProgram.visitType, templateId: previewProgram.sourceQuestionnaireTemplateId, apiBaseUrl: getQuestionnairePreviewApiBaseUrl(), clientId: brandSettings?.clientId, clientName: brandSettings?.clientName }}
           subtitle={`${previewProgram.name} · how patients see this ${previewProgram.stage === "follow_up" ? "follow-up" : "intake"}`}
           iframeTitle={`${previewProgram.name} questionnaire preview`} />
       ) : null}

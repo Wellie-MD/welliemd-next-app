@@ -45,6 +45,7 @@ import {
 import { PermissionGate } from "@/components/auth/PermissionGate";
 import { Permissions } from "@/constants/permissions";
 import { useBranding } from "@/contexts/BrandingContext";
+import { DEFAULT_CLIENT_LOGO_PATH } from "@/constants/branding";
 
 type Props = { unseenCount?: number };
 
@@ -231,24 +232,22 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
 
   function SidebarLogo() {
   const { state } = useSidebar()
-  const { logos, isLoading } = useBranding()
+  const { logos } = useBranding()
 
   if (state === "collapsed") return null
 
-  if (isLoading) return null
-
-  if (!logos?.square) return null
-
-  const logoUrl = logos.square
+  const logoUrl = logos?.transparent || logos?.square || DEFAULT_CLIENT_LOGO_PATH
 
   return (
     <div className="brand-logo-shell">
       <img
         src={logoUrl}
-        alt="Logo"
-        className="h-8 w-auto max-w-[200px] object-contain"
+        alt="WellieMD"
+        className="h-7 w-auto max-w-[180px] object-contain"
         onError={(e) => {
-          e.currentTarget.style.display = "none"
+          if (!e.currentTarget.src.endsWith(DEFAULT_CLIENT_LOGO_PATH)) {
+            e.currentTarget.src = DEFAULT_CLIENT_LOGO_PATH
+          }
         }}
       />
     </div>
@@ -262,7 +261,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
     >
       <div className="flex w-full justify-between p-4">
         <SidebarLogo />
-        <SidebarTrigger className="text-gray-600 dark:text-slate-100 hover:bg-white/50 dark:hover:bg-slate-900/40 rounded-md p-1" />
+        <SidebarTrigger className="rounded-md p-1 text-[hsl(var(--text-secondary))] hover:bg-[hsl(var(--primary-soft))] hover:text-primary dark:text-slate-100 dark:hover:bg-slate-900/40" />
       </div>
       <SidebarContent className="overflow-y-auto overflow-x-hidden flex-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <div className="flex flex-col h-full">
@@ -270,7 +269,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
             <Fragment key={section.label}>
               {!collapsed && (
                 <div className="px-3 pt-4 pb-2 first:pt-2">
-                  <SidebarGroupLabel className="text-xs font-semibold text-gray-400 dark:text-slate-200 uppercase tracking-wider">
+                  <SidebarGroupLabel className="text-[9.5px] font-semibold text-[hsl(var(--text-tertiary))] dark:text-slate-200 uppercase tracking-[0.08em]">
                     {section.label}
                   </SidebarGroupLabel>
                 </div>
@@ -315,8 +314,8 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                           }
                                           ${
                                             isActive
-                                              ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm dark:bg-slate-900/30 dark:text-slate-100"
-                                              : "text-gray-600 dark:text-slate-100 hover:bg-[#F8FBFC] dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
+                                              ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-900/30 dark:text-slate-100"
+                                              : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-100 dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
                                           }
                                         `}
                                       >
@@ -324,8 +323,8 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                           <item.icon
                                           className={`h-5 w-5 flex-shrink-0 ${
                                             isActive
-                                              ? "text-[#12517A] dark:text-slate-100"
-                                              : "text-gray-500 dark:text-slate-100 group-"
+                                              ? "text-primary dark:text-slate-100"
+                                              : "text-[hsl(var(--text-secondary))] dark:text-slate-100 group-"
                                           }`}
                                         />
                                           {!collapsed && (
@@ -345,7 +344,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                               }
                                               ${
                                                 isActive
-                                                  ? "text-[#12517A]"
+                                                  ? "text-primary"
                                                   : "text-gray-400 dark:text-slate-200 group-"
                                               }
                                             `}
@@ -356,7 +355,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
 
                                     {!collapsed && (
                                       <CollapsibleContent className="transition-all duration-300 ease-in-out">
-                                        <div className="ml-6 mt-2 space-y-1 border-l border-gray-200 pl-4">
+                                        <div className="ml-6 mt-2 space-y-1 border-l border-border pl-4">
                                           {item.children.map((child) => (
                                             <SidebarMenuButton
                                               key={child.title}
@@ -368,8 +367,8 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                                   flex items-center w-full px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
                                                 ${
                                                   currentPath === child.url
-                                                      ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm border-l-2 border-[#12517A] -ml-[1px] dark:bg-slate-900/30 dark:text-slate-100 dark:border-slate-300"
-                                                      : "text-gray-600 dark:text-slate-100 hover:bg-[#F8FBFC] dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
+                                                      ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-900/30 dark:text-slate-100"
+                                                      : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-100 dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
                                                   }
                                                 `}
                                               >
@@ -399,8 +398,8 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                         }
                                         ${
                                           currentPath === item.url
-                                            ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm dark:bg-slate-800 dark:text-slate-100"
-                                            : "text-gray-600 dark:text-slate-300 hover:bg-[#F8FBFC] dark:hover:bg-slate-800"
+                                            ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-800 dark:text-slate-100"
+                                            : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-300 dark:hover:bg-slate-800"
                                         }
                                       `}
                                     >
@@ -412,8 +411,8 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                         <item.icon
                                           className={`h-5 w-5 flex-shrink-0 ${
                                             currentPath === item.url
-                                              ? "text-[#12517A] dark:text-slate-100"
-                                              : "text-gray-500 dark:text-slate-400 group-"
+                                              ? "text-primary dark:text-slate-100"
+                                              : "text-[hsl(var(--text-secondary))] dark:text-slate-400 group-"
                                           }`}
                                         />
                                       </div>
@@ -446,8 +445,8 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                       }
                                     ${
                                       isActive
-                                        ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm dark:bg-slate-900/30 dark:text-slate-100"
-                                        : "text-gray-600 dark:text-slate-100 hover:bg-[#F8FBFC] dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
+                                        ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-900/30 dark:text-slate-100"
+                                        : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-100 dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
                                     }
                                   `}
                                 >
@@ -455,8 +454,8 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                       <item.icon
                                       className={`h-5 w-5 flex-shrink-0 ${
                                         isActive
-                                          ? "text-[#12517A] dark:text-slate-100"
-                                          : "text-gray-500 dark:text-slate-100 group-"
+                                          ? "text-primary dark:text-slate-100"
+                                          : "text-[hsl(var(--text-secondary))] dark:text-slate-100 group-"
                                       }`}
                                     />
                                       {!collapsed && (
@@ -472,7 +471,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                           ${isOpen ? "rotate-0" : "-rotate-90"}
                                           ${
                                             isActive
-                                              ? "text-[#12517A]"
+                                              ? "text-primary"
                                               : "text-gray-400 dark:text-slate-200 group-"
                                           }
                                         `}
@@ -483,7 +482,7 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
 
                                 {!collapsed && (
                                   <CollapsibleContent className="transition-all duration-300 ease-in-out">
-                                    <div className="ml-6 mt-2 space-y-1 border-l border-gray-200 pl-4">
+                                    <div className="ml-6 mt-2 space-y-1 border-l border-border pl-4">
                                       {item.children.map((child) => (
                                         <SidebarMenuButton
                                           key={child.title}
@@ -495,8 +494,8 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                               flex items-center w-full px-3 py-2 text-sm rounded-md transition-all duration-150 ease-in-out
                                               ${
                                                 currentPath === child.url
-                                                  ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm border-l-2 border-[#12517A] -ml-[1px] dark:bg-slate-900/30 dark:text-slate-100 dark:border-slate-300"
-                                                  : "text-gray-600 dark:text-slate-100 hover:bg-[#F8FBFC] dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
+                                                  ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-900/30 dark:text-slate-100"
+                                                  : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-100 dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
                                               }
                                             `}
                                           >
@@ -526,8 +525,8 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                     }
                                     ${
                                       currentPath === item.url
-                                        ? "bg-[#E6F1F6] text-[#12517A] font-semibold shadow-sm dark:bg-slate-900/30 dark:text-slate-100"
-                                        : "text-gray-600 dark:text-slate-100 hover:bg-[#F8FBFC] dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
+                                        ? "rounded-none bg-[hsl(var(--sidebar-accent))] text-primary font-semibold shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-slate-900/30 dark:text-slate-100"
+                                        : "text-[hsl(var(--text-secondary))] hover:bg-[#f6f8fb] hover:text-foreground dark:text-slate-100 dark:hover:bg-slate-900/30 dark:hover:text-slate-100"
                                     }
                                   `}
                                 >
@@ -540,8 +539,8 @@ export function AppSidebar({ unseenCount = 0 }: Props) {
                                       <item.icon
                                       className={`h-5 w-5 flex-shrink-0 ${
                                         currentPath === item.url
-                                          ? "text-[#12517A] dark:text-slate-100"
-                                          : "text-gray-500 dark:text-slate-100 group-"
+                                          ? "text-primary dark:text-slate-100"
+                                          : "text-[hsl(var(--text-secondary))] dark:text-slate-100 group-"
                                       }`}
                                     />
                                     {/* tiny dot when collapsed */}
