@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-export type SectionScopeFilter = "all" | "global" | "treatment";
+export type SectionScopeFilter = "all" | "global" | "shared" | "treatment";
 
 interface SectionToolbarProps {
   scopeFilter: SectionScopeFilter;
@@ -17,6 +17,7 @@ interface SectionToolbarProps {
 const scopeFilters: Array<{ value: SectionScopeFilter; label: string }> = [
   { value: "all", label: "All" },
   { value: "global", label: "Global" },
+  { value: "shared", label: "Shared" },
   { value: "treatment", label: "Treatment Specific" },
 ];
 

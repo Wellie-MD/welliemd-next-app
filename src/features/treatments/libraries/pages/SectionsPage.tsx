@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog, TreatmentPageHeader } from "@/features/treatments/common/components";
-import { SectionDetailsDialog } from "@/features/treatments/libraries/sections/components/SectionDetailsDialog";
+import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
 import { SectionFieldsView } from "@/features/treatments/libraries/sections/components/SectionFieldsView";
 import { SectionListTable } from "@/features/treatments/libraries/sections/components/SectionListTable";
 import { SectionModal } from "@/features/treatments/libraries/sections/components/SectionModal";
@@ -55,7 +55,8 @@ export default function SectionsPage() {
       const matchesScope =
         scopeFilter === "all" ||
         (scopeFilter === "global" && section.scope === "global") ||
-        (scopeFilter === "treatment" && section.scope !== "global");
+        (scopeFilter === "shared" && section.scope === "shared") ||
+        (scopeFilter === "treatment" && section.scope === "treatment");
 
       const visitTypeText = section.visitTypeKeys.join(" ");
       const matchesSearch =
@@ -181,17 +182,15 @@ export default function SectionsPage() {
         section={editingSection}
       />
 
-      <SectionDetailsDialog
-        open={Boolean(previewSection)}
-        onOpenChange={(open) => {
-          if (!open) setPreviewSection(null);
-        }}
-        section={previewSection}
-        onEdit={(section) => {
-          setPreviewSection(null);
-          handleEdit(section);
-        }}
-      />
+      {previewSection && (
+        <PatientFlowTestModal
+          open={Boolean(previewSection)}
+          onOpenChange={(open) => {
+            if (!open) setPreviewSection(null);
+          }}
+          previewContext={{ type: "section", id: previewSection.id, slug: previewSection.id }}
+        />
+      )}
 
       <DeleteConfirmDialog
         open={Boolean(deleteSectionId)}

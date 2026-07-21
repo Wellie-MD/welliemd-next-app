@@ -34,6 +34,7 @@ const QUESTION_TYPE_GROUPS: Array<{
     label: "Specialized",
     options: [
       { value: "bmi", label: "BMI (Height, Weight & Auto-Calculate)" },
+      { value: "consent", label: "Consent Checkbox" },
       { value: "file_upload", label: "File Upload" },
       { value: "medication_dose", label: "Medication & Dose Selector" },
     ],

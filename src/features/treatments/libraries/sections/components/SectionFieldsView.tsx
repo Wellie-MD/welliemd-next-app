@@ -83,7 +83,7 @@ export function SectionFieldsView({ section, onBack }: SectionFieldsViewProps) {
         className="h-10 text-[13px] font-bold bg-[#0f766e] hover:bg-[#0d655e] text-white px-5 rounded-lg shadow-sm"
       >
         <Play className="h-4 w-4 mr-2 fill-white" />
-        Simulate
+        Preview
       </Button>
     </div>
   );

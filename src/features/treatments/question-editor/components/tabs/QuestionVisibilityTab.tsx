@@ -67,7 +67,7 @@ export function QuestionVisibilityTab({
   builderQuestions.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
 
   const hasRules = !!visibilityRuleGroup && (
-    visibilityRuleGroup.rules.length > 0 || (visibilityRuleGroup.subgroups || []).length > 0
+    (visibilityRuleGroup.rules?.length || 0) > 0 || (visibilityRuleGroup.subgroups || []).length > 0
   );
 
   return (

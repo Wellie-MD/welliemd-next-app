@@ -38,6 +38,7 @@ export function StandardEditor({
   const [required, setRequired] = useState(true);
   const [includeInQa, setIncludeInQa] = useState(true);
   const [hiddenFromPatient, setHiddenFromPatient] = useState(false);
+  const [lockClientChanges, setLockClientChanges] = useState(true);
   const [prefillFromPrevious, setPrefillFromPrevious] = useState(false);
   const [consentText, setConsentText] = useState("");
 
@@ -48,6 +49,7 @@ export function StandardEditor({
       setRequired(activeQuestion.required !== false);
       setIncludeInQa(activeQuestion.includeInQa !== false);
       setHiddenFromPatient(!!activeQuestion.hiddenFromPatient);
+      setLockClientChanges(activeQuestion.lockClientChanges !== false);
       setPrefillFromPrevious(!!activeQuestion.prefillFromPrevious);
       setChoices(activeQuestion.choices || []);
       setDqChoices(activeQuestion.dqChoices || []);
@@ -79,6 +81,7 @@ export function StandardEditor({
       setRequired(true);
       setIncludeInQa(true);
       setHiddenFromPatient(false);
+      setLockClientChanges(true);
       setPrefillFromPrevious(false);
     }
   }, [activeQuestion]);
@@ -129,6 +132,7 @@ export function StandardEditor({
       required,
       includeInQa,
       hiddenFromPatient,
+      lockClientChanges,
       prefillFromPrevious,
       choices: isChoiceType ? choices : undefined,
       dqChoices: isChoiceType ? dqChoices : undefined,
@@ -148,7 +152,6 @@ export function StandardEditor({
         title={programName}
         subtitle={`Question ${questionOrder} of ${questions.length || 1} ${isEditMode ? "- Edit" : "- Draft"}`}
         isEditMode={isEditMode}
-        activeQuestion={activeQuestion}
         onClose={onClose}
         onSave={handleSaveClick}
         onTestFlow={onTestFlow}
@@ -208,6 +211,13 @@ export function StandardEditor({
                     <p className="text-xs text-slate-500 mt-0.5">Internal-only question. Used for system flags or admin-only data. Patients never see it.</p>
                   </div>
                   <Switch checked={hiddenFromPatient} onCheckedChange={setHiddenFromPatient} />
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">Lock client changes</h4>
+                    <p className="text-xs text-slate-500 mt-0.5">When on, client brands can't edit, reorder, or remove this question in their portal — it stays exactly as configured here.</p>
+                  </div>
+                  <Switch checked={lockClientChanges} onCheckedChange={setLockClientChanges} />
                 </div>
               </div>
             </div>

@@ -3,6 +3,27 @@ import { Input } from "@/components/ui/input";
 import { Trash2, FileText, Plus } from "lucide-react";
 import type { QuestionKind } from "@/features/treatments/types";
 
+const KIND_PATIENT_VIEW: Partial<Record<QuestionKind, string>> = {
+  text: "Short text input",
+  textarea: "Long text area",
+  number: "Number input",
+  date: "Date picker",
+  email: "Email address input (validated)",
+  phone: "Phone number input (formatted)",
+  zip: "ZIP code input (5-digit)",
+  state_routing: "State picker — routes patient based on service-area eligibility",
+  bmi: "BMI calculator — height + weight inputs, auto-computes BMI",
+  file_upload: "File upload dropzone (photo ID, lab results, etc.)",
+  medication_dose: "Medication & Dose Selector — patient picks medication + dose from a structured list",
+  personal_details: "Grouped: First Name, Last Name, Date of Birth, Sex",
+  shipping_address: "Grouped: Address Line 1, Line 2, City, State, ZIP",
+  sex: "Sex selector — mapped to Beluga's patient.sex field",
+  self_reported_meds: "Patient-typed medication list — mapped to Beluga's self-reported meds",
+  allergies: "Allergy multi-select — mapped to Beluga's allergies field",
+  medical_conditions: "Medical conditions multi-select — mapped to Beluga's problem list",
+  labs_preference: "Labs preference — at-home vs. lab visit, mapped to Beluga",
+};
+
 interface QuestionContentTabProps {
   kind: QuestionKind;
   choices: string[];
@@ -48,7 +69,10 @@ export function QuestionContentTab({
           <div className="flex justify-between items-start mb-6">
             <div>
               <h4 className="text-sm font-bold text-slate-900">Answer Choices</h4>
-              <p className="text-xs text-slate-400 mt-0.5">{choices.length} answers</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {choices.length} answer{choices.length === 1 ? "" : "s"}
+                {dqChoices.length > 0 ? ` · ${dqChoices.length} disqualifying` : ""}
+              </p>
             </div>
             <Button
               onClick={handleAddChoice}
@@ -139,7 +163,7 @@ export function QuestionContentTab({
       ) : (
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden p-6">
           <p className="text-sm font-bold text-slate-900">No additional configuration.</p>
-          <p className="text-xs text-slate-500 mt-1">Patient sees: {kind === "number" ? "Number input." : kind === "text" ? "Short text input." : "Standard input."}</p>
+          <p className="text-xs text-slate-500 mt-1">Patient sees: {KIND_PATIENT_VIEW[kind] || kind}.</p>
         </div>
       )}
     </div>

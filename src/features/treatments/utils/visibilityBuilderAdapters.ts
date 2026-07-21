@@ -22,7 +22,7 @@ export const toBuilderGroup = (
     type: "group",
     operator: group.mode === "nested" ? "AND" : "OR",
     children: [
-      ...group.rules.map<VisibilityCondition>((rule) => ({
+      ...(group.rules || []).map<VisibilityCondition>((rule) => ({
         type: "condition",
         question_id: rule.questionId,
         question_type: rule.question_type,

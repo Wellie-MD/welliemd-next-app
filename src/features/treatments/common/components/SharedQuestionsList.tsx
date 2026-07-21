@@ -99,20 +99,38 @@ export function SharedQuestionsList({
   const deleteSectionFieldMutation = useDeleteSectionField(entityId);
   const reorderSectionFieldsMutation = useReorderSectionFields(entityId);
 
+  // Every flow starts with Patient Authentication. If no auth element was
+  // explicitly added, lead the list with a non-persisted system entry so it
+  // always reads correctly — matching the patient flow, where auth always
+  // comes first. It isn't part of `questions` state and can't be removed.
+  const displayQuestions = useMemo<ProgramQuestion[]>(() => {
+    if (questions.some((q) => q.kind === "personal_details")) return questions;
+    const systemAuthQuestion: ProgramQuestion = {
+      id: `auth-system-${entityId}`,
+      order: 0,
+      text: "Patient Authentication",
+      kind: "personal_details",
+      section: entityName,
+      required: true,
+      system: true,
+    };
+    return [systemAuthQuestion, ...questions];
+  }, [questions, entityId, entityName]);
+
   // Flow-builder adapter derived from the live questions, so the Flow view and
   // the List view share one source of truth and one persistence store. Adding
   // an element via the modals (which updates `questions`) re-seeds the canvas;
   // canvas reorders/deletes persist through the same program-questions store.
   const flowSubtitle = entityType === "program"
-    ? `Internal Program • ${questions.length} elements`
-    : `Common Section • ${questions.length} fields`;
+    ? `Internal Program • ${displayQuestions.length} elements`
+    : `Common Section • ${displayQuestions.length} fields`;
 
   const flowBuilderAdapter = useMemo<QuestionFlowAdapter>(() => ({
     entityType,
     entityId,
     title: headerTitle,
     subtitle: flowSubtitle,
-    items: [...questions]
+    items: [...displayQuestions]
       .sort((a, b) => a.order - b.order)
       .map((q) => ({
         id: q.id,
@@ -168,7 +186,7 @@ export function SharedQuestionsList({
       setQuestions(updated);
       toast({ title: "Flow Saved", description: "Question sequence saved successfully." });
     },
-  }), [questions, entityType, entityId, entityName, headerTitle, flowSubtitle, queryClient]);
+  }), [questions, displayQuestions, entityType, entityId, entityName, headerTitle, flowSubtitle, queryClient]);
 
   // dnd-kit sensors
   const sensors = useSensors(
@@ -209,21 +227,17 @@ export function SharedQuestionsList({
   };
 
   const processedQuestions = useMemo(
-    () => filterQuestions(questions, searchQuery, typeFilter),
-    [questions, searchQuery, typeFilter]
+    () => filterQuestions(displayQuestions, searchQuery, typeFilter),
+    [displayQuestions, searchQuery, typeFilter]
   );
-  const typeCounts = useMemo(() => countQuestionTypes(questions), [questions]);
+  const typeCounts = useMemo(() => countQuestionTypes(displayQuestions), [displayQuestions]);
 
-  // Editing dispatch
+  // Editing dispatch — every element kind (question, checkout, auth) opens
+  // the same QuestionEditorDialog "Question Builder"; it switches its
+  // middle/right panels internally based on the active question's kind.
   const handleEditClick = (q: ProgramQuestion) => {
     setActiveEditingQuestion(q);
-    if (q.kind === "checkout") {
-      setIsCheckoutOpen(true);
-    } else if (q.kind === "personal_details") {
-      setIsAuthOpen(true);
-    } else {
-      setIsQuestionOpen(true);
-    }
+    setIsQuestionOpen(true);
   };
 
   // Deleting confirmation
@@ -403,7 +417,7 @@ export function SharedQuestionsList({
           onOpenChange={setIsQuestionOpen}
           onSave={handleAddQuestionSave}
           initialQuestionId={activeEditingQuestion?.id || null}
-          questions={questions}
+          questions={displayQuestions}
           programId={entityId}
         />
         <CheckoutQuestionModal
@@ -487,7 +501,7 @@ export function SharedQuestionsList({
       />
 
       <main className="flex-1 p-6 w-full">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+        <div className="mb-3.5">
           <QuestionListFilters
             counts={typeCounts}
             selectedType={typeFilter}
@@ -495,7 +509,9 @@ export function SharedQuestionsList({
             onSelectType={setTypeFilter}
             onSearchChange={setSearchQuery}
           />
+        </div>
 
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
           <QuestionListTable
             questions={processedQuestions}
             reorderActive={isReorderActive}
@@ -513,7 +529,7 @@ export function SharedQuestionsList({
         onOpenChange={setIsQuestionOpen}
         onSave={handleAddQuestionSave}
         initialQuestionId={activeEditingQuestion?.id || null}
-        questions={questions}
+        questions={displayQuestions}
         programId={entityId}
       />
 
