@@ -103,7 +103,7 @@ export interface WeightData {
   start: number | null;
   targetBmi: number | null;
   heightIn: number | null;
-  points: { date: string; weight: number; bmi: number | null }[];
+  points: { date: string; weight: number; bmi: number | null; height: number | null }[];
   latestBmi: number | null;
   latestBmiCategory: string | null;
 }

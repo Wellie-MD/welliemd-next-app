@@ -13,7 +13,10 @@ import {
   MessageSquare, CreditCard,
 } from 'lucide-react';
 
-import { getOrder, PatientOrder, OrderActivityEvent } from '@/shared/api/ordersApi';
+import { getOrder, PatientOrder, OrderActivityEvent, reauthorizeTreatment, withdrawTreatment } from '@/shared/api/ordersApi';
+import { PatientTreatmentAggregate } from '@/features/treatments/orders/PatientTreatmentAggregate';
+import { TREATMENT_ORDER_LIFECYCLE, TREATMENT_ORDER_PORTAL_PATH } from '@/features/treatments/orders/orderActionConstants';
+import { PaymentMethodsService } from '@/features/payment-methods/services/payment-methods.service';
 
 // ---------- Product icon (SVG-based per kinmeds3) ----------
 function ProductIcon({ productName }: { productName: string }) {
@@ -373,6 +376,8 @@ export default function OrderDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [productImageFailed, setProductImageFailed] = useState(false);
+  const [treatmentActionPending, setTreatmentActionPending] = useState(false);
+  const [treatmentActionError, setTreatmentActionError] = useState<string | null>(null);
 
   const loadOrder = useCallback(async () => {
     if (!orderId) return;
@@ -392,6 +397,43 @@ export default function OrderDetail() {
   useEffect(() => {
     void loadOrder();
   }, [loadOrder]);
+
+  const handleWithdrawal = async () => {
+    const caseId = order?.treatment_aggregate?.treatment_case_id;
+    if (!caseId || !window.confirm('Withdraw this treatment? Completed standalone lab purchases and results will remain available.')) return;
+    setTreatmentActionPending(true);
+    setTreatmentActionError(null);
+    try {
+      await withdrawTreatment(caseId);
+      await loadOrder();
+    } catch {
+      setTreatmentActionError('This treatment can no longer be withdrawn automatically. Contact support if you need help.');
+    } finally {
+      setTreatmentActionPending(false);
+    }
+  };
+
+  const handleReauthorization = async () => {
+    const caseId = order?.treatment_aggregate?.treatment_case_id;
+    if (!caseId) return;
+    setTreatmentActionPending(true);
+    setTreatmentActionError(null);
+    try {
+      const config = await PaymentMethodsService.getPaymentConfig();
+      const methods = await PaymentMethodsService.listPaymentMethods(config.active_gateway);
+      const method = methods.find((item) => item.is_default) || methods[0];
+      if (!method) {
+        navigate(TREATMENT_ORDER_PORTAL_PATH.billing);
+        return;
+      }
+      await reauthorizeTreatment(caseId, method.id, config.active_gateway);
+      await loadOrder();
+    } catch {
+      setTreatmentActionError('Payment authorization could not be renewed. Update your payment method or contact support.');
+    } finally {
+      setTreatmentActionPending(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -489,8 +531,37 @@ export default function OrderDetail() {
         </div>
       </div>
 
-      {/* Product hero */}
-      <div className="km-fade" style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: 16, background: 'var(--km-s1)', borderRadius: 12, marginBottom: 10, border: '1px solid var(--km-b)' }}>
+      {order.treatment_aggregate && <PatientTreatmentAggregate aggregate={order.treatment_aggregate} />}
+      {(order.treatment_aggregate?.lifecycle.can_withdraw
+        || order.treatment_case_summary?.lifecycle_status === TREATMENT_ORDER_LIFECYCLE.awaitingLabs) && (
+        <div className="km-card" style={{ marginBottom: 10, padding: 14 }}>
+          <button className="km-btn km-btn-outline" disabled={treatmentActionPending} onClick={() => void handleWithdrawal()}>
+            Withdraw treatment
+          </button>
+          <div style={{ marginTop: 7, fontSize: 11, color: 'var(--km-tm)' }}>
+            Your standalone lab purchases and available results will be preserved.
+          </div>
+        </div>
+      )}
+      {(order.treatment_aggregate?.lifecycle.reauthorization_required
+        || order.treatment_case_summary?.lifecycle_status === TREATMENT_ORDER_LIFECYCLE.reauthorizationRequired) && (
+        <div className="km-card" style={{ marginBottom: 10, padding: 14 }}>
+          <button className="km-btn" disabled={treatmentActionPending} onClick={() => void handleReauthorization()}>
+            Renew payment authorization
+          </button>
+          <button className="km-btn km-btn-outline" style={{ marginLeft: 8 }} onClick={() => navigate(TREATMENT_ORDER_PORTAL_PATH.billing)}>
+            Update payment method
+          </button>
+        </div>
+      )}
+      {treatmentActionError && (
+        <div className="km-card" role="alert" style={{ marginBottom: 10, padding: 12, color: 'var(--km-re)' }}>
+          {treatmentActionError}
+        </div>
+      )}
+
+      {/* Legacy non-Program Product hero */}
+      {!order.treatment_aggregate && <div className="km-fade" style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: 16, background: 'var(--km-s1)', borderRadius: 12, marginBottom: 10, border: '1px solid var(--km-b)' }}>
         {showProductImage ? (
           <div style={{
             width: 56, height: 56, borderRadius: 12,
@@ -571,7 +642,7 @@ export default function OrderDetail() {
             </span>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* Pharmacy row */}
       {order.pharmacy_name && (
@@ -601,7 +672,7 @@ export default function OrderDetail() {
                 <span style={{ fontSize: 13, fontWeight: 700 }}>${item.line_total || '0.00'}</span>
               </div>
               <div style={{ marginTop: 3, color: 'var(--km-tm)', fontSize: 11 }}>
-                Qty {item.quantity || 1} · Prescription {item.prescription_status || 'pending'} · Fulfilment {item.fulfilment_status || 'pending'} · Refund {item.refund_status || 'none'}
+                Qty {item.quantity || 1}{!order.treatment_aggregate ? ` · Prescription ${item.prescription_status || 'pending'}` : ''} · Fulfilment {item.fulfilment_status || 'pending'} · Refund {item.refund_status || 'none'}
                 {item.duration_days ? ` · ${item.duration_days} day supply` : ''}
               </div>
               {item.tracking_number && (

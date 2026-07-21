@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, Pill, RefreshCw, CheckCircle, Search } from "lucide-react";
 import { getOrders, PatientOrder } from "@/shared/api/ordersApi";
+import { CLINICAL_STATUS_CLASSES, CLINICAL_STATUS_LABELS } from "@/features/treatments/orders/constants";
 
 interface Prescription {
   id: number;
@@ -15,6 +16,7 @@ interface Prescription {
   expiryDate: string;
   instructions: string;
   status: 'active' | 'expired' | 'discontinued' | 'pending';
+  clinicalStatus?: string;
   category: 'chronic' | 'acute' | 'preventive';
   sideEffects?: string[];
   refillRequestDate?: string;
@@ -34,8 +36,31 @@ export default function Prescriptions() {
     setError(null);
     try {
       const response = await getOrders(1, 50);
-      const derived = response.results.flatMap((order: PatientOrder) =>
-        (order.line_items || []).filter((line) => line.prescription_status === 'prescribed' || line.prescribed_at).map((line, index) => ({
+      const derived = response.results.flatMap((order: PatientOrder) => {
+        const aggregate = order.treatment_aggregate;
+        if (aggregate) {
+          const products = aggregate.reconciliation.prescribed_set.length
+            ? aggregate.reconciliation.prescribed_set
+            : aggregate.reconciliation.requested_set;
+          return [{
+            id: Number.parseInt(String(order.id).replace(/\D/g, '').slice(-8), 10) || 0,
+            medication: products.map((product) => product.name || product.med_id || `Product ${product.product_id || ''}`.trim()).join(', ') || 'Awaiting provider decision',
+            dosage: 'See treatment instructions',
+            frequency: 'As prescribed',
+            quantity: products.reduce((total, product) => total + Number(product.quantity || 1), 0),
+            refillsRemaining: 0,
+            prescribedBy: order.doctor_name || 'Healthcare professional',
+            prescribedDate: order.prescribed_at || order.created_at,
+            expiryDate: '—',
+            instructions: aggregate.clinical_status === 'clinical_review'
+              ? aggregate.patient_message || 'Your care team is reviewing this prescription. No action is required from you.'
+              : 'Follow the instructions provided by your clinician and pharmacy.',
+            status: aggregate.clinical_status === 'prescription_settled' ? 'active' as const : 'pending' as const,
+            clinicalStatus: aggregate.clinical_status,
+            category: 'acute' as const,
+          }];
+        }
+        return (order.line_items || []).filter((line) => line.prescription_status === 'prescribed' || line.prescribed_at).map((line, index) => ({
           id: Number.parseInt(`${String(order.id).replace(/\\D/g, '').slice(-6) || '0'}${index}`, 10) || index,
           medication: line.product_name || order.product_name,
           dosage: 'See treatment instructions',
@@ -48,8 +73,8 @@ export default function Prescriptions() {
           instructions: 'Follow the instructions provided by your clinician and pharmacy.',
           status: 'active' as const,
           category: 'acute' as const,
-        }))
-      );
+        }));
+      });
       if (attempt === loadAttemptRef.current) setPrescriptions(derived);
     } catch (loadError) {
       console.error('Failed to load prescriptions:', loadError);
@@ -65,7 +90,7 @@ export default function Prescriptions() {
   }, [loadPrescriptions]);
 
   const activePrescriptions = useMemo(() => prescriptions.filter(p =>
-    p.status === 'active' && 
+    (p.status === 'active' || p.status === 'pending') &&
     p.medication.toLowerCase().includes(searchTerm.toLowerCase())
   ), [prescriptions, searchTerm]);
   const expiredPrescriptions = useMemo(() => prescriptions.filter(p =>
@@ -104,7 +129,9 @@ export default function Prescriptions() {
               {prescription.medication}
             </div>
             <div style={{ display: 'flex', gap: 4 }}>
-              <span className={getStatusBadge(prescription.status)}>{prescription.status}</span>
+              <span className={prescription.clinicalStatus ? CLINICAL_STATUS_CLASSES[prescription.clinicalStatus] || getStatusBadge(prescription.status) : getStatusBadge(prescription.status)}>
+                {prescription.clinicalStatus ? CLINICAL_STATUS_LABELS[prescription.clinicalStatus] || prescription.clinicalStatus.split('_').join(' ') : prescription.status}
+              </span>
               <span className={getCategoryBadge(prescription.category)}>{prescription.category}</span>
             </div>
           </div>

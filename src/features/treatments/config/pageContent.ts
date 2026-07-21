@@ -12,8 +12,11 @@ export interface ExplorePageContent {
   howItWorks: {
     title: string;
     description: string;
+    steps: readonly string[];
   };
   browseLabel: string;
+  searchLabel: string;
+  searchPlaceholder: string;
   emptyState: {
     title: string;
     description: string;
@@ -27,8 +30,11 @@ export const EXPLORE_PAGE_CONTENT: ExplorePageContent = {
     title: 'How it works',
     description:
       'Select a treatment, complete a short intake questionnaire, and a licensed provider will review your case. Visit type may vary based on your state.',
+    steps: ['Select', 'Intake', 'Review'],
   },
   browseLabel: 'Browse by category',
+  searchLabel: 'Search treatments',
+  searchPlaceholder: 'Search treatments…',
   emptyState: {
     title: 'No treatments available',
     description:

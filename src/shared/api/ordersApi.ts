@@ -6,6 +6,7 @@
  */
 
 import { apiClient, withRetry } from './client';
+import { TREATMENT_ORDER_ACTION_PATH } from '@/features/treatments/orders/orderActionConstants';
 
 /**
  * Order status values matching backend ORDER_STATUS_CHOICES
@@ -93,6 +94,93 @@ export interface PatientTreatmentCaseSummary {
     reimbursement_total?: string;
 }
 
+export interface TreatmentAggregateProduct {
+    product_id?: string | number | null;
+    source_product_id?: string | number | null;
+    med_id?: string | null;
+    name?: string | null;
+    quantity?: number | null;
+    days_supply?: number | null;
+    product_role?: string | null;
+    choice_group?: string | null;
+}
+
+export interface PatientTreatmentAggregate {
+    clinical_status: string;
+    patient_message?: string | null;
+    treatment_case_id: string;
+    lifecycle: {
+        status: string;
+        can_withdraw: boolean;
+        reauthorization_required: boolean;
+        support_recovery_required: boolean;
+    };
+    authority: {
+        state: string;
+        version: number;
+        updated_at?: string | null;
+    };
+    treatment_type: { id: string; key: string; name: string };
+    lab_gate: {
+        required: boolean;
+        ready_for_provider_review: boolean;
+        has_partial_results: boolean;
+        recollection_required: boolean;
+        provider_review_state: string;
+        items: Array<{
+            lab_order_id: string;
+            display_id?: string | null;
+            panel_name?: string | null;
+            required: boolean;
+            status: string;
+            results_status: string;
+            result_count: number;
+            results_complete: boolean;
+            partial_results: boolean;
+            recollection_required: boolean;
+            result_pdf_url?: string | null;
+            recollection?: {
+                status: string;
+                patient_charge_amount: string;
+                patient_action?: string | null;
+                replacement_lab_order_id?: string | null;
+            } | null;
+        }>;
+    };
+    reconciliation: {
+        version?: number | null;
+        status: string;
+        requested_set: TreatmentAggregateProduct[];
+        prescribed_set: TreatmentAggregateProduct[];
+        factual_differences?: {
+            unchanged_product_ids?: Array<string | number>;
+            prescribed_addition_product_ids?: Array<string | number>;
+            requested_absence_product_ids?: Array<string | number>;
+            absence_is_authoritative?: boolean;
+        };
+        has_unresolved_facts?: boolean;
+        created_at?: string | null;
+    };
+    settlement: {
+        status: string;
+        patient_settled_at?: string | null;
+        reimbursement_settled_at?: string | null;
+        settled_at?: string | null;
+        patient_action_required: boolean;
+        refund_pending: boolean;
+        refund_required_amount: string;
+    };
+    siblings: Array<{
+        order_id: string;
+        order_display_id?: string | null;
+        treatment_case_id: string;
+        treatment_type_key: string;
+        treatment_type_name?: string | null;
+        status: string;
+        lifecycle_status: string;
+    }>;
+}
+
 /**
  * Order data returned from patient orders API
  */
@@ -126,6 +214,7 @@ export interface PatientOrder {
     activity_events?: OrderActivityEvent[];
     line_items?: PatientOrderLineItem[];
     treatment_case_summary?: PatientTreatmentCaseSummary | null;
+    treatment_aggregate?: PatientTreatmentAggregate | null;
     combined_payment_summary?: {
         id?: string;
         status?: string;
@@ -234,6 +323,24 @@ export async function getOrder(orderId: string): Promise<PatientOrder> {
     );
 
     return response.data;
+}
+
+export async function withdrawTreatment(caseId: string): Promise<void> {
+    await apiClient.post(TREATMENT_ORDER_ACTION_PATH.withdraw(caseId));
+}
+
+export async function reauthorizeTreatment(
+    caseId: string,
+    paymentMethodToken: string,
+    processor: string,
+): Promise<void> {
+    await apiClient.post(TREATMENT_ORDER_ACTION_PATH.reauthorize(caseId), {
+        payment_method_token: paymentMethodToken,
+        payment_method: {
+            processor,
+            saved_payment_method_id: paymentMethodToken,
+        },
+    });
 }
 
 /**

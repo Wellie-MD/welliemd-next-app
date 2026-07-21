@@ -132,11 +132,31 @@ export class ProfileService {
         allergies: data.allergies || '',
         medical_conditions: data.medical_conditions || '',
         self_reported_meds: data.self_reported_meds || '',
+        vitals_source_priority: data.vitals_source_priority,
       }
     );
 
     const validatedData = PatientProfileSchema.parse(response.data);
     return validatedData;
+  }
+
+  /**
+   * Update only the vitals source priority using a partial update (PATCH)
+   */
+  async updateVitalsPriority(priorityList: string[]): Promise<PatientProfile> {
+    debugLog('ProfileService.updateVitalsPriority:', priorityList);
+    const response = await apiClient.patch(
+      API_ENDPOINTS.MEDICAL.PATIENTS.UPDATE_PROFILE,
+      { vitals_source_priority: priorityList }
+    );
+    return PatientProfileSchema.parse(response.data);
+  }
+
+  async saveVitals(data: { height_inches: number; weight_lbs: number }): Promise<void> {
+    debugLog('ProfileService.saveVitals:', data);
+    await apiClient.post(API_ENDPOINTS.MEDICAL.PATIENTS.SAVE_VITALS, data);
+    // Allow the completed write to settle before callers continue with profile refresh/UI work.
+    await new Promise(resolve => setTimeout(resolve, 500));
   }
 }
 

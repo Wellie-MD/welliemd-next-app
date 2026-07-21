@@ -2,6 +2,7 @@ import React from 'react';
 import { AlertCircle, Search, Smartphone, X } from 'lucide-react';
 import ProviderIcon from './ProviderIcon';
 import LogWeightModal from './LogWeightModal';
+import VitalsPriorityModal from './VitalsPriorityModal';
 import { CATS } from '../constants';
 import type { Provider, WeightData } from '../types';
 
@@ -35,6 +36,10 @@ interface DeviceModalsProps {
   linkErrorOpen: boolean;
   setLinkErrorOpen: (open: boolean) => void;
   linkErrorMsg: string;
+  priorityModalOpen: boolean;
+  setPriorityModalOpen: (open: boolean) => void;
+  onSavePriority: (priorityList: string[]) => void;
+  initialPriority: string[] | null;
 }
 
 function Overlay({ show, onClose, children, maxW = 400 }: { show: boolean; onClose: () => void; children: React.ReactNode; maxW?: number }) {
@@ -71,6 +76,8 @@ export default function DeviceModals(props: DeviceModalsProps) {
     </Overlay>
 
     <LogWeightModal open={props.logWeightOpen} onClose={() => props.setLogWeightOpen(false)} onSave={props.onSaveLogWeight} />
+    
+    <VitalsPriorityModal open={props.priorityModalOpen} onClose={() => props.setPriorityModalOpen(false)} onSave={props.onSavePriority} initialPriority={props.initialPriority} />
 
     <Overlay show={props.consentOpen} onClose={() => props.setConsentOpen(false)} maxW={430}>
       <ModalHeader title={props.consentReviewOnly ? 'What you share' : 'Before you connect'} onClose={() => props.setConsentOpen(false)} />
