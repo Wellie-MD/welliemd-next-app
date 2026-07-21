@@ -184,12 +184,21 @@ export interface TreatmentAggregateProduct {
   med_id?: string | null;
   name?: string | null;
   quantity?: number | null;
+  days_supply?: number | null;
+  product_role?: string | null;
+  choice_group?: string | null;
 }
 
 export interface TreatmentOrderAggregate {
   clinical_status: string;
   patient_message?: string | null;
   treatment_case_id: string;
+  authority: {
+    state: string;
+    version: number;
+    fingerprint?: string | null;
+    updated_at?: string | null;
+  };
   treatment_type: { id: string; key: string; name: string };
   reconciliation: {
     version?: number | null;
@@ -214,12 +223,21 @@ export interface TreatmentOrderAggregate {
     last_error_code?: string;
     settled_at?: string | null;
   };
+  support?: {
+    owner?: string | null;
+    pending_reason?: string | null;
+    retry_allowed: boolean;
+    last_error_code?: string;
+    last_error_detail?: string;
+  };
   siblings: Array<{
     order_id: string;
     order_display_id?: string | null;
     treatment_case_id: string;
     treatment_type_key: string;
+    treatment_type_name?: string | null;
     status: string;
+    lifecycle_status?: string;
   }>;
 }
 

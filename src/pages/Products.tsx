@@ -1270,6 +1270,11 @@ export default function Products() {
                           <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">
                             {product.treatment_type_name}
                           </Badge>
+                          {product.treatment_type_is_active === false && (
+                            <Badge variant="outline" className="ml-1 border-amber-200 bg-amber-50 text-amber-700">
+                              Inactive Treatment Type
+                            </Badge>
+                          )}
                           <div className="text-[10px] text-slate-500">
                             Intake: {product.derived_intake_visit_type || "Not configured"}
                           </div>

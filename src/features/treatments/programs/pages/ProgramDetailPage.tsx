@@ -6,6 +6,7 @@ import {
   usePrograms,
   useProgramQuestions,
   useConsents,
+  useTreatmentTypes,
   useSaveProgram,
   useUpdateProgramSlug,
   useSaveProgramQuestions,
@@ -13,6 +14,8 @@ import {
 
 import { ProgramFlowBuilder } from "@/features/treatments/programs/flow-builder/ProgramFlowBuilder";
 import { ProgramDetailHeader } from "@/features/treatments/programs/components/ProgramDetailHeader";
+import { ProgramConfigurationAccess } from "@/features/treatments/programs/components/ProgramConfigurationAccess";
+import { CreateProgramModal } from "@/features/treatments/programs/components/CreateProgramModal";
 import { ProgramMetrics } from "@/features/treatments/programs/components/ProgramMetrics";
 import { ProgramCheckoutQuestions } from "@/features/treatments/programs/components/ProgramCheckoutQuestions";
 import { ProgramScreeningQuestions } from "@/features/treatments/programs/components/ProgramScreeningQuestions";
@@ -90,6 +93,7 @@ export default function ProgramDetailPage() {
   // Queries
   const { data: programs = [], isLoading: isProgramsLoading } = usePrograms();
   const { data: allConsents = [] } = useConsents();
+  const { data: treatmentTypes = [] } = useTreatmentTypes();
 
   const foundProgram = programs.find((p) => p.id === activeProgramId || p.slug === activeProgramId);
   const { data: allQuestions = [], isLoading: isQuestionsLoading } = useProgramQuestions(foundProgram?.id || "");
@@ -124,6 +128,7 @@ export default function ProgramDetailPage() {
   const [isConsentOpen, setIsConsentOpen] = useState(false);
   const [isSimulateOpen, setIsSimulateOpen] = useState(false);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Edit target states
   const [editingCheckoutId, setEditingCheckoutId] = useState<string | null>(null);
@@ -371,6 +376,14 @@ export default function ProgramDetailPage() {
         }}
       />
 
+      <ProgramConfigurationAccess
+        programId={foundProgram.id}
+        treatmentTypeKey={foundProgram.treatmentTypeKey}
+        serviceStatesAll={foundProgram.serviceStatesAll ?? true}
+        serviceStates={foundProgram.serviceStates || []}
+        onEditSettings={() => setIsSettingsOpen(true)}
+      />
+
       {viewMode === "list" && (
         <ProgramMetrics
           screeningCount={allQuestions.length}
@@ -538,6 +551,20 @@ export default function ProgramDetailPage() {
         ]}
         sourceKind={ASSIGNMENT_SOURCE.program}
         itemLabel="program"
+      />
+
+      <CreateProgramModal
+        open={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+        treatmentTypes={treatmentTypes}
+        initialProgram={foundProgram}
+        mode="edit"
+        onSave={(programData) => {
+          saveProgramMutation.mutate({
+            ...foundProgram,
+            ...programData,
+          });
+        }}
       />
 
       <DeleteConfirmDialog

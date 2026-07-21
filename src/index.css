@@ -143,6 +143,18 @@ All colors MUST be HSL.
     scrollbar-width: thin;
     scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
   }
+
+  @media (pointer: coarse) {
+    .treatment-preview-identity {
+      min-height: 44px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .treatment-preview-identity {
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
 @layer utilities {

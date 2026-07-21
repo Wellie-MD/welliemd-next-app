@@ -36,6 +36,11 @@ export interface AssignmentPreflight {
   source_name: string;
   source_version: string;
   source_checksum: string;
+  source_release: {
+    id: string;
+    version: number;
+    checksum: string;
+  };
   client_id: string;
   client_name: string;
   status: string;
@@ -68,6 +73,11 @@ export interface AssignmentOperation {
   source_name: string;
   source_version: string;
   source_checksum: string;
+  source_release: {
+    id: string | null;
+    version: number | null;
+    checksum: string;
+  };
   client_id: string;
   client_name: string;
   status: string;

@@ -4,6 +4,8 @@ import type { TreatmentAggregateProduct, TreatmentOrderAggregate as Contract } f
 import { cn } from "@/lib/utils"
 import {
   SETTLEMENT_STATUS_LABELS,
+  SUPPORT_OWNER_LABELS,
+  SUPPORT_PENDING_REASON_LABELS,
   TREATMENT_CLINICAL_STATUS_LABELS,
   TREATMENT_CLINICAL_STATUS_STYLES,
 } from "../constants"
@@ -30,7 +32,7 @@ function ProductSet({ label, products, empty }: { label: string; products: Treat
 }
 
 export function TreatmentOrderAggregate({ aggregate }: { aggregate: Contract }) {
-  const review = aggregate.clinical_status === "clinical_review"
+  const review = ["clinical_review", "clinical_review_required"].includes(aggregate.clinical_status)
   const settled = aggregate.clinical_status === "prescription_settled"
   const Icon = review ? AlertTriangle : settled ? CheckCircle2 : Clock3
   const unresolved = aggregate.reconciliation.unresolved_facts || []
@@ -54,7 +56,12 @@ export function TreatmentOrderAggregate({ aggregate }: { aggregate: Contract }) 
       {aggregate.settlement.settled_at && <div>Settled: {new Date(aggregate.settlement.settled_at).toLocaleString()}</div>}
       {unresolved.length > 0 && <div className="text-amber-700">Unresolved provider facts: {unresolved.length}</div>}
       {aggregate.settlement.last_error_code && <div>Error: <span className="font-mono">{aggregate.settlement.last_error_code}</span></div>}
+      {aggregate.support?.owner && <div>Owner: {SUPPORT_OWNER_LABELS[aggregate.support.owner] || readable(aggregate.support.owner)}</div>}
+      {aggregate.support?.pending_reason && <div>Pending reason: {SUPPORT_PENDING_REASON_LABELS[aggregate.support.pending_reason] || readable(aggregate.support.pending_reason)}</div>}
+      {aggregate.support?.last_error_detail && <div className="break-words">Last safe error: {aggregate.support.last_error_detail}</div>}
+      {aggregate.support && <div>Guarded retry: {aggregate.support.retry_allowed ? "Available in Django Admin" : "Not currently allowed"}</div>}
       {aggregate.settlement.operation_id && <div className="break-all font-mono text-[10px]">Operation {aggregate.settlement.operation_id} · attempts {aggregate.settlement.patient_attempts || 0}/{aggregate.settlement.reimbursement_attempts || 0}</div>}
+      <div className="break-all font-mono text-[10px]">Case {aggregate.treatment_case_id}{aggregate.reconciliation.source_event_id ? ` · event ${aggregate.reconciliation.source_event_id}` : ""}</div>
     </div>
     {aggregate.siblings.length > 1 && <div className="border-t px-4 py-3 text-xs"><span className="font-semibold">Related treatment orders: </span>{aggregate.siblings.map(sibling => sibling.order_display_id || sibling.treatment_type_key).join(", ")}</div>}
   </section>

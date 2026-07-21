@@ -37,6 +37,7 @@ interface PreviewMessage {
   height?: number;
   pathname?: string;
   message?: string;
+  identity?: QuestionnairePreviewIdentity;
 }
 
 const withShellContext = (
@@ -56,9 +57,13 @@ export function QuestionnairePreviewDialog({
   subtitle,
 }: QuestionnairePreviewDialogProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const appliedIdentityRef = useRef<QuestionnairePreviewIdentity>(
+    QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient,
+  );
   const [identity, setIdentity] = useState<QuestionnairePreviewIdentity>(
     QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient,
   );
+  const [identitySwitching, setIdentitySwitching] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState("");
@@ -102,6 +107,11 @@ export function QuestionnairePreviewDialog({
       return;
     }
     let active = true;
+    setIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient);
+    appliedIdentityRef.current = QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient;
+    setIdentitySwitching(false);
+    setReportedHeight(undefined);
+    setReportedPath(undefined);
     setStatus("loading");
     setErrorMessage("");
     issuePreviewCapability(previewContext)
@@ -141,6 +151,18 @@ export function QuestionnairePreviewDialog({
       if (event.data.type === QUESTIONNAIRE_PREVIEW_MESSAGE.ready) {
         setStatus("ready");
       } else if (
+        event.data.type === QUESTIONNAIRE_PREVIEW_MESSAGE.identityReady &&
+        Object.values(QUESTIONNAIRE_PREVIEW_IDENTITY).includes(
+          event.data.identity as QuestionnairePreviewIdentity,
+        )
+      ) {
+        appliedIdentityRef.current = event.data.identity as QuestionnairePreviewIdentity;
+        setIdentitySwitching(false);
+        if (event.data.message) {
+          setStatus("error");
+          setErrorMessage(event.data.message);
+        }
+      } else if (
         event.data.type === QUESTIONNAIRE_PREVIEW_MESSAGE.resize &&
         Number.isFinite(event.data.height)
       ) {
@@ -161,6 +183,8 @@ export function QuestionnairePreviewDialog({
 
   const refresh = () => {
     if (!previewOrigin) return;
+    appliedIdentityRef.current = QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient;
+    setIdentitySwitching(false);
     setStatus("loading");
     setErrorMessage("");
     iframeRef.current?.contentWindow?.postMessage(
@@ -174,7 +198,14 @@ export function QuestionnairePreviewDialog({
   };
 
   useEffect(() => {
-    if (!previewOrigin || status !== "ready") return;
+    if (
+      !previewOrigin ||
+      status !== "ready" ||
+      appliedIdentityRef.current === identity
+    ) {
+      return;
+    }
+    setIdentitySwitching(true);
     iframeRef.current?.contentWindow?.postMessage(
       {
         type: QUESTIONNAIRE_PREVIEW_MESSAGE.identity,
@@ -187,14 +218,20 @@ export function QuestionnairePreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[calc(100dvh-24px)] max-h-[720px] w-[calc(100vw-24px)] max-w-[640px] flex-col gap-0 overflow-hidden rounded-xl border border-border bg-card p-0 shadow-2xl sm:max-w-[640px] [&>button]:hidden">
+      <DialogContent
+        className="flex h-[calc(100dvh-24px)] w-[calc(100vw-24px)] max-w-none flex-col gap-0 overflow-hidden rounded-xl border border-border bg-card p-0 shadow-2xl sm:max-w-none [&>button]:hidden"
+        style={{
+          maxHeight: QUESTIONNAIRE_PREVIEW_DEFAULTS.modalMaxHeightPx,
+          maxWidth: QUESTIONNAIRE_PREVIEW_DEFAULTS.modalWidthPx,
+        }}
+      >
         <DialogHeader className="shrink-0 border-b border-border px-5 py-4 text-left">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <DialogTitle className="text-base font-semibold text-foreground">
                 Patient Preview
               </DialogTitle>
-              <DialogDescription className="mt-1 truncate text-xs text-muted-foreground">
+              <DialogDescription className="mt-1 break-words text-xs text-muted-foreground">
                 {subtitle}
               </DialogDescription>
             </div>
@@ -209,16 +246,17 @@ export function QuestionnairePreviewDialog({
           </div>
         </DialogHeader>
 
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-2.5">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-2.5">
           <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
             Test as
           </span>
-          <div className="flex rounded-md border border-border bg-card p-0.5" role="group" aria-label="Preview patient type">
+          <div className="flex max-w-full rounded-md border border-border bg-card p-0.5" role="group" aria-label="Preview patient type">
             <button
               type="button"
               onClick={() => setIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient)}
+              disabled={identitySwitching}
               aria-pressed={identity === QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient}
-              className={`flex h-7 items-center gap-1.5 rounded px-2.5 text-[11px] font-medium transition ${
+              className={`treatment-preview-identity flex h-7 items-center gap-1.5 whitespace-nowrap rounded px-2.5 text-[11px] font-medium transition ${
                 identity === QUESTIONNAIRE_PREVIEW_IDENTITY.newPatient
                   ? "bg-foreground text-background"
                   : "text-text-secondary hover:bg-muted"
@@ -230,8 +268,9 @@ export function QuestionnairePreviewDialog({
             <button
               type="button"
               onClick={() => setIdentity(QUESTIONNAIRE_PREVIEW_IDENTITY.existingPatient)}
+              disabled={identitySwitching}
               aria-pressed={identity === QUESTIONNAIRE_PREVIEW_IDENTITY.existingPatient}
-              className={`flex h-7 items-center gap-1.5 rounded px-2.5 text-[11px] font-medium transition ${
+              className={`treatment-preview-identity flex h-7 items-center gap-1.5 whitespace-nowrap rounded px-2.5 text-[11px] font-medium transition ${
                 identity === QUESTIONNAIRE_PREVIEW_IDENTITY.existingPatient
                   ? "bg-foreground text-background"
                   : "text-text-secondary hover:bg-muted"
@@ -245,11 +284,13 @@ export function QuestionnairePreviewDialog({
 
         <div className="min-h-0 flex-1 bg-background p-3">
           <div className="relative h-full overflow-hidden rounded-lg border border-border bg-white">
-            {status === "loading" ? (
+            {status === "loading" || identitySwitching ? (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
                 <div className="flex flex-col items-center gap-3 text-xs text-muted-foreground">
                   <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-warning" />
-                  Loading patient preview…
+                  {identitySwitching
+                    ? "Switching preview patient…"
+                    : "Loading patient preview…"}
                 </div>
               </div>
             ) : null}

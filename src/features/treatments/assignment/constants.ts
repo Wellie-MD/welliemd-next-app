@@ -41,6 +41,19 @@ export const RUNTIME_STATE_LABELS: Record<string, string> = {
   retired: "Retired",
 };
 
+export const RUNTIME_STATE_DESCRIPTIONS: Record<string, string> = {
+  pending_dependencies:
+    "Not patient-runnable yet. One or more Treatment Types, Products, supplies, labs, Programs, sections, consents, or immutable releases still needs assignment or runtime activation. Assignment preflight lists the exact dependency.",
+  runtime_ready:
+    "All required dependencies were imported, manifest parity was verified, and this item can be used by the tenant questionnaire runtime.",
+  blocked:
+    "Runtime activation stopped because a required dependency failed validation or import. Review the assignment operation for the exact blocker.",
+  stale:
+    "The admin configuration changed after the tenant copy was assigned. Reassign it to publish and activate the new immutable configuration.",
+  retired:
+    "This assigned configuration was withdrawn and is no longer available for new patient runtime sessions.",
+};
+
 export const RUNTIME_STATE = {
   pending: "pending_dependencies",
   ready: "runtime_ready",
