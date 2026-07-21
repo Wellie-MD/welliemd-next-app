@@ -61,7 +61,7 @@ const ContentLibrariesPage = lazy(() => import("./features/treatments/libraries/
 const CustomProgramBuilderPage = lazy(() => import("./features/treatments/flow-builder/pages/CustomProgramBuilderPage"));
 const CustomProgramsPage = lazy(() => import("./features/treatments/custom-programs/pages/CustomProgramsPage"));
 const ArchivePage = lazy(() => import("./pages/ArchivePage"));
-const ProgramDetailPage = lazy(() => import("./features/treatments/programs/pages/ProgramDetailPage"));
+const ProgramQuestionsListPage = lazy(() => import("./features/treatments/programs/pages/ProgramQuestionsListPage"));
 const ProgramsPage = lazy(() => import("./features/treatments/programs/pages/ProgramsPage"));
 const ProgramAssignmentHistory = lazy(() => import("./pages/ProgramAssignmentHistory"));
 const CustomProgramAssignmentHistory = lazy(() => import("./pages/CustomProgramAssignmentHistory"));
@@ -192,7 +192,7 @@ const App = () => {
                     <Route path="/archive" element={<ProtectedRoute><ArchivePage /></ProtectedRoute>} />
                     <Route path="/treatments/programs/:programId/flow-builder" element={<ProtectedRoute><ProgramLegacyRouteRedirect /></ProtectedRoute>} />
                     <Route path="/treatments/programs/:programId" element={<ProtectedRoute><ProgramLegacyRouteRedirect /></ProtectedRoute>} />
-                    <Route path="/treatments/programs/:programId/questions" element={<ProtectedRoute><ProgramDetailPage /></ProtectedRoute>} />
+                    <Route path="/treatments/programs/:programId/questions" element={<ProtectedRoute><ProgramQuestionsListPage /></ProtectedRoute>} />
                     <Route path="/treatments/programs/assignment-history" element={<ProtectedRoute><ProgramAssignmentHistory /></ProtectedRoute>} />
                     <Route path="/treatments/sections" element={<ProtectedRoute><SectionsPage /></ProtectedRoute>} />
                     <Route path="/treatments/consents" element={<ProtectedRoute><ConsentsPage /></ProtectedRoute>} />
