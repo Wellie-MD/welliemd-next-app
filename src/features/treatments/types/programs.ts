@@ -12,6 +12,16 @@ export interface ProgramAuthConfig {
   account: boolean;
 }
 
+export interface ProgramLabRequirement {
+  id?: string;
+  panelId: string;
+  panelName?: string;
+  displayOrder: number;
+  isRequired: boolean;
+  isActive: boolean;
+  instructions?: string;
+}
+
 export interface Program {
   id: string;
   name: string;
@@ -37,4 +47,8 @@ export interface Program {
   maxBmi?: number | null;
   serviceStatesAll?: boolean;
   serviceStates?: string[];
+  labRequirements?: ProgramLabRequirement[];
+  assignmentRuntimeState?: string;
+  runtimeReadyAt?: string | null;
+  sourceAssignmentChecksum?: string;
 }

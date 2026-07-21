@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Copy, Edit, Link as LinkIcon, Play, List, GitBranch, Check, X, Eye, RefreshCw } from "lucide-react";
+import { ArrowLeft, Copy, Edit, Link as LinkIcon, Play, List, GitBranch, Check, X, Eye, RefreshCw, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddElementDropdown } from "@/features/treatments/common/components/AddElementDropdown";
+import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 
 interface ProgramDetailHeaderProps {
   programName: string;
@@ -14,6 +15,7 @@ interface ProgramDetailHeaderProps {
   onViewModeChange: (mode: "list" | "flow") => void;
   onPublishToggle: () => void;
   onSimulate: () => void;
+  onAssign: () => void;
   onQuestions?: () => void;
   onReorder?: () => void;
   onAddElement?: () => void;
@@ -37,6 +39,7 @@ export function ProgramDetailHeader({
   onViewModeChange,
   onPublishToggle,
   onSimulate,
+  onAssign,
   onQuestions,
   onReorder,
   onAddElement,
@@ -80,7 +83,7 @@ export function ProgramDetailHeader({
             size="icon"
             className="h-9 w-9 shrink-0 border-slate-200 bg-white rounded-lg shadow-sm hover:bg-slate-50 mt-0.5"
           >
-            <Link to="/dashboard/treatments/programs">
+            <Link to={ADMIN_TREATMENT_ROUTES.programs}>
               <ArrowLeft className="h-4.5 w-4.5 text-slate-600" />
             </Link>
           </Button>
@@ -96,6 +99,10 @@ export function ProgramDetailHeader({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="outline" onClick={onAssign} className="h-9 gap-2 rounded-lg">
+            <Users className="h-4 w-4" />
+            Assign
+          </Button>
           <Button
             type="button"
             variant="ghost"
@@ -149,7 +156,7 @@ export function ProgramDetailHeader({
           size="icon"
           className="h-10 w-10 shrink-0 border-slate-200 bg-white rounded-xl shadow-sm hover:bg-slate-50 mt-1"
         >
-          <Link to="/dashboard/treatments/programs">
+          <Link to={ADMIN_TREATMENT_ROUTES.programs}>
             <ArrowLeft className="h-5 w-5 text-slate-600" />
           </Link>
         </Button>
@@ -259,6 +266,10 @@ export function ProgramDetailHeader({
 
       {/* Right Actions */}
       <div className="flex items-center gap-3">
+        <Button type="button" variant="outline" onClick={onAssign} className="h-10 gap-2 rounded-lg">
+          <Users className="h-4 w-4" />
+          Assign
+        </Button>
         {isPublished ? (
           <Button
             onClick={onPublishToggle}

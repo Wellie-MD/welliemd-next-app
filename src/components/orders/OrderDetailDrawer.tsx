@@ -21,6 +21,7 @@ import {
 import { AdminOrder, updateAdminOrder, OrderUpdatePayload } from "@/api/dashboardApi"
 import { useToast } from "@/hooks/use-toast"
 import { Package, User, Mail, Phone, Building2, Pill, MapPin, CreditCard, Truck, Calendar, Hash } from "lucide-react"
+import { TreatmentOrderAggregate } from "@/features/treatments/orders/components/TreatmentOrderAggregate"
 
 interface OrderDetailDrawerProps {
   order: AdminOrder | null
@@ -212,6 +213,10 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
             </Badge>
           </div>
 
+          {order.treatment_aggregate && (
+            <TreatmentOrderAggregate aggregate={order.treatment_aggregate} />
+          )}
+
           {/* Patient Info */}
           <div className="space-y-3">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Patient</h3>
@@ -245,25 +250,23 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                 <span className="text-muted-foreground">Master ID:</span>
                 <span className="font-mono text-xs">{order.master_id || "—"}</span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Pill className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Product:</span>
-                <span>{order.product_name}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Pill className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Requested (Original):</span>
-                <span className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800">
-                  {requestedMedicineName}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Pill className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Prescribed (Doctor Final):</span>
-                <span className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800">
-                  {prescribedMedicineName || "Awaiting provider decision"}
-                </span>
-              </div>
+              {!order.treatment_aggregate && <>
+                <div className="flex items-center gap-2 text-sm">
+                  <Pill className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Product:</span>
+                  <span>{order.product_name}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Pill className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Requested (Original):</span>
+                  <span className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800">{requestedMedicineName}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Pill className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Prescribed (Doctor Final):</span>
+                  <span className="inline-flex items-center rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800">{prescribedMedicineName || "Awaiting provider decision"}</span>
+                </div>
+              </>}
               <div className="flex items-center gap-2 text-sm">
                 <User className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Doctor:</span>
@@ -279,13 +282,13 @@ export function OrderDetailDrawer({ order, open, onOpenChange, onOrderUpdated }:
                 <span className="text-muted-foreground">Amount:</span>
                 <span className="font-medium">${chargeableNumber.toFixed(2)}</span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
+              {!order.treatment_aggregate && <div className="flex items-center gap-2 text-sm">
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Amount Source:</span>
                 <span className={amountSourcePillClass}>
                   {chargeableSourceLabel}
                 </span>
-              </div>
+              </div>}
             </div>
           </div>
 

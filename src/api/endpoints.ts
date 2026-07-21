@@ -18,3 +18,14 @@ export const JUNCTION_ENDPOINTS = {
   linkLabAccount: (clientId: string, id: string) => `clients/${clientId}/integrations/junction/lab-accounts/${id}/link/`,
   unlinkLabAccount: (clientId: string, id: string) => `clients/${clientId}/integrations/junction/lab-accounts/${id}/unlink/`,
 } as const;
+
+export const TREATMENT_ASSIGNMENT_ENDPOINTS = {
+  preflight: "/treatments/assignment/preflight/",
+  operations: "/treatments/assignment/operations/",
+  operation: (operationId: string) =>
+    `/treatments/assignment/operations/${operationId}/`,
+  retry: (operationId: string) =>
+    `/treatments/assignment/operations/${operationId}/retry/`,
+  cancel: (operationId: string) =>
+    `/treatments/assignment/operations/${operationId}/cancel/`,
+} as const;

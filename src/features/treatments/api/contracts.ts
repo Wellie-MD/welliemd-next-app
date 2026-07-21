@@ -81,6 +81,9 @@ export type CustomProgramRecord = {
   is_multi?: boolean;
   program_matching_rules?: CustomProgram["programMatchingRules"];
   updated_at?: string;
+  assignment_runtime_state?: string;
+  runtime_ready_at?: string | null;
+  source_assignment_checksum?: string;
 };
 
 export type ProgramRecord = {
@@ -110,7 +113,19 @@ export type ProgramRecord = {
   max_bmi?: number | null;
   service_states_all?: boolean;
   service_states?: string[];
+  lab_requirements?: Array<{
+    id?: string;
+    panel_id: string;
+    panel_name?: string;
+    display_order: number;
+    is_required: boolean;
+    is_active: boolean;
+    instructions?: string;
+  }>;
   updated_at?: string;
+  assignment_runtime_state?: string;
+  runtime_ready_at?: string | null;
+  source_assignment_checksum?: string;
 };
 
 export type ProgramQuestionRecord = Partial<ProgramQuestion> & {

@@ -9,6 +9,7 @@ import { productApi, type Product } from "@/api/products";
 import { useTreatmentTypes } from "@/features/treatments/libraries/hooks/useTreatmentLibraries";
 import type { CheckoutProductOption } from "@/features/treatments/types";
 import { toast } from "@/components/ui/use-toast";
+import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 
 interface CheckoutOptionTabProps {
   onAddItem: (item: {
@@ -102,12 +103,7 @@ export function CheckoutOptionTab({ onAddItem }: CheckoutOptionTabProps) {
   // Determine active visit types for chosen treatment mapping
   const targetVisitTypes = useMemo(() => {
     const tx = treatmentTypes.find((t) => t.key === checkoutTxType);
-    if (!tx) {
-      if (checkoutTxType === "glp_weight_loss") return ["weightloss", "weightlossFollowup"];
-      if (checkoutTxType === "ed") return ["ED", "EDFollowup"];
-      if (checkoutTxType === "trt") return ["TRT", "TRTFollowup"];
-      return [];
-    }
+    if (!tx) return [];
     const types = [];
     if (tx.intakeVisitType) types.push(tx.intakeVisitType);
     if (tx.followupVisitType) types.push(tx.followupVisitType);
@@ -192,7 +188,7 @@ export function CheckoutOptionTab({ onAddItem }: CheckoutOptionTabProps) {
               className="h-7 text-[10px] text-blue-600 border-blue-200 hover:bg-blue-50 font-semibold px-3"
               asChild
             >
-              <Link to={`/dashboard/treatments/programs/${nameToIdMap[item.name] || "program-glp-intake"}`}>
+              <Link to={ADMIN_TREATMENT_ROUTES.programQuestions(nameToIdMap[item.name] || "program-glp-intake")}>
                 Manage &rarr;
               </Link>
             </Button>

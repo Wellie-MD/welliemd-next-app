@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { clientApi } from "@/api/clientApi";
 import type { B2BInvoice, InvoiceType } from "@/types/b2bBilling";
+import { TreatmentPrescriptionInvoiceSets } from "@/features/treatments/orders/components/TreatmentPrescriptionInvoiceSets";
 
 interface B2BInvoiceListProps {
   clientId: string;
@@ -462,6 +463,12 @@ export function B2BInvoiceList({ clientId }: B2BInvoiceListProps) {
                 </>
               )}
             </div>
+
+            {selected.treatment_prescription && (
+              <div className="px-4 pb-4">
+                <TreatmentPrescriptionInvoiceSets contract={selected.treatment_prescription} />
+              </div>
+            )}
 
             <div className="px-4 pb-4">
               <h4 className="font-semibold mb-2">Line Items</h4>

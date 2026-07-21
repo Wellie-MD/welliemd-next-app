@@ -48,7 +48,10 @@ export const checkoutProductFactory = (
   doseMappingId: overrides.doseMappingId,
   doseLabel: overrides.doseLabel,
   productId: overrides.productId,
+  sourceProductId: overrides.sourceProductId,
   price: overrides.price,
+  productRole: overrides.productRole,
+  choiceGroup: overrides.choiceGroup,
   visibilityRules: overrides.visibilityRules,
 });
 

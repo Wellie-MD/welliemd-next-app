@@ -10,6 +10,7 @@ import { authService } from './services/authService';
 import { useAuthStore } from './store/useAuthStore';
 import { Loader2 } from 'lucide-react';
 import { reportPerfMetrics } from './utils/perfMetrics';
+import { ProgramLegacyRouteRedirect } from "@/features/treatments/navigation/ProgramLegacyRouteRedirect";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Clients = lazy(() => import("./pages/Clients"));
@@ -39,6 +40,7 @@ const AnalyticsCohorts = lazy(() => import("./pages/AnalyticsCohorts"));
 const AnalyticsReports = lazy(() => import("./pages/AnalyticsReports"));
 const CouponInsights = lazy(() => import("./pages/CouponInsights"));
 const Billing = lazy(() => import("./pages/Billing"));
+const ProductBillingConfig = lazy(() => import("./pages/ProductBillingConfig"));
 const ProductDoseMappings = lazy(() => import("./pages/ProductDoseMappings"));
 const ProductConfig = lazy(() => import("./pages/ProductConfig"));
 const Supplies = lazy(() => import("./pages/Supplies"));
@@ -60,7 +62,6 @@ const CustomProgramBuilderPage = lazy(() => import("./features/treatments/flow-b
 const CustomProgramsPage = lazy(() => import("./features/treatments/custom-programs/pages/CustomProgramsPage"));
 const ArchivePage = lazy(() => import("./pages/ArchivePage"));
 const ProgramDetailPage = lazy(() => import("./features/treatments/programs/pages/ProgramDetailPage"));
-const ProgramQuestionsListPage = lazy(() => import("./features/treatments/programs/pages/ProgramQuestionsListPage"));
 const ProgramsPage = lazy(() => import("./features/treatments/programs/pages/ProgramsPage"));
 const ProgramAssignmentHistory = lazy(() => import("./pages/ProgramAssignmentHistory"));
 const CustomProgramAssignmentHistory = lazy(() => import("./pages/CustomProgramAssignmentHistory"));
@@ -189,9 +190,9 @@ const App = () => {
                     <Route path="/treatments/custom-programs/assignment-history" element={<ProtectedRoute><CustomProgramAssignmentHistory /></ProtectedRoute>} />
                     <Route path="/treatments/programs" element={<ProtectedRoute><ProgramsPage /></ProtectedRoute>} />
                     <Route path="/archive" element={<ProtectedRoute><ArchivePage /></ProtectedRoute>} />
-                    <Route path="/treatments/programs/:programId/flow-builder" element={<ProtectedRoute><ProgramDetailPage /></ProtectedRoute>} />
-                    <Route path="/treatments/programs/:programId" element={<ProtectedRoute><ProgramDetailPage /></ProtectedRoute>} />
-                    <Route path="/treatments/programs/:programId/questions" element={<ProtectedRoute><ProgramQuestionsListPage /></ProtectedRoute>} />
+                    <Route path="/treatments/programs/:programId/flow-builder" element={<ProtectedRoute><ProgramLegacyRouteRedirect /></ProtectedRoute>} />
+                    <Route path="/treatments/programs/:programId" element={<ProtectedRoute><ProgramLegacyRouteRedirect /></ProtectedRoute>} />
+                    <Route path="/treatments/programs/:programId/questions" element={<ProtectedRoute><ProgramDetailPage /></ProtectedRoute>} />
                     <Route path="/treatments/programs/assignment-history" element={<ProtectedRoute><ProgramAssignmentHistory /></ProtectedRoute>} />
                     <Route path="/treatments/sections" element={<ProtectedRoute><SectionsPage /></ProtectedRoute>} />
                     <Route path="/treatments/consents" element={<ProtectedRoute><ConsentsPage /></ProtectedRoute>} />
@@ -220,6 +221,7 @@ const App = () => {
                     {/* <Route path="/coupon-codes" element={<ProtectedRoute><CouponCodes /></ProtectedRoute>} /> */}
                     <Route path="/coupon-insights" element={<ProtectedRoute><CouponInsights /></ProtectedRoute>} />
                     <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
+                    <Route path="/billing/product-billing/:clientId" element={<ProtectedRoute><ProductBillingConfig /></ProtectedRoute>} />
                     <Route path="/affiliates" element={<ProtectedRoute><Affiliates /></ProtectedRoute>} />
                     <Route path="/questionnaires" element={<ProtectedRoute><Questionnaires /></ProtectedRoute>} />
                     <Route path="/questionnaires/assign" element={<ProtectedRoute><TemplateAssignment /></ProtectedRoute>} />

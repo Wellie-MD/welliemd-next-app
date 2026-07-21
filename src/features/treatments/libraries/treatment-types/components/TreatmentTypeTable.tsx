@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { ClipboardCheck, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Program, TreatmentType } from "@/features/treatments/types";
+import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 import {
   Table,
   TableBody,
@@ -99,7 +100,7 @@ export function TreatmentTypeTable({
                       {usedInPrograms.map((program) => (
                         <Link
                           key={program.id}
-                          to={`/dashboard/treatments/programs/${program.id}`}
+                          to={ADMIN_TREATMENT_ROUTES.programQuestions(program.id)}
                           className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50"
                         >
                           <ClipboardCheck className="h-3 w-3 text-slate-400" />

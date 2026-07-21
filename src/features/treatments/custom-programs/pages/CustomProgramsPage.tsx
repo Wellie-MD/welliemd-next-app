@@ -1,12 +1,13 @@
 import { useNavigate } from "react-router-dom";
 import { DeleteConfirmDialog, TreatmentPageHeader } from "@/features/treatments/common/components";
-import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
+import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
 import { CatalogConnectionsDialog } from "@/features/treatments/custom-programs/components/CatalogConnectionsDialog";
 import { CustomProgramsContent } from "@/features/treatments/custom-programs/components/CustomProgramsContent";
 import { CustomProgramModal } from "@/features/treatments/custom-programs/components/CustomProgramModal";
 import { CustomProgramsHeaderActions, CustomProgramsToolbar } from "@/features/treatments/custom-programs/components/CustomProgramsToolbar";
 import { useCustomProgramsPage } from "@/features/treatments/custom-programs/hooks/useCustomProgramsPage";
-import { AssignToClientsModal } from "@/components/shared/AssignToClientsModal";
+import { TreatmentAssignmentModal } from "@/features/treatments/assignment/components/TreatmentAssignmentModal";
+import { ASSIGNMENT_SOURCE } from "@/features/treatments/assignment/constants";
 
 export default function CustomProgramsPage() {
   const navigate = useNavigate();
@@ -56,17 +57,23 @@ export default function CustomProgramsPage() {
 
       <CustomProgramModal open={page.isModalOpen} onOpenChange={page.setIsModalOpen} onSubmit={page.handleCreateOrEditSubmit} program={page.selectedProgram} />
 
-      {page.previewContext && <PatientFlowTestModal open={page.isPreviewOpen} onOpenChange={page.setIsPreviewOpen} previewContext={page.previewContext} />}
+      {page.previewContext && (
+        <QuestionnairePreviewDialog
+          open={page.isPreviewOpen}
+          onOpenChange={page.setIsPreviewOpen}
+          previewContext={page.previewContext}
+          subtitle={`Patient view of "${page.previewContext.name || page.previewContext.slug}"`}
+        />
+      )}
 
       <CatalogConnectionsDialog open={page.isCatalogOpen} onOpenChange={page.setIsCatalogOpen} program={page.catalogProgram} activeTab={page.catalogTab} onTabChange={page.setCatalogTab} />
 
-      <AssignToClientsModal
+      <TreatmentAssignmentModal
         open={page.isAssignOpen}
         onOpenChange={page.setIsAssignOpen}
         items={page.assignItems}
         itemLabel="custom program"
-        subtitle="Pick custom programs and the client brands that can offer them to their patients."
-        onAssign={page.handleAssignCustomPrograms}
+        sourceKind={ASSIGNMENT_SOURCE.customProgram}
       />
 
       <DeleteConfirmDialog

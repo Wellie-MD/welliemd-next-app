@@ -23,6 +23,7 @@ import {
   productsForRegimen,
   regimensForProducts,
 } from "../utils/catalogOptions";
+import { PROGRAM_PRODUCT_ROLE_OPTIONS } from "../constants";
 
 interface CheckoutProductRowProps {
   product: ProgramCheckoutProduct;
@@ -49,6 +50,46 @@ const createEmptyGroup = (): VisibilityRuleGroup => ({
   subgroups: [],
 });
 
+const sameCatalogName = (left?: string, right?: string) =>
+  Boolean(left && right && left.trim().toLowerCase() === right.trim().toLowerCase());
+
+const normalizeCatalogName = (value?: string | number | null) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const catalogNamesMatch = (left?: string | number | null, right?: string | number | null) => {
+  const normalizedLeft = normalizeCatalogName(left);
+  const normalizedRight = normalizeCatalogName(right);
+  if (!normalizedLeft || !normalizedRight) return false;
+  return (
+    normalizedLeft === normalizedRight ||
+    normalizedLeft.includes(normalizedRight) ||
+    normalizedRight.includes(normalizedLeft)
+  );
+};
+
+const idsMatch = (left?: string | number | null, right?: string | number | null) =>
+  Boolean(left !== undefined && left !== null && right !== undefined && right !== null && String(left) === String(right));
+
+const resolveCatalogProduct = (product: ProgramCheckoutProduct, catalogProducts: Product[]) => {
+  const savedIds = [product.productId, product.sourceProductId].filter(Boolean);
+  const byId = catalogProducts.find((item) =>
+    savedIds.some((savedId) => idsMatch(item.id, savedId) || idsMatch(item.source_product_id, savedId))
+  );
+  if (byId) return byId;
+
+  return catalogProducts.find((item) => {
+    const categoryMatches = !product.category || catalogNamesMatch(item.category_name || item.treatment, product.category);
+    const regimenMatches = !product.regimen || catalogNamesMatch(item.titration_category_name, product.regimen);
+    const doseMatches = !product.doseLabel || catalogNamesMatch(item.dose_mapping_label || item.dose_mapping_name || item.dose, product.doseLabel);
+    return categoryMatches && regimenMatches && doseMatches;
+  });
+};
+
 export function CheckoutProductRow({
   product,
   index,
@@ -63,17 +104,22 @@ export function CheckoutProductRow({
   onProductPriceChange,
   onProductVisibilityChange,
 }: CheckoutProductRowProps) {
+  const linkedCatalogProduct = resolveCatalogProduct(product, catalogProducts);
+  const selectedProductId = linkedCatalogProduct?.id ? String(linkedCatalogProduct.id) : (product.productId ? String(product.productId) : "");
   const selectedCategoryId =
     product.categoryId ||
-    categories.find((category) => category.name === product.category)?.id;
+    linkedCatalogProduct?.category ||
+    categories.find((category) => sameCatalogName(category.name, product.category))?.id;
   const selectedRegimenId =
     product.regimenId ||
-    titrationCategories.find((category) => category.name === product.regimen)?.id;
+    linkedCatalogProduct?.titration_category ||
+    titrationCategories.find((category) => sameCatalogName(category.name, product.regimen))?.id;
   const selectedDoseMappingId =
     product.doseMappingId ||
+    linkedCatalogProduct?.dose_mapping ||
     doseMappings.find(
       (mapping) =>
-        mapping.patient_label === product.doseLabel &&
+        sameCatalogName(mapping.patient_label || mapping.name, product.doseLabel || linkedCatalogProduct?.dose_mapping_label) &&
         (!selectedCategoryId || mapping.category === selectedCategoryId)
     )?.id;
   const categoryProducts = productsForCategory(catalogProducts, selectedCategoryId);
@@ -93,6 +139,7 @@ export function CheckoutProductRow({
     onProductFieldChange(index, "doseMappingId", undefined);
     onProductFieldChange(index, "doseLabel", "");
     onProductFieldChange(index, "productId", undefined);
+    onProductFieldChange(index, "sourceProductId", undefined);
     onProductFieldChange(index, "price", undefined);
   };
 
@@ -103,6 +150,7 @@ export function CheckoutProductRow({
     onProductFieldChange(index, "doseMappingId", undefined);
     onProductFieldChange(index, "doseLabel", "");
     onProductFieldChange(index, "productId", undefined);
+    onProductFieldChange(index, "sourceProductId", undefined);
     onProductFieldChange(index, "price", undefined);
   };
 
@@ -113,6 +161,11 @@ export function CheckoutProductRow({
     const candidates = productsForDose(regimenProducts, doseMapping?.id);
     const onlyProduct = candidates.length === 1 ? candidates[0] : undefined;
     onProductFieldChange(index, "productId", onlyProduct ? String(onlyProduct.id) : undefined);
+    onProductFieldChange(
+      index,
+      "sourceProductId",
+      onlyProduct ? String(onlyProduct.source_product_id ?? onlyProduct.id) : undefined
+    );
     onProductFieldChange(
       index,
       "price",
@@ -127,6 +180,11 @@ export function CheckoutProductRow({
   const handleCatalogProductChange = (value: string) => {
     const selectedProduct = matchingProducts.find((item) => String(item.id) === value);
     onProductFieldChange(index, "productId", selectedProduct ? String(selectedProduct.id) : undefined);
+    onProductFieldChange(
+      index,
+      "sourceProductId",
+      selectedProduct ? String(selectedProduct.source_product_id ?? selectedProduct.id) : undefined
+    );
     onProductFieldChange(
       index,
       "price",
@@ -152,6 +210,41 @@ export function CheckoutProductRow({
       </div>
 
       <div className="space-y-3">
+        <SelectField
+          label="Patient selection role"
+          value={product.productRole}
+          onChange={(value) =>
+            onProductFieldChange(
+              index,
+              "productRole",
+              value as ProgramCheckoutProduct["productRole"],
+            )
+          }
+          options={PROGRAM_PRODUCT_ROLE_OPTIONS.map(({ value, label }) => ({
+            value,
+            label,
+          }))}
+          placeholder="— Select role —"
+          testId={`checkout-product-role-${index}`}
+        />
+        <div className="space-y-1.5">
+          <label className="text-[11.5px] font-bold text-slate-600" htmlFor={`checkout-product-choice-group-${index}`}>
+            Choice group
+          </label>
+          <input
+            id={`checkout-product-choice-group-${index}`}
+            value={product.choiceGroup || ""}
+            onChange={(event) =>
+              onProductFieldChange(index, "choiceGroup", event.target.value)
+            }
+            placeholder="e.g. nad-primary"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12px] text-slate-700 shadow-sm outline-none focus:border-blue-500"
+            data-testid={`checkout-product-choice-group-${index}`}
+          />
+          <p className="text-[10.5px] leading-normal text-slate-400">
+            Use the same stable key for alternatives and their required companions.
+          </p>
+        </div>
         <SelectField
           label="Category"
           value={selectedCategoryId ? String(selectedCategoryId) : ""}
@@ -183,7 +276,7 @@ export function CheckoutProductRow({
         />
         <SelectField
           label="Catalog Product"
-          value={product.productId ? String(product.productId) : ""}
+          value={selectedProductId}
           onChange={handleCatalogProductChange}
           options={matchingProducts.map((item) => ({ value: String(item.id), label: item.name }))}
           placeholder={selectedDoseMappingId ? "— Select product —" : "— Select dose level first —"}
@@ -191,23 +284,6 @@ export function CheckoutProductRow({
           testId={`checkout-product-catalog-product-${index}`}
         />
 
-        <div className="space-y-1.5">
-          <label className="text-[11.5px] font-bold text-slate-600" htmlFor={`checkout-product-price-${index}`}>
-            Monthly Price (USD)
-          </label>
-          <input
-            id={`checkout-product-price-${index}`}
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step="1"
-            value={product.price ?? ""}
-            onChange={(event) => onProductPriceChange(index, event.target.value)}
-            placeholder="Auto from price list"
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[12px] text-slate-700 shadow-sm outline-none focus:border-blue-500"
-            data-testid={`checkout-product-price-${index}`}
-          />
-        </div>
       </div>
 
       {product.category && product.regimen && product.doseLabel && product.productId && (
@@ -216,54 +292,6 @@ export function CheckoutProductRow({
         </div>
       )}
 
-      {/* Per-product conditional visibility */}
-      <div className="rounded-lg border border-slate-150 bg-slate-50/60 p-3">
-        <div className="flex items-center gap-1.5 text-[11.5px] font-bold text-slate-600">
-          <Eye className="h-3.5 w-3.5 text-slate-400" />
-          Show this product only when…
-        </div>
-        <p className="mt-1 text-[11px] leading-normal text-slate-400">
-          Leave empty to always offer this product at checkout. Add a rule to show it only for matching answers (e.g. medication preference).
-        </p>
-
-        {!hasRules ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => onProductVisibilityChange(index, createEmptyGroup())}
-            className="mt-2 h-8 border-slate-200 bg-white text-[11px] font-semibold text-slate-600 shadow-sm"
-            data-testid={`checkout-product-${index}-add-visibility`}
-          >
-            + Add visibility rule
-          </Button>
-        ) : (
-          <div className="mt-2 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-            <VisibilityRuleBuilder
-              value={toBuilderGroup(product.visibilityRules)}
-              onChange={(nextGroup) => onProductVisibilityChange(index, fromBuilderGroup(nextGroup))}
-              questions={eligibleQuestions.map((question) => ({
-                id: question.id,
-                question_text: question.text,
-                order_index: question.order,
-                answer_choices: question.choices,
-              }))}
-            />
-            <div className="mt-2 flex justify-end">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => onProductVisibilityChange(index, undefined)}
-                className="text-[11px] font-semibold text-red-500 hover:text-red-700"
-                data-testid={`checkout-product-${index}-clear-visibility`}
-              >
-                Remove rules
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

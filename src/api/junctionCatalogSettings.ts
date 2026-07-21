@@ -41,7 +41,7 @@ export interface SyncJobResponse {
 }
 
 export interface SyncStatusResponse {
-  job_id: string
+  job_id: string | null
   status: string
   trigger: string
   current_page: number

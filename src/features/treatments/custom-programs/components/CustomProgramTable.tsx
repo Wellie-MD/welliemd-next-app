@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { RuntimeReadinessBadge } from "@/features/treatments/assignment/components/RuntimeReadinessBadge";
 
 interface CustomProgramTableProps {
   customPrograms: CustomProgram[];
@@ -101,6 +102,9 @@ export function CustomProgramTable({ customPrograms, onEdit, onDelete, onPreview
                     </Link>
                     <span className="mt-1 text-xs text-slate-400 truncate max-w-[260px]">
                       {program.description}
+                    </span>
+                    <span className="mt-1">
+                      <RuntimeReadinessBadge state={program.assignmentRuntimeState} />
                     </span>
                   </div>
                 </TableCell>

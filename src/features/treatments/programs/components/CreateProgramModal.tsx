@@ -88,8 +88,11 @@ export function CreateProgramModal({
   const derivedVisitType = selectedTreatment
     ? stage === "intake"
       ? selectedTreatment.intakeVisitType
-      : selectedTreatment.followupVisitType || `${selectedTreatment.key}Followup`
+      : selectedTreatment.followupVisitType
     : "";
+  const missingStageVisitType = Boolean(
+    selectedTreatment && !derivedVisitType,
+  );
 
   const handleNameChange = (val: string) => {
     setName(val);
@@ -103,7 +106,13 @@ export function CreateProgramModal({
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !treatmentTypeKey || !slug.trim() || (!serviceStatesAll && serviceStates.length === 0)) {
+    if (
+      !name.trim()
+      || !treatmentTypeKey
+      || !slug.trim()
+      || missingStageVisitType
+      || (!serviceStatesAll && serviceStates.length === 0)
+    ) {
       return;
     }
 
@@ -221,6 +230,12 @@ export function CreateProgramModal({
             <p className="text-[10px] text-slate-400 leading-normal">
               Auto-derived from the selected treatment type. Uses IntakeVisitType when the stage is Intake and FollowupVisitType when it's Follow-up — both fields live on the Treatment Type record.
             </p>
+            {missingStageVisitType && (
+              <p className="text-[10px] font-semibold text-red-600">
+                Configure the {stage === "follow_up" ? "follow-up" : "intake"} Visit Type
+                on {selectedTreatment?.name} before saving this Program.
+              </p>
+            )}
           </div>
 
           {/* URL Slug */}
@@ -405,6 +420,7 @@ export function CreateProgramModal({
             </Button>
             <Button
               type="submit"
+              disabled={missingStageVisitType}
               className="h-9 px-4 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm"
             >
               {mode === "edit" ? "Save Changes" : "Create Program"}

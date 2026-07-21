@@ -412,7 +412,7 @@ export function SharedQuestionsList({
           onSave={handleAddCheckoutSave}
           initialQuestion={null}
           programName={entityName}
-          screeningQuestions={questions.map((q) => ({ id: q.id, text: q.text }))}
+          screeningQuestions={questions}
         />
         <AuthSetupModal
           open={isAuthOpen}
@@ -535,7 +535,7 @@ export function SharedQuestionsList({
             : null
         }
         programName={entityName}
-        screeningQuestions={questions.map((q) => ({ id: q.id, text: q.text }))}
+        screeningQuestions={questions}
       />
 
       <AuthSetupModal

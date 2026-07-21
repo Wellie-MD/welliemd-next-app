@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import type { Program, ProgramQuestion } from "@/features/treatments/types";
 import { SharedQuestionsList } from "@/features/treatments/common/components/SharedQuestionsList";
 import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
+import { ProgramLabsSection } from "./ProgramLabsSection";
 
 interface ProgramQuestionsListProps {
   program: Program;
@@ -15,7 +16,7 @@ export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuest
   const navigate = useNavigate();
 
   const handleBack = () => {
-    navigate(`/dashboard/treatments/programs/${program.slug}`);
+    navigate("/dashboard/treatments/programs");
   };
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -78,6 +79,7 @@ export function ProgramQuestionsList({ program, initialQuestions }: ProgramQuest
         onViewModeChange={setViewMode}
         onOpenPreview={() => setIsSimulateOpen(true)}
       />
+      <ProgramLabsSection program={program} />
 
       <PatientFlowTestModal
         open={isSimulateOpen}

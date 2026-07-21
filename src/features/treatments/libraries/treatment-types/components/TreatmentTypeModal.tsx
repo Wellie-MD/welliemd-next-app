@@ -23,9 +23,6 @@ export function TreatmentTypeModal({ open, onOpenChange, treatmentTypeKey }: Tre
   const [name, setName] = useState("");
   const [intake, setIntake] = useState("");
   const [followup, setFollowup] = useState("");
-  // Tracks whether the admin manually edited follow-up; until then it is
-  // auto-derived from the intake identifier (convention: <intake>followup).
-  const [followupTouched, setFollowupTouched] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -34,26 +31,12 @@ export function TreatmentTypeModal({ open, onOpenChange, treatmentTypeKey }: Tre
       setName(existing.name || "");
       setIntake(existing.intakeVisitType || "");
       setFollowup(existing.followupVisitType || "");
-      setFollowupTouched(true);
     } else {
       setName("");
       setIntake("");
       setFollowup("");
-      setFollowupTouched(false);
     }
   }, [treatmentTypeKey, open, treatmentTypes]);
-
-  const handleIntakeChange = (value: string) => {
-    setIntake(value);
-    if (!followupTouched) {
-      setFollowup(value.trim() ? `${value.trim()}followup` : "");
-    }
-  };
-
-  const handleFollowupChange = (value: string) => {
-    setFollowup(value);
-    setFollowupTouched(true);
-  };
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -133,7 +116,7 @@ export function TreatmentTypeModal({ open, onOpenChange, treatmentTypeKey }: Tre
             <Input
               id="tt-intake"
               value={intake}
-              onChange={(event) => handleIntakeChange(event.target.value)}
+              onChange={(event) => setIntake(event.target.value)}
               placeholder="e.g., weightloss, trt, ed"
               className="font-mono"
               data-testid="treatment-type-intake"
@@ -150,13 +133,13 @@ export function TreatmentTypeModal({ open, onOpenChange, treatmentTypeKey }: Tre
             <Input
               id="tt-followup"
               value={followup}
-              onChange={(event) => handleFollowupChange(event.target.value)}
+              onChange={(event) => setFollowup(event.target.value)}
               placeholder="e.g., weightlossfollowup, trtFollowup"
               className="font-mono"
               data-testid="treatment-type-followup"
             />
             <p className="mt-1.5 text-xs text-slate-500">
-              Optional. System identifier for follow-up visits. Auto-generated from the intake identifier (convention: <Code>&lt;intake&gt;followup</Code>). Leave blank if this treatment doesn&apos;t have follow-ups.
+              Optional. Enter the exact configured provider identifier. It is never inferred from the intake identifier. Leave blank if this treatment doesn&apos;t have follow-ups.
             </p>
           </div>
 

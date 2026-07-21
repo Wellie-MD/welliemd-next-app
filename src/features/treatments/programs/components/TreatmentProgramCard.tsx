@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Pill, Scale, Syringe, FlaskConical, Beaker, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { TreatmentType, Program } from "@/features/treatments/types";
+import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 
 interface TreatmentProgramCardProps {
   treatment: TreatmentType;
@@ -114,7 +115,7 @@ export function TreatmentProgramCard({
 
               <div className="mt-4 flex items-center gap-2 pt-1">
                 <Button asChild className="h-7 px-4 text-[11px] font-bold bg-[#1d4ed8] hover:bg-blue-700 text-white rounded">
-                  <Link to={`/dashboard/treatments/programs/${intakeProgram.slug}`}>
+                  <Link to={ADMIN_TREATMENT_ROUTES.programQuestions(intakeProgram.id)}>
                     Open
                   </Link>
                 </Button>
@@ -177,7 +178,7 @@ export function TreatmentProgramCard({
 
               <div className="mt-4 flex items-center gap-2 pt-1">
                 <Button asChild className="h-7 px-4 text-[11px] font-bold bg-[#1d4ed8] hover:bg-blue-700 text-white rounded">
-                  <Link to={`/dashboard/treatments/programs/${followUpProgram.slug}`}>
+                  <Link to={ADMIN_TREATMENT_ROUTES.programQuestions(followUpProgram.id)}>
                     Open
                   </Link>
                 </Button>

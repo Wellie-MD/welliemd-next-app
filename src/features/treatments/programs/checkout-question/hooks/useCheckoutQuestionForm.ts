@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { checkoutProductFactory } from "@/features/treatments/common/data/factories";
 import type { ProgramCheckoutProduct, ProgramCheckoutQuestion, VisibilityRuleGroup } from "@/features/treatments/types";
+import { PROGRAM_PRODUCT_ROLE } from "../constants";
 
 type ProductForm = ProgramCheckoutProduct;
 type VisibilityRuleGroupForm = VisibilityRuleGroup;
@@ -13,7 +14,7 @@ interface UseCheckoutQuestionFormArgs {
 }
 
 export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenChange }: UseCheckoutQuestionFormArgs) {
-  const [products, setProducts] = useState<ProductForm[]>([checkoutProductFactory({ category: "", regimen: "", doseLabel: "" })]);
+  const [products, setProducts] = useState<ProductForm[]>([checkoutProductFactory({ category: "", regimen: "", doseLabel: "", productRole: PROGRAM_PRODUCT_ROLE.primaryChoice })]);
   const [visibilityRuleGroup, setVisibilityRuleGroup] = useState<VisibilityRuleGroupForm | undefined>(undefined);
   const [selectedPreviewIdx, setSelectedPreviewIdx] = useState(0);
   const [formError, setFormError] = useState<string | null>(null);
@@ -32,7 +33,10 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           doseMappingId: product.doseMappingId,
           doseLabel: product.doseLabel,
           productId: product.productId,
+          sourceProductId: product.sourceProductId,
           price: product.price,
+          productRole: product.productRole || PROGRAM_PRODUCT_ROLE.primaryChoice,
+          choiceGroup: product.choiceGroup,
           visibilityRules: product.visibilityRules,
         }))
       );
@@ -51,7 +55,7 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
           : undefined
       );
     } else {
-      setProducts([checkoutProductFactory({ category: "", regimen: "", doseLabel: "" })]);
+      setProducts([checkoutProductFactory({ category: "", regimen: "", doseLabel: "", productRole: PROGRAM_PRODUCT_ROLE.primaryChoice })]);
       setVisibilityRuleGroup(undefined);
     }
     setSelectedPreviewIdx(0);
@@ -63,7 +67,7 @@ export function useCheckoutQuestionForm({ open, initialQuestion, onSave, onOpenC
     [products]
   );
 
-  const handleAddProduct = () => setProducts((current) => [...current, checkoutProductFactory({ category: "", regimen: "", doseLabel: "" })]);
+  const handleAddProduct = () => setProducts((current) => [...current, checkoutProductFactory({ category: "", regimen: "", doseLabel: "", productRole: PROGRAM_PRODUCT_ROLE.primaryChoice })]);
 
   const handleRemoveProduct = (index: number) => {
     setProducts((current) => {

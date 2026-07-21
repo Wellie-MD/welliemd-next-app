@@ -100,6 +100,7 @@ export default function Orders() {
       tracking_number: row.tracking_number,
       client_name: row.client_name,
       client_id: row.client_id,
+      treatment_aggregate: row.treatment_aggregate ?? null,
     }
     setSelectedOrder(rawOrder)
     setDrawerOpen(true)

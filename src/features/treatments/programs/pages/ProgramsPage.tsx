@@ -24,12 +24,11 @@ import { createMockId, currentDateStamp } from "@/features/treatments/common/dat
 import { isDuplicateSlugError, showDuplicateSlugToast } from "@/features/treatments/common/utils/slugError";
 import type { Program, ProgramStage, ProgramStatus, TreatmentType } from "@/features/treatments/types";
 import { CreateProgramModal } from "@/features/treatments/programs/components/CreateProgramModal";
-import { PatientFlowTestModal } from "@/features/treatments/flow-builder/components/modals/PatientFlowTestModal";
+import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
 import type { PreviewContext } from "@/features/treatments/types";
-import { AssignToClientsModal } from "@/components/shared/AssignToClientsModal";
-import { programAssignmentApi } from "@/api/programAssignmentApi";
-import { useClients } from "@/hooks/useClients";
 import { ProgramsFilters, type ProgramsViewMode, type ProgramTabFilter } from "@/features/treatments/programs/components/ProgramsFilters";
+import { TreatmentAssignmentModal } from "@/features/treatments/assignment/components/TreatmentAssignmentModal";
+import { ASSIGNMENT_SOURCE } from "@/features/treatments/assignment/constants";
 
 
 type ApiErrorData = {
@@ -58,7 +57,6 @@ export default function ProgramsPage() {
   const { data: programs = [] } = usePrograms();
   const { data: treatmentTypes = [] } = useTreatmentTypes();
   const { data: allConsents = [] } = useConsents();
-  const { clients } = useClients("");
   const saveProgramMutation = useSaveProgram();
   const duplicateProgramMutation = useDuplicateProgram();
   const archiveProgramMutation = useArchiveProgram();
@@ -256,6 +254,7 @@ export default function ProgramsPage() {
       type: "program",
       id: program.id,
       slug: program.slug,
+      name: program.name,
       visitType: program.visitType,
       templateId: program.sourceQuestionnaireTemplateId,
     });
@@ -397,30 +396,6 @@ export default function ProgramsPage() {
     }));
   }, [activePrograms]);
 
-  const handleAssignPrograms = async (selectedProgramIds: string[], clientIds: string[]) => {
-    const res = await programAssignmentApi.bulkAssignPrograms({
-      program_ids: selectedProgramIds,
-      client_ids: clientIds,
-    });
-
-    const alreadyAssignedPairs = res.results.filter((r) => r.success && r.already_assigned);
-    for (const pair of alreadyAssignedPairs) {
-      const programName = programs.find((p) => p.id === pair.program_id)?.name || "This program";
-      const clientName = clients.find((c) => c.id === pair.client_id)?.name || "this client";
-      toast({
-        title: "Already Assigned",
-        description: `${programName} is already assigned to ${clientName}.`,
-      });
-    }
-
-    toast({
-      title: res.failure_count === 0 ? "Assignment Complete" : "Assignment Partially Complete",
-      description: res.message,
-      variant: res.failure_count > 0 ? "destructive" : "default",
-    });
-    return res;
-  };
-
   return (
     <div className="p-6 max-w-[1600px] mx-auto min-h-screen">
       <TreatmentPageHeader
@@ -560,20 +535,20 @@ export default function ProgramsPage() {
       />
 
       {previewContext && (
-        <PatientFlowTestModal
+        <QuestionnairePreviewDialog
           open={isPreviewOpen}
           onOpenChange={setIsPreviewOpen}
           previewContext={previewContext}
+          subtitle={`Patient view of "${previewContext.name || previewContext.slug}"`}
         />
       )}
       {/* ASSIGN TO CLIENTS MODAL */}
-      <AssignToClientsModal
+      <TreatmentAssignmentModal
         open={isAssignOpen}
         onOpenChange={setIsAssignOpen}
         items={assignItems}
         itemLabel="program"
-        subtitle="Pick programs and the client brands that can offer them to their patients."
-        onAssign={handleAssignPrograms}
+        sourceKind={ASSIGNMENT_SOURCE.program}
       />
     </div>
   );

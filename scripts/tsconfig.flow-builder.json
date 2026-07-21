@@ -8,7 +8,9 @@
   },
   "include": [
     "./flow-builder-graph-tests.ts",
+    "./custom-program-stage-tests.ts",
     "../src/features/treatments/programs/flow-builder/utils/**/*.ts",
+    "../src/features/treatments/flow-builder/utils/customProgramStages.ts",
     "../src/features/treatments/types/**/*.ts"
   ]
 }

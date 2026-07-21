@@ -175,6 +175,70 @@ export interface AdminOrder {
   tracking_number: string;
   client_name: string;
   client_id: string;
+  treatment_aggregate?: TreatmentOrderAggregate | null;
+}
+
+export interface TreatmentAggregateProduct {
+  product_id?: string | number | null;
+  source_product_id?: string | number | null;
+  med_id?: string | null;
+  name?: string | null;
+  quantity?: number | null;
+  days_supply?: number | null;
+  product_role?: string | null;
+  choice_group?: string | null;
+}
+
+export interface TreatmentOrderAggregate {
+  clinical_status: string;
+  patient_message?: string | null;
+  treatment_case_id: string;
+  authority: {
+    state: string;
+    version: number;
+    fingerprint?: string | null;
+    updated_at?: string | null;
+  };
+  treatment_type: { id: string; key: string; name: string };
+  reconciliation: {
+    version?: number | null;
+    status: string;
+    requested_set: TreatmentAggregateProduct[];
+    prescribed_set: TreatmentAggregateProduct[];
+    factual_differences?: {
+      prescribed_addition_product_ids?: Array<string | number>;
+      requested_absence_product_ids?: Array<string | number>;
+      absence_is_authoritative?: boolean;
+    };
+    is_complete_snapshot?: boolean;
+    unresolved_facts?: unknown[];
+    source_event_id?: string;
+    fingerprint?: string;
+  };
+  settlement: {
+    status: string;
+    operation_id?: string;
+    patient_attempts?: number;
+    reimbursement_attempts?: number;
+    last_error_code?: string;
+    settled_at?: string | null;
+  };
+  support?: {
+    owner?: string | null;
+    pending_reason?: string | null;
+    retry_allowed: boolean;
+    last_error_code?: string;
+    last_error_detail?: string;
+  };
+  siblings: Array<{
+    order_id: string;
+    order_display_id?: string | null;
+    treatment_case_id: string;
+    treatment_type_key: string;
+    treatment_type_name?: string | null;
+    status: string;
+    lifecycle_status?: string;
+  }>;
 }
 
 export interface OrdersListResponse {

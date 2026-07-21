@@ -1,8 +1,11 @@
 import { Archive, Copy, Eye, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import type { Program } from "@/features/treatments/types";
 import { formatProgramStage } from "@/features/treatments/utils/labels";
 import { StatusPill } from "@/features/treatments/common/components";
+import { RuntimeReadinessBadge } from "@/features/treatments/assignment/components/RuntimeReadinessBadge";
+import { ADMIN_TREATMENT_ROUTES } from "@/features/treatments/navigation/routes";
 import {
   Table,
   TableBody,
@@ -50,9 +53,12 @@ export function ProgramListTable({
           {programs.map((program) => (
             <TableRow key={program.id} className="group hover:bg-slate-50/50">
               <TableCell className="font-medium">
-                <span className="text-slate-900">
+                <Link
+                  className="text-slate-900 hover:text-[#12517A] hover:underline"
+                  to={ADMIN_TREATMENT_ROUTES.programQuestions(program.id)}
+                >
                   {program.name}
-                </span>
+                </Link>
                 <div className="text-xs text-slate-500 font-normal mt-1">
                   {program.description || "Intake questionnaire"}
                 </div>
@@ -69,9 +75,12 @@ export function ProgramListTable({
               </TableCell>
               <TableCell className="text-slate-600">{program.checkoutQuestionCount}</TableCell>
               <TableCell>
-                <StatusPill tone={program.status === "published" ? "green" : "yellow"}>
-                  {program.status}
-                </StatusPill>
+                <div className="flex flex-col items-start gap-1">
+                  <StatusPill tone={program.status === "published" ? "green" : "yellow"}>
+                    {program.status}
+                  </StatusPill>
+                  <RuntimeReadinessBadge state={program.assignmentRuntimeState} />
+                </div>
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-1">
