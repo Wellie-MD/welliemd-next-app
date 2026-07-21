@@ -422,8 +422,21 @@ function RevisionInvoiceModal({
       .map((event, index) => index === 0 ? null : adjustmentForRevision(index)?.id)
       .filter(Boolean)
   );
+  const prescriptionRevisionNumbers = new Set(
+    prescriptionEvents
+      .filter((event, index) => index > 0 || event.event_kind === "revision")
+      .map((event, index) => {
+        const revisionNumber = Number(event.revision_number);
+        return Number.isFinite(revisionNumber) && revisionNumber > 0 ? revisionNumber : index + 1;
+      })
+  );
   const fallbackAdjustments = prescriptionEvents.length > 0
-    ? adjustments.filter((adjustment) => !prescriptionEventAdjustmentIds.has(adjustment.id))
+    ? adjustments.filter((adjustment) => {
+        if (prescriptionEventAdjustmentIds.has(adjustment.id)) return false;
+        if (adjustment.kind !== "no_charge_revision") return true;
+        const revisionNumber = Number(adjustment.revision_number);
+        return Number.isFinite(revisionNumber) && prescriptionRevisionNumbers.has(revisionNumber);
+      })
     : adjustments;
   const firstFallbackIsInitialPrescription = Boolean(
     prescriptionEvents.length === 0 &&
