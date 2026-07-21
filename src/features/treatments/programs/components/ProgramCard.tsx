@@ -156,6 +156,20 @@ export function ProgramCard({
             Screening
           </span>
         </div>
+        <div className="flex items-center gap-1.5 text-slate-600 mt-1">
+          <span className="h-3.5 w-3.5 flex items-center justify-center text-[10px] text-slate-400 shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+          </span>
+          <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+            {(!program.serviceStates || program.serviceStates.length === 0)
+              ? "All states"
+              : `${program.serviceStates.length} state${program.serviceStates.length !== 1 ? "s" : ""}`
+            }
+          </span>
+          <span className="text-[11px] text-slate-400 font-medium">
+            Coverage
+          </span>
+        </div>
       </div>
 
       <div className="h-px bg-slate-100 mb-3 dark:bg-slate-700" />
