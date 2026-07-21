@@ -84,6 +84,23 @@ export type CustomProgramRecord = {
   assignment_runtime_state?: string;
   runtime_ready_at?: string | null;
   source_assignment_checksum?: string;
+  runtime_summary?: {
+    status: "ready" | "republish_required";
+    schema_version: number;
+    release_id: string;
+    release_version: number;
+    effective_question_count: number | null;
+    screening_question_count: number;
+    routing_question_count: number;
+    common_question_count: number;
+    consent_count: number;
+    checkout_question_count: number;
+    product_count: number;
+    medicine_count: number;
+    supply_count: number;
+    lab_count: number;
+    program_count: number;
+  } | null;
 };
 
 export type ProgramRecord = {

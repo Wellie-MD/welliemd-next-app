@@ -45,6 +45,10 @@ export default function CustomProgramsPage() {
 
       <CustomProgramsContent
         customPrograms={page.customPrograms}
+        isLoading={page.isLoading}
+        isError={page.isError}
+        error={page.error}
+        onRetry={() => void page.refetch()}
         filteredPrograms={page.filteredPrograms}
         groupedPrograms={page.groupedPrograms}
         viewMode={page.viewMode}

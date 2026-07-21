@@ -10,6 +10,7 @@ import type {
   ProgramStatus,
   TreatmentType,
 } from "@/features/treatments/types";
+import { isPersistedUuid } from "@/features/treatments/api/mappers";
 
 export const treatmentQueryKeys = {
   all: ["treatments"] as const,
@@ -47,6 +48,7 @@ export const useProgramQuestions = (programId: string) =>
   useQuery({
     queryKey: treatmentQueryKeys.programQuestions(programId),
     queryFn: () => treatmentsApi.listProgramQuestions(programId),
+    enabled: isPersistedUuid(programId),
   });
 
 export const useCustomPrograms = () =>
@@ -59,6 +61,7 @@ export const useCustomProgram = (id: string) =>
   useQuery({
     queryKey: treatmentQueryKeys.customProgram(id),
     queryFn: () => treatmentsApi.getCustomProgram(id),
+    enabled: isPersistedUuid(id),
   });
 
 export const useSections = () =>

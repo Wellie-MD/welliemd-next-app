@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { AlertCircle, Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyStateCard } from "@/features/treatments/common/components";
 import type { CustomProgram } from "@/features/treatments/types";
@@ -8,6 +8,10 @@ import { CustomProgramTable } from "./CustomProgramTable";
 
 interface CustomProgramsContentProps {
   customPrograms: CustomProgram[];
+  isLoading: boolean;
+  isError: boolean;
+  error: unknown;
+  onRetry: () => void;
   filteredPrograms: CustomProgram[];
   groupedPrograms: { multi: CustomProgram[]; single: CustomProgram[] };
   viewMode: CustomProgramsViewMode;
@@ -56,6 +60,10 @@ function ProgramGroup({
 
 export function CustomProgramsContent({
   customPrograms,
+  isLoading,
+  isError,
+  error,
+  onRetry,
   filteredPrograms,
   groupedPrograms,
   viewMode,
@@ -65,6 +73,29 @@ export function CustomProgramsContent({
   onViewCatalog,
   onClearFilters,
 }: CustomProgramsContentProps) {
+  if (isLoading) {
+    return (
+      <div className="flex min-h-48 items-center justify-center rounded-xl border border-slate-200 bg-white">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin text-slate-500" />
+        <span className="text-sm text-slate-600">Loading custom programs...</span>
+      </div>
+    );
+  }
+
+  if (isError) {
+    const message = error instanceof Error ? error.message : "The custom-program library could not be loaded.";
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 p-8 text-center">
+        <AlertCircle className="mx-auto h-8 w-8 text-red-500" />
+        <h3 className="mt-3 text-sm font-semibold text-red-900">Custom programs failed to load</h3>
+        <p className="mt-1 text-xs text-red-700">{message}</p>
+        <Button onClick={onRetry} variant="outline" className="mt-4 bg-white text-xs">
+          Try again
+        </Button>
+      </div>
+    );
+  }
+
   if (customPrograms.length === 0) {
     return <EmptyStateCard title="No custom programs yet" description="Create one to compose programs, sections, consents, and checkout." />;
   }

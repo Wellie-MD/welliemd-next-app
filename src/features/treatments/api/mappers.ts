@@ -234,6 +234,23 @@ export const customProgramFromRecord = (record: CustomProgramRecord): CustomProg
   assignmentRuntimeState: record.assignment_runtime_state,
   runtimeReadyAt: record.runtime_ready_at ?? null,
   sourceAssignmentChecksum: record.source_assignment_checksum,
+  runtimeSummary: record.runtime_summary ? {
+    status: record.runtime_summary.status,
+    schemaVersion: record.runtime_summary.schema_version,
+    releaseId: record.runtime_summary.release_id,
+    releaseVersion: record.runtime_summary.release_version,
+    effectiveQuestionCount: record.runtime_summary.effective_question_count,
+    screeningQuestionCount: record.runtime_summary.screening_question_count,
+    routingQuestionCount: record.runtime_summary.routing_question_count,
+    commonQuestionCount: record.runtime_summary.common_question_count,
+    consentCount: record.runtime_summary.consent_count,
+    checkoutQuestionCount: record.runtime_summary.checkout_question_count,
+    productCount: record.runtime_summary.product_count,
+    medicineCount: record.runtime_summary.medicine_count,
+    supplyCount: record.runtime_summary.supply_count,
+    labCount: record.runtime_summary.lab_count,
+    programCount: record.runtime_summary.program_count,
+  } : null,
 });
 
 export const customProgramToRecord = (program: CustomProgram) => ({

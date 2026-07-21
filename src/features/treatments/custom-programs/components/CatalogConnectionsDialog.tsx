@@ -15,9 +15,15 @@ interface CatalogConnectionsDialogProps {
 const CATALOG_TABS: CatalogTab[] = ["medicine", "checkout", "labs", "supplies", "hub"];
 
 function MedicineTab({ program }: { program: CustomProgram }) {
+  const medicineCount = program.runtimeSummary?.medicineCount;
   return (
     <div className="space-y-3">
       <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Connected Products</span>
+      <p className="text-xs text-slate-600">
+        {medicineCount == null
+          ? "Publish this Custom Program to calculate its immutable product catalog."
+          : `${medicineCount} medicine product${medicineCount === 1 ? "" : "s"} are connected through the published included Programs.`}
+      </p>
       {program.checkoutOptions.length > 0 ? (
         <div className="space-y-2">
           {program.checkoutOptions.map((option) => (
@@ -31,20 +37,22 @@ function MedicineTab({ program }: { program: CustomProgram }) {
           ))}
         </div>
       ) : (
-        <p className="text-xs italic text-slate-500">No direct medicine products connected to this program stage yet.</p>
+        <p className="text-xs italic text-slate-500">No Custom Program-level checkout overrides. Included Program products remain active.</p>
       )}
     </div>
   );
 }
 
 function CheckoutTab({ program, onClose }: { program: CustomProgram; onClose: () => void }) {
+  const summary = program.runtimeSummary;
   return (
     <div className="space-y-3">
       <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Checkout Questionnaire Mapping</span>
       <div className="space-y-2 text-xs text-slate-600">
         <p>
-          This flow is linked to <strong className="text-slate-900">{program.checkoutOptions.length} products</strong> in checkout.
+          The published flow contains <strong className="text-slate-900">{summary?.checkoutQuestionCount ?? 0} checkout questions</strong> and <strong className="text-slate-900">{summary?.productCount ?? 0} unique products</strong> inherited from its included Programs.
         </p>
+        <p><strong className="text-slate-900">{program.checkoutOptions.length}</strong> Custom Program-level checkout overrides are configured.</p>
         <p>Users completing eligibility screening are routed to these products automatically upon matching recommendation criteria.</p>
         <Link to={`/dashboard/treatments/custom-programs/${program.id}/builder`} onClick={onClose} className="mt-1 inline-flex font-semibold text-blue-600 hover:underline">
           Manage checkout mappings in builder &rarr;
@@ -55,44 +63,29 @@ function CheckoutTab({ program, onClose }: { program: CustomProgram; onClose: ()
 }
 
 function LabsTab({ program }: { program: CustomProgram }) {
-  const trtLabs = program.visitType === "mensWellness" || program.slug.includes("trt");
-  const glpLabs = program.slug.includes("glp");
+  const labCount = program.runtimeSummary?.labCount;
   return (
     <div className="space-y-3">
       <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Clinical Labs</span>
-      {trtLabs && (
-        <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <div className="flex justify-between text-xs"><span className="font-semibold text-slate-800">Complete Blood Count (CBC)</span><span className="font-mono font-semibold text-slate-500">LabCorp / Quest</span></div>
-          <div className="flex justify-between text-xs"><span className="font-semibold text-slate-800">Total Testosterone (LC-MS/MS)</span><span className="font-mono font-semibold text-slate-500">LabCorp / Quest</span></div>
-        </div>
-      )}
-      {glpLabs && (
-        <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <div className="flex justify-between text-xs"><span className="font-semibold text-slate-800">Basic Metabolic Panel (BMP)</span><span className="font-mono font-semibold text-slate-500">LabCorp</span></div>
-          <div className="flex justify-between text-xs"><span className="font-semibold text-slate-800">HbA1c test</span><span className="font-mono font-semibold text-slate-500">LabCorp</span></div>
-        </div>
-      )}
-      {!trtLabs && !glpLabs && <p className="text-xs italic text-slate-500">No mandatory clinical lab testing connected to this program.</p>}
+      <p className="text-xs text-slate-600">
+        {labCount == null
+          ? "Publish this Custom Program to calculate its immutable lab requirements."
+          : `${labCount} lab requirement${labCount === 1 ? "" : "s"} are connected through the published included Programs.`}
+      </p>
     </div>
   );
 }
 
 function SuppliesTab({ program }: { program: CustomProgram }) {
-  const hasSupplies = program.slug.includes("glp") || program.slug.includes("trt");
+  const supplyCount = program.runtimeSummary?.supplyCount;
   return (
     <div className="space-y-3">
       <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Fulfillment Supplies</span>
-      {hasSupplies ? (
-        <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs">
-          <div>
-            <div className="font-semibold text-slate-800">Syringe & Alcohol swab kit</div>
-            <div className="mt-0.5 font-mono text-[10px] text-slate-400">10x insulin syringes, 20x alcohol pads</div>
-          </div>
-          <span className="font-bold text-slate-600">Included</span>
-        </div>
-      ) : (
-        <p className="text-xs italic text-slate-500">No physical supply kits connected to this program.</p>
-      )}
+      <p className="text-xs text-slate-600">
+        {supplyCount == null
+          ? "Publish this Custom Program to calculate its immutable supply catalog."
+          : `${supplyCount} required companion suppl${supplyCount === 1 ? "y is" : "ies are"} connected through the published included Programs.`}
+      </p>
     </div>
   );
 }
@@ -103,6 +96,8 @@ function HubTab({ program }: { program: CustomProgram }) {
     ["Target Audience:", program.audience.toUpperCase()],
     ["Age Gate Restrictions:", `${program.minAge}+`],
     ["Routing Key:", `/${program.slug}`],
+    ["Published Runtime:", program.runtimeSummary ? `Release v${program.runtimeSummary.releaseVersion}` : "Not published"],
+    ["Effective Patient Steps:", String(program.runtimeSummary?.effectiveQuestionCount ?? 0)],
   ];
   return (
     <div className="space-y-3">

@@ -65,7 +65,8 @@ function buildNewCustomProgram(data: CustomProgramFormData): CustomProgram {
 }
 
 export function useCustomProgramsPage() {
-  const { data: customPrograms = [] } = useCustomPrograms();
+  const customProgramsQuery = useCustomPrograms();
+  const customPrograms = customProgramsQuery.data ?? [];
   const { mutate: saveCustomProgram } = useSaveCustomProgram();
   const { mutate: deleteCustomProgram } = useDeleteCustomProgram();
 
@@ -189,6 +190,10 @@ export function useCustomProgramsPage() {
 
   return {
     customPrograms,
+    isLoading: customProgramsQuery.isLoading,
+    isError: customProgramsQuery.isError,
+    error: customProgramsQuery.error,
+    refetch: customProgramsQuery.refetch,
     filteredPrograms,
     groupedPrograms,
     multiCount,

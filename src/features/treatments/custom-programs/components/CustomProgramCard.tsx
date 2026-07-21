@@ -15,6 +15,7 @@ interface CustomProgramCardProps {
 
 export function CustomProgramCard({ customProgram, onEdit, onDelete, onPreview, onViewCatalog }: CustomProgramCardProps) {
   const isMulti = isCustomProgramMulti(customProgram);
+  const runtimeSummary = customProgram.runtimeSummary;
 
   const renderIcon = () => {
     const iconClass = "h-[17px] w-[17px]";
@@ -51,26 +52,12 @@ export function CustomProgramCard({ customProgram, onEdit, onDelete, onPreview, 
     }
   };
 
-  // Derive catalog counts based on visitType
-  const getCatalogStats = () => {
-    if (customProgram.visitType === "mensWellness") {
-      return {
-        medicine: 1,
-        checkout: 0,
-        labs: 0,
-        supplies: 0,
-      };
-    }
-    // Default stats
-    return {
-      medicine: 0,
-      checkout: customProgram.checkoutOptions?.length || 0,
-      labs: 0,
-      supplies: 0,
-    };
+  const stats = {
+    medicine: runtimeSummary?.medicineCount ?? 0,
+    checkout: runtimeSummary?.checkoutQuestionCount ?? 0,
+    labs: runtimeSummary?.labCount ?? 0,
+    supplies: runtimeSummary?.supplyCount ?? 0,
   };
-
-  const stats = getCatalogStats();
 
   return (
     <div
@@ -130,7 +117,11 @@ export function CustomProgramCard({ customProgram, onEdit, onDelete, onPreview, 
             {customProgram.onboardingName || customProgram.name}
           </div>
           <div className="text-[11.5px] text-slate-400 mt-1">
-            {customProgram.questionCount || 0} questions
+            {runtimeSummary?.status === "ready"
+              ? `${runtimeSummary.effectiveQuestionCount} patient steps · ${runtimeSummary.screeningQuestionCount} screening questions · ${runtimeSummary.programCount} program${runtimeSummary.programCount === 1 ? "" : "s"}`
+              : runtimeSummary
+                ? `${runtimeSummary.screeningQuestionCount} screening questions · release v${runtimeSummary.releaseVersion} needs republishing`
+                : `${customProgram.questionCount || 0} draft questions · publish to calculate runtime`}
             {customProgram.updatedAt && ` · updated ${formatDate(customProgram.updatedAt)}`}
           </div>
         </div>
@@ -181,12 +172,7 @@ export function CustomProgramCard({ customProgram, onEdit, onDelete, onPreview, 
             >
               <ShoppingCart className="h-3 w-3 text-slate-400" />
               <span className="font-semibold text-slate-900 font-mono">{stats.checkout}</span>
-              <span>
-                Checkout Qs{" "}
-                {stats.checkout === 0 && (
-                  <span className="text-red-500 font-semibold">(none configured)</span>
-                )}
-              </span>
+              <span>Checkout Qs</span>
             </button>
 
             {/* Labs Chip */}

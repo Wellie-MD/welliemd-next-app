@@ -12,8 +12,8 @@ export const customProgramsApi = {
     );
     return records(data).map(customProgramFromRecord);
   },
-  get: async (id: string): Promise<CustomProgram | undefined> => {
-    if (!isPersistedUuid(id)) return undefined;
+  get: async (id: string): Promise<CustomProgram | null> => {
+    if (!isPersistedUuid(id)) return null;
     const { data } = await axiosInstance.get<CustomProgramRecord>(`treatments/custom-programs/${id}/`);
     return customProgramFromRecord(data);
   },

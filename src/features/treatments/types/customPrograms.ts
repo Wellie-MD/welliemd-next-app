@@ -54,6 +54,24 @@ export interface CustomProgramBuilderAddItem extends CustomProgramFlowItemInput 
   checkoutOption?: Omit<CheckoutProductOption, "id">;
 }
 
+export interface CustomProgramRuntimeSummary {
+  status: "ready" | "republish_required";
+  schemaVersion: number;
+  releaseId: string;
+  releaseVersion: number;
+  effectiveQuestionCount: number | null;
+  screeningQuestionCount: number;
+  routingQuestionCount: number;
+  commonQuestionCount: number;
+  consentCount: number;
+  checkoutQuestionCount: number;
+  productCount: number;
+  medicineCount: number;
+  supplyCount: number;
+  labCount: number;
+  programCount: number;
+}
+
 export interface CustomProgram {
   id: string;
   name: string;
@@ -81,4 +99,5 @@ export interface CustomProgram {
   assignmentRuntimeState?: string;
   runtimeReadyAt?: string | null;
   sourceAssignmentChecksum?: string;
+  runtimeSummary?: CustomProgramRuntimeSummary | null;
 }

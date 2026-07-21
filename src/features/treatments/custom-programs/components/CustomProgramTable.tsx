@@ -134,7 +134,11 @@ export function CustomProgramTable({ customPrograms, onEdit, onDelete, onPreview
                       {program.onboardingName || program.name}
                     </span>
                     <span className="text-[11px] text-slate-400">
-                      {program.questionCount || 0} questions
+                      {program.runtimeSummary?.status === "ready"
+                        ? `${program.runtimeSummary.effectiveQuestionCount} patient steps · ${program.runtimeSummary.screeningQuestionCount} screening`
+                        : program.runtimeSummary
+                          ? `${program.runtimeSummary.screeningQuestionCount} screening · republish required`
+                        : `${program.questionCount || 0} draft questions`}
                     </span>
                   </div>
                 </TableCell>
