@@ -29,10 +29,36 @@ import {
   saveHealthGoal
 } from './api';
 import { useProfile } from '../profile/hooks/use-profile';
+import { profileService } from '../profile/services/profile.service';
 
-function buildWeightData(entries: import('./types').VitalsEntry[], prev: WeightData): WeightData {
-  const sorted = [...entries]
-    .filter((e) => e.weight_lbs != null)
+function buildWeightData(entries: import('./types').VitalsEntry[], prev: WeightData, priorityList: string[]): WeightData {
+  const byDate = new Map<string, import('./types').VitalsEntry>();
+  
+  for (const entry of entries) {
+    if (entry.weight_lbs == null) continue;
+    
+    // Group by YYYY-MM-DD
+    const dateKey = entry.measured_at.split('T')[0]!;
+    const existing = byDate.get(dateKey);
+    
+    if (!existing) {
+      byDate.set(dateKey, entry);
+    } else {
+      const existingRank = priorityList.indexOf(existing.source);
+      const newRank = priorityList.indexOf(entry.source);
+      
+      const eRank = existingRank === -1 ? 999 : existingRank;
+      const nRank = newRank === -1 ? 999 : newRank;
+      
+      if (nRank < eRank) {
+        byDate.set(dateKey, entry);
+      } else if (nRank === eRank && new Date(entry.measured_at).getTime() > new Date(existing.measured_at).getTime()) {
+        byDate.set(dateKey, entry);
+      }
+    }
+  }
+
+  const sorted = Array.from(byDate.values())
     .sort((a, b) => new Date(a.measured_at).getTime() - new Date(b.measured_at).getTime());
 
   if (sorted.length === 0) {
@@ -43,6 +69,7 @@ function buildWeightData(entries: import('./types').VitalsEntry[], prev: WeightD
     date: e.measured_at,
     weight: Number(e.weight_lbs),
     bmi: e.bmi != null ? Number(e.bmi) : null,
+    height: e.height_inches != null ? Number(e.height_inches) : null,
   }));
   const series = points.map((p) => p.weight);
   const checkins = points.map((p) => ({
@@ -109,15 +136,17 @@ export default function DevicesPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [allowedProviders, setAllowedProviders] = useState<Provider[]>([]);
   const [connectionSyncError, setConnectionSyncError] = useState('');
+  const [priorityModalOpen, setPriorityModalOpen] = useState(false);
 
   const fetchConnectionsList = useCallback(async () => {
     setLoading(true);
     try {
-      const [connectionsResult, vitalsResult, goalResult, dataResult] = await Promise.allSettled([
+      const [connectionsResult, vitalsResult, goalResult, dataResult, profileResult] = await Promise.allSettled([
         getConnections(),
         getVitalsHistory(),
         getHealthGoal(),
         getDeviceData(),
+        profileService.getPatientProfile(),
       ]);
 
       if (connectionsResult.status === 'fulfilled') {
@@ -149,8 +178,12 @@ export default function DevicesPage() {
       }
 
       setWeight(prev => {
+        let priorityList = ['questionnaire', 'patient_portal', 'wearable'];
+        if (profileResult.status === 'fulfilled' && profileResult.value) {
+          priorityList = profileResult.value.vitals_source_priority || priorityList;
+        }
         const next = vitalsResult.status === 'fulfilled'
-          ? buildWeightData(vitalsResult.value, prev)
+          ? buildWeightData(vitalsResult.value, prev, priorityList)
           : prev;
         return {
           ...next,
@@ -464,10 +497,38 @@ export default function DevicesPage() {
   const handleSaveLogWeight = useCallback(async (v: number) => {
     try {
       await logWeight(v);
-      const history = await getVitalsHistory();
-      setWeight((prev) => buildWeightData(history, prev));
+      const [history, profile] = await Promise.all([
+        getVitalsHistory(),
+        profileService.getPatientProfile()
+      ]);
+      const priorityList = profile?.vitals_source_priority || ['questionnaire', 'patient_portal', 'wearable'];
+      setWeight((prev) => buildWeightData(history, prev, priorityList));
     } catch {}
   }, []);
+
+  const handleSavePriority = useCallback(async (priorityList: string[]) => {
+    if (!patientProfile?.id) return;
+    try {
+      await profileService.updatePatientProfile({
+        phone: patientProfile.phone || '',
+        date_of_birth: patientProfile.date_of_birth || '',
+        address: patientProfile.address || '',
+        address_line_2: patientProfile.address_line_2 || '',
+        city: patientProfile.city || '',
+        state: patientProfile.state || '',
+        zip_code: patientProfile.zip_code || '',
+        sex: (patientProfile.sex as any) || 'Male',
+        allergies: patientProfile.allergies || '',
+        medical_conditions: patientProfile.medical_conditions || '',
+        self_reported_meds: patientProfile.self_reported_meds || '',
+        vitals_source_priority: priorityList,
+      });
+      const history = await getVitalsHistory();
+      setWeight((prev) => buildWeightData(history, prev, priorityList));
+    } catch (error) {
+      console.error("Failed to save priority", error);
+    }
+  }, [patientProfile]);
 
   /* ─── Consent (from non-review / "Before you connect") ─── */
   const handleAgreeConsent = useCallback(() => {
@@ -520,11 +581,31 @@ export default function DevicesPage() {
 
   return (
     <div className="pg" id="pg-devices" aria-busy={loading}>
-      <p className="km-page-title" style={{ fontFamily: "'Playfair Display', serif", fontSize: 31, fontWeight: 600, letterSpacing: '-0.5px', marginBottom: 4 }}>Devices</p>
-      <p className="km-page-sub" style={{ fontSize: 13.5, color: 'var(--km-tm)', marginBottom: 24 }}>
-        Connect a wearable to share your health data with your care team
-        <span className="badge bn" style={{ fontSize: 10, verticalAlign: 'middle', marginLeft: 4, padding: '3px 9px', borderRadius: 20, background: 'var(--km-s3)', color: 'var(--km-t2)', fontWeight: 700 }}>Live data</span>
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <p className="km-page-title" style={{ fontFamily: "'Playfair Display', serif", fontSize: 31, fontWeight: 600, letterSpacing: '-0.5px', marginBottom: 4 }}>Devices</p>
+          <p className="km-page-sub" style={{ fontSize: 13.5, color: 'var(--km-tm)', marginBottom: 0 }}>
+            Connect a wearable to share your health data with your care team
+            <span className="badge bn" style={{ fontSize: 10, verticalAlign: 'middle', marginLeft: 4, padding: '3px 9px', borderRadius: 20, background: 'var(--km-s3)', color: 'var(--km-t2)', fontWeight: 700 }}>Live data</span>
+          </p>
+        </div>
+        <button
+          onClick={() => setPriorityModalOpen(true)}
+          style={{
+            fontSize: 12.5,
+            padding: '8px 14px',
+            background: 'var(--km-s1)',
+            color: 'var(--km-t)',
+            border: '1px solid var(--km-b)',
+            borderRadius: 10,
+            fontWeight: 600,
+            cursor: 'pointer',
+            marginTop: 4,
+          }}
+        >
+          Data Sources Priority
+        </button>
+      </div>
       {initialLoading ? <DevicesSkeleton /> : <>
         {deviceConnected ? (
           <ConnectedState
@@ -579,6 +660,10 @@ export default function DevicesPage() {
         linkErrorOpen={linkErrorOpen}
         setLinkErrorOpen={setLinkErrorOpen}
         linkErrorMsg={linkErrorMsg}
+        priorityModalOpen={priorityModalOpen}
+        setPriorityModalOpen={setPriorityModalOpen}
+        onSavePriority={handleSavePriority}
+        initialPriority={patientProfile?.vitals_source_priority ?? null}
       />
     </div>
   );

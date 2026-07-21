@@ -115,7 +115,7 @@ const DashboardLayout: FC = () => {
                   height: `calc((var(--app-vh, 1vh) * 100) - 60px - ${bannerH}px)`
                 } : {
                   padding: isMobile ? "24px 20px 60px" : "32px 36px 60px",
-                  maxWidth: isMobile ? 680 : 800,
+                  maxWidth: isMobile ? 680 : isExplorePage ? 1200 : 800,
                   margin: "0 auto",
                 }}
               >

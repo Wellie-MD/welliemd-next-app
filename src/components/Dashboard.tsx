@@ -21,14 +21,40 @@ import { WeightTrendCard, ReadinessCard } from "@/features/devices/components/Te
 import LogWeightModal from "@/features/devices/components/LogWeightModal";
 import { WEIGHT_DEFAULT, DEVICE_METRICS_DEFAULT } from "@/features/devices/constants";
 import type { WeightData, DeviceMetrics, VitalsEntry } from "@/features/devices/types";
+import { profileService } from "@/features/profile/services/profile.service";
 
 /**
  * Build the dashboard's WeightData from the persisted vitals history
  * (questionnaire baseline + manual entries + wearable-synced entries).
  */
-function buildWeightData(entries: VitalsEntry[], prev: WeightData): WeightData {
-  const sorted = [...entries]
-    .filter((e) => e.weight_lbs != null)
+function buildWeightData(entries: VitalsEntry[], prev: WeightData, priorityList: string[]): WeightData {
+  const byDate = new Map<string, VitalsEntry>();
+  
+  for (const entry of entries) {
+    if (entry.weight_lbs == null) continue;
+    
+    // Group by YYYY-MM-DD
+    const dateKey = entry.measured_at.split('T')[0]!;
+    const existing = byDate.get(dateKey);
+    
+    if (!existing) {
+      byDate.set(dateKey, entry);
+    } else {
+      const existingRank = priorityList.indexOf(existing.source);
+      const newRank = priorityList.indexOf(entry.source);
+      
+      const eRank = existingRank === -1 ? 999 : existingRank;
+      const nRank = newRank === -1 ? 999 : newRank;
+      
+      if (nRank < eRank) {
+        byDate.set(dateKey, entry);
+      } else if (nRank === eRank && new Date(entry.measured_at).getTime() > new Date(existing.measured_at).getTime()) {
+        byDate.set(dateKey, entry);
+      }
+    }
+  }
+
+  const sorted = Array.from(byDate.values())
     .sort((a, b) => new Date(a.measured_at).getTime() - new Date(b.measured_at).getTime());
 
   if (sorted.length === 0) {
@@ -150,10 +176,13 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchWearables = async () => {
       try {
-        const [connections, vitalsHistory] = await Promise.all([
+        const [connections, vitalsHistory, patientProfile] = await Promise.all([
           getConnections(),
           getVitalsHistory(),
+          profileService.getPatientProfile(),
         ]);
+        
+        const priorityList = patientProfile?.vitals_source_priority || ['questionnaire', 'patient_portal', 'wearable'];
 
         const [firstConnected] = connections.filter((c) => c.status === "connected");
         if (firstConnected) {
@@ -171,7 +200,7 @@ export default function Dashboard() {
           }
         }
 
-        setWeight((prev) => buildWeightData(vitalsHistory, prev));
+        setWeight((prev) => buildWeightData(vitalsHistory, prev, priorityList));
       } catch (error) {
         console.error("Failed to fetch wearables summary", error);
       } finally {
@@ -199,8 +228,12 @@ export default function Dashboard() {
   const handleSaveLogWeight = async (v: number) => {
     try {
       await logWeight(v);
-      const history = await getVitalsHistory();
-      setWeight((prev) => buildWeightData(history, prev));
+      const [history, patientProfile] = await Promise.all([
+        getVitalsHistory(),
+        profileService.getPatientProfile(),
+      ]);
+      const priorityList = patientProfile?.vitals_source_priority || ['questionnaire', 'patient_portal', 'wearable'];
+      setWeight((prev) => buildWeightData(history, prev, priorityList));
     } catch (error) {
       console.error("Failed to log weight", error);
     }

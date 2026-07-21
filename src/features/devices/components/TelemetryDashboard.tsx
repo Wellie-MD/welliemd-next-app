@@ -249,12 +249,7 @@ export function WeightTrendCard({
       )}
 
       <div style={{ padding: '4px 14px 0' }}>
-        <WeightTrendChart
-          series={weight.series}
-          {...(weight.points.length === weight.series.length
-            ? { dates: weight.points.map((p) => p.date) }
-            : {})}
-        />
+        <WeightTrendChart points={weight.points} />
       </div>
       <div style={{ padding: '0 14px 8px' }}>
         <BmiTrendChart points={weight.points} targetBmi={weight.targetBmi} />
@@ -284,20 +279,20 @@ export function WeightTrendCard({
 
 /* ─── Weight Trend Chart ─── */
 function WeightTrendChart({
-  series,
-  dates,
+  points,
 }: {
-  series: number[];
-  dates?: string[];
+  points: WeightData['points'];
 }) {
-  if (!series || series.length < 2) return null;
+  const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
 
+  if (!points || points.length < 2) return null;
+
+  const series = points.map(p => p.weight);
   const w = 500, h = 170;
   const padL = 14, padR = 44, padT = 36, padB = 24;
   const n = series.length - 1;
-  const vals = series;
-  const mn = Math.min(...vals);
-  const mx = Math.max(...vals);
+  const mn = Math.min(...series);
+  const mx = Math.max(...series);
   const rng = mx - mn || 1;
   const lo = mn - rng * 0.15;
   const vr = mx + rng * 0.15 - lo || 1;
@@ -305,78 +300,123 @@ function WeightTrendChart({
   const X = (i: number) => padL + i * ((w - padL - padR) / n);
   const Y = (v: number) => padT + (1 - (v - lo) / vr) * (h - padT - padB);
 
-  const pts = series.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
-  const area = `${padL},${h - padB} ${pts} ${w - padR},${h - padB}`;
+  let pathD = `M ${X(0)},${Y(series[0]!)}`;
+  for (let i = 0; i < n; i++) {
+    const p0x = X(i), p0y = Y(series[i]!);
+    const p1x = X(i + 1), p1y = Y(series[i + 1]!);
+    const cx = (p0x + p1x) / 2;
+    pathD += ` C ${cx},${p0y} ${cx},${p1y} ${p1x},${p1y}`;
+  }
 
-  const today = new Date();
-  const fmtD = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
+  const areaD = `${pathD} L ${w - padR},${h - padB} L ${padL},${h - padB} Z`;
+
+  const fmtD = (dStr: string) => {
+    const d = new Date(dStr);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  };
+
   const ti = [0, Math.round(n / 2), n].filter((v, ix, a) => a.indexOf(v) === ix);
 
-  // Smart label positioning — always above the point
-  const labelSet = new Set<number>([0, n]);
-  let minI = 0, maxI = 0;
-  series.forEach((v, i) => {
-    if (v < series[minI]!) minI = i;
-    if (v > series[maxI]!) maxI = i;
-  });
-  labelSet.add(minI);
-  labelSet.add(maxI);
-
-  const labeledPoints = Array.from(labelSet).map((i) => {
-    const v = series[i]!;
-    const cy = Y(v);
-    const ty = Math.max(12, cy - 20);
-    const anchor = i === 0 ? 'start' : i === n ? 'end' : 'middle';
-    return { i, v, ty, anchor };
-  });
-  const sorted = [...labeledPoints].sort((a, b) => X(a.i) - X(b.i));
-  const visible: typeof sorted = [];
-  sorted.forEach((pt) => {
-    const last = visible[visible.length - 1];
-    if (!last || Math.abs(X(pt.i) - X(last.i)) > 32) visible.push(pt);
-  });
-
   return (
-    <svg
-      viewBox={`0 0 ${w} ${h}`}
-      style={{ width: '100%', height: 'auto', display: 'block' }}
-      preserveAspectRatio="none"
-    >
-      <polyline points={area} fill="var(--km-acp)" stroke="none" />
-      <polyline
-        points={pts} fill="none" stroke="var(--km-ac)"
-        strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"
-      />
-      {series.map((v, i) => (
-        <circle
-          key={i} cx={X(i)} cy={Y(v)}
-          r={i === n ? 3.4 : 2.4}
-          fill="var(--km-ac)"
-          stroke={i === n ? '#fff' : undefined}
-          strokeWidth={i === n ? 1.3 : undefined}
-        />
-      ))}
-      {visible.map(({ i, v, ty, anchor }) => (
-        <text
-          key={`lbl-${i}`} x={X(i)} y={ty}
-          fontSize={9.5} fill="var(--km-t2)" fontWeight={700}
-          textAnchor={anchor as any}
-        >
-          {v.toFixed(1)}
-        </text>
-      ))}      {ti.map((i) => {
-        const d = dates?.[i] ? new Date(dates[i]) : new Date(today);
-        if (!dates?.[i]) d.setDate(d.getDate() - (n - i) * 7);
-        return (
+    <div style={{ position: 'relative' }}>
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}
+        preserveAspectRatio="none"
+      >
+        <defs>
+          <linearGradient id="area-gradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--km-acp)" />
+            <stop offset="100%" stopColor="var(--km-acp)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={areaD} fill="url(#area-gradient)" stroke="none" />
+        <path d={pathD} fill="none" stroke="var(--km-ac)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        
+        {series.map((v, i) => {
+          const isHovered = hoveredIndex === i;
+          return (
+            <circle
+              key={i} cx={X(i)} cy={Y(v)}
+              r={isHovered ? 5 : (i === n ? 3.4 : 2.4)}
+              fill="var(--km-ac)"
+              stroke={i === n || isHovered ? '#fff' : undefined}
+              strokeWidth={i === n || isHovered ? 1.5 : undefined}
+              style={{ transition: 'all 0.2s ease' }}
+            />
+          );
+        })}
+
+        {hoveredIndex !== null && (
+          <line
+            x1={X(hoveredIndex)} y1={Y(series[hoveredIndex]!)}
+            x2={X(hoveredIndex)} y2={h - padB}
+            stroke="var(--km-ac)" strokeWidth={1} strokeDasharray="3 3"
+            opacity={0.5}
+            pointerEvents="none"
+          />
+        )}
+
+        {ti.map((i) => (
           <text
             key={`date-${i}`} x={X(i)} y={h - 4} fontSize={10} fill="var(--km-tm)"
             textAnchor={i === 0 ? 'start' : i === n ? 'end' : 'middle'}
           >
-            {fmtD(d)}
+            {fmtD(points[i]!.date)}
           </text>
-        );
-      })}
-    </svg>
+        ))}
+
+        {points.map((_, i) => {
+          const prevX = i === 0 ? padL : X(i) - (X(i) - X(i - 1)) / 2;
+          const nextX = i === n ? w - padR : X(i) + (X(i + 1) - X(i)) / 2;
+          return (
+            <rect
+              key={`hitbox-${i}`}
+              x={prevX}
+              y={padT - 20}
+              width={nextX - prevX}
+              height={h - padT + 20}
+              fill="transparent"
+              onMouseEnter={() => setHoveredIndex(i)}
+              onMouseLeave={() => setHoveredIndex(null)}
+              style={{ cursor: 'crosshair' }}
+            />
+          );
+        })}
+      </svg>
+      
+      {hoveredIndex !== null && (
+        <div
+          style={{
+            position: 'absolute',
+            left: `${((X(hoveredIndex) / w) * 100)}%`,
+            top: `${((Y(series[hoveredIndex]!) / h) * 100)}%`,
+            transform: 'translate(-50%, -115%)',
+            pointerEvents: 'none',
+            background: 'var(--km-s1, rgba(255, 255, 255, 0.9))',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid var(--km-b)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+            padding: '8px 12px',
+            borderRadius: 8,
+            fontSize: 11,
+            zIndex: 10,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <div style={{ fontWeight: 700, color: 'var(--km-t)', marginBottom: 2 }}>
+            {new Date(points[hoveredIndex]!.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          </div>
+          <div style={{ color: 'var(--km-t2)' }}>Weight: <b style={{ color: 'var(--km-t)' }}>{points[hoveredIndex]!.weight} lb</b></div>
+          {points[hoveredIndex]!.height != null && (
+            <div style={{ color: 'var(--km-t2)' }}>Height: <b style={{ color: 'var(--km-t)' }}>{points[hoveredIndex]!.height} in</b></div>
+          )}
+          {points[hoveredIndex]!.bmi != null && (
+            <div style={{ color: 'var(--km-t2)' }}>BMI: <b style={{ color: 'var(--km-t)' }}>{points[hoveredIndex]!.bmi}</b></div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
