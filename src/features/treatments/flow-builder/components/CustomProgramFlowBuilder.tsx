@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { CommonSection, ConsentForm, CustomProgram, CustomProgramFlowItem, Program, ProgramQuestion } from "@/features/treatments/types";
 import { useCustomProgramFlowBuilder } from "@/features/treatments/flow-builder/hooks/useCustomProgramFlowBuilder";
 import { getQuestionnairePreviewApiBaseUrl } from "@/features/treatments/utils/previewUrl";
-import { PatientFlowTestModal } from "./modals/PatientFlowTestModal";
+import { QuestionnairePreviewDialog } from "@/features/treatments/preview/components/QuestionnairePreviewDialog";
 import { FlowBuilderCanvas } from "./canvas/FlowBuilderCanvas";
 import { FlowBuilderHeader } from "./canvas/FlowBuilderHeader";
 import { FlowBuilderListView } from "./canvas/FlowBuilderListView";
@@ -59,15 +59,17 @@ export function CustomProgramFlowBuilder({ customProgram, onOpenDrawer, onSave, 
         onSave={builder.handleSave}
       />
 
-      <PatientFlowTestModal
+      <QuestionnairePreviewDialog
         open={builder.isTestModalOpen}
         onOpenChange={builder.setIsTestModalOpen}
         previewContext={{
           type: "custom_program",
           id: customProgram.id,
           slug: customProgram.slug,
+          name: customProgram.onboardingName || customProgram.name,
           apiBaseUrl: getQuestionnairePreviewApiBaseUrl(),
         }}
+        subtitle={`${customProgram.onboardingName || customProgram.name} · how patients see this intake`}
       />
       <MatchedProgramsEditor open={matchingOpen} onOpenChange={setMatchingOpen} customProgram={customProgram} programs={programs} onSave={onSaveMatching} />
       <QuestionEditorDialog
