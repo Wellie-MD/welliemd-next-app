@@ -7,6 +7,8 @@ interface TelemetryDashboardProps {
   deviceMetrics: DeviceMetrics;
   weight: WeightData;
   onOpenGoalModal: () => void;
+  timeRange: number;
+  onTimeRangeChange: (days: number) => void;
 }
 
 const CARD: React.CSSProperties = {
@@ -21,14 +23,41 @@ export default function TelemetryDashboard({
   deviceMetrics,
   weight,
   onOpenGoalModal,
+  timeRange,
+  onTimeRangeChange,
 }: TelemetryDashboardProps) {
   return (
     <>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        {[
+          { label: '1W', days: 7 },
+          { label: '1M', days: 30 },
+          { label: '3M', days: 90 },
+          { label: '1Y', days: 365 },
+        ].map(opt => (
+          <button
+            key={opt.days}
+            onClick={() => onTimeRangeChange(opt.days)}
+            style={{
+              padding: '6px 16px',
+              borderRadius: 20,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: timeRange === opt.days ? 'none' : '1px solid var(--km-b)',
+              background: timeRange === opt.days ? 'var(--km-t)' : 'transparent',
+              color: timeRange === opt.days ? 'var(--km-bg)' : 'var(--km-tm)',
+            }}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
       <WeightTrendCard weight={weight} onOpenGoalModal={onOpenGoalModal} />
       <ReadinessCard deviceMetrics={deviceMetrics} />
 
       {/* ─── Health Tabs ─── */}
-      <HealthTabs weightData={weight} deviceMetrics={deviceMetrics} />
+      <HealthTabs weightData={weight} deviceMetrics={deviceMetrics} timeRange={timeRange} />
     </>
   );
 }

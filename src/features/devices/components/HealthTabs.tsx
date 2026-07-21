@@ -302,9 +302,10 @@ return (
 interface HealthTabsProps {
   weightData: WeightData;
   deviceMetrics?: DeviceMetrics;
+  timeRange?: number;
 }
 
-export default function HealthTabs({ weightData, deviceMetrics }: HealthTabsProps) {
+export default function HealthTabs({ weightData, deviceMetrics, timeRange = 30 }: HealthTabsProps) {
   const [activeTab, setActiveTab] = useState('sleep');
 
   const dynamicMetrics = {
@@ -376,7 +377,7 @@ export default function HealthTabs({ weightData, deviceMetrics }: HealthTabsProp
     ? {
         ...TRENDS.body,
         series: weightData.series,
-        step: 'week' as const,
+        step: timeRange <= 30 ? 'day' as const : 'week' as const,
       }
     : undefined;
 
