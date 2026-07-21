@@ -59,6 +59,7 @@ export interface TransactionListParams {
 }
 
 export interface ClientPaymentHistory {
+    id: string;
     date: string;
     patient_id: string;
     patient_name: string;
@@ -67,6 +68,9 @@ export interface ClientPaymentHistory {
     discount: string;
     amount_paid: string;
     payment_status: string;
+    authorized_amount?: string;
+    hold_released?: string;
+    captured_amount?: string;
 }
 
 export interface ClientPaymentHistoryResponse {
@@ -101,8 +105,8 @@ export async function fetchTransactions(params: TransactionListParams = {}): Pro
 /**
  * Fetch client payment history
  */
-export async function fetchClientPaymentHistory(): Promise<ClientPaymentHistoryResponse> {
-    const response = await axiosInstance.get<ClientPaymentHistoryResponse>('/client/payment_history/');
+export async function fetchClientPaymentHistory(params: { date_from?: string; date_to?: string } = {}): Promise<ClientPaymentHistoryResponse> {
+    const response = await axiosInstance.get<ClientPaymentHistoryResponse>('/client/payment_history/', { params });
     return response.data;
 }
 
